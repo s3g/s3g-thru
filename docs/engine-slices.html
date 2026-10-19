@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Slices engine - s3g Thru manual</title>
+    <meta name="description" content="Complete parameter reference for the s3g Thru Slices playback engine.">
+    <link rel="stylesheet" href="assets/styles.css">
+  </head>
+  <body>
+    <header class="site-header"><a class="brand" href="index.html">s3g Thru <span>manual</span></a><nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru-move" target="_blank" rel="noopener noreferrer">GitHub</a></nav></header>
+
+    <div class="page-shell">
+      <main class="content" id="content">
+        <p class="eyebrow">Playback engine 6 of 6</p>
+        <h1>Slices</h1>
+        <p class="lead">Slices divides the current Position/Field window into equal or detected regions and lets pad identity choose a region. Every voice still has independent pitch, direction, loop behavior, and a discrete lane.</p>
+        <div class="callout"><p><strong>Good for:</strong> drum chopping, transient performance, chromatic slices, repeated regions, velocity-layered slice sets, cue triggering, and tempo rolls.</p></div>
+
+        <h2 id="page">Page and navigation</h2>
+        <p>Set Algorithm to Slices. Up opens the one engine-specific Slices page.</p>
+        <div class="screen-gallery single">
+          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/slices-page.svg" aria-label="Open Slices"><img src="assets/screens/slices-page.svg" alt="Slices parameter page"></button></div><figcaption>Choose region source and count, then decide how pitch, lane variation, and the pads address those regions.</figcaption></figure>
+        </div>
+
+        <h2 id="engine-page">Engine page behavior</h2>
+        <table class="readout-table parameter-table">
+          <thead><tr><th>Knob</th><th>Parameter</th><th>Range</th><th>Slices behavior</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>Algorithm</td><td>Slices</td><td>Selects the region reader and exposes Slices.</td></tr>
+            <tr><td>2</td><td>Position</td><td>0.00–1.00</td><td>Centers the outer source window before it is divided into regions. The short top tick shows this boundary.</td></tr>
+            <tr><td>3</td><td>Field</td><td>0.02–1.00</td><td>Sets the width of that outer window. The short bottom tick shows its other boundary.</td></tr>
+            <tr><td>4</td><td>Speed</td><td>0.05–4.00×</td><td>Sets base region read rate. Note pitch multiplies this rate around Root.</td></tr>
+            <tr><td>5</td><td>Stack Start</td><td>1.00–4.00</td><td>Selects one discrete loaded lane when Variation is Manual.</td></tr>
+            <tr><td>6</td><td>Scan Rate</td><td>0.125–16 Hz</td><td>Unused by Slices because each voice keeps the lane chosen at note-on.</td></tr>
+            <tr><td>7</td><td>Join</td><td>0.00–1.00</td><td>Unused by the direct region reader. Loop and Ping Pong wrap at the region boundaries.</td></tr>
+            <tr><td>8</td><td>Level</td><td>0.00–2.00</td><td>Final output gain. Pad velocity affects lane choice only when Variation is Velocity.</td></tr>
+          </tbody>
+        </table>
+
+        <h2 id="parameters">Slices — every parameter</h2>
+        <table class="readout-table parameter-table">
+          <thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>Detail</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>PLAY</td><td>Forward / Reverse / Loop / Ping Pong</td><td>Chooses direction and whether the selected region stops or repeats at its boundaries.</td></tr>
+            <tr><td>2</td><td>SSRC</td><td>Equal / Transients</td><td>Chooses mathematical divisions or the selected lane's detected transient map.</td></tr>
+            <tr><td>3</td><td>SLIC</td><td>1–64</td><td>Number of equal regions, and the fallback count when a transient map is unavailable.</td></tr>
+            <tr><td>4</td><td>SPD</td><td>0.05–4.00×</td><td>Base region playback rate before note transposition. Root plays the displayed rate.</td></tr>
+            <tr><td>5</td><td>STAK</td><td>1.00–4.00</td><td>Chooses a lane when VARI is Manual. If it is empty, the first loaded lane is used.</td></tr>
+            <tr><td>6</td><td>VARI</td><td>Manual / Cycle / Random / No Repeat / Velocity</td><td>Chooses a discrete lane when each new region voice begins.</td></tr>
+            <tr><td>7</td><td>PADS</td><td>Keys / Slices / Cues / Rolls</td><td>Changes the note mapping and performance function of the 32 pads.</td></tr>
+            <tr><td>8</td><td>LEVL</td><td>0.00–2.00</td><td>Final output gain after the selected lane's gain on Mix / Rec.</td></tr>
+          </tbody>
+        </table>
+
+        <h3 id="region-source">Slice Source choices</h3>
+        <table class="readout-table">
+          <thead><tr><th>Source</th><th>How boundaries are made</th></tr></thead>
+          <tbody>
+            <tr><td>Equal</td><td>Divides the outer Position/Field window into SLIC equally sized regions.</td></tr>
+            <tr><td>Transients</td><td>Uses up to 64 automatically detected regions for the chosen lane. If that lane has no transient map, SLIC equal regions are used instead.</td></tr>
+          </tbody>
+        </table>
+        <p>When detected transients are available, SLIC does not change their count. Pad numbers wrap through the available regions.</p>
+
+        <h3 id="play-modes">Play Mode choices</h3>
+        <table class="readout-table">
+          <thead><tr><th>Mode</th><th>Behavior inside the chosen region</th></tr></thead>
+          <tbody>
+            <tr><td>Forward</td><td>Reads once from the region start to its end, then becomes silent.</td></tr>
+            <tr><td>Reverse</td><td>Reads once from the region end to its start, then becomes silent.</td></tr>
+            <tr><td>Loop</td><td>Repeats forward inside the region while the voice is active.</td></tr>
+            <tr><td>Ping Pong</td><td>Alternates forward and backward at the same audible pitch as the other modes.</td></tr>
+          </tbody>
+        </table>
+
+        <h3 id="variation">Variation choices</h3>
+        <table class="readout-table">
+          <thead><tr><th>Variation</th><th>Lane selected at note-on</th></tr></thead>
+          <tbody>
+            <tr><td>Manual</td><td>The nearest whole lane selected by STAK.</td></tr>
+            <tr><td>Cycle</td><td>The next loaded lane in order, wrapping after the last.</td></tr>
+            <tr><td>Random</td><td>Any currently loaded lane.</td></tr>
+            <tr><td>No Repeat</td><td>A random lane, moved to the following loaded lane if it repeats the previous choice.</td></tr>
+            <tr><td>Velocity</td><td>Divides strike velocity across loaded lanes without changing output amplitude.</td></tr>
+          </tbody>
+        </table>
+
+        <h3 id="pad-modes">Pad Mode choices</h3>
+        <table class="readout-table">
+          <thead><tr><th>Pad mode</th><th>What the 32 pads do</th></tr></thead>
+          <tbody>
+            <tr><td>Keys</td><td>Pad identity selects a region while the isomorphic layout also transposes it around Root.</td></tr>
+            <tr><td>Slices</td><td>Pad identity selects a region and every pad plays at Root pitch—the most direct one-pad-per-region layout.</td></tr>
+            <tr><td>Cues</td><td>Recall stored cue positions. Shift + a cue pad stores the current position; Delete + the pad clears it.</td></tr>
+            <tr><td>Rolls</td><td>Each held pad starts a temporary tempo-clocked Cutups voice at a pad-specific division.</td></tr>
+          </tbody>
+        </table>
+
+        <div class="callout"><p><strong>Window first, regions second:</strong> Position and Field crop the source area globally. Equal or transient boundaries are then mapped into that outer window, so moving either boundary changes what every slice contains.</p></div>
+
+        <nav class="page-nav" aria-label="Engine navigation"><a class="page-nav-link" href="engine-sample.html"><span>Previous engine</span>Sample</a><a class="page-nav-link next" href="performance.html"><span>Next chapter</span>Performance</a></nav>
+      </main>
+      <aside class="toc" aria-label="Page navigation">
+        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
+        <div class="toc-section"><h2>Engine guides</h2><a href="engine-motion.html">Motion</a><a href="engine-lanes.html">Lanes</a><a href="engine-grains.html">Grains</a><a href="engine-cutups.html">Cutups</a><a href="engine-sample.html">Sample</a><a href="engine-slices.html">Slices</a></div>
+        <div class="toc-section"><h2>On this page</h2><a href="#page">Page</a><a href="#engine-page">Engine page</a><a href="#parameters">Parameters</a><a href="#region-source">Slice source</a><a href="#play-modes">Play modes</a><a href="#variation">Variation</a><a href="#pad-modes">Pad modes</a></div>
+      </aside>
+    </div>
+    <footer class="manual-footer">Slices: pad-addressed regions inside the current source window.</footer>
+    <script src="assets/lightbox.js"></script>
+  </body>
+</html>

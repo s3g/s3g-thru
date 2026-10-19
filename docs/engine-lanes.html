@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Lanes engine - s3g Thru manual</title>
+    <meta name="description" content="Complete parameter reference for the s3g Thru Lanes playback engine.">
+    <link rel="stylesheet" href="assets/styles.css">
+  </head>
+  <body>
+    <header class="site-header"><a class="brand" href="index.html">s3g Thru <span>manual</span></a><nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru-move" target="_blank" rel="noopener noreferrer">GitHub</a></nav></header>
+
+    <div class="page-shell">
+      <main class="content" id="content">
+        <p class="eyebrow">Playback engine 2 of 6</p>
+        <h1>Lanes</h1>
+        <p class="lead">Lanes separates motion through time from motion through the four-source stack. Each voice reads Forward, Reverse, or Ping Pong while its own shaped stack path chooses a lane or crossfade.</p>
+        <div class="callout"><p><strong>Good for:</strong> treating four variations as a single evolving instrument, pressure-directed morphs, stepped lane sequences, smooth cyclic crossfades, and pitch-preserving duration changes.</p></div>
+
+        <h2 id="pages">Pages and navigation</h2>
+        <p>Set Algorithm to Lanes. Press Up for Lanes Path and again for Lanes Shape.</p>
+        <div class="screen-gallery">
+          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/lanes-page.svg" aria-label="Open Lanes Path"><img src="assets/screens/lanes-page.svg" alt="Lanes Path parameter page"></button></div><figcaption>Lanes Path sets time direction, stack trajectory, transition type, and path shape.</figcaption></figure>
+          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/lanes-shape.svg" aria-label="Open Lanes Shape"><img src="assets/screens/lanes-shape.svg" alt="Lanes Shape parameter page"></button></div><figcaption>Lanes Shape bends that trajectory and configures slew and stretch.</figcaption></figure>
+        </div>
+
+        <h2 id="engine-page">Engine page behavior</h2>
+        <table class="readout-table parameter-table">
+          <thead><tr><th>Knob</th><th>Parameter</th><th>Range</th><th>Lanes behavior</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>Algorithm</td><td>Lanes</td><td>Selects this engine and exposes Lanes Path and Lanes Shape.</td></tr>
+            <tr><td>2</td><td>Position</td><td>0.00–1.00</td><td>Centers the source window read by all participating lanes.</td></tr>
+            <tr><td>3</td><td>Field</td><td>0.02–1.00</td><td>Sets the source-window width before lane-length compensation is applied.</td></tr>
+            <tr><td>4</td><td>Speed</td><td>0.05–4.00×</td><td>Sets transport/pitch, multiplied by note interval from Root.</td></tr>
+            <tr><td>5</td><td>Stack Start</td><td>1.00–4.00</td><td>Exact lane/crossfade when Path is Manual; otherwise an independent starting phase for every new voice.</td></tr>
+            <tr><td>6</td><td>Scan Rate</td><td>0.125–16 Hz</td><td>Cycles each voice through its stack Path. Press <kbd>Loop</kbd> to hold the current crossfade.</td></tr>
+            <tr><td>7</td><td>Join</td><td>0.00–1.00</td><td>Smooths source wraps and direction reversals inside Field.</td></tr>
+            <tr><td>8</td><td>Level</td><td>0.00–2.00</td><td>Final output gain after lane gains and crossfades.</td></tr>
+          </tbody>
+        </table>
+
+        <h2 id="path">Lanes Path — every parameter</h2>
+        <table class="readout-table parameter-table">
+          <thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>Detail</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>MODE</td><td>Forward / Reverse / Ping Pong</td><td>Selects the direction used to read every active lane. Ping Pong travels out and back at the same audible pitch as the other modes.</td></tr>
+            <tr><td>2</td><td>PATH</td><td>8 choices</td><td>Chooses how stack position moves: Down, Up, Triangle, Sine, Steps Down, Steps Up, Manual, or Random.</td></tr>
+            <tr><td>3</td><td>RATE</td><td>0.125–16 Hz</td><td>Stack-path cycles per second. Every voice owns its own phase and pressure offset.</td></tr>
+            <tr><td>4</td><td>STAK</td><td>1.00–4.00</td><td>Stack Start. Manual uses the exact continuous lane position; moving paths use it as the voice's phase seed.</td></tr>
+            <tr><td>5</td><td>BLND</td><td>Crossfade / Jump</td><td>Crossfade blends adjacent loaded lanes with a smooth equal-position curve. Jump chooses the nearer loaded lane.</td></tr>
+            <tr><td>6</td><td>SHAP</td><td>Linear / Smooth / Exponential / Plateau</td><td>Remaps the path output before it becomes a 1–4 lane position. Plateau quantizes the result into four levels.</td></tr>
+            <tr><td>7</td><td>FLD</td><td>0.02–1.00</td><td>Source-window width shared by the lane readers.</td></tr>
+            <tr><td>8</td><td>JOIN</td><td>0.00–1.00</td><td>Read-head seam and reversal smoothing inside the source window.</td></tr>
+          </tbody>
+        </table>
+
+        <h3 id="paths">Path choices</h3>
+        <table class="readout-table">
+          <thead><tr><th>Path</th><th>Stack movement</th></tr></thead>
+          <tbody>
+            <tr><td>Down</td><td>Continuously moves lane 1 → 4, then wraps.</td></tr>
+            <tr><td>Up</td><td>Continuously moves lane 4 → 1, then wraps.</td></tr>
+            <tr><td>Triangle</td><td>Linear 1 → 4 → 1 travel.</td></tr>
+            <tr><td>Sine</td><td>A smooth triangle with slower, zero-slope turns at lanes 1 and 4.</td></tr>
+            <tr><td>Steps Down</td><td>Visits four descending positions with hard phase steps; Transition and Jump Slew determine the audible edge.</td></tr>
+            <tr><td>Steps Up</td><td>The reverse four-step sequence.</td></tr>
+            <tr><td>Manual</td><td>Stops automatic lane travel and reads Stack Start as a continuous lane/crossfade position.</td></tr>
+            <tr><td>Random</td><td>Uses a deterministic 16-step random path, repeatable when the same state is recalled.</td></tr>
+          </tbody>
+        </table>
+
+        <h2 id="shape">Lanes Shape — every parameter</h2>
+        <table class="readout-table parameter-table">
+          <thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>Detail</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>OFST</td><td>0.00–1.00</td><td>Rotates the whole stack-path phase and wraps at 1.00. This shifts every breakpoint without changing speed.</td></tr>
+            <tr><td>2</td><td>SKEW</td><td>0.02–0.98</td><td>Moves the halfway point in time. Below 0.50 reaches the path midpoint early; above 0.50 reaches it late.</td></tr>
+            <tr><td>3</td><td>CURV</td><td>−1.00–1.00</td><td>Bends phase before Path is evaluated. Negative values move quickly early and ease late; positive values ease early and accelerate late.</td></tr>
+            <tr><td>4</td><td>SLEW</td><td>0–500 ms</td><td>One-pole smoothing for lane-weight changes. 0 is immediate; higher values soften Jump, stepped paths, and live path edits.</td></tr>
+            <tr><td>5</td><td>STR</td><td>Off / On</td><td>Enables time stretching when Ratio differs from 1.00, without intentionally changing pitch.</td></tr>
+            <tr><td>6</td><td>RATI</td><td>0.25–4.00×</td><td>Sets stretch duration: values above 1 lengthen playback and values below 1 shorten it while keeping pitch as steady as possible.</td></tr>
+            <tr><td>7</td><td>SPD</td><td>0.05–4.00×</td><td>Source pitch/transport before Stretch Ratio modifies duration.</td></tr>
+            <tr><td>8</td><td>LEVL</td><td>0.00–2.00</td><td>Final output gain.</td></tr>
+          </tbody>
+        </table>
+
+        <div class="callout"><p><strong>Pressure is an offset, not a replacement path.</strong> Strike velocity seeds a voice offset and poly pressure moves it while held. The underlying Scan Rate continues unless <kbd>Loop</kbd> holds the stack scan.</p></div>
+
+        <nav class="page-nav" aria-label="Engine navigation"><a class="page-nav-link" href="engine-motion.html"><span>Previous engine</span>Motion</a><a class="page-nav-link next" href="engine-grains.html"><span>Next engine</span>Grains</a></nav>
+      </main>
+
+      <aside class="toc" aria-label="Page navigation">
+        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
+        <div class="toc-section"><h2>Engine guides</h2><a href="engine-motion.html">Motion</a><a href="engine-lanes.html">Lanes</a><a href="engine-grains.html">Grains</a><a href="engine-cutups.html">Cutups</a><a href="engine-sample.html">Sample</a><a href="engine-slices.html">Slices</a></div>
+        <div class="toc-section"><h2>On this page</h2><a href="#pages">Pages</a><a href="#engine-page">Engine page</a><a href="#path">Lanes Path</a><a href="#paths">Path choices</a><a href="#shape">Lanes Shape</a></div>
+      </aside>
+    </div>
+    <footer class="manual-footer">Lanes: source direction and stack direction remain independent.</footer>
+    <script src="assets/lightbox.js"></script>
+  </body>
+</html>

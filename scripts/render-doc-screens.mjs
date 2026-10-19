@@ -194,7 +194,7 @@ function svgFor(title) {
     return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="768" height="384" viewBox="0 0 128 64" role="img" aria-labelledby="title desc">
   <title id="title">${escapeXml(title)}</title>
-  <desc id="desc">A reproducible rendering of the s3g Thru interface generated from its Move UI drawing code.</desc>
+  <desc id="desc">${escapeXml(title)} shown as it appears on Ableton Move.</desc>
   <rect width="128" height="64" fill="#050706"/>
   <g shape-rendering="crispEdges" font-family="DejaVu Sans Mono, IBM Plex Mono, monospace" font-size="6" font-style="normal" font-weight="400" text-rendering="geometricPrecision">
 ${elements}

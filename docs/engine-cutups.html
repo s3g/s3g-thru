@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Cutups engine - s3g Thru manual</title>
+    <meta name="description" content="Complete parameter reference for the s3g Thru Cutups playback engine.">
+    <link rel="stylesheet" href="assets/styles.css">
+  </head>
+  <body>
+    <header class="site-header"><a class="brand" href="index.html">s3g Thru <span>manual</span></a><nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru-move" target="_blank" rel="noopener noreferrer">GitHub</a></nav></header>
+
+    <div class="page-shell">
+      <main class="content" id="content">
+        <p class="eyebrow">Playback engine 4 of 6</p>
+        <h1>Cutups</h1>
+        <p class="lead">Cutups launches discrete source regions on a free or tempo clock. Region order, lane order, and polyphonic lane divergence are separate decisions, so several held voices can share a rhythm while following different material.</p>
+        <div class="callout"><p><strong>Good for:</strong> chopped loops, tempo-locked rearrangement, transient resequencing, repeated fragments, controlled random walks, and polyphonic lane counterpoint.</p></div>
+
+        <h2 id="pages">Pages and navigation</h2>
+        <p>Set Algorithm to Cutups. Up opens Cutups Clock, then Cutups Path.</p>
+        <div class="screen-gallery">
+          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/cutups-clock.svg" aria-label="Open Cutups Clock"><img src="assets/screens/cutups-clock.svg" alt="Cutups Clock parameter page"></button></div><figcaption>Clock determines when cuts happen and how each event enters and leaves.</figcaption></figure>
+          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/cutups-path.svg" aria-label="Open Cutups Path"><img src="assets/screens/cutups-path.svg" alt="Cutups Path parameter page"></button></div><figcaption>Path determines repetition, variation, region count, lane order, and voice divergence.</figcaption></figure>
+        </div>
+
+        <h2 id="engine-page">Engine page behavior</h2>
+        <table class="readout-table parameter-table">
+          <thead><tr><th>Knob</th><th>Parameter</th><th>Range</th><th>Cutups behavior</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>Algorithm</td><td>Cutups</td><td>Selects this engine and exposes Cutups Clock and Cutups Path.</td></tr>
+            <tr><td>2</td><td>Position</td><td>0.00–1.00</td><td>Centers the source window that is divided into equal or transient regions.</td></tr>
+            <tr><td>3</td><td>Field</td><td>0.02–1.00</td><td>Sets the total window within which regions are calculated.</td></tr>
+            <tr><td>4</td><td>Speed</td><td>0.05–4.00×</td><td>Sets base pitch/read rate for each cut. Notes multiply it around Root, but never change the cut clock.</td></tr>
+            <tr><td>5</td><td>Stack Start</td><td>1.00–4.00</td><td>Not used for Cutups lane choice. Cutups selects a discrete lane with Lane Order and Poly Path.</td></tr>
+            <tr><td>6</td><td>Scan Rate</td><td>0.125–16 Hz</td><td>Not used by Cutups. Its lane changes happen only at cut boundaries.</td></tr>
+            <tr><td>7</td><td>Join</td><td>0.00–1.00</td><td>Smooths wrapping inside the chosen source region. Cut Join separately crossfades consecutive cut events.</td></tr>
+            <tr><td>8</td><td>Level</td><td>0.00–2.00</td><td>Final gain after per-cut Level Variation.</td></tr>
+          </tbody>
+        </table>
+
+        <h2 id="clock">Cutups Clock — every parameter</h2>
+        <table class="readout-table parameter-table">
+          <thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>Detail</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>MODE</td><td>Forward / Reverse / Palindrome / Random / Walk</td><td>Chooses the region-number sequence. Forward and Reverse wrap; Palindrome turns at the ends; Random chooses any region; Walk takes a random ±1 step.</td></tr>
+            <tr><td>2</td><td>CLCK</td><td>Free / Tempo</td><td>Free uses Free Rate in hertz. Tempo derives intervals from BPM, Swing, and Division.</td></tr>
+            <tr><td>3</td><td>DIV</td><td>1/4, 1/8, 1/8T, 1/16, 1/16T, 1/32</td><td>Musical cut interval in Tempo mode. Free mode ignores it.</td></tr>
+            <tr><td>4</td><td>RATE</td><td>0.25–64 Hz</td><td>Events per second in Free mode. Tempo mode ignores it.</td></tr>
+            <tr><td>5</td><td>TVAR</td><td>0.00–1.00</td><td>Randomizes every interval around its clock value. At 1.00 the variation reaches approximately ±90%.</td></tr>
+            <tr><td>6</td><td>GATE</td><td>5–100%</td><td>Audible duration as a percentage of the current interval.</td></tr>
+            <tr><td>7</td><td>JOIN</td><td>0–100 ms</td><td>Fade-in/out and overlap between consecutive cuts, automatically limited to half of the current event interval.</td></tr>
+            <tr><td>8</td><td>RSRC</td><td>Equal / Transients</td><td>Equal divides Field by Regions. Transients uses the selected lane's detected boundaries and falls back to equal regions if no map is available.</td></tr>
+          </tbody>
+        </table>
+
+        <h2 id="path">Cutups Path — every parameter</h2>
+        <table class="readout-table parameter-table">
+          <thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>Detail</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>REPT</td><td>1–16</td><td>Repeats the chosen region before the region-sequence step advances.</td></tr>
+            <tr><td>2</td><td>REV%</td><td>0–100%</td><td>Independent probability that a new cut reads backward.</td></tr>
+            <tr><td>3</td><td>PVAR</td><td>0–24 st</td><td>Random pitch offset inside ± the selected semitone range for every cut.</td></tr>
+            <tr><td>4</td><td>LVAR</td><td>0.00–1.00</td><td>Random attenuation per cut. It never boosts above nominal level.</td></tr>
+            <tr><td>5</td><td>LORD</td><td>7 choices</td><td>Selects Down, Up, Palindrome, Random, Pairs, Outside In, or Center Out across the currently loaded lanes.</td></tr>
+            <tr><td>6</td><td>POLY</td><td>Together / Stagger / Rotate / Random</td><td>Offsets lane selection per voice. Together aligns voices; Stagger gives each voice a different starting offset; Rotate combines that offset with each new cut; Random gives every voice and cut a repeatable variation.</td></tr>
+            <tr><td>7</td><td>REGN</td><td>1–64</td><td>Equal-region count and fallback count when Transients has no detected map.</td></tr>
+            <tr><td>8</td><td>FLD</td><td>0.02–1.00</td><td>Width of the source window divided by the region system.</td></tr>
+          </tbody>
+        </table>
+
+        <h3 id="lane-orders">Lane Order choices</h3>
+        <table class="readout-table">
+          <thead><tr><th>Order</th><th>Four loaded lanes</th></tr></thead>
+          <tbody>
+            <tr><td>Down</td><td>1, 2, 3, 4, then wrap.</td></tr>
+            <tr><td>Up</td><td>4, 3, 2, 1, then wrap.</td></tr>
+            <tr><td>Palindrome</td><td>1, 2, 3, 4, 3, 2, then repeat.</td></tr>
+            <tr><td>Random</td><td>A newly randomized loaded lane for each cut.</td></tr>
+            <tr><td>Pairs</td><td>Traverses 1, 2 as the first pair, then 3, 4 as the second pair.</td></tr>
+            <tr><td>Outside In</td><td>1, 4, 2, 3.</td></tr>
+            <tr><td>Center Out</td><td>2, 3, 1, 4.</td></tr>
+          </tbody>
+        </table>
+
+        <div class="callout"><p><strong>Tempo source:</strong> Tempo mode uses BPM and Swing from Performance Loop. Pad pitch changes the cut reader, not Division, Free Rate, or the interval clock.</p></div>
+
+        <nav class="page-nav" aria-label="Engine navigation"><a class="page-nav-link" href="engine-grains.html"><span>Previous engine</span>Grains</a><a class="page-nav-link next" href="engine-sample.html"><span>Next engine</span>Sample</a></nav>
+      </main>
+      <aside class="toc" aria-label="Page navigation">
+        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
+        <div class="toc-section"><h2>Engine guides</h2><a href="engine-motion.html">Motion</a><a href="engine-lanes.html">Lanes</a><a href="engine-grains.html">Grains</a><a href="engine-cutups.html">Cutups</a><a href="engine-sample.html">Sample</a><a href="engine-slices.html">Slices</a></div>
+        <div class="toc-section"><h2>On this page</h2><a href="#pages">Pages</a><a href="#engine-page">Engine page</a><a href="#clock">Cutups Clock</a><a href="#path">Cutups Path</a><a href="#lane-orders">Lane orders</a></div>
+      </aside>
+    </div>
+    <footer class="manual-footer">Cutups: event clock, region order, and lane order are separate systems.</footer>
+    <script src="assets/lightbox.js"></script>
+  </body>
+</html>

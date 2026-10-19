@@ -7,14 +7,15 @@ performance recorder.
   freezes at its own exact lane crossfade, ignores pressure drift while held,
   and resumes from that audible point. The former Stack Position label is now
   Stack Start to clarify its role as Manual position or moving-path phase seed.
-- A six-page illustrated manual now covers setup, the screen model, audio and
+- A twelve-page illustrated manual now covers setup, the screen model, audio and
   library sources, every playback engine, performance clips and chains, Move
   shortcuts, LEDs, and external MIDI. Screen figures are generated from the
   actual takeover UI and checked for drift with the rest of the build. Every
+  playback engine now has an individual parameter-by-parameter guide, every
   engine-specific parameter page has its own figure, and the waveform example
   uses four distinct sparse lane shapes so polyphonic playheads remain legible.
-  The two Position/Field boundaries are paired on the top edge as inward-facing
-  corner ticks, keeping both ends of the playback window visible at once.
+  The waveform retains the hardware display convention: a short Position tick
+  at the top and a short Field tick at the bottom.
 - The manual is ready to publish from `main/docs` with only HTML and web assets
   in that directory. Release history now lives in `release-notes/`, while the
   hardware acceptance guide lives at the repository root.

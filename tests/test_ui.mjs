@@ -131,11 +131,13 @@ assert(drawWrites.some((write) => write[0] === 'rect'
 assert(drawWrites.some((write) => write[0] === 'rect'
     && write[1] === 93 && write[2] === 10 && write[3] === 1 && write[4] === 40));
 assert(drawWrites.some((write) => write[0] === 'rect'
-    && write[1] === 25 && write[2] === 10 && write[3] === 4 && write[4] === 1),
-    'field start should have a visible inward-facing top tick');
+    && write[1] === 25 && write[2] === 10 && write[3] === 1
+    && write[4] === 2 && write[5] === 1),
+    'Position should use a short vertical tick at the top edge');
 assert(drawWrites.some((write) => write[0] === 'rect'
-    && write[1] === 113 && write[2] === 10 && write[3] === 4 && write[4] === 1),
-    'field end should have a visible inward-facing top tick');
+    && write[1] === 116 && write[2] === 48 && write[3] === 1
+    && write[4] === 2 && write[5] === 1),
+    'Field should use a short vertical tick at the bottom edge');
 assert(drawWrites.some((write) => write[0] === 'rect'
     && write[1] === 23 && write[2] === 23 && write[3] === 5
     && write[4] === 5 && write[5] === 0));

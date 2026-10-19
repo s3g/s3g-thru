@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Shortcut reference - s3g Thru manual</title>
-    <meta name="description" content="Complete Ableton Move shortcuts, view controls, LED meanings, and provisional external MIDI map for s3g Thru.">
+    <meta name="description" content="Complete Ableton Move shortcuts, view controls, LED meanings, and external MIDI map for s3g Thru.">
     <link rel="stylesheet" href="assets/styles.css">
   </head>
   <body>
@@ -92,10 +92,10 @@
 
         <h2 id="midi">External MIDI</h2>
 
-        <p>External/host MIDI accepts notes, note-off, polyphonic aftertouch, All Sound Off (CC 120), and All Notes Off (CC 123). Parameter CC values are 7-bit absolute. This mapping is provisional while the external-controller design remains under evaluation.</p>
+        <p>External/host MIDI accepts notes, note-off, polyphonic aftertouch, All Sound Off (CC 120), and All Notes Off (CC 123). Parameter CC values are 7-bit absolute.</p>
 
         <details>
-          <summary>Show complete provisional CC map</summary>
+          <summary>Show complete CC map</summary>
           <table class="readout-table">
             <thead><tr><th>CC</th><th>Parameter</th><th>CC</th><th>Parameter</th></tr></thead>
             <tbody>
@@ -148,7 +148,7 @@
           </table>
         </details>
 
-        <div class="callout"><p><strong>Internal and external CCs are separate.</strong> Move's internal Loop button arrives as CC 58 and controls Stack Hold in the takeover UI. External CC 58 retains the provisional Clear Chain Slot mapping. External CC 51 enables monitoring and can cause acoustic feedback.</p></div>
+        <div class="callout"><p><strong>Move and external CCs are handled separately.</strong> Move's Loop button controls Stack Hold, while CC 58 from an external controller clears the selected chain slot. External CC 51 enables monitoring and can cause acoustic feedback.</p></div>
 
         <nav class="page-nav" aria-label="Page navigation">
           <a class="page-nav-link" href="performance.html"><span>Previous</span>Performance Loops</a>
@@ -161,7 +161,7 @@
         <div class="toc-section"><h2>On this page</h2><a href="#global">Global</a><a href="#editing">Editing</a><a href="#context">By view</a><a href="#leds">LEDs</a><a href="#midi">External MIDI</a></div>
       </aside>
     </div>
-    <footer class="manual-footer">Shortcut behavior follows <code>src/ui.js</code>; external CC behavior follows the DSP wrapper.</footer>
+    <footer class="manual-footer">Keep monitoring at zero unless input pass-through is intentional.</footer>
     <script src="assets/lightbox.js"></script>
   </body>
 </html>

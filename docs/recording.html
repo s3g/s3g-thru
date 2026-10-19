@@ -37,7 +37,7 @@
           <li>On Mix / Rec, choose <code>INPUT</code> for Move's selected hardware input or <code>RESAMPLE</code> for Thru's stereo output.</li>
           <li>Hold <kbd>Shift</kbd> and press <kbd>Record</kbd>. The Record key is orange during audio capture.</li>
           <li>Repeat <kbd>Shift</kbd> + <kbd>Record</kbd> to stop. The completed capture replaces that lane; the other three lanes are unchanged.</li>
-          <li>Wait briefly if <code>SCANNING WAVEFORM</code> appears. The scan is incremental and does not run in the audio callback.</li>
+          <li>Wait briefly if <code>SCANNING WAVEFORM</code> appears. The waveform fills in as the scan completes.</li>
         </ol>
 
         <p>The main display's lane number and left selection mark identify the target. The adjacent vertical bar reports the selected/displayed voice's current contribution from that lane—it is not the input meter. During recording, the horizontal bar near the bottom is the capture level.</p>
@@ -62,13 +62,13 @@
           </tbody>
         </table>
 
-        <p>The browser starts at <code>/data/UserData/UserLibrary/Samples</code>. It accepts mono or stereo PCM 16/24/32-bit and 32-bit-float WAV files. Mono files are duplicated to stereo; other sample rates are resampled to Move's rate; material beyond the fixed 12-second lane capacity is truncated. Decode, resample, and waveform preparation happen on a worker thread.</p>
+        <p>The browser starts at <code>/data/UserData/UserLibrary/Samples</code>. It accepts mono or stereo PCM 16/24/32-bit and 32-bit-float WAV files. Mono files play from both channels, other sample rates are converted automatically, and material beyond the 12-second lane capacity is truncated.</p>
 
         <h2 id="ownership">Sources belong to clips</h2>
 
         <p>The first time a blank A01–D16 clip is selected, it snapshots the four sources then in use. From that point its assignments are independent—there is no live “previous pattern” lookup. A loaded file is stored as a User Library path; a recording becomes a clip-local capture; a reset lane remains explicitly empty.</p>
 
-        <p>When a clip change requires different sources, Thru prepares all four lanes in a second sample bank and swaps them together at a safe boundary. If preparation is incomplete, the current loop takes another pass instead of combining lanes from two clips. The footer reports <code>FILE</code>, <code>CAPTURE</code>, <code>EMPTY</code>, <code>LOADING</code>, or <code>MISSING</code>.</p>
+        <p>When a clip needs different sources, the previous clip can continue until all four lanes are ready. This prevents a partial change with lanes from two clips. The footer reports <code>FILE</code>, <code>CAPTURE</code>, <code>EMPTY</code>, <code>LOADING</code>, or <code>MISSING</code>.</p>
 
         <h2 id="editing">Sample Edit page</h2>
 
@@ -83,11 +83,11 @@
           </tbody>
         </table>
 
-        <p>The action controls show <code>TURN</code> until either encoder direction is moved. A successful action temporarily changes the title to <code>TRIMMED L1</code>, <code>REVERSED L1</code>, <code>NORMALIZED L1</code>, or <code>FADED L1</code>. Edits alternate between two clip-local files so one-level Undo can recover the prior source.</p>
+        <p>The action controls show <code>TURN</code> until either encoder direction is moved. A successful action temporarily changes the title to <code>TRIMMED L1</code>, <code>REVERSED L1</code>, <code>NORMALIZED L1</code>, or <code>FADED L1</code>. <kbd>Shift</kbd> + <kbd>Back</kbd> restores the source from before the most recent edit.</p>
 
         <h2 id="saving">Saving, recall, and backup</h2>
 
-        <p>Thru autosaves changed metadata and completed captures, then performs a final save when <kbd>Back</kbd> exits from the main waveform page. It keeps one matching backup generation and uses checksums so it will not combine mismatched metadata and clip banks after an interrupted write.</p>
+        <p>Thru autosaves changed settings and completed captures, then saves again when <kbd>Back</kbd> exits from the main waveform page. It also keeps one recovery copy in case a save is interrupted.</p>
 
         <p>Uninstalling a module may remove its data. Before uninstalling or moving to another Move, export the module data with:</p>
 

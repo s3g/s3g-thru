@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Sample engine - s3g Thru manual</title>
+    <meta name="description" content="Complete parameter reference for the s3g Thru Sample playback engine.">
+    <link rel="stylesheet" href="assets/styles.css">
+  </head>
+  <body>
+    <header class="site-header"><a class="brand" href="index.html">s3g Thru <span>manual</span></a><nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru-move" target="_blank" rel="noopener noreferrer">GitHub</a></nav></header>
+
+    <div class="page-shell">
+      <main class="content" id="content">
+        <p class="eyebrow">Playback engine 5 of 6</p>
+        <h1>Sample</h1>
+        <p class="lead">Sample is the direct reader: every note selects one discrete lane, then plays the Position/Field window as a one-shot, loop, or ping-pong voice. It is the clearest engine for pitched polyphony and for hearing a lane without continuous stack motion.</p>
+        <div class="callout"><p><strong>Good for:</strong> conventional sample playback, pitched chords, sustained loops, reverse one-shots, velocity-addressed lane layers, cue points, and tempo-synced rolls.</p></div>
+
+        <h2 id="page">Page and navigation</h2>
+        <p>Set Algorithm to Sample. Up opens the one engine-specific Direct Sample page.</p>
+        <div class="screen-gallery single">
+          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/sample-page.svg" aria-label="Open Direct Sample"><img src="assets/screens/sample-page.svg" alt="Direct Sample parameter page"></button></div><figcaption>The page puts transport, source window, pitch, lane choice, pad layout, and output level together.</figcaption></figure>
+        </div>
+
+        <h2 id="engine-page">Engine page behavior</h2>
+        <table class="readout-table parameter-table">
+          <thead><tr><th>Knob</th><th>Parameter</th><th>Range</th><th>Sample behavior</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>Algorithm</td><td>Sample</td><td>Selects the direct reader and exposes Direct Sample.</td></tr>
+            <tr><td>2</td><td>Position</td><td>0.00–1.00</td><td>Centers the source window. The short top tick in the waveform marks this boundary.</td></tr>
+            <tr><td>3</td><td>Field</td><td>0.02–1.00</td><td>Sets the width of the source window. The short bottom tick marks its other boundary.</td></tr>
+            <tr><td>4</td><td>Speed</td><td>0.05–4.00×</td><td>Sets base read rate. Note pitch multiplies this rate around Root.</td></tr>
+            <tr><td>5</td><td>Stack Start</td><td>1.00–4.00</td><td>Selects one discrete loaded lane when Variation is Manual. Sample does not fade between lanes.</td></tr>
+            <tr><td>6</td><td>Scan Rate</td><td>0.125–16 Hz</td><td>Unused by Sample because its lane is fixed when the note starts.</td></tr>
+            <tr><td>7</td><td>Join</td><td>0.00–1.00</td><td>Unused by the direct Sample reader. Loop and Ping Pong wrap at the exact window boundaries.</td></tr>
+            <tr><td>8</td><td>Level</td><td>0.00–2.00</td><td>Final output gain. Pad velocity does not scale amplitude.</td></tr>
+          </tbody>
+        </table>
+
+        <h2 id="parameters">Direct Sample — every parameter</h2>
+        <table class="readout-table parameter-table">
+          <thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>Detail</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>PLAY</td><td>Forward / Reverse / Loop / Ping Pong</td><td>Chooses the read direction and whether playback stops or repeats at the Position/Field boundaries.</td></tr>
+            <tr><td>2</td><td>POS</td><td>0.00–1.00</td><td>Moves the source window without changing its width.</td></tr>
+            <tr><td>3</td><td>FLD</td><td>0.02–1.00</td><td>Changes the amount of the lane inside the playback window.</td></tr>
+            <tr><td>4</td><td>SPD</td><td>0.05–4.00×</td><td>Base playback rate before note transposition. Root plays the displayed rate.</td></tr>
+            <tr><td>5</td><td>STAK</td><td>1.00–4.00</td><td>Chooses a lane when VARI is Manual. If that lane is empty, the first loaded lane is used.</td></tr>
+            <tr><td>6</td><td>VARI</td><td>Manual / Cycle / Random / No Repeat / Velocity</td><td>Chooses how a lane is assigned when each new voice starts. The lane remains fixed for that voice.</td></tr>
+            <tr><td>7</td><td>PADS</td><td>Keys / Slices / Cues / Rolls</td><td>Changes what the 32 pads address. See the complete behavior table below.</td></tr>
+            <tr><td>8</td><td>LEVL</td><td>0.00–2.00</td><td>Final output gain after the selected lane's gain on Mix / Rec.</td></tr>
+          </tbody>
+        </table>
+
+        <h3 id="play-modes">Play Mode choices</h3>
+        <table class="readout-table">
+          <thead><tr><th>Mode</th><th>Behavior</th></tr></thead>
+          <tbody>
+            <tr><td>Forward</td><td>Reads once from the start to the end of the current window, then becomes silent.</td></tr>
+            <tr><td>Reverse</td><td>Reads once from the end to the start of the current window, then becomes silent.</td></tr>
+            <tr><td>Loop</td><td>Repeats forward through the window for as long as the voice remains active.</td></tr>
+            <tr><td>Ping Pong</td><td>Alternates forward and backward at the same audible pitch as the other modes.</td></tr>
+          </tbody>
+        </table>
+
+        <h3 id="variation">Variation choices</h3>
+        <table class="readout-table">
+          <thead><tr><th>Variation</th><th>Lane selected at note-on</th></tr></thead>
+          <tbody>
+            <tr><td>Manual</td><td>The nearest whole lane selected by STAK.</td></tr>
+            <tr><td>Cycle</td><td>The next loaded lane in order, wrapping after the last.</td></tr>
+            <tr><td>Random</td><td>Any currently loaded lane.</td></tr>
+            <tr><td>No Repeat</td><td>A random loaded lane, advanced to another lane if it would repeat the previous choice.</td></tr>
+            <tr><td>Velocity</td><td>Divides the velocity range across the loaded lanes. A harder strike chooses a higher lane, but does not make the voice louder.</td></tr>
+          </tbody>
+        </table>
+
+        <h3 id="pad-modes">Pad Mode choices</h3>
+        <table class="readout-table">
+          <thead><tr><th>Pad mode</th><th>What the 32 pads do</th></tr></thead>
+          <tbody>
+            <tr><td>Keys</td><td>Play an isomorphic pitched layout around Root. Every voice reads the whole current window.</td></tr>
+            <tr><td>Slices</td><td>All pads play Root pitch. In Sample, the whole window still plays; choose the Slices engine when each pad should address a region.</td></tr>
+            <tr><td>Cues</td><td>Recall stored cue positions. Shift + a cue pad stores the current position; Delete + the pad clears it.</td></tr>
+            <tr><td>Rolls</td><td>Each held pad starts a temporary tempo-clocked Cutups voice at a pad-specific division.</td></tr>
+          </tbody>
+        </table>
+
+        <div class="callout"><p><strong>Lane selection is not lane scanning:</strong> Variation chooses one lane for a voice at note-on. Pressure can still offset engines that scan the stack, but it does not crossfade an active direct Sample voice to another lane.</p></div>
+
+        <nav class="page-nav" aria-label="Engine navigation"><a class="page-nav-link" href="engine-cutups.html"><span>Previous engine</span>Cutups</a><a class="page-nav-link next" href="engine-slices.html"><span>Next engine</span>Slices</a></nav>
+      </main>
+      <aside class="toc" aria-label="Page navigation">
+        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
+        <div class="toc-section"><h2>Engine guides</h2><a href="engine-motion.html">Motion</a><a href="engine-lanes.html">Lanes</a><a href="engine-grains.html">Grains</a><a href="engine-cutups.html">Cutups</a><a href="engine-sample.html">Sample</a><a href="engine-slices.html">Slices</a></div>
+        <div class="toc-section"><h2>On this page</h2><a href="#page">Page</a><a href="#engine-page">Engine page</a><a href="#parameters">Parameters</a><a href="#play-modes">Play modes</a><a href="#variation">Variation</a><a href="#pad-modes">Pad modes</a></div>
+      </aside>
+    </div>
+    <footer class="manual-footer">Sample: a discrete lane and one direct reader for each voice.</footer>
+    <script src="assets/lightbox.js"></script>
+  </body>
+</html>

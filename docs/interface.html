@@ -19,7 +19,7 @@
       <main class="content" id="content">
         <p class="eyebrow">Screen guide</p>
         <h1>Interface tour</h1>
-        <p class="lead">The waveform page is for playing and seeing motion. Parameter pages turn the eight encoders into a compact Elektron-style surface. Dedicated overview screens expose clips, chains, samples, and diagnostics.</p>
+        <p class="lead">The waveform page is for playing and seeing motion. Parameter pages assign the eight encoders to the names and values shown on screen. Dedicated overview screens provide access to clips, chains, samples, and Help.</p>
 
         <h2 id="waveform">Waveform page</h2>
 
@@ -40,7 +40,7 @@
             <tr><td>Small lane bar</td><td>The current contribution of that lane to the displayed voice's crossfade.</td></tr>
             <tr><td>Vertical lines</td><td>Independent sample playheads for held voices. They disappear on note-off while the short release continues.</td></tr>
             <tr><td>Hollow markers</td><td>Each voice's lane-stack position. A marker between rows means adjacent lanes are being crossfaded.</td></tr>
-            <tr><td>Top corner ticks</td><td>The left and right boundaries of the current Position/Field window. Both arms point into the active region.</td></tr>
+            <tr><td>Position / Field ticks</td><td>Position is the short vertical tick at the top of the waveform area; Field is the short vertical tick at the bottom.</td></tr>
             <tr><td>Short lane ticks</td><td>Detected transient divisions on the selected lane.</td></tr>
             <tr><td>Bottom progress line</td><td>Position inside the current performance-data loop.</td></tr>
             <tr><td>Footer</td><td>Clip transport, source ownership, waveform scanning, load errors, or the most recent action.</td></tr>
@@ -90,7 +90,7 @@
           <figure><div class="doc-graphic move-screen"><img src="assets/screens/clips.svg" alt="Performance clip bank screen"></div><figcaption><strong>Clip overview.</strong> Shift+Play opens the active 16-slot bank. A marker distinguishes current, queued, occupied, and empty slots.</figcaption></figure>
           <figure><div class="doc-graphic move-screen"><img src="assets/screens/chain.svg" alt="Performance clip chain screen"></div><figcaption><strong>Chain editor.</strong> A 16-entry list gives each clip a repeat count and shows the selected/current entry.</figcaption></figure>
           <figure><div class="doc-graphic move-screen"><img src="assets/screens/library.svg" alt="Sample library browser screen"></div><figcaption><strong>Sample browser.</strong> Shift+Track opens the lane's WAV browser. The main encoder browses and clicks to enter or load.</figcaption></figure>
-          <figure><div class="doc-graphic move-screen"><img src="assets/screens/help.svg" alt="On-device help screen"></div><figcaption><strong>Help.</strong> Shift+Menu shows the core gestures plus maximum audio-render time and deadline overruns.</figcaption></figure>
+          <figure><div class="doc-graphic move-screen"><img src="assets/screens/help.svg" alt="On-device help screen"></div><figcaption><strong>Help.</strong> Shift+Menu shows the core gestures. The last line reports peak render time and audio overruns for performance troubleshooting.</figcaption></figure>
         </div>
 
         <h2 id="navigation">View navigation</h2>
@@ -131,7 +131,7 @@
         <div class="toc-section"><h2>On this page</h2><a href="#waveform">Waveform</a><a href="#parameters">Parameters</a><a href="#secondary">Secondary screens</a><a href="#navigation">Navigation</a><a href="#leds">LED language</a></div>
       </aside>
     </div>
-    <footer class="manual-footer">Screen figures generated from <code>src/ui.js</code> by <code>npm run docs:render</code>.</footer>
+    <footer class="manual-footer">Use Shift+Menu on Move whenever you need the compact control reminder.</footer>
     <script src="assets/lightbox.js"></script>
   </body>
 </html>

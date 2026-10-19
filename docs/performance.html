@@ -17,7 +17,7 @@
       <main class="content" id="content">
         <p class="eyebrow">Data layer</p>
         <h1>Performance loops</h1>
-        <p class="lead">The recorder captures performance data—not a mixed audio bounce. Notes, hold time, pitch, source-pad identity, polyphonic pressure, and knob gestures remain editable through engine settings and can be replayed at other rates.</p>
+        <p class="lead">The recorder captures performance data—not a mixed audio bounce. Notes, hold time, pitch, the pad played, polyphonic pressure, and knob gestures remain editable through engine settings and can be replayed at other rates.</p>
 
         <h2 id="record">Record a performance</h2>
 
@@ -43,14 +43,14 @@
           <thead><tr><th>Control</th><th>Behavior</th></tr></thead>
           <tbody>
             <tr><td>Timing · Free</td><td>Retains the recorded wall-clock duration. BPM does not resize the clip.</td></tr>
-            <tr><td>Timing · Beat Sync</td><td>Stores the captured tempo/beat length and scales playback to the current internal BPM.</td></tr>
+            <tr><td>Timing · Beat Sync</td><td>Stores the captured beat length and scales playback to Thru's Tempo setting.</td></tr>
             <tr><td>Launch · Off</td><td>Starts the requested clip as soon as its source bank is ready.</td></tr>
-            <tr><td>Launch · Beat / Bar</td><td>Queues the clip until the next internal beat or bar boundary.</td></tr>
+            <tr><td>Launch · Beat / Bar</td><td>Queues the clip until the next beat or bar according to Thru's Tempo setting.</td></tr>
             <tr><td>Swing</td><td>Applies 50–75% swing to tempo-clocked Cutups/Rolls timing.</td></tr>
           </tbody>
         </table>
 
-        <p>Thru currently follows its own internal tempo rather than Move's native transport. The blue-violet Step LED and <code>QUEUED</code> footer identify a pending launch.</p>
+        <p>Thru uses its own Tempo setting; it does not follow Move's native transport. The blue-violet Step LED and <code>QUEUED</code> footer identify a pending launch.</p>
 
         <h2 id="takes">Replace, Overdub, and takes</h2>
 
@@ -99,7 +99,7 @@
 
         <h2 id="capacity">Capacity behavior</h2>
 
-        <p>Gesture recording progressively thins nearly identical points as its fixed buffer fills. At capacity, the most recent endpoint for an existing gesture is still updated, playback continues, and the footer reports <code>CLIP FULL</code> with note and gesture counts. Recording and playback never allocate memory in the audio callback.</p>
+        <p>As a long or highly detailed recording approaches capacity, Thru removes nearly identical gesture points first. Playback continues at capacity, existing gestures retain their latest endpoint, and the footer reports <code>CLIP FULL</code> with note and gesture counts.</p>
 
         <nav class="page-nav" aria-label="Page navigation">
           <a class="page-nav-link" href="engines.html"><span>Previous</span>Playback Engines</a>

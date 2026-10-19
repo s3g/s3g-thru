@@ -19,8 +19,17 @@ const htmlFiles = fs.readdirSync(docsRoot)
     .filter((name) => name.endsWith('.html'))
     .map((name) => path.join(docsRoot, name));
 
-if (htmlFiles.length < 6) {
-    throw new Error('The manual must include the six core HTML pages.');
+const requiredPages = [
+    'index.html', 'interface.html', 'recording.html', 'engines.html',
+    'engine-motion.html', 'engine-lanes.html', 'engine-grains.html',
+    'engine-cutups.html', 'engine-sample.html', 'engine-slices.html',
+    'performance.html', 'shortcuts.html',
+];
+const missingPages = requiredPages.filter((name) =>
+    !fs.existsSync(path.join(docsRoot, name)));
+if (missingPages.length !== 0) {
+    throw new Error('The manual is missing required HTML pages: '
+        + missingPages.join(', '));
 }
 
 const idsByFile = new Map();

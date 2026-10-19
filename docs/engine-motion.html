@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Motion engine - s3g Thru manual</title>
+    <meta name="description" content="Complete parameter reference for the s3g Thru Motion playback engine.">
+    <link rel="stylesheet" href="assets/styles.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="index.html">s3g Thru <span>manual</span></a>
+      <nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru-move" target="_blank" rel="noopener noreferrer">GitHub</a></nav>
+    </header>
+
+    <div class="page-shell">
+      <main class="content" id="content">
+        <p class="eyebrow">Playback engine 1 of 6</p>
+        <h1>Motion</h1>
+        <p class="lead">Motion moves a continuous read head through the Position/Field window. Path chooses where it travels; Sound applies a second articulation without replacing or reversing that path.</p>
+
+        <div class="callout"><p><strong>Good for:</strong> smooth source traversal, moving loops, eased reversals, deterministic wandering, tremolo-like packets, motor rhythms, and bouncing amplitude gestures.</p></div>
+
+        <h2 id="pages">Pages and navigation</h2>
+        <p>On Engine, set Algorithm to Motion. Press Up for Motion Path and Up again for Motion Sound. In every screenshot, knobs 1–4 are the top row and knobs 5–8 are the bottom row.</p>
+
+        <div class="screen-gallery">
+          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/motion-path.svg" aria-label="Open Motion Path"><img src="assets/screens/motion-path.svg" alt="Motion Path parameter page"></button></div><figcaption>Motion Path controls the read-head trajectory and source window.</figcaption></figure>
+          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/motion-sound.svg" aria-label="Open Motion Sound"><img src="assets/screens/motion-sound.svg" alt="Motion Sound parameter page"></button></div><figcaption>Motion Sound controls articulation layered over that trajectory.</figcaption></figure>
+        </div>
+
+        <h2 id="engine-page">Engine page behavior</h2>
+        <table class="readout-table parameter-table">
+          <thead><tr><th>Knob</th><th>Parameter</th><th>Range</th><th>Motion behavior</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>Algorithm</td><td>Motion</td><td>Selects this engine and exposes Motion Path and Motion Sound.</td></tr>
+            <tr><td>2</td><td>Position</td><td>0.00–1.00</td><td>Centers the travel window. Moving Loop treats a manual Position change as the next moving-window center.</td></tr>
+            <tr><td>3</td><td>Field</td><td>0.02–1.00</td><td>Sets the width available to the path. The window is clamped at the ends of the sample.</td></tr>
+            <tr><td>4</td><td>Speed</td><td>0.05–4.00×</td><td>Sets path transport speed and is multiplied by the played note's interval from Root.</td></tr>
+            <tr><td>5</td><td>Stack Start</td><td>1.00–4.00</td><td>Seeds each new voice's independent phase in the shared stack path; on a Manual path it is the exact lane/crossfade.</td></tr>
+            <tr><td>6</td><td>Scan Rate</td><td>0.125–16 Hz</td><td>Moves each voice through the lane stack. <kbd>Loop</kbd> holds the current per-voice blend without stopping Motion's read head.</td></tr>
+            <tr><td>7</td><td>Join</td><td>0.00–1.00</td><td>Scales read-wrap and reversal smoothing. On Packets and Motor it also controls gating depth: 0 leaves the sound continuous; 1 allows full closure.</td></tr>
+            <tr><td>8</td><td>Level</td><td>0.00–2.00</td><td>Sets final output gain after the path and Sound articulation.</td></tr>
+          </tbody>
+        </table>
+
+        <h2 id="path">Motion Path — every parameter</h2>
+        <table class="readout-table parameter-table">
+          <thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>Detail</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>MODE</td><td>8 choices</td><td>Selects Forward, Reverse, Hover, Round Trip, Moving Loop, Mirror, Zigzag, or Drunk. See the mode table below.</td></tr>
+            <tr><td>2</td><td>TRVL</td><td>0.00–1.00</td><td>Drunk only: contracts or expands its deterministic random targets around the center of Field. 0 stays centered; 1 uses the full target range.</td></tr>
+            <tr><td>3</td><td>JITR</td><td>0.00–1.00</td><td>Drunk only: offsets the timing within each interpolation segment. It is deterministic, so saved clips recall the same movement.</td></tr>
+            <tr><td>4</td><td>POS</td><td>0.00–1.00</td><td>Same Position control as Engine: center of the Motion window.</td></tr>
+            <tr><td>5</td><td>FLD</td><td>0.02–1.00</td><td>Same Field control as Engine: total source span available to the trajectory.</td></tr>
+            <tr><td>6</td><td>SPD</td><td>0.05–4.00×</td><td>Same Speed control as Engine. A one-octave note interval doubles or halves this base transport.</td></tr>
+            <tr><td>7</td><td>JOIN</td><td>0.00–1.00</td><td>Scales click-safe seam, turn, and articulation transitions. At maximum, a forward/reverse wrap uses up to 8% of Field or 20 ms, whichever is smaller.</td></tr>
+            <tr><td>8</td><td>LEVL</td><td>0.00–2.00</td><td>Same final Level control as Engine.</td></tr>
+          </tbody>
+        </table>
+
+        <h3 id="modes">Mode choices</h3>
+        <table class="readout-table">
+          <thead><tr><th>Mode</th><th>Trajectory</th></tr></thead>
+          <tbody>
+            <tr><td>Forward</td><td>Moves from the left Field boundary to the right, crossfading the wrap according to Join.</td></tr>
+            <tr><td>Reverse</td><td>Moves from right to left with the same wrap treatment.</td></tr>
+            <tr><td>Hover</td><td>An eased out-and-back path with long, smooth turns at both Field edges.</td></tr>
+            <tr><td>Round Trip</td><td>A nearly constant-speed forward/backward traversal with short eased reversals.</td></tr>
+            <tr><td>Moving Loop</td><td>Runs a forward loop, then advances the whole Field window after each completed cycle.</td></tr>
+            <tr><td>Mirror</td><td>Uses the Round Trip trajectory and reverses signal polarity on the return half, with Join smoothing around polarity boundaries.</td></tr>
+            <tr><td>Zigzag</td><td>Runs three eased segments: forward to 72%, backward to 28%, then forward to the far edge.</td></tr>
+            <tr><td>Drunk</td><td>Interpolates across eight deterministic random targets; Travel sets their span and Jitter perturbs segment timing.</td></tr>
+          </tbody>
+        </table>
+
+        <h2 id="sound">Motion Sound — every parameter</h2>
+        <table class="readout-table parameter-table">
+          <thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>Detail</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>SND</td><td>4 choices</td><td><strong>Continuous</strong> leaves level open. <strong>Packets</strong> gates at Gesture Rate. <strong>Motor</strong> places four packet pulses inside an outer motor cycle. <strong>Bounce</strong> cycles through six accelerating, decaying bounces.</td></tr>
+            <tr><td>2</td><td>RATE</td><td>0.25–20 Hz</td><td>Gesture Rate: packet repetition for Packets, the inner pulse basis for Motor, and the starting cadence for Bounce. Continuous ignores it.</td></tr>
+            <tr><td>3</td><td>DUTY</td><td>2–98%</td><td>Open portion of each packet gate. It affects Packets and Motor only.</td></tr>
+            <tr><td>4</td><td>MRAT</td><td>0.05–20 Hz</td><td>Rate of Motor's outer amplitude cycle. It is independent of the four-times-faster inner packet clock.</td></tr>
+            <tr><td>5</td><td>MSYM</td><td>5–95%</td><td>Moves the peak of the Motor cycle, balancing its rise time against its fall time.</td></tr>
+            <tr><td>6</td><td>MSHP</td><td>Triangle / Rounded / Pulse</td><td>Shapes Motor's outer cycle: linear slopes, smoothstep curves, or a two-state pulse.</td></tr>
+            <tr><td>7</td><td>JOIN</td><td>0.00–1.00</td><td>Controls articulation depth as well as path smoothing. Lower values leave more continuous signal between packets.</td></tr>
+            <tr><td>8</td><td>LEVL</td><td>0.00–2.00</td><td>Final output gain after the Sound envelope.</td></tr>
+          </tbody>
+        </table>
+
+        <div class="callout"><p><strong>Path and Sound remain independent.</strong> Mirror and Zigzag still move backward where specified when Packets, Motor, or Bounce is active; the articulation changes amplitude, not transport direction.</p></div>
+
+        <nav class="page-nav" aria-label="Engine navigation"><a class="page-nav-link" href="engines.html"><span>Previous</span>Engine Index</a><a class="page-nav-link next" href="engine-lanes.html"><span>Next engine</span>Lanes</a></nav>
+      </main>
+
+      <aside class="toc" aria-label="Page navigation">
+        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
+        <div class="toc-section"><h2>Engine guides</h2><a href="engine-motion.html">Motion</a><a href="engine-lanes.html">Lanes</a><a href="engine-grains.html">Grains</a><a href="engine-cutups.html">Cutups</a><a href="engine-sample.html">Sample</a><a href="engine-slices.html">Slices</a></div>
+        <div class="toc-section"><h2>On this page</h2><a href="#pages">Pages</a><a href="#engine-page">Engine page</a><a href="#path">Motion Path</a><a href="#modes">Modes</a><a href="#sound">Motion Sound</a></div>
+      </aside>
+    </div>
+    <footer class="manual-footer">Motion: continuous path first, articulation second.</footer>
+    <script src="assets/lightbox.js"></script>
+  </body>
+</html>

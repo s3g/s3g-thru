@@ -16,6 +16,7 @@ globalThis.__moveConstants = {
     MovePads: Array.from({ length: 32 }, (_, i) => 68 + i),
     MoveSteps: Array.from({ length: 16 }, (_, i) => 16 + i),
     MovePlay: 85,
+    MoveLoop: 58,
     MoveLeft: 62,
     MoveRight: 63,
 };
@@ -41,7 +42,7 @@ globalThis.__os = {
 const flatWave = '77'.repeat(112);
 const params = {
     locus: '0.5', field: '1', speed: '1', manual_lane: '1',
-    lane_cycles: '1', algorithm: '0', join: '1', output_gain: '1',
+    lane_cycles: '1', stack_scan_paused: '0', algorithm: '0', join: '1', output_gain: '1',
     record_lane: '1', pad_octave: '0', record_source: '0',
     record_gain: '1', monitor_level: '0', preview_level: '0.7',
     clip_rate: '1', clip_record_mode: '0', clip_timing: '0',
@@ -268,6 +269,16 @@ assert.deepEqual(blockingWrites.pop(), ['clip_playing', '1']);
 for (let tick = 0; tick < 3; tick++) globalThis.tick();
 assert.deepEqual(buttonWrites.filter((write) => write[0] === 85).at(-1),
     [85, 11], 'Play should turn green for a running performance loop');
+
+/* Loop holds every voice at its exact current stack blend and lights while
+   held; pressing it again resumes independent stack motion. */
+globalThis.onMidiMessageInternal([0xB0, 58, 127]);
+assert.deepEqual(blockingWrites.pop(), ['stack_scan_paused', '1']);
+for (let tick = 0; tick < 3; tick++) globalThis.tick();
+assert.deepEqual(buttonWrites.filter((write) => write[0] === 58).at(-1),
+    [58, 127], 'Loop should light brightly while stack scanning is held');
+globalThis.onMidiMessageInternal([0xB0, 58, 127]);
+assert.deepEqual(blockingWrites.pop(), ['stack_scan_paused', '0']);
 
 /* Shift+Play opens the optional clip overview. */
 globalThis.onMidiMessageInternal([0xB0, 50, 127]);

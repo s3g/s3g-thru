@@ -125,7 +125,9 @@ chain editor, and the main display. **Menu** opens the
 parameter pages; **Up/Down** then changes pages. Only the page for the selected
 playback engine is included. Each screen cell is aligned with one of the eight
 physical dials and shows a padded parameter name with its value underneath—no
-small dial graphic. **Shift + Back** restores the last destructive clip,
+small dial graphic. **Loop** holds every active voice at its current stack
+position, including an in-between lane crossfade; press it again to resume each
+voice's independent scan from that point. **Shift + Back** restores the last destructive clip,
 source, or sample edit.
 **Shift + Menu** shows compact help. **Back** closes a secondary page, or exits
 from the waveform page. Schwung's universal
@@ -414,7 +416,7 @@ pages. Only the pages for the Algorithm chosen on the Engine page are present:
 Motion and Lanes each have two engine pages, Grains has three, Cutups has two,
 and Sample and Slices each have one.
 
-- Engine: algorithm, position, field, speed, stack position, scan rate, join,
+- Engine: algorithm, position, field, speed, stack start, scan rate, join,
   and level.
 - Motion Path: eight trajectories including Drunk, travel, jitter, position,
   field, speed, join, and level. Motion Sound adds packet duty plus independent
@@ -449,6 +451,12 @@ and Sample and Slices each have one.
 - Chain: enable, slot, clip, repeats, clear slot, algorithm, join, and level.
 
 Press **Back** once to return to the waveform page without exiting.
+
+`Stack Start` is the exact lane/crossfade position when Stack Path is Manual.
+For a moving path, it is the phase offset assigned to a newly triggered voice;
+Scan Rate then advances that voice from the offset, and pressure can move its
+offset independently. The Loop-button hold freezes the final audible blend,
+including pressure offset, rather than snapping to a numbered lane.
 
 Motion Mode always owns the read-head trajectory. Mirror runs to the far edge
 and back; Zigzag alternates forward, backward, then forward segments; Drunk

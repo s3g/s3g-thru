@@ -21,6 +21,7 @@ const MoveRight = constant('MoveRight', 63);
 const MoveRecord = constant('MoveRec', 86);
 const MoveRecordAlt = constant('MoveRecord', 118);
 const MovePlay = constant('MovePlay', 85);
+const MoveLoop = constant('MoveLoop', 58);
 const MoveDelete = constant('MoveDelete', 119);
 const MoveKnob1 = constant('MoveKnob1', 71);
 const MovePads = Array.isArray(moveConstants.MovePads)
@@ -74,7 +75,7 @@ const PARAMS = {
     locus: { key: 'locus', label: 'POSITION', min: 0, max: 1, step: 0.01, value: 0.5 },
     field: { key: 'field', label: 'FIELD', min: 0.02, max: 1, step: 0.01, value: 1 },
     speed: { key: 'speed', label: 'SPEED', min: 0.05, max: 4, step: 0.02, value: 1 },
-    manual_lane: { key: 'manual_lane', label: 'STACK', min: 1, max: 4, step: 0.04, value: 1 },
+    manual_lane: { key: 'manual_lane', label: 'STACK START', min: 1, max: 4, step: 0.04, value: 1 },
     lane_cycles: { key: 'lane_cycles', label: 'SCAN RATE', min: 0.125, max: 16, step: 0.125, value: 1 },
     algorithm: { key: 'algorithm', label: 'ALGORITHM', min: 0, max: 5, step: 1, value: 0, integer: true, labels: ALGORITHMS },
     join: { key: 'join', label: 'JOIN', min: 0, max: 1, step: 0.01, value: 1 },
@@ -341,6 +342,7 @@ const state = {
     activePads: new Set(),
     clipRecording: false,
     clipPlaying: false,
+    stackScanPaused: false,
     clipOverdub: false,
     clipPosition: 0,
     clipDuration: 0,
@@ -717,6 +719,8 @@ function rebuildLedQueue() {
     queueLed('cc', MovePlay,
         state.clipLaunchPending ? BlueViolet
             : (state.clipPlaying ? NeonGreen : WhiteLedDim), 0);
+    queueLed('cc', MoveLoop,
+        state.stackScanPaused ? WhiteLedBright : WhiteLedDim, 0);
     for (let i = 0; i < MovePads.length; i++) {
         const note = MovePads[i];
         queueLed('note', note, padColor(i), 3);
@@ -881,8 +885,9 @@ function drawMain() {
         : (state.laneSourceState.startsWith('MISSING')
             ? 'MISSING SHIFT+TRK FIX'
             : (state.scanning ? 'SCANNING WAVEFORM'
-                : (state.clipDuration > 0 ? clipStatus
-                    : state.laneSourceState + ' MENU')));
+                : (state.stackScanPaused ? 'STACK HOLD - LOOP RUN'
+                    : (state.clipDuration > 0 ? clipStatus
+                    : state.laneSourceState + ' MENU'))));
     print(1, 55, String(footer).slice(0, 21), 1);
 }
 
@@ -981,7 +986,7 @@ function drawHelp() {
     print(1, 23, 'SHIFT+REC  audio lane', 1);
     print(1, 33, 'STEPS      clip slots', 1);
     print(1, 43, 'LEFT/RIGHT clip bank', 1);
-    print(1, 55, 'PLAY loop  MENU params', 1);
+    print(1, 55, 'LOOP hold MENU params', 1);
 }
 
 function clipLabel(index) {
@@ -1495,6 +1500,7 @@ function pollDsp() {
     state.laneSourceState = String(getParam('lane_source_state',
         state.laneSourceState) || 'EMPTY:EMPTY');
     state.undoAvailable = getNumber('undo_available', 0) !== 0;
+    state.stackScanPaused = getNumber('stack_scan_paused', 0) !== 0;
     if (state.ticks % 60 === 0) {
         const performance = String(getParam('performance_state', '0,0'))
             .split(',').map((item) => Number(item));
@@ -1547,6 +1553,7 @@ globalThis.init = function() {
     state.laneSourceState = String(getParam('lane_source_state', 'EMPTY:EMPTY')
         || 'EMPTY:EMPTY');
     state.undoAvailable = getNumber('undo_available', 0) !== 0;
+    state.stackScanPaused = getNumber('stack_scan_paused', 0) !== 0;
     state.padMode = clamp(Math.round(getNumber('pad_mode', 0)), 0, 3);
     parseWaveforms(getParam('waveforms', ''));
     if (state.recalled) {
@@ -1637,6 +1644,13 @@ globalThis.onMidiMessageInternal = function(data) {
     if (number === MovePlay && value > 0) {
         if (state.shiftHeld) toggleClipView();
         else toggleClipPlaying();
+        return;
+    }
+    if (number === MoveLoop && value > 0) {
+        state.stackScanPaused = !state.stackScanPaused;
+        setParamBlocking('stack_scan_paused', state.stackScanPaused ? 1 : 0);
+        showMessage(state.stackScanPaused ? 'STACK SCAN HELD' : 'STACK SCAN RUNNING');
+        rebuildLedQueue();
         return;
     }
     if (value <= 0 && number !== MoveMainKnob
@@ -1761,5 +1775,6 @@ globalThis.onUnload = function() {
     setButtonLED(MoveRecord, Black);
     if (MoveRecordAlt !== MoveRecord) setButtonLED(MoveRecordAlt, Black);
     setButtonLED(MovePlay, Black);
+    setButtonLED(MoveLoop, Black);
 };
 

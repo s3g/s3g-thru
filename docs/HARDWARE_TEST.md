@@ -41,6 +41,9 @@ working Schwung installation and do this pass with headphones first.
     no cursor should loop when all notes are off.
     Confirm each playhead has a hollow stack marker that moves continuously
     between the four waveform rows as its lane blend changes.
+    Press Loop while several markers are between rows. Confirm the Loop key
+    lights, every marker and audible lane blend remains fixed despite continued
+    pressure changes, and a second press resumes each scan from its held point.
 12. Record contrasting material into lanes 2-4. Confirm replacing one lane
     does not erase the others.
     Then hold Shift and press a Track button. Confirm the sample browser opens

@@ -3,6 +3,11 @@
 This release makes Overdub a layered, reversible part of the free-time
 performance recorder.
 
+- Move's Loop key now toggles a live Stack Scan hold. Every polyphonic voice
+  freezes at its own exact lane crossfade, ignores pressure drift while held,
+  and resumes from that audible point. The former Stack Position label is now
+  Stack Start to clarify its role as Manual position or moving-path phase seed.
+
 - Replace creates take 1, the protected base performance. Every completed
   non-empty Overdub pass adds one take containing both its notes and its
   pressure/parameter gestures.

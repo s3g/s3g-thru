@@ -355,7 +355,7 @@ constexpr const char kChainParams[] = R"json([
 {"key":"locus","name":"Position","short_name":"POS","type":"float","min":0,"max":1,"step":0.01,"default":0.5},
 {"key":"field","name":"Field","short_name":"FIELD","type":"float","min":0.02,"max":1,"step":0.01,"default":1},
 {"key":"speed","name":"Speed","short_name":"SPD","type":"float","min":0.05,"max":4,"step":0.01,"default":1},
-{"key":"manual_lane","name":"Stack Position","short_name":"STACK","type":"float","min":1,"max":4,"step":0.01,"default":1},
+{"key":"manual_lane","name":"Stack Start","short_name":"START","type":"float","min":1,"max":4,"step":0.01,"default":1},
 {"key":"lane_cycles","name":"Stack Rate","short_name":"SCAN","type":"float","min":0.125,"max":16,"step":0.125,"default":1,"unit":"Hz"},
 {"key":"algorithm","name":"Algorithm","short_name":"ALG","type":"enum","options":["Motion","Lanes","Grains","Cutups","Sample","Slices"],"default":0},
 {"key":"join","name":"Join","short_name":"JOIN","type":"float","min":0,"max":1,"step":0.01,"default":1},
@@ -384,6 +384,7 @@ constexpr const char kChainParams[] = R"json([
 {"key":"motor_shape","name":"Motor Shape","short_name":"SHAPE","type":"enum","options":["Triangle","Rounded","Pulse"],"default":1},
 {"key":"lanes_mode","name":"Lanes Mode","short_name":"MODE","type":"enum","options":["Forward","Reverse","Ping Pong"],"default":0},
 {"key":"lane_path","name":"Stack Path","short_name":"PATH","type":"enum","options":["Down","Up","Triangle","Sine","Steps Down","Steps Up","Manual","Random"],"default":2},
+{"key":"stack_scan_paused","name":"Stack Scan","short_name":"SCAN","type":"enum","options":["Run","Hold"],"default":0,"live":true},
 {"key":"lane_blend","name":"Lane Transition","short_name":"BLEND","type":"enum","options":["Crossfade","Jump"],"default":0},
 {"key":"lane_path_shape","name":"Path Shape","short_name":"SHAPE","type":"enum","options":["Linear","Smooth","Exponential","Plateau"],"default":0},
 {"key":"lane_path_offset","name":"Path Offset","short_name":"OFFSET","type":"float","min":0,"max":1,"step":0.01,"default":0},
@@ -1035,6 +1036,7 @@ struct ThruInstance {
     std::uint32_t variationCounter = 0u;
     int lastVariationLane = -1;
     float performanceLane = 0.0f;
+    bool stackScanPaused = false;
     float attackCoefficient = 1.0f;
     float releaseCoefficient = 1.0f;
 
@@ -2520,6 +2522,7 @@ struct ThruInstance {
             ? voice.sourcePad : std::max(0, voice.note - rootNote));
         effective.lanePhaseOffset = pressureMode != 0
             ? clampValue(voice.laneOffset, 0.0f, 1.0f) : 0.0f;
+        effective.laneScanPaused = stackScanPaused;
         effective.mix = 1.0f;
         effective.recordInputGain = 1.0f;
         return effective;
@@ -5301,6 +5304,7 @@ void setParam(void* opaque, const char* key, const char* value)
     if (std::strcmp(key, "maintenance") != 0
         && std::strcmp(key, "performance_reset") != 0
         && std::strcmp(key, "all_notes_off") != 0
+        && std::strcmp(key, "stack_scan_paused") != 0
         && std::strcmp(key, "state") != 0) {
         instance->markPersistentStateDirty();
     }
@@ -5311,6 +5315,7 @@ void setParam(void* opaque, const char* key, const char* value)
     if (std::strcmp(key, "speed") == 0) { controls.speed = clampValue(parseFloat(value, controls.speed), 0.05f, 4.0f); return; }
     if (std::strcmp(key, "manual_lane") == 0) { controls.manualLane = clampValue(parseFloat(value, controls.manualLane + 1.0f) - 1.0f, 0.0f, 3.0f); return; }
     if (std::strcmp(key, "lane_cycles") == 0) { controls.laneCycles = clampValue(parseFloat(value, controls.laneCycles), 0.125f, 16.0f); return; }
+    if (std::strcmp(key, "stack_scan_paused") == 0) { instance->stackScanPaused = isTruthy(value); return; }
     if (std::strcmp(key, "algorithm") == 0) { controls.algorithm = static_cast<Engine::PlaybackAlgorithm>(parseEnum(value, kAlgorithmNames, static_cast<int>(controls.algorithm))); return; }
     if (std::strcmp(key, "sample_mode") == 0) { controls.sampleMode = static_cast<Engine::SampleMode>(parseEnum(value, kSampleModeNames, static_cast<int>(controls.sampleMode))); return; }
     if (std::strcmp(key, "slice_region_mode") == 0) { controls.sampleRegionMode = static_cast<Engine::RegionMode>(parseEnum(value, kRegionModeNames, static_cast<int>(controls.sampleRegionMode))); return; }
@@ -5625,6 +5630,7 @@ int getParam(void* opaque, const char* key, char* buffer, int bufferLength)
     if (std::strcmp(key, "speed") == 0) return std::snprintf(buffer, bufferLength, "%.4f", controls.speed);
     if (std::strcmp(key, "manual_lane") == 0) return std::snprintf(buffer, bufferLength, "%.4f", controls.manualLane + 1.0f);
     if (std::strcmp(key, "lane_cycles") == 0) return std::snprintf(buffer, bufferLength, "%.4f", controls.laneCycles);
+    if (std::strcmp(key, "stack_scan_paused") == 0) return std::snprintf(buffer, bufferLength, "%d", instance->stackScanPaused ? 1 : 0);
     if (std::strcmp(key, "algorithm") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(controls.algorithm));
     if (std::strcmp(key, "sample_mode") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(controls.sampleMode));
     if (std::strcmp(key, "slice_region_mode") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(controls.sampleRegionMode));

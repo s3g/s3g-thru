@@ -244,6 +244,7 @@ public:
         float laneCycles = 1.0f;
         float manualLane = 0.0f;
         float lanePhaseOffset = 0.0f;
+        bool laneScanPaused = false;
         LaneBlendMode laneBlend = LaneBlendMode::crossfade;
         LanePathShape lanePathShape = LanePathShape::linear;
         float lanePathOffset = 0.0f;
@@ -394,6 +395,8 @@ public:
         lanePosition_ = 0.0f;
         lanePhase_ = 0.0f;
         lanePhaseIncrement_ = 0.0f;
+        laneFrozenPhase_ = 0.0f;
+        laneScanPaused_ = false;
         laneWeightsInitialized_ = false;
         lastLaneSlewMs_ = -1.0f;
         for (std::size_t lane = 0u; lane < kStackLanes; ++lane) {
@@ -1425,6 +1428,8 @@ private:
         phase_ = 0.0;
         lanePhase_ = 0.0f;
         lanePhaseIncrement_ = 0.0f;
+        laneFrozenPhase_ = 0.0f;
+        laneScanPaused_ = false;
         speed_ = 1.0f;
         displayPosition_ = 0.0;
         fieldLow_ = 0.0;
@@ -1963,11 +1968,23 @@ private:
             lanePhaseIncrement_ = 0.0f;
             return;
         }
-        lanePhaseIncrement_ = clamp(
+        const float phaseOffset = clamp(controls.lanePhaseOffset, 0.0f, 1.0f);
+        if (controls.laneScanPaused && !laneScanPaused_) {
+            laneFrozenPhase_ = lanePhase_ + phaseOffset;
+            while (laneFrozenPhase_ >= 1.0f) laneFrozenPhase_ -= 1.0f;
+            while (laneFrozenPhase_ < 0.0f) laneFrozenPhase_ += 1.0f;
+        } else if (!controls.laneScanPaused && laneScanPaused_) {
+            // Resume from the audible held blend even if pressure changed
+            // while the scan was paused.
+            lanePhase_ = laneFrozenPhase_ - phaseOffset;
+            while (lanePhase_ >= 1.0f) lanePhase_ -= 1.0f;
+            while (lanePhase_ < 0.0f) lanePhase_ += 1.0f;
+        }
+        laneScanPaused_ = controls.laneScanPaused;
+        lanePhaseIncrement_ = laneScanPaused_ ? 0.0f : clamp(
             controls.laneCycles, 0.125f, 16.0f) / outputSampleRate_;
-        float targetPhase = lanePhase_
-            + lanePhaseIncrement_ * static_cast<float>(frames)
-            + clamp(controls.lanePhaseOffset, 0.0f, 1.0f);
+        float targetPhase = laneScanPaused_ ? laneFrozenPhase_ : lanePhase_
+            + lanePhaseIncrement_ * static_cast<float>(frames) + phaseOffset;
         while (targetPhase >= 1.0f) {
             targetPhase -= 1.0f;
         }
@@ -3281,6 +3298,8 @@ private:
     double phase_ = 0.0;
     float lanePhase_ = 0.0f;
     float lanePhaseIncrement_ = 0.0f;
+    float laneFrozenPhase_ = 0.0f;
+    bool laneScanPaused_ = false;
     double stretchPhase_ = 0.0;
     float stretchMix_ = 0.0f;
     Grain grains_[kGrainVoiceCount] {};

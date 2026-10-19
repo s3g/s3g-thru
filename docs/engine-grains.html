@@ -18,18 +18,19 @@
         <div class="callout"><p><strong>Good for:</strong> freezes, clouds, independent time/pitch motion, stereo spray, regular or scattered textures, rhythmic doublets, stutters, and shrinking grain trains.</p></div>
 
         <h2 id="pages">Pages and navigation</h2>
-        <p>Set Algorithm to Grains. Up opens Grains Main, Grains Cloud, then Grains Process.</p>
+        <p>Set Algorithm to Grains. Up opens the shared <a href="engines.html#stack-path">Stack Path</a> page, then Grains Main, Grains Cloud, and Grains Process.</p>
         <div class="screen-gallery">
-          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/grains-main.svg" aria-label="Open Grains Main"><img src="assets/screens/grains-main.svg" alt="Grains Main parameter page"></button></div><figcaption>Main defines grain voice, source mode, and working window.</figcaption></figure>
+          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/stack-path.svg" aria-label="Open Stack Path"><img src="assets/screens/stack-path.svg" alt="Shared Stack Path parameter page"></button></div><figcaption>Stack Path shapes the moving lane blend captured by each new grain.</figcaption></figure>
+          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/grains-main.svg" aria-label="Open Grains Main"><img src="assets/screens/grains-main.svg" alt="Grains Main parameter page with two reserved positions"></button></div><figcaption>Main defines grain source mode, size, density, pitch, window, and spread.</figcaption></figure>
           <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/grains-cloud.svg" aria-label="Open Grains Cloud"><img src="assets/screens/grains-cloud.svg" alt="Grains Cloud parameter page"></button></div><figcaption>Cloud distributes grain position, pitch, direction, duration, level, and timing.</figcaption></figure>
-          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/grains-process.svg" aria-label="Open Grains Process"><img src="assets/screens/grains-process.svg" alt="Grains Process parameter page"></button></div><figcaption>Process introduces event patterns and manages source advance, quality, and lane movement.</figcaption></figure>
+          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/grains-process.svg" aria-label="Open Grains Process"><img src="assets/screens/grains-process.svg" alt="Grains Process parameter page with two reserved positions"></button></div><figcaption>Process introduces event patterns and manages source advance and quality.</figcaption></figure>
         </div>
 
         <h2 id="engine-page">Engine page behavior</h2>
         <table class="readout-table parameter-table">
           <thead><tr><th>Knob</th><th>Parameter</th><th>Range</th><th>Grains behavior</th></tr></thead>
           <tbody>
-            <tr><td>1</td><td>Algorithm</td><td>Grains</td><td>Selects this engine and its three contextual pages.</td></tr>
+            <tr><td>1</td><td>Algorithm</td><td>Grains</td><td>Selects this engine and exposes Stack Path plus three Grains pages.</td></tr>
             <tr><td>2</td><td>Position</td><td>0.00–1.00</td><td>Centers the source window used for grain origins.</td></tr>
             <tr><td>3</td><td>Field</td><td>0.02–1.00</td><td>Limits scanning, cloud randomization, spray, and slice centers to a source window.</td></tr>
             <tr><td>4</td><td>Speed</td><td>0.05–4.00×</td><td>Moves the grain-origin phase. Played notes multiply this scan rate; they do not replace Grain Pitch.</td></tr>
@@ -50,8 +51,7 @@
             <tr><td>4</td><td>PIT</td><td>0.25–4.00×</td><td>Playback ratio inside each grain. This is independent of the note-controlled source scan Speed.</td></tr>
             <tr><td>5</td><td>WIN</td><td>6 choices</td><td>Envelope table: Parzen, Sine, Hann, Triangle, Gaussian, or Bell. Sharper shapes expose more grain rhythm; rounder shapes overlap more smoothly.</td></tr>
             <tr><td>6</td><td>SPRD</td><td>0.00–1.00</td><td>Random constant-power stereo pan range. 0 centers every grain; 1 uses the full left/right field.</td></tr>
-            <tr><td>7</td><td>POS</td><td>0.00–1.00</td><td>Center of the grain source window.</td></tr>
-            <tr><td>8</td><td>FLD</td><td>0.02–1.00</td><td>Width of the grain source window.</td></tr>
+            <tr><td>7–8</td><td>Reserved</td><td>—</td><td>Inactive positions available for future Grains Main controls. Position and Field remain on Engine.</td></tr>
           </tbody>
         </table>
 
@@ -80,8 +80,7 @@
             <tr><td>4</td><td>REGN</td><td>1–64</td><td>Number of equal source regions used by Grain Mode Slice.</td></tr>
             <tr><td>5</td><td>ADVN</td><td>Scan / Per Grain</td><td>Scan advances source phase continuously. Per Grain advances the origin only when a grain launches; paired Doublets share an origin.</td></tr>
             <tr><td>6</td><td>QUAL</td><td>4 / 8 / 16 voices</td><td>Maximum simultaneous grains inside each playback voice. More slots permit denser long grains but increase Move CPU cost.</td></tr>
-            <tr><td>7</td><td>PATH</td><td>8 stack paths</td><td>Uses the same Down, Up, Triangle, Sine, stepped, Manual, and Random paths described in <a href="engine-lanes.html#paths">Lanes</a>. A grain captures the current blend at launch.</td></tr>
-            <tr><td>8</td><td>RATE</td><td>0.125–16 Hz</td><td>Speed of the stack path sampled by new grains.</td></tr>
+            <tr><td>7–8</td><td>Reserved</td><td>—</td><td>Inactive positions available for future Grains Process controls. Path is on Stack Path; Scan Rate is on Engine.</td></tr>
           </tbody>
         </table>
 
@@ -92,7 +91,7 @@
       <aside class="toc" aria-label="Page navigation">
         <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
         <div class="toc-section"><h2>Engine guides</h2><a href="engine-motion.html">Motion</a><a href="engine-lanes.html">Lanes</a><a href="engine-grains.html">Grains</a><a href="engine-cutups.html">Cutups</a><a href="engine-sample.html">Sample</a><a href="engine-slices.html">Slices</a></div>
-        <div class="toc-section"><h2>On this page</h2><a href="#pages">Pages</a><a href="#engine-page">Engine page</a><a href="#main">Grains Main</a><a href="#cloud">Grains Cloud</a><a href="#process">Grains Process</a></div>
+        <div class="toc-section"><h2>On this page</h2><a href="#pages">Pages</a><a href="#engine-page">Engine page</a><a href="engines.html#stack-path">Stack Path</a><a href="#main">Grains Main</a><a href="#cloud">Grains Cloud</a><a href="#process">Grains Process</a></div>
       </aside>
     </div>
     <footer class="manual-footer">Grains: source advance and grain pitch are independent.</footer>

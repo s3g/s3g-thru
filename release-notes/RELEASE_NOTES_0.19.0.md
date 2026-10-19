@@ -7,6 +7,11 @@ performance recorder.
   freezes at its own exact lane crossfade, ignores pressure drift while held,
   and resumes from that audible point. The former Stack Position label is now
   Stack Start to clarify its role as Manual position or moving-path phase seed.
+- Parameter pages now give every control one location. Engine holds the common
+  source controls, Stack Path is shared by Motion/Lanes/Grains, Direct Play is
+  shared by Sample/Slices, and engine-specific pages contain only unique
+  controls. Unassigned encoder positions show a small hollow reserved box and
+  remain inert.
 - A twelve-page illustrated manual now covers setup, the screen model, audio and
   library sources, every playback engine, performance clips and chains, Move
   shortcuts, LEDs, and external MIDI. Screen figures are generated from the

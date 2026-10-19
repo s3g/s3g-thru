@@ -251,7 +251,7 @@ function captureEnginePages(algorithm, pages) {
     selectAlgorithm(algorithm);
     for (const page of pages) {
         moveSettingsPage(1);
-        capture(page.filename, page.title);
+        if (page.filename) capture(page.filename, page.title);
     }
     moveSettingsPage(-pages.length);
 }
@@ -267,14 +267,16 @@ tick();
 capture('engine-page.svg', 'Engine parameter page');
 
 captureEnginePages(0, [
+    { filename: 'stack-path.svg', title: 'Shared Stack Path parameter page' },
     { filename: 'motion-path.svg', title: 'Motion Path parameter page' },
     { filename: 'motion-sound.svg', title: 'Motion Sound parameter page' },
 ]);
 captureEnginePages(1, [
-    { filename: 'lanes-page.svg', title: 'Lanes Path parameter page' },
-    { filename: 'lanes-shape.svg', title: 'Lanes Shape parameter page' },
+    {},
+    { filename: 'lanes-play.svg', title: 'Lanes Play parameter page' },
 ]);
 captureEnginePages(2, [
+    {},
     { filename: 'grains-main.svg', title: 'Grains Main parameter page' },
     { filename: 'grains-cloud.svg', title: 'Grains Cloud parameter page' },
     { filename: 'grains-process.svg', title: 'Grains Process parameter page' },
@@ -284,10 +286,11 @@ captureEnginePages(3, [
     { filename: 'cutups-path.svg', title: 'Cutups Path parameter page' },
 ]);
 captureEnginePages(4, [
-    { filename: 'sample-page.svg', title: 'Direct Sample parameter page' },
+    { filename: 'direct-play.svg', title: 'Shared Direct Play parameter page' },
 ]);
 captureEnginePages(5, [
-    { filename: 'slices-page.svg', title: 'Slices parameter page' },
+    {},
+    { filename: 'slice-source.svg', title: 'Slice Source parameter page' },
 ]);
 
 selectAlgorithm(1);

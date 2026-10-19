@@ -18,16 +18,16 @@
         <div class="callout"><p><strong>Good for:</strong> conventional sample playback, pitched chords, sustained loops, reverse one-shots, velocity-addressed lane layers, cue points, and tempo-synced rolls.</p></div>
 
         <h2 id="page">Page and navigation</h2>
-        <p>Set Algorithm to Sample. Up opens the one engine-specific Direct Sample page.</p>
+        <p>Set Algorithm to Sample. Up opens the shared Direct Play page used by both Sample and Slices.</p>
         <div class="screen-gallery single">
-          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/sample-page.svg" aria-label="Open Direct Sample"><img src="assets/screens/sample-page.svg" alt="Direct Sample parameter page"></button></div><figcaption>The page puts transport, source window, pitch, lane choice, pad layout, and output level together.</figcaption></figure>
+          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/direct-play.svg" aria-label="Open Direct Play"><img src="assets/screens/direct-play.svg" alt="Direct Play page with three controls and five reserved positions"></button></div><figcaption>Direct Play keeps direction, lane variation, and pad layout together. Source window, pitch, Stack Start, and Level remain on Engine.</figcaption></figure>
         </div>
 
         <h2 id="engine-page">Engine page behavior</h2>
         <table class="readout-table parameter-table">
           <thead><tr><th>Knob</th><th>Parameter</th><th>Range</th><th>Sample behavior</th></tr></thead>
           <tbody>
-            <tr><td>1</td><td>Algorithm</td><td>Sample</td><td>Selects the direct reader and exposes Direct Sample.</td></tr>
+            <tr><td>1</td><td>Algorithm</td><td>Sample</td><td>Selects the direct reader and exposes Direct Play.</td></tr>
             <tr><td>2</td><td>Position</td><td>0.00–1.00</td><td>Centers the source window. The short top tick in the waveform marks this boundary.</td></tr>
             <tr><td>3</td><td>Field</td><td>0.02–1.00</td><td>Sets the width of the source window. The short bottom tick marks its other boundary.</td></tr>
             <tr><td>4</td><td>Speed</td><td>0.05–4.00×</td><td>Sets base read rate. Note pitch multiplies this rate around Root.</td></tr>
@@ -38,18 +38,14 @@
           </tbody>
         </table>
 
-        <h2 id="parameters">Direct Sample — every parameter</h2>
+        <h2 id="parameters">Direct Play — every parameter</h2>
         <table class="readout-table parameter-table">
           <thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>Detail</th></tr></thead>
           <tbody>
             <tr><td>1</td><td>PLAY</td><td>Forward / Reverse / Loop / Ping Pong</td><td>Chooses the read direction and whether playback stops or repeats at the Position/Field boundaries.</td></tr>
-            <tr><td>2</td><td>POS</td><td>0.00–1.00</td><td>Moves the source window without changing its width.</td></tr>
-            <tr><td>3</td><td>FLD</td><td>0.02–1.00</td><td>Changes the amount of the lane inside the playback window.</td></tr>
-            <tr><td>4</td><td>SPD</td><td>0.05–4.00×</td><td>Base playback rate before note transposition. Root plays the displayed rate.</td></tr>
-            <tr><td>5</td><td>STAK</td><td>1.00–4.00</td><td>Chooses a lane when VARI is Manual. If that lane is empty, the first loaded lane is used.</td></tr>
-            <tr><td>6</td><td>VARI</td><td>Manual / Cycle / Random / No Repeat / Velocity</td><td>Chooses how a lane is assigned when each new voice starts. The lane remains fixed for that voice.</td></tr>
-            <tr><td>7</td><td>PADS</td><td>Keys / Slices / Cues / Rolls</td><td>Changes what the 32 pads address. See the complete behavior table below.</td></tr>
-            <tr><td>8</td><td>LEVL</td><td>0.00–2.00</td><td>Final output gain after the selected lane's gain on Mix / Rec.</td></tr>
+            <tr><td>2</td><td>VARI</td><td>Manual / Cycle / Random / No Repeat / Velocity</td><td>Chooses how a lane is assigned when each new voice starts. The lane remains fixed for that voice.</td></tr>
+            <tr><td>3</td><td>PADS</td><td>Keys / Slices / Cues / Rolls</td><td>Changes what the 32 pads address. See the complete behavior table below.</td></tr>
+            <tr><td>4–8</td><td>Reserved</td><td>—</td><td>Inactive positions available for future direct-play controls.</td></tr>
           </tbody>
         </table>
 

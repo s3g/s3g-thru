@@ -21,18 +21,18 @@
 
         <figure>
           <div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/engine-page.svg" aria-label="Open the Engine page figure"><img src="assets/screens/engine-page.svg" alt="Engine page with algorithm and seven shared playback controls"></button></div>
-          <figcaption>Press <kbd>Menu</kbd> to open Engine. Knobs 1–4 follow the top row; knobs 5–8 follow the bottom row. Up/Down then moves through only the pages belonging to the selected Algorithm.</figcaption>
+          <figcaption>Press <kbd>Menu</kbd> to open Engine. Knobs 1–4 follow the top row; knobs 5–8 follow the bottom row. Up/Down then moves through only the pages used by the selected Algorithm.</figcaption>
         </figure>
 
         <h2 id="choose">Choose an engine</h2>
 
         <div class="manual-grid engine-grid">
-          <a class="manual-card engine-card" href="engine-motion.html"><h3>Motion</h3><p>A continuously moving read head with eight trajectories and four articulation models.</p><span>2 engine pages · 16 controls</span></a>
-          <a class="manual-card engine-card" href="engine-lanes.html"><h3>Lanes</h3><p>Continuous playback shaped by a programmable path through the four-lane stack.</p><span>2 engine pages · 16 controls</span></a>
-          <a class="manual-card engine-card" href="engine-grains.html"><h3>Grains</h3><p>Layered grain clouds with source, variation, timing, process, and quality control.</p><span>3 engine pages · 24 controls</span></a>
-          <a class="manual-card engine-card" href="engine-cutups.html"><h3>Cutups</h3><p>Clocked region events with independent region order, lane order, and polyphonic paths.</p><span>2 engine pages · 16 controls</span></a>
-          <a class="manual-card engine-card" href="engine-sample.html"><h3>Sample</h3><p>Direct one-shot, loop, reverse, or ping-pong playback from one discrete lane.</p><span>1 engine page · 8 controls</span></a>
-          <a class="manual-card engine-card" href="engine-slices.html"><h3>Slices</h3><p>Pad-addressed equal or transient regions with direct playback and lane variation.</p><span>1 engine page · 8 controls</span></a>
+          <a class="manual-card engine-card" href="engine-motion.html"><h3>Motion</h3><p>A continuously moving read head with eight trajectories and four articulation models.</p><span>Stack Path + 2 unique pages</span></a>
+          <a class="manual-card engine-card" href="engine-lanes.html"><h3>Lanes</h3><p>Continuous playback shaped by a programmable path through the four-lane stack.</p><span>Stack Path + 1 unique page</span></a>
+          <a class="manual-card engine-card" href="engine-grains.html"><h3>Grains</h3><p>Layered grain clouds with source, variation, timing, process, and quality control.</p><span>Stack Path + 3 unique pages</span></a>
+          <a class="manual-card engine-card" href="engine-cutups.html"><h3>Cutups</h3><p>Clocked region events with independent region order, lane order, and polyphonic paths.</p><span>2 unique pages</span></a>
+          <a class="manual-card engine-card" href="engine-sample.html"><h3>Sample</h3><p>Direct one-shot, loop, reverse, or ping-pong playback from one discrete lane.</p><span>Shared Direct Play page</span></a>
+          <a class="manual-card engine-card" href="engine-slices.html"><h3>Slices</h3><p>Pad-addressed equal or transient regions with direct playback and lane variation.</p><span>Direct Play + 1 unique page</span></a>
         </div>
 
         <h2 id="shared">The shared Engine page</h2>
@@ -44,14 +44,56 @@
             <tr><td>2</td><td>Position</td><td>0.00–1.00</td><td>Centers the active source window. Near either end, the window is clamped so it never extends beyond the sample.</td></tr>
             <tr><td>3</td><td>Field</td><td>0.02–1.00</td><td>Sets the active window width as a fraction of the sample. The waveform uses a short top tick for Position and a short bottom tick for Field.</td></tr>
             <tr><td>4</td><td>Speed</td><td>0.05–4.00×</td><td>Sets base source transport. Pad pitch multiplies it around Root; Grains and Cutups apply that relationship differently, as described in their guides.</td></tr>
-            <tr><td>5</td><td>Stack Start</td><td>1.00–4.00</td><td>Sets an exact lane/crossfade for Manual stack motion, or the starting phase of a moving stack path. Direct Sample and Slices round it to a discrete loaded lane.</td></tr>
-            <tr><td>6</td><td>Scan Rate</td><td>0.125–16 Hz</td><td>Sets cycles per second for moving stack paths. <kbd>Loop</kbd> freezes the audible phase. Direct Sample, Slices, and Cutups do not use continuous stack scanning.</td></tr>
+            <tr><td>5</td><td>Stack Start</td><td>1.00–4.00</td><td>Sets an exact lane/crossfade for Manual stack motion, or the starting phase of a moving stack path. Sample and Slices round it to a discrete loaded lane.</td></tr>
+            <tr><td>6</td><td>Scan Rate</td><td>0.125–16 Hz</td><td>Sets cycles per second for moving stack paths. <kbd>Loop</kbd> freezes the audible phase. Sample, Slices, and Cutups do not use continuous stack scanning.</td></tr>
             <tr><td>7</td><td>Join</td><td>0.00–1.00</td><td>Scales seam smoothing for continuous/event readers. Motion also uses it as articulation depth. Cutups has a separate Cut Join for event-to-event fades.</td></tr>
             <tr><td>8</td><td>Level</td><td>0.00–2.00</td><td>Final instrument output gain. Pad velocity never attenuates playback.</td></tr>
           </tbody>
         </table>
 
-        <div class="callout"><p><strong>Context matters:</strong> the shared page keeps the same knob layout for every engine, but some controls affect only particular playback methods. Each engine guide states which controls apply.</p></div>
+        <div class="callout"><p><strong>One control, one location:</strong> a parameter appears on only one parameter page. Shared pages retain the same knob positions wherever they appear. A small hollow box marks an unassigned encoder position reserved for a future control; turning that encoder does nothing.</p></div>
+
+        <h2 id="stack-path">Shared Stack Path page</h2>
+
+        <p>Motion, Lanes, and Grains all use this same page to shape movement through the four audio lanes. Stack Start and Scan Rate remain on Engine and are not repeated here.</p>
+
+        <figure>
+          <div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/stack-path.svg" aria-label="Open the shared Stack Path page figure"><img src="assets/screens/stack-path.svg" alt="Shared Stack Path page with seven controls and one reserved encoder position"></button></div>
+          <figcaption>The hollow box at knob 8 is a reserved, inactive encoder position.</figcaption>
+        </figure>
+
+        <table class="readout-table parameter-table">
+          <thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>What it controls</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>PATH</td><td>8 choices</td><td>Chooses Down, Up, Triangle, Sine, Steps Down, Steps Up, Manual, or Random movement through the stack.</td></tr>
+            <tr><td>2</td><td>BLND</td><td>Crossfade / Jump</td><td>Crossfade blends adjacent loaded lanes; Jump selects the nearer loaded lane.</td></tr>
+            <tr><td>3</td><td>SHAP</td><td>Linear / Smooth / Exponential / Plateau</td><td>Changes the contour of the path before it becomes a lane position.</td></tr>
+            <tr><td>4</td><td>OFST</td><td>0.00–1.00</td><td>Rotates the path through one complete cycle without changing Scan Rate.</td></tr>
+            <tr><td>5</td><td>SKEW</td><td>0.02–0.98</td><td>Moves the path's halfway point earlier or later in the cycle.</td></tr>
+            <tr><td>6</td><td>CURV</td><td>−1.00–1.00</td><td>Bends travel toward a faster start or a faster finish.</td></tr>
+            <tr><td>7</td><td>SLEW</td><td>0–500 ms</td><td>Softens abrupt lane-weight changes, especially with Jump and stepped paths.</td></tr>
+            <tr><td>8</td><td>Reserved</td><td>—</td><td>Inactive and available for a future Stack Path control.</td></tr>
+          </tbody>
+        </table>
+
+        <h2 id="direct-play">Shared Direct Play page</h2>
+
+        <p>Sample and Slices use this same page for playback direction, lane selection, and pad behavior. Position, Field, Speed, Stack Start, and Level remain on Engine.</p>
+
+        <figure>
+          <div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/direct-play.svg" aria-label="Open the shared Direct Play page figure"><img src="assets/screens/direct-play.svg" alt="Shared Direct Play page with three controls and five reserved encoder positions"></button></div>
+          <figcaption>Only the three assigned encoders respond; the five hollow boxes are reserved.</figcaption>
+        </figure>
+
+        <table class="readout-table parameter-table">
+          <thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>What it controls</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>PLAY</td><td>Forward / Reverse / Loop / Ping Pong</td><td>Chooses direction and whether the window or slice stops or repeats.</td></tr>
+            <tr><td>2</td><td>VARI</td><td>Manual / Cycle / Random / No Repeat / Velocity</td><td>Selects a discrete lane whenever a voice begins.</td></tr>
+            <tr><td>3</td><td>PADS</td><td>Keys / Slices / Cues / Rolls</td><td>Chooses how the 32 pads address pitch, regions, cues, or rolls.</td></tr>
+            <tr><td>4–8</td><td>Reserved</td><td>—</td><td>Inactive positions available for future direct-play controls.</td></tr>
+          </tbody>
+        </table>
 
         <h2 id="compare">At a glance</h2>
 
@@ -82,7 +124,7 @@
       <aside class="toc" aria-label="Page navigation">
         <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
         <div class="toc-section"><h2>Engine guides</h2><a href="engine-motion.html">Motion</a><a href="engine-lanes.html">Lanes</a><a href="engine-grains.html">Grains</a><a href="engine-cutups.html">Cutups</a><a href="engine-sample.html">Sample</a><a href="engine-slices.html">Slices</a></div>
-        <div class="toc-section"><h2>On this page</h2><a href="#choose">Choose</a><a href="#shared">Shared page</a><a href="#compare">Compare</a><a href="#voices">Shared behavior</a></div>
+        <div class="toc-section"><h2>On this page</h2><a href="#choose">Choose</a><a href="#shared">Engine page</a><a href="#stack-path">Stack Path</a><a href="#direct-play">Direct Play</a><a href="#compare">Compare</a><a href="#voices">Shared behavior</a></div>
       </aside>
     </div>
     <footer class="manual-footer">All engines share the same four clip-local lane sources and eight-voice pool.</footer>

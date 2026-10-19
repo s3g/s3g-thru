@@ -18,17 +18,17 @@
         <div class="callout"><p><strong>Good for:</strong> treating four variations as a single evolving instrument, pressure-directed morphs, stepped lane sequences, smooth cyclic crossfades, and pitch-preserving duration changes.</p></div>
 
         <h2 id="pages">Pages and navigation</h2>
-        <p>Set Algorithm to Lanes. Press Up for Lanes Path and again for Lanes Shape.</p>
+        <p>Set Algorithm to Lanes. Press Up for the shared Stack Path page and again for Lanes Play.</p>
         <div class="screen-gallery">
-          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/lanes-page.svg" aria-label="Open Lanes Path"><img src="assets/screens/lanes-page.svg" alt="Lanes Path parameter page"></button></div><figcaption>Lanes Path sets time direction, stack trajectory, transition type, and path shape.</figcaption></figure>
-          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/lanes-shape.svg" aria-label="Open Lanes Shape"><img src="assets/screens/lanes-shape.svg" alt="Lanes Shape parameter page"></button></div><figcaption>Lanes Shape bends that trajectory and configures slew and stretch.</figcaption></figure>
+          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/stack-path.svg" aria-label="Open Stack Path"><img src="assets/screens/stack-path.svg" alt="Shared Stack Path parameter page"></button></div><figcaption>Stack Path keeps all seven lane-trajectory controls together and in the same positions used by Motion and Grains.</figcaption></figure>
+          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/lanes-play.svg" aria-label="Open Lanes Play"><img src="assets/screens/lanes-play.svg" alt="Lanes Play parameter page with three controls and five reserved positions"></button></div><figcaption>Lanes Play contains only direction and the two time-stretch controls unique to Lanes.</figcaption></figure>
         </div>
 
         <h2 id="engine-page">Engine page behavior</h2>
         <table class="readout-table parameter-table">
           <thead><tr><th>Knob</th><th>Parameter</th><th>Range</th><th>Lanes behavior</th></tr></thead>
           <tbody>
-            <tr><td>1</td><td>Algorithm</td><td>Lanes</td><td>Selects this engine and exposes Lanes Path and Lanes Shape.</td></tr>
+            <tr><td>1</td><td>Algorithm</td><td>Lanes</td><td>Selects this engine and exposes Stack Path and Lanes Play.</td></tr>
             <tr><td>2</td><td>Position</td><td>0.00–1.00</td><td>Centers the source window read by all participating lanes.</td></tr>
             <tr><td>3</td><td>Field</td><td>0.02–1.00</td><td>Sets the source-window width before lane-length compensation is applied.</td></tr>
             <tr><td>4</td><td>Speed</td><td>0.05–4.00×</td><td>Sets transport/pitch, multiplied by note interval from Root.</td></tr>
@@ -39,18 +39,19 @@
           </tbody>
         </table>
 
-        <h2 id="path">Lanes Path — every parameter</h2>
+        <h2 id="path">Stack Path — every parameter</h2>
+        <p>This shared page is identical for Motion, Lanes, and Grains.</p>
         <table class="readout-table parameter-table">
           <thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>Detail</th></tr></thead>
           <tbody>
-            <tr><td>1</td><td>MODE</td><td>Forward / Reverse / Ping Pong</td><td>Selects the direction used to read every active lane. Ping Pong travels out and back at the same audible pitch as the other modes.</td></tr>
-            <tr><td>2</td><td>PATH</td><td>8 choices</td><td>Chooses how stack position moves: Down, Up, Triangle, Sine, Steps Down, Steps Up, Manual, or Random.</td></tr>
-            <tr><td>3</td><td>RATE</td><td>0.125–16 Hz</td><td>Stack-path cycles per second. Every voice owns its own phase and pressure offset.</td></tr>
-            <tr><td>4</td><td>STAK</td><td>1.00–4.00</td><td>Stack Start. Manual uses the exact continuous lane position; moving paths use it as the voice's phase seed.</td></tr>
-            <tr><td>5</td><td>BLND</td><td>Crossfade / Jump</td><td>Crossfade blends adjacent loaded lanes with a smooth equal-position curve. Jump chooses the nearer loaded lane.</td></tr>
-            <tr><td>6</td><td>SHAP</td><td>Linear / Smooth / Exponential / Plateau</td><td>Remaps the path output before it becomes a 1–4 lane position. Plateau quantizes the result into four levels.</td></tr>
-            <tr><td>7</td><td>FLD</td><td>0.02–1.00</td><td>Source-window width shared by the lane readers.</td></tr>
-            <tr><td>8</td><td>JOIN</td><td>0.00–1.00</td><td>Read-head seam and reversal smoothing inside the source window.</td></tr>
+            <tr><td>1</td><td>PATH</td><td>8 choices</td><td>Chooses how stack position moves: Down, Up, Triangle, Sine, Steps Down, Steps Up, Manual, or Random.</td></tr>
+            <tr><td>2</td><td>BLND</td><td>Crossfade / Jump</td><td>Crossfade blends adjacent loaded lanes with a smooth curve. Jump chooses the nearer loaded lane.</td></tr>
+            <tr><td>3</td><td>SHAP</td><td>Linear / Smooth / Exponential / Plateau</td><td>Remaps the path before it becomes a 1–4 lane position. Plateau quantizes the result into four levels.</td></tr>
+            <tr><td>4</td><td>OFST</td><td>0.00–1.00</td><td>Rotates the whole stack path and wraps at 1.00, shifting every breakpoint without changing speed.</td></tr>
+            <tr><td>5</td><td>SKEW</td><td>0.02–0.98</td><td>Moves the halfway point in time. Below 0.50 reaches the path midpoint early; above 0.50 reaches it late.</td></tr>
+            <tr><td>6</td><td>CURV</td><td>−1.00–1.00</td><td>Bends travel toward a faster start or a faster finish.</td></tr>
+            <tr><td>7</td><td>SLEW</td><td>0–500 ms</td><td>Softens Jump, stepped paths, and live path changes. 0 is immediate.</td></tr>
+            <tr><td>8</td><td>Reserved</td><td>—</td><td>Inactive and available for a future Stack Path control.</td></tr>
           </tbody>
         </table>
 
@@ -69,18 +70,14 @@
           </tbody>
         </table>
 
-        <h2 id="shape">Lanes Shape — every parameter</h2>
+        <h2 id="play">Lanes Play — every parameter</h2>
         <table class="readout-table parameter-table">
           <thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>Detail</th></tr></thead>
           <tbody>
-            <tr><td>1</td><td>OFST</td><td>0.00–1.00</td><td>Rotates the whole stack-path phase and wraps at 1.00. This shifts every breakpoint without changing speed.</td></tr>
-            <tr><td>2</td><td>SKEW</td><td>0.02–0.98</td><td>Moves the halfway point in time. Below 0.50 reaches the path midpoint early; above 0.50 reaches it late.</td></tr>
-            <tr><td>3</td><td>CURV</td><td>−1.00–1.00</td><td>Bends phase before Path is evaluated. Negative values move quickly early and ease late; positive values ease early and accelerate late.</td></tr>
-            <tr><td>4</td><td>SLEW</td><td>0–500 ms</td><td>One-pole smoothing for lane-weight changes. 0 is immediate; higher values soften Jump, stepped paths, and live path edits.</td></tr>
-            <tr><td>5</td><td>STR</td><td>Off / On</td><td>Enables time stretching when Ratio differs from 1.00, without intentionally changing pitch.</td></tr>
-            <tr><td>6</td><td>RATI</td><td>0.25–4.00×</td><td>Sets stretch duration: values above 1 lengthen playback and values below 1 shorten it while keeping pitch as steady as possible.</td></tr>
-            <tr><td>7</td><td>SPD</td><td>0.05–4.00×</td><td>Source pitch/transport before Stretch Ratio modifies duration.</td></tr>
-            <tr><td>8</td><td>LEVL</td><td>0.00–2.00</td><td>Final output gain.</td></tr>
+            <tr><td>1</td><td>MODE</td><td>Forward / Reverse / Ping Pong</td><td>Selects the direction used to read every active lane. Ping Pong travels out and back at the same audible pitch as the other modes.</td></tr>
+            <tr><td>2</td><td>STR</td><td>Off / On</td><td>Enables time stretching when Ratio differs from 1.00, without intentionally changing pitch.</td></tr>
+            <tr><td>3</td><td>RATI</td><td>0.25–4.00×</td><td>Values above 1 lengthen playback and values below 1 shorten it while keeping pitch as steady as possible.</td></tr>
+            <tr><td>4–8</td><td>Reserved</td><td>—</td><td>Inactive positions available for future Lanes controls. Speed and Level remain on Engine.</td></tr>
           </tbody>
         </table>
 
@@ -92,7 +89,7 @@
       <aside class="toc" aria-label="Page navigation">
         <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
         <div class="toc-section"><h2>Engine guides</h2><a href="engine-motion.html">Motion</a><a href="engine-lanes.html">Lanes</a><a href="engine-grains.html">Grains</a><a href="engine-cutups.html">Cutups</a><a href="engine-sample.html">Sample</a><a href="engine-slices.html">Slices</a></div>
-        <div class="toc-section"><h2>On this page</h2><a href="#pages">Pages</a><a href="#engine-page">Engine page</a><a href="#path">Lanes Path</a><a href="#paths">Path choices</a><a href="#shape">Lanes Shape</a></div>
+        <div class="toc-section"><h2>On this page</h2><a href="#pages">Pages</a><a href="#engine-page">Engine page</a><a href="#path">Stack Path</a><a href="#paths">Path choices</a><a href="#play">Lanes Play</a></div>
       </aside>
     </div>
     <footer class="manual-footer">Lanes: source direction and stack direction remain independent.</footer>

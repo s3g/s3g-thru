@@ -22,10 +22,10 @@
         <div class="callout"><p><strong>Good for:</strong> smooth source traversal, moving loops, eased reversals, deterministic wandering, tremolo-like packets, motor rhythms, and bouncing amplitude gestures.</p></div>
 
         <h2 id="pages">Pages and navigation</h2>
-        <p>On Engine, set Algorithm to Motion. Press Up for Motion Path and Up again for Motion Sound. In every screenshot, knobs 1–4 are the top row and knobs 5–8 are the bottom row.</p>
+        <p>On Engine, set Algorithm to Motion. Press Up for the shared <a href="engines.html#stack-path">Stack Path</a> page, then Motion Path and Motion Sound. Knobs 1–4 are the top row and knobs 5–8 are the bottom row.</p>
 
         <div class="screen-gallery">
-          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/motion-path.svg" aria-label="Open Motion Path"><img src="assets/screens/motion-path.svg" alt="Motion Path parameter page"></button></div><figcaption>Motion Path controls the read-head trajectory and source window.</figcaption></figure>
+          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/motion-path.svg" aria-label="Open Motion Path"><img src="assets/screens/motion-path.svg" alt="Motion Path parameter page with three controls and five reserved encoder positions"></button></div><figcaption>Motion Path contains only the three controls unique to the read-head trajectory.</figcaption></figure>
           <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/motion-sound.svg" aria-label="Open Motion Sound"><img src="assets/screens/motion-sound.svg" alt="Motion Sound parameter page"></button></div><figcaption>Motion Sound controls articulation layered over that trajectory.</figcaption></figure>
         </div>
 
@@ -33,7 +33,7 @@
         <table class="readout-table parameter-table">
           <thead><tr><th>Knob</th><th>Parameter</th><th>Range</th><th>Motion behavior</th></tr></thead>
           <tbody>
-            <tr><td>1</td><td>Algorithm</td><td>Motion</td><td>Selects this engine and exposes Motion Path and Motion Sound.</td></tr>
+            <tr><td>1</td><td>Algorithm</td><td>Motion</td><td>Selects this engine and exposes Stack Path, Motion Path, and Motion Sound.</td></tr>
             <tr><td>2</td><td>Position</td><td>0.00–1.00</td><td>Centers the travel window. Moving Loop treats a manual Position change as the next moving-window center.</td></tr>
             <tr><td>3</td><td>Field</td><td>0.02–1.00</td><td>Sets the width available to the path. The window is clamped at the ends of the sample.</td></tr>
             <tr><td>4</td><td>Speed</td><td>0.05–4.00×</td><td>Sets path transport speed and is multiplied by the played note's interval from Root.</td></tr>
@@ -51,11 +51,7 @@
             <tr><td>1</td><td>MODE</td><td>8 choices</td><td>Selects Forward, Reverse, Hover, Round Trip, Moving Loop, Mirror, Zigzag, or Drunk. See the mode table below.</td></tr>
             <tr><td>2</td><td>TRVL</td><td>0.00–1.00</td><td>Drunk only: contracts or expands its deterministic random targets around the center of Field. 0 stays centered; 1 uses the full target range.</td></tr>
             <tr><td>3</td><td>JITR</td><td>0.00–1.00</td><td>Drunk only: offsets the timing within each interpolation segment. It is deterministic, so saved clips recall the same movement.</td></tr>
-            <tr><td>4</td><td>POS</td><td>0.00–1.00</td><td>Same Position control as Engine: center of the Motion window.</td></tr>
-            <tr><td>5</td><td>FLD</td><td>0.02–1.00</td><td>Same Field control as Engine: total source span available to the trajectory.</td></tr>
-            <tr><td>6</td><td>SPD</td><td>0.05–4.00×</td><td>Same Speed control as Engine. A one-octave note interval doubles or halves this base transport.</td></tr>
-            <tr><td>7</td><td>JOIN</td><td>0.00–1.00</td><td>Scales click-safe seam, turn, and articulation transitions. At maximum, a forward/reverse wrap uses up to 8% of Field or 20 ms, whichever is smaller.</td></tr>
-            <tr><td>8</td><td>LEVL</td><td>0.00–2.00</td><td>Same final Level control as Engine.</td></tr>
+            <tr><td>4–8</td><td>Reserved</td><td>—</td><td>Inactive positions available for future Motion Path controls.</td></tr>
           </tbody>
         </table>
 
@@ -84,8 +80,7 @@
             <tr><td>4</td><td>MRAT</td><td>0.05–20 Hz</td><td>Rate of Motor's outer amplitude cycle. It is independent of the four-times-faster inner packet clock.</td></tr>
             <tr><td>5</td><td>MSYM</td><td>5–95%</td><td>Moves the peak of the Motor cycle, balancing its rise time against its fall time.</td></tr>
             <tr><td>6</td><td>MSHP</td><td>Triangle / Rounded / Pulse</td><td>Shapes Motor's outer cycle: linear slopes, smoothstep curves, or a two-state pulse.</td></tr>
-            <tr><td>7</td><td>JOIN</td><td>0.00–1.00</td><td>Controls articulation depth as well as path smoothing. Lower values leave more continuous signal between packets.</td></tr>
-            <tr><td>8</td><td>LEVL</td><td>0.00–2.00</td><td>Final output gain after the Sound envelope.</td></tr>
+            <tr><td>7–8</td><td>Reserved</td><td>—</td><td>Inactive positions available for future Motion Sound controls. Join and Level remain on Engine.</td></tr>
           </tbody>
         </table>
 

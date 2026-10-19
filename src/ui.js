@@ -185,31 +185,34 @@ const MAIN_ENGINE_CONTROLS = [
 ];
 const ENGINE_PAGE = { title: 'ENGINE', keys: ['algorithm', 'locus', 'field',
     'speed', 'manual_lane', 'lane_cycles', 'join', 'output_gain'] };
+const STACK_PATH_PAGE = { title: 'STACK PATH', keys: ['lane_path',
+    'lane_blend', 'lane_path_shape', 'lane_path_offset', 'lane_path_skew',
+    'lane_path_curve', 'lane_slew'] };
+const DIRECT_PLAY_PAGE = { title: 'DIRECT PLAY', keys: ['sample_mode',
+    'lane_variation', 'pad_mode'] };
 const PLAYBACK_PAGES = [
     [
+        STACK_PATH_PAGE,
         { title: 'MOTION PATH', keys: ['motion_mode', 'motion_travel',
-            'motion_jitter', 'locus', 'field', 'speed', 'join', 'output_gain'] },
+            'motion_jitter'] },
         { title: 'MOTION SOUND', keys: ['motion_sound', 'motion_rate',
-            'packet_duty', 'motor_rate', 'motor_symmetry', 'motor_shape',
-            'join', 'output_gain'] },
+            'packet_duty', 'motor_rate', 'motor_symmetry', 'motor_shape'] },
     ],
     [
-        { title: 'LANES PATH', keys: ['lanes_mode', 'lane_path', 'lane_cycles',
-            'manual_lane', 'lane_blend', 'lane_path_shape', 'field', 'join'] },
-        { title: 'LANES SHAPE', keys: ['lane_path_offset', 'lane_path_skew',
-            'lane_path_curve', 'lane_slew', 'lanes_stretch', 'stretch_ratio',
-            'speed', 'output_gain'] },
+        STACK_PATH_PAGE,
+        { title: 'LANES PLAY', keys: ['lanes_mode', 'lanes_stretch',
+            'stretch_ratio'] },
     ],
     [
+        STACK_PATH_PAGE,
         { title: 'GRAINS MAIN', keys: ['grain_mode', 'grain_size',
-            'grain_density', 'grain_pitch', 'grain_window', 'grain_spread',
-            'locus', 'field'] },
+            'grain_density', 'grain_pitch', 'grain_window', 'grain_spread'] },
         { title: 'GRAINS CLOUD', keys: ['grain_spray', 'grain_bias',
             'grain_pitch_spray', 'grain_reverse', 'grain_size_variation',
             'grain_level_variation', 'grain_timing', 'grain_timing_scatter'] },
         { title: 'GRAINS PROCESS', keys: ['grain_process',
             'grain_process_amount', 'grain_envelope_skew', 'grain_regions',
-            'grain_advance', 'grain_quality', 'lane_path', 'lane_cycles'] },
+            'grain_advance', 'grain_quality'] },
     ],
     [
         { title: 'CUTUPS CLOCK', keys: ['cutups_mode', 'cut_clock',
@@ -217,16 +220,12 @@ const PLAYBACK_PAGES = [
             'cut_join', 'cut_region_mode'] },
         { title: 'CUTUPS PATH', keys: ['cut_repeats', 'cut_reverse',
             'cut_pitch_variation', 'cut_level_variation', 'cut_lane_order',
-            'cut_poly_path', 'cut_regions', 'field'] },
+            'cut_poly_path', 'cut_regions'] },
     ],
+    [DIRECT_PLAY_PAGE],
     [
-        { title: 'DIRECT SAMPLE', keys: ['sample_mode', 'locus', 'field', 'speed',
-            'manual_lane', 'lane_variation', 'pad_mode', 'output_gain'] },
-    ],
-    [
-        { title: 'SLICES', keys: ['sample_mode', 'slice_region_mode',
-            'slice_regions', 'speed', 'manual_lane', 'lane_variation',
-            'pad_mode', 'output_gain'] },
+        DIRECT_PLAY_PAGE,
+        { title: 'SLICE SOURCE', keys: ['slice_region_mode', 'slice_regions'] },
     ],
 ];
 const MIX_REC_PAGE = { title: 'MIX / REC', keys: ['lane_1_gain', 'lane_2_gain',
@@ -234,15 +233,13 @@ const MIX_REC_PAGE = { title: 'MIX / REC', keys: ['lane_1_gain', 'lane_2_gain',
     'monitor_level', 'preview_level'] };
 const SAMPLE_PAGE = { title: 'SAMPLE EDIT', keys: ['sample_trim_start',
     'sample_trim_end', 'sample_trim_apply', 'sample_reverse',
-    'sample_normalize', 'sample_fade', 'record_gain', 'output_gain'] };
+    'sample_normalize', 'sample_fade'] };
 const LOOP_PAGE = { title: 'PERFORMANCE LOOP', keys: ['clip_rate',
     'clip_timing', 'launch_quantize', 'tempo_bpm', 'clip_record_mode',
     'tempo_swing', 'pressure_mode', 'root_note'] };
-const TAKE_PAGE = { title: 'OVERDUB TAKES', keys: ['clip_record_mode',
-    'clip_take_undo'] };
+const TAKE_PAGE = { title: 'OVERDUB TAKES', keys: [null, 'clip_take_undo'] };
 const CHAIN_PAGE = { title: 'CHAIN', keys: ['chain_enabled', 'chain_slot',
-    'chain_clip', 'chain_repeats', 'chain_clear', 'algorithm', 'join',
-    'output_gain'] };
+    'chain_clip', 'chain_repeats', 'chain_clear'] };
 
 const LOCKABLE_KEYS = [
     'locus', 'field', 'speed', 'manual_lane', 'lane_cycles', 'algorithm',
@@ -957,6 +954,15 @@ function drawParameterCell(index, control) {
     print(x + 3, y + 11, value, 1);
 }
 
+function drawReservedParameterCell(index) {
+    const column = index % 4;
+    const row = Math.floor(index / 4);
+    const x = column * 32 + 14;
+    const y = 20 + row * 26;
+    drawRect(x, y, 4, 4, 1);
+    drawRect(x + 1, y + 1, 2, 2, 0);
+}
+
 function drawSettings() {
     clear_screen();
     const page = currentSettingsPage();
@@ -972,7 +978,10 @@ function drawSettings() {
     drawRect(0, 8, 128, 1, 1);
     for (let index = 0; index < 8; index++) {
         const key = page.keys[index];
-        if (!key) continue;
+        if (!key) {
+            drawReservedParameterCell(index);
+            continue;
+        }
         const control = PARAMS[key];
         drawParameterCell(index, control);
     }

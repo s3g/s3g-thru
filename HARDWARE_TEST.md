@@ -83,12 +83,15 @@ working Schwung installation and do this pass with headphones first.
     stop on release.
 14. Use Up/Down to transpose the grid and confirm held/released notes do not
     stick.
-15. Press Menu. For each Algorithm, use Up/Down to visit Engine, only that
-    selected playback engine's pages, Mix / Rec, Sample, Performance Loop,
-    Overdub Takes, and Chain. Confirm
-    unrelated engine pages are absent. Confirm every parameter has a padded name with its value
-    underneath, no miniature dial graphic or text overlap, and each physical
-    dial edits the cell directly beneath it.
+15. Press Menu. For each Algorithm, use Up/Down to visit Engine, only the shared
+    and unique pages used by that engine, Mix / Rec, Sample Edit, Performance
+    Loop, Overdub Takes, and Chain. Confirm Stack Path has the same seven knob
+    positions for Motion, Lanes, and Grains, and Direct Play has the same three
+    positions for Sample and Slices. Confirm every parameter appears only once
+    in an active page list, has a padded name with its value underneath, and
+    has no miniature dial graphic or text overlap. Empty positions must show a
+    small hollow reserved box, and turning their physical encoders must do
+    nothing.
 16. On Performance Loop choose Replace. Press Record, perform overlapping pads
     with different strike velocities, vary pressure independently, and turn
     Position, Field, Stack, and one engine-specific dial. Press Record again.

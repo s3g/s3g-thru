@@ -17,17 +17,18 @@
         <p class="lead">Slices divides the current Position/Field window into equal or detected regions and lets pad identity choose a region. Every voice still has independent pitch, direction, loop behavior, and a discrete lane.</p>
         <div class="callout"><p><strong>Good for:</strong> drum chopping, transient performance, chromatic slices, repeated regions, velocity-layered slice sets, cue triggering, and tempo rolls.</p></div>
 
-        <h2 id="page">Page and navigation</h2>
-        <p>Set Algorithm to Slices. Up opens the one engine-specific Slices page.</p>
-        <div class="screen-gallery single">
-          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/slices-page.svg" aria-label="Open Slices"><img src="assets/screens/slices-page.svg" alt="Slices parameter page"></button></div><figcaption>Choose region source and count, then decide how pitch, lane variation, and the pads address those regions.</figcaption></figure>
+        <h2 id="page">Pages and navigation</h2>
+        <p>Set Algorithm to Slices. Up opens the shared Direct Play page, then the unique Slice Source page.</p>
+        <div class="screen-gallery">
+          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/direct-play.svg" aria-label="Open Direct Play"><img src="assets/screens/direct-play.svg" alt="Shared Direct Play parameter page"></button></div><figcaption>Direct Play holds direction, lane variation, and pad layout in the same positions used by Sample.</figcaption></figure>
+          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/slice-source.svg" aria-label="Open Slice Source"><img src="assets/screens/slice-source.svg" alt="Slice Source page with two controls and six reserved positions"></button></div><figcaption>Slice Source contains only region source and equal-region count.</figcaption></figure>
         </div>
 
         <h2 id="engine-page">Engine page behavior</h2>
         <table class="readout-table parameter-table">
           <thead><tr><th>Knob</th><th>Parameter</th><th>Range</th><th>Slices behavior</th></tr></thead>
           <tbody>
-            <tr><td>1</td><td>Algorithm</td><td>Slices</td><td>Selects the region reader and exposes Slices.</td></tr>
+            <tr><td>1</td><td>Algorithm</td><td>Slices</td><td>Selects the region reader and exposes Direct Play and Slice Source.</td></tr>
             <tr><td>2</td><td>Position</td><td>0.00–1.00</td><td>Centers the outer source window before it is divided into regions. The short top tick shows this boundary.</td></tr>
             <tr><td>3</td><td>Field</td><td>0.02–1.00</td><td>Sets the width of that outer window. The short bottom tick shows its other boundary.</td></tr>
             <tr><td>4</td><td>Speed</td><td>0.05–4.00×</td><td>Sets base region read rate. Note pitch multiplies this rate around Root.</td></tr>
@@ -38,18 +39,24 @@
           </tbody>
         </table>
 
-        <h2 id="parameters">Slices — every parameter</h2>
+        <h2 id="parameters">Direct Play — every parameter</h2>
         <table class="readout-table parameter-table">
           <thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>Detail</th></tr></thead>
           <tbody>
             <tr><td>1</td><td>PLAY</td><td>Forward / Reverse / Loop / Ping Pong</td><td>Chooses direction and whether the selected region stops or repeats at its boundaries.</td></tr>
-            <tr><td>2</td><td>SSRC</td><td>Equal / Transients</td><td>Chooses mathematical divisions or the selected lane's detected transient map.</td></tr>
-            <tr><td>3</td><td>SLIC</td><td>1–64</td><td>Number of equal regions, and the fallback count when a transient map is unavailable.</td></tr>
-            <tr><td>4</td><td>SPD</td><td>0.05–4.00×</td><td>Base region playback rate before note transposition. Root plays the displayed rate.</td></tr>
-            <tr><td>5</td><td>STAK</td><td>1.00–4.00</td><td>Chooses a lane when VARI is Manual. If it is empty, the first loaded lane is used.</td></tr>
-            <tr><td>6</td><td>VARI</td><td>Manual / Cycle / Random / No Repeat / Velocity</td><td>Chooses a discrete lane when each new region voice begins.</td></tr>
-            <tr><td>7</td><td>PADS</td><td>Keys / Slices / Cues / Rolls</td><td>Changes the note mapping and performance function of the 32 pads.</td></tr>
-            <tr><td>8</td><td>LEVL</td><td>0.00–2.00</td><td>Final output gain after the selected lane's gain on Mix / Rec.</td></tr>
+            <tr><td>2</td><td>VARI</td><td>Manual / Cycle / Random / No Repeat / Velocity</td><td>Chooses a discrete lane when each new region voice begins.</td></tr>
+            <tr><td>3</td><td>PADS</td><td>Keys / Slices / Cues / Rolls</td><td>Changes the note mapping and performance function of the 32 pads.</td></tr>
+            <tr><td>4–8</td><td>Reserved</td><td>—</td><td>Inactive positions available for future direct-play controls.</td></tr>
+          </tbody>
+        </table>
+
+        <h2 id="slice-source">Slice Source — every parameter</h2>
+        <table class="readout-table parameter-table">
+          <thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>Detail</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>SSRC</td><td>Equal / Transients</td><td>Chooses mathematical divisions or the selected lane's detected transient map.</td></tr>
+            <tr><td>2</td><td>SLIC</td><td>1–64</td><td>Number of equal regions, and the fallback count when a transient map is unavailable.</td></tr>
+            <tr><td>3–8</td><td>Reserved</td><td>—</td><td>Inactive positions available for future slice-source controls.</td></tr>
           </tbody>
         </table>
 
@@ -104,7 +111,7 @@
       <aside class="toc" aria-label="Page navigation">
         <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
         <div class="toc-section"><h2>Engine guides</h2><a href="engine-motion.html">Motion</a><a href="engine-lanes.html">Lanes</a><a href="engine-grains.html">Grains</a><a href="engine-cutups.html">Cutups</a><a href="engine-sample.html">Sample</a><a href="engine-slices.html">Slices</a></div>
-        <div class="toc-section"><h2>On this page</h2><a href="#page">Page</a><a href="#engine-page">Engine page</a><a href="#parameters">Parameters</a><a href="#region-source">Slice source</a><a href="#play-modes">Play modes</a><a href="#variation">Variation</a><a href="#pad-modes">Pad modes</a></div>
+        <div class="toc-section"><h2>On this page</h2><a href="#page">Pages</a><a href="#engine-page">Engine page</a><a href="#parameters">Direct Play</a><a href="#slice-source">Slice Source</a><a href="#region-source">Source choices</a><a href="#play-modes">Play modes</a><a href="#variation">Variation</a><a href="#pad-modes">Pad modes</a></div>
       </aside>
     </div>
     <footer class="manual-footer">Slices: pad-addressed regions inside the current source window.</footer>

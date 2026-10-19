@@ -21,7 +21,7 @@
         <p>Set Algorithm to Cutups. Up opens Cutups Clock, then Cutups Path.</p>
         <div class="screen-gallery">
           <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/cutups-clock.svg" aria-label="Open Cutups Clock"><img src="assets/screens/cutups-clock.svg" alt="Cutups Clock parameter page"></button></div><figcaption>Clock determines when cuts happen and how each event enters and leaves.</figcaption></figure>
-          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/cutups-path.svg" aria-label="Open Cutups Path"><img src="assets/screens/cutups-path.svg" alt="Cutups Path parameter page"></button></div><figcaption>Path determines repetition, variation, region count, lane order, and voice divergence.</figcaption></figure>
+          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/cutups-path.svg" aria-label="Open Cutups Path"><img src="assets/screens/cutups-path.svg" alt="Cutups Path parameter page with one reserved position"></button></div><figcaption>Path determines repetition, variation, region count, lane order, and voice divergence.</figcaption></figure>
         </div>
 
         <h2 id="engine-page">Engine page behavior</h2>
@@ -65,7 +65,7 @@
             <tr><td>5</td><td>LORD</td><td>7 choices</td><td>Selects Down, Up, Palindrome, Random, Pairs, Outside In, or Center Out across the currently loaded lanes.</td></tr>
             <tr><td>6</td><td>POLY</td><td>Together / Stagger / Rotate / Random</td><td>Offsets lane selection per voice. Together aligns voices; Stagger gives each voice a different starting offset; Rotate combines that offset with each new cut; Random gives every voice and cut a repeatable variation.</td></tr>
             <tr><td>7</td><td>REGN</td><td>1–64</td><td>Equal-region count and fallback count when Transients has no detected map.</td></tr>
-            <tr><td>8</td><td>FLD</td><td>0.02–1.00</td><td>Width of the source window divided by the region system.</td></tr>
+            <tr><td>8</td><td>Reserved</td><td>—</td><td>Inactive and available for a future Cutups Path control. Field remains on Engine.</td></tr>
           </tbody>
         </table>
 

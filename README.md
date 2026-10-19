@@ -424,17 +424,17 @@ CCs are excluded from this mapping and continue to operate the takeover UI.
 
 Press **Menu** to open the parameter surface. The eight physical knobs edit the
 eight aligned name/value cells. Use **Up/Down** to move through contextual
-pages. Only the pages for the Algorithm chosen on the Engine page are present:
-Motion and Lanes each have two engine pages, Grains has three, Cutups has two,
-and Sample and Slices each have one.
+pages. Each parameter has one page location. Shared pages keep the same knob
+positions across the engines that use them; a small hollow box marks an
+unassigned knob position reserved for a future control.
 
 - Engine: algorithm, position, field, speed, stack start, scan rate, join,
   and level.
-- Motion Path: eight trajectories including Drunk, travel, jitter, position,
-  field, speed, join, and level. Motion Sound adds packet duty plus independent
-  motor rate, symmetry, and shape.
-- Lanes Path/Shape: eight stack paths including Random, Crossfade/Jump,
-  breakpoint shape, offset, skew, curve, transition slew, stretch, and ratio.
+- Stack Path, shared by Motion, Lanes, and Grains: eight stack paths including
+  Random, Crossfade/Jump, shape, offset, skew, curve, and transition slew.
+- Motion Path: eight trajectories including Drunk, travel, and jitter. Motion
+  Sound adds packet duty plus independent motor rate, symmetry, and shape.
+- Lanes Play: source direction, stretch, and stretch ratio.
 - Grains Main/Cloud/Process: selectable 4, 8, or 16 grains per playback voice;
   source mode, size,
   density, independent grain pitch, six windows, stereo spread, position and
@@ -445,22 +445,22 @@ and Sample and Slices each have one.
   variation, gate and join, equal or detected transient regions, repeats,
   reverse/pitch/level
   variation, seven discrete lane orders, and four polyphonic lane paths.
-- Sample: direct forward, reverse, loop, or ping-pong playback of a discrete
-  lane. Slices uses the same modes with equal or detected transient regions;
-  source-pad identity is retained by the performance looper.
+- Direct Play, shared by Sample and Slices: forward, reverse, loop, or
+  ping-pong playback, discrete-lane variation, and pad mode. Slice Source adds
+  equal or detected transient regions; pad identity is retained by the
+  performance looper.
 - Performance: Keys is the chromatic grid; Slices maps the 32 pads to regions;
   Cues uses pads 1–8 (Shift+pad stores the current playhead, Delete+pad clears,
   pad jumps); Rolls turns held pads into tempo-divided Cutups voices.
 - Mix / Rec: four independent lane gains, Input/Resample source, record gain,
   monitor level, and browser preview level.
-- Sample edit: trim start/end and apply, reverse, normalize, edge fade, record gain,
-  and output level.
+- Sample edit: trim start/end and apply, reverse, normalize, and edge fade.
 - Performance Loop: playback rate, Free/Beat Sync timing, Off/Beat/Bar launch,
   BPM, Replace/Overdub, swing, pressure behavior, and root note.
-- Overdub Takes: Replace/Overdub selection, the current take count in the page
-  title, and Undo Take. Delete+Record invokes the same take-only undo directly
-  from the waveform or parameter view.
-- Chain: enable, slot, clip, repeats, clear slot, algorithm, join, and level.
+- Overdub Takes: the current take count in the page title and Undo Take.
+  Replace/Overdub remains on Performance Loop. Delete+Record invokes the same
+  take-only undo directly from the waveform or parameter view.
+- Chain: enable, slot, clip, repeats, and clear slot.
 
 Press **Back** once to return to the waveform page without exiting.
 
@@ -482,7 +482,7 @@ their transport. Grains notes change source scan speed while Grain Pitch stays
 independent. Cutups notes multiply the base Speed/pitch of each cut reader while
 the cut clock stays on its free rate or tempo division. In a stack, every cut chooses a discrete lane
 and source region; it does not read the continuously crossfaded Lanes mix.
-Direct Sample and Slices can select lanes manually or by Cycle, Random, No
+Sample and Slices can select lanes manually or by Cycle, Random, No
 Repeat, or Velocity variation. Pressure remains a separate continuous stack
 gesture for the motion-family engines.
 

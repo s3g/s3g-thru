@@ -69,16 +69,18 @@
           <div><span class="control-number">Knob 8</span><strong>LEVL</strong><p>Set final playback gain.</p></div>
         </div>
 
-        <p>Use <kbd>Up</kbd>/<kbd>Down</kbd> while parameters are open to move through pages. The engine-specific pages change with Algorithm; Mix/Rec, Sample Edit, Performance Loop, Overdub Takes, and Chain remain available.</p>
+        <p>Use <kbd>Up</kbd>/<kbd>Down</kbd> while parameters are open to move through pages. Each parameter has one location: shared controls stay on the same shared page, while engine-only controls appear on separate contextual pages. Mix/Rec, Sample Edit, Performance Loop, Overdub Takes, and Chain remain available.</p>
 
         <figure>
           <div class="doc-graphic doc-screenshot move-screen">
-            <button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/lanes-page.svg" aria-label="Open the Lanes Path page figure">
-              <img src="assets/screens/lanes-page.svg" alt="Lanes Path page with mode, path, rate, stack start, blend, path shape, field, and join">
+            <button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/stack-path.svg" aria-label="Open the shared Stack Path page figure">
+              <img src="assets/screens/stack-path.svg" alt="Stack Path page with seven controls and a small reserved box at knob 8">
             </button>
           </div>
-          <figcaption>Lanes Path is contextual: only controls used by the Lanes engine appear. Abbreviations keep the name and value in separate rows so they do not overlap.</figcaption>
+          <figcaption>Stack Path appears unchanged for Motion, Lanes, and Grains. The small hollow box at knob 8 marks an inactive position reserved for a future parameter.</figcaption>
         </figure>
+
+        <div class="callout"><p><strong>Reserved positions:</strong> an unlabelled hollow box means that encoder has no assignment on this page. Turning it has no effect.</p></div>
 
         <div class="callout">
           <p><strong>Stack Start versus Scan Rate:</strong> Stack Start is the exact crossfade position only when Path is Manual. On moving paths it seeds each new voice's phase; Scan Rate then advances from there. Press <kbd>Loop</kbd> to freeze every voice at its exact audible blend—even between lanes—and press it again to resume.</p>

@@ -38,16 +38,16 @@
         <h2 id="shared">The shared Engine page</h2>
 
         <table class="readout-table parameter-table">
-          <thead><tr><th>Knob</th><th>Parameter</th><th>Range</th><th>What it controls</th></tr></thead>
+          <thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>What it controls</th></tr></thead>
           <tbody>
-            <tr><td>1</td><td>Algorithm</td><td>6 choices</td><td>Selects Motion, Lanes, Grains, Cutups, Sample, or Slices. Up/Down then shows the pages for that engine.</td></tr>
-            <tr><td>2</td><td>Position</td><td>0.00–1.00</td><td>Centers the active source window. Near either end, the window is clamped so it never extends beyond the sample.</td></tr>
-            <tr><td>3</td><td>Field</td><td>0.02–1.00</td><td>Sets the active window width as a fraction of the sample. The waveform uses a short top tick for Position and a short bottom tick for Field.</td></tr>
-            <tr><td>4</td><td>Speed</td><td>0.05–4.00×</td><td>Sets base source transport. Pad pitch multiplies it around Root; Grains and Cutups apply that relationship differently, as described in their guides.</td></tr>
-            <tr><td>5</td><td>Stack Start</td><td>1.00–4.00</td><td>Sets an exact lane/crossfade for Manual stack motion, or the starting phase of a moving stack path. Sample and Slices round it to a discrete loaded lane.</td></tr>
-            <tr><td>6</td><td>Scan Rate</td><td>0.125–16 Hz</td><td>Sets cycles per second for moving stack paths. <kbd>Loop</kbd> freezes the audible phase. Sample, Slices, and Cutups do not use continuous stack scanning.</td></tr>
-            <tr><td>7</td><td>Join</td><td>0.00–1.00</td><td>Scales seam smoothing for continuous/event readers. Motion also uses it as articulation depth. Cutups has a separate Cut Join for event-to-event fades.</td></tr>
-            <tr><td>8</td><td>Level</td><td>0.00–2.00</td><td>Final instrument output gain. Pad velocity never attenuates playback.</td></tr>
+            <tr><td>1</td><td>ALG</td><td>6 choices</td><td>Algorithm selects Motion, Lanes, Grains, Cutups, Sample, or Slices. Up/Down then shows the pages for that engine.</td></tr>
+            <tr><td>2</td><td>POS</td><td>0.00–1.00</td><td>Position centers the active source window. Near either end, the window is clamped so it never extends beyond the sample.</td></tr>
+            <tr><td>3</td><td>FLD</td><td>0.02–1.00</td><td>Field sets the active window width as a fraction of the sample. The waveform uses a short top tick for Position and a short bottom tick for Field.</td></tr>
+            <tr><td>4</td><td>SPD</td><td>0.05–4.00×</td><td>Speed sets base source transport. Pad pitch multiplies it around Root; Grains and Cutups apply that relationship differently, as described in their guides.</td></tr>
+            <tr><td>5</td><td>STAK</td><td>1.00–4.00</td><td>Stack Start sets an exact lane/crossfade for Manual stack motion, or the starting phase of a moving stack path. Sample and Slices round it to a discrete loaded lane.</td></tr>
+            <tr><td>6</td><td>RATE</td><td>0.125–16 Hz</td><td>Scan Rate sets cycles per second for moving stack paths. <kbd>Loop</kbd> freezes the audible phase. Sample, Slices, and Cutups do not use continuous stack scanning.</td></tr>
+            <tr><td>7</td><td>JOIN</td><td>0.00–1.00</td><td>Join scales seam smoothing for continuous/event readers. Motion also uses it as articulation depth. Cutups has a separate Cut Join for event-to-event fades.</td></tr>
+            <tr><td>8</td><td>LEVL</td><td>0.00–2.00</td><td>Level sets final instrument output gain. Pad velocity never attenuates playback.</td></tr>
           </tbody>
         </table>
 

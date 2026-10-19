@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>s3g Thru manual</title>
+    <meta name="description" content="Illustrated manual for s3g Thru, the polyphonic lane-stack sampler and performance-data looper for Ableton Move and Schwung.">
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="index.html">s3g Thru <span>manual</span></a>
+      <nav class="top-nav" aria-label="Top navigation">
+        <a href="index.html">Start</a>
+        <a href="interface.html">Interface</a>
+        <a href="recording.html">Recording</a>
+        <a href="engines.html">Engines</a>
+        <a href="performance.html">Performance</a>
+        <a href="shortcuts.html">Shortcuts</a>
+        <a href="https://github.com/s3g/s3g-thru-move" target="_blank" rel="noopener noreferrer">GitHub</a>
+      </nav>
+    </header>
+
+    <div class="page-shell">
+      <main class="content" id="content">
+        <p class="eyebrow">Ableton Move · Schwung takeover</p>
+        <h1 class="home-title">s3g Thru</h1>
+        <hr class="home-title-rule">
+        <p class="lead">A four-lane, stereo sample instrument where eight polyphonic voices move through the stack independently—and a performance recorder captures notes, pressure, and parameter motion as loopable data.</p>
+        <span class="version-chip">manual for pre-release 0.19.0</span>
+
+        <figure class="screen-figure">
+          <div class="doc-graphic doc-screenshot move-screen">
+            <button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/waveform.svg" aria-label="Open the waveform screen figure">
+              <img src="assets/screens/waveform.svg" alt="s3g Thru waveform screen showing four lanes, three playheads, three stack-position markers, and a running performance loop">
+            </button>
+          </div>
+          <figcaption>The main waveform page. Each vertical line is an active voice; its hollow marker shows that voice's position or crossfade within the four-lane stack. The bottom line is performance-loop progress.</figcaption>
+        </figure>
+
+        <h2 id="quick-start">Quick start</h2>
+
+        <ol>
+          <li>Install Schwung 1.7.3 or newer, then upload <code>s3g-thru-module.tar.gz</code> from Schwung Manager's custom-module installer.</li>
+          <li>On Move, hold <kbd>Shift</kbd>, touch the master-volume knob, then jog-click to open Overtake. Choose <strong>s3g Thru</strong>.</li>
+          <li>Use headphones. Select Move's microphone or line input and set its hardware input gain before recording.</li>
+          <li>Press <kbd>Track 1–4</kbd> to select a lane. Hold <kbd>Shift</kbd> and press <kbd>Record</kbd> to start and stop stereo audio capture.</li>
+          <li>Press pads to play. Pad pressure moves that voice through the lane stack; velocity does not change sample volume.</li>
+          <li>Press <kbd>Menu</kbd> for parameters. The eight screen cells correspond directly to the eight encoders.</li>
+          <li>Press <kbd>Record</kbd> without Shift to capture a free-time performance-data loop. Press it again to close the loop.</li>
+        </ol>
+
+        <div class="callout">
+          <p><strong>Feedback safety:</strong> input monitoring defaults to zero. Keep speakers down or use headphones when a microphone is selected. Increase Monitor only when direct pass-through is intentional.</p>
+        </div>
+
+        <h2 id="mental-model">The three-layer mental model</h2>
+
+        <div class="manual-grid">
+          <div class="manual-card">
+            <h3>1 · Four audio lanes</h3>
+            <p>Each lane holds a stereo recording or a WAV from Move's sample library. A clip owns its four source assignments.</p>
+          </div>
+          <div class="manual-card">
+            <h3>2 · Eight voices</h3>
+            <p>Every held pad has its own playback head, pitch, envelope, stack phase, and pressure offset. Voices share no cursor.</p>
+          </div>
+          <div class="manual-card">
+            <h3>3 · Sixty-four clips</h3>
+            <p>A01–D16 store source assignments, engine settings, notes, pressure curves, knob gestures, and undoable overdub takes.</p>
+          </div>
+        </div>
+
+        <h2 id="manual-map">Read next</h2>
+
+        <ul>
+          <li><a href="interface.html">Interface tour</a> identifies every part of the waveform and parameter screens.</li>
+          <li><a href="recording.html">Samples and recording</a> covers microphone/line capture, resampling, library loading, editing, saving, and recall.</li>
+          <li><a href="engines.html">Playback engines</a> explains Motion, Lanes, Grains, Cutups, Sample, Slices, and every contextual page.</li>
+          <li><a href="performance.html">Performance loops</a> covers Replace, Overdub takes, clip banks, timing, launch, and chains.</li>
+          <li><a href="shortcuts.html">Shortcut reference</a> lists Move gestures, view-specific controls, LEDs, and the provisional external MIDI map.</li>
+        </ul>
+
+        <h2 id="status">Current scope</h2>
+
+        <p>s3g Thru is pre-release. The manual describes the current 0.19.0 behavior and is kept in the same repository as the module. The screen figures are reproducibly generated from <code>src/ui.js</code>, so a changed display makes documentation validation fail until its images are regenerated.</p>
+
+        <p>Move hardware remains the acceptance authority for input routing, display cadence, control feel, and realtime CPU margin. Start Grains at 8 internal grains per voice and use the Help screen's render-time and overrun counters when testing denser settings.</p>
+
+        <nav class="page-nav" aria-label="Page navigation">
+          <span></span>
+          <a class="page-nav-link next" href="interface.html"><span>Next</span>Interface Tour</a>
+        </nav>
+      </main>
+
+      <aside class="toc" aria-label="Page navigation">
+        <div class="toc-section">
+          <h2>Manual</h2>
+          <a href="index.html">Start</a>
+          <a href="interface.html">Interface</a>
+          <a href="recording.html">Recording</a>
+          <a href="engines.html">Engines</a>
+          <a href="performance.html">Performance</a>
+          <a href="shortcuts.html">Shortcuts</a>
+        </div>
+        <div class="toc-section">
+          <h2>On this page</h2>
+          <a href="#quick-start">Quick start</a>
+          <a href="#mental-model">Mental model</a>
+          <a href="#manual-map">Read next</a>
+          <a href="#status">Current scope</a>
+        </div>
+      </aside>
+    </div>
+    <footer class="manual-footer">s3g Thru 0.19.0 · Takeover module for Ableton Move via Schwung</footer>
+    <script src="lightbox.js"></script>
+  </body>
+</html>

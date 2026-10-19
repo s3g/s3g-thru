@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Performance loops - s3g Thru manual</title>
+    <meta name="description" content="Capture notes, pressure, and knob gestures; overdub undoable takes; organize 64 clips; and build chains in s3g Thru.">
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="index.html">s3g Thru <span>manual</span></a>
+      <nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru-move" target="_blank" rel="noopener noreferrer">GitHub</a></nav>
+    </header>
+
+    <div class="page-shell">
+      <main class="content" id="content">
+        <p class="eyebrow">Data layer</p>
+        <h1>Performance loops</h1>
+        <p class="lead">The recorder captures performance data—not a mixed audio bounce. Notes, hold time, pitch, source-pad identity, polyphonic pressure, and knob gestures remain editable through engine settings and can be replayed at other rates.</p>
+
+        <h2 id="record">Record a performance</h2>
+
+        <figure>
+          <div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/performance-page.svg" aria-label="Open the Performance Loop page figure"><img src="assets/screens/performance-page.svg" alt="Performance Loop parameter page with rate, timing, launch, tempo, record mode, swing, pressure, and root controls"></button></div>
+          <figcaption>The Performance Loop page sets time behavior and recording mode. Turning engine knobs during recording writes their motion into the clip.</figcaption>
+        </figure>
+
+        <ol>
+          <li>Select a clip with one of the 16 Step keys. Use Left/Right for banks A–D.</li>
+          <li>Choose <code>REPLACE</code> or <code>OVERDUB</code> on the Performance Loop page.</li>
+          <li>Press <kbd>Record</kbd>. Notes already held are written at the beginning—or at the current loop position during Overdub—so they are not lost.</li>
+          <li>Play pads, change pressure, and turn engine encoders. Parameter and per-pad pressure paths are captured continuously.</li>
+          <li>Press <kbd>Record</kbd> again. Replace closes at the exact duration and begins looping; Overdub merges the new pass without changing loop length.</li>
+          <li>Press <kbd>Play</kbd> to stop or resume performance playback. Free play remains available and shares the eight-voice pool.</li>
+        </ol>
+
+        <p>Recording is unquantized. Overlapping notes retain exact onset and duration, velocity, pitch, and which physical pad produced them. Gesture curves interpolate across the loop seam. Loop Rate scales note timing and gestures together from 0.25x to 4x.</p>
+
+        <h2 id="timing">Timing and launch</h2>
+
+        <table class="readout-table">
+          <thead><tr><th>Control</th><th>Behavior</th></tr></thead>
+          <tbody>
+            <tr><td>Timing · Free</td><td>Retains the recorded wall-clock duration. BPM does not resize the clip.</td></tr>
+            <tr><td>Timing · Beat Sync</td><td>Stores the captured tempo/beat length and scales playback to the current internal BPM.</td></tr>
+            <tr><td>Launch · Off</td><td>Starts the requested clip as soon as its source bank is ready.</td></tr>
+            <tr><td>Launch · Beat / Bar</td><td>Queues the clip until the next internal beat or bar boundary.</td></tr>
+            <tr><td>Swing</td><td>Applies 50–75% swing to tempo-clocked Cutups/Rolls timing.</td></tr>
+          </tbody>
+        </table>
+
+        <p>Thru currently follows its own internal tempo rather than Move's native transport. The blue-violet Step LED and <code>QUEUED</code> footer identify a pending launch.</p>
+
+        <h2 id="takes">Replace, Overdub, and takes</h2>
+
+        <p>Replace clears the old event data and establishes take 1 as a protected base. Every completed, non-empty Overdub pass adds a take containing its new notes and pressure/parameter gestures. An empty pass adds nothing.</p>
+
+        <p>Turn <code>UNDO TAKE</code> on the Overdub Takes page, or hold <kbd>Delete</kbd> and press <kbd>Record</kbd>, to remove only the newest overdub. Repeat to peel takes away in reverse order. The base take is never removed by Undo Take; use Replace or reset the clip for a new foundation.</p>
+
+        <div class="callout"><p><strong>Undo scopes differ:</strong> Delete+Record is take-only undo. Shift+Back is the one-level safety undo for a destructive clip reset, lane-source replacement, clear, or sample edit.</p></div>
+
+        <h2 id="clips">Clip banks</h2>
+
+        <figure>
+          <div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/clips.svg" aria-label="Open the clip overview figure"><img src="assets/screens/clips.svg" alt="Performance clip overview showing the current bank's sixteen slots"></button></div>
+          <figcaption>Shift+Play opens the current 16-slot bank. Track 1–4 selects bank A–D; Step 1–16 addresses its clips.</figcaption>
+        </figure>
+
+        <p>Each A01–D16 clip stores its four sample assignments, engine snapshot, duration, rate, timing mode, captured tempo, notes, gestures, and take membership. A clip holds up to 1,024 note events and 8,192 gesture points over a maximum 120 seconds.</p>
+
+        <table class="readout-table">
+          <thead><tr><th>Gesture</th><th>Clip action</th></tr></thead>
+          <tbody>
+            <tr><td>Step</td><td>Select immediately or queue the clip according to Launch.</td></tr>
+            <tr><td>Shift + Step</td><td>Copy the current clip—including sources and all takes—to the destination.</td></tr>
+            <tr><td>Delete + Step</td><td>Reset the complete destination clip, including source ownership. Shift+Back can undo the last reset.</td></tr>
+            <tr><td>Left / Right</td><td>Move between banks A–D from the waveform or parameter view.</td></tr>
+          </tbody>
+        </table>
+
+        <h2 id="chain">Compose a chain</h2>
+
+        <figure>
+          <div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/chain.svg" aria-label="Open the chain editor figure"><img src="assets/screens/chain.svg" alt="Chain editor with enabled entries, clip numbers, and repeat counts"></button></div>
+          <figcaption>The chain holds 16 entries. <code>05x2</code> means clip A05 repeats twice before the next enabled entry.</figcaption>
+        </figure>
+
+        <ol>
+          <li>Press <kbd>Shift</kbd> + <kbd>Play</kbd> twice from the waveform page to reach Chain.</li>
+          <li>Press a Step key to select an entry.</li>
+          <li>Turn the main encoder to choose clip A01–D16 and use Up/Down for 1–16 repeats.</li>
+          <li>Click the main encoder to enable or disable chain playback.</li>
+          <li>Hold Shift and click the main encoder to insert the active clip before the selected entry.</li>
+          <li>Use Delete+Step to remove and compact an entry, or Shift+Step to move the selected entry.</li>
+        </ol>
+
+        <p>The chain advances only at complete clip-loop boundaries and only after the next clip's four-lane source bank is ready. Selecting a clip manually disables Chain so a programmed transition cannot unexpectedly replace it.</p>
+
+        <h2 id="capacity">Capacity behavior</h2>
+
+        <p>Gesture recording progressively thins nearly identical points as its fixed buffer fills. At capacity, the most recent endpoint for an existing gesture is still updated, playback continues, and the footer reports <code>CLIP FULL</code> with note and gesture counts. Recording and playback never allocate memory in the audio callback.</p>
+
+        <nav class="page-nav" aria-label="Page navigation">
+          <a class="page-nav-link" href="engines.html"><span>Previous</span>Playback Engines</a>
+          <a class="page-nav-link next" href="shortcuts.html"><span>Next</span>Shortcut Reference</a>
+        </nav>
+      </main>
+
+      <aside class="toc" aria-label="Page navigation">
+        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
+        <div class="toc-section"><h2>On this page</h2><a href="#record">Record</a><a href="#timing">Timing</a><a href="#takes">Overdub takes</a><a href="#clips">Clip banks</a><a href="#chain">Chain</a><a href="#capacity">Capacity</a></div>
+      </aside>
+    </div>
+    <footer class="manual-footer">Performance clips store data and source assignments; they do not duplicate the mixed audio output.</footer>
+    <script src="lightbox.js"></script>
+  </body>
+</html>

@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Samples and recording - s3g Thru manual</title>
+    <meta name="description" content="Record stereo lanes, resample, browse Move's WAV library, edit samples, and understand clip-local source recall in s3g Thru.">
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="index.html">s3g Thru <span>manual</span></a>
+      <nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru-move" target="_blank" rel="noopener noreferrer">GitHub</a></nav>
+    </header>
+
+    <div class="page-shell">
+      <main class="content" id="content">
+        <p class="eyebrow">Audio layer</p>
+        <h1>Samples and recording</h1>
+        <p class="lead">Each performance clip owns four audio lanes. A lane can be a stereo live capture, a stereo resample of Thru's output, a WAV in Move's User Library, or intentionally empty.</p>
+
+        <h2 id="input">Set the input safely</h2>
+
+        <ol>
+          <li>Use Move's stock sampling controls to select microphone or line input and set the hardware input gain.</li>
+          <li>Connect headphones before using the microphone near speakers.</li>
+          <li>Open Thru's Mix / Rec page and leave <code>MON</code> at <code>0.00</code> unless you deliberately need direct monitoring.</li>
+          <li>Start with <code>REC GAIN</code> at <code>1.00</code>. The display reports <code>LIM</code> if the 0.95 capture safety ceiling reduces a stored peak.</li>
+        </ol>
+
+        <div class="callout"><p><strong>Quiet playback is not corrected with Record Gain.</strong> Record Gain affects newly captured audio. Use Lane 1–4 gain and final Level for playback balance; Normalize is an explicit destructive sample edit.</p></div>
+
+        <h2 id="capture">Record or replace a lane</h2>
+
+        <ol>
+          <li>Press <kbd>Track 1</kbd>, <kbd>2</kbd>, <kbd>3</kbd>, or <kbd>4</kbd> to select the destination.</li>
+          <li>On Mix / Rec, choose <code>INPUT</code> for Move's selected hardware input or <code>RESAMPLE</code> for Thru's stereo output.</li>
+          <li>Hold <kbd>Shift</kbd> and press <kbd>Record</kbd>. The Record key is orange during audio capture.</li>
+          <li>Repeat <kbd>Shift</kbd> + <kbd>Record</kbd> to stop. The completed capture replaces that lane; the other three lanes are unchanged.</li>
+          <li>Wait briefly if <code>SCANNING WAVEFORM</code> appears. The scan is incremental and does not run in the audio callback.</li>
+        </ol>
+
+        <p>The main display's lane number and left selection mark identify the target. The adjacent vertical bar reports the selected/displayed voice's current contribution from that lane—it is not the input meter. During recording, the horizontal bar near the bottom is the capture level.</p>
+
+        <p>Hold <kbd>Shift</kbd> and press <kbd>Delete</kbd> to clear the selected lane. A destructive capture, clear, library replacement, or sample edit can be reversed once with <kbd>Shift</kbd> + <kbd>Back</kbd>.</p>
+
+        <h2 id="library">Load from the sample library</h2>
+
+        <figure>
+          <div class="doc-graphic doc-screenshot move-screen">
+            <button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/library.svg" aria-label="Open the sample browser figure"><img src="assets/screens/library.svg" alt="s3g Thru sample browser showing folders and WAV files"></button>
+          </div>
+          <figcaption>Hold Shift and press a Track key to open this browser for that lane. The header always shows the destination lane and current directory.</figcaption>
+        </figure>
+
+        <table class="readout-table">
+          <thead><tr><th>Control</th><th>Browser action</th></tr></thead>
+          <tbody>
+            <tr><td>Main encoder or Up/Down</td><td>Move the selection. Highlighted WAV files audition at Preview Level.</td></tr>
+            <tr><td>Main encoder click</td><td>Enter a folder or load the highlighted WAV into the lane.</td></tr>
+            <tr><td>Back</td><td>Move to the parent folder; at the User Library root, return to the waveform page.</td></tr>
+          </tbody>
+        </table>
+
+        <p>The browser starts at <code>/data/UserData/UserLibrary/Samples</code>. It accepts mono or stereo PCM 16/24/32-bit and 32-bit-float WAV files. Mono files are duplicated to stereo; other sample rates are resampled to Move's rate; material beyond the fixed 12-second lane capacity is truncated. Decode, resample, and waveform preparation happen on a worker thread.</p>
+
+        <h2 id="ownership">Sources belong to clips</h2>
+
+        <p>The first time a blank A01–D16 clip is selected, it snapshots the four sources then in use. From that point its assignments are independent—there is no live “previous pattern” lookup. A loaded file is stored as a User Library path; a recording becomes a clip-local capture; a reset lane remains explicitly empty.</p>
+
+        <p>When a clip change requires different sources, Thru prepares all four lanes in a second sample bank and swaps them together at a safe boundary. If preparation is incomplete, the current loop takes another pass instead of combining lanes from two clips. The footer reports <code>FILE</code>, <code>CAPTURE</code>, <code>EMPTY</code>, <code>LOADING</code>, or <code>MISSING</code>.</p>
+
+        <h2 id="editing">Sample Edit page</h2>
+
+        <table class="readout-table">
+          <thead><tr><th>Control</th><th>Action</th></tr></thead>
+          <tbody>
+            <tr><td>Trim Start / End</td><td>Set normalized edit boundaries without changing audio yet.</td></tr>
+            <tr><td>Trim Apply</td><td>Commit the selected range to a new clip-local capture.</td></tr>
+            <tr><td>Reverse</td><td>Reverse the selected lane's stored audio.</td></tr>
+            <tr><td>Normalize</td><td>Scale the stored peak to the safe target. This changes playback level.</td></tr>
+            <tr><td>Edge Fade</td><td>Apply short fades at both boundaries to reduce clicks.</td></tr>
+          </tbody>
+        </table>
+
+        <p>The action controls show <code>TURN</code> until either encoder direction is moved. A successful action temporarily changes the title to <code>TRIMMED L1</code>, <code>REVERSED L1</code>, <code>NORMALIZED L1</code>, or <code>FADED L1</code>. Edits alternate between two clip-local files so one-level Undo can recover the prior source.</p>
+
+        <h2 id="saving">Saving, recall, and backup</h2>
+
+        <p>Thru autosaves changed metadata and completed captures, then performs a final save when <kbd>Back</kbd> exits from the main waveform page. It keeps one matching backup generation and uses checksums so it will not combine mismatched metadata and clip banks after an interrupted write.</p>
+
+        <p>Uninstalling a module may remove its data. Before uninstalling or moving to another Move, export the module data with:</p>
+
+        <pre><code>scripts/export-set.sh /path/to/s3g-thru-data Thru-set.tar.gz</code></pre>
+
+        <p>The archive includes current metadata, recovery files, saved lane WAVs, and local captures. User Library samples remain external paths and should be backed up separately.</p>
+
+        <nav class="page-nav" aria-label="Page navigation">
+          <a class="page-nav-link" href="interface.html"><span>Previous</span>Interface Tour</a>
+          <a class="page-nav-link next" href="engines.html"><span>Next</span>Playback Engines</a>
+        </nav>
+      </main>
+
+      <aside class="toc" aria-label="Page navigation">
+        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
+        <div class="toc-section"><h2>On this page</h2><a href="#input">Input safety</a><a href="#capture">Audio capture</a><a href="#library">Sample library</a><a href="#ownership">Clip ownership</a><a href="#editing">Sample edits</a><a href="#saving">Saving</a></div>
+      </aside>
+    </div>
+    <footer class="manual-footer">Use headphones for the first microphone and resampling tests.</footer>
+    <script src="lightbox.js"></script>
+  </body>
+</html>

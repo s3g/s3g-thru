@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Playback engines - s3g Thru manual</title>
+    <meta name="description" content="Reference for the Motion, Lanes, Grains, Cutups, Sample, and Slices engines in s3g Thru.">
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="index.html">s3g Thru <span>manual</span></a>
+      <nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru-move" target="_blank" rel="noopener noreferrer">GitHub</a></nav>
+    </header>
+
+    <div class="page-shell">
+      <main class="content" id="content">
+        <p class="eyebrow">Sound layer</p>
+        <h1>Playback engines</h1>
+        <p class="lead">Six engines reinterpret the same four-lane source bank. The page list changes with Algorithm so controls from unrelated engines never occupy the surface.</p>
+
+        <figure>
+          <div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/engine-page.svg" aria-label="Open the Engine page figure"><img src="assets/screens/engine-page.svg" alt="Engine page with algorithm and seven shared playback controls"></button></div>
+          <figcaption>The Engine page is the common starting point. The waveform page exposes the same seven performance controls plus the current engine's primary mode.</figcaption>
+        </figure>
+
+        <h2 id="shared">Shared controls</h2>
+
+        <table class="readout-table">
+          <thead><tr><th>Control</th><th>Behavior</th></tr></thead>
+          <tbody>
+            <tr><td>Position</td><td>Centers the source region used by continuous, grain, and event readers.</td></tr>
+            <tr><td>Field</td><td>Sets the width around Position. Smaller values constrain playback to a tighter region.</td></tr>
+            <tr><td>Speed</td><td>Sets source transport rate. Notes transpose around Root; the precise relationship depends on the engine.</td></tr>
+            <tr><td>Stack Start</td><td>Manual lane/crossfade position, or the initial phase offset for a moving stack path.</td></tr>
+            <tr><td>Scan Rate</td><td>Sets moving stack cycles per second. It does not erase Stack Start; it advances from that offset.</td></tr>
+            <tr><td>Join</td><td>Smooths loop seams, direction changes, packet edges, and other engine transitions.</td></tr>
+            <tr><td>Level</td><td>Final gain. Pad velocity is deliberately not a playback gain control.</td></tr>
+          </tbody>
+        </table>
+
+        <p>Each of the eight voices owns its own read phase and stack phase. Press <kbd>Loop</kbd> to hold every current stack phase—including between-lane crossfades—without pausing the sample read heads or performance loop.</p>
+
+        <h2 id="motion">Motion</h2>
+
+        <p>Motion treats Position inside Field as a performed trajectory. Notes retune source travel; Sound adds an articulation without replacing the chosen path.</p>
+
+        <table class="readout-table">
+          <thead><tr><th>Motion mode</th><th>Path</th></tr></thead>
+          <tbody>
+            <tr><td>Forward / Reverse</td><td>One-way reading through the Field with a smoothed wrap.</td></tr>
+            <tr><td>Hover</td><td>Regular smooth return motion.</td></tr>
+            <tr><td>Round Trip</td><td>Forward/backward traversal without polarity inversion.</td></tr>
+            <tr><td>Moving Loop</td><td>A loop window that advances through the source.</td></tr>
+            <tr><td>Mirror</td><td>Forward/backward travel with the Sample Motion mirror behavior.</td></tr>
+            <tr><td>Zigzag</td><td>Alternating forward and backward segments using Travel and Jitter.</td></tr>
+            <tr><td>Drunk</td><td>Deterministic random targets within Field.</td></tr>
+          </tbody>
+        </table>
+
+        <p><strong>Motion Path</strong> provides Mode, Travel, Jitter, Position, Field, Speed, Join, and Level. <strong>Motion Sound</strong> selects Continuous, Packets, Motor, or Bounce and adds Gesture Rate, Packet Duty, Motor Rate, Motor Symmetry, and Motor Shape. Bounce is a bounded hardware articulation, not the desktop Motion segment-event router.</p>
+
+        <h2 id="lanes">Lanes</h2>
+
+        <figure>
+          <div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/lanes-page.svg" aria-label="Open the Lanes Path figure"><img src="assets/screens/lanes-page.svg" alt="Lanes Path page with lane direction and stack trajectory controls"></button></div>
+          <figcaption>Lanes Path separates sample-reading direction (<code>MODE</code>) from movement through the four-lane stack (<code>PATH</code>).</figcaption>
+        </figure>
+
+        <p><strong>Lanes Mode</strong> selects Forward, Reverse, or Ping Pong reading. <strong>Stack Path</strong> selects Down, Up, Triangle, Sine, Steps Down, Steps Up, Manual, or deterministic Random movement. Transition chooses continuous Crossfade or discrete Jump. Path Shape changes the curve to Linear, Smooth, Exponential, or Plateau.</p>
+
+        <p>The Lanes Shape page adds path Offset, Skew, Curve, Jump Slew, Stretch, Stretch Ratio, Speed, and Level. Stretch compensates different lane lengths relative to the reference lane; turn it off when different durations should deliberately run at their own rate.</p>
+
+        <h2 id="grains">Grains</h2>
+
+        <table class="readout-table">
+          <thead><tr><th>Page</th><th>Controls and purpose</th></tr></thead>
+          <tbody>
+            <tr><td>Grains Main</td><td>Mode (Scan, Freeze, Cloud, Slice), Size, Density, independent Grain Pitch, six windows, Stereo Spread, Position, and Field.</td></tr>
+            <tr><td>Grains Cloud</td><td>Position Spray, directional Bias, Pitch Spray, Reverse chance, Size/Level variation, Timing mode, and Timing Scatter.</td></tr>
+            <tr><td>Grains Process</td><td>Ordinary, Stutter, Shrink, or Doublets; amount, envelope skew, regions, Scan/Per Grain advance, Quality, Stack Path, and Scan Rate.</td></tr>
+          </tbody>
+        </table>
+
+        <p>Quality limits each playback voice to 4, 8, or 16 active grains. Eight is the intended starting point on Move. Use four if the Help screen's deadline-overrun count rises; sixteen is a stress option, not a guaranteed default.</p>
+
+        <p>Keyboard pitch changes source advance while Grain Pitch remains an independent timbral ratio. This makes it possible to change cloud motion and grain transposition separately.</p>
+
+        <h2 id="cutups">Cutups</h2>
+
+        <p>Cutups chooses discrete regions and lane sources at event boundaries. The Clock page selects Free or Tempo timing, division, free rate, timing variation, gate, cut join, region count, and Equal/Transients region source. The Path page adds repeats, reverse chance, pitch and level variation, seven lane orders, four polyphonic paths, region count, and Field.</p>
+
+        <p>Tempo divisions are 1/4, 1/8, 1/8T, 1/16, 1/16T, and 1/32. Cut note pitch retunes each region reader while the event clock stays at its free rate or tempo division. A cut chooses a discrete lane; it does not read the continuously crossfaded Lanes mix.</p>
+
+        <h2 id="sample">Sample and Slices</h2>
+
+        <p><strong>Sample</strong> plays a complete lane Forward, Reverse, Loop, or Ping Pong. <strong>Slices</strong> uses the same playback modes but maps pads to Equal or automatically detected Transient regions. Equal Slice Count ranges from 1 to 64.</p>
+
+        <p>Lane Variation selects Manual, Cycle, Random, No Repeat, or Velocity. In these direct/discrete engines, Velocity can choose a lane variation but still does not control output amplitude.</p>
+
+        <h2 id="pads">Pad modes</h2>
+
+        <table class="readout-table">
+          <thead><tr><th>Mode</th><th>Pad behavior</th></tr></thead>
+          <tbody>
+            <tr><td>Keys</td><td>Isomorphic chromatic note grid. Up/Down transposes by octave.</td></tr>
+            <tr><td>Slices</td><td>The 32 pads address source regions while the root pitch remains fixed.</td></tr>
+            <tr><td>Cues</td><td>Pads 1–8 jump to cues. Shift+pad stores the displayed playhead; Delete+pad clears it.</td></tr>
+            <tr><td>Rolls</td><td>Held pads become tempo-divided Cutups voices, one division per pad position.</td></tr>
+          </tbody>
+        </table>
+
+        <h2 id="global-pages">Pages shared by every engine</h2>
+
+        <ul>
+          <li><strong>Mix / Rec:</strong> four lane gains, Input/Resample source, Record Gain, Monitor, and Preview Level.</li>
+          <li><strong>Sample Edit:</strong> Trim Start/End, Trim Apply, Reverse, Normalize, Edge Fade, Record Gain, and Level.</li>
+          <li><strong>Performance Loop:</strong> rate, timing, launch quantize, BPM, Replace/Overdub, swing, pressure behavior, and Root.</li>
+          <li><strong>Overdub Takes:</strong> recording mode and Undo Take, with take count in the title.</li>
+          <li><strong>Chain:</strong> enable, edit slot, clip, repeats, clear, Algorithm, Join, and Level.</li>
+        </ul>
+
+        <nav class="page-nav" aria-label="Page navigation">
+          <a class="page-nav-link" href="recording.html"><span>Previous</span>Samples and Recording</a>
+          <a class="page-nav-link next" href="performance.html"><span>Next</span>Performance Loops</a>
+        </nav>
+      </main>
+
+      <aside class="toc" aria-label="Page navigation">
+        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
+        <div class="toc-section"><h2>On this page</h2><a href="#shared">Shared controls</a><a href="#motion">Motion</a><a href="#lanes">Lanes</a><a href="#grains">Grains</a><a href="#cutups">Cutups</a><a href="#sample">Sample / Slices</a><a href="#pads">Pad modes</a><a href="#global-pages">Shared pages</a></div>
+      </aside>
+    </div>
+    <footer class="manual-footer">All engines share the same four clip-local lane sources and eight-voice pool.</footer>
+    <script src="lightbox.js"></script>
+  </body>
+</html>

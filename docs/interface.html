@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Interface tour - s3g Thru manual</title>
+    <meta name="description" content="Guide to the s3g Thru waveform, parameter, clip, chain, browser, and help screens on Ableton Move.">
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="index.html">s3g Thru <span>manual</span></a>
+      <nav class="top-nav" aria-label="Top navigation">
+        <a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru-move" target="_blank" rel="noopener noreferrer">GitHub</a>
+      </nav>
+    </header>
+
+    <div class="page-shell">
+      <main class="content" id="content">
+        <p class="eyebrow">Screen guide</p>
+        <h1>Interface tour</h1>
+        <p class="lead">The waveform page is for playing and seeing motion. Parameter pages turn the eight encoders into a compact Elektron-style surface. Dedicated overview screens expose clips, chains, samples, and diagnostics.</p>
+
+        <h2 id="waveform">Waveform page</h2>
+
+        <figure>
+          <div class="doc-graphic doc-screenshot move-screen">
+            <button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/waveform.svg" aria-label="Open the waveform page figure">
+              <img src="assets/screens/waveform.svg" alt="Waveform page with four lane waveforms, playheads, lane-stack markers, and clip progress">
+            </button>
+          </div>
+          <figcaption><code>THRU LANES A01 V3</code> means the Lanes engine is active, clip A01 is selected, and three voices are held. <code>PLAY 13.6b SYNC 1.00x</code> reports a running Beat Sync clip, its length, rate, and take count.</figcaption>
+        </figure>
+
+        <table class="readout-table">
+          <thead><tr><th>Display element</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><td>Header</td><td>Active engine, clip address A01–D16, held voice count, and audio/data recording state.</td></tr>
+            <tr><td>Rows 1–4</td><td>The four stereo lane waveforms. The left marker selects the lane used by recording, loading, and editing.</td></tr>
+            <tr><td>Small lane bar</td><td>The current contribution of that lane to the displayed voice's crossfade.</td></tr>
+            <tr><td>Vertical lines</td><td>Independent sample playheads for held voices. They disappear on note-off while the short release continues.</td></tr>
+            <tr><td>Hollow markers</td><td>Each voice's lane-stack position. A marker between rows means adjacent lanes are being crossfaded.</td></tr>
+            <tr><td>Short edge ticks</td><td>The current Position/Field boundaries and, on the selected lane, detected transient divisions.</td></tr>
+            <tr><td>Bottom progress line</td><td>Position inside the current performance-data loop.</td></tr>
+            <tr><td>Footer</td><td>Clip transport, source ownership, waveform scanning, load errors, or the most recent action.</td></tr>
+          </tbody>
+        </table>
+
+        <h2 id="parameters">Parameter pages</h2>
+
+        <figure>
+          <div class="doc-graphic doc-screenshot move-screen">
+            <button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/engine-page.svg" aria-label="Open the Engine parameter page figure">
+              <img src="assets/screens/engine-page.svg" alt="Engine parameter page with eight abbreviated parameter names and values">
+            </button>
+          </div>
+          <figcaption>Press Menu to open parameters. The top four cells are knobs 1–4; the bottom four are knobs 5–8. During playback, a leading <code>&gt;</code> appears before the page title.</figcaption>
+        </figure>
+
+        <div class="control-map">
+          <div><span class="control-number">Knob 1</span><strong>ALG</strong><p>Choose Motion, Lanes, Grains, Cutups, Sample, or Slices.</p></div>
+          <div><span class="control-number">Knob 2</span><strong>POS</strong><p>Center the readable source field.</p></div>
+          <div><span class="control-number">Knob 3</span><strong>FLD</strong><p>Set the width around Position.</p></div>
+          <div><span class="control-number">Knob 4</span><strong>SPD</strong><p>Set source transport speed.</p></div>
+          <div><span class="control-number">Knob 5</span><strong>STAK</strong><p>Set the manual lane or a moving path's starting offset.</p></div>
+          <div><span class="control-number">Knob 6</span><strong>RATE</strong><p>Set stack cycles per second.</p></div>
+          <div><span class="control-number">Knob 7</span><strong>JOIN</strong><p>Smooth seams and transitions.</p></div>
+          <div><span class="control-number">Knob 8</span><strong>LEVL</strong><p>Set final playback gain.</p></div>
+        </div>
+
+        <p>Use <kbd>Up</kbd>/<kbd>Down</kbd> while parameters are open to move through pages. The engine-specific pages change with Algorithm; Mix/Rec, Sample Edit, Performance Loop, Overdub Takes, and Chain remain available.</p>
+
+        <figure>
+          <div class="doc-graphic doc-screenshot move-screen">
+            <button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/lanes-page.svg" aria-label="Open the Lanes Path page figure">
+              <img src="assets/screens/lanes-page.svg" alt="Lanes Path page with mode, path, rate, stack start, blend, path shape, field, and join">
+            </button>
+          </div>
+          <figcaption>Lanes Path is contextual: only controls used by the Lanes engine appear. Abbreviations keep the name and value in separate rows so they do not overlap.</figcaption>
+        </figure>
+
+        <div class="callout">
+          <p><strong>Stack Start versus Scan Rate:</strong> Stack Start is the exact crossfade position only when Path is Manual. On moving paths it seeds each new voice's phase; Scan Rate then advances from there. Press <kbd>Loop</kbd> to freeze every voice at its exact audible blend—even between lanes—and press it again to resume.</p>
+        </div>
+
+        <h2 id="secondary">Secondary screens</h2>
+
+        <div class="screen-gallery">
+          <figure><div class="doc-graphic move-screen"><img src="assets/screens/clips.svg" alt="Performance clip bank screen"></div><figcaption><strong>Clip overview.</strong> Shift+Play opens the active 16-slot bank. A marker distinguishes current, queued, occupied, and empty slots.</figcaption></figure>
+          <figure><div class="doc-graphic move-screen"><img src="assets/screens/chain.svg" alt="Performance clip chain screen"></div><figcaption><strong>Chain editor.</strong> A 16-entry list gives each clip a repeat count and shows the selected/current entry.</figcaption></figure>
+          <figure><div class="doc-graphic move-screen"><img src="assets/screens/library.svg" alt="Sample library browser screen"></div><figcaption><strong>Sample browser.</strong> Shift+Track opens the lane's WAV browser. The main encoder browses and clicks to enter or load.</figcaption></figure>
+          <figure><div class="doc-graphic move-screen"><img src="assets/screens/help.svg" alt="On-device help screen"></div><figcaption><strong>Help.</strong> Shift+Menu shows the core gestures plus maximum audio-render time and deadline overruns.</figcaption></figure>
+        </div>
+
+        <h2 id="navigation">View navigation</h2>
+
+        <table class="readout-table">
+          <thead><tr><th>Gesture</th><th>From</th><th>Result</th></tr></thead>
+          <tbody>
+            <tr><td><kbd>Menu</kbd></td><td>Main or Parameters</td><td>Toggle waveform and parameter pages.</td></tr>
+            <tr><td><kbd>Shift</kbd> + <kbd>Menu</kbd></td><td>Most views</td><td>Toggle compact Help.</td></tr>
+            <tr><td><kbd>Shift</kbd> + <kbd>Play</kbd></td><td>Main / Clips / Chain</td><td>Cycle Main → Clips → Chain → Main.</td></tr>
+            <tr><td><kbd>Shift</kbd> + <kbd>Track 1–4</kbd></td><td>Main or Parameters</td><td>Open the sample library for that lane.</td></tr>
+            <tr><td><kbd>Back</kbd></td><td>Secondary view</td><td>Return toward the waveform page. From Main, save and exit.</td></tr>
+          </tbody>
+        </table>
+
+        <h2 id="leds">LED language</h2>
+
+        <p>Held pads use stable voice-slot colors: red, orange, yellow, green, azure, blue-violet, purple, and magenta. A pad turns off after release. Step keys use this clip language:</p>
+
+        <ul>
+          <li><span class="status-key status-white"></span>White: occupied clip.</li>
+          <li><span class="status-key status-orange"></span>Orange: selected clip, stopped.</li>
+          <li><span class="status-key status-green"></span>Green: selected clip, playing.</li>
+          <li><span class="status-key status-red"></span>Red: performance recording.</li>
+          <li><span class="status-key status-violet"></span>Blue-violet: queued clip.</li>
+        </ul>
+
+        <p>The Play key turns green while the performance loop runs. The Loop key is bright while stack scanning is held. Record is red for data capture and orange for audio-lane capture.</p>
+
+        <nav class="page-nav" aria-label="Page navigation">
+          <a class="page-nav-link" href="index.html"><span>Previous</span>Start</a>
+          <a class="page-nav-link next" href="recording.html"><span>Next</span>Samples and Recording</a>
+        </nav>
+      </main>
+
+      <aside class="toc" aria-label="Page navigation">
+        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
+        <div class="toc-section"><h2>On this page</h2><a href="#waveform">Waveform</a><a href="#parameters">Parameters</a><a href="#secondary">Secondary screens</a><a href="#navigation">Navigation</a><a href="#leds">LED language</a></div>
+      </aside>
+    </div>
+    <footer class="manual-footer">Screen figures generated from <code>src/ui.js</code> by <code>npm run docs:render</code>.</footer>
+    <script src="lightbox.js"></script>
+  </body>
+</html>

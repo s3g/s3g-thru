@@ -7,6 +7,10 @@ performance recorder.
   freezes at its own exact lane crossfade, ignores pressure drift while held,
   and resumes from that audible point. The former Stack Position label is now
   Stack Start to clarify its role as Manual position or moving-path phase seed.
+- A six-page illustrated manual now covers setup, the screen model, audio and
+  library sources, every playback engine, performance clips and chains, Move
+  shortcuts, LEDs, and external MIDI. Screen figures are generated from the
+  actual takeover UI and checked for drift with the rest of the build.
 
 - Replace creates take 1, the protected base performance. Every completed
   non-empty Overdub pass adds one take containing both its notes and its

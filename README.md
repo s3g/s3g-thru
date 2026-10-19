@@ -96,6 +96,18 @@ It contains one `s3g-thru/` directory with `module.json`, `ui.js`,
 `dsp.so`, the license, and third-party notices. Packaging refuses a binary
 that is not an AArch64 Linux ELF shared object.
 
+## Manual website
+
+The illustrated manual starts at [`docs/index.html`](docs/index.html). Its Move
+screen figures are generated from the actual UI drawing calls rather than
+redrawn by hand:
+
+```sh
+npm run docs:render
+npm run docs:check
+npm run docs:serve
+```
+
 ## Install on Move
 
 1. Back up Move and install or update Schwung 1.7.3 or newer.
@@ -274,7 +286,7 @@ The main waveform page carries eight knobs:
 | 1 | Position |
 | 2 | Field width |
 | 3 | Speed |
-| 4 | Stack position |
+| 4 | Stack start / manual position |
 | 5 | Stack scan rate |
 | 6 | Join/crossfade |
 | 7 | Current engine mode |
@@ -359,7 +371,7 @@ mapped while the external-controller design is still being evaluated.
 | 20 | Position | 37 | Lane 3 gain |
 | 21 | Field width | 38 | Lane 4 gain |
 | 22 | Speed | 39 | Grain mode |
-| 23 | Manual stack position | 40 | Grain size |
+| 23 | Stack start / manual position | 40 | Grain size |
 | 24 | Stack scan rate | 41 | Grain density |
 | 25 | Algorithm | 42 | Grain pitch |
 | 26 | Join/crossfade | 43 | Grain window |
@@ -512,7 +524,8 @@ include/thru_schwung_abi.h   Minimal Schwung API v2 declaration
 src/dsp/thru_module.cpp      Move wrapper, recording, MIDI, waveform cache
 src/ui.js                    Overtake controls, LEDs, and waveform screen
 src/module.json              Schwung overtake manifest
+docs/*.html                  Illustrated static manual website
 tests/                       Device-free ABI and DSP regressions
-scripts/                     Test, cross-build, validate, and package tools
+scripts/                     Test, docs, cross-build, validate, package tools
 ```
 

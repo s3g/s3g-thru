@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Shortcut reference - s3g Thru manual</title>
+    <meta name="description" content="Complete Ableton Move shortcuts, view controls, LED meanings, and provisional external MIDI map for s3g Thru.">
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="index.html">s3g Thru <span>manual</span></a>
+      <nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru-move" target="_blank" rel="noopener noreferrer">GitHub</a></nav>
+    </header>
+
+    <div class="page-shell">
+      <main class="content" id="content">
+        <p class="eyebrow">Hardware reference</p>
+        <h1>Shortcut reference</h1>
+        <p class="lead">The same control can change meaning by view, but recording gestures remain deliberately distinct: Record captures performance data; Shift+Record captures stereo audio.</p>
+
+        <figure>
+          <div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/help.svg" aria-label="Open the on-device Help figure"><img src="assets/screens/help.svg" alt="Compact Help screen showing record, audio record, clip, bank, stack hold, and parameter gestures"></button></div>
+          <figcaption>Shift+Menu opens this compact reminder. The title also shows maximum audio render time in microseconds and the number of deadline overruns since launch.</figcaption>
+        </figure>
+
+        <h2 id="global">Global and waveform controls</h2>
+
+        <table class="readout-table">
+          <thead><tr><th>Control</th><th>Action</th></tr></thead>
+          <tbody>
+            <tr><td>Pads</td><td>Play the current Keys, Slices, Cues, or Rolls layout with up to eight voices.</td></tr>
+            <tr><td>Pad pressure</td><td>Move that voice's continuous stack offset when Pressure is Offset.</td></tr>
+            <tr><td>Knobs 1–8</td><td>Edit the eight controls shown on the waveform or active parameter page.</td></tr>
+            <tr><td>Track 1–4</td><td>Select the lane used by audio record, load, clear, and sample edit.</td></tr>
+            <tr><td>Main encoder turn</td><td>Select the previous/next lane.</td></tr>
+            <tr><td>Up / Down</td><td>Transpose the pad grid by octave on the waveform page.</td></tr>
+            <tr><td>Left / Right</td><td>Select performance-clip bank A–D.</td></tr>
+            <tr><td>Step 1–16</td><td>Select or queue that clip in the current bank.</td></tr>
+            <tr><td>Record or main click</td><td>Start/stop performance-data recording.</td></tr>
+            <tr><td>Shift + Record or Shift + main click</td><td>Start/stop stereo audio capture into the selected lane.</td></tr>
+            <tr><td>Play</td><td>Stop/start performance-loop playback.</td></tr>
+            <tr><td>Loop</td><td>Hold/resume every voice's lane-stack scan at its exact crossfade. Sample playheads continue.</td></tr>
+            <tr><td>Menu</td><td>Toggle waveform and parameter pages.</td></tr>
+            <tr><td>Shift + Menu</td><td>Toggle Help.</td></tr>
+            <tr><td>Shift + Play</td><td>Cycle Main → Clip Overview → Chain → Main.</td></tr>
+            <tr><td>Back</td><td>Close a secondary view; from Main, save and exit Overtake.</td></tr>
+          </tbody>
+        </table>
+
+        <h2 id="editing">Editing and safety gestures</h2>
+
+        <table class="readout-table">
+          <thead><tr><th>Gesture</th><th>Action</th></tr></thead>
+          <tbody>
+            <tr><td>Shift + Track 1–4</td><td>Open the sample library for that lane.</td></tr>
+            <tr><td>Shift + Delete</td><td>Clear the selected audio lane.</td></tr>
+            <tr><td>Shift + Back</td><td>Undo the most recent destructive clip, source, clear, or sample-edit action.</td></tr>
+            <tr><td>Delete + Record</td><td>Remove the newest Overdub take; the protected base remains.</td></tr>
+            <tr><td>Shift + Step</td><td>Copy the current clip to the destination Step slot.</td></tr>
+            <tr><td>Delete + Step</td><td>Reset the destination clip and its four source assignments.</td></tr>
+            <tr><td>Shift + pad in Cues</td><td>Store the displayed playhead in cue 1–8.</td></tr>
+            <tr><td>Delete + pad in Cues</td><td>Clear cue 1–8.</td></tr>
+          </tbody>
+        </table>
+
+        <h2 id="context">View-specific controls</h2>
+
+        <table class="readout-table">
+          <thead><tr><th>View</th><th>Controls</th></tr></thead>
+          <tbody>
+            <tr><td>Parameters</td><td>Up/Down changes page; knobs 1–8 edit aligned cells; Left/Right still changes clip bank.</td></tr>
+            <tr><td>Clip Overview</td><td>Track 1–4 changes bank; Steps address clips; Shift+Step copies; Delete+Step resets.</td></tr>
+            <tr><td>Chain</td><td>Step selects entry; main turn chooses clip; Up/Down sets repeats; main click toggles Chain; Shift+click inserts active clip; Delete+Step removes; Shift+Step moves.</td></tr>
+            <tr><td>Sample Library</td><td>Main turn or Up/Down browses; main click enters/loads; Back goes up or closes.</td></tr>
+          </tbody>
+        </table>
+
+        <h2 id="leds">LED meanings</h2>
+
+        <table class="readout-table">
+          <thead><tr><th>Surface</th><th>State</th></tr></thead>
+          <tbody>
+            <tr><td>Pads</td><td>Active voices use stable red, orange, yellow, green, azure, blue-violet, purple, and magenta slot colors; released pads turn off.</td></tr>
+            <tr><td>Steps</td><td>White occupied; orange active/stopped; green active/playing; red recording; blue-violet queued.</td></tr>
+            <tr><td>Record</td><td>Red during performance-data capture; orange during audio-lane capture; dim while idle.</td></tr>
+            <tr><td>Play</td><td>Green while a performance loop runs; blue-violet while launch is queued.</td></tr>
+            <tr><td>Loop</td><td>Bright while stack scanning is held; dim while scans run.</td></tr>
+            <tr><td>Tracks</td><td>Selected lane on ordinary pages; selected clip bank in Clip Overview.</td></tr>
+          </tbody>
+        </table>
+
+        <h2 id="midi">External MIDI</h2>
+
+        <p>External/host MIDI accepts notes, note-off, polyphonic aftertouch, All Sound Off (CC 120), and All Notes Off (CC 123). Parameter CC values are 7-bit absolute. This mapping is provisional while the external-controller design remains under evaluation.</p>
+
+        <details>
+          <summary>Show complete provisional CC map</summary>
+          <table class="readout-table">
+            <thead><tr><th>CC</th><th>Parameter</th><th>CC</th><th>Parameter</th></tr></thead>
+            <tbody>
+              <tr><td>20</td><td>Position</td><td>21</td><td>Field width</td></tr>
+              <tr><td>22</td><td>Speed</td><td>23</td><td>Stack Start</td></tr>
+              <tr><td>24</td><td>Stack scan rate</td><td>25</td><td>Algorithm</td></tr>
+              <tr><td>26</td><td>Join</td><td>27</td><td>Output level</td></tr>
+              <tr><td>28</td><td>Motion mode</td><td>29</td><td>Motion sound</td></tr>
+              <tr><td>30</td><td>Motion gesture rate</td><td>31</td><td>Lanes mode</td></tr>
+              <tr><td>32</td><td>Stack path</td><td>33</td><td>Stretch Off/On</td></tr>
+              <tr><td>34</td><td>Stretch ratio</td><td>35–38</td><td>Lane 1–4 gain</td></tr>
+              <tr><td>39</td><td>Grain mode</td><td>40</td><td>Grain size</td></tr>
+              <tr><td>41</td><td>Grain density</td><td>42</td><td>Grain pitch</td></tr>
+              <tr><td>43</td><td>Grain window</td><td>44</td><td>Grain stereo spread</td></tr>
+              <tr><td>45</td><td>Cutups mode</td><td>46</td><td>Pressure Off/Offset</td></tr>
+              <tr><td>47</td><td>Root note</td><td>48</td><td>Record lane</td></tr>
+              <tr><td>49</td><td>Record source</td><td>50</td><td>Record gain</td></tr>
+              <tr><td>51</td><td>Monitor level</td><td>52</td><td>Record gate</td></tr>
+              <tr><td>53</td><td>Clear lane</td><td>54</td><td>Tempo BPM</td></tr>
+              <tr><td>55</td><td>Tempo swing</td><td>56</td><td>Performance playback</td></tr>
+              <tr><td>57</td><td>Undo trigger</td><td>58</td><td>Clear chain slot</td></tr>
+              <tr><td>65</td><td>Chain Off/On</td><td>66</td><td>Chain slot</td></tr>
+              <tr><td>67</td><td>Chain clip</td><td>68</td><td>Chain repeats</td></tr>
+              <tr><td>69</td><td>Motion travel</td><td>70</td><td>Motion jitter</td></tr>
+              <tr><td>71</td><td>Packet duty</td><td>72</td><td>Motor rate</td></tr>
+              <tr><td>73</td><td>Motor symmetry</td><td>74</td><td>Motor shape</td></tr>
+              <tr><td>75</td><td>Lane transition</td><td>76</td><td>Lane path shape</td></tr>
+              <tr><td>77</td><td>Lane path offset</td><td>78</td><td>Lane path skew</td></tr>
+              <tr><td>79</td><td>Lane path curve</td><td>80</td><td>Lane transition slew</td></tr>
+              <tr><td>81</td><td>Grain position spray</td><td>82</td><td>Grain spray bias</td></tr>
+              <tr><td>83</td><td>Grain pitch spray</td><td>84</td><td>Grain reverse chance</td></tr>
+              <tr><td>85</td><td>Grain size variation</td><td>86</td><td>Grain level variation</td></tr>
+              <tr><td>87</td><td>Grain timing</td><td>88</td><td>Grain timing scatter</td></tr>
+              <tr><td>89</td><td>Grain envelope skew</td><td>90</td><td>Grain process</td></tr>
+              <tr><td>91</td><td>Grain process amount</td><td>92</td><td>Grain regions</td></tr>
+              <tr><td>93</td><td>Grain source advance</td><td>94</td><td>Cut clock</td></tr>
+              <tr><td>95</td><td>Cut division</td><td>96</td><td>Free cut rate</td></tr>
+              <tr><td>97</td><td>Cut timing variation</td><td>98</td><td>Cut gate</td></tr>
+              <tr><td>99</td><td>Cut join</td><td>100</td><td>Cut regions</td></tr>
+              <tr><td>101</td><td>Cut repeats</td><td>102</td><td>Cut reverse chance</td></tr>
+              <tr><td>103</td><td>Cut pitch variation</td><td>104</td><td>Cut level variation</td></tr>
+              <tr><td>105</td><td>Cut lane order</td><td>106</td><td>Cut poly path</td></tr>
+              <tr><td>107</td><td>Cut region source</td><td>108</td><td>Sample play mode</td></tr>
+              <tr><td>109</td><td>Slice region source</td><td>110</td><td>Equal slice count</td></tr>
+              <tr><td>111</td><td>Pad mode</td><td>112</td><td>Lane variation</td></tr>
+              <tr><td>113</td><td>Preview level</td><td>114</td><td>Performance rate</td></tr>
+              <tr><td>115</td><td>Replace/Overdub</td><td>116</td><td>Performance record</td></tr>
+              <tr><td>117</td><td>Clear performance</td><td>120 / 123</td><td>All sound / notes off</td></tr>
+            </tbody>
+          </table>
+        </details>
+
+        <div class="callout"><p><strong>Internal and external CCs are separate.</strong> Move's internal Loop button arrives as CC 58 and controls Stack Hold in the takeover UI. External CC 58 retains the provisional Clear Chain Slot mapping. External CC 51 enables monitoring and can cause acoustic feedback.</p></div>
+
+        <nav class="page-nav" aria-label="Page navigation">
+          <a class="page-nav-link" href="performance.html"><span>Previous</span>Performance Loops</a>
+          <a class="page-nav-link next" href="index.html"><span>Return</span>Manual Start</a>
+        </nav>
+      </main>
+
+      <aside class="toc" aria-label="Page navigation">
+        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
+        <div class="toc-section"><h2>On this page</h2><a href="#global">Global</a><a href="#editing">Editing</a><a href="#context">By view</a><a href="#leds">LEDs</a><a href="#midi">External MIDI</a></div>
+      </aside>
+    </div>
+    <footer class="manual-footer">Shortcut behavior follows <code>src/ui.js</code>; external CC behavior follows the DSP wrapper.</footer>
+    <script src="lightbox.js"></script>
+  </body>
+</html>

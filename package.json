@@ -7,6 +7,9 @@
   "scripts": {
     "test": "bash scripts/test-native.sh",
     "validate": "bash scripts/validate-native.sh",
+    "docs:render": "node scripts/render-doc-screens.mjs",
+    "docs:check": "node scripts/render-doc-screens.mjs --check && node scripts/check-docs.mjs",
+    "docs:serve": "python3 -m http.server 8080 --directory docs",
     "build:native": "bash scripts/build-native.sh",
     "build": "bash scripts/package-native.sh",
     "package:verify": "bash scripts/verify-package.sh",

@@ -6,6 +6,8 @@ repo_dir="$(cd "$(dirname "$0")/.." && pwd)"
 "$repo_dir/scripts/test-native.sh"
 node --check "$repo_dir/src/ui.js"
 python3 -m json.tool "$repo_dir/src/module.json" >/dev/null
+node "$repo_dir/scripts/render-doc-screens.mjs" --check
+node "$repo_dir/scripts/check-docs.mjs"
 
 python3 - "$repo_dir/src/module.json" <<'PY'
 import json

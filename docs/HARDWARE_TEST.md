@@ -1,4 +1,4 @@
-# S3G Thru 0.12.0 overtake hardware acceptance
+# S3G Thru 0.14.1 overtake hardware acceptance
 
 Desktop tests prove the module ABI and DSP behavior; they do not prove the
 exact Move input, screen, pad, or realtime paths. Preserve the previous
@@ -16,7 +16,7 @@ working Schwung installation and do this pass with headphones first.
 
 1. Set Move's main volume low and disconnect speakers.
 2. Uninstall the earlier 0.1 sound-generator build if present, restart Move,
-   then install the 0.12.0 tarball through Schwung Manager.
+   then install the 0.14.1 tarball through Schwung Manager.
 3. Open the Overtake menu with Shift + volume touch + jog-click and select
    S3G Thru.
 4. Confirm Thru opens directly on a four-row waveform page without selecting a
@@ -48,28 +48,44 @@ working Schwung installation and do this pass with headphones first.
     stereo WAV at a non-44.1-kHz rate; confirm loading does not glitch currently
     playing audio and the footer shows the loaded filename.
     Assign a different library WAV to the same lane in two patterns and switch
-    between them. Confirm each pattern recalls its own assignment. Create a new
-    blank pattern without assigning that lane and confirm it inherits the
-    preceding sample rather than clearing or silencing the lane.
+    between them. Confirm each pattern recalls its own assignment and no lane
+    changes before the complete queued bank is ready. Create a new pattern and
+    confirm `INHERIT`; clear the lane and confirm explicit `EMPTY`. Rename one
+    assigned WAV temporarily and confirm `MISSING` leaves the current pattern
+    playing instead of partially switching.
 13. Press Menu and use dial 1 on the Engine page to test Motion, Lanes, Grains,
     and Cutups. Confirm the 16 Step keys no longer change the engine.
-    In Motion, test Mirror and Zigzag with each of Continuous, Packets, Motor,
-    and Bounce; the cursor must visibly travel backward as well as forward.
+    In Motion, test Mirror, Zigzag, and Drunk with each of Continuous, Packets,
+    Motor, and Bounce; the cursor must visibly travel backward as well as
+    forward. Verify Packet Duty and independent Motor rate/symmetry/shape.
+    In Lanes, compare Crossfade and Jump, all path shapes, Random, and the
+    transition slew. In Grains, test all four processes and variation controls;
+    notes must change scan speed without changing Grain Pitch. In Cutups, test
+    Free and Tempo clocks, divisions, repeats, several region counts, lane
+    orders, and two held notes; notes must change slice pitch without changing
+    the cut clock.
 14. Use Up/Down to transpose the grid and confirm held/released notes do not
     stick.
 15. Press Menu. For each Algorithm, use Up/Down to visit Engine, only that
-    selected playback engine, Mix / Rec, and Sequence. Confirm unrelated engine
-    pages are absent. Confirm every parameter has a padded name with its value
+    selected playback engine's pages, Mix / Rec, Sample, Sequence, and Chain. Confirm
+    unrelated engine pages are absent. Confirm every parameter has a padded name with its value
     underneath, no miniature dial graphic or text overlap, and each physical
     dial edits the cell directly beneath it.
-16. Tap Step 1, then tap three pads and release them. Confirm all three pads stay
-    orange. Tap Step 5 and confirm all three remain orange. Tap one lit pad and
+16. Tap Step 1 and confirm it turns red while held, then orange on release.
+    Tap three pads and release them. Confirm all three pads stay orange. Tap
+    Step 5 and confirm all three remain orange. Tap one lit pad and
     confirm only that pad switches off. Tap Step 7, turn off a second pad, then
     tap Step 9 and turn off the third. Press Play and confirm the three notes end
     after four, six, and eight Step intervals respectively, without a Gate
     percentage. Note-start Steps should light white and the moving Step cyan.
+    The Play button should change from dim to bright while transport runs.
     Confirm pads remain playable during the pattern. On the Sequence page,
     confirm knob 1 sets 40–240 BPM and the waveform-page footer reports it.
+    Use Left/Right to move through four Step pages and confirm the waveform
+    header changes from P1 through P4. Confirm Shift+Up/Down does the same from
+    both the waveform and parameter views. Enter a note on one page with its
+    note-off on the next. Verify Probability 0/100, Ratchets 1–4,
+    and positive/negative Microtiming on several selected Steps.
 17. Enter the same pitch from its two isomorphic grid positions with overlapping
     lengths. Confirm both instances sound, move independently, and retain two
     different source-pad/playhead colors. Hold a note-start Step and turn
@@ -84,19 +100,37 @@ working Schwung installation and do this pass with headphones first.
     A01 is unchanged. While running, select another pattern and confirm it is
     shown as queued until the current pattern boundary. Hold Delete+Step to
     clear a disposable slot.
-18. Connect the programmed external controller. Test CC 20–51 and CC 54–57 at
-    both endpoints, CC 52 as a record gate, and CC 53 as a clear trigger. Confirm
+    Use Shift+Back to restore the clear. Enable Automation Record, run the
+    pattern, and turn engine dials; confirm locks appear on the passing Steps.
+    Free-play over a running pattern, then use Shift+jog-click and confirm the
+    notes are captured. Program two Chain slots with different repeat counts
+    and confirm source preparation never causes a partial pattern change.
+18. On the Sample page, test trim, reverse, normalization, and edge fade on a
+    disposable capture. Confirm Undo restores the preceding source and that an
+    edited capture survives reopen.
+19. Connect the programmed external controller. Test CC 20–51, CC 54–68, and
+    the fidelity controls at CC 69–106 at both endpoints; test CC 52 as a
+    record gate and CC 53 as a clear trigger. Confirm
     Move's own Menu/Back/Shift buttons do not alter mapped parameters.
-19. Return to the waveform page, press Back, and confirm Thru exits cleanly
+20. Open Help and record its maximum render-time and overrun counters while
+    holding eight dense Grains voices and switching prepared patterns. Return
+    to the waveform page, press Back, and confirm Thru exits cleanly
     with no hanging note or monitor.
-20. Reopen S3G Thru. Confirm all four waveforms, stereo audio, selected engine,
+21. Reopen S3G Thru. Confirm all four waveforms, stereo audio, selected engine,
     octave, edited settings, note-on Steps, individual note-off boundaries,
     source-pad identities, timing, and parameter locks are recalled. Confirm the
     active pattern, stored-pattern set, and queued-note editing state are
     recalled. Confirm the sequencer is stopped after recall until Play is
     pressed.
-21. Clear one lane with Shift + Delete, exit, reopen, and confirm only that
+22. Make an edit, wait at least ten seconds for an autosave interval, then use a
+    normal overtake close/reopen and confirm the edit recovers. This does not
+    authorize pulling power during a file write.
+23. Clear one lane with Shift + Delete, exit, reopen, and confirm only that
     lane remains absent.
+24. On the Sample page, confirm Trim, Reverse, Normalize, and Fade show `TURN`.
+    Turn Normalize in either direction and confirm the header briefly reads
+    `NORMALIZED L#`; compare the result at a fixed Level. Repeat on an empty lane
+    and confirm the UI reports that the lane is empty instead of failing silently.
 
 ## Monitor and input checks
 
@@ -115,10 +149,13 @@ working Schwung installation and do this pass with headphones first.
 - audio continuity and load time for long library WAVs;
 - CPU behavior for each algorithm, especially dense Grains;
 - CPU behavior with eight simultaneous voices and eight dense Grains voices;
+- Help-screen maximum render microseconds and overrun count for each engine;
+- peak memory/launch reliability with the active and prepared sample banks;
+- preparation time and boundary behavior for four long, different pattern WAVs;
 - whether note-off release feels appropriate for short pad gestures;
 - whether pressure-controlled depth is the right default;
 - any mismatch between the selected Move input and captured audio; and
-- whether the overtake open/exit cycle is reliable.
+- whether the overtake open/exit cycle is reliable;
 - time required to save four full 12-second lanes on exit and recall them on
   the next launch;
 - Step tap/hold discrimination and parameter-lock editing feel; and

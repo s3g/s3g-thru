@@ -42,9 +42,10 @@ public:
         movingLoop,
         mirror,
         zigzag,
+        drunk,
     };
 
-    static constexpr std::size_t kMotionModeCount = 7u;
+    static constexpr std::size_t kMotionModeCount = 8u;
 
     enum class MotionSound : std::uint8_t {
         continuous,
@@ -101,9 +102,104 @@ public:
         stepsDown,
         stepsUp,
         manual,
+        random,
     };
 
-    static constexpr std::size_t kLanePathCount = 7u;
+    static constexpr std::size_t kLanePathCount = 8u;
+
+    enum class MotorShape : std::uint8_t {
+        triangle,
+        rounded,
+        pulse,
+    };
+
+    static constexpr std::size_t kMotorShapeCount = 3u;
+
+    enum class LaneBlendMode : std::uint8_t {
+        crossfade,
+        jump,
+    };
+
+    static constexpr std::size_t kLaneBlendModeCount = 2u;
+
+    enum class LanePathShape : std::uint8_t {
+        linear,
+        smooth,
+        exponential,
+        plateau,
+    };
+
+    static constexpr std::size_t kLanePathShapeCount = 4u;
+
+    enum class GrainTiming : std::uint8_t {
+        regular,
+        scatter,
+    };
+
+    static constexpr std::size_t kGrainTimingCount = 2u;
+
+    enum class GrainBias : std::uint8_t {
+        behind,
+        around,
+        ahead,
+    };
+
+    static constexpr std::size_t kGrainBiasCount = 3u;
+
+    enum class GrainProcess : std::uint8_t {
+        ordinary,
+        stutter,
+        shrink,
+        doublets,
+    };
+
+    static constexpr std::size_t kGrainProcessCount = 4u;
+
+    enum class GrainAdvance : std::uint8_t {
+        scan,
+        grain,
+    };
+
+    static constexpr std::size_t kGrainAdvanceCount = 2u;
+
+    enum class CutClock : std::uint8_t {
+        free,
+        tempo,
+    };
+
+    static constexpr std::size_t kCutClockCount = 2u;
+
+    enum class CutDivision : std::uint8_t {
+        quarter,
+        eighth,
+        eighthTriplet,
+        sixteenth,
+        sixteenthTriplet,
+        thirtySecond,
+    };
+
+    static constexpr std::size_t kCutDivisionCount = 6u;
+
+    enum class CutLaneOrder : std::uint8_t {
+        down,
+        up,
+        palindrome,
+        random,
+        pairs,
+        outsideIn,
+        centerOut,
+    };
+
+    static constexpr std::size_t kCutLaneOrderCount = 7u;
+
+    enum class CutPolyPath : std::uint8_t {
+        together,
+        stagger,
+        rotate,
+        random,
+    };
+
+    static constexpr std::size_t kCutPolyPathCount = 4u;
 
     struct Controls {
         float locus = 0.5f;
@@ -115,6 +211,12 @@ public:
         MotionMode motion = MotionMode::forward;
         MotionSound motionSound = MotionSound::continuous;
         float motionSoundRateHz = 4.0f;
+        float motionTravel = 1.0f;
+        float motionJitter = 0.0f;
+        float packetDuty = 0.65f;
+        float motorRateHz = 1.0f;
+        float motorSymmetry = 0.5f;
+        MotorShape motorShape = MotorShape::rounded;
         LanesMode lanes = LanesMode::forward;
         GrainMode grains = GrainMode::scan;
         CutupsMode cutups = CutupsMode::forward;
@@ -122,6 +224,12 @@ public:
         float laneCycles = 1.0f;
         float manualLane = 0.0f;
         float lanePhaseOffset = 0.0f;
+        LaneBlendMode laneBlend = LaneBlendMode::crossfade;
+        LanePathShape lanePathShape = LanePathShape::linear;
+        float lanePathOffset = 0.0f;
+        float lanePathSkew = 0.5f;
+        float lanePathCurve = 0.0f;
+        float laneSlewMs = 20.0f;
         float laneGains[kStackLanes] { 1.0f, 1.0f, 1.0f, 1.0f };
         bool lanesStretch = true;
         float lanesStretchRatio = 1.0f;
@@ -130,6 +238,36 @@ public:
         float grainPitch = 1.0f;
         GrainWindow grainWindow = GrainWindow::bell;
         float grainStereoSpread = 0.0f;
+        float grainSpray = 0.0f;
+        GrainBias grainBias = GrainBias::around;
+        float grainPitchSpray = 0.0f;
+        float grainReverseChance = 0.0f;
+        float grainSizeVariation = 0.0f;
+        float grainLevelVariation = 0.0f;
+        GrainTiming grainTiming = GrainTiming::regular;
+        float grainTimingScatter = 0.0f;
+        float grainEnvelopeSkew = 0.0f;
+        GrainProcess grainProcess = GrainProcess::ordinary;
+        float grainProcessAmount = 0.5f;
+        float grainRegionCount = 16.0f;
+        GrainAdvance grainAdvance = GrainAdvance::scan;
+        CutClock cutClock = CutClock::tempo;
+        CutDivision cutDivision = CutDivision::sixteenth;
+        float cutRateHz = 8.0f;
+        float cutTempoBpm = 120.0f;
+        float cutSwing = 0.5f;
+        float cutTimeVariation = 0.0f;
+        float cutGate = 1.0f;
+        float cutJoinMs = 10.0f;
+        float cutRegionCount = 16.0f;
+        float cutRepeats = 1.0f;
+        float cutReverseChance = 0.0f;
+        float cutPitchVariation = 0.0f;
+        float cutLevelVariation = 0.0f;
+        CutLaneOrder cutLaneOrder = CutLaneOrder::down;
+        CutPolyPath cutPolyPath = CutPolyPath::together;
+        float cutPitch = 1.0f;
+        float cutVoiceIndex = 0.0f;
         float recordInputGain = 1.0f;
     };
 
@@ -179,6 +317,30 @@ public:
         return true;
     }
 
+    /**
+     * Rebind an already-prepared engine to another same-format sample bank.
+     * This is intended for an audio-boundary double-buffer swap: window tables
+     * and coefficients remain prepared, while reader/record state is reset.
+     */
+    bool rebindStorage(float* channel0,
+                       float* channel1,
+                       float* channel2,
+                       float* channel3,
+                       std::size_t capacityFrames)
+    {
+        if (!prepared_ || !channel0 || !channel1 || !channel2 || !channel3
+            || capacityFrames == 0u) return false;
+        storage_[0] = channel0;
+        storage_[1] = channel1;
+        storage_[2] = channel2;
+        storage_[3] = channel3;
+        capacityFrames_ = capacityFrames;
+        laneCapacityFrames_ = capacityFrames_ / kLaneChannels;
+        clear();
+        prepared_ = true;
+        return true;
+    }
+
     void clear()
     {
         sourceFrames_ = 0u;
@@ -206,6 +368,7 @@ public:
         lanePhase_ = 0.0f;
         lanePhaseIncrement_ = 0.0f;
         laneWeightsInitialized_ = false;
+        lastLaneSlewMs_ = -1.0f;
         for (std::size_t lane = 0u; lane < kStackLanes; ++lane) {
             laneFrames_[lane] = 0u;
             laneSampleRates_[lane] = outputSampleRate_;
@@ -294,6 +457,10 @@ public:
         stackMode_ = true;
         laneFrames_[lane] = frames;
         laneSampleRates_[lane] = sourceSampleRate;
+        if (referenceLane_ >= kStackLanes
+            || laneFrames_[referenceLane_] == 0u) {
+            referenceLane_ = lane;
+        }
         sourceFrames_ = laneFrames_[referenceLane_];
         sourceChannels_ = kLaneChannels;
         sourceSampleRate_ = laneSampleRates_[referenceLane_];
@@ -500,6 +667,15 @@ public:
         const float targetSpeed = clamp(controls.speed, 0.05f, 4.0f);
         const float join = clamp01(controls.join);
         recordInputGain_ = clamp(controls.recordInputGain, 0.0f, 1.0f);
+        const float requestedLaneSlewMs = clamp(
+            controls.laneSlewMs, 0.0f, 500.0f);
+        if (std::abs(requestedLaneSlewMs - lastLaneSlewMs_) > 1.0e-3f) {
+            const float laneSlewSeconds = requestedLaneSlewMs * 0.001f;
+            laneSlew_ = laneSlewSeconds <= 0.0f ? 1.0f
+                : 1.0f - std::exp(-1.0f / std::max(
+                    1.0f, outputSampleRate_ * laneSlewSeconds));
+            lastLaneSlewMs_ = requestedLaneSlewMs;
+        }
         for (std::size_t lane = 0u; lane < kStackLanes; ++lane) {
             activeControlsLaneGains_[lane]
                 = clamp(controls.laneGains[lane], 0.0f, 4.0f);
@@ -750,6 +926,7 @@ private:
         double seam = 0.0;
         LaneBlend lanes {};
         float gain = 1.0f;
+        float envelopeSkew = 0.0f;
         float channelGains[kLaneChannels] { 1.0f, 1.0f };
         GrainWindow window = GrainWindow::bell;
     };
@@ -765,10 +942,13 @@ private:
         double low = 0.0;
         double high = 1.0;
         double seam = 0.0;
+        std::size_t lane = kNoLane;
+        std::size_t gateFrames = 1u;
+        float gain = 1.0f;
     };
 
-    static constexpr std::size_t kGrainVoiceCount = 8u;
-    static constexpr std::size_t kCutRegionCount = 16u;
+    static constexpr std::size_t kGrainVoiceCount = 16u;
+    static constexpr std::size_t kCutRegionCount = 64u;
 
     static float clamp(float value, float minimum, float maximum)
     {
@@ -830,12 +1010,29 @@ private:
             / static_cast<float>(0x01000000u);
     }
 
+    static float hashUnit(std::uint32_t value)
+    {
+        value ^= value >> 16u;
+        value *= 0x7feb352du;
+        value ^= value >> 15u;
+        value *= 0x846ca68bu;
+        value ^= value >> 16u;
+        return static_cast<float>(value & 0x00ffffffu)
+            / static_cast<float>(0x01000000u);
+    }
+
     void resetEventReaders()
     {
         for (auto& grain : grains_) {
             grain = {};
         }
         grainCountdown_ = 0.0;
+        grainSerial_ = 0u;
+        grainProcessIndex_ = 0u;
+        grainSourcePhase_ = 0.0;
+        grainStutterAnchor_ = -1.0;
+        grainDoubletPending_ = false;
+        grainDoubletPosition_ = 0.0;
         stretchPhase_ = 0.0;
         stretchMix_ = 0.0f;
         cutCurrent_ = {};
@@ -843,6 +1040,9 @@ private:
         cutCountdown_ = 0.0;
         cutStep_ = 0u;
         cutWalkRegion_ = 0u;
+        cutRepeatIndex_ = 0u;
+        cutRepeatedRegion_ = 0u;
+        cutSwingPhase_ = false;
         randomState_ = 0x51f15e5du;
         currentMotionSound_ = MotionSound::continuous;
         motionInnerPhase_ = 0.0;
@@ -850,6 +1050,10 @@ private:
         bouncePhase_ = 0.0;
         bounceIndex_ = 0u;
         motionSoundPhaseIncrement_ = 0.0f;
+        motionMotorPhaseIncrement_ = 0.0f;
+        motionPacketDuty_ = 0.65f;
+        motionMotorSymmetry_ = 0.5f;
+        motionMotorShape_ = MotorShape::rounded;
         motionEnvelope_ = 1.0f;
     }
 
@@ -1423,6 +1627,30 @@ private:
             result.position = result.a;
             return result;
         }
+        if (mode == MotionMode::drunk) {
+            constexpr std::size_t segmentCount = 8u;
+            const double scaled = phase * static_cast<double>(segmentCount);
+            const std::size_t segment = std::min<std::size_t>(
+                static_cast<std::size_t>(scaled), segmentCount - 1u);
+            const float local = static_cast<float>(scaled
+                - static_cast<double>(segment));
+            const float fromRandom = hashUnit(
+                static_cast<std::uint32_t>(segment) + 0x45d9f3bu);
+            const float toRandom = hashUnit(
+                static_cast<std::uint32_t>(segment + 1u) + 0x45d9f3bu);
+            const float center = 0.5f;
+            const float from = center
+                + (fromRandom - center) * motionTravel_;
+            const float to = center + (toRandom - center) * motionTravel_;
+            const float jitter = (hashUnit(static_cast<std::uint32_t>(segment)
+                + 0x27d4eb2du) - 0.5f) * motionJitter_ * 0.24f;
+            const float shaped = smoothStep(clamp01(local + jitter));
+            result.a = window.low + static_cast<double>(
+                clamp01(from + (to - from) * shaped)) * width;
+            result.b = result.a;
+            result.position = result.a;
+            return result;
+        }
 
         const double crossfade = joinFrames(window, join);
         const double cycle = std::max(1.0, width - crossfade);
@@ -1518,19 +1746,29 @@ private:
         }
     }
 
-    LaneBlend makeLaneBlend(float phase,
-                            LanePath path,
-                            float manualLane) const
+    LaneBlend makeLaneBlend(float phase, const Controls& controls) const
     {
         LaneBlend result;
+        phase += clamp(controls.lanePathOffset, 0.0f, 1.0f);
         while (phase >= 1.0f) {
             phase -= 1.0f;
         }
         while (phase < 0.0f) {
             phase += 1.0f;
         }
+        const float skew = clamp(controls.lanePathSkew, 0.02f, 0.98f);
+        phase = phase < skew
+            ? 0.5f * phase / skew
+            : 0.5f + 0.5f * (phase - skew) / (1.0f - skew);
+        const float curve = clamp(controls.lanePathCurve, -1.0f, 1.0f);
+        if (curve > 0.0f) {
+            phase = phase + (phase * phase - phase) * curve;
+        } else if (curve < 0.0f) {
+            const float inverse = 1.0f - (1.0f - phase) * (1.0f - phase);
+            phase = phase + (inverse - phase) * -curve;
+        }
         float unit = phase;
-        switch (path) {
+        switch (controls.lanePath) {
             case LanePath::up:
                 unit = 1.0f - phase;
                 break;
@@ -1552,9 +1790,30 @@ private:
                     static_cast<int>(std::floor(phase * 4.0f)))) / 3.0f;
                 break;
             case LanePath::manual:
-                unit = clamp(manualLane, 0.0f, 3.0f) / 3.0f;
+                unit = clamp(controls.manualLane, 0.0f, 3.0f) / 3.0f;
                 break;
+            case LanePath::random: {
+                const std::uint32_t step = static_cast<std::uint32_t>(
+                    std::floor(phase * 16.0f));
+                unit = hashUnit(step + 0x9e3779b9u);
+                break;
+            }
             case LanePath::down:
+                break;
+        }
+        switch (controls.lanePathShape) {
+            case LanePathShape::smooth:
+                unit = smoothStep(unit);
+                break;
+            case LanePathShape::exponential:
+                unit *= unit;
+                break;
+            case LanePathShape::plateau: {
+                const float stepped = std::floor(unit * 4.0f) / 3.0f;
+                unit = clamp01(stepped);
+                break;
+            }
+            case LanePathShape::linear:
                 break;
         }
         result.position = unit * 3.0f;
@@ -1584,7 +1843,16 @@ private:
 
         result.first = static_cast<std::size_t>(lower);
         result.second = static_cast<std::size_t>(upper);
-        if (lower == upper) {
+        if (lower == upper || controls.laneBlend == LaneBlendMode::jump) {
+            if (controls.laneBlend == LaneBlendMode::jump && lower != upper) {
+                const bool chooseUpper = result.position
+                    >= 0.5f * static_cast<float>(lower + upper);
+                result.first = chooseUpper
+                    ? static_cast<std::size_t>(upper)
+                    : static_cast<std::size_t>(lower);
+                result.second = result.first;
+                result.position = static_cast<float>(result.first);
+            }
             return result;
         }
         const float mix = smoothStep(clamp01(
@@ -1609,14 +1877,15 @@ private:
         while (targetPhase >= 1.0f) {
             targetPhase -= 1.0f;
         }
-        const LaneBlend lanes = makeLaneBlend(
-            targetPhase, controls.lanePath, controls.manualLane);
+        const LaneBlend lanes = makeLaneBlend(targetPhase, controls);
+        const std::size_t firstLane = std::min(lanes.first, kStackLanes - 1u);
+        const std::size_t secondLane = std::min(lanes.second, kStackLanes - 1u);
         lanePosition_ = lanes.position;
         for (std::size_t lane = 0u; lane < kStackLanes; ++lane) {
             laneWeightTargets_[lane] = 0.0f;
         }
-        laneWeightTargets_[lanes.first] += lanes.firstGain;
-        laneWeightTargets_[lanes.second] += lanes.secondGain;
+        laneWeightTargets_[firstLane] += lanes.firstGain;
+        laneWeightTargets_[secondLane] += lanes.secondGain;
         if (!laneWeightsInitialized_) {
             for (std::size_t lane = 0u; lane < kStackLanes; ++lane) {
                 laneWeights_[lane] = laneWeightTargets_[lane];
@@ -1672,14 +1941,16 @@ private:
                           double position,
                           const LaneBlend& lanes) const
     {
-        const float first = sampleLaneAt(lanes.first, channel, position)
-            * activeControlsLaneGains_[lanes.first];
-        if (lanes.first == lanes.second || lanes.secondGain <= 0.0f) {
+        const std::size_t firstLane = std::min(lanes.first, kStackLanes - 1u);
+        const std::size_t secondLane = std::min(lanes.second, kStackLanes - 1u);
+        const float first = sampleLaneAt(firstLane, channel, position)
+            * activeControlsLaneGains_[firstLane];
+        if (firstLane == secondLane || lanes.secondGain <= 0.0f) {
             return first;
         }
         return first * lanes.firstGain
-            + sampleLaneAt(lanes.second, channel, position)
-                * activeControlsLaneGains_[lanes.second] * lanes.secondGain;
+            + sampleLaneAt(secondLane, channel, position)
+                * activeControlsLaneGains_[secondLane] * lanes.secondGain;
     }
 
     float readLaneBlendHead(std::size_t channel,
@@ -1912,11 +2183,18 @@ private:
         motionSoundPhaseIncrement_ = clamp(
             controls.motionSoundRateHz, 0.25f, 32.0f)
             / outputSampleRate_;
+        motionMotorPhaseIncrement_ = clamp(
+            controls.motorRateHz, 0.05f, 20.0f) / outputSampleRate_;
+        motionPacketDuty_ = clamp(controls.packetDuty, 0.02f, 0.98f);
+        motionMotorSymmetry_ = clamp(
+            controls.motorSymmetry, 0.05f, 0.95f);
+        motionMotorShape_ = controls.motorShape;
+        motionTravel_ = clamp01(controls.motionTravel);
+        motionJitter_ = clamp01(controls.motionJitter);
     }
 
     float motionSoundGain(float join)
     {
-        constexpr float packetDuty = 0.65f;
         float target = 1.0f;
         if (currentMotionSound_ == MotionSound::packets
             || currentMotionSound_ == MotionSound::motor) {
@@ -1924,12 +2202,20 @@ private:
             // source clock can be a cheap binary gate instead of evaluating
             // a polynomial bell for every sample.
             const float packet
-                = motionInnerPhase_ < packetDuty ? 1.0f : 0.0f;
+                = motionInnerPhase_ < motionPacketDuty_ ? 1.0f : 0.0f;
             target = 1.0f + (packet - 1.0f) * clamp01(join);
             if (currentMotionSound_ == MotionSound::motor) {
                 // Four packet pulses ride a triangular outer motor cycle.
-                const float motor = 1.0f
-                    - std::abs(motionOuterPhase_ * 2.0f - 1.0f);
+                float motor = motionOuterPhase_ < motionMotorSymmetry_
+                    ? motionOuterPhase_ / motionMotorSymmetry_
+                    : (1.0f - motionOuterPhase_)
+                        / (1.0f - motionMotorSymmetry_);
+                motor = clamp01(motor);
+                if (motionMotorShape_ == MotorShape::rounded) {
+                    motor = smoothStep(motor);
+                } else if (motionMotorShape_ == MotorShape::pulse) {
+                    motor = motor > 0.5f ? 1.0f : 0.0f;
+                }
                 target *= motor;
             }
         } else if (currentMotionSound_ == MotionSound::bounce) {
@@ -1960,7 +2246,7 @@ private:
                 if (motionInnerPhase_ >= 1.0f) {
                     motionInnerPhase_ -= 1.0f;
                 }
-                motionOuterPhase_ += motionSoundPhaseIncrement_;
+                motionOuterPhase_ += motionMotorPhaseIncrement_;
                 if (motionOuterPhase_ >= 1.0f) {
                     motionOuterPhase_ -= 1.0f;
                 }
@@ -2174,13 +2460,13 @@ private:
     void prepareGrainControls(const Controls& controls)
     {
         const float durationSeconds
-            = clamp(controls.grainSizeMs, 8.0f, 500.0f) * 0.001f;
+            = clamp(controls.grainSizeMs, 8.0f, 1000.0f) * 0.001f;
         grainDurationFrames_ = std::max<std::size_t>(8u,
             static_cast<std::size_t>(outputSampleRate_ * durationSeconds));
         const float voiceSafeDensity
             = static_cast<float>(kGrainVoiceCount - 1u) / durationSeconds;
         grainDensityHz_ = std::min(
-            clamp(controls.grainDensityHz, 1.0f, 64.0f),
+            clamp(controls.grainDensityHz, 1.0f, 96.0f),
             voiceSafeDensity);
         grainIntervalFrames_ = static_cast<double>(outputSampleRate_)
             / static_cast<double>(grainDensityHz_);
@@ -2229,9 +2515,21 @@ private:
 
     float grainEnvelope(const Grain& grain) const
     {
-        const float phase = static_cast<float>(grain.age)
+        float phase = static_cast<float>(grain.age)
             / static_cast<float>(std::max<std::size_t>(1u,
                 grain.duration - 1u));
+        const float skew = clamp(grain.envelopeSkew, -0.95f, 0.95f);
+        if (skew > 0.0f) {
+            const float square = phase * phase;
+            const float fourth = square * square;
+            phase += (fourth - phase) * skew;
+        } else if (skew < 0.0f) {
+            const float inverse = 1.0f - phase;
+            const float square = inverse * inverse;
+            const float fourth = square * square;
+            const float early = 1.0f - fourth;
+            phase += (early - phase) * -skew;
+        }
         const float tablePosition = clamp01(phase)
             * static_cast<float>(kGrainWindowTableSize - 1u);
         const std::size_t first = std::min<std::size_t>(
@@ -2265,7 +2563,12 @@ private:
         }
 
         const double width = std::max(1.0, window.high - window.low);
-        double position = window.low + phase_ * width;
+        const bool doublet = controls.grainProcess == GrainProcess::doublets
+            && grainDoubletPending_;
+        const double sourcePhase = controls.grainAdvance == GrainAdvance::grain
+            ? grainSourcePhase_ : phase_;
+        double position = doublet ? grainDoubletPosition_
+            : window.low + sourcePhase * width;
         switch (controls.grains) {
             case GrainMode::freeze:
                 position = 0.5 * (window.low + window.high);
@@ -2275,31 +2578,79 @@ private:
                     * width;
                 break;
             case GrainMode::slice: {
-                const double slice = std::floor(phase_
-                    * static_cast<double>(kCutRegionCount));
+                const std::size_t regions = static_cast<std::size_t>(clamp(
+                    controls.grainRegionCount, 1.0f,
+                    static_cast<float>(kCutRegionCount)));
+                const double slice = std::floor(sourcePhase
+                    * static_cast<double>(regions));
                 position = window.low + (slice + 0.5) * width
-                    / static_cast<double>(kCutRegionCount);
+                    / static_cast<double>(regions);
                 break;
             }
             case GrainMode::scan:
                 break;
         }
 
+        if (!doublet) {
+            const float spray = clamp01(controls.grainSpray);
+            float direction = randomUnit() * 2.0f - 1.0f;
+            if (controls.grainBias == GrainBias::behind) {
+                direction = -randomUnit();
+            } else if (controls.grainBias == GrainBias::ahead) {
+                direction = randomUnit();
+            }
+            position += static_cast<double>(direction * spray) * width * 0.5;
+            position = clamp(position, window.low, window.high - 1.0);
+        }
+
+        const float processAmount = clamp01(controls.grainProcessAmount);
+        if (controls.grainProcess == GrainProcess::stutter) {
+            const std::size_t group = 1u + static_cast<std::size_t>(
+                std::lround(processAmount * 15.0f));
+            if (grainProcessIndex_ % group == 0u
+                || grainStutterAnchor_ < window.low
+                || grainStutterAnchor_ >= window.high) {
+                grainStutterAnchor_ = position;
+            }
+            position = grainStutterAnchor_;
+        }
+
         *slot = {};
         slot->active = true;
-        slot->duration = grainDurationFrames_;
+        const float sizeVariation = clamp01(controls.grainSizeVariation);
+        float durationScale = 1.0f + (randomUnit() * 2.0f - 1.0f)
+            * sizeVariation * 0.9f;
+        if (controls.grainProcess == GrainProcess::shrink) {
+            const float shrinkPhase = static_cast<float>(grainProcessIndex_ % 8u)
+                / 7.0f;
+            durationScale *= 1.0f - shrinkPhase * processAmount * 0.85f;
+        }
+        slot->duration = std::max<std::size_t>(8u,
+            static_cast<std::size_t>(static_cast<float>(grainDurationFrames_)
+                * std::max(0.08f, durationScale)));
         slot->position = position;
+        const float pitchSpray = clamp(
+            controls.grainPitchSpray, 0.0f, 24.0f);
+        const float randomSemitones = (randomUnit() * 2.0f - 1.0f)
+            * pitchSpray;
+        float eventPitch = grainPitch_
+            * std::pow(2.0f, randomSemitones / 12.0f);
+        if (randomUnit() < clamp01(controls.grainReverseChance)) {
+            eventPitch = -eventPitch;
+        }
         slot->increment = static_cast<double>(sourceSampleRate_)
             / static_cast<double>(outputSampleRate_)
-            * static_cast<double>(grainPitch_);
+            * static_cast<double>(eventPitch);
         slot->low = window.low;
         slot->high = window.high;
         slot->seam = joinFrames(window, controls.join);
         slot->lanes = stackMode_
-            ? makeLaneBlend(lanePhase_, controls.lanePath,
-                controls.manualLane)
+            ? makeLaneBlend(lanePhase_, controls)
             : LaneBlend {};
-        slot->gain = grainGain_;
+        slot->gain = grainGain_ * (1.0f - randomUnit()
+            * clamp01(controls.grainLevelVariation));
+        slot->envelopeSkew = clamp(
+            controls.grainEnvelopeSkew, -1.0f, 1.0f);
         const float spread = clamp01(controls.grainStereoSpread);
         const float pan = spread > 0.0f
             ? (randomUnit() * 2.0f - 1.0f) * spread
@@ -2310,6 +2661,21 @@ private:
         slot->channelGains[0u] = rootTwo * std::cos(panAngle);
         slot->channelGains[1u] = rootTwo * std::sin(panAngle);
         slot->window = controls.grainWindow;
+        grainDoubletPosition_ = position;
+        if (controls.grainProcess == GrainProcess::doublets) {
+            grainDoubletPending_ = !doublet;
+        } else {
+            grainDoubletPending_ = false;
+        }
+        if (controls.grainAdvance == GrainAdvance::grain && !doublet) {
+            const double sourceAdvance = static_cast<double>(speed_)
+                * static_cast<double>(sourceSampleRate_)
+                / static_cast<double>(outputSampleRate_) / width
+                * grainIntervalFrames_;
+            grainSourcePhase_ = wrapPhase(grainSourcePhase_ + sourceAdvance);
+        }
+        ++grainSerial_;
+        ++grainProcessIndex_;
     }
 
     void renderGrainsFrame(const Controls& controls, float* wet)
@@ -2322,7 +2688,20 @@ private:
 
         if (grainCountdown_ <= 0.0) {
             startGrain(controls, window);
-            grainCountdown_ += grainIntervalFrames_;
+            double nextInterval = grainIntervalFrames_;
+            if (controls.grainProcess == GrainProcess::doublets) {
+                const float separation = 0.5f
+                    - clamp01(controls.grainProcessAmount) * 0.4f;
+                nextInterval *= grainDoubletPending_
+                    ? static_cast<double>(separation)
+                    : static_cast<double>(1.0f - separation);
+            }
+            if (controls.grainTiming == GrainTiming::scatter) {
+                const float scatter = clamp01(controls.grainTimingScatter);
+                nextInterval *= 1.0 + static_cast<double>(
+                    (randomUnit() * 2.0f - 1.0f) * scatter * 0.9f);
+            }
+            grainCountdown_ += std::max(1.0, nextInterval);
         }
         grainCountdown_ -= 1.0;
 
@@ -2376,33 +2755,94 @@ private:
         phase_ = wrapPhase(phase_ + phaseIncrement);
     }
 
-    std::size_t cutRegion(CutupsMode mode)
+    std::size_t cutRegion(CutupsMode mode, std::size_t regionCount)
     {
+        regionCount = std::max<std::size_t>(1u, regionCount);
         switch (mode) {
             case CutupsMode::reverse:
-                return kCutRegionCount - 1u
-                    - cutStep_ % kCutRegionCount;
+                return regionCount - 1u - cutStep_ % regionCount;
             case CutupsMode::palindrome: {
-                constexpr std::size_t period = (kCutRegionCount - 1u) * 2u;
+                if (regionCount <= 1u) return 0u;
+                const std::size_t period = (regionCount - 1u) * 2u;
                 const std::size_t phase = cutStep_ % period;
-                return phase < kCutRegionCount ? phase : period - phase;
+                return phase < regionCount ? phase : period - phase;
             }
             case CutupsMode::random:
                 return static_cast<std::size_t>(randomUnit()
-                    * static_cast<float>(kCutRegionCount)) % kCutRegionCount;
+                    * static_cast<float>(regionCount)) % regionCount;
             case CutupsMode::walk:
                 if (cutStep_ != 0u) {
                     const int move = randomUnit() < 0.5f ? -1 : 1;
                     cutWalkRegion_ = static_cast<std::size_t>((
                         static_cast<int>(cutWalkRegion_) + move
-                        + static_cast<int>(kCutRegionCount))
-                        % static_cast<int>(kCutRegionCount));
+                        + static_cast<int>(regionCount))
+                        % static_cast<int>(regionCount));
                 }
-                return cutWalkRegion_;
+                return cutWalkRegion_ % regionCount;
             case CutupsMode::forward:
-                return cutStep_ % kCutRegionCount;
+                return cutStep_ % regionCount;
         }
         return 0u;
+    }
+
+    std::size_t cutLane(const Controls& controls)
+    {
+        std::size_t loaded[kStackLanes] {};
+        std::size_t count = 0u;
+        for (std::size_t lane = 0u; lane < kStackLanes; ++lane) {
+            if (laneFrames_[lane] != 0u) loaded[count++] = lane;
+        }
+        if (count == 0u) return kNoLane;
+        std::size_t voiceOffset = 0u;
+        const std::size_t voice = static_cast<std::size_t>(std::max(
+            0.0f, std::floor(controls.cutVoiceIndex)));
+        switch (controls.cutPolyPath) {
+            case CutPolyPath::stagger: voiceOffset = voice; break;
+            case CutPolyPath::rotate: voiceOffset = voice + cutStep_; break;
+            case CutPolyPath::random:
+                voiceOffset = static_cast<std::size_t>(hashUnit(
+                    static_cast<std::uint32_t>(voice * 131u + cutStep_))
+                    * static_cast<float>(count));
+                break;
+            case CutPolyPath::together: break;
+        }
+        const std::size_t step = cutStep_ + voiceOffset;
+        std::size_t ordered = 0u;
+        switch (controls.cutLaneOrder) {
+            case CutLaneOrder::up:
+                ordered = count - 1u - step % count;
+                break;
+            case CutLaneOrder::palindrome: {
+                if (count <= 1u) return loaded[0u];
+                const std::size_t period = (count - 1u) * 2u;
+                const std::size_t phase = step % period;
+                ordered = phase < count ? phase : period - phase;
+                break;
+            }
+            case CutLaneOrder::random:
+                ordered = static_cast<std::size_t>(randomUnit()
+                    * static_cast<float>(count)) % count;
+                break;
+            case CutLaneOrder::pairs: {
+                constexpr std::size_t pairOrder[4u] { 0u, 1u, 2u, 3u };
+                ordered = pairOrder[step % 4u] % count;
+                break;
+            }
+            case CutLaneOrder::outsideIn: {
+                constexpr std::size_t outside[4u] { 0u, 3u, 1u, 2u };
+                ordered = outside[step % 4u] % count;
+                break;
+            }
+            case CutLaneOrder::centerOut: {
+                constexpr std::size_t center[4u] { 1u, 2u, 0u, 3u };
+                ordered = center[step % 4u] % count;
+                break;
+            }
+            case CutLaneOrder::down:
+                ordered = step % count;
+                break;
+        }
+        return loaded[ordered];
     }
 
     void beginCut(const Controls& controls,
@@ -2411,7 +2851,8 @@ private:
     {
         const std::size_t join = std::max<std::size_t>(1u,
             std::min<std::size_t>(
-                static_cast<std::size_t>(outputSampleRate_ * 0.010f),
+                static_cast<std::size_t>(outputSampleRate_
+                    * clamp(controls.cutJoinMs, 0.0f, 100.0f) * 0.001f),
                 intervalFrames / 2u));
         if (cutCurrent_.active) {
             cutTail_ = cutCurrent_;
@@ -2425,17 +2866,49 @@ private:
         cutCurrent_ = {};
         cutCurrent_.active = true;
         cutCurrent_.joinFrames = join;
+        cutCurrent_.gateFrames = std::max<std::size_t>(1u,
+            static_cast<std::size_t>(static_cast<float>(intervalFrames)
+                * clamp(controls.cutGate, 0.05f, 1.0f)));
+        cutCurrent_.lane = stackMode_ ? cutLane(controls) : kNoLane;
+        cutCurrent_.gain = 1.0f - randomUnit()
+            * clamp01(controls.cutLevelVariation);
         const double width = std::max(1.0, window.high - window.low);
-        cutCurrent_.position = window.low
-            + static_cast<double>(cutRegion(controls.cutups)) * width
-                / static_cast<double>(kCutRegionCount);
-        cutCurrent_.increment = static_cast<double>(sourceSampleRate_)
-            / static_cast<double>(outputSampleRate_);
+        const std::size_t regions = static_cast<std::size_t>(clamp(
+            controls.cutRegionCount, 1.0f,
+            static_cast<float>(kCutRegionCount)));
+        const std::size_t repeats = static_cast<std::size_t>(clamp(
+            controls.cutRepeats, 1.0f, 16.0f));
+        if (cutRepeatIndex_ == 0u) {
+            cutRepeatedRegion_ = cutRegion(controls.cutups, regions);
+        }
+        const double regionWidth = width / static_cast<double>(regions);
+        const double regionLow = window.low
+            + static_cast<double>(cutRepeatedRegion_) * regionWidth;
+        const bool reverse = randomUnit()
+            < clamp01(controls.cutReverseChance);
+        cutCurrent_.position = reverse
+            ? std::min(window.high - 1.0, regionLow + regionWidth - 1.0)
+            : regionLow;
+        const float pitchVariation = clamp(
+            controls.cutPitchVariation, 0.0f, 24.0f);
+        const float semitones = (randomUnit() * 2.0f - 1.0f)
+            * pitchVariation;
+        const double pitch = static_cast<double>(clamp(
+            controls.cutPitch, 0.0625f, 16.0f))
+            * std::pow(2.0, static_cast<double>(semitones) / 12.0);
+        const float laneRate = cutCurrent_.lane < kStackLanes
+            ? laneSampleRates_[cutCurrent_.lane] : sourceSampleRate_;
+        const double laneScale = cutCurrent_.lane < kStackLanes
+            ? std::max(1.0e-12, lanePositionScales_[cutCurrent_.lane]) : 1.0;
+        cutCurrent_.increment = static_cast<double>(laneRate)
+            / static_cast<double>(outputSampleRate_) / laneScale * pitch
+            * (reverse ? -1.0 : 1.0);
         cutCurrent_.low = window.low;
         cutCurrent_.high = window.high;
         cutCurrent_.seam = joinFrames(window, controls.join);
 
-        ++cutStep_;
+        cutRepeatIndex_ = (cutRepeatIndex_ + 1u) % repeats;
+        if (cutRepeatIndex_ == 0u) ++cutStep_;
     }
 
     float readCut(const CutReader& reader, std::size_t channel) const
@@ -2445,21 +2918,30 @@ private:
         }
         const ReadHead head = makeEventReadHead(
             reader.position, reader.low, reader.high, reader.seam);
-        const float sample = stackMode_
-            ? readLaneStack(channel, head)
+        const float sample = stackMode_ && reader.lane < kStackLanes
+            ? readLaneHead(reader.lane, channel, head)
             : readHead(mapSourceChannel(channel), head);
         if (reader.retiring) {
             const float mix = smoothStep(static_cast<float>(
                 reader.retirementAge) / static_cast<float>(
                     std::max<std::size_t>(1u, reader.joinFrames)));
-            return sample * (1.0f - mix);
+            return sample * (1.0f - mix) * reader.gain;
         }
         if (reader.age < reader.joinFrames) {
             const float mix = smoothStep(static_cast<float>(reader.age + 1u)
                 / static_cast<float>(reader.joinFrames));
-            return sample * mix;
+            return sample * mix * reader.gain;
         }
-        return sample;
+        if (reader.age >= reader.gateFrames) return 0.0f;
+        const std::size_t fadeStart = reader.gateFrames > reader.joinFrames
+            ? reader.gateFrames - reader.joinFrames : 0u;
+        if (reader.age > fadeStart) {
+            const float mix = smoothStep(static_cast<float>(
+                reader.age - fadeStart) / static_cast<float>(
+                    std::max<std::size_t>(1u, reader.joinFrames)));
+            return sample * (1.0f - mix) * reader.gain;
+        }
+        return sample * reader.gain;
     }
 
     void advanceCutReader(CutReader& reader)
@@ -2473,6 +2955,9 @@ private:
                              reader.high,
                              reader.seam);
         ++reader.age;
+        if (!reader.retiring && reader.age >= reader.gateFrames) {
+            reader.active = false;
+        }
         if (reader.retiring && ++reader.retirementAge >= reader.joinFrames) {
             reader.active = false;
         }
@@ -2483,10 +2968,35 @@ private:
         const Window window = smoothEventWindow(controls);
         fieldLow_ = window.low;
         fieldHigh_ = window.high;
-        const std::size_t intervalFrames = std::max<std::size_t>(1u,
-            static_cast<std::size_t>(outputSampleRate_
-                / std::max(0.1f, 8.0f * speed_)));
         if (cutCountdown_ <= 0.0) {
+            double interval = 1.0;
+            if (controls.cutClock == CutClock::tempo) {
+                constexpr float beats[kCutDivisionCount] {
+                    1.0f, 0.5f, 1.0f / 3.0f, 0.25f,
+                    1.0f / 6.0f, 0.125f,
+                };
+                const std::size_t division = std::min<std::size_t>(
+                    static_cast<std::size_t>(controls.cutDivision),
+                    kCutDivisionCount - 1u);
+                interval = static_cast<double>(outputSampleRate_) * 60.0
+                    / static_cast<double>(clamp(
+                        controls.cutTempoBpm, 20.0f, 300.0f))
+                    * static_cast<double>(beats[division]);
+                const float swing = clamp(controls.cutSwing, 0.5f, 0.75f);
+                interval *= cutSwingPhase_
+                    ? 2.0 * static_cast<double>(1.0f - swing)
+                    : 2.0 * static_cast<double>(swing);
+                cutSwingPhase_ = !cutSwingPhase_;
+            } else {
+                interval = static_cast<double>(outputSampleRate_)
+                    / static_cast<double>(clamp(
+                        controls.cutRateHz, 0.25f, 64.0f));
+            }
+            const float timeVariation = clamp01(controls.cutTimeVariation);
+            interval *= 1.0 + static_cast<double>(
+                (randomUnit() * 2.0f - 1.0f) * timeVariation * 0.9f);
+            const std::size_t intervalFrames = std::max<std::size_t>(1u,
+                static_cast<std::size_t>(interval));
             beginCut(controls, window, intervalFrames);
             cutCountdown_ += static_cast<double>(intervalFrames);
         }
@@ -2573,6 +3083,12 @@ private:
     float grainDensityHz_ = 24.0f;
     float grainPitch_ = 1.0f;
     float grainGain_ = 1.0f;
+    std::size_t grainSerial_ = 0u;
+    std::size_t grainProcessIndex_ = 0u;
+    double grainSourcePhase_ = 0.0;
+    double grainStutterAnchor_ = -1.0;
+    bool grainDoubletPending_ = false;
+    double grainDoubletPosition_ = 0.0;
     static constexpr std::size_t kGrainWindowTableSize = 257u;
     float grainWindowTables_[kGrainWindowCount][kGrainWindowTableSize] {};
     CutReader cutCurrent_ {};
@@ -2580,10 +3096,14 @@ private:
     double cutCountdown_ = 0.0;
     std::size_t cutStep_ = 0u;
     std::size_t cutWalkRegion_ = 0u;
+    std::size_t cutRepeatIndex_ = 0u;
+    std::size_t cutRepeatedRegion_ = 0u;
+    bool cutSwingPhase_ = false;
     std::uint32_t randomState_ = 0x51f15e5du;
     float speed_ = 1.0f;
     float speedSlew_ = 1.0f;
     float laneSlew_ = 1.0f;
+    float lastLaneSlewMs_ = -1.0f;
     float eventWindowSlew_ = 1.0f;
     float motionEnvelopeSlew_ = 1.0f;
     float motionInnerPhase_ = 0.0f;
@@ -2591,6 +3111,12 @@ private:
     float bouncePhase_ = 0.0f;
     std::size_t bounceIndex_ = 0u;
     float motionSoundPhaseIncrement_ = 0.0f;
+    float motionMotorPhaseIncrement_ = 0.0f;
+    float motionPacketDuty_ = 0.65f;
+    float motionMotorSymmetry_ = 0.5f;
+    float motionTravel_ = 1.0f;
+    float motionJitter_ = 0.0f;
+    MotorShape motionMotorShape_ = MotorShape::rounded;
     float motionEnvelope_ = 1.0f;
     double displayPosition_ = 0.0;
     double fieldLow_ = 0.0;

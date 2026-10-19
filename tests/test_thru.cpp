@@ -138,6 +138,23 @@ void writePcm16Wav(const std::string& path)
     assert(std::fclose(file) == 0);
 }
 
+void waitForPattern(plugin_api_v2_t* api, void* instance, int pattern)
+{
+    for (int attempt = 0; attempt < 1200
+         && stateField(get(api, instance, "pattern_state"), 0) != pattern;
+         ++attempt) {
+        render(api, instance, 1);
+        usleep(1000);
+    }
+    if (stateField(get(api, instance, "pattern_state"), 0) != pattern) {
+        std::fprintf(stderr, "Pattern %d failed to activate: state=%s prepare=%s error=%s\n",
+                     pattern, get(api, instance, "pattern_state").c_str(),
+                     get(api, instance, "pattern_prepare_state").c_str(),
+                     get(api, instance, "sample_load_state").c_str());
+    }
+    assert(stateField(get(api, instance, "pattern_state"), 0) == pattern);
+}
+
 } // namespace
 
 int main()
@@ -174,20 +191,41 @@ int main()
         {22, "speed", "4.0000"}, {23, "manual_lane", "4.0000"},
         {24, "lane_cycles", "16.0000"}, {25, "algorithm", "3"},
         {26, "join", "1.0000"}, {27, "output_gain", "2.0000"},
-        {28, "motion_mode", "6"}, {29, "motion_sound", "3"},
+        {28, "motion_mode", "7"}, {29, "motion_sound", "3"},
         {30, "motion_rate", "20.0000"}, {31, "lanes_mode", "2"},
-        {32, "lane_path", "6"}, {33, "lanes_stretch", "1"},
+        {32, "lane_path", "7"}, {33, "lanes_stretch", "1"},
         {34, "stretch_ratio", "4.0000"}, {35, "lane_1_gain", "2.0000"},
         {36, "lane_2_gain", "2.0000"}, {37, "lane_3_gain", "2.0000"},
         {38, "lane_4_gain", "2.0000"}, {39, "grain_mode", "3"},
-        {40, "grain_size", "500.0000"}, {41, "grain_density", "64.0000"},
+        {40, "grain_size", "1000.0000"}, {41, "grain_density", "96.0000"},
         {42, "grain_pitch", "4.0000"}, {43, "grain_window", "5"},
         {44, "grain_spread", "1.0000"}, {45, "cutups_mode", "4"},
         {46, "pressure_mode", "1"}, {47, "root_note", "96"},
         {48, "record_lane", "4"}, {49, "record_source", "1"},
         {50, "record_gain", "4.0000"}, {51, "monitor_level", "1.0000"},
         {54, "seq_bpm", "240.00"}, {55, "seq_swing", "75.00"},
-        {56, "seq_length", "16"}, {57, "seq_gate", "800.00"},
+        {56, "seq_length", "64"}, {57, "seq_gate", "800.00"},
+        {69, "motion_travel", "1.0000"}, {70, "motion_jitter", "1.0000"},
+        {71, "packet_duty", "98.00"}, {72, "motor_rate", "20.0000"},
+        {73, "motor_symmetry", "95.00"}, {74, "motor_shape", "2"},
+        {75, "lane_blend", "1"}, {76, "lane_path_shape", "3"},
+        {77, "lane_path_offset", "1.0000"}, {78, "lane_path_skew", "0.9800"},
+        {79, "lane_path_curve", "1.0000"}, {80, "lane_slew", "500.00"},
+        {81, "grain_spray", "1.0000"}, {82, "grain_bias", "2"},
+        {83, "grain_pitch_spray", "24.0000"}, {84, "grain_reverse", "100.00"},
+        {85, "grain_size_variation", "1.0000"},
+        {86, "grain_level_variation", "1.0000"}, {87, "grain_timing", "1"},
+        {88, "grain_timing_scatter", "1.0000"},
+        {89, "grain_envelope_skew", "1.0000"}, {90, "grain_process", "3"},
+        {91, "grain_process_amount", "1.0000"}, {92, "grain_regions", "64"},
+        {93, "grain_advance", "1"}, {94, "cut_clock", "1"},
+        {95, "cut_division", "5"}, {96, "cut_rate", "64.0000"},
+        {97, "cut_time_variation", "1.0000"}, {98, "cut_gate", "100.00"},
+        {99, "cut_join", "100.00"}, {100, "cut_regions", "64"},
+        {101, "cut_repeats", "16"}, {102, "cut_reverse", "100.00"},
+        {103, "cut_pitch_variation", "24.0000"},
+        {104, "cut_level_variation", "1.0000"}, {105, "cut_lane_order", "6"},
+        {106, "cut_poly_path", "3"},
     };
     for (const auto& check : ccChecks) {
         midi(api, instance, 0xB0, static_cast<std::uint8_t>(check.cc), 127,
@@ -213,6 +251,47 @@ int main()
     const std::string waves = get(api, instance, "waveforms");
     assert(waves.size() == 4u * 112u * 2u + 3u);
     assert(waves.substr(0u, 224u).find_first_not_of('7') != std::string::npos);
+    api->set_param(instance, "maintenance", "1");
+    const std::string firstCapture = persistenceDir
+        + "/captures/p01-lane-1.wav";
+    struct stat captureStatus {};
+    assert(stat(firstCapture.c_str(), &captureStatus) == 0);
+    assert(get(api, instance, "lane_source_state").rfind("CAPTURE:TAKE P01", 0u)
+        == 0u);
+    api->set_param(instance, "sample_trim_start", "0.10");
+    api->set_param(instance, "sample_trim_end", "0.90");
+    api->set_param(instance, "sample_trim_apply", "1");
+    assert(get(api, instance, "lane_source") == "TRIMMED");
+    api->set_param(instance, "sample_reverse", "1");
+    midi(api, instance, 0x90, 60, 127);
+    render(api, instance, 4);
+    const int peakBeforeNormalize = peak();
+    midi(api, instance, 0x80, 60, 0);
+    api->set_param(instance, "sample_normalize", "1");
+    assert(get(api, instance, "last_error").empty());
+    midi(api, instance, 0x90, 60, 127);
+    render(api, instance, 4);
+    const int peakAfterNormalize = peak();
+    midi(api, instance, 0x80, 60, 0);
+    assert(peakBeforeNormalize > 0);
+    assert(peakAfterNormalize > peakBeforeNormalize * 2);
+    api->set_param(instance, "sample_fade", "1");
+    api->set_param(instance, "maintenance", "1");
+    assert(get(api, instance, "lane_source_state").rfind("CAPTURE:FADED", 0u)
+        == 0u);
+    const std::string editCaptureA = persistenceDir
+        + "/captures/p01-lane-1-edit-a.wav";
+    const std::string editCaptureB = persistenceDir
+        + "/captures/p01-lane-1-edit-b.wav";
+    assert(stat(editCaptureA.c_str(), &captureStatus) == 0);
+    assert(stat(editCaptureB.c_str(), &captureStatus) == 0);
+    api->set_param(instance, "undo", "1");
+    for (int attempt = 0; attempt < 500
+         && get(api, instance, "lane_source") != "NORMALIZED"; ++attempt) {
+        render(api, instance, 1);
+        usleep(1000);
+    }
+    assert(get(api, instance, "lane_source") == "NORMALIZED");
 
     /* A lane can alternatively come from the on-device sample library. WAV
        parsing/resampling runs on a worker; render only performs bounded copies. */
@@ -239,14 +318,16 @@ int main()
     api->set_param(instance, "clear_lane", "Clear");
     render(api, instance, 8);
 
-    /* The bottom row is a persistent 16-step pattern. Play starts an internal
+    /* The bottom row is one persistent 16-Step page of a 64-Step pattern.
+       Play starts an internal
        sixteenth-note clock, and a triggered voice snapshots its per-step
        locks instead of following later global edits. */
-    assert(get(api, instance, "seq_state") == "0,-1,0,120.00,16,50.00,80.00");
+    assert(get(api, instance, "seq_state") == "0,-1,0,120.00,16,50.00,80.00,1");
     api->set_param(instance, "seq_note", "0,64,108");
     api->set_param(instance, "seq_note_toggle", "0,67,96");
     api->set_param(instance, "seq_lock", "0,algorithm,3");
     api->set_param(instance, "seq_lock", "0,output_gain,1");
+    api->set_param(instance, "seq_lock", "0,lane_blend,1");
     api->set_param(instance, "seq_bpm", "240");
     api->set_param(instance, "seq_swing", "50");
     api->set_param(instance, "seq_length", "4");
@@ -254,8 +335,8 @@ int main()
     api->set_param(instance, "seq_step_gate", "0,250");
     assert(stateField(get(api, instance, "seq_state"), 2) == 1);
     assert(stateField(get(api, instance, "seq_locks"), 0) != 0);
-    assert((unsignedStateField(get(api, instance, "seq_locks"), 0)
-        & 0x80000000u) != 0u);
+    assert((unsignedStateField(get(api, instance, "seq_locks_hi"), 0)
+        & 0x1u) != 0u);
     assert(stateField(get(api, instance, "seq_note_counts"), 0) == 2);
     api->set_param(instance, "seq_note_pad_toggle", "7,3,63,80");
     api->set_param(instance, "seq_lock", "7,field,0.25");
@@ -316,15 +397,76 @@ int main()
     api->set_param(instance, "seq_running", "0");
     render(api, instance, 160);
 
+    /* Four 16-step pages form one 64-step pattern. Step expression is stored
+       independently, and a destructive Step clear is recoverable. */
+    api->set_param(instance, "seq_page", "2");
+    api->set_param(instance, "seq_edit_step", "16");
+    api->set_param(instance, "seq_note_pad_toggle", "16,4,64,100");
+    api->set_param(instance, "seq_probability", "37");
+    api->set_param(instance, "seq_ratchets", "3");
+    api->set_param(instance, "seq_micro", "-12");
+    assert(get(api, instance, "seq_page") == "2");
+    assert(get(api, instance, "seq_probability") == "37");
+    assert(get(api, instance, "seq_ratchets") == "3");
+    assert(get(api, instance, "seq_micro") == "-12");
+    assert(stateField(get(api, instance, "seq_note_counts"), 0) == 1);
+    api->set_param(instance, "seq_clear_step", "16");
+    assert(stateField(get(api, instance, "seq_note_counts"), 0) == 0);
+    assert(get(api, instance, "undo_available") == "1");
+    api->set_param(instance, "undo", "1");
+    assert(stateField(get(api, instance, "seq_note_counts"), 0) == 1);
+    api->set_param(instance, "seq_clear_step", "16");
+    api->set_param(instance, "seq_page", "1");
+
+    /* Chains are a persistent ordered list with independent repeat counts. */
+    api->set_param(instance, "chain_slot", "1");
+    api->set_param(instance, "chain_pattern", "2");
+    api->set_param(instance, "chain_repeats", "2");
+    api->set_param(instance, "chain_slot", "2");
+    api->set_param(instance, "chain_pattern", "3");
+    api->set_param(instance, "chain_repeats", "1");
+    const std::string chainEntries = get(api, instance, "chain_entries");
+    assert(chainEntries.rfind("1:1:2,1:2:1", 0u) == 0u);
+    api->set_param(instance, "chain_enabled", "1");
+    assert(stateField(get(api, instance, "chain_state"), 0) == 1);
+    api->set_param(instance, "chain_enabled", "0");
+
+    /* Free play is retained in a rolling performance buffer and committed on
+       demand without changing the immediate eight-voice performance path. */
+    api->set_param(instance, "seq_clear", "1");
+    api->set_param(instance, "seq_length", "4");
+    api->set_param(instance, "seq_bpm", "240");
+    api->set_param(instance, "seq_running", "1");
+    render(api, instance, 2);
+    midi(api, instance, 0x90, 68, 100, MOVE_MIDI_SOURCE_INTERNAL);
+    for (int block = 0; block < 80
+         && stateField(get(api, instance, "seq_state"), 1) == 0; ++block) {
+        render(api, instance, 1);
+    }
+    midi(api, instance, 0x80, 68, 0, MOVE_MIDI_SOURCE_INTERNAL);
+    api->set_param(instance, "seq_running", "0");
+    api->set_param(instance, "seq_capture", "1");
+    assert(stateField(get(api, instance, "seq_note_counts"), 0) == 1);
+    api->set_param(instance, "seq_clear", "1");
+    api->set_param(instance, "seq_note_pad_toggle", "0,5,53,108");
+    api->set_param(instance, "seq_note_pad_toggle", "0,8,53,96");
+    api->set_param(instance, "seq_note_length", "0,5,2");
+    api->set_param(instance, "seq_note_length", "0,8,3");
+    api->set_param(instance, "seq_lock", "0,algorithm,3");
+    api->set_param(instance, "seq_lock", "0,output_gain,1");
+    api->set_param(instance, "seq_lock", "0,lane_blend,1");
+
     /* Four banks of sixteen patterns snapshot notes, locks, length/swing and
        engine settings. Running changes queue to the next pattern boundary. */
     api->set_param(instance, "pattern_copy", "1");
     assert((unsignedStateField(get(api, instance, "pattern_state"), 2) & 0x7u)
         == 0x7u);
     api->set_param(instance, "pattern_select", "1");
+    waitForPattern(api, instance, 1);
     api->set_param(instance, "algorithm", "Lanes");
     api->set_param(instance, "seq_note_pad_toggle", "2,2,62,90");
     api->set_param(instance, "pattern_select", "0");
+    waitForPattern(api, instance, 0);
     assert(get(api, instance, "algorithm") == "0");
     assert(stateField(get(api, instance, "seq_note_counts"), 2) == 0);
     api->set_param(instance, "seq_running", "1");
@@ -472,21 +614,13 @@ int main()
     render(api, instance, 160);
 
     /* Library-lane assignments belong to patterns. Pattern 3 recalls its
-       source, while A01 has no assignment and therefore keeps the preceding
-       pattern's loaded sample as its default. */
+       source, while A01's explicit EMPTY ownership remains silent. */
     api->set_param(instance, "pattern_select", "2");
-    loadState = 0;
-    for (int attempt = 0; attempt < 500 && loadState != 6 && loadState != 7;
-         ++attempt) {
-        render(api, instance, 1);
-        usleep(1000);
-        loadState = stateField(get(api, instance, "sample_load_state"), 0);
-    }
-    assert(loadState == 6);
+    waitForPattern(api, instance, 2);
     assert(get(api, instance, "lane_source") == "Library Tone.wav");
     api->set_param(instance, "pattern_select", "0");
-    render(api, instance, 2);
-    assert(get(api, instance, "lane_source") == "Library Tone.wav");
+    waitForPattern(api, instance, 0);
+    assert(get(api, instance, "lane_source") == "EMPTY");
 
     /* Monitor is explicit and independent from recording or note velocity. */
     api->set_param(instance, "monitor_level", "0.5");
@@ -510,6 +644,83 @@ int main()
         render(api, instance, 40);
     }
 
+    /* Fidelity controls exercise the hardware-bounded implementations of the
+       source-family paths, grain event processes, and lane/region Cutups. */
+    const std::string fidelityState = get(api, instance, "state");
+    api->set_param(instance, "algorithm", "Motion");
+    api->set_param(instance, "motion_mode", "Drunk");
+    api->set_param(instance, "motion_travel", "0.8");
+    api->set_param(instance, "motion_jitter", "0.6");
+    api->set_param(instance, "motion_sound", "Motor");
+    api->set_param(instance, "packet_duty", "37");
+    api->set_param(instance, "motor_rate", "3.5");
+    api->set_param(instance, "motor_symmetry", "72");
+    api->set_param(instance, "motor_shape", "Pulse");
+    midi(api, instance, 0x90, 60, 100);
+    render(api, instance, 20);
+    assert(peak() > 0);
+    midi(api, instance, 0x80, 60, 0);
+
+    api->set_param(instance, "algorithm", "Lanes");
+    api->set_param(instance, "lane_path", "Random");
+    api->set_param(instance, "lane_blend", "Jump");
+    api->set_param(instance, "lane_path_shape", "Plateau");
+    api->set_param(instance, "lane_path_offset", "0.31");
+    api->set_param(instance, "lane_path_skew", "0.73");
+    api->set_param(instance, "lane_path_curve", "-0.4");
+    api->set_param(instance, "lane_slew", "0");
+    midi(api, instance, 0x90, 60, 100);
+    render(api, instance, 20);
+    assert(peak() > 0);
+    midi(api, instance, 0x80, 60, 0);
+
+    api->set_param(instance, "algorithm", "Grains");
+    api->set_param(instance, "grain_spray", "0.7");
+    api->set_param(instance, "grain_bias", "Ahead");
+    api->set_param(instance, "grain_pitch_spray", "12");
+    api->set_param(instance, "grain_reverse", "50");
+    api->set_param(instance, "grain_size_variation", "0.8");
+    api->set_param(instance, "grain_level_variation", "0.4");
+    api->set_param(instance, "grain_timing", "Scatter");
+    api->set_param(instance, "grain_timing_scatter", "0.6");
+    api->set_param(instance, "grain_envelope_skew", "-0.5");
+    api->set_param(instance, "grain_regions", "31");
+    api->set_param(instance, "grain_advance", "Per Grain");
+    constexpr const char* grainProcesses[] {
+        "Ordinary", "Stutter", "Shrink", "Doublets"
+    };
+    midi(api, instance, 0x90, 72, 100);
+    for (const char* process : grainProcesses) {
+        api->set_param(instance, "grain_process", process);
+        api->set_param(instance, "grain_process_amount", "0.75");
+        render(api, instance, 24);
+        assert(peak() > 0);
+    }
+    midi(api, instance, 0x80, 72, 0);
+
+    api->set_param(instance, "algorithm", "Cutups");
+    api->set_param(instance, "cut_clock", "Tempo");
+    api->set_param(instance, "cut_division", "1/32");
+    api->set_param(instance, "cut_time_variation", "0.3");
+    api->set_param(instance, "cut_gate", "75");
+    api->set_param(instance, "cut_join", "4");
+    api->set_param(instance, "cut_regions", "37");
+    api->set_param(instance, "cut_repeats", "3");
+    api->set_param(instance, "cut_reverse", "35");
+    api->set_param(instance, "cut_pitch_variation", "7");
+    api->set_param(instance, "cut_level_variation", "0.2");
+    api->set_param(instance, "cut_lane_order", "Outside In");
+    api->set_param(instance, "cut_poly_path", "Rotate");
+    midi(api, instance, 0x90, 48, 100);
+    midi(api, instance, 0x90, 72, 100);
+    render(api, instance, 40);
+    assert(peak() > 0);
+    midi(api, instance, 0x80, 48, 0);
+    midi(api, instance, 0x80, 72, 0);
+    render(api, instance, 80);
+
+    api->set_param(instance, "state", fidelityState.c_str());
+
     /* Clearing is a bounded engine transition and does not disturb lane 1. */
     api->set_param(instance, "record_lane", "4");
     midi(api, instance, 0xB0, 53, 127, MOVE_MIDI_SOURCE_EXTERNAL);
@@ -525,7 +736,7 @@ int main()
     api->set_param(instance, "pad_octave", "2");
     api->set_param(instance, "algorithm", "Motion");
     const std::string state = get(api, instance, "state");
-    assert(state.find("\"version\":2") != std::string::npos);
+    assert(state.find("\"version\":3") != std::string::npos);
     assert(state.find("\"monitor_level\"") == std::string::npos);
     api->set_param(instance, "motion_mode", "Forward");
     api->set_param(instance, "grain_window", "Bell");
@@ -537,6 +748,7 @@ int main()
     assert(get(api, instance, "lane_2_gain") == "0.3750");
     assert(get(api, instance, "record_gain") == "1.7500");
     assert(get(api, instance, "pad_octave") == "2");
+    assert(get(api, instance, "chain_entries").rfind("1:1:2,1:2:1", 0u) == 0u);
 
     std::array<char, 256> error {};
     assert(api->get_error(instance, error.data(), static_cast<int>(error.size())) >= 0);
@@ -556,7 +768,7 @@ int main()
     std::uint32_t patternVersion = 0u;
     assert(std::fseek(patternFile, 8, SEEK_SET) == 0);
     assert(std::fread(&patternVersion, sizeof(patternVersion), 1u, patternFile) == 1u);
-    assert(patternVersion == 6u);
+    assert(patternVersion == 8u);
     std::fclose(stateFile);
     std::fclose(laneFile);
     std::fclose(patternFile);
@@ -572,32 +784,32 @@ int main()
     assert(get(api, instance, "lane_2_gain") == "0.3750");
     assert(get(api, instance, "record_gain") == "1.7500");
     assert(get(api, instance, "pad_octave") == "2");
+    assert(get(api, instance, "chain_entries").rfind("1:1:2,1:2:1", 0u) == 0u);
     assert((unsignedStateField(get(api, instance, "pattern_state"), 2) & 0x3u)
         == 0x3u);
     api->set_param(instance, "pattern_select", "1");
+    waitForPattern(api, instance, 1);
     assert(get(api, instance, "algorithm") == "1");
     assert(stateField(get(api, instance, "seq_note_counts"), 2) == 1);
     assert((static_cast<std::uint32_t>(std::strtoul(
         get(api, instance, "seq_open_mask").c_str(), nullptr, 10))
         & (1u << 2u)) != 0u);
     api->set_param(instance, "pattern_select", "0");
+    waitForPattern(api, instance, 0);
     api->set_param(instance, "record_lane", "2");
     api->set_param(instance, "pattern_select", "2");
-    loadState = 0;
-    for (int attempt = 0; attempt < 500 && loadState != 6 && loadState != 7;
-         ++attempt) {
-        render(api, instance, 1);
-        usleep(1000);
-        loadState = stateField(get(api, instance, "sample_load_state"), 0);
-    }
-    assert(loadState == 6);
+    waitForPattern(api, instance, 2);
     assert(get(api, instance, "lane_source") == "Library Tone.wav");
     api->set_param(instance, "pattern_select", "0");
+    waitForPattern(api, instance, 0);
+    api->set_param(instance, "seq_page", "1");
     assert(stateField(get(api, instance, "seq_state"), 2) == 1);
     assert(stateField(get(api, instance, "seq_state"), 3) == 240);
     assert(stateField(get(api, instance, "seq_state"), 4) == 4);
     assert(stateField(get(api, instance, "seq_state"), 6) == 25);
     assert(stateField(get(api, instance, "seq_locks"), 0) != 0);
+    assert((unsignedStateField(get(api, instance, "seq_locks_hi"), 0)
+        & 0x1u) != 0u);
     assert(stateField(get(api, instance, "seq_note_counts"), 0) == 2);
     assert(unsignedStateField(get(api, instance, "seq_pad_masks"), 0)
         == ((1u << 5u) | (1u << 8u)));
@@ -620,6 +832,21 @@ int main()
     }
     assert(std::remove(librarySample.c_str()) == 0);
     assert(std::remove(libraryDir.c_str()) == 0);
+    const std::string capturesDir = persistenceDir + "/captures";
+    for (int pattern = 1; pattern <= 64; ++pattern) {
+        for (int lane = 1; lane <= 4; ++lane) {
+            const std::string path = capturesDir + "/p"
+                + (pattern < 10 ? "0" : "") + std::to_string(pattern)
+                + "-lane-" + std::to_string(lane) + ".wav";
+            std::remove(path.c_str());
+            const std::string editBase = capturesDir + "/p"
+                + (pattern < 10 ? "0" : "") + std::to_string(pattern)
+                + "-lane-" + std::to_string(lane) + "-edit-";
+            std::remove((editBase + "a.wav").c_str());
+            std::remove((editBase + "b.wav").c_str());
+        }
+    }
+    assert(std::remove(capturesDir.c_str()) == 0);
     assert(std::remove(persistenceDir.c_str()) == 0);
     std::puts("S3G Thru native tests: PASS");
     return 0;

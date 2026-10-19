@@ -21,7 +21,7 @@ common=(
 "$cxx_bin" -O1 -g -fno-omit-frame-pointer \
   -fsanitize=address,undefined "${common[@]}" \
   -o "$test_dir/test-thru-sanitize"
-ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1 \
+ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 \
   "$test_dir/test-thru-sanitize"
 
 node "$repo_dir/tests/test_ui.mjs" "$repo_dir/src/ui.js"

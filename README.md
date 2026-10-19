@@ -1,7 +1,7 @@
 # S3G Thru for Ableton Move
 
-S3G Thru is a four-lane live sampler for Ableton Move. It carries the fixed-
-memory S3G Sample Motion engine into a native
+S3G Thru is a four-lane live sampler for Ableton Move. It carries a fixed-
+memory adaptation of the S3G Sample family into a native
 [Schwung](https://github.com/charlesvestal/schwung) **overtake module** that
 owns Move's pads, display, LEDs, and recording gestures while it is open.
 
@@ -26,12 +26,13 @@ It is intentionally a new instrument rather than a Sample Neon variant.
 - plays eight notes polyphonically, with an independent engine and playhead for
   each active voice;
 - accepts a fixed external MIDI CC map for every engine/global parameter;
-- recalls the four stereo lanes, 64 patterns, parameter locks, and engine settings
-  on the next launch;
-- exposes four contextual on-device pages at a time—Engine, the selected
-  playback engine, Mix / Rec, and Sequence—as padded name/value cells;
-- runs a 16-step internal sequencer with tempo, swing, length, explicit
-  per-note on/off boundaries, and DSP-side parameter locks;
+- recalls stereo captures, 64 patterns, chains, step expression, parameter
+  locks, and engine settings on the next launch;
+- exposes Engine, multiple selected-engine pages, Mix / Rec, Sample, Sequence,
+  and Chain as padded name/value cells;
+- runs a 1–64-step internal sequencer in four 16-Step pages with tempo, swing,
+  explicit note boundaries, probability, ratchets, microtiming, and DSP-side
+  parameter locks;
 - sustains each note until its chosen later Step, allowing notes in a chord to
   have different lengths and overlapping instances of the same pitch;
 - assigns a stable color to each of the eight DSP voice/playhead slots and
@@ -42,8 +43,10 @@ It is intentionally a new instrument rather than a Sample Neon variant.
 
 The composition layer has four banks (A-D) of 16 patterns. Up to eight notes
 can be assigned to each step, with free play remaining available at the same
-time. Pattern chaining, microtiming, and host transport sync remain later
-milestones.
+time. A 16-slot chain provides pattern order and repeat counts. Live knob
+motion can be written as step automation, and recent free play can be captured
+back into the sequence. Host/Move transport synchronization remains a later
+milestone; v0.14.0 uses its internal clock.
 Eight-voice realtime CPU behavior, particularly with the Grains engine, still
 needs acceptance on Move.
 
@@ -100,12 +103,17 @@ separate action.
 3. Press the pads. They play Thru directly; no Move MIDI Out or Schwung Signal
    Chain slot is involved.
 
-Use **Up/Down** to transpose the pad grid by octaves. **Menu** opens the
+Use **Up/Down** to transpose the pad grid by octaves. Use **Left/Right** to
+select Step pages 1–16, 17–32, 33–48, or 49–64; **Shift + Up/Down** is an
+alternate gesture. Both work from the waveform and parameter views. The
+current page is shown as `P1`–`P4` in the waveform header. **Menu** opens the
 parameter pages; **Up/Down** then changes pages. Only the page for the selected
 playback engine is included. Each screen cell is aligned with one of the eight
 physical dials and shows a padded parameter name with its value underneath—no
-small dial graphic. **Shift + Menu** shows the compact help. **Back** closes a secondary
-page, or exits and saves from the waveform page. Schwung's universal
+small dial graphic. **Shift + jog-click** commits recent free play to the
+sequence, and **Shift + Back** restores the last destructive pattern edit.
+**Shift + Menu** shows compact help. **Back** closes a secondary page, or exits
+from the waveform page. Schwung's universal
 **Shift + volume touch + jog-click** escape remains available.
 
 ## Record the first lane
@@ -131,36 +139,47 @@ starts at `/data/UserData/UserLibrary/Samples`. Turn the main encoder (or use
 Up/Down) to select a folder or WAV, click the encoder to enter/load, and press
 Back to move up or leave the browser.
 
-The selected lane may therefore contain either the latest live recording or a
-library sample. Loading replaces only that lane. Mono/stereo PCM 16/24/32-bit
+The selected lane may therefore contain either a pattern-local stereo capture
+or a library sample. Loading replaces only that lane. Mono/stereo PCM 16/24/32-bit
 and 32-bit float WAV files are supported; other sample rates are resampled to
 Move's rate and material longer than 12 seconds is truncated. File decoding is
-done on a background worker, then copied into the audio engine in bounded
-chunks. The waveform footer identifies `LIVE`, `SAVED`, or the loaded filename.
+done on a background worker. The waveform footer shows ownership and source.
 
-Library-file assignments are stored per pattern. When a new empty pattern is
-first selected, it copies the source assignments from the pattern you came
-from. If a pattern has no file assigned to a lane, that lane is left untouched,
-so it naturally uses the preceding pattern's sample—or the latest live
-recording. Returning to a pattern with an explicit library assignment reloads
-that file asynchronously; the previous lane remains available until the new
-file is ready.
+Every pattern lane has explicit ownership: `INHERIT`, `FILE`, `CAPTURE`, or
+`EMPTY`; the display additionally reports `LOADING` and `MISSING`. `INHERIT`
+resolves through numerically preceding patterns. Recording assigns a
+pattern-local file under `captures/`; loading assigns a User Library path; and
+clearing creates an intentional `EMPTY` lane. Queued-pattern sources are
+decoded into a second four-lane bank and swapped together at a pattern
+boundary. If preparation is incomplete, the current pattern plays for another
+cycle instead of mixing old and new lane sources.
+
+The Sample page provides non-destructive source selection followed by explicit
+editing actions: normalized Start/End trim, Trim Apply, Reverse, Normalize, and
+a short edge fade. Select the lane with a Track button, then turn the relevant
+Sample-page encoder in either direction. `TURN` is the ready state; a successful
+edit temporarily replaces the page title with `NORMALIZED L1`, `REVERSED L1`,
+`TRIMMED L1`, or `FADED L1`. Edits alternate between two pattern-local capture files, so
+one-level Undo can return to the previous file or capture without that audio
+having been overwritten.
 
 ## Saving and recall
 
-Leaving S3G Thru saves its settings and every populated lane in the module
-directory. The next takeover launch restores the bank automatically. Each lane
-is stored as a stereo 32-bit float WAV (`thru-lane-1.wav` through
-`thru-lane-4.wav`); controls are stored in `thru-state.json`; all patterns,
-notes, timing, locks, and per-pattern engine settings are stored in
-`thru-pattern.bin`. Files are written
-through temporary files and renamed only after a complete write.
+Thru periodically autosaves changed metadata and completed stereo captures,
+then performs a final save on normal exit. Current-bank recovery WAVs remain
+`thru-lane-1.wav` through `thru-lane-4.wav`; pattern takes live under
+`captures/`; controls are in `thru-state.json`; patterns, chains, notes,
+timing, step expression, locks, source ownership, and engine settings are in
+`thru-pattern.bin`. Files are written through temporary files and renamed only
+after a complete write.
 
-Use **Back** from the main waveform page for a normal save-and-exit. A sudden
-power loss before exit can lose the current session. Uninstalling the module
+Use **Back** from the main waveform page for a normal save-and-exit. Autosave
+narrows the power-loss window, but power can still be removed before the next
+maintenance pass. Uninstalling the module
 can also remove its saved bank, so copy those files elsewhere before an
-uninstall or future clean reinstall. Older pattern files (versions 1-5)
-are migrated into pattern A01 when first loaded.
+uninstall or future clean reinstall. Pattern files from versions 1–7 are
+migrated into the v8 format when loaded; v8 adds the high half of the
+64-parameter lock mask and preserves older locks and base values.
 
 ## Performance controls
 
@@ -186,14 +205,16 @@ change the engine.
 
 Hold **Shift** and press **Play** to open Pattern mode. Track 1-4 select banks
 A-D and the 16 Step keys address that bank's patterns. A normal Step press
-loads immediately while stopped, or queues the pattern for the next pattern
-boundary while playing. White Steps contain patterns, orange is current, and
-blue-violet is queued. Hold **Shift** and press a Step to copy the current
+prepares the complete sample bank and loads it at the next safe block while
+stopped, or at a pattern boundary while playing. White Steps contain patterns,
+orange is current, and blue-violet is prepared/queued. Hold **Shift** and press
+a Step to copy the current
 pattern into that slot; hold **Delete** and press a Step to clear it. Press
 **Shift + Play** again or Back to return.
 
-Each pattern stores its notes, explicit note ends, parameter locks, length,
-swing, base engine settings, and its four optional library-file assignments.
+Each pattern stores up to 64 Steps, explicit note ends, probability, ratchets,
+microtiming, parameter locks, length, swing, base engine settings, and four
+lane-source ownership records.
 BPM is global to the four-bank set, so pattern changes do not change tempo.
 
 Outside Pattern mode, tap a Step to select a note-on
@@ -203,7 +224,8 @@ orange after release. Tap a later Step to move the edit cursor; every active
 note stays lit. At that Step, tap each lit pad that should turn off. Its light
 goes out and its individual note-off boundary is written. Other lit notes keep
 holding and can be ended at still later Steps. Tapping an active pad on its
-starting Step makes a full 16-step hold. Tap a selected Step again when no notes
+starting Step makes a full-pattern hold. Note boundaries can cross Step pages;
+use **Left/Right** without losing the lit pending note. Tap a selected Step again when no notes
 are pending to leave note-entry mode. To remove everything programmed on one
 Step, hold **Delete first**, then press that Step; this clears its notes,
 unfinished note boundaries, and locks together.
@@ -227,13 +249,26 @@ and press **Delete** to clear all of its locks without removing its notes.
 The order is intentional: **Step then Delete** clears locks only, while
 **Delete then Step** clears the complete sequence Step.
 
-The Sequence page provides Tempo, Swing, Length, Root, Algorithm, Stack, Join,
-and Level. **BPM is knob 1** and ranges from 40–240. Note duration comes only
+The Sequence page provides Tempo, Swing, Length, Step Page, Automation Record,
+and expression for the selected Step: Probability, Ratchets, and Microtiming.
+**BPM is knob 1** and ranges from 40–240. Note duration comes only
 from the note-on and note-off Steps for newly entered events; it does not depend
 on a Gate percentage. The older Gate state and MIDI CC 57 remain readable for
 loading version 1–3 patterns and controlling their legacy note entries. Tempo
 is currently internal; Move/host transport synchronization is not yet
 implemented.
+
+When Automation Record is enabled, turning a lockable main or engine-page dial
+while the pattern runs writes its value to the current Step. External MIDI CC
+20–45 and 69–106 record through the same path. Free-play notes are retained in a rolling
+buffer while the sequence runs; **Shift + jog-click** commits them to their
+quantized Steps. **Shift + Back** restores the most recent Step, pattern, lane,
+or source edit.
+
+The Chain page edits a 16-slot pattern list. Choose a slot, its A01–D16 pattern
+number, and a repeat count from 1–16, then enable Chain. Play advances only
+after the next pattern's complete source bank is ready; manual pattern selection
+leaves Chain mode so it cannot silently override the requested pattern.
 
 Strike velocity chooses an offset within the moving lane-stack cycle and poly
 aftertouch moves that offset while the note is held. The lane scan continues
@@ -282,6 +317,31 @@ MIDI-learn file.
 | 36 | Lane 2 gain | 53 | Clear selected lane (>=64) |
 | 54 | Sequence BPM | 56 | Sequence length |
 | 55 | Sequence swing | 57 | Legacy sequence gate 5–800% |
+| 58 | Step page 1–4 | 59 | Undo trigger |
+| 60 | Selected-Step probability | 61 | Selected-Step ratchets |
+| 62 | Selected-Step microtiming | 63 | Automation record Off/On |
+| 64 | Commit performance Capture | 65 | Chain Off/On |
+| 66 | Chain slot 1–16 | 67 | Chain pattern A01–D16 |
+| 68 | Chain repeats 1–16 |  |  |
+| 69 | Motion travel | 88 | Grain timing scatter |
+| 70 | Motion jitter | 89 | Grain envelope skew |
+| 71 | Packet duty | 90 | Grain process |
+| 72 | Motor rate | 91 | Grain process amount |
+| 73 | Motor symmetry | 92 | Grain regions |
+| 74 | Motor shape | 93 | Grain source advance |
+| 75 | Lane transition | 94 | Cut clock Free/Tempo |
+| 76 | Lane path shape | 95 | Cut clock division |
+| 77 | Lane path offset | 96 | Free cut rate |
+| 78 | Lane path skew | 97 | Cut timing variation |
+| 79 | Lane path curve | 98 | Cut gate |
+| 80 | Lane transition slew | 99 | Cut join time |
+| 81 | Grain position spray | 100 | Cut regions |
+| 82 | Grain spray bias | 101 | Cut repeats |
+| 83 | Grain pitch spray | 102 | Cut reverse chance |
+| 84 | Grain reverse chance | 103 | Cut pitch variation |
+| 85 | Grain size variation | 104 | Cut level variation |
+| 86 | Grain level variation | 105 | Cut lane order |
+| 87 | Grain timing Regular/Scatter | 106 | Cut polyphonic path |
 
 CC 51 can create acoustic feedback when a microphone and speakers are active;
 leave it at `0` unless direct monitoring is intentional. Internal Move button
@@ -290,31 +350,48 @@ CCs are excluded from this mapping and continue to operate the takeover UI.
 ## Engine settings
 
 Press **Menu** to open the parameter surface. The eight physical knobs edit the
-eight aligned name/value cells. Use **Up/Down** to move through four contextual
-pages; Motion, Lanes, Grains, and Cutups pages are mutually exclusive according
-to the Algorithm chosen on the Engine page.
+eight aligned name/value cells. Use **Up/Down** to move through contextual
+pages. Only the pages for the Algorithm chosen on the Engine page are present:
+Motion and Lanes each have two engine pages, Grains has three, and Cutups has
+two.
 
 - Engine: algorithm, position, field, speed, stack position, scan rate, join,
   and level.
-- Motion: mode, sound articulation, gesture rate, position, field, speed,
-  join, and level.
-- Lanes: mode, path, scan rate, stack position, stretch enable and ratio.
-- Grains: mode, size, density, pitch, window, stereo spread, path, scan rate,
-  and stack position.
-- Cutups: mode, path, scan rate, stack position, position, field, speed, and
-  join.
+- Motion Path: eight trajectories including Drunk, travel, jitter, position,
+  field, speed, join, and level. Motion Sound adds packet duty plus independent
+  motor rate, symmetry, and shape.
+- Lanes Path/Shape: eight stack paths including Random, Crossfade/Jump,
+  breakpoint shape, offset, skew, curve, transition slew, stretch, and ratio.
+- Grains Main/Cloud/Process: 16 grains per playback voice; source mode, size,
+  density, independent grain pitch, six windows, stereo spread, position and
+  pitch spray, directional bias, reverse/size/level variation, regular or
+  scattered timing, envelope skew, slice regions, scan/per-grain advance, and
+  Ordinary, Stutter, Shrink, or Doublets processing.
+- Cutups Clock/Path: fixed or tempo clock with musical divisions, timing
+  variation, gate and join, 1–64 regions, repeats, reverse/pitch/level
+  variation, seven discrete lane orders, and four polyphonic lane paths.
 - Mix / Global: four independent lane gains, pressure behavior, root note,
   record gain, and output level.
-- Sequence: tempo, swing, length, root note, algorithm, stack position, join,
+- Sample: trim start/end and apply, reverse, normalize, edge fade, record gain,
   and output level.
+- Sequence: tempo, swing, length, Step page, automation record, probability,
+  ratchets, and microtiming.
+- Chain: enable, slot, pattern, repeats, root note, algorithm, join, and level.
 
 Press **Back** once to return to the waveform page without exiting.
 
 Motion Mode always owns the read-head trajectory. Mirror runs to the far edge
-and back; Zigzag alternates forward, backward, then forward segments. Motion
+and back; Zigzag alternates forward, backward, then forward segments; Drunk
+interpolates between deterministic random targets. Motion
 Sound (Continuous, Packets, Motor, or Bounce) shapes the sound without replacing
 that trajectory, so the audio reader and displayed playhead retain the selected
 direction changes.
+
+Note pitch follows the Sample-family semantics. Motion and Lanes notes retune
+their transport. Grains notes change source scan speed while Grain Pitch stays
+independent. Cutups notes multiply the base Speed/pitch of each cut reader while
+the cut clock stays on its free rate or tempo division. In a stack, every cut chooses a discrete lane
+and source region; it does not read the continuously crossfaded Lanes mix.
 
 ## Safety and current limits
 
@@ -324,16 +401,23 @@ direction changes.
   followed by a 0.95 safety ceiling. `LIM` means that ceiling reduced at least
   one stored sample.
 - Pad velocity does not attenuate playback. Use knob 8 for loudness.
-- One instance allocates about 17 MiB for its four 12-second stereo lanes.
+- One instance allocates about 37 MiB for its active bank, prepared-pattern
+  bank, and one-lane decoder staging area.
 - Playback uses eight independent voices. Voice stealing prefers a released
   voice, then the oldest held voice when all eight are occupied.
-- Eight simultaneous dense Grains voices are the highest expected DSP load and
+- Each playback voice has 16 bounded grain slots (128 across eight voices).
+  Eight simultaneous dense Grains voices are the highest expected DSP load and
   must be checked on Move before this build is considered accepted.
-- Persistent WAV writes happen only while Schwung creates or destroys the
-  takeover DSP, never in the audio callback.
-- User-library WAV decoding/resampling runs on a worker thread; lane adoption
-  uses bounded audio-block copies.
-- Pattern state and parameter locks are also written only at takeover teardown.
+- Transient-derived Cutups regions, the desktop Grains Sorter process, and the
+  desktop Motion segment-event router are not in this hardware-bounded pass;
+  Cutups currently uses equal regions and Motion Bounce remains an articulation.
+- Persistent WAV and metadata writes run only from non-audio maintenance or
+  teardown calls, never in the audio callback.
+- User-library WAV decoding/resampling and queued-pattern preparation run on a
+  worker thread. A prepared bank is swapped at a block/pattern boundary.
+- The Help screen reports maximum render time in microseconds and deadline
+  overruns since launch; these are evidence aids, not substitutes for listening.
+- WAV is the supported library format; AIFF/AIF requires conversion before use.
 - Move hardware remains the acceptance authority; desktop tests cannot certify
   input routing, control feel, display cadence, or realtime CPU margin.
 

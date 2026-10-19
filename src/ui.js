@@ -794,6 +794,12 @@ function drawStackMarker(x, y) {
     drawRect(centerX + 2, centerY - 1, 1, 3, 1);
 }
 
+function drawFieldBoundary(x, top, isStart) {
+    const armX = isStart ? x : x - 3;
+    drawRect(x, top, 1, 4, 1);
+    drawRect(armX, top, 4, 1, 1);
+}
+
 function drawMain() {
     clear_screen();
     const algorithm = ALGORITHMS[state.algorithm] || ALGORITHMS[0];
@@ -840,8 +846,8 @@ function drawMain() {
     if (state.mask !== 0) {
         const startX = left + Math.round(state.fieldStart * (width - 1));
         const endX = left + Math.round(state.fieldEnd * (width - 1));
-        drawRect(startX, top, 1, 2, 1);
-        drawRect(endX, top + 38, 1, 2, 1);
+        drawFieldBoundary(startX, top, true);
+        drawFieldBoundary(endX, top, false);
         for (const playhead of state.playheads) {
             if (playhead < 0) continue;
             const playX = left + Math.round(playhead * (width - 1));

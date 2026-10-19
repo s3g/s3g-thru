@@ -13,6 +13,8 @@ performance recorder.
   actual takeover UI and checked for drift with the rest of the build. Every
   engine-specific parameter page has its own figure, and the waveform example
   uses four distinct sparse lane shapes so polyphonic playheads remain legible.
+  The two Position/Field boundaries are paired on the top edge as inward-facing
+  corner ticks, keeping both ends of the playback window visible at once.
 - The manual is ready to publish from `main/docs` with only HTML and web assets
   in that directory. Release history now lives in `release-notes/`, while the
   hardware acceptance guide lives at the repository root.

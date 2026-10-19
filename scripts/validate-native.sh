@@ -15,7 +15,7 @@ import sys
 path = pathlib.Path(sys.argv[1])
 module = json.loads(path.read_text())
 assert module["id"] == "s3g-thru"
-assert module["version"] == "0.15.0"
+assert module["version"] == "0.16.0"
 assert module["component_type"] == "overtake"
 assert module["ui"] == "ui.js"
 assert module["dsp"] == "dsp.so"

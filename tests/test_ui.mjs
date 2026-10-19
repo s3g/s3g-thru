@@ -42,6 +42,9 @@ const params = {
     locus: '0.5', field: '1', speed: '1', manual_lane: '1',
     lane_cycles: '1', algorithm: '0', join: '1', output_gain: '1',
     record_lane: '1', pad_octave: '0', record_source: '0',
+    record_gain: '1', monitor_level: '0', preview_level: '0.7',
+    clip_rate: '1', clip_record_mode: '0',
+    clip_state: '0,0,0,250,4000,3,10,1000',
     ui_state: '1,1,0,0,250,100,900,1000,0,0,0,0,20,0,1,1,2',
     playheads: '100,700,-1,-1,-1,-1,-1,-1',
     voice_lanes: '333,800,-1,-1,-1,-1,-1,-1',
@@ -80,6 +83,16 @@ globalThis.host_module_set_param_blocking = (key, value) => {
         values[0] = value;
         if (value === '0') values[1] = '-1';
         params.seq_state = values.join(',');
+        const clip = params.clip_state.split(',');
+        clip[1] = value;
+        params.clip_state = clip.join(',');
+    }
+    if (key === 'clip_record') {
+        const clip = params.clip_state.split(',');
+        const recording = clip[0] === '1';
+        clip[0] = recording ? '0' : '1';
+        clip[1] = recording ? '1' : (params.clip_record_mode === '1' ? '1' : '0');
+        params.clip_state = clip.join(',');
     }
     if (key === 'seq_page') {
         const values = params.seq_state.split(',');
@@ -134,8 +147,8 @@ assert.equal(typeof globalThis.onUnload, 'function');
 globalThis.init();
 assert(drawWrites.length > 100, 'waveform page should draw');
 assert(drawWrites.some((write) => write[0] === 'print'
-    && String(write[3]).includes(' P1 V')),
-    'waveform header should identify the active Step page');
+    && String(write[3]).includes('A01 V')),
+    'waveform header should identify the active performance clip');
 assert(drawWrites.some((write) => write[0] === 'rect'
     && write[1] === 25 && write[2] === 10 && write[3] === 1 && write[4] === 40));
 assert(drawWrites.some((write) => write[0] === 'rect'
@@ -149,6 +162,9 @@ assert(drawWrites.some((write) => write[0] === 'rect'
 assert(drawWrites.some((write) => write[0] === 'rect'
     && write[1] === 71 && write[2] === 11 && write[3] === 1
     && write[4] === 2), 'selected waveform should show transient markers');
+assert(drawWrites.some((write) => write[0] === 'rect'
+    && write[1] === 0 && write[2] === 53 && write[3] === 32),
+    'performance loop position should be drawn below the waveforms');
 
 /* DSP voice slots have stable colors. Two isomorphic pads that produce the
    same pitch can therefore show two independently identifiable playheads. */
@@ -163,51 +179,51 @@ for (let tick = 0; tick < 3; tick++) globalThis.tick();
 globalThis.onMidiMessageInternal([0xB0, 42, 127]);
 assert.deepEqual(blockingWrites.pop(), ['record_lane', '2']);
 
+/* Record is now the free-time performance-data recorder. Shift+Record retains
+   stereo audio capture, so the two recording layers cannot be confused. */
+globalThis.onMidiMessageInternal([0xB0, 86, 127]);
+assert.deepEqual(blockingWrites.pop(), ['clip_record', '1']);
+globalThis.onMidiMessageInternal([0xB0, 71, 1]);
+assert.deepEqual(paramWrites.slice(-2), [
+    ['locus', '0.5100'],
+    ['clip_automation', 'locus'],
+]);
+globalThis.onMidiMessageInternal([0xB0, 86, 127]);
+assert.deepEqual(blockingWrites.pop(), ['clip_record', '1']);
+globalThis.onMidiMessageInternal([0xB0, 49, 127]);
 globalThis.onMidiMessageInternal([0xB0, 86, 127]);
 assert.deepEqual(blockingWrites.pop(), ['record_gate', '1']);
+globalThis.onMidiMessageInternal([0xB0, 86, 127]);
+assert.deepEqual(blockingWrites.slice(-2), [
+    ['record_gate', '0'],
+    ['maintenance', '1'],
+]);
+globalThis.onMidiMessageInternal([0xB0, 49, 0]);
 
-const blockingBeforeStepSelect = blockingWrites.length;
+/* Every Step key is a performance-clip slot in the visible 16-slot bank. */
 globalThis.onMidiMessageInternal([0x90, 19, 127]);
-globalThis.onMidiMessageInternal([0x80, 19, 0]);
-assert.equal(blockingWrites.length, blockingBeforeStepSelect,
-    'a Step tap selects a note-on boundary without toggling a trigger');
-/* Repeated DSP-driven LED rebuilds must not starve the selected Step behind
-   the 32 pad updates. This was the 0.13.1 hardware regression. */
-params.voice_pads = '5,-1,-1,-1,-1,-1,-1,-1';
-for (let tick = 0; tick < 3; tick++) globalThis.tick();
-params.voice_pads = '-1,-1,-1,-1,-1,-1,-1,-1';
-for (let tick = 0; tick < 3; tick++) globalThis.tick();
-assert.deepEqual(padWrites.filter((write) => write[0] === 19).at(-1), [19, 3],
-    'selected Step should remain orange while DSP status refreshes');
-globalThis.onMidiMessageInternal([0x90, 19, 127]);
-globalThis.onMidiMessageInternal([0x80, 19, 0]);
+assert.deepEqual(blockingWrites.pop(), ['pattern_select', '3']);
+globalThis.onMidiMessageInternal([0xB0, 119, 127]);
+globalThis.onMidiMessageInternal([0x90, 18, 127]);
+assert.deepEqual(blockingWrites.pop(), ['clip_clear_pattern', '2']);
+globalThis.onMidiMessageInternal([0xB0, 119, 0]);
+globalThis.onMidiMessageInternal([0xB0, 49, 127]);
+globalThis.onMidiMessageInternal([0x90, 17, 127]);
+assert.deepEqual(blockingWrites.pop(), ['pattern_copy', '1']);
+globalThis.onMidiMessageInternal([0xB0, 49, 0]);
 
-/* Free Play retains its immediate performance map. Engine selection has moved
-   to the dedicated Engine page, leaving every Step key to the pattern. */
-globalThis.onMidiMessageInternal([0xB0, 77, 1]);
-assert.deepEqual(paramWrites.pop(), ['motion_mode', '1']);
-
-globalThis.onMidiMessageInternal([0xB0, 71, 1]);
-assert.deepEqual(paramWrites.pop(), ['locus', '0.5100']);
+/* Left/Right changes A-D banks. The selected bank is used immediately by the
+   Step row without entering a separate sequencing mode. */
+globalThis.onMidiMessageInternal([0xB0, 63, 127]);
+globalThis.onMidiMessageInternal([0x90, 16, 127]);
+assert.deepEqual(blockingWrites.pop(), ['pattern_select', '16']);
+globalThis.onMidiMessageInternal([0xB0, 62, 127]);
 
 globalThis.onMidiMessageInternal([0xB0, 55, 127]);
 assert.deepEqual(blockingWrites.slice(-2), [
     ['all_notes_off', '1'],
     ['pad_octave', '1'],
 ]);
-
-/* Left/Right are dedicated Step-page buttons. Shift+Up/Down remains an alias
-   and must not fall through to octave or settings-page navigation. */
-globalThis.onMidiMessageInternal([0xB0, 63, 127]);
-assert.deepEqual(blockingWrites.pop(), ['seq_page', '2']);
-globalThis.onMidiMessageInternal([0xB0, 49, 127]);
-globalThis.onMidiMessageInternal([0xB0, 55, 127]);
-assert.deepEqual(blockingWrites.pop(), ['seq_page', '3']);
-globalThis.onMidiMessageInternal([0xB0, 54, 127]);
-assert.deepEqual(blockingWrites.pop(), ['seq_page', '2']);
-globalThis.onMidiMessageInternal([0xB0, 49, 0]);
-globalThis.onMidiMessageInternal([0xB0, 62, 127]);
-assert.deepEqual(blockingWrites.pop(), ['seq_page', '1']);
 
 globalThis.onMidiMessageInternal([0x90, 68, 100]);
 globalThis.onMidiMessageInternal([0xA0, 68, 64]);
@@ -230,16 +246,10 @@ assert.deepEqual([...new Set(settingsLines.map((write) => write[2]))],
     [13, 24, 39, 50]);
 assert(!drawWrites.slice(settingsDrawStart).some((write) => write[0] === 'rect'
     && write[3] === 7 && write[4] === 1), 'parameter cells should not draw dials');
-globalThis.onMidiMessageInternal([0xB0, 49, 127]);
-globalThis.onMidiMessageInternal([0xB0, 55, 127]);
-assert.deepEqual(blockingWrites.pop(), ['seq_page', '2']);
-globalThis.onMidiMessageInternal([0xB0, 54, 127]);
-assert.deepEqual(blockingWrites.pop(), ['seq_page', '1']);
-globalThis.onMidiMessageInternal([0xB0, 49, 0]);
 globalThis.onMidiMessageInternal([0xB0, 71, 1]);
 assert.deepEqual(blockingWrites.pop(), ['algorithm', '1']);
 
-/* A held Step turns knob edits into per-step locks. */
+/* Only pages belonging to the chosen playback engine are exposed. */
 globalThis.onMidiMessageInternal([0xB0, 55, 127]);
 const lanesPageDrawStart = drawWrites.length;
 globalThis.tick();
@@ -248,114 +258,27 @@ const lanesHeader = drawWrites.slice(lanesPageDrawStart).find((write) =>
 assert(String(lanesHeader?.[3]).includes('LANES PATH 2/7'));
 assert(!drawWrites.slice(lanesPageDrawStart).some((write) =>
     write[0] === 'print' && String(write[3]).includes('GRAIN')));
-const blockingBeforeLock = blockingWrites.length;
-globalThis.onMidiMessageInternal([0x90, 19, 127]);
-globalThis.onMidiMessageInternal([0xB0, 72, 1]);
-assert.deepEqual(paramWrites.pop(), ['seq_lock', '3,lane_path,3']);
-globalThis.onMidiMessageInternal([0x80, 19, 0]);
-assert.equal(blockingWrites.length, blockingBeforeLock,
-    'holding a trig to lock a parameter must not toggle it off');
-globalThis.onMidiMessageInternal([0xB0, 55, 127]);
-globalThis.onMidiMessageInternal([0x90, 19, 127]);
-globalThis.onMidiMessageInternal([0xB0, 71, 1]);
-assert.deepEqual(paramWrites.pop(), ['seq_lock', '3,lane_path_offset,0.0100']);
-globalThis.onMidiMessageInternal([0x80, 19, 0]);
 
-/* Step, pads, later Step, pads writes explicit note-on/note-off boundaries.
-   Moving the Step cursor must not extinguish notes; each lit pad is turned off
-   individually, allowing members of a chord to have different lengths. */
-globalThis.onMidiMessageInternal([0x90, 20, 127]);
-globalThis.onMidiMessageInternal([0x80, 20, 0]);
-globalThis.onMidiMessageInternal([0x90, 68, 100]);
-assert.deepEqual(blockingWrites.pop(), ['seq_note_pad_toggle', '4,0,60,100']);
-globalThis.onMidiMessageInternal([0x90, 69, 96]);
-assert.deepEqual(blockingWrites.pop(), ['seq_note_pad_toggle', '4,1,61,96']);
-globalThis.onMidiMessageInternal([0x80, 68, 0]);
-globalThis.onMidiMessageInternal([0x80, 69, 0]);
-for (let tick = 0; tick < 5; tick++) globalThis.tick();
-assert(padWrites.some((write) => write[0] === 68 && write[1] === 3),
-    'pending note-on pad should stay orange after release');
-globalThis.onMidiMessageInternal([0x90, 22, 127]);
-globalThis.onMidiMessageInternal([0x80, 22, 0]);
-for (let tick = 0; tick < 5; tick++) globalThis.tick();
-assert.deepEqual(padWrites.filter((write) => write[0] === 68).at(-1), [68, 3]);
-assert.deepEqual(padWrites.filter((write) => write[0] === 69).at(-1), [69, 3]);
-globalThis.onMidiMessageInternal([0x90, 68, 100]);
-assert.deepEqual(blockingWrites.pop(), ['seq_note_length', '4,0,2']);
-globalThis.onMidiMessageInternal([0x80, 68, 0]);
-for (let tick = 0; tick < 5; tick++) globalThis.tick();
-assert.deepEqual(padWrites.filter((write) => write[0] === 68).at(-1), [68, 0]);
-assert.deepEqual(padWrites.filter((write) => write[0] === 69).at(-1), [69, 3]);
-globalThis.onMidiMessageInternal([0x90, 24, 127]);
-globalThis.onMidiMessageInternal([0x80, 24, 0]);
-globalThis.onMidiMessageInternal([0x90, 69, 96]);
-assert.deepEqual(blockingWrites.pop(), ['seq_note_length', '4,1,4']);
-globalThis.onMidiMessageInternal([0x80, 69, 0]);
-
+globalThis.onMidiMessageInternal([0xB0, 85, 127]);
+assert.deepEqual(blockingWrites.pop(), ['seq_running', '0']);
 globalThis.onMidiMessageInternal([0xB0, 85, 127]);
 assert.deepEqual(blockingWrites.pop(), ['seq_running', '1']);
 for (let tick = 0; tick < 3; tick++) globalThis.tick();
 assert.deepEqual(buttonWrites.filter((write) => write[0] === 85).at(-1),
-    [85, 127], 'Play should show the running transport state');
+    [85, 11], 'Play should turn green for a running performance loop');
 
-/* The visible pages include only the selected engine plus Mix, Sample,
-   Sequence, and Chain. */
-globalThis.onMidiMessageInternal([0xB0, 55, 127]);
-globalThis.onMidiMessageInternal([0xB0, 71, 1]);
-assert.deepEqual(paramWrites.pop(), ['lane_1_gain', '1.0200']);
-globalThis.onMidiMessageInternal([0xB0, 55, 127]);
-globalThis.onMidiMessageInternal([0xB0, 71, 1]);
-assert.deepEqual(paramWrites.pop(), ['sample_trim_start', '0.0100']);
-/* Sample edits are actions rather than stored values. Either encoder direction
-   uses the critical path, and the otherwise-invisible reset gets a header
-   confirmation instead of leaving an inert-looking dash. */
-globalThis.onMidiMessageInternal([0xB0, 75, 127]);
-assert.deepEqual(blockingWrites.pop(), ['sample_normalize', '1']);
-const normalizeDrawStart = drawWrites.length;
-globalThis.tick();
-assert(drawWrites.slice(normalizeDrawStart).some((write) => write[0] === 'print'
-    && String(write[3]).includes('NORMALIZED L1')));
-globalThis.onMidiMessageInternal([0xB0, 55, 127]);
-globalThis.onMidiMessageInternal([0xB0, 71, 1]);
-assert.deepEqual(paramWrites.pop(), ['seq_bpm', '121']);
-globalThis.onMidiMessageInternal([0x90, 21, 127]);
-globalThis.onMidiMessageInternal([0xB0, 75, 1]);
-assert.deepEqual(paramWrites.pop(), ['automation_record', '1']);
-globalThis.onMidiMessageInternal([0x80, 21, 0]);
+/* Shift+Play opens the optional clip overview. */
 globalThis.onMidiMessageInternal([0xB0, 50, 127]);
-
-/* Holding Delete before a sequence Step clears its notes, note boundaries,
-   and locks together, without selecting the Step on release. */
-globalThis.onMidiMessageInternal([0xB0, 119, 127]);
-globalThis.onMidiMessageInternal([0x90, 20, 127]);
-assert.deepEqual(blockingWrites.pop(), ['seq_clear_step', '4']);
-globalThis.onMidiMessageInternal([0x80, 20, 0]);
-globalThis.onMidiMessageInternal([0xB0, 119, 0]);
-
-/* Shift+Play opens four banks of sixteen patterns. Track buttons choose the
-   bank; Shift+Step copies, Delete+Step clears, and a normal Step queues while
-   transport is running. */
 globalThis.onMidiMessageInternal([0xB0, 49, 127]);
 globalThis.onMidiMessageInternal([0xB0, 85, 127]);
 globalThis.onMidiMessageInternal([0xB0, 49, 0]);
 const patternDrawStart = drawWrites.length;
 globalThis.tick();
 assert(drawWrites.slice(patternDrawStart).some((write) => write[0] === 'print'
-    && String(write[3]).includes('PATTERNS A01')));
+    && String(write[3]).includes('PERF CLIPS A01')));
 globalThis.onMidiMessageInternal([0xB0, 42, 127]);
-globalThis.onMidiMessageInternal([0xB0, 49, 127]);
-globalThis.onMidiMessageInternal([0x90, 16, 127]);
-assert.deepEqual(blockingWrites.pop(), ['pattern_copy', '16']);
-globalThis.onMidiMessageInternal([0x80, 16, 0]);
-globalThis.onMidiMessageInternal([0xB0, 49, 0]);
 globalThis.onMidiMessageInternal([0x90, 17, 127]);
 assert.deepEqual(blockingWrites.pop(), ['pattern_select', '17']);
-globalThis.onMidiMessageInternal([0x80, 17, 0]);
-globalThis.onMidiMessageInternal([0xB0, 119, 127]);
-globalThis.onMidiMessageInternal([0x90, 18, 127]);
-assert.deepEqual(blockingWrites.pop(), ['pattern_clear', '18']);
-globalThis.onMidiMessageInternal([0x80, 18, 0]);
-globalThis.onMidiMessageInternal([0xB0, 119, 0]);
 globalThis.onMidiMessageInternal([0xB0, 49, 127]);
 globalThis.onMidiMessageInternal([0xB0, 85, 127]);
 globalThis.onMidiMessageInternal([0xB0, 49, 0]);

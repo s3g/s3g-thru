@@ -1,4 +1,4 @@
-/* S3G Thru 0.15.0 — polyphonic sampler/sequencer takeover for Ableton Move. */
+/* S3G Thru 0.16.0 — polyphonic sampler/performance-looper takeover for Move. */
 
 import * as moveConstants from '/data/UserData/schwung/shared/constants.mjs';
 import * as moveInputFilter from '/data/UserData/schwung/shared/input_filter.mjs';
@@ -145,6 +145,10 @@ const PARAMS = {
     pressure_mode: { key: 'pressure_mode', label: 'PRESSURE', min: 0, max: 1, step: 1, value: 1, integer: true, labels: ['OFF', 'OFFSET'] },
     root_note: { key: 'root_note', label: 'ROOT', min: 24, max: 96, step: 1, value: 60, integer: true, note: true },
     record_gain: { key: 'record_gain', label: 'REC GAIN', min: 0, max: 4, step: 0.05, value: 1 },
+    record_source: { key: 'record_source', label: 'REC SOURCE', min: 0, max: 1, step: 1, value: 0, integer: true, labels: ['INPUT', 'RESAMPLE'] },
+    monitor_level: { key: 'monitor_level', label: 'MONITOR', min: 0, max: 1, step: 0.01, value: 0 },
+    clip_rate: { key: 'clip_rate', label: 'LOOP RATE', min: 0.25, max: 4, step: 0.05, value: 1 },
+    clip_record_mode: { key: 'clip_record_mode', label: 'REC MODE', min: 0, max: 1, step: 1, value: 0, integer: true, labels: ['REPLACE', 'OVERDUB'] },
     seq_bpm: { key: 'seq_bpm', label: 'TEMPO', min: 40, max: 240, step: 1, value: 120, integer: true },
     seq_swing: { key: 'seq_swing', label: 'SWING', min: 50, max: 75, step: 1, value: 50, integer: true },
     seq_length: { key: 'seq_length', label: 'LENGTH', min: 1, max: 64, step: 1, value: 16, integer: true },
@@ -227,14 +231,14 @@ const PLAYBACK_PAGES = [
     ],
 ];
 const MIX_REC_PAGE = { title: 'MIX / REC', keys: ['lane_1_gain', 'lane_2_gain',
-    'lane_3_gain', 'lane_4_gain', 'pressure_mode', 'root_note', 'record_gain',
-    'preview_level'] };
+    'lane_3_gain', 'lane_4_gain', 'record_source', 'record_gain',
+    'monitor_level', 'preview_level'] };
 const SAMPLE_PAGE = { title: 'SAMPLE EDIT', keys: ['sample_trim_start',
     'sample_trim_end', 'sample_trim_apply', 'sample_reverse',
     'sample_normalize', 'sample_fade', 'record_gain', 'output_gain'] };
-const SEQUENCE_PAGE = { title: 'SEQUENCE', keys: ['seq_bpm', 'seq_swing',
-    'seq_length', 'seq_page', 'automation_record', 'seq_probability',
-    'seq_ratchets', 'seq_micro'] };
+const LOOP_PAGE = { title: 'PERFORMANCE LOOP', keys: ['clip_rate',
+    'clip_record_mode', 'pressure_mode', 'root_note', 'chain_enabled',
+    'chain_slot', 'chain_pattern', 'chain_repeats'] };
 const CHAIN_PAGE = { title: 'CHAIN', keys: ['chain_enabled', 'chain_slot',
     'chain_pattern', 'chain_repeats', 'root_note', 'algorithm', 'join',
     'output_gain'] };
@@ -288,6 +292,8 @@ const SHORT_LABELS = {
     lane_variation: 'VARI', preview_level: 'PREV',
     lane_2_gain: 'L2', lane_3_gain: 'L3', lane_4_gain: 'L4',
     pressure_mode: 'PRES', root_note: 'ROOT', record_gain: 'REC',
+    record_source: 'SRC', monitor_level: 'MON', clip_rate: 'RATE',
+    clip_record_mode: 'MODE',
     seq_bpm: 'BPM', seq_swing: 'SWNG', seq_length: 'LEN', seq_gate: 'GATE',
     seq_page: 'PAGE', seq_probability: 'PROB', seq_ratchets: 'RATC',
     seq_micro: 'MICR', automation_record: 'AUTO', chain_enabled: 'CHN',
@@ -342,6 +348,14 @@ const state = {
     sequenceMask: 0,
     sequenceLength: 16,
     sequencePage: 0,
+    clipRecording: false,
+    clipPlaying: false,
+    clipOverdub: false,
+    clipPosition: 0,
+    clipDuration: 0,
+    clipNoteCount: 0,
+    clipPointCount: 0,
+    clipRate: 1,
     stepLockMasks: Array(16).fill(0),
     stepLockMasksHigh: Array(16).fill(0),
     stepLockMasksExtra: Array(16).fill(0),
@@ -561,6 +575,25 @@ function parseSequenceState(text) {
         || previousMask !== state.sequenceMask || pageChanged) rebuildLedQueue();
 }
 
+function parseClipState(text) {
+    const values = String(text || '').split(',').map((item) => Number(item));
+    if (values.length < 8 || !values.every((value) => Number.isFinite(value))) return;
+    const previous = [state.clipRecording, state.clipPlaying,
+        state.clipPosition, state.clipDuration].join(',');
+    state.clipRecording = values[0] !== 0;
+    state.clipPlaying = values[1] !== 0;
+    state.sequenceRunning = state.clipPlaying;
+    state.clipOverdub = values[2] !== 0;
+    state.clipPosition = clamp(values[3] / 1000, 0, 1);
+    state.clipDuration = Math.max(0, values[4] | 0);
+    state.clipNoteCount = Math.max(0, values[5] | 0);
+    state.clipPointCount = Math.max(0, values[6] | 0);
+    state.clipRate = clamp(values[7] / 1000, 0.25, 4);
+    PARAMS.clip_rate.value = state.clipRate;
+    if (previous !== [state.clipRecording, state.clipPlaying,
+        state.clipPosition, state.clipDuration].join(',')) rebuildLedQueue();
+}
+
 function parseSequenceLocks(text) {
     const values = String(text || '').split(',').map((item) => Number(item));
     if (values.length < 16) return;
@@ -693,6 +726,7 @@ function parsePatternState(text) {
     state.patternMaskLow = low;
     state.patternMaskHigh = high;
     if (active !== previousActive) {
+        state.patternBank = Math.floor(active / 16);
         for (const key of Object.keys(PARAMS)) {
             const control = PARAMS[key];
             control.value = clamp(getNumber(control.key, control.value),
@@ -763,11 +797,6 @@ function padColor(index) {
         if (state.activePads.has(MovePads[index])) return Cyan;
         return state.cues[index] >= 0 ? BrightOrange : WhiteLedDim;
     }
-    const selectedLocal = localStep(state.selectedStep);
-    if (selectedLocal >= 0
-        && ((state.stepPadMasks[selectedLocal] >>> index) & 1) !== 0) {
-        return White;
-    }
     return state.activePads.has(MovePads[index]) ? Cyan : basePadColor();
 }
 
@@ -801,27 +830,22 @@ function sendLedNow(type, id, color) {
 
 function rebuildLedQueue() {
     queueLed('cc', MovePlay,
-        state.sequenceRunning ? WhiteLedBright : WhiteLedDim, 0);
+        state.clipPlaying ? NeonGreen : WhiteLedDim, 0);
     for (let i = 0; i < MovePads.length; i++) {
         const note = MovePads[i];
         queueLed('note', note, padColor(i), 3);
     }
     for (let i = 0; i < MoveSteps.length; i++) {
+        const pattern = state.patternBank * 16 + i;
         let color = Black;
-        if (state.view === 'patterns') {
-            const pattern = state.patternBank * 16 + i;
-            if (patternOccupied(pattern)) color = White;
-            if (pattern === state.activePattern) color = BrightOrange;
-            if (pattern === state.queuedPattern) color = BlueViolet;
-        } else {
-            if ((state.sequenceMask & (1 << i)) !== 0) color = White;
-            if (state.sequenceRunning && i === localStep(state.sequenceStep)) color = Cyan;
-            if (i === localStep(state.selectedStep)) color = BrightOrange;
-            if (i === localStep(state.heldStep)) color = BrightRed;
+        if (patternOccupied(pattern)) color = White;
+        if (pattern === state.activePattern) {
+            color = state.clipRecording ? BrightRed
+                : (state.clipPlaying ? NeonGreen : BrightOrange);
         }
-        const urgent = i === localStep(state.heldStep)
-            || i === localStep(state.selectedStep)
-            || (state.sequenceRunning && i === localStep(state.sequenceStep));
+        if (pattern === state.queuedPattern) color = BlueViolet;
+        const urgent = pattern === state.activePattern
+            || pattern === state.queuedPattern;
         queueLed('note', MoveSteps[i], color, urgent ? 0 : 1);
     }
     for (let i = 0; i < MoveTracks.length; i++) {
@@ -830,10 +854,12 @@ function rebuildLedQueue() {
             : (i + 1 === state.lane ? WhiteLedBright : WhiteLedDim), 2);
     }
     queueLed('cc', MoveRecord,
-        state.recording ? BrightRed : WhiteLedDim, 1);
+        state.clipRecording ? BrightRed
+            : (state.recording ? BrightOrange : WhiteLedDim), 1);
     if (MoveRecordAlt !== MoveRecord) {
         queueLed('cc', MoveRecordAlt,
-            state.recording ? BrightRed : WhiteLedDim, 1);
+            state.clipRecording ? BrightRed
+                : (state.recording ? BrightOrange : WhiteLedDim), 1);
     }
 }
 
@@ -872,9 +898,10 @@ function drawStackMarker(x, y) {
 function drawMain() {
     clear_screen();
     const algorithm = ALGORITHMS[state.algorithm] || ALGORITHMS[0];
-    const recordTag = state.recording ? (state.limited ? ' LIM' : ' REC') : '';
-    print(1, 0, 'THRU ' + algorithm + ' L' + state.lane + ' P'
-        + (state.sequencePage + 1) + ' V' + state.voiceCount + recordTag, 1);
+    const recordTag = state.clipRecording ? ' DATA REC'
+        : (state.recording ? (state.limited ? ' LIM' : ' AUDIO') : '');
+    print(1, 0, ('THRU ' + algorithm + ' ' + patternLabel(state.activePattern)
+        + ' V' + state.voiceCount + recordTag).slice(0, 21), 1);
 
     const left = 14;
     const width = 114;
@@ -942,14 +969,19 @@ function drawMain() {
     if (state.recording) {
         drawRect(left, 51, Math.max(1, Math.round(width * state.meter)), 2, 1);
     }
+    if (state.clipDuration > 0) {
+        drawRect(0, 53, 128, 1, 0);
+        drawRect(0, 53, Math.max(1, Math.round(128 * state.clipPosition)), 1, 1);
+    }
     const footer = state.messageTicks > 0
         ? state.message
         : (state.scanning ? 'SCANNING WAVEFORM'
-            : (state.sequenceRunning
-                ? 'S' + String(state.sequenceStep + 1).padStart(2, '0') + ' '
-                    + Math.round(PARAMS.seq_bpm.value) + 'BPM MENU'
-                : state.laneSourceState + ' ' + Math.round(PARAMS.seq_bpm.value)
-                    + 'BPM MENU'));
+            : (state.clipDuration > 0
+                ? (state.clipPlaying ? 'PLAY ' : 'STOP ')
+                    + (state.clipDuration / 1000).toFixed(1) + 's '
+                    + state.clipRate.toFixed(2) + 'x '
+                    + state.clipNoteCount + 'N/' + state.clipPointCount + 'G'
+                : state.laneSourceState + ' MENU'));
     print(1, 55, String(footer).slice(0, 21), 1);
 }
 
@@ -962,7 +994,7 @@ function currentSettingsPage() {
 function parameterPages() {
     const enginePages = PLAYBACK_PAGES[state.algorithm] || PLAYBACK_PAGES[0];
     return [ENGINE_PAGE, ...enginePages,
-        MIX_REC_PAGE, SAMPLE_PAGE, SEQUENCE_PAGE, CHAIN_PAGE];
+        MIX_REC_PAGE, SAMPLE_PAGE, LOOP_PAGE, CHAIN_PAGE];
 }
 
 function activeControlKeys() {
@@ -1034,13 +1066,7 @@ function drawParameterCell(index, control, locked, editStep) {
 function drawSettings() {
     clear_screen();
     const page = currentSettingsPage();
-    const editStep = state.heldStep >= 0 ? state.heldStep : state.selectedStep;
-    const editLocal = localStep(editStep);
-    const noteCount = editLocal >= 0 ? state.stepNoteCounts[editLocal] : 0;
-    const target = editStep >= 0
-        ? 'S' + String(editStep + 1).padStart(2, '0')
-            + (noteCount > 0 ? 'x' + noteCount : '') + ' '
-        : (state.sequenceRunning ? '> ' : '');
+    const target = state.clipRecording ? 'REC ' : (state.clipPlaying ? '> ' : '');
     const pages = parameterPages();
     const pageTitle = target + page.title + ' ' + (state.settingsPage + 1)
         + '/' + pages.length;
@@ -1052,9 +1078,7 @@ function drawSettings() {
         const key = page.keys[index];
         if (!key) continue;
         const control = PARAMS[key];
-        const lockIndex = LOCKABLE_KEYS.indexOf(key);
-        const locked = stepHasLock(editLocal, lockIndex);
-        drawParameterCell(index, control, locked, editStep);
+        drawParameterCell(index, control, false, -1);
     }
 }
 
@@ -1062,11 +1086,11 @@ function drawHelp() {
     clear_screen();
     print(1, 0, ('S3G THRU ' + state.maximumRenderMicros + 'us/'
         + state.renderOverruns).slice(0, 21), 1);
-    print(1, 13, 'MENU       parameters', 1);
-    print(1, 23, 'SHIFT+PLAY patterns', 1);
-    print(1, 33, 'LEFT/RIGHT step page', 1);
-    print(1, 43, 'SHIFT+JOG capture play', 1);
-    print(1, 55, 'SHIFT+BACK undo', 1);
+    print(1, 13, 'REC        data loop', 1);
+    print(1, 23, 'SHIFT+REC  audio lane', 1);
+    print(1, 33, 'STEPS      clip slots', 1);
+    print(1, 43, 'LEFT/RIGHT clip bank', 1);
+    print(1, 55, 'PLAY loop  MENU params', 1);
 }
 
 function patternLabel(index) {
@@ -1079,7 +1103,7 @@ function drawPatterns() {
     const active = patternLabel(state.activePattern);
     const queued = state.queuedPattern >= 0
         ? ' >' + patternLabel(state.queuedPattern) : '';
-    print(1, 0, ('PATTERNS ' + active + queued).slice(0, 21), 1);
+    print(1, 0, ('PERF CLIPS ' + active + queued).slice(0, 21), 1);
     drawRect(0, 8, 128, 1, 1);
     for (let index = 0; index < 16; index++) {
         const pattern = state.patternBank * 16 + index;
@@ -1265,11 +1289,13 @@ function togglePatternView() {
 
 function selectPatternSlot(step) {
     const pattern = state.patternBank * 16 + step;
+    if (state.clipRecording) {
+        showMessage('STOP DATA RECORD FIRST');
+        return;
+    }
     if (state.deleteHeld) {
-        setParamBlocking('pattern_clear', pattern);
-        if (pattern < 32) state.patternMaskLow &= ~(1 << pattern);
-        else state.patternMaskHigh &= ~(1 << (pattern - 32));
-        showMessage('CLEARED ' + patternLabel(pattern));
+        setParamBlocking('clip_clear_pattern', pattern);
+        showMessage('CLEARED LOOP ' + patternLabel(pattern));
     } else if (state.shiftHeld) {
         setParamBlocking('pattern_copy', pattern);
         if (pattern < 32) state.patternMaskLow |= 1 << pattern;
@@ -1291,11 +1317,16 @@ function selectAlgorithm(index) {
     state.algorithm = clamp(index | 0, 0, 5);
     PARAMS.algorithm.value = state.algorithm;
     setParamBlocking('algorithm', state.algorithm);
+    if (state.clipRecording) setParam('clip_automation', 'algorithm');
     showMessage(ALGORITHMS[state.algorithm]);
     rebuildLedQueue();
 }
 
 function toggleRecording() {
+    if (state.clipRecording) {
+        showMessage('STOP DATA RECORD FIRST');
+        return;
+    }
     const next = state.recording ? 0 : 1;
     setParamBlocking('record_gate', next);
     state.recording = next !== 0;
@@ -1304,11 +1335,26 @@ function toggleRecording() {
     rebuildLedQueue();
 }
 
+function togglePerformanceRecording() {
+    if (state.recording) {
+        showMessage('STOP AUDIO RECORD FIRST');
+        return;
+    }
+    setParamBlocking('clip_record', 1);
+    parseClipState(getParam('clip_state', ''));
+    showMessage(state.clipRecording
+        ? ((PARAMS.clip_record_mode.value | 0) === 0
+            ? 'RECORD PERFORMANCE' : 'OVERDUB PERFORMANCE')
+        : 'LOOP CAPTURED');
+    rebuildLedQueue();
+}
+
 function toggleSequenceRunning() {
     state.sequenceRunning = !state.sequenceRunning;
     if (!state.sequenceRunning) state.sequenceStep = -1;
     setParamBlocking('seq_running', state.sequenceRunning ? 1 : 0);
-    showMessage(state.sequenceRunning ? 'PATTERN PLAY' : 'PATTERN STOP');
+    state.clipPlaying = state.sequenceRunning;
+    showMessage(state.sequenceRunning ? 'LOOP PLAY' : 'LOOP STOP');
     rebuildLedQueue();
 }
 
@@ -1427,17 +1473,14 @@ function adjustOctave(delta) {
     rebuildLedQueue();
 }
 
-function adjustSequencePage(delta) {
-    const next = clamp(state.sequencePage + (delta > 0 ? 1 : -1), 0, 3);
-    if (next === state.sequencePage) {
-        showMessage('STEPS ' + (next * 16 + 1) + '-' + (next * 16 + 16));
+function adjustPatternBank(delta) {
+    const next = clamp(state.patternBank + (delta > 0 ? 1 : -1), 0, 3);
+    if (next === state.patternBank) {
+        showMessage('CLIP BANK ' + BANK_NAMES[next]);
         return;
     }
-    state.sequencePage = next;
-    state.selectedStep = -1;
-    PARAMS.seq_page.value = next + 1;
-    setParamBlocking('seq_page', next + 1);
-    showMessage('STEPS ' + (next * 16 + 1) + '-' + (next * 16 + 16));
+    state.patternBank = next;
+    showMessage('CLIP BANK ' + BANK_NAMES[next]);
     rebuildLedQueue();
 }
 
@@ -1477,40 +1520,11 @@ function adjustControl(index, delta) {
     const keys = activeControlKeys();
     const control = PARAMS[keys[index]];
     if (!control || delta === 0) return;
-    const editStep = state.heldStep >= 0 ? state.heldStep : state.selectedStep;
-    if (['seq_probability', 'seq_ratchets', 'seq_micro'].includes(control.key)
-        && editStep < 0) {
-        showMessage('SELECT A STEP FIRST');
-        return;
-    }
-    if (editStep >= 0
-        && ['seq_probability', 'seq_ratchets', 'seq_micro'].includes(control.key)) {
-        setParam('seq_edit_step', editStep);
-    }
     if (control.momentary) {
         applyMomentaryControl(control);
         return;
     }
     let value = clamp(control.value + delta * control.step, control.min, control.max);
-    if (state.heldStep >= 0 && LOCKABLE_PARAMS.has(control.key)) {
-        const heldLocal = localStep(state.heldStep);
-        if (heldLocal < 0) return;
-        state.stepGestureUsed = true;
-        const previous = lockedControlValue(state.heldStep, control);
-        value = clamp(previous + delta * control.step, control.min, control.max);
-        if (control.integer) value = Math.round(value);
-        state.stepLocks[heldLocal][control.key] = value;
-        const lockIndex = LOCKABLE_KEYS.indexOf(control.key);
-        markStepLock(heldLocal, lockIndex);
-        state.sequenceMask |= 1 << heldLocal;
-        setParam('seq_lock', state.heldStep + ',' + control.key + ','
-            + value.toFixed(control.integer ? 0 : 4));
-        showMessage('LOCK S' + String(state.heldStep + 1).padStart(2, '0')
-            + ' ' + (SHORT_LABELS[control.key] || control.label)
-            + ' ' + formatControlValue(Object.assign({}, control, { value })), 45);
-        rebuildLedQueue();
-        return;
-    }
     if (control.integer) value = Math.round(value);
     control.value = value;
     if (control.key === 'algorithm') {
@@ -1518,10 +1532,7 @@ function adjustControl(index, delta) {
         return;
     }
     setParam(control.key, value.toFixed(control.integer ? 0 : 4));
-    if (control.key === 'seq_page') {
-        state.sequencePage = clamp(Math.round(value) - 1, 0, 3);
-        state.selectedStep = -1;
-    } else if (control.key === 'automation_record') {
+    if (control.key === 'automation_record') {
         state.automationRecord = value !== 0;
     } else if (control.key === 'chain_enabled') {
         state.chainEnabled = value !== 0;
@@ -1533,11 +1544,13 @@ function adjustControl(index, delta) {
         state.padMode = clamp(Math.round(value), 0, 3);
         state.activePads.clear();
         rebuildLedQueue();
+    } else if (control.key === 'record_source') {
+        state.recordSource = clamp(Math.round(value), 0, 1);
+    } else if (control.key === 'clip_rate') {
+        state.clipRate = value;
     }
-    if (state.automationRecord && state.sequenceRunning
-        && state.sequenceStep >= 0 && LOCKABLE_PARAMS.has(control.key)) {
-        setParam('seq_lock', state.sequenceStep + ',' + control.key + ','
-            + value.toFixed(control.integer ? 0 : 4));
+    if (state.clipRecording && LOCKABLE_PARAMS.has(control.key)) {
+        setParam('clip_automation', control.key);
     }
     showMessage(control.label + ' ' + formatControlValue(control), 35);
 }
@@ -1554,14 +1567,7 @@ function pollDsp() {
     parseStackPositions(getParam('voice_lanes', ''));
     parseVoicePads(getParam('voice_pads', ''));
     parsePatternState(getParam('pattern_state', '0,-1,0,0'));
-    parseSequenceState(getParam('seq_state', ''));
-    parseSequenceLocks(getParam('seq_locks', ''));
-    parseSequenceLocksHigh(getParam('seq_locks_hi', ''));
-    parseSequenceLocksExtra(getParam('seq_locks_x', ''));
-    parseSequenceNoteCounts(getParam('seq_note_counts', ''));
-    parseSequencePadMasks(getParam('seq_pad_masks', ''));
-    parseSequenceOpenMask(getParam('seq_open_mask', '0'));
-    parseSequenceOpenSteps(getParam('seq_open_steps', ''));
+    parseClipState(getParam('clip_state', ''));
     parseSampleLoadState(getParam('sample_load_state', '0,1,0,'));
     parseRegionState(getParam('region_state', '0'));
     parseCueState(getParam('cue_state', '-1,-1,-1,-1,-1,-1,-1,-1'));
@@ -1572,14 +1578,6 @@ function pollDsp() {
     state.laneSourceState = String(getParam('lane_source_state',
         state.laneSourceState) || 'EMPTY:EMPTY');
     state.undoAvailable = getNumber('undo_available', 0) !== 0;
-    state.automationRecord = getNumber('automation_record', 0) !== 0;
-    PARAMS.automation_record.value = state.automationRecord ? 1 : 0;
-    if (state.selectedStep >= 0) {
-        setParam('seq_edit_step', state.selectedStep);
-        PARAMS.seq_probability.value = clamp(getNumber('seq_probability', 100), 0, 100);
-        PARAMS.seq_ratchets.value = clamp(getNumber('seq_ratchets', 1), 1, 4);
-        PARAMS.seq_micro.value = clamp(getNumber('seq_micro', 0), -49, 49);
-    }
     if (state.ticks % 60 === 0) {
         const performance = String(getParam('performance_state', '0,0'))
             .split(',').map((item) => Number(item));
@@ -1597,7 +1595,7 @@ globalThis.init = function() {
     state.ticks = 0;
     state.view = 'main';
     state.settingsPage = 0;
-    state.message = 'PADS PLAY - REC CAPTURES';
+    state.message = 'REC CAPTURES PERFORMANCE';
     state.messageTicks = 80;
     state.actionMessage = '';
     state.actionMessageTicks = 0;
@@ -1625,14 +1623,7 @@ globalThis.init = function() {
     parseStackPositions(getParam('voice_lanes', ''));
     parseVoicePads(getParam('voice_pads', ''));
     parsePatternState(getParam('pattern_state', '0,-1,0,0'));
-    parseSequenceState(getParam('seq_state', ''));
-    parseSequenceLocks(getParam('seq_locks', ''));
-    parseSequenceLocksHigh(getParam('seq_locks_hi', ''));
-    parseSequenceLocksExtra(getParam('seq_locks_x', ''));
-    parseSequenceNoteCounts(getParam('seq_note_counts', ''));
-    parseSequencePadMasks(getParam('seq_pad_masks', ''));
-    parseSequenceOpenMask(getParam('seq_open_mask', '0'));
-    parseSequenceOpenSteps(getParam('seq_open_steps', ''));
+    parseClipState(getParam('clip_state', ''));
     parseSampleLoadState(getParam('sample_load_state', '0,1,0,'));
     parseRegionState(getParam('region_state', '0'));
     parseCueState(getParam('cue_state', '-1,-1,-1,-1,-1,-1,-1,-1'));
@@ -1675,24 +1666,7 @@ globalThis.onMidiMessageInternal = function(data) {
         const pressed = status === 0x90 && value > 0;
         const step = MoveSteps.indexOf(number);
         if (step >= 0) {
-            if (state.view === 'patterns') {
-                if (pressed) selectPatternSlot(step);
-                return;
-            }
-            if (pressed) {
-                state.heldStep = visibleStep(step);
-                setParam('seq_edit_step', state.heldStep);
-                state.stepGestureUsed = state.deleteHeld;
-                if (state.deleteHeld) clearSequenceStep(step);
-                else rebuildLedQueue();
-            } else if (state.heldStep >= 0 && state.heldStep % 16 === step) {
-                const absolute = state.heldStep;
-                const select = !state.stepGestureUsed;
-                state.heldStep = -1;
-                state.stepGestureUsed = false;
-                if (select) selectSequenceStepAbsolute(absolute);
-                else rebuildLedQueue();
-            }
+            if (pressed) selectPatternSlot(step);
             return;
         }
         const pad = MovePads.indexOf(number);
@@ -1718,7 +1692,7 @@ globalThis.onMidiMessageInternal = function(data) {
                         showMessage('CUE ' + (cue + 1));
                     }
                     rebuildLedQueue();
-                } else if (!assignSelectedStepNote(pad, value)) {
+                } else {
                     sendLedNow('note', number, Cyan);
                 }
             } else {
@@ -1765,27 +1739,8 @@ globalThis.onMidiMessageInternal = function(data) {
         return;
     }
     if ((number === MoveRecord || number === MoveRecordAlt) && value > 0) {
-        if (state.shiftHeld && !state.recording) {
-            state.recordSource = state.recordSource ? 0 : 1;
-            setParamBlocking('record_source', state.recordSource);
-            showMessage(state.recordSource ? 'SOURCE RESAMPLE' : 'SOURCE INPUT');
-        } else {
-            toggleRecording();
-        }
-        return;
-    }
-    if (number === MoveDelete && value > 0 && state.heldStep >= 0) {
-        const heldLocal = localStep(state.heldStep);
-        state.stepGestureUsed = true;
-        setParamBlocking('seq_clear_locks', state.heldStep);
-        if (heldLocal >= 0) {
-            state.stepLocks[heldLocal] = Object.create(null);
-            state.stepLockMasks[heldLocal] = 0;
-            state.stepLockMasksHigh[heldLocal] = 0;
-            state.stepLockMasksExtra[heldLocal] = 0;
-        }
-        showMessage('CLEARED S' + (state.heldStep + 1) + ' LOCKS');
-        rebuildLedQueue();
+        if (state.shiftHeld) toggleRecording();
+        else togglePerformanceRecording();
         return;
     }
     if (number === MoveDelete && value > 0 && state.shiftHeld && !state.recording) {
@@ -1795,13 +1750,13 @@ globalThis.onMidiMessageInternal = function(data) {
     }
     if ((number === MoveLeft || number === MoveRight) && value > 0
         && (state.view === 'main' || state.view === 'settings')) {
-        adjustSequencePage(number === MoveRight ? 1 : -1);
+        adjustPatternBank(number === MoveRight ? 1 : -1);
         return;
     }
     if (number === MoveUp && value > 0) {
         if (state.shiftHeld
             && (state.view === 'main' || state.view === 'settings')) {
-            adjustSequencePage(1);
+            adjustPatternBank(1);
         }
         else if (state.view === 'settings') adjustSettingsPage(1);
         else if (state.view === 'library') moveLibrarySelection(-1);
@@ -1811,7 +1766,7 @@ globalThis.onMidiMessageInternal = function(data) {
     if (number === MoveDown && value > 0) {
         if (state.shiftHeld
             && (state.view === 'main' || state.view === 'settings')) {
-            adjustSequencePage(-1);
+            adjustPatternBank(-1);
         }
         else if (state.view === 'settings') adjustSettingsPage(-1);
         else if (state.view === 'library') moveLibrarySelection(1);
@@ -1826,11 +1781,8 @@ globalThis.onMidiMessageInternal = function(data) {
     }
     if (number === MoveMainButton && value > 0) {
         if (state.view === 'library') activateLibraryItem();
-        else if (state.shiftHeld) {
-            setParamBlocking('seq_capture', 1);
-            showMessage('CAPTURED FREE PLAY');
-        }
-        else toggleRecording();
+        else if (state.shiftHeld) toggleRecording();
+        else togglePerformanceRecording();
         return;
     }
     if (number >= MoveKnob1 && number < MoveKnob1 + 8) {
@@ -1864,6 +1816,7 @@ globalThis.onMidiMessageInternal = function(data) {
 
 globalThis.onUnload = function() {
     if (state.recording) setParamBlocking('record_gate', 0);
+    if (state.clipRecording) setParamBlocking('clip_record', 1);
     setParamBlocking('all_notes_off', 1);
     setButtonLED(MoveRecord, Black);
     if (MoveRecordAlt !== MoveRecord) setButtonLED(MoveRecordAlt, Black);

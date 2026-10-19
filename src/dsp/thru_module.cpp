@@ -44,6 +44,10 @@ constexpr std::size_t kPatternsPerBank = 16u;
 constexpr std::size_t kPatternCount = kPatternBankCount * kPatternsPerBank;
 constexpr std::size_t kPatternChainLength = 16u;
 constexpr std::size_t kCueCount = 8u;
+constexpr std::size_t kClipNoteCapacity = 1024u;
+constexpr std::size_t kClipPointCapacity = 8192u;
+constexpr std::uint32_t kClipMinimumDurationMs = 50u;
+constexpr std::uint32_t kClipMaximumDurationMs = 120000u;
 constexpr int kFirstPadNote = 68;
 constexpr int kLastPadNote = 99;
 constexpr int kPadColumns = 8;
@@ -80,6 +84,33 @@ enum class LaneVariation : std::uint8_t {
 struct RegionMap {
     std::array<float, Engine::kRegionBoundaryCount> boundaries {};
     std::size_t count = 0u;
+};
+
+enum class ClipRecordMode : std::uint8_t {
+    replace = 0u,
+    overdub,
+};
+
+enum class ClipPointType : std::uint8_t {
+    parameter = 0u,
+    pressure,
+};
+
+struct ClipNote {
+    std::uint32_t startMs = 0u;
+    std::uint32_t durationMs = 1u;
+    std::uint8_t note = 60u;
+    std::uint8_t velocity = 100u;
+    std::uint8_t sourcePad = 255u;
+    std::uint8_t reserved = 0u;
+};
+
+struct ClipPoint {
+    std::uint32_t timeMs = 0u;
+    float value = 0.0f;
+    std::uint16_t parameter = 0u;
+    std::uint8_t sourcePad = 255u;
+    ClipPointType type = ClipPointType::parameter;
 };
 
 enum class LockParameter : std::uint32_t {
@@ -228,6 +259,13 @@ struct Pattern {
         -1.0f, -1.0f, -1.0f, -1.0f,
         -1.0f, -1.0f, -1.0f, -1.0f
     };
+    std::array<ClipNote, kClipNoteCapacity> clipNotes {};
+    std::array<ClipPoint, kClipPointCapacity> clipPoints {};
+    std::uint32_t clipDurationMs = 0u;
+    std::uint16_t clipNoteCount = 0u;
+    std::uint16_t clipPointCount = 0u;
+    float clipRate = 1.0f;
+    bool clipRecorded = false;
     float swing = 0.5f;
     float legacyGate = 0.8f;
     std::uint8_t length = 16u;
@@ -273,6 +311,7 @@ constexpr const char* kPadModeNames[] { "Keys", "Slices", "Cues", "Rolls" };
 constexpr const char* kLaneVariationNames[] {
     "Manual", "Cycle", "Random", "No Repeat", "Velocity"
 };
+constexpr const char* kClipRecordModeNames[] { "Replace", "Overdub" };
 constexpr const char* kMotionModeNames[] {
     "Forward", "Reverse", "Hover", "Round Trip", "Moving Loop", "Mirror", "Zigzag", "Drunk"
 };
@@ -344,7 +383,8 @@ constexpr const char kMidiMap[] =
     "103 cut_pitch_variation,104 cut_level_variation,"
     "105 cut_lane_order,106 cut_poly_path,107 cut_region_mode,"
     "108 sample_mode,109 slice_region_mode,110 slice_regions,"
-    "111 pad_mode,112 lane_variation,113 preview_level";
+    "111 pad_mode,112 lane_variation,113 preview_level,114 clip_rate,"
+    "115 clip_record_mode,116 clip_record,117 clip_clear";
 
 constexpr const char kChainParams[] = R"json([
 {"key":"locus","name":"Position","short_name":"POS","type":"float","min":0,"max":1,"step":0.01,"default":0.5},
@@ -431,6 +471,13 @@ constexpr const char kChainParams[] = R"json([
 {"key":"pad_mode","name":"Pad Mode","short_name":"PADS","type":"enum","options":["Keys","Slices","Cues","Rolls"],"default":0},
 {"key":"lane_variation","name":"Lane Variation","short_name":"VARIATION","type":"enum","options":["Manual","Cycle","Random","No Repeat","Velocity"],"default":0},
 {"key":"preview_level","name":"Browser Preview","short_name":"PREVIEW","type":"float","min":0,"max":1,"step":0.01,"default":0.7},
+{"key":"clip_rate","name":"Performance Rate","short_name":"LOOP RATE","type":"float","min":0.25,"max":4,"step":0.01,"default":1},
+{"key":"clip_record_mode","name":"Performance Record","short_name":"REC MODE","type":"enum","options":["Replace","Overdub"],"default":0},
+{"key":"clip_record","name":"Record Performance","type":"int","min":0,"max":1,"access":"write"},
+{"key":"clip_clear","name":"Clear Performance","type":"int","min":0,"max":1,"access":"write"},
+{"key":"clip_clear_pattern","name":"Clear Stored Performance","type":"int","min":0,"max":63,"access":"write"},
+{"key":"clip_automation","name":"Record Gesture Point","type":"string","access":"write"},
+{"key":"clip_state","name":"Performance Loop State","type":"string","access":"read","live":true},
 {"key":"seq_bpm","name":"Pattern Tempo","short_name":"BPM","type":"float","min":40,"max":240,"step":1,"default":120,"unit":"BPM"},
 {"key":"seq_swing","name":"Pattern Swing","short_name":"SWING","type":"float","min":50,"max":75,"step":1,"default":50,"unit":"%"},
 {"key":"seq_length","name":"Pattern Length","short_name":"LEN","type":"int","min":1,"max":64,"default":16},
@@ -492,7 +539,7 @@ constexpr const char kUiHierarchy[] = R"json({
 "sample":{"name":"Sample","knobs":["sample_mode","locus","field","speed","manual_lane","lane_variation","pad_mode","output_gain"],"params":[{"key":"sample_mode"},{"key":"locus"},{"key":"field"},{"key":"speed"},{"key":"manual_lane"},{"key":"lane_variation"},{"key":"pad_mode"},{"key":"output_gain"}]},
 "slices":{"name":"Slices","knobs":["sample_mode","slice_region_mode","slice_regions","speed","manual_lane","lane_variation","pad_mode","output_gain"],"params":[{"key":"sample_mode"},{"key":"slice_region_mode"},{"key":"slice_regions"},{"key":"speed"},{"key":"manual_lane"},{"key":"lane_variation"},{"key":"pad_mode"},{"key":"output_gain"}]},
 "lane_mix":{"name":"Lane Mix","knobs":["lane_1_gain","lane_2_gain","lane_3_gain","lane_4_gain","lanes_stretch","stretch_ratio","pressure_mode","output_gain"],"params":[{"key":"lane_1_gain"},{"key":"lane_2_gain"},{"key":"lane_3_gain"},{"key":"lane_4_gain"},{"key":"lanes_stretch"},{"key":"stretch_ratio"},{"key":"pressure_mode"},{"key":"output_gain"}]},
-"sequence":{"name":"Sequence","knobs":["seq_bpm","seq_swing","seq_length","root_note","algorithm","manual_lane","join","output_gain"],"params":[{"key":"seq_bpm"},{"key":"seq_swing"},{"key":"seq_length"},{"key":"root_note"},{"key":"algorithm"},{"key":"manual_lane"},{"key":"join"},{"key":"output_gain"}]}
+"performance_loop":{"name":"Performance Loop","knobs":["clip_rate","clip_record_mode","pressure_mode","root_note","chain_enabled","chain_slot","chain_pattern","chain_repeats"],"params":[{"key":"clip_rate"},{"key":"clip_record_mode"},{"key":"pressure_mode"},{"key":"root_note"},{"key":"chain_enabled"},{"key":"chain_slot"},{"key":"chain_pattern"},{"key":"chain_repeats"}]}
 }
 })json";
 
@@ -874,9 +921,11 @@ struct PlaybackVoice {
     float target = 0.0f;
     float snapshotOutputGain = 1.0f;
     int sequenceStepsRemaining = 0;
+    int clipNoteIndex = -1;
     bool active = false;
     bool held = false;
     bool sequencerOwned = false;
+    bool clipOwned = false;
     bool useSnapshot = false;
 };
 
@@ -927,6 +976,21 @@ struct ThruInstance {
     std::array<SequenceStep, kSequenceStepCount> performanceCapture {};
     std::array<int, 32u> captureStartSteps {};
     std::array<PatternChainEntry, kPatternChainLength> patternChain {};
+    Engine::Controls clipControls;
+    float clipOutputGain = 1.0f;
+    double clipPositionMs = 0.0;
+    double clipAbsolutePositionMs = 0.0;
+    std::atomic<std::uint64_t> renderClockSamples { 0u };
+    std::uint64_t clipRecordStartSample = 0u;
+    std::array<int, 160u> clipOpenNoteIndices {};
+    std::array<double, 160u> clipOpenNoteStarts {};
+    std::array<std::uint32_t, 32u> clipLastPressureTimes {};
+    std::array<float, 32u> clipLastPressureValues {};
+    ClipRecordMode clipRecordMode = ClipRecordMode::replace;
+    bool clipRecording = false;
+    bool clipReplacing = true;
+    bool clipFinishPending = false;
+    bool clipNeedsStart = false;
     double sequenceSamplesUntilStep = 0.0;
     double ratchetSamplesUntilTrigger = 0.0;
     float sequenceBpm = 120.0f;
@@ -1065,6 +1129,11 @@ struct ThruInstance {
         }
         padMappedNotes.fill(-1);
         captureStartSteps.fill(-1);
+        clipOpenNoteIndices.fill(-1);
+        clipLastPressureTimes.fill(0xffffffffu);
+        clipLastPressureValues.fill(-1.0f);
+        clipControls = controls;
+        clipOutputGain = outputGain;
         attackCoefficient = 1.0f - std::exp(-1.0f / (sampleRate * 0.003f));
         releaseCoefficient = 1.0f - std::exp(-1.0f / (sampleRate * 0.025f));
         for (std::size_t channel = 0u; channel < kChannelCount; ++channel) {
@@ -1806,6 +1875,27 @@ struct ThruInstance {
 
     void allNotesOff()
     {
+        if (clipRecording) {
+            Pattern* pattern = activeClipPattern();
+            if (pattern) {
+                for (std::size_t key = 0u;
+                     key < clipOpenNoteIndices.size(); ++key) {
+                    const int index = clipOpenNoteIndices[key];
+                    if (index < 0
+                        || index >= static_cast<int>(pattern->clipNoteCount)) {
+                        continue;
+                    }
+                    const double elapsed = std::max(1.0,
+                        clipCaptureAbsoluteMs() - clipOpenNoteStarts[key]);
+                    const std::uint32_t maximum = pattern->clipDurationMs != 0u
+                        ? pattern->clipDurationMs : kClipMaximumDurationMs;
+                    pattern->clipNotes[static_cast<std::size_t>(index)].durationMs =
+                        static_cast<std::uint32_t>(clampValue(
+                            elapsed, 1.0, static_cast<double>(maximum)));
+                }
+                clipOpenNoteIndices.fill(-1);
+            }
+        }
         padMappedNotes.fill(-1);
         activeNote = -1;
         for (auto& voice : voices) {
@@ -1907,6 +1997,136 @@ struct ThruInstance {
         return loaded[choice];
     }
 
+    Pattern* activeClipPattern()
+    {
+        return activePattern >= 0
+                && activePattern < static_cast<int>(patterns.size())
+            ? &patterns[static_cast<std::size_t>(activePattern)] : nullptr;
+    }
+
+    const Pattern* activeClipPattern() const
+    {
+        return activePattern >= 0
+                && activePattern < static_cast<int>(patterns.size())
+            ? &patterns[static_cast<std::size_t>(activePattern)] : nullptr;
+    }
+
+    double captureElapsedMs() const
+    {
+        const std::uint64_t now = renderClockSamples.load(
+            std::memory_order_relaxed);
+        const std::uint64_t elapsed = now >= clipRecordStartSample
+            ? now - clipRecordStartSample : 0u;
+        return static_cast<double>(elapsed) * 1000.0
+            / static_cast<double>(std::max(1.0f, sampleRate));
+    }
+
+    double clipCaptureAbsoluteMs() const
+    {
+        return !clipReplacing
+            ? clipAbsolutePositionMs : captureElapsedMs();
+    }
+
+    std::uint32_t clipCaptureTimeMs() const
+    {
+        const Pattern* pattern = activeClipPattern();
+        const double absolute = clipCaptureAbsoluteMs();
+        if (!clipReplacing && pattern
+            && pattern->clipDurationMs >= kClipMinimumDurationMs) {
+            return static_cast<std::uint32_t>(std::fmod(
+                std::max(0.0, absolute),
+                static_cast<double>(pattern->clipDurationMs)));
+        }
+        return static_cast<std::uint32_t>(clampValue(
+            absolute, 0.0, static_cast<double>(kClipMaximumDurationMs)));
+    }
+
+    static int clipCaptureKey(int note, int sourcePad)
+    {
+        return sourcePad >= 0 && sourcePad < 32
+            ? sourcePad : 32 + clampValue(note, 0, 127);
+    }
+
+    void captureClipNoteOn(int note, int velocity, int sourcePad)
+    {
+        Pattern* pattern = activeClipPattern();
+        if (!clipRecording || !pattern
+            || pattern->clipNoteCount >= kClipNoteCapacity) return;
+        const int key = clipCaptureKey(note, sourcePad);
+        if (key < 0 || key >= static_cast<int>(clipOpenNoteIndices.size())) return;
+        const std::size_t index = pattern->clipNoteCount++;
+        ClipNote& captured = pattern->clipNotes[index];
+        captured.startMs = clipCaptureTimeMs();
+        captured.durationMs = 1u;
+        captured.note = static_cast<std::uint8_t>(clampValue(note, 0, 127));
+        captured.velocity = static_cast<std::uint8_t>(
+            clampValue(velocity, 1, 127));
+        captured.sourcePad = sourcePad >= 0 && sourcePad < 32
+            ? static_cast<std::uint8_t>(sourcePad) : 255u;
+        clipOpenNoteIndices[static_cast<std::size_t>(key)] =
+            static_cast<int>(index);
+        clipOpenNoteStarts[static_cast<std::size_t>(key)] =
+            clipCaptureAbsoluteMs();
+    }
+
+    void captureClipNoteOff(int note, int sourcePad)
+    {
+        Pattern* pattern = activeClipPattern();
+        if (!clipRecording || !pattern) return;
+        const int key = clipCaptureKey(note, sourcePad);
+        if (key < 0 || key >= static_cast<int>(clipOpenNoteIndices.size())) return;
+        const int index = clipOpenNoteIndices[static_cast<std::size_t>(key)];
+        if (index >= 0 && index < static_cast<int>(pattern->clipNoteCount)) {
+            const double elapsed = std::max(1.0,
+                clipCaptureAbsoluteMs()
+                    - clipOpenNoteStarts[static_cast<std::size_t>(key)]);
+            const std::uint32_t maximum = pattern->clipDurationMs != 0u
+                ? pattern->clipDurationMs : kClipMaximumDurationMs;
+            pattern->clipNotes[static_cast<std::size_t>(index)].durationMs =
+                static_cast<std::uint32_t>(clampValue(
+                    elapsed, 1.0, static_cast<double>(maximum)));
+        }
+        clipOpenNoteIndices[static_cast<std::size_t>(key)] = -1;
+    }
+
+    void captureClipPoint(ClipPointType type, std::size_t parameter,
+                          int sourcePad, float value)
+    {
+        Pattern* pattern = activeClipPattern();
+        if (!clipRecording || !pattern
+            || pattern->clipPointCount >= kClipPointCapacity) return;
+        const std::uint32_t time = clipCaptureTimeMs();
+        if (type == ClipPointType::pressure && sourcePad >= 0
+            && sourcePad < static_cast<int>(clipLastPressureTimes.size())) {
+            const std::size_t pad = static_cast<std::size_t>(sourcePad);
+            const std::uint32_t previousTime = clipLastPressureTimes[pad];
+            const float previousValue = clipLastPressureValues[pad];
+            if (previousTime != 0xffffffffu && time >= previousTime
+                && time - previousTime < 10u
+                && std::fabs(value - previousValue) < 0.02f) return;
+            clipLastPressureTimes[pad] = time;
+            clipLastPressureValues[pad] = value;
+        }
+        ClipPoint& point = pattern->clipPoints[pattern->clipPointCount++];
+        point.timeMs = time;
+        point.value = value;
+        point.parameter = static_cast<std::uint16_t>(std::min<std::size_t>(
+            parameter, kLockParameterCount - 1u));
+        point.sourcePad = sourcePad >= 0 && sourcePad < 32
+            ? static_cast<std::uint8_t>(sourcePad) : 255u;
+        point.type = type;
+    }
+
+    void captureClipParameter(int parameter)
+    {
+        if (parameter < 0
+            || parameter >= static_cast<int>(kLockParameterCount)) return;
+        captureClipPoint(ClipPointType::parameter,
+            static_cast<std::size_t>(parameter), -1,
+            lockedValue(controls, outputGain,
+                        static_cast<std::size_t>(parameter)));
+    }
+
     void noteOn(int note, int velocity, int sourcePad = -1)
     {
         note = clampValue(note, 0, 127);
@@ -1923,10 +2143,13 @@ struct ThruInstance {
         voice.active = true;
         voice.held = true;
         voice.sequencerOwned = false;
+        voice.clipOwned = false;
+        voice.clipNoteIndex = -1;
         voice.useSnapshot = false;
         voice.sequenceStepsRemaining = 0;
         performanceLane = voice.laneOffset * 3.0f;
         voice.engine.retrigger();
+        captureClipNoteOn(note, velocity, sourcePad);
         if (sequenceRunning && sequenceCurrentStep >= 0 && sourcePad >= 0
             && sourcePad < static_cast<int>(captureStartSteps.size())) {
             auto& capture = performanceCapture[
@@ -1964,6 +2187,7 @@ struct ThruInstance {
                 voice.target = 0.0f;
             }
         }
+        captureClipNoteOff(note, sourcePad);
         if (sequenceRunning && sequenceCurrentStep >= 0 && sourcePad >= 0
             && sourcePad < static_cast<int>(captureStartSteps.size())) {
             const int start = captureStartSteps[static_cast<std::size_t>(sourcePad)];
@@ -1990,6 +2214,9 @@ struct ThruInstance {
     {
         if (pressureMode == 0) return;
         const float offset = midiUnit(pressure);
+        if (sourcePad >= 0) {
+            captureClipPoint(ClipPointType::pressure, 0u, sourcePad, offset);
+        }
         for (auto& voice : voices) {
             if (voice.active && voice.held && !voice.sequencerOwned
                 && voice.note == note && voice.sourcePad == sourcePad) {
@@ -2106,8 +2333,9 @@ struct ThruInstance {
 
     Engine::Controls effectiveControls(const PlaybackVoice& voice) const
     {
-        Engine::Controls effective = voice.useSnapshot
-            ? voice.snapshotControls : controls;
+        Engine::Controls effective = voice.clipOwned
+            ? clipControls : (voice.useSnapshot
+                ? voice.snapshotControls : controls);
         const float noteRatio = voice.note >= 0
             ? std::pow(2.0f, static_cast<float>(voice.note - rootNote) / 12.0f)
             : 1.0f;
@@ -2183,12 +2411,309 @@ struct ThruInstance {
         voice.active = true;
         voice.held = true;
         voice.sequencerOwned = true;
+        voice.clipOwned = false;
+        voice.clipNoteIndex = -1;
         voice.useSnapshot = true;
         voice.sequenceStepsRemaining = clampValue(
             lengthSteps, 1, static_cast<int>(kSequenceStepCount));
         voice.engine.retrigger();
         updateActiveNote();
     }
+
+    void releaseClipVoices()
+    {
+        for (auto& voice : voices) {
+            if (!voice.clipOwned) continue;
+            voice.held = false;
+            voice.target = 0.0f;
+            voice.clipNoteIndex = -1;
+        }
+    }
+
+    void triggerClipVoice(const Pattern& pattern, std::size_t noteIndex)
+    {
+        if (noteIndex >= pattern.clipNoteCount) return;
+        const ClipNote& event = pattern.clipNotes[noteIndex];
+        ++noteClock;
+        PlaybackVoice& voice = allocateSequenceVoice();
+        voice.note = event.note;
+        voice.sourcePad = event.sourcePad < 32u
+            ? static_cast<int>(event.sourcePad) : -1;
+        voice.velocity = event.velocity;
+        voice.variantLane = chooseVariationLane(voice.velocity);
+        voice.age = noteClock;
+        voice.laneOffset = clampValue(clipControls.manualLane / 3.0f, 0.0f, 1.0f);
+        voice.target = 1.0f;
+        voice.active = true;
+        voice.held = true;
+        voice.sequencerOwned = true;
+        voice.clipOwned = true;
+        voice.useSnapshot = false;
+        voice.sequenceStepsRemaining = 0;
+        voice.clipNoteIndex = static_cast<int>(noteIndex);
+        voice.engine.retrigger();
+    }
+
+    void releaseClipVoice(std::size_t noteIndex)
+    {
+        for (auto& voice : voices) {
+            if (!voice.active || !voice.clipOwned
+                || voice.clipNoteIndex != static_cast<int>(noteIndex)) continue;
+            voice.held = false;
+            voice.target = 0.0f;
+            voice.clipNoteIndex = -1;
+        }
+    }
+
+    static bool clipEventCrossed(std::uint32_t eventTime,
+                                 double from, double to,
+                                 bool includeFrom = false)
+    {
+        return (includeFrom ? static_cast<double>(eventTime) >= from
+                            : static_cast<double>(eventTime) > from)
+            && static_cast<double>(eventTime) <= to;
+    }
+
+    void processClipEvents(const Pattern& pattern, double from, double to,
+                           bool includeFrom = false)
+    {
+        const std::uint32_t duration = std::max<std::uint32_t>(
+            kClipMinimumDurationMs, pattern.clipDurationMs);
+        // Releases precede attacks at the same loop position, so a note that
+        // fills the complete loop retriggers cleanly at the seam.
+        for (std::size_t index = 0u; index < pattern.clipNoteCount; ++index) {
+            const ClipNote& note = pattern.clipNotes[index];
+            const std::uint32_t end = static_cast<std::uint32_t>(
+                (static_cast<std::uint64_t>(note.startMs)
+                    + std::min(note.durationMs, duration)) % duration);
+            if (clipEventCrossed(end, from, to, includeFrom)) {
+                releaseClipVoice(index);
+            }
+        }
+        for (std::size_t index = 0u; index < pattern.clipNoteCount; ++index) {
+            const ClipNote& note = pattern.clipNotes[index];
+            if (clipEventCrossed(note.startMs, from, to, includeFrom)) {
+                triggerClipVoice(pattern, index);
+            }
+        }
+    }
+
+    void applyClipCurves(const Pattern& pattern, double position)
+    {
+        clipControls = controls;
+        clipOutputGain = outputGain;
+        if (pattern.clipPointCount == 0u || pattern.clipDurationMs == 0u) return;
+        constexpr std::size_t laneCount = kLockParameterCount + 32u;
+        std::array<int, laneCount> previous {};
+        std::array<int, laneCount> next {};
+        std::array<int, laneCount> first {};
+        std::array<int, laneCount> last {};
+        previous.fill(-1);
+        next.fill(-1);
+        first.fill(-1);
+        last.fill(-1);
+        for (std::size_t index = 0u; index < pattern.clipPointCount; ++index) {
+            const ClipPoint& point = pattern.clipPoints[index];
+            const std::size_t lane = point.type == ClipPointType::parameter
+                ? static_cast<std::size_t>(point.parameter)
+                : kLockParameterCount + static_cast<std::size_t>(point.sourcePad);
+            if (lane >= laneCount) continue;
+            if (first[lane] < 0
+                || point.timeMs < pattern.clipPoints[
+                    static_cast<std::size_t>(first[lane])].timeMs) {
+                first[lane] = static_cast<int>(index);
+            }
+            if (last[lane] < 0
+                || point.timeMs > pattern.clipPoints[
+                    static_cast<std::size_t>(last[lane])].timeMs) {
+                last[lane] = static_cast<int>(index);
+            }
+            if (static_cast<double>(point.timeMs) <= position
+                && (previous[lane] < 0
+                    || point.timeMs >= pattern.clipPoints[
+                        static_cast<std::size_t>(previous[lane])].timeMs)) {
+                previous[lane] = static_cast<int>(index);
+            } else if (static_cast<double>(point.timeMs) > position
+                && (next[lane] < 0
+                    || point.timeMs < pattern.clipPoints[
+                        static_cast<std::size_t>(next[lane])].timeMs)) {
+                next[lane] = static_cast<int>(index);
+            }
+        }
+        const double duration = static_cast<double>(pattern.clipDurationMs);
+        for (std::size_t lane = 0u; lane < laneCount; ++lane) {
+            if (first[lane] < 0) continue;
+            const int beforeIndex = previous[lane] >= 0
+                ? previous[lane] : last[lane];
+            const int afterIndex = next[lane] >= 0 ? next[lane] : first[lane];
+            const ClipPoint& before = pattern.clipPoints[
+                static_cast<std::size_t>(beforeIndex)];
+            const ClipPoint& after = pattern.clipPoints[
+                static_cast<std::size_t>(afterIndex)];
+            double beforeTime = static_cast<double>(before.timeMs);
+            double afterTime = static_cast<double>(after.timeMs);
+            double phase = position;
+            if (previous[lane] < 0) beforeTime -= duration;
+            if (next[lane] < 0) afterTime += duration;
+            if (phase < beforeTime) phase += duration;
+            const float mix = afterTime > beforeTime
+                ? static_cast<float>(clampValue(
+                    (phase - beforeTime) / (afterTime - beforeTime), 0.0, 1.0))
+                : 0.0f;
+            const float value = before.value
+                + (after.value - before.value) * mix;
+            if (lane < kLockParameterCount) {
+                applyLockedValue(clipControls, clipOutputGain, lane, value);
+            } else {
+                const int pad = static_cast<int>(lane - kLockParameterCount);
+                for (auto& voice : voices) {
+                    if (voice.active && voice.clipOwned
+                        && voice.sourcePad == pad) {
+                        voice.laneOffset = clampValue(value, 0.0f, 1.0f);
+                    }
+                }
+            }
+        }
+    }
+
+    void beginClipRecording()
+    {
+        Pattern* pattern = activeClipPattern();
+        if (!pattern || patternPreparationInFlight()) {
+            setError("Wait for the queued clip to finish preparing");
+            return;
+        }
+        pushPatternUndo(activePattern);
+        chainEnabled = false;
+        chainNextSlot = -1;
+        const bool overdub = clipRecordMode == ClipRecordMode::overdub
+            && pattern->clipRecorded
+            && pattern->clipDurationMs >= kClipMinimumDurationMs;
+        clipReplacing = !overdub;
+        if (!overdub) {
+            pattern->clipNoteCount = 0u;
+            pattern->clipPointCount = 0u;
+            pattern->clipDurationMs = 0u;
+            pattern->clipRecorded = false;
+            for (std::size_t parameter = 0u;
+                 parameter < kLockParameterCount; ++parameter) {
+                pattern->baseValues[parameter] = lockedValue(
+                    controls, outputGain, parameter);
+            }
+            sequenceRunning = false;
+            clipPositionMs = 0.0;
+            clipAbsolutePositionMs = 0.0;
+            releaseClipVoices();
+        } else if (!sequenceRunning) {
+            sequenceRunning = true;
+            clipNeedsStart = true;
+        }
+        clipOpenNoteIndices.fill(-1);
+        clipLastPressureTimes.fill(0xffffffffu);
+        clipLastPressureValues.fill(-1.0f);
+        clipRecordStartSample = renderClockSamples.load(
+            std::memory_order_relaxed);
+        clipRecording = true;
+        clipFinishPending = false;
+        pattern->occupied = true;
+        activePatternOccupied = true;
+        markPersistentStateDirty();
+    }
+
+    void finishClipRecording()
+    {
+        Pattern* pattern = activeClipPattern();
+        if (!clipRecording || !pattern) return;
+        for (std::size_t key = 0u; key < clipOpenNoteIndices.size(); ++key) {
+            const int index = clipOpenNoteIndices[key];
+            if (index < 0 || index >= static_cast<int>(pattern->clipNoteCount)) continue;
+            const double elapsed = std::max(1.0,
+                clipCaptureAbsoluteMs() - clipOpenNoteStarts[key]);
+            pattern->clipNotes[static_cast<std::size_t>(index)].durationMs =
+                static_cast<std::uint32_t>(clampValue(
+                    elapsed, 1.0, static_cast<double>(kClipMaximumDurationMs)));
+        }
+        clipOpenNoteIndices.fill(-1);
+        if (clipReplacing
+            || pattern->clipDurationMs < kClipMinimumDurationMs) {
+            pattern->clipDurationMs = static_cast<std::uint32_t>(clampValue(
+                captureElapsedMs(),
+                static_cast<double>(kClipMinimumDurationMs),
+                static_cast<double>(kClipMaximumDurationMs)));
+        }
+        const std::uint32_t duration = pattern->clipDurationMs;
+        for (std::size_t index = 0u; index < pattern->clipNoteCount; ++index) {
+            ClipNote& note = pattern->clipNotes[index];
+            note.startMs %= duration;
+            note.durationMs = clampValue(note.durationMs, 1u, duration);
+        }
+        for (std::size_t index = 0u; index < pattern->clipPointCount; ++index) {
+            pattern->clipPoints[index].timeMs %= duration;
+        }
+        std::sort(pattern->clipNotes.begin(),
+                  pattern->clipNotes.begin() + pattern->clipNoteCount,
+                  [](const ClipNote& left, const ClipNote& right) {
+                      return left.startMs < right.startMs;
+                  });
+        std::sort(pattern->clipPoints.begin(),
+                  pattern->clipPoints.begin() + pattern->clipPointCount,
+                  [](const ClipPoint& left, const ClipPoint& right) {
+                      return left.timeMs < right.timeMs;
+                  });
+        pattern->clipRecorded = true;
+        pattern->occupied = true;
+        clipRecording = false;
+        clipFinishPending = false;
+        sequenceRunning = true;
+        if (clipReplacing) {
+            clipPositionMs = 0.0;
+            clipAbsolutePositionMs = 0.0;
+            clipNeedsStart = true;
+        }
+        markPersistentStateDirty();
+    }
+
+    void toggleClipRecording()
+    {
+        if (clipRecording) finishClipRecording();
+        else beginClipRecording();
+    }
+
+    void clearPatternClip(int index)
+    {
+        if (index < 0 || index >= static_cast<int>(patterns.size())
+            || clipRecording) return;
+        pushPatternUndo(index);
+        Pattern& pattern = patterns[static_cast<std::size_t>(index)];
+        pattern.clipNoteCount = 0u;
+        pattern.clipPointCount = 0u;
+        pattern.clipDurationMs = 0u;
+        pattern.clipRecorded = false;
+        pattern.steps = {};
+        if (index == queuedPattern) {
+            queuedPattern = -1;
+            chainNextSlot = -1;
+        }
+        bool ownsSamples = false;
+        for (std::size_t lane = 0u; lane < kLaneCount; ++lane) {
+            if (pattern.laneSourceKinds[lane] != LaneSourceKind::inherit) {
+                ownsSamples = true;
+                break;
+            }
+        }
+        pattern.occupied = ownsSamples;
+        if (index == activePattern) {
+            sequence = {};
+            activePatternOccupied = pattern.occupied;
+            clipPositionMs = 0.0;
+            clipAbsolutePositionMs = 0.0;
+            sequenceRunning = false;
+            releaseClipVoices();
+        }
+        markPersistentStateDirty();
+    }
+
+    void clearActiveClip() { clearPatternClip(activePattern); }
 
     int legacySequenceLength(const SequenceStep& step) const
     {
@@ -2389,25 +2914,77 @@ struct ThruInstance {
             setError("Queued pattern sample preparation failed");
         }
         if (!sequenceRunning) return;
-        while (sequenceSamplesUntilStep <= 0.0) advanceSequence();
-        while (ratchetsRemaining > 0 && ratchetSamplesUntilTrigger <= 0.0
-               && ratchetStep >= 0) {
-            triggerSequenceStep(sequence[static_cast<std::size_t>(ratchetStep)]);
-            --ratchetsRemaining;
-            const int ratchets = clampValue(static_cast<int>(
-                sequence[static_cast<std::size_t>(ratchetStep)].ratchets), 1, 4);
-            ratchetSamplesUntilTrigger += sequenceStepSamples(ratchetStep)
-                / static_cast<double>(ratchets);
+        Pattern* pattern = activeClipPattern();
+        if (!pattern || !pattern->clipRecorded
+            || pattern->clipDurationMs < kClipMinimumDurationMs) {
+            if (queuedPattern >= 0
+                && prepareState == PatternPrepareState::ready
+                && preparedPattern.load(std::memory_order_relaxed)
+                    == queuedPattern) {
+                activatePreparedPattern();
+                clipPositionMs = 0.0;
+                clipAbsolutePositionMs = 0.0;
+                clipNeedsStart = true;
+            }
+            return;
+        }
+        applyClipCurves(*pattern, clipPositionMs);
+        if (clipNeedsStart) {
+            processClipEvents(*pattern, 0.0, 0.0, true);
+            clipNeedsStart = false;
         }
     }
 
     void serviceSequenceAfterBlock(std::size_t frames)
     {
-        if (!sequenceRunning) return;
-        sequenceSamplesUntilStep -= static_cast<double>(frames);
-        if (ratchetsRemaining > 0) {
-            ratchetSamplesUntilTrigger -= static_cast<double>(frames);
+        renderClockSamples.fetch_add(frames, std::memory_order_relaxed);
+        if (clipRecording && clipReplacing
+            && captureElapsedMs() >= static_cast<double>(kClipMaximumDurationMs)) {
+            clipFinishPending = true;
         }
+        if (!sequenceRunning) return;
+        Pattern* pattern = activeClipPattern();
+        if (!pattern || !pattern->clipRecorded
+            || pattern->clipDurationMs < kClipMinimumDurationMs) return;
+        const double duration = static_cast<double>(pattern->clipDurationMs);
+        const double rate = clampValue(
+            static_cast<double>(pattern->clipRate), 0.25, 4.0);
+        const double advance = static_cast<double>(frames) * 1000.0
+            / static_cast<double>(std::max(1.0f, sampleRate)) * rate;
+        const double previous = clipPositionMs;
+        double next = previous + advance;
+        clipAbsolutePositionMs += advance;
+        if (next < duration) {
+            processClipEvents(*pattern, previous, next);
+            clipPositionMs = next;
+            return;
+        }
+        processClipEvents(*pattern, previous, duration);
+        const int beforePattern = activePattern;
+        if (chainEnabled && firstEnabledChainSlot() >= 0) {
+            advancePatternChain();
+        } else if (queuedPattern >= 0) {
+            const auto prepareState = static_cast<PatternPrepareState>(
+                patternPrepareState.load(std::memory_order_acquire));
+            if (prepareState == PatternPrepareState::ready
+                && preparedPattern.load(std::memory_order_relaxed)
+                    == queuedPattern) {
+                activatePreparedPattern();
+            } else if (prepareState == PatternPrepareState::idle
+                       || prepareState == PatternPrepareState::error) {
+                requestPatternPreparation(queuedPattern);
+            }
+        }
+        if (activePattern != beforePattern) {
+            releaseClipVoices();
+            clipPositionMs = 0.0;
+            clipAbsolutePositionMs = 0.0;
+            clipNeedsStart = true;
+            return;
+        }
+        next = std::fmod(next, duration);
+        clipPositionMs = next;
+        processClipEvents(*pattern, 0.0, next, true);
     }
 
     void setSequenceRunning(bool running)
@@ -2418,6 +2995,10 @@ struct ThruInstance {
         sequenceSamplesUntilStep = 0.0;
         ratchetStep = -1;
         ratchetsRemaining = 0;
+        releaseClipVoices();
+        clipPositionMs = 0.0;
+        clipAbsolutePositionMs = 0.0;
+        clipNeedsStart = running;
         if (running && chainEnabled) {
             const int first = firstEnabledChainSlot();
             if (first >= 0) {
@@ -2444,6 +3025,9 @@ struct ThruInstance {
 
     bool workingPatternHasContent() const
     {
+        const Pattern* clip = activeClipPattern();
+        if (clip && clip->clipRecorded
+            && clip->clipDurationMs >= kClipMinimumDurationMs) return true;
         for (const auto& step : sequence) {
             if (step.enabled || step.noteCount != 0u || stepHasLocks(step)) {
                 return true;
@@ -2513,6 +3097,11 @@ struct ThruInstance {
             applyLockedValue(controls, outputGain, parameter,
                              target.baseValues[parameter]);
         }
+        clipControls = controls;
+        clipOutputGain = outputGain;
+        clipPositionMs = 0.0;
+        clipAbsolutePositionMs = 0.0;
+        clipNeedsStart = sequenceRunning;
         if (queueSources) queuePatternSources(index);
         queuedPattern = -1;
         if (!sequenceRunning) {
@@ -2645,6 +3234,10 @@ struct ThruInstance {
     void selectPattern(int index)
     {
         if (index < 0 || index >= static_cast<int>(patterns.size())) return;
+        if (clipRecording) {
+            setError("Stop performance recording before changing clips");
+            return;
+        }
         if (index == activePattern) {
             queuedPattern = -1;
             return;
@@ -2690,6 +3283,10 @@ struct ThruInstance {
     void clearPattern(int index)
     {
         if (index < 0 || index >= static_cast<int>(patterns.size())) return;
+        if (clipRecording) {
+            setError("Stop performance recording before clearing a clip");
+            return;
+        }
         if (patternPreparationInFlight()) {
             setError("Queued pattern is still preparing");
             return;
@@ -2703,7 +3300,11 @@ struct ThruInstance {
             sequenceSwing = 0.5f;
             sequenceGate = 0.8f;
             activePatternOccupied = false;
-            if (sequenceRunning) releaseSequencerVoices();
+            sequenceRunning = false;
+            clipPositionMs = 0.0;
+            clipAbsolutePositionMs = 0.0;
+            clipNeedsStart = false;
+            releaseSequencerVoices();
         }
         markPersistentStateDirty();
     }
@@ -3380,9 +3981,19 @@ struct ThruInstance {
             case 112: laneVariation = static_cast<LaneVariation>(
                 midiChoice(value, 5)); break;
             case 113: previewLevel = midiUnit(value); break;
+            case 114: {
+                Pattern* pattern = activeClipPattern();
+                if (pattern) pattern->clipRate = 0.25f
+                    + midiUnit(value) * 3.75f;
+                break;
+            }
+            case 115: clipRecordMode = value >= 64
+                ? ClipRecordMode::overdub : ClipRecordMode::replace; break;
+            case 116: if (value >= 64) toggleClipRecording(); break;
+            case 117: if (value >= 64) clearActiveClip(); break;
             default: break;
         }
-        if (cc >= 20 && cc <= 113 && cc != 52) markPersistentStateDirty();
+        if (cc >= 20 && cc <= 117 && cc != 52) markPersistentStateDirty();
         const int lockParameter = cc >= 20 && cc <= 45
             ? cc - 20 : (cc >= 69 && cc <= 110 ? cc - 43 : -1);
         if (automationRecord && sequenceRunning && sequenceCurrentStep >= 0
@@ -3394,6 +4005,10 @@ struct ThruInstance {
             setStepLock(step, parameter);
             step.enabled = true;
             markPersistentStateDirty();
+        }
+        if (clipRecording && lockParameter >= 0
+            && lockParameter < static_cast<int>(kLockParameterCount)) {
+            captureClipParameter(lockParameter);
         }
     }
 
@@ -3813,8 +4428,9 @@ struct ThruInstance {
                 voice.engine.process(silentInputPointers.data(),
                                      voice.outputPointers.data(), count, effective);
                 if (!voice.active) continue;
-                const float voiceGain = voice.useSnapshot
-                    ? voice.snapshotOutputGain : outputGain;
+                const float voiceGain = voice.clipOwned
+                    ? clipOutputGain : (voice.useSnapshot
+                        ? voice.snapshotOutputGain : outputGain);
                 for (std::size_t frame = 0u; frame < count; ++frame) {
                     const float coefficient = voice.target > voice.envelope
                         ? attackCoefficient : releaseCoefficient;
@@ -3831,6 +4447,8 @@ struct ThruInstance {
                     voice.note = -1;
                     voice.sourcePad = -1;
                     voice.sequencerOwned = false;
+                    voice.clipOwned = false;
+                    voice.clipNoteIndex = -1;
                     voice.useSnapshot = false;
                     voice.sequenceStepsRemaining = 0;
                     voice.engine.stopPlayback();
@@ -3906,7 +4524,7 @@ struct ThruInstance {
     {
         if (!buffer || bufferLength < 1) return -1;
         return std::snprintf(buffer, static_cast<std::size_t>(bufferLength),
-            "{\"version\":3,\"locus\":%.5f,\"field\":%.5f,\"speed\":%.5f,"
+            "{\"version\":4,\"locus\":%.5f,\"field\":%.5f,\"speed\":%.5f,"
             "\"manual_lane\":%.5f,\"lane_cycles\":%.5f,\"algorithm\":%d,"
             "\"join\":%.5f,\"output_gain\":%.5f,\"record_gain\":%.5f,"
             "\"pressure_mode\":%d,\"root_note\":%d,\"pad_octave\":%d,"
@@ -3941,7 +4559,7 @@ struct ThruInstance {
             "\"cut_lane_order\":%d,\"cut_poly_path\":%d,"
             "\"cut_region_mode\":%d,\"sample_mode\":%d,"
             "\"slice_region_mode\":%d,\"slice_regions\":%.0f,"
-            "\"pad_mode\":%d,\"lane_variation\":%d,"
+            "\"pad_mode\":%d,\"lane_variation\":%d,\"clip_record_mode\":%d,"
             "\"preview_level\":%.5f}",
             controls.locus, controls.field, controls.speed,
             controls.manualLane + 1.0f, controls.laneCycles,
@@ -3985,7 +4603,8 @@ struct ThruInstance {
             static_cast<int>(controls.sampleMode),
             static_cast<int>(controls.sampleRegionMode),
             controls.sampleRegionCount, static_cast<int>(padMode),
-            static_cast<int>(laneVariation), previewLevel);
+            static_cast<int>(laneVariation), static_cast<int>(clipRecordMode),
+            previewLevel);
     }
 
     bool writeStateFile()
@@ -4010,6 +4629,86 @@ struct ThruInstance {
         return true;
     }
 
+    void migrateLegacyPatternToClip(Pattern& pattern, float bpm)
+    {
+        bool hasLegacyData = false;
+        for (const auto& step : pattern.steps) {
+            if (step.enabled || step.noteCount != 0u || stepHasLocks(step)) {
+                hasLegacyData = true;
+                break;
+            }
+        }
+        if (!hasLegacyData) return;
+
+        const double stepMs = 15000.0
+            / static_cast<double>(clampValue(bpm, 40.0f, 240.0f));
+        const std::size_t stepCount = clampValue<std::size_t>(
+            pattern.length, 1u, kSequenceStepCount);
+        pattern.clipDurationMs = static_cast<std::uint32_t>(std::lround(
+            clampValue(stepMs * static_cast<double>(stepCount),
+                       static_cast<double>(kClipMinimumDurationMs),
+                       static_cast<double>(kClipMaximumDurationMs))));
+        pattern.clipNoteCount = 0u;
+        pattern.clipPointCount = 0u;
+        pattern.clipRate = 1.0f;
+
+        auto normalizedTime = [&](double timeMs) {
+            const double duration = static_cast<double>(pattern.clipDurationMs);
+            while (timeMs < 0.0) timeMs += duration;
+            while (timeMs >= duration) timeMs -= duration;
+            return static_cast<std::uint32_t>(std::lround(timeMs));
+        };
+        for (std::size_t stepIndex = 0u; stepIndex < stepCount; ++stepIndex) {
+            const SequenceStep& step = pattern.steps[stepIndex];
+            const double eventMs = stepMs * static_cast<double>(stepIndex)
+                + stepMs * static_cast<double>(step.microTiming) / 100.0;
+            const std::uint32_t timeMs = normalizedTime(eventMs);
+            if (step.enabled || step.noteCount != 0u) {
+                const std::size_t noteCount = step.noteCount != 0u
+                    ? step.noteCount : 1u;
+                for (std::size_t chord = 0u;
+                     chord < noteCount
+                     && pattern.clipNoteCount < kClipNoteCapacity; ++chord) {
+                    ClipNote& note = pattern.clipNotes[pattern.clipNoteCount++];
+                    note.startMs = timeMs;
+                    note.durationMs = static_cast<std::uint32_t>(std::lround(
+                        clampValue(stepMs * static_cast<double>(
+                            std::max<std::uint8_t>(1u, step.lengthSteps[chord])),
+                            1.0, static_cast<double>(pattern.clipDurationMs))));
+                    note.note = step.noteCount != 0u ? step.notes[chord] : 60u;
+                    note.velocity = step.noteCount != 0u
+                        ? std::max<std::uint8_t>(1u, step.velocities[chord])
+                        : 100u;
+                    note.sourcePad = step.noteCount != 0u
+                        ? step.sourcePads[chord] : 255u;
+                }
+            }
+            for (std::size_t parameter = 0u;
+                 parameter < kLockParameterCount
+                 && pattern.clipPointCount < kClipPointCapacity; ++parameter) {
+                if (!hasStepLock(step, parameter)) continue;
+                ClipPoint& point = pattern.clipPoints[pattern.clipPointCount++];
+                point.timeMs = timeMs;
+                point.value = step.locks[parameter];
+                point.parameter = static_cast<std::uint16_t>(parameter);
+                point.sourcePad = 255u;
+                point.type = ClipPointType::parameter;
+            }
+        }
+        std::sort(pattern.clipNotes.begin(),
+                  pattern.clipNotes.begin() + pattern.clipNoteCount,
+                  [](const ClipNote& a, const ClipNote& b) {
+                      return a.startMs < b.startMs;
+                  });
+        std::sort(pattern.clipPoints.begin(),
+                  pattern.clipPoints.begin() + pattern.clipPointCount,
+                  [](const ClipPoint& a, const ClipPoint& b) {
+                      return a.timeMs < b.timeMs;
+                  });
+        pattern.clipRecorded = true;
+        pattern.occupied = true;
+    }
+
     bool writePatternFile()
     {
         std::array<char, kPersistencePathSize> path {};
@@ -4024,7 +4723,7 @@ struct ThruInstance {
         if (!file) return false;
         const char magic[8] { 'S', '3', 'G', 'T', 'S', 'E', 'Q', '\0' };
         bool ok = writeBytes(file, magic, sizeof(magic))
-            && writeU32(file, 9u)
+            && writeU32(file, 10u)
             && writeF32(file, sequenceBpm)
             && writeU32(file, static_cast<std::uint32_t>(activePattern))
             && writeU32(file, static_cast<std::uint32_t>(chainPosition))
@@ -4076,6 +4775,29 @@ struct ThruInstance {
                     ok = ok && writeF32(file, lock);
                 }
             }
+            ok = ok && writeU32(file, pattern.clipRecorded ? 1u : 0u)
+                && writeU32(file, pattern.clipDurationMs)
+                && writeF32(file, pattern.clipRate)
+                && writeU32(file, pattern.clipNoteCount)
+                && writeU32(file, pattern.clipPointCount);
+            for (std::size_t index = 0u;
+                 index < pattern.clipNoteCount; ++index) {
+                const ClipNote& note = pattern.clipNotes[index];
+                ok = ok && writeU32(file, note.startMs)
+                    && writeU32(file, note.durationMs)
+                    && writeU32(file, note.note)
+                    && writeU32(file, note.velocity)
+                    && writeU32(file, note.sourcePad);
+            }
+            for (std::size_t index = 0u;
+                 index < pattern.clipPointCount; ++index) {
+                const ClipPoint& point = pattern.clipPoints[index];
+                ok = ok && writeU32(file, point.timeMs)
+                    && writeF32(file, point.value)
+                    && writeU32(file, point.parameter)
+                    && writeU32(file, point.sourcePad)
+                    && writeU32(file, static_cast<std::uint32_t>(point.type));
+            }
         }
         const bool closed = std::fclose(file) == 0;
         if (!ok || !closed || std::rename(temporary.data(), path.data()) != 0) {
@@ -4103,11 +4825,17 @@ struct ThruInstance {
         bool ok = std::fread(magic, 1u, sizeof(magic), file) == sizeof(magic)
             && std::memcmp(magic, "S3GTSEQ", 7u) == 0
             && readU32(file, version)
-            && (version >= 1u && version <= 9u);
+            && (version >= 1u && version <= 10u);
         if (ok && version >= 5u) {
             std::uint32_t selected = 0u;
-            std::array<Pattern, kPatternCount> loadedPatterns {};
-            ok = readF32(file, bpm) && readU32(file, selected)
+            auto loadedPatterns = std::unique_ptr<std::array<Pattern, kPatternCount>>(
+                new (std::nothrow) std::array<Pattern, kPatternCount> {});
+            if (!loadedPatterns) {
+                std::fclose(file);
+                return false;
+            }
+            ok = readF32(file, bpm) && std::isfinite(bpm)
+                && readU32(file, selected)
                 && selected < kPatternCount;
             if (version >= 7u) {
                 std::uint32_t loadedChainPosition = 0u;
@@ -4131,7 +4859,7 @@ struct ThruInstance {
                         repeats, 1u, 16u));
                 }
             }
-            for (auto& pattern : loadedPatterns) {
+            for (auto& pattern : *loadedPatterns) {
                 for (std::size_t parameter = 0u;
                      parameter < kLockParameterCount; ++parameter) {
                     pattern.baseValues[parameter] = lockedValue(
@@ -4269,11 +4997,82 @@ struct ThruInstance {
                         ok = ok && readF32(file, lock) && std::isfinite(lock);
                     }
                 }
+                if (version >= 10u) {
+                    std::uint32_t recorded = 0u;
+                    std::uint32_t durationMs = 0u;
+                    std::uint32_t noteCount = 0u;
+                    std::uint32_t pointCount = 0u;
+                    ok = ok && readU32(file, recorded)
+                        && readU32(file, durationMs)
+                        && readF32(file, pattern.clipRate)
+                        && std::isfinite(pattern.clipRate)
+                        && readU32(file, noteCount)
+                        && readU32(file, pointCount)
+                        && noteCount <= kClipNoteCapacity
+                        && pointCount <= kClipPointCapacity;
+                    pattern.clipRecorded = recorded != 0u;
+                    pattern.clipDurationMs = clampValue(
+                        durationMs, 0u, kClipMaximumDurationMs);
+                    if (pattern.clipRecorded) {
+                        pattern.clipDurationMs = std::max(
+                            kClipMinimumDurationMs, pattern.clipDurationMs);
+                    }
+                    pattern.clipRate = clampValue(
+                        pattern.clipRate, 0.25f, 4.0f);
+                    pattern.clipNoteCount = static_cast<std::uint16_t>(noteCount);
+                    pattern.clipPointCount = static_cast<std::uint16_t>(pointCount);
+                    for (std::size_t index = 0u; ok && index < noteCount; ++index) {
+                        ClipNote& note = pattern.clipNotes[index];
+                        std::uint32_t pitch = 60u;
+                        std::uint32_t velocity = 100u;
+                        std::uint32_t sourcePad = 255u;
+                        ok = readU32(file, note.startMs)
+                            && readU32(file, note.durationMs)
+                            && readU32(file, pitch)
+                            && readU32(file, velocity)
+                            && readU32(file, sourcePad);
+                        if (pattern.clipDurationMs != 0u) {
+                            note.startMs %= pattern.clipDurationMs;
+                        }
+                        note.durationMs = clampValue(note.durationMs, 1u,
+                            std::max(1u, pattern.clipDurationMs));
+                        note.note = static_cast<std::uint8_t>(
+                            clampValue(pitch, 0u, 127u));
+                        note.velocity = static_cast<std::uint8_t>(
+                            clampValue(velocity, 1u, 127u));
+                        note.sourcePad = static_cast<std::uint8_t>(
+                            sourcePad < 32u ? sourcePad : 255u);
+                    }
+                    for (std::size_t index = 0u; ok && index < pointCount; ++index) {
+                        ClipPoint& point = pattern.clipPoints[index];
+                        std::uint32_t parameter = 0u;
+                        std::uint32_t sourcePad = 255u;
+                        std::uint32_t type = 0u;
+                        ok = readU32(file, point.timeMs)
+                            && readF32(file, point.value)
+                            && std::isfinite(point.value)
+                            && readU32(file, parameter)
+                            && readU32(file, sourcePad)
+                            && readU32(file, type)
+                            && parameter < kLockParameterCount
+                            && type <= static_cast<std::uint32_t>(
+                                ClipPointType::pressure);
+                        if (pattern.clipDurationMs != 0u) {
+                            point.timeMs %= pattern.clipDurationMs;
+                        }
+                        point.parameter = static_cast<std::uint16_t>(parameter);
+                        point.sourcePad = static_cast<std::uint8_t>(
+                            sourcePad < 32u ? sourcePad : 255u);
+                        point.type = static_cast<ClipPointType>(type);
+                    }
+                } else {
+                    migrateLegacyPatternToClip(pattern, bpm);
+                }
             }
             const bool atEnd = ok && std::fgetc(file) == EOF;
             std::fclose(file);
             if (!atEnd) return false;
-            patterns = loadedPatterns;
+            patterns = *loadedPatterns;
             sequenceBpm = clampValue(bpm, 40.0f, 240.0f);
             activePattern = static_cast<int>(selected);
             patternBankInitialized = true;
@@ -4281,8 +5080,10 @@ struct ThruInstance {
             return true;
         }
         ok = ok && version >= 1u && version <= 4u
-            && readF32(file, bpm) && readF32(file, swing)
-            && readF32(file, gate) && readU32(file, length);
+            && readF32(file, bpm) && std::isfinite(bpm)
+            && readF32(file, swing) && std::isfinite(swing)
+            && readF32(file, gate) && std::isfinite(gate)
+            && readU32(file, length);
         for (std::size_t stepIndex = 0u; stepIndex < kVisibleStepCount;
              ++stepIndex) {
             auto& step = loaded[stepIndex];
@@ -4360,6 +5161,8 @@ struct ThruInstance {
         activePattern = 0;
         activePatternOccupied = workingPatternHasContent();
         captureActivePattern(activePatternOccupied);
+        migrateLegacyPatternToClip(patterns[0u], sequenceBpm);
+        activateStoredPattern(0, false);
         return true;
     }
 
@@ -4484,6 +5287,7 @@ struct ThruInstance {
     bool serviceMaintenance()
     {
         if (engine.recording()) return false;
+        if (clipFinishPending && clipRecording) finishClipRecording();
         bool ok = true;
         for (std::size_t lane = 0u; lane < kLaneCount; ++lane) {
             if ((pendingRegionAnalysisMask & (1u << lane)) == 0u) continue;
@@ -4647,6 +5451,7 @@ struct ThruInstance {
     {
         if (!persistenceEnabled) return false;
         if (engine.recording()) finishRecording();
+        if (clipRecording) finishClipRecording();
         bool ok = true;
         for (std::size_t lane = 0u; lane < kLaneCount; ++lane) {
             if ((pendingCaptureSaveMask & (1u << lane)) == 0u) continue;
@@ -4684,6 +5489,7 @@ struct ThruInstance {
         if (jsonNumber(json, "slice_regions", value)) controls.sampleRegionCount = clampValue(value, 1.0f, 64.0f);
         if (jsonNumber(json, "pad_mode", value)) padMode = static_cast<PadMode>(clampValue(static_cast<int>(value), 0, 3));
         if (jsonNumber(json, "lane_variation", value)) laneVariation = static_cast<LaneVariation>(clampValue(static_cast<int>(value), 0, 4));
+        if (jsonNumber(json, "clip_record_mode", value)) clipRecordMode = static_cast<ClipRecordMode>(clampValue(static_cast<int>(value), 0, 1));
         if (jsonNumber(json, "preview_level", value)) previewLevel = clampValue(value, 0.0f, 1.0f);
         if (jsonNumber(json, "output_gain", value)) outputGain = clampValue(value, 0.0f, 2.0f);
         if (jsonNumber(json, "record_gain", value)) recordGain = clampValue(value, 0.0f, 4.0f);
@@ -4848,6 +5654,12 @@ void setParam(void* opaque, const char* key, const char* value)
     if (std::strcmp(key, "pad_mode") == 0) { instance->padMode = static_cast<PadMode>(parseEnum(value, kPadModeNames, static_cast<int>(instance->padMode))); instance->allNotesOff(); return; }
     if (std::strcmp(key, "lane_variation") == 0) { instance->laneVariation = static_cast<LaneVariation>(parseEnum(value, kLaneVariationNames, static_cast<int>(instance->laneVariation))); return; }
     if (std::strcmp(key, "preview_level") == 0) { instance->previewLevel = clampValue(parseFloat(value, instance->previewLevel), 0.0f, 1.0f); return; }
+    if (std::strcmp(key, "clip_rate") == 0) { if (Pattern* pattern = instance->activeClipPattern()) pattern->clipRate = clampValue(parseFloat(value, pattern->clipRate), 0.25f, 4.0f); return; }
+    if (std::strcmp(key, "clip_record_mode") == 0) { instance->clipRecordMode = static_cast<ClipRecordMode>(parseEnum(value, kClipRecordModeNames, static_cast<int>(instance->clipRecordMode))); return; }
+    if (std::strcmp(key, "clip_record") == 0) { if (isTruthy(value)) instance->toggleClipRecording(); return; }
+    if (std::strcmp(key, "clip_clear") == 0) { if (isTruthy(value)) instance->clearActiveClip(); return; }
+    if (std::strcmp(key, "clip_clear_pattern") == 0) { instance->clearPatternClip(parseInteger(value, -1)); return; }
+    if (std::strcmp(key, "clip_automation") == 0) { char automationKey[32] {}; if (std::sscanf(value, "%31[^,]", automationKey) == 1) instance->captureClipParameter(lockParameterIndex(automationKey)); return; }
     if (std::strcmp(key, "join") == 0) { controls.join = clampValue(parseFloat(value, controls.join), 0.0f, 1.0f); return; }
     if (std::strcmp(key, "output_gain") == 0) { instance->outputGain = clampValue(parseFloat(value, instance->outputGain), 0.0f, 2.0f); return; }
     if (std::strcmp(key, "pressure_mode") == 0) { instance->pressureMode = parseEnum(value, kPressureModeNames, instance->pressureMode); return; }
@@ -5244,6 +6056,9 @@ int getParam(void* opaque, const char* key, char* buffer, int bufferLength)
     if (std::strcmp(key, "pad_mode") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(instance->padMode));
     if (std::strcmp(key, "lane_variation") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(instance->laneVariation));
     if (std::strcmp(key, "preview_level") == 0) return std::snprintf(buffer, bufferLength, "%.4f", instance->previewLevel);
+    if (std::strcmp(key, "clip_rate") == 0) { const Pattern* pattern = instance->activeClipPattern(); return std::snprintf(buffer, bufferLength, "%.4f", pattern ? pattern->clipRate : 1.0f); }
+    if (std::strcmp(key, "clip_record_mode") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(instance->clipRecordMode));
+    if (std::strcmp(key, "clip_state") == 0) { const Pattern* pattern = instance->activeClipPattern(); const std::uint32_t duration = pattern ? pattern->clipDurationMs : 0u; const int position = duration != 0u ? static_cast<int>(std::lround(clampValue(instance->clipPositionMs / static_cast<double>(duration), 0.0, 1.0) * 1000.0)) : 0; return std::snprintf(buffer, bufferLength, "%d,%d,%d,%d,%u,%u,%u,%d", instance->clipRecording ? 1 : 0, instance->sequenceRunning ? 1 : 0, instance->clipReplacing ? 0 : 1, position, duration, pattern ? static_cast<unsigned>(pattern->clipNoteCount) : 0u, pattern ? static_cast<unsigned>(pattern->clipPointCount) : 0u, pattern ? static_cast<int>(std::lround(pattern->clipRate * 1000.0f)) : 1000); }
     if (std::strcmp(key, "join") == 0) return std::snprintf(buffer, bufferLength, "%.4f", controls.join);
     if (std::strcmp(key, "output_gain") == 0) return std::snprintf(buffer, bufferLength, "%.4f", instance->outputGain);
     if (std::strcmp(key, "pressure_mode") == 0) return std::snprintf(buffer, bufferLength, "%d", instance->pressureMode);

@@ -337,108 +337,66 @@ int main()
     api->set_param(instance, "clear_lane", "Clear");
     render(api, instance, 8);
 
-    /* The bottom row is one persistent 16-Step page of a 64-Step pattern.
-       Play starts an internal
-       sixteenth-note clock, and a triggered voice snapshots its per-step
-       locks instead of following later global edits. */
-    assert(get(api, instance, "seq_state") == "0,-1,0,120.00,16,50.00,80.00,1");
-    api->set_param(instance, "seq_note", "0,64,108");
-    api->set_param(instance, "seq_note_toggle", "0,67,96");
-    api->set_param(instance, "seq_lock", "0,algorithm,3");
-    api->set_param(instance, "seq_lock", "0,output_gain,1");
-    api->set_param(instance, "seq_lock", "0,lane_blend,1");
-    api->set_param(instance, "seq_lock", "0,sample_mode,2");
-    api->set_param(instance, "seq_bpm", "240");
-    api->set_param(instance, "seq_swing", "50");
-    api->set_param(instance, "seq_length", "4");
-    api->set_param(instance, "seq_gate", "25");
-    api->set_param(instance, "seq_step_gate", "0,250");
-    assert(stateField(get(api, instance, "seq_state"), 2) == 1);
-    assert(stateField(get(api, instance, "seq_locks"), 0) != 0);
-    assert((unsignedStateField(get(api, instance, "seq_locks_hi"), 0)
-        & 0x1u) != 0u);
-    assert((unsignedStateField(get(api, instance, "seq_locks_x"), 0)
-        & 0x2u) != 0u);
-    assert(stateField(get(api, instance, "seq_note_counts"), 0) == 2);
-    api->set_param(instance, "seq_note_pad_toggle", "7,3,63,80");
-    api->set_param(instance, "seq_lock", "7,field,0.25");
-    assert(stateField(get(api, instance, "seq_note_counts"), 7) == 1);
-    api->set_param(instance, "seq_clear_step", "7");
-    assert(stateField(get(api, instance, "seq_note_counts"), 7) == 0);
-    assert(unsignedStateField(get(api, instance, "seq_pad_masks"), 7) == 0u);
-    assert(stateField(get(api, instance, "seq_locks"), 7) == 0);
-    assert((stateField(get(api, instance, "seq_state"), 2) & (1 << 7)) == 0);
-    api->set_param(instance, "seq_running", "1");
-    render(api, instance, 2);
-    assert(stateField(get(api, instance, "seq_state"), 1) == 0);
-    assert(stateField(get(api, instance, "ui_state"), 16) == 2);
+    /* Record free-time performance data rather than programming Steps. The
+       clip stores independent notes, pressure, and knob gestures, then loops
+       immediately with eight-voice playback. */
+    assert(stateField(get(api, instance, "clip_state"), 4) == 0);
+    api->set_param(instance, "clip_record_mode", "Replace");
+    api->set_param(instance, "clip_record", "1");
+    assert(stateField(get(api, instance, "clip_state"), 0) == 1);
+    midi(api, instance, 0x90, 73, 108, MOVE_MIDI_SOURCE_INTERNAL);
+    render(api, instance, 80);
+    midi(api, instance, 0xA0, 73, 32, MOVE_MIDI_SOURCE_INTERNAL);
+    api->set_param(instance, "field", "0.25");
+    api->set_param(instance, "clip_automation", "field");
+    render(api, instance, 40);
+    midi(api, instance, 0x90, 76, 96, MOVE_MIDI_SOURCE_INTERNAL);
+    render(api, instance, 80);
+    midi(api, instance, 0x80, 73, 0, MOVE_MIDI_SOURCE_INTERNAL);
+    render(api, instance, 40);
+    midi(api, instance, 0x80, 76, 0, MOVE_MIDI_SOURCE_INTERNAL);
+    api->set_param(instance, "clip_record", "1");
+    std::string clipState = get(api, instance, "clip_state");
+    assert(stateField(clipState, 0) == 0);
+    assert(stateField(clipState, 1) == 1);
+    assert(stateField(clipState, 4) >= 150);
+    assert(stateField(clipState, 5) == 2);
+    assert(stateField(clipState, 6) >= 2);
+    render(api, instance, 4);
     assert(peak() > 0);
-    api->set_param(instance, "output_gain", "0");
-    render(api, instance, 2);
-    assert(peak() > 0);
-    api->set_param(instance, "output_gain", "1");
-    render(api, instance, 28);
-    assert(stateField(get(api, instance, "seq_state"), 1) == 1);
-    assert(stateField(get(api, instance, "ui_state"), 16) == 2);
-    api->set_param(instance, "seq_running", "0");
-    assert(stateField(get(api, instance, "seq_state"), 0) == 0);
-    render(api, instance, 160);
+    const std::string loopVoicePads = get(api, instance, "voice_pads");
+    bool loopHasPad5 = false;
+    for (int voice = 0; voice < 8; ++voice) {
+        loopHasPad5 = loopHasPad5 || stateField(loopVoicePads, voice) == 5;
+    }
+    assert(loopHasPad5);
 
-    /* New note entry stores explicit per-note off boundaries. Two different
-       isomorphic pads may carry the same MIDI pitch as independent voices,
-       and the voice-slot report preserves each pad/playhead identity. */
-    api->set_param(instance, "seq_clear", "1");
-    api->set_param(instance, "seq_note_pad_toggle", "0,5,53,108");
-    api->set_param(instance, "seq_note_pad_toggle", "0,8,53,96");
-    api->set_param(instance, "seq_note_length", "0,5,2");
-    api->set_param(instance, "seq_note_length", "0,8,3");
-    api->set_param(instance, "seq_lock", "0,algorithm,3");
-    api->set_param(instance, "seq_lock", "0,output_gain,1");
-    assert(stateField(get(api, instance, "seq_note_counts"), 0) == 2);
-    assert(unsignedStateField(get(api, instance, "seq_pad_masks"), 0)
-        == ((1u << 5u) | (1u << 8u)));
-    api->set_param(instance, "seq_running", "1");
-    render(api, instance, 2);
-    assert(stateField(get(api, instance, "ui_state"), 16) == 2);
-    assert(stateField(get(api, instance, "voice_pads"), 0) == 5);
-    assert(stateField(get(api, instance, "voice_pads"), 1) == 8);
-    const auto renderToSequenceStep = [&](int target) {
-        for (int block = 0; block < 80
-             && stateField(get(api, instance, "seq_state"), 1) != target;
-             ++block) {
-            render(api, instance, 1);
-        }
-        assert(stateField(get(api, instance, "seq_state"), 1) == target);
-    };
-    renderToSequenceStep(1);
-    assert(stateField(get(api, instance, "ui_state"), 16) == 2);
-    renderToSequenceStep(2);
-    assert(stateField(get(api, instance, "ui_state"), 16) == 1);
-    renderToSequenceStep(3);
-    assert(stateField(get(api, instance, "ui_state"), 16) == 0);
-    api->set_param(instance, "seq_running", "0");
-    render(api, instance, 160);
+    /* Loop time is continuously variable. Overdub retains the original
+       duration and adds new events against the running phase. */
+    const int originalDuration = stateField(clipState, 4);
+    api->set_param(instance, "clip_rate", "4");
+    assert(get(api, instance, "clip_rate") == "4.0000");
+    const int positionBefore = stateField(get(api, instance, "clip_state"), 3);
+    render(api, instance, 20);
+    const int positionAfter = stateField(get(api, instance, "clip_state"), 3);
+    assert(positionAfter != positionBefore);
+    api->set_param(instance, "clip_record_mode", "Overdub");
+    api->set_param(instance, "clip_record", "1");
+    midi(api, instance, 0x90, 70, 88, MOVE_MIDI_SOURCE_INTERNAL);
+    render(api, instance, 24);
+    midi(api, instance, 0x80, 70, 0, MOVE_MIDI_SOURCE_INTERNAL);
+    api->set_param(instance, "clip_record", "1");
+    clipState = get(api, instance, "clip_state");
+    assert(stateField(clipState, 4) == originalDuration);
+    assert(stateField(clipState, 5) == 3);
 
-    /* Four 16-step pages form one 64-step pattern. Step expression is stored
-       independently, and a destructive Step clear is recoverable. */
-    api->set_param(instance, "seq_page", "2");
-    api->set_param(instance, "seq_edit_step", "16");
-    api->set_param(instance, "seq_note_pad_toggle", "16,4,64,100");
-    api->set_param(instance, "seq_probability", "37");
-    api->set_param(instance, "seq_ratchets", "3");
-    api->set_param(instance, "seq_micro", "-12");
-    assert(get(api, instance, "seq_page") == "2");
-    assert(get(api, instance, "seq_probability") == "37");
-    assert(get(api, instance, "seq_ratchets") == "3");
-    assert(get(api, instance, "seq_micro") == "-12");
-    assert(stateField(get(api, instance, "seq_note_counts"), 0) == 1);
-    api->set_param(instance, "seq_clear_step", "16");
-    assert(stateField(get(api, instance, "seq_note_counts"), 0) == 0);
+    /* Clearing only the performance layer is undoable and does not remove
+       the pattern's sample ownership. */
+    api->set_param(instance, "clip_clear", "1");
+    assert(stateField(get(api, instance, "clip_state"), 4) == 0);
     assert(get(api, instance, "undo_available") == "1");
     api->set_param(instance, "undo", "1");
-    assert(stateField(get(api, instance, "seq_note_counts"), 0) == 1);
-    api->set_param(instance, "seq_clear_step", "16");
-    api->set_param(instance, "seq_page", "1");
+    assert(stateField(get(api, instance, "clip_state"), 5) == 3);
 
     /* Chains are a persistent ordered list with independent repeat counts. */
     api->set_param(instance, "chain_slot", "1");
@@ -453,45 +411,18 @@ int main()
     assert(stateField(get(api, instance, "chain_state"), 0) == 1);
     api->set_param(instance, "chain_enabled", "0");
 
-    /* Free play is retained in a rolling performance buffer and committed on
-       demand without changing the immediate eight-voice performance path. */
-    api->set_param(instance, "seq_clear", "1");
-    api->set_param(instance, "seq_length", "4");
-    api->set_param(instance, "seq_bpm", "240");
-    api->set_param(instance, "seq_running", "1");
-    render(api, instance, 2);
-    midi(api, instance, 0x90, 68, 100, MOVE_MIDI_SOURCE_INTERNAL);
-    for (int block = 0; block < 80
-         && stateField(get(api, instance, "seq_state"), 1) == 0; ++block) {
-        render(api, instance, 1);
-    }
-    midi(api, instance, 0x80, 68, 0, MOVE_MIDI_SOURCE_INTERNAL);
-    api->set_param(instance, "seq_running", "0");
-    api->set_param(instance, "seq_capture", "1");
-    assert(stateField(get(api, instance, "seq_note_counts"), 0) == 1);
-    api->set_param(instance, "seq_clear", "1");
-    api->set_param(instance, "seq_note_pad_toggle", "0,5,53,108");
-    api->set_param(instance, "seq_note_pad_toggle", "0,8,53,96");
-    api->set_param(instance, "seq_note_length", "0,5,2");
-    api->set_param(instance, "seq_note_length", "0,8,3");
-    api->set_param(instance, "seq_lock", "0,algorithm,3");
-    api->set_param(instance, "seq_lock", "0,output_gain,1");
-    api->set_param(instance, "seq_lock", "0,lane_blend,1");
-    api->set_param(instance, "seq_lock", "0,sample_mode,2");
-
-    /* Four banks of sixteen patterns snapshot notes, locks, length/swing and
-       engine settings. Running changes queue to the next pattern boundary. */
+    /* Four banks of sixteen performance clips snapshot event data, source
+       assignments, and engine settings. Running changes queue at a loop seam. */
     api->set_param(instance, "pattern_copy", "1");
     assert((unsignedStateField(get(api, instance, "pattern_state"), 2) & 0x7u)
         == 0x7u);
     api->set_param(instance, "pattern_select", "1");
     waitForPattern(api, instance, 1);
     api->set_param(instance, "algorithm", "Lanes");
-    api->set_param(instance, "seq_note_pad_toggle", "2,2,62,90");
     api->set_param(instance, "pattern_select", "0");
     waitForPattern(api, instance, 0);
     assert(get(api, instance, "algorithm") == "0");
-    assert(stateField(get(api, instance, "seq_note_counts"), 2) == 0);
+    assert(stateField(get(api, instance, "clip_state"), 5) == 3);
     api->set_param(instance, "seq_running", "1");
     api->set_param(instance, "pattern_select", "1");
     assert(stateField(get(api, instance, "pattern_state"), 1) == 1);
@@ -503,6 +434,7 @@ int main()
     assert(get(api, instance, "algorithm") == "1");
     api->set_param(instance, "seq_running", "0");
     api->set_param(instance, "pattern_select", "0");
+    waitForPattern(api, instance, 0);
 
     /* Mirror and Zigzag must expose their actual bidirectional read-head
        motion to the UI. Ignore only the large discontinuity of a wrap when
@@ -658,10 +590,18 @@ int main()
     recordLane(api, instance, 4, 18000, 12);
     ui = get(api, instance, "ui_state");
     assert((stateField(ui, 1) & 0x9) == 0x9);
+    api->set_param(instance, "field", "1");
     for (int algorithm = 0; algorithm < 6; ++algorithm) {
         api->set_param(instance, "algorithm", std::to_string(algorithm).c_str());
         midi(api, instance, 0x90, 60, 64);
         render(api, instance, 8);
+        if (peak() == 0) {
+            std::fprintf(stderr, "Algorithm %d silent: ui=%s clip=%s voices=%s error=%s\n",
+                algorithm, get(api, instance, "ui_state").c_str(),
+                get(api, instance, "clip_state").c_str(),
+                get(api, instance, "voice_pads").c_str(),
+                get(api, instance, "last_error").c_str());
+        }
         assert(peak() > 0);
         midi(api, instance, 0x80, 60, 0);
         render(api, instance, 40);
@@ -782,7 +722,8 @@ int main()
     api->set_param(instance, "algorithm", "Motion");
     api->set_param(instance, "cue_store", "2,0.625");
     const std::string state = get(api, instance, "state");
-    assert(state.find("\"version\":3") != std::string::npos);
+    assert(state.find("\"version\":4") != std::string::npos);
+    assert(state.find("\"clip_record_mode\":1") != std::string::npos);
     assert(state.find("\"monitor_level\"") == std::string::npos);
     api->set_param(instance, "motion_mode", "Forward");
     api->set_param(instance, "grain_window", "Bell");
@@ -815,7 +756,7 @@ int main()
     std::uint32_t patternVersion = 0u;
     assert(std::fseek(patternFile, 8, SEEK_SET) == 0);
     assert(std::fread(&patternVersion, sizeof(patternVersion), 1u, patternFile) == 1u);
-    assert(patternVersion == 9u);
+    assert(patternVersion == 10u);
     std::fclose(stateFile);
     std::fclose(laneFile);
     std::fclose(patternFile);
@@ -838,10 +779,9 @@ int main()
     api->set_param(instance, "pattern_select", "1");
     waitForPattern(api, instance, 1);
     assert(get(api, instance, "algorithm") == "1");
-    assert(stateField(get(api, instance, "seq_note_counts"), 2) == 1);
-    assert((static_cast<std::uint32_t>(std::strtoul(
-        get(api, instance, "seq_open_mask").c_str(), nullptr, 10))
-        & (1u << 2u)) != 0u);
+    assert(stateField(get(api, instance, "clip_state"), 5) == 3);
+    assert(stateField(get(api, instance, "clip_state"), 6) >= 2);
+    assert(get(api, instance, "clip_rate") == "4.0000");
     api->set_param(instance, "pattern_select", "0");
     waitForPattern(api, instance, 0);
     api->set_param(instance, "record_lane", "2");
@@ -850,19 +790,8 @@ int main()
     assert(get(api, instance, "lane_source") == "Library Tone.wav");
     api->set_param(instance, "pattern_select", "0");
     waitForPattern(api, instance, 0);
-    api->set_param(instance, "seq_page", "1");
-    assert(stateField(get(api, instance, "seq_state"), 2) == 1);
-    assert(stateField(get(api, instance, "seq_state"), 3) == 240);
-    assert(stateField(get(api, instance, "seq_state"), 4) == 4);
-    assert(stateField(get(api, instance, "seq_state"), 6) == 25);
-    assert(stateField(get(api, instance, "seq_locks"), 0) != 0);
-    assert((unsignedStateField(get(api, instance, "seq_locks_hi"), 0)
-        & 0x1u) != 0u);
-    assert((unsignedStateField(get(api, instance, "seq_locks_x"), 0)
-        & 0x2u) != 0u);
-    assert(stateField(get(api, instance, "seq_note_counts"), 0) == 2);
-    assert(unsignedStateField(get(api, instance, "seq_pad_masks"), 0)
-        == ((1u << 5u) | (1u << 8u)));
+    assert(stateField(get(api, instance, "clip_state"), 4) >= 150);
+    assert(stateField(get(api, instance, "clip_state"), 5) == 3);
     api->set_param(instance, "pressure_mode", "Off");
     api->set_param(instance, "performance_lane", "1");
     midi(api, instance, 0x90, 60, 100);

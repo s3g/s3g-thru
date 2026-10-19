@@ -25,35 +25,35 @@ It is intentionally a new instrument rather than a Sample Neon variant.
 - offers Keys, Slices, eight Cue, and held Roll pad modes plus Manual, Cycle,
   Random, No Repeat, and Velocity four-lane variation;
 - plays directly from Move's 32 pads with no track MIDI routing;
-- lights a free-play pad only while it is held; sequencer note entry latches
-  pads until their note-off Step is chosen;
-- uses Track 1-4 for lane selection and all 16 Step keys for sequencing;
+- lights each free-play pad only while it is held;
+- uses Track 1-4 for lane selection and all 16 Step keys as performance-clip
+  slots;
 - keeps velocity out of the gain stage; poly pressure controls continuous stack
   depth, while Velocity lane variation can deliberately choose a discrete lane;
 - plays eight notes polyphonically, with an independent engine and playhead for
   each active voice;
 - accepts a fixed external MIDI CC map for every engine/global parameter;
-- recalls stereo captures, 64 patterns, chains, step expression, parameter
-  locks, and engine settings on the next launch;
-- exposes Engine, multiple selected-engine pages, Mix / Rec, Sample, Sequence,
+- recalls stereo captures, 64 performance clips, chains, recorded pressure and
+  parameter gestures, and engine settings on the next launch;
+- exposes Engine, selected-engine pages, Mix / Rec, Sample, Performance Loop,
   and Chain as padded name/value cells;
-- runs a 1–64-step internal sequencer in four 16-Step pages with tempo, swing,
-  explicit note boundaries, probability, ratchets, microtiming, and DSP-side
-  parameter locks;
-- sustains each note until its chosen later Step, allowing notes in a chord to
-  have different lengths and overlapping instances of the same pitch;
+- records free-time polyphonic performances rather than quantizing them to a
+  step grid, with Replace and Overdub modes and continuously variable
+  0.25x–4x loop speed;
+- preserves each note's recorded onset, duration, strike velocity, source pad,
+  poly pressure, and overlapping voice identity;
 - assigns a stable color to each of the eight DSP voice/playhead slots and
   shows that color on its source pad;
 - has a separate output Level control; and
 - defaults input monitoring to disabled, so the raw input is not passed through
   unless external MIDI CC 51 explicitly enables it.
 
-The composition layer has four banks (A-D) of 16 patterns. Up to eight notes
-can be assigned to each step, with free play remaining available at the same
-time. A 16-slot chain provides pattern order and repeat counts. Live knob
-motion can be written as step automation, and recent free play can be captured
-back into the sequence. Host/Move transport synchronization remains a later
-milestone; v0.15.0 uses its internal clock.
+The composition layer has four banks (A-D) of 16 free-time performance clips.
+A 16-slot chain provides clip order and repeat counts, advancing at recorded
+loop boundaries. Live knob motion and per-pad pressure are captured with the
+notes. Legacy v1–v9 step patterns are converted to timed clips when recalled.
+Host/Move transport synchronization remains a later milestone; v0.16.0 uses
+each clip's own recorded duration.
 Eight-voice realtime CPU behavior, particularly with the Grains engine, still
 needs acceptance on Move.
 
@@ -111,33 +111,54 @@ separate action.
    Chain slot is involved.
 
 Use **Up/Down** to transpose the pad grid by octaves. Use **Left/Right** to
-select Step pages 1–16, 17–32, 33–48, or 49–64; **Shift + Up/Down** is an
-alternate gesture. Both work from the waveform and parameter views. The
-current page is shown as `P1`–`P4` in the waveform header. **Menu** opens the
+select performance-clip banks A–D; **Shift + Up/Down** is an alternate gesture.
+The 16 Step keys select the 16 clips in that bank from the waveform or
+parameter view. **Menu** opens the
 parameter pages; **Up/Down** then changes pages. Only the page for the selected
 playback engine is included. Each screen cell is aligned with one of the eight
 physical dials and shows a padded parameter name with its value underneath—no
-small dial graphic. **Shift + jog-click** commits recent free play to the
-sequence, and **Shift + Back** restores the last destructive pattern edit.
+small dial graphic. **Shift + Back** restores the last destructive clip,
+pattern, source, or sample edit.
 **Shift + Menu** shows compact help. **Back** closes a secondary page, or exits
 from the waveform page. Schwung's universal
 **Shift + volume touch + jog-click** escape remains available.
 
-## Record the first lane
+## Record a performance loop
+
+1. Press **Record** to start free-time performance capture in the active clip.
+2. Play pads, vary their pressure, and turn engine dials.
+3. Press **Record** again. The exact-duration performance immediately loops.
+4. Press **Play** to stop or restart loop playback.
+
+The Performance Loop page selects `REPLACE` (clear the old event data and set a
+new duration) or `OVERDUB` (retain the duration and merge new notes/gestures),
+and sets Loop Rate from 0.25x to 4x. Turning a lockable engine parameter during
+recording writes a continuous gesture point; pressure is recorded separately
+for each pad/voice. The thin line below the waveforms shows loop position.
+
+Use **Left/Right** for banks A–D and press a Step key to select or queue one of
+its 16 clips. White slots contain data or sample assignments, orange is the
+stopped active clip, green is the playing clip, red is recording, and
+blue-violet is queued. **Shift + Step** copies the current clip and its sample
+assignments. **Delete + Step** clears only that slot's performance events; it
+does not delete its samples. Clearing is undoable.
+
+## Record the first audio lane
 
 1. Use headphones, select Move's microphone or line input, and set its hardware
    input gain.
 2. Open S3G Thru from the Overtake menu.
 3. Press **Track 1-4** to choose the lane to replace.
-4. Press **Record** or jog-click to begin recording; press it again to stop.
+4. Hold **Shift** and press **Record** (or Shift+jog-click) to begin recording;
+   repeat the gesture to stop.
 5. Play the pads immediately.
 
 The waveform is computed incrementally after recording stops. `SCAN` may appear
 briefly. `REC` changes to `LIM` if the capture safety ceiling engaged.
 
-Hold **Shift** and press **Record** to switch between Move's input and resampling
-Thru's current output. Hold **Shift** and press **Delete** to clear the selected
-lane. Monitor stays at zero in this direct first pass.
+Choose Input or Resample with `REC SOURCE` on the Mix / Rec page. Hold **Shift**
+and press **Delete** to clear the selected lane. Monitor stays at zero by
+default and is also available on Mix / Rec.
 
 ## Load a lane from Move's sample library
 
@@ -176,8 +197,8 @@ having been overwritten.
 Thru periodically autosaves changed metadata and completed stereo captures,
 then performs a final save on normal exit. Current-bank recovery WAVs remain
 `thru-lane-1.wav` through `thru-lane-4.wav`; pattern takes live under
-`captures/`; controls are in `thru-state.json`; patterns, chains, notes,
-timing, step expression, locks, source ownership, and engine settings are in
+`captures/`; controls are in `thru-state.json`; performance notes, gesture
+points, durations, rates, chains, source ownership, and engine settings are in
 `thru-pattern.bin`. Files are written through temporary files and renamed only
 after a complete write.
 
@@ -185,10 +206,11 @@ Use **Back** from the main waveform page for a normal save-and-exit. Autosave
 narrows the power-loss window, but power can still be removed before the next
 maintenance pass. Uninstalling the module
 can also remove its saved bank, so copy those files elsewhere before an
-uninstall or future clean reinstall. Pattern files from versions 1–8 are
-migrated into the v9 format when loaded; v9 adds eight pattern-local cue
-positions and a third lock-mask word for the new region/sample controls while
-preserving older locks, base values, and lane ownership.
+uninstall or future clean reinstall. Pattern files from versions 1–9 remain
+readable. Their step notes and parameter locks are deterministically converted
+to timed performance events; v10 adds free-time clip notes, pressure/parameter
+points, duration, and playback rate while preserving cues, engine state, and
+lane ownership.
 
 ## Performance controls
 
@@ -211,74 +233,40 @@ Slices addresses regions from the 32 pads.
 Engine selection is dial 1 on the Engine parameter page; Step keys no longer
 change the engine.
 
-## Patterns, note boundaries, and parameter locks
+## Performance clips, overdub, and chains
 
-Hold **Shift** and press **Play** to open Pattern mode. Track 1-4 select banks
-A-D and the 16 Step keys address that bank's patterns. A normal Step press
-prepares the complete sample bank and loads it at the next safe block while
-stopped, or at a pattern boundary while playing. White Steps contain patterns,
-orange is current, and blue-violet is prepared/queued. Hold **Shift** and press
-a Step to copy the current
-pattern into that slot; hold **Delete** and press a Step to clear it. Press
-**Shift + Play** again or Back to return.
+Each of the 64 A01–D16 slots stores a variable-duration performance clip plus
+base engine settings and four lane-source ownership records. A clip can contain
+up to 1,024 note events and 8,192 pressure/parameter points over a maximum of
+120 seconds. Recording is not quantized: overlapping notes retain their exact
+onset and hold time, velocity, pitch, and physical source-pad identity.
 
-Each pattern stores up to 64 Steps, explicit note ends, probability, ratchets,
-microtiming, parameter locks, length, swing, base engine settings, and four
-lane-source ownership records.
-BPM is global to the four-bank set, so pattern changes do not change tempo.
-
-Outside Pattern mode, tap a Step to select a note-on
-boundary; the selected Step is orange. Then tap up to eight pads. Each pad is
-auditioned normally, added at that Step with its strike velocity, and remains
-orange after release. Tap a later Step to move the edit cursor; every active
-note stays lit. At that Step, tap each lit pad that should turn off. Its light
-goes out and its individual note-off boundary is written. Other lit notes keep
-holding and can be ended at still later Steps. Tapping an active pad on its
-starting Step makes a full-pattern hold. Note boundaries can cross Step pages;
-use **Left/Right** without losing the lit pending note. Tap a selected Step again when no notes
-are pending to leave note-entry mode. To remove everything programmed on one
-Step, hold **Delete first**, then press that Step; this clears its notes,
-unfinished note boundaries, and locks together.
-
-Each note event keeps the physical source-pad identity as well as pitch. This
-allows the two isomorphic pads for the same pitch to create independent,
+This allows the two isomorphic pads for the same pitch to create independent,
 overlapping voices. Active DSP voice slots 1–8 use red, orange, yellow, green,
 azure, blue-violet, purple, and magenta respectively. The color appears on the
 event's source pad, matching that slot's playhead and stack marker on the
-waveform display. One physical LED can show only one color if the exact same
-pad is retriggered before its earlier event ends.
+waveform display. Free play remains live while a clip runs and shares the same
+eight-voice pool.
 
-Press **Play** to start or stop the pattern. Note-start Steps are white and the
-currently playing Step is cyan. Free Play remains live while the pattern runs,
-sharing the same eight-voice pool.
+Replace starts a blank event recording and determines the new loop duration
+when Record is pressed again. Overdub follows the active loop phase and merges
+new events without changing its duration. Parameter and pressure paths are
+linearly interpolated around the loop seam, following the continuous recorder
+behavior used by the S3G Daisy instruments. Playback Rate scales the entire
+performance—including note timing and gesture motion—from 0.25x to 4x.
 
-Hold a Step and turn any lockable physical dial to store a parameter lock. The
-lock is applied to a DSP-side control snapshot when that Step starts its notes,
-so later global edits do not alter an already-triggered voice. Hold the Step
-and press **Delete** to clear all of its locks without removing its notes.
-The order is intentional: **Step then Delete** clears locks only, while
-**Delete then Step** clears the complete sequence Step.
+Hold **Shift** and press **Play** for a compact overview of the current 16-slot
+bank; Track 1–4 changes banks in that view. The Step row remains the clip
+launcher in either view. A requested clip with different sample sources is
+prepared on a worker and changes at the current loop boundary; if preparation
+is incomplete, the current clip takes another pass rather than mixing banks.
 
-The Sequence page provides Tempo, Swing, Length, Step Page, Automation Record,
-and expression for the selected Step: Probability, Ratchets, and Microtiming.
-**BPM is knob 1** and ranges from 40–240. Note duration comes only
-from the note-on and note-off Steps for newly entered events; it does not depend
-on a Gate percentage. The older Gate state and MIDI CC 57 remain readable for
-loading version 1–3 patterns and controlling their legacy note entries. Tempo
-is currently internal; Move/host transport synchronization is not yet
-implemented.
-
-When Automation Record is enabled, turning a lockable main or engine-page dial
-while the pattern runs writes its value to the current Step. External MIDI CC
-20–45 and 69–106 record through the same path. Free-play notes are retained in a rolling
-buffer while the sequence runs; **Shift + jog-click** commits them to their
-quantized Steps. **Shift + Back** restores the most recent Step, pattern, lane,
-or source edit.
-
-The Chain page edits a 16-slot pattern list. Choose a slot, its A01–D16 pattern
-number, and a repeat count from 1–16, then enable Chain. Play advances only
-after the next pattern's complete source bank is ready; manual pattern selection
-leaves Chain mode so it cannot silently override the requested pattern.
+The Chain page edits a 16-slot clip list. Choose a slot, its A01–D16 clip, and a
+repeat count from 1–16, then enable Chain. The chain advances only on complete
+recorded-loop boundaries and only after the next clip's sample bank is ready.
+Manual clip selection disables Chain so it cannot silently override the request.
+Legacy sequence parameters and MIDI CCs remain available for state/controller
+compatibility, but the takeover UI no longer edits the step grid.
 
 Strike velocity chooses an offset within the moving lane-stack cycle and poly
 aftertouch moves that offset while the note is held. The lane scan continues
@@ -325,12 +313,12 @@ MIDI-learn file.
 | 34 | Stretch ratio | 51 | Monitor level |
 | 35 | Lane 1 gain | 52 | Record gate (>=64 records) |
 | 36 | Lane 2 gain | 53 | Clear selected lane (>=64) |
-| 54 | Sequence BPM | 56 | Sequence length |
-| 55 | Sequence swing | 57 | Legacy sequence gate 5–800% |
-| 58 | Step page 1–4 | 59 | Undo trigger |
-| 60 | Selected-Step probability | 61 | Selected-Step ratchets |
-| 62 | Selected-Step microtiming | 63 | Automation record Off/On |
-| 64 | Commit performance Capture | 65 | Chain Off/On |
+| 54 | Legacy sequence BPM | 56 | Legacy sequence length |
+| 55 | Legacy sequence swing | 57 | Legacy sequence gate 5–800% |
+| 58 | Legacy Step page 1–4 | 59 | Undo trigger |
+| 60 | Legacy Step probability | 61 | Legacy Step ratchets |
+| 62 | Legacy Step microtiming | 63 | Legacy automation record |
+| 64 | Legacy performance commit | 65 | Chain Off/On |
 | 66 | Chain slot 1–16 | 67 | Chain pattern A01–D16 |
 | 68 | Chain repeats 1–16 |  |  |
 | 69 | Motion travel | 88 | Grain timing scatter |
@@ -355,7 +343,9 @@ MIDI-learn file.
 | 107 | Cut region source Equal/Transient | 108 | Sample play mode |
 | 109 | Slice source Equal/Transient | 110 | Equal slice count |
 | 111 | Pad mode Keys/Slices/Cues/Rolls | 112 | Lane variation |
-| 113 | Browser preview level |  |  |
+| 113 | Browser preview level | 114 | Performance loop rate |
+| 115 | Replace/Overdub | 116 | Performance record toggle |
+| 117 | Clear active performance |  |  |
 
 CC 51 can create acoustic feedback when a microphone and speakers are active;
 leave it at `0` unless direct monitoring is intentional. Internal Move button
@@ -387,17 +377,17 @@ and Sample and Slices each have one.
   variation, seven discrete lane orders, and four polyphonic lane paths.
 - Sample: direct forward, reverse, loop, or ping-pong playback of a discrete
   lane. Slices uses the same modes with equal or detected transient regions;
-  source-pad identity is retained by the sequencer.
+  source-pad identity is retained by the performance looper.
 - Performance: Keys is the chromatic grid; Slices maps the 32 pads to regions;
   Cues uses pads 1–8 (Shift+pad stores the current playhead, Delete+pad clears,
   pad jumps); Rolls turns held pads into tempo-divided Cutups voices.
-- Mix / Global: four independent lane gains, pressure behavior, root note,
-  record gain, and output level.
+- Mix / Rec: four independent lane gains, Input/Resample source, record gain,
+  monitor level, and browser preview level.
 - Sample edit: trim start/end and apply, reverse, normalize, edge fade, record gain,
   and output level.
-- Sequence: tempo, swing, length, Step page, automation record, probability,
-  ratchets, and microtiming.
-- Chain: enable, slot, pattern, repeats, root note, algorithm, join, and level.
+- Performance Loop: playback rate, Replace/Overdub, pressure behavior, root
+  note, and the four primary Chain controls.
+- Chain: enable, slot, clip, repeats, root note, algorithm, join, and level.
 
 Press **Back** once to return to the waveform page without exiting.
 
@@ -419,14 +409,13 @@ gesture for the motion-family engines.
 
 ## Safety and current limits
 
-- Monitor defaults to `0` and is not on the Move UI; external CC 51 is the only
-  direct monitor control.
+- Monitor defaults to `0`; enable it deliberately on Mix / Rec or with CC 51.
 - Capture gain is adjustable from the Mix / Global settings page and is
   followed by a 0.95 safety ceiling. `LIM` means that ceiling reduced at least
   one stored sample.
 - Pad velocity does not attenuate playback. Use knob 8 for loudness.
-- One instance allocates about 37 MiB for its active bank, prepared-pattern
-  bank, and one-lane decoder staging area.
+- One instance allocates about 46 MiB for its audio banks, decoder staging,
+  and bounded 64-clip event storage.
 - Playback uses eight independent voices. Voice stealing prefers a released
   voice, then the oldest held voice when all eight are occupied.
 - Each playback voice has 16 bounded grain slots (128 across eight voices).
@@ -438,8 +427,8 @@ gesture for the motion-family engines.
   regions; manual marker editing is not yet included.
 - Persistent WAV and metadata writes run only from non-audio maintenance or
   teardown calls, never in the audio callback.
-- User-library WAV decoding/resampling and queued-pattern preparation run on a
-  worker thread. A prepared bank is swapped at a block/pattern boundary.
+- User-library WAV decoding/resampling and queued-clip preparation run on a
+  worker thread. A prepared bank is swapped at a block/loop boundary.
 - The Help screen reports maximum render time in microseconds and deadline
   overruns since launch; these are evidence aids, not substitutes for listening.
 - WAV is the supported library format; AIFF/AIF requires conversion before use.

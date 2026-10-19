@@ -86,6 +86,8 @@ working Schwung installation and do this pass with headphones first.
     Position, Field, Stack, and one engine-specific dial. Press Record again.
     Confirm the exact free-time phrase loops, the thin position line traverses
     the display, and the pads reproduce independent voice colors/playheads.
+    Repeat once while holding a pad before pressing Record; confirm that note
+    is present from the start of the captured performance and closes normally.
     Press Play twice and confirm stop/restart resets cleanly. Sweep Loop Rate
     from 0.25x to 4x and confirm note timing and gesture motion scale together.
 17. Choose Overdub, record another polyphonic pass, and confirm the original

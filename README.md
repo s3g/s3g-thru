@@ -52,7 +52,7 @@ The composition layer has four banks (A-D) of 16 free-time performance clips.
 A 16-slot chain provides clip order and repeat counts, advancing at recorded
 loop boundaries. Live knob motion and per-pad pressure are captured with the
 notes. Legacy v1–v9 step patterns are converted to timed clips when recalled.
-Host/Move transport synchronization remains a later milestone; v0.16.0 uses
+Host/Move transport synchronization remains a later milestone; v0.16.1 uses
 each clip's own recorded duration.
 Eight-voice realtime CPU behavior, particularly with the Grains engine, still
 needs acceptance on Move.
@@ -126,6 +126,8 @@ from the waveform page. Schwung's universal
 ## Record a performance loop
 
 1. Press **Record** to start free-time performance capture in the active clip.
+   Notes already held at that moment are included from the beginning of the
+   recording (or from the current loop position when overdubbing).
 2. Play pads, vary their pressure, and turn engine dials.
 3. Press **Record** again. The exact-duration performance immediately loops.
 4. Press **Play** to stop or restart loop playback.

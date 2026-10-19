@@ -884,6 +884,10 @@ public:
     bool prepared() const { return prepared_; }
     bool playing() const { return playing_; }
     bool recording() const { return recording_; }
+    bool laneTransitionActive() const
+    {
+        return recordTransitionRemaining_ != 0u;
+    }
     std::size_t sourceFrames() const { return sourceFrames_; }
     std::size_t sourceChannels() const { return sourceChannels_; }
     float sourceSampleRate() const { return sourceSampleRate_; }

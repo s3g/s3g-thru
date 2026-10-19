@@ -342,9 +342,11 @@ int main()
        immediately with eight-voice playback. */
     assert(stateField(get(api, instance, "clip_state"), 4) == 0);
     api->set_param(instance, "clip_record_mode", "Replace");
+    /* Notes already held when recording begins must be captured at t=0. */
+    midi(api, instance, 0x90, 73, 108, MOVE_MIDI_SOURCE_INTERNAL);
+    render(api, instance, 16);
     api->set_param(instance, "clip_record", "1");
     assert(stateField(get(api, instance, "clip_state"), 0) == 1);
-    midi(api, instance, 0x90, 73, 108, MOVE_MIDI_SOURCE_INTERNAL);
     render(api, instance, 80);
     midi(api, instance, 0xA0, 73, 32, MOVE_MIDI_SOURCE_INTERNAL);
     api->set_param(instance, "field", "0.25");

@@ -1,6 +1,6 @@
 {
   "name": "s3g-thru-move",
-  "version": "0.17.0",
+  "version": "0.18.0",
   "private": true,
   "type": "module",
   "description": "S3G Thru takeover sampler for Ableton Move and Schwung.",
@@ -9,7 +9,8 @@
     "validate": "bash scripts/validate-native.sh",
     "build:native": "bash scripts/build-native.sh",
     "build": "bash scripts/package-native.sh",
-    "package:verify": "bash scripts/verify-package.sh"
+    "package:verify": "bash scripts/verify-package.sh",
+    "export:set": "bash scripts/export-set.sh"
   },
   "engines": {
     "node": ">=18"

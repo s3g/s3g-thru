@@ -142,21 +142,21 @@ void writePcm16Wav(const std::string& path)
     assert(std::fclose(file) == 0);
 }
 
-void waitForPattern(plugin_api_v2_t* api, void* instance, int pattern)
+void waitForClip(plugin_api_v2_t* api, void* instance, int clip)
 {
     for (int attempt = 0; attempt < 1200
-         && stateField(get(api, instance, "pattern_state"), 0) != pattern;
+         && stateField(get(api, instance, "clip_bank_state"), 0) != clip;
          ++attempt) {
         render(api, instance, 1);
         usleep(1000);
     }
-    if (stateField(get(api, instance, "pattern_state"), 0) != pattern) {
-        std::fprintf(stderr, "Pattern %d failed to activate: state=%s prepare=%s error=%s\n",
-                     pattern, get(api, instance, "pattern_state").c_str(),
-                     get(api, instance, "pattern_prepare_state").c_str(),
+    if (stateField(get(api, instance, "clip_bank_state"), 0) != clip) {
+        std::fprintf(stderr, "Clip %d failed to activate: state=%s prepare=%s error=%s\n",
+                     clip, get(api, instance, "clip_bank_state").c_str(),
+                     get(api, instance, "clip_prepare_state").c_str(),
                      get(api, instance, "sample_load_state").c_str());
     }
-    assert(stateField(get(api, instance, "pattern_state"), 0) == pattern);
+    assert(stateField(get(api, instance, "clip_bank_state"), 0) == clip);
 }
 
 } // namespace
@@ -269,10 +269,10 @@ int main()
     assert(waves.substr(0u, 224u).find_first_not_of('7') != std::string::npos);
     api->set_param(instance, "maintenance", "1");
     const std::string firstCapture = persistenceDir
-        + "/captures/p01-lane-1.wav";
+        + "/captures/c01-lane-1.wav";
     struct stat captureStatus {};
     assert(stat(firstCapture.c_str(), &captureStatus) == 0);
-    assert(get(api, instance, "lane_source_state").rfind("CAPTURE:TAKE P01", 0u)
+    assert(get(api, instance, "lane_source_state").rfind("CAPTURE:TAKE C01", 0u)
         == 0u);
     api->set_param(instance, "sample_trim_start", "0.10");
     api->set_param(instance, "sample_trim_end", "0.90");
@@ -296,9 +296,9 @@ int main()
     assert(get(api, instance, "lane_source_state").rfind("CAPTURE:FADED", 0u)
         == 0u);
     const std::string editCaptureA = persistenceDir
-        + "/captures/p01-lane-1-edit-a.wav";
+        + "/captures/c01-lane-1-edit-a.wav";
     const std::string editCaptureB = persistenceDir
-        + "/captures/p01-lane-1-edit-b.wav";
+        + "/captures/c01-lane-1-edit-b.wav";
     assert(stat(editCaptureA.c_str(), &captureStatus) == 0);
     assert(stat(editCaptureB.c_str(), &captureStatus) == 0);
     api->set_param(instance, "undo", "1");
@@ -342,7 +342,7 @@ int main()
     assert(get(api, instance, "lane_source") == "Library Tone.wav");
     assert(stateField(get(api, instance, "region_state"), 0) > 1);
     assert((stateField(get(api, instance, "ui_state"), 1) & 0x2) != 0);
-    api->set_param(instance, "pattern_copy", "2");
+    api->set_param(instance, "clip_copy", "2");
     api->set_param(instance, "clear_lane", "Clear");
     render(api, instance, 8);
 
@@ -373,6 +373,8 @@ int main()
     assert(stateField(clipState, 4) >= 150);
     assert(stateField(clipState, 5) == 2);
     assert(stateField(clipState, 6) >= 2);
+    assert(stateField(clipState, 10) == 12000);
+    assert(stateField(clipState, 11) > 0);
     render(api, instance, 4);
     assert(peak() > 0);
     const std::string loopVoicePads = get(api, instance, "voice_pads");
@@ -381,6 +383,38 @@ int main()
         loopHasPad5 = loopHasPad5 || stateField(loopVoicePads, voice) == 5;
     }
     assert(loopHasPad5);
+
+    /* Free clips retain wall-clock microtiming. Beat Sync scales that exact
+       timing from the BPM captured with the performance, while Play can wait
+       for the next beat or bar without reporting a false running state. */
+    api->set_param(instance, "launch_quantize", "Off");
+    api->set_param(instance, "clip_timing", "Free");
+    api->set_param(instance, "tempo_bpm", "120");
+    api->set_param(instance, "clip_playing", "0");
+    api->set_param(instance, "clip_playing", "1");
+    render(api, instance, 20);
+    const int freePosition = stateField(get(api, instance, "clip_state"), 3);
+    api->set_param(instance, "clip_playing", "0");
+    api->set_param(instance, "clip_timing", "Beat Sync");
+    api->set_param(instance, "tempo_bpm", "240");
+    api->set_param(instance, "clip_playing", "1");
+    render(api, instance, 20);
+    const int syncPosition = stateField(get(api, instance, "clip_state"), 3);
+    assert(syncPosition > freePosition * 3 / 2);
+    api->set_param(instance, "clip_playing", "0");
+    api->set_param(instance, "launch_quantize", "Beat");
+    api->set_param(instance, "clip_playing", "1");
+    assert(stateField(get(api, instance, "clip_state"), 1) == 0);
+    assert(stateField(get(api, instance, "clip_state"), 8) == 1);
+    for (int block = 0; block < 400
+         && stateField(get(api, instance, "clip_state"), 8) != 0; ++block) {
+        render(api, instance, 1);
+    }
+    assert(stateField(get(api, instance, "clip_state"), 8) == 0);
+    assert(stateField(get(api, instance, "clip_state"), 1) == 1);
+    api->set_param(instance, "launch_quantize", "Off");
+    api->set_param(instance, "clip_timing", "Free");
+    api->set_param(instance, "tempo_bpm", "120");
 
     /* Loop time is continuously variable. Overdub retains the original
        duration and adds new events against the running phase. */
@@ -402,7 +436,7 @@ int main()
     assert(stateField(clipState, 5) == 3);
 
     /* Clearing only the performance layer is undoable and does not remove
-       the pattern's sample ownership. */
+       the clip's sample ownership. */
     api->set_param(instance, "clip_clear", "1");
     assert(stateField(get(api, instance, "clip_state"), 4) == 0);
     assert(get(api, instance, "undo_available") == "1");
@@ -411,17 +445,27 @@ int main()
 
     /* Chains are a persistent ordered list with independent repeat counts. */
     api->set_param(instance, "chain_slot", "1");
-    api->set_param(instance, "chain_pattern", "2");
+    api->set_param(instance, "chain_clip", "2");
     api->set_param(instance, "chain_repeats", "2");
     api->set_param(instance, "chain_slot", "2");
-    api->set_param(instance, "chain_pattern", "3");
+    api->set_param(instance, "chain_clip", "3");
     api->set_param(instance, "chain_repeats", "1");
     const std::string chainEntries = get(api, instance, "chain_entries");
     assert(chainEntries.rfind("1:1:2,1:2:1", 0u) == 0u);
+    api->set_param(instance, "chain_insert", "1,4");
+    assert(get(api, instance, "chain_entries").rfind(
+        "1:1:2,1:4:1,1:2:1", 0u) == 0u);
+    api->set_param(instance, "chain_move", "1,2");
+    assert(get(api, instance, "chain_entries").rfind(
+        "1:1:2,1:2:1,1:4:1", 0u) == 0u);
+    api->set_param(instance, "chain_delete", "2");
+    assert(get(api, instance, "chain_entries").rfind(
+        "1:1:2,1:2:1,0:0:1", 0u) == 0u);
+    api->set_param(instance, "chain_slot", "2");
     midi(api, instance, 0xB0, 58, 127, MOVE_MIDI_SOURCE_EXTERNAL);
     assert(get(api, instance, "chain_entries").rfind("1:1:2,0:0:1", 0u)
         == 0u);
-    api->set_param(instance, "chain_pattern", "3");
+    api->set_param(instance, "chain_clip", "3");
     api->set_param(instance, "chain_repeats", "1");
     api->set_param(instance, "chain_enabled", "1");
     assert(stateField(get(api, instance, "chain_state"), 0) == 1);
@@ -429,28 +473,28 @@ int main()
 
     /* Four banks of sixteen performance clips snapshot event data, source
        assignments, and engine settings. Running changes queue at a loop seam. */
-    api->set_param(instance, "pattern_copy", "1");
-    assert((unsignedStateField(get(api, instance, "pattern_state"), 2) & 0x7u)
+    api->set_param(instance, "clip_copy", "1");
+    assert((unsignedStateField(get(api, instance, "clip_bank_state"), 2) & 0x7u)
         == 0x7u);
-    api->set_param(instance, "pattern_select", "1");
-    waitForPattern(api, instance, 1);
+    api->set_param(instance, "clip_select", "1");
+    waitForClip(api, instance, 1);
     api->set_param(instance, "algorithm", "Lanes");
-    api->set_param(instance, "pattern_select", "0");
-    waitForPattern(api, instance, 0);
+    api->set_param(instance, "clip_select", "0");
+    waitForClip(api, instance, 0);
     assert(get(api, instance, "algorithm") == "0");
     assert(stateField(get(api, instance, "clip_state"), 5) == 3);
     api->set_param(instance, "clip_playing", "1");
-    api->set_param(instance, "pattern_select", "1");
-    assert(stateField(get(api, instance, "pattern_state"), 1) == 1);
+    api->set_param(instance, "clip_select", "1");
+    assert(stateField(get(api, instance, "clip_bank_state"), 1) == 1);
     for (int block = 0; block < 240
-         && stateField(get(api, instance, "pattern_state"), 0) != 1; ++block) {
+         && stateField(get(api, instance, "clip_bank_state"), 0) != 1; ++block) {
         render(api, instance, 1);
     }
-    assert(stateField(get(api, instance, "pattern_state"), 0) == 1);
+    assert(stateField(get(api, instance, "clip_bank_state"), 0) == 1);
     assert(get(api, instance, "algorithm") == "1");
     api->set_param(instance, "clip_playing", "0");
-    api->set_param(instance, "pattern_select", "0");
-    waitForPattern(api, instance, 0);
+    api->set_param(instance, "clip_select", "0");
+    waitForClip(api, instance, 0);
 
     /* Mirror and Zigzag must expose their actual bidirectional read-head
        motion to the UI. Ignore only the large discontinuity of a wrap when
@@ -584,14 +628,40 @@ int main()
     midi(api, instance, 0x80, 60, 0);
     render(api, instance, 160);
 
-    /* Library-lane assignments belong to patterns. Pattern 3 recalls its
+    /* Library-lane assignments belong to clip slots. Clip 3 recalls its
        source, while A01's explicit EMPTY ownership remains silent. */
-    api->set_param(instance, "pattern_select", "2");
-    waitForPattern(api, instance, 2);
+    api->set_param(instance, "clip_select", "2");
+    waitForClip(api, instance, 2);
     assert(get(api, instance, "lane_source") == "Library Tone.wav");
-    api->set_param(instance, "pattern_select", "0");
-    waitForPattern(api, instance, 0);
+    api->set_param(instance, "clip_select", "0");
+    waitForClip(api, instance, 0);
     assert(get(api, instance, "lane_source") == "EMPTY");
+
+    /* Event storage is bounded and observable. Dense duplicate gestures are
+       collapsed to a latest endpoint, while note overflow stops cleanly and
+       leaves the recorded clip playable instead of allocating at runtime. */
+    api->set_param(instance, "clip_playing", "0");
+    api->set_param(instance, "clip_select", "63");
+    waitForClip(api, instance, 63);
+    api->set_param(instance, "clip_record_mode", "Replace");
+    api->set_param(instance, "clip_record", "1");
+    for (int point = 0; point < 1000; ++point) {
+        api->set_param(instance, "clip_automation", "locus");
+    }
+    for (int note = 0; note < 1025; ++note) {
+        midi(api, instance, 0x90, 60, 100, MOVE_MIDI_SOURCE_EXTERNAL);
+    }
+    api->set_param(instance, "clip_record", "1");
+    const std::string capacity = get(api, instance, "clip_capacity_state");
+    assert(stateField(capacity, 0) == 1024);
+    assert(stateField(capacity, 1) == 1024);
+    assert(stateField(capacity, 2) == 1);
+    assert(stateField(capacity, 3) == 8192);
+    assert(stateField(capacity, 4) == 1);
+    api->set_param(instance, "clip_reset", "63");
+    api->set_param(instance, "clip_select", "0");
+    waitForClip(api, instance, 0);
+    api->set_param(instance, "clip_record_mode", "Overdub");
 
     /* Monitor is explicit and independent from recording or note velocity. */
     api->set_param(instance, "monitor_level", "0.5");
@@ -676,6 +746,12 @@ int main()
     midi(api, instance, 0x80, 60, 0);
 
     api->set_param(instance, "algorithm", "Grains");
+    api->set_param(instance, "grain_quality", "4 Voices");
+    assert(get(api, instance, "grain_quality") == "0");
+    api->set_param(instance, "grain_quality", "8 Voices");
+    assert(get(api, instance, "grain_quality") == "1");
+    api->set_param(instance, "grain_quality", "16 Voices");
+    assert(get(api, instance, "grain_quality") == "2");
     api->set_param(instance, "grain_spray", "0.7");
     api->set_param(instance, "grain_bias", "Ahead");
     api->set_param(instance, "grain_pitch_spray", "12");
@@ -738,7 +814,7 @@ int main()
     api->set_param(instance, "algorithm", "Motion");
     api->set_param(instance, "cue_store", "2,0.625");
     const std::string state = get(api, instance, "state");
-    assert(state.find("\"version\":5") != std::string::npos);
+    assert(state.find("\"version\":6") != std::string::npos);
     assert(state.find("\"clip_record_mode\":1") != std::string::npos);
     assert(state.find("\"monitor_level\"") == std::string::npos);
     api->set_param(instance, "motion_mode", "Forward");
@@ -751,6 +827,7 @@ int main()
     assert(get(api, instance, "lane_2_gain") == "0.3750");
     assert(get(api, instance, "record_gain") == "1.7500");
     assert(get(api, instance, "pad_octave") == "2");
+    assert(get(api, instance, "grain_quality") == "1");
     assert(stateField(get(api, instance, "cue_state"), 2) == 625);
     assert(get(api, instance, "chain_entries").rfind("1:1:2,1:2:1", 0u) == 0u);
 
@@ -762,23 +839,23 @@ int main()
        lanes. A new instance in the same module directory recalls both. */
     const std::string statePath = persistenceDir + "/thru-state.json";
     const std::string lanePath = persistenceDir + "/thru-lane-1.wav";
-    const std::string patternPath = persistenceDir + "/thru-pattern.bin";
+    const std::string clipPath = persistenceDir + "/thru-clips.bin";
     std::FILE* stateFile = std::fopen(statePath.c_str(), "rb");
     std::FILE* laneFile = std::fopen(lanePath.c_str(), "rb");
-    std::FILE* patternFile = std::fopen(patternPath.c_str(), "rb");
+    std::FILE* clipFile = std::fopen(clipPath.c_str(), "rb");
     assert(stateFile != nullptr);
     assert(laneFile != nullptr);
-    assert(patternFile != nullptr);
-    char patternMagic[8] {};
-    std::uint32_t patternVersion = 0u;
-    assert(std::fread(patternMagic, 1u, sizeof(patternMagic), patternFile)
-        == sizeof(patternMagic));
-    assert(std::memcmp(patternMagic, "S3GTHR2", 7u) == 0);
-    assert(std::fread(&patternVersion, sizeof(patternVersion), 1u, patternFile) == 1u);
-    assert(patternVersion == 1u);
+    assert(clipFile != nullptr);
+    char clipMagic[8] {};
+    std::uint32_t clipVersion = 0u;
+    assert(std::fread(clipMagic, 1u, sizeof(clipMagic), clipFile)
+        == sizeof(clipMagic));
+    assert(std::memcmp(clipMagic, "S3GTHR3", 7u) == 0);
+    assert(std::fread(&clipVersion, sizeof(clipVersion), 1u, clipFile) == 1u);
+    assert(clipVersion == 1u);
     std::fclose(stateFile);
     std::fclose(laneFile);
-    std::fclose(patternFile);
+    std::fclose(clipFile);
 
     instance = api->create_instance(persistenceDir.c_str(), nullptr);
     assert(instance != nullptr);
@@ -793,22 +870,22 @@ int main()
     assert(get(api, instance, "pad_octave") == "2");
     assert(stateField(get(api, instance, "cue_state"), 2) == 625);
     assert(get(api, instance, "chain_entries").rfind("1:1:2,1:2:1", 0u) == 0u);
-    assert((unsignedStateField(get(api, instance, "pattern_state"), 2) & 0x3u)
+    assert((unsignedStateField(get(api, instance, "clip_bank_state"), 2) & 0x3u)
         == 0x3u);
-    api->set_param(instance, "pattern_select", "1");
-    waitForPattern(api, instance, 1);
+    api->set_param(instance, "clip_select", "1");
+    waitForClip(api, instance, 1);
     assert(get(api, instance, "algorithm") == "1");
     assert(stateField(get(api, instance, "clip_state"), 5) == 3);
     assert(stateField(get(api, instance, "clip_state"), 6) >= 2);
     assert(get(api, instance, "clip_rate") == "4.0000");
-    api->set_param(instance, "pattern_select", "0");
-    waitForPattern(api, instance, 0);
+    api->set_param(instance, "clip_select", "0");
+    waitForClip(api, instance, 0);
     api->set_param(instance, "record_lane", "2");
-    api->set_param(instance, "pattern_select", "2");
-    waitForPattern(api, instance, 2);
+    api->set_param(instance, "clip_select", "2");
+    waitForClip(api, instance, 2);
     assert(get(api, instance, "lane_source") == "Library Tone.wav");
-    api->set_param(instance, "pattern_select", "0");
-    waitForPattern(api, instance, 0);
+    api->set_param(instance, "clip_select", "0");
+    waitForClip(api, instance, 0);
     assert(stateField(get(api, instance, "clip_state"), 4) >= 150);
     assert(stateField(get(api, instance, "clip_state"), 5) == 3);
     api->set_param(instance, "pressure_mode", "Off");
@@ -818,11 +895,49 @@ int main()
     assert(peak() > 8000);
     assert(static_cast<int>(output[0]) * static_cast<int>(output[1]) < 0);
     midi(api, instance, 0x80, 60, 0);
+    api->set_param(instance, "record_gain", "2.5");
+    api->destroy_instance(instance);
+
+    /* The second complete save created one recoverable generation. Corrupt
+       only the current clip bank. The newer JSON remains valid, but startup
+       must select the older matching JSON/binary pair rather than combining
+       two individually valid generations. */
+    const std::string stateBackupPath = statePath + ".bak";
+    const std::string clipBackupPath = clipPath + ".bak";
+    assert(stat(stateBackupPath.c_str(), &captureStatus) == 0);
+    assert(stat(clipBackupPath.c_str(), &captureStatus) == 0);
+    clipFile = std::fopen(clipPath.c_str(), "r+b");
+    assert(clipFile != nullptr);
+    assert(std::fwrite("X", 1u, 1u, clipFile) == 1u);
+    assert(std::fclose(clipFile) == 0);
+
+    instance = api->create_instance(persistenceDir.c_str(), nullptr);
+    assert(instance != nullptr);
+    assert(get(api, instance, "persistence") == "1,1");
+    assert(get(api, instance, "motion_mode") == "5");
+    assert(get(api, instance, "grain_quality") == "1");
+    assert(get(api, instance, "record_gain") == "1.7500");
+    assert(stateField(get(api, instance, "clip_state"), 4) >= 150);
+    api->destroy_instance(instance);
+
+    /* That recovery save leaves a valid generation shared by the current
+       binary and JSON backup. A malformed current JSON must find that pair. */
+    stateFile = std::fopen(statePath.c_str(), "wb");
+    assert(stateFile != nullptr);
+    assert(std::fwrite("{", 1u, 1u, stateFile) == 1u);
+    assert(std::fclose(stateFile) == 0);
+    instance = api->create_instance(persistenceDir.c_str(), nullptr);
+    assert(instance != nullptr);
+    assert(get(api, instance, "persistence") == "1,1");
+    assert(get(api, instance, "record_gain") == "2.5000");
+    assert(stateField(get(api, instance, "clip_state"), 4) >= 150);
     api->destroy_instance(instance);
 
     std::remove(statePath.c_str());
+    std::remove(stateBackupPath.c_str());
     std::remove(lanePath.c_str());
-    std::remove(patternPath.c_str());
+    std::remove(clipPath.c_str());
+    std::remove(clipBackupPath.c_str());
     for (int lane = 2; lane <= 4; ++lane) {
         const std::string path = persistenceDir + "/thru-lane-"
             + std::to_string(lane) + ".wav";
@@ -831,14 +946,14 @@ int main()
     assert(std::remove(librarySample.c_str()) == 0);
     assert(std::remove(libraryDir.c_str()) == 0);
     const std::string capturesDir = persistenceDir + "/captures";
-    for (int pattern = 1; pattern <= 64; ++pattern) {
+    for (int clip = 1; clip <= 64; ++clip) {
         for (int lane = 1; lane <= 4; ++lane) {
-            const std::string path = capturesDir + "/p"
-                + (pattern < 10 ? "0" : "") + std::to_string(pattern)
+            const std::string path = capturesDir + "/c"
+                + (clip < 10 ? "0" : "") + std::to_string(clip)
                 + "-lane-" + std::to_string(lane) + ".wav";
             std::remove(path.c_str());
-            const std::string editBase = capturesDir + "/p"
-                + (pattern < 10 ? "0" : "") + std::to_string(pattern)
+            const std::string editBase = capturesDir + "/c"
+                + (clip < 10 ? "0" : "") + std::to_string(clip)
                 + "-lane-" + std::to_string(lane) + "-edit-";
             std::remove((editBase + "a.wav").c_str());
             std::remove((editBase + "b.wav").c_str());

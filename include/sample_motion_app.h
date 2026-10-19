@@ -255,6 +255,7 @@ public:
         float lanesStretchRatio = 1.0f;
         float grainSizeMs = 90.0f;
         float grainDensityHz = 24.0f;
+        float grainVoiceLimit = 8.0f;
         float grainPitch = 1.0f;
         GrainWindow grainWindow = GrainWindow::bell;
         float grainStereoSpread = 0.0f;
@@ -2556,8 +2557,11 @@ private:
             = clamp(controls.grainSizeMs, 8.0f, 1000.0f) * 0.001f;
         grainDurationFrames_ = std::max<std::size_t>(8u,
             static_cast<std::size_t>(outputSampleRate_ * durationSeconds));
+        grainVoiceLimit_ = static_cast<std::size_t>(clamp(
+            std::round(controls.grainVoiceLimit), 4.0f,
+            static_cast<float>(kGrainVoiceCount)));
         const float voiceSafeDensity
-            = static_cast<float>(kGrainVoiceCount - 1u) / durationSeconds;
+            = static_cast<float>(grainVoiceLimit_ - 1u) / durationSeconds;
         grainDensityHz_ = std::min(
             clamp(controls.grainDensityHz, 1.0f, 96.0f),
             voiceSafeDensity);
@@ -2642,7 +2646,8 @@ private:
     void startGrain(const Controls& controls, const Window& window)
     {
         Grain* slot = nullptr;
-        for (auto& grain : grains_) {
+        for (std::size_t index = 0u; index < grainVoiceLimit_; ++index) {
+            auto& grain = grains_[index];
             if (!grain.active) {
                 slot = &grain;
                 break;
@@ -3279,6 +3284,7 @@ private:
     double stretchPhase_ = 0.0;
     float stretchMix_ = 0.0f;
     Grain grains_[kGrainVoiceCount] {};
+    std::size_t grainVoiceLimit_ = 8u;
     double grainCountdown_ = 0.0;
     double grainIntervalFrames_ = 2000.0;
     std::size_t grainDurationFrames_ = 4320u;

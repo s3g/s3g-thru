@@ -34,10 +34,10 @@ constexpr std::size_t kWaveTextSize = kLaneCount * kWaveBins * 2u
     + (kLaneCount - 1u) + 1u;
 constexpr std::size_t kWaveScanBudget = 4096u;
 constexpr std::size_t kVoiceCount = 8u;
-constexpr std::size_t kPatternBankCount = 4u;
-constexpr std::size_t kPatternsPerBank = 16u;
-constexpr std::size_t kPatternCount = kPatternBankCount * kPatternsPerBank;
-constexpr std::size_t kPatternChainLength = 16u;
+constexpr std::size_t kClipBankCount = 4u;
+constexpr std::size_t kClipsPerBank = 16u;
+constexpr std::size_t kClipSlotCount = kClipBankCount * kClipsPerBank;
+constexpr std::size_t kClipChainLength = 16u;
 constexpr std::size_t kCueCount = 8u;
 constexpr std::size_t kClipNoteCapacity = 1024u;
 constexpr std::size_t kClipPointCapacity = 8192u;
@@ -52,11 +52,11 @@ constexpr std::size_t kPersistencePathSize = 768u;
 constexpr std::size_t kStateTextSize = 8192u;
 constexpr std::size_t kWavIoFrames = 512u;
 constexpr std::size_t kLibraryCopyFrames = 4096u;
+constexpr std::uint64_t kAnyPersistenceGeneration = ~std::uint64_t { 0u };
 constexpr const char* kSampleLibraryRoot = "/data/UserData/UserLibrary/Samples/";
 
 enum class LaneSourceKind : std::uint8_t {
-    inherit = 0u,
-    file,
+    file = 0u,
     capture,
     empty,
 };
@@ -84,6 +84,17 @@ struct RegionMap {
 enum class ClipRecordMode : std::uint8_t {
     replace = 0u,
     overdub,
+};
+
+enum class ClipTimingMode : std::uint8_t {
+    free = 0u,
+    beatSync,
+};
+
+enum class LaunchQuantize : std::uint8_t {
+    off = 0u,
+    beat,
+    bar,
 };
 
 enum class ClipPointType : std::uint8_t {
@@ -185,14 +196,14 @@ constexpr std::size_t kLockParameterCount =
 static_assert(kLockParameterCount == 68u,
               "parameter lock persistence supports three 32-bit words");
 constexpr std::size_t kClipCurveLaneCount = kLockParameterCount + 32u;
-struct Pattern {
+struct ClipSlot {
     std::array<float, kLockParameterCount> baseValues {};
     std::array<std::array<char, kPersistencePathSize>, kLaneCount>
         laneSourcePaths {};
     std::array<std::array<char, 64u>, kLaneCount> laneSourceLabels {};
     std::array<LaneSourceKind, kLaneCount> laneSourceKinds {
-        LaneSourceKind::inherit, LaneSourceKind::inherit,
-        LaneSourceKind::inherit, LaneSourceKind::inherit
+        LaneSourceKind::empty, LaneSourceKind::empty,
+        LaneSourceKind::empty, LaneSourceKind::empty
     };
     std::array<float, kCueCount> cues {
         -1.0f, -1.0f, -1.0f, -1.0f,
@@ -208,12 +219,17 @@ struct Pattern {
     std::uint16_t clipNoteCount = 0u;
     std::uint16_t clipPointCount = 0u;
     float clipRate = 1.0f;
+    float recordedTempoBpm = 120.0f;
+    float recordedBeats = 0.0f;
+    ClipTimingMode timingMode = ClipTimingMode::free;
+    bool noteCapacityReached = false;
+    bool pointCapacityReached = false;
     bool clipRecorded = false;
     bool occupied = false;
 };
 
-struct PatternChainEntry {
-    std::uint8_t pattern = 0u;
+struct ClipChainEntry {
+    std::uint8_t clip = 0u;
     std::uint8_t repeats = 1u;
     bool enabled = false;
 };
@@ -230,7 +246,7 @@ enum class SampleLoadState : int {
     previewing,
 };
 
-enum class PatternPrepareState : int {
+enum class ClipPrepareState : int {
     idle = 0,
     requested,
     loading,
@@ -252,6 +268,9 @@ constexpr const char* kLaneVariationNames[] {
     "Manual", "Cycle", "Random", "No Repeat", "Velocity"
 };
 constexpr const char* kClipRecordModeNames[] { "Replace", "Overdub" };
+constexpr const char* kClipTimingModeNames[] { "Free", "Beat Sync" };
+constexpr const char* kLaunchQuantizeNames[] { "Off", "Beat", "Bar" };
+constexpr const char* kGrainQualityNames[] { "4 Voices", "8 Voices", "16 Voices" };
 constexpr const char* kMotionModeNames[] {
     "Forward", "Reverse", "Hover", "Round Trip", "Moving Loop", "Mirror", "Zigzag", "Drunk"
 };
@@ -308,7 +327,7 @@ constexpr const char kMidiMap[] =
     "47 root_note,48 record_lane,49 record_source,50 record_gain,"
     "51 monitor_level,52 record_gate,53 clear_lane,54 tempo_bpm,"
     "55 tempo_swing,56 clip_playing,57 undo,58 chain_clear,"
-    "65 chain_enabled,66 chain_slot,67 chain_pattern,"
+    "65 chain_enabled,66 chain_slot,67 chain_clip,"
     "68 chain_repeats,69 motion_travel,70 motion_jitter,71 packet_duty,"
     "72 motor_rate,73 motor_symmetry,74 motor_shape,75 lane_blend,"
     "76 lane_path_shape,77 lane_path_offset,78 lane_path_skew,"
@@ -373,6 +392,7 @@ constexpr const char kChainParams[] = R"json([
 {"key":"grain_mode","name":"Grain Mode","short_name":"MODE","type":"enum","options":["Scan","Freeze","Cloud","Slice"],"default":0},
 {"key":"grain_size","name":"Grain Size","short_name":"SIZE","type":"float","min":8,"max":1000,"step":1,"default":90,"unit":"ms"},
 {"key":"grain_density","name":"Density","short_name":"DENS","type":"float","min":1,"max":96,"step":1,"default":24,"unit":"Hz"},
+{"key":"grain_quality","name":"Grain Quality","short_name":"QUALITY","type":"enum","options":["4 Voices","8 Voices","16 Voices"],"default":1},
 {"key":"grain_pitch","name":"Grain Pitch","short_name":"PITCH","type":"float","min":0.25,"max":4,"step":0.01,"default":1},
 {"key":"grain_window","name":"Window","short_name":"WIN","type":"enum","options":["Parzen","Sine","Hann","Triangle","Gaussian","Bell"],"default":5},
 {"key":"grain_spread","name":"Stereo Spread","short_name":"SPREAD","type":"float","min":0,"max":1,"step":0.01,"default":0},
@@ -412,32 +432,38 @@ constexpr const char kChainParams[] = R"json([
 {"key":"preview_level","name":"Browser Preview","short_name":"PREVIEW","type":"float","min":0,"max":1,"step":0.01,"default":0.7},
 {"key":"clip_rate","name":"Performance Rate","short_name":"LOOP RATE","type":"float","min":0.25,"max":4,"step":0.01,"default":1},
 {"key":"clip_record_mode","name":"Performance Record","short_name":"REC MODE","type":"enum","options":["Replace","Overdub"],"default":0},
+{"key":"clip_timing","name":"Clip Timing","short_name":"TIMING","type":"enum","options":["Free","Beat Sync"],"default":0},
+{"key":"launch_quantize","name":"Launch Quantize","short_name":"LAUNCH","type":"enum","options":["Off","Beat","Bar"],"default":0},
 {"key":"clip_record","name":"Record Performance","type":"int","min":0,"max":1,"access":"write"},
 {"key":"clip_clear","name":"Clear Performance","type":"int","min":0,"max":1,"access":"write"},
-{"key":"clip_clear_pattern","name":"Clear Stored Performance","type":"int","min":0,"max":63,"access":"write"},
+{"key":"clip_reset","name":"Reset Clip","type":"int","min":0,"max":63,"access":"write"},
 {"key":"clip_automation","name":"Record Gesture Point","type":"string","access":"write"},
 {"key":"clip_state","name":"Performance Loop State","type":"string","access":"read","live":true},
+{"key":"clip_capacity_state","name":"Clip Capture Capacity","type":"string","access":"read","live":true},
 {"key":"clip_playing","name":"Performance Playback","type":"int","min":0,"max":1,"access":"write"},
 {"key":"tempo_bpm","name":"Tempo","short_name":"BPM","type":"float","min":40,"max":240,"step":1,"default":120,"unit":"BPM"},
 {"key":"tempo_swing","name":"Tempo Swing","short_name":"SWING","type":"float","min":50,"max":75,"step":1,"default":50,"unit":"%"},
-{"key":"chain_enabled","name":"Pattern Chain","short_name":"CHAIN","type":"enum","options":["Off","On"],"default":0},
+{"key":"chain_enabled","name":"Clip Chain","short_name":"CHAIN","type":"enum","options":["Off","On"],"default":0},
 {"key":"chain_slot","name":"Chain Slot","short_name":"SLOT","type":"int","min":1,"max":16,"default":1},
-{"key":"chain_pattern","name":"Chain Pattern","short_name":"PATT","type":"int","min":1,"max":64,"default":1},
+{"key":"chain_clip","name":"Chain Clip","short_name":"CLIP","type":"int","min":1,"max":64,"default":1},
 {"key":"chain_repeats","name":"Chain Repeats","short_name":"REPT","type":"int","min":1,"max":16,"default":1},
 {"key":"chain_clear","name":"Clear Chain Slot","type":"int","min":0,"max":1,"access":"write"},
-{"key":"chain_state","name":"Pattern Chain State","type":"string","access":"read","live":true},
-{"key":"chain_entries","name":"Pattern Chain Entries","type":"string","access":"read","live":true},
+{"key":"chain_insert","name":"Insert Chain Entry","type":"string","access":"write"},
+{"key":"chain_delete","name":"Delete Chain Entry","type":"int","min":0,"max":15,"access":"write"},
+{"key":"chain_move","name":"Move Chain Entry","type":"string","access":"write"},
+{"key":"chain_state","name":"Clip Chain State","type":"string","access":"read","live":true},
+{"key":"chain_entries","name":"Clip Chain Entries","type":"string","access":"read","live":true},
 {"key":"undo_available","name":"Undo Available","type":"int","min":0,"max":1,"access":"read","live":true},
-{"key":"pattern_state","name":"Pattern Bank State","type":"string","access":"read","live":true},
+{"key":"clip_bank_state","name":"Clip Bank State","type":"string","access":"read","live":true},
 {"key":"sample_load_state","name":"Sample Load State","type":"string","access":"read","live":true},
 {"key":"region_state","name":"Transient Regions","type":"string","access":"read","live":true},
-{"key":"cue_state","name":"Pattern Cues","type":"string","access":"read","live":true},
+{"key":"cue_state","name":"Clip Cues","type":"string","access":"read","live":true},
 {"key":"preview_file","name":"Preview Sample","type":"string","access":"write"},
 {"key":"preview_stop","name":"Stop Preview","type":"int","min":0,"max":1,"access":"write"},
 {"key":"cue_store","name":"Store Cue","type":"string","access":"write"},
 {"key":"cue_trigger","name":"Trigger Cue","type":"int","min":0,"max":7,"access":"write"},
 {"key":"cue_clear","name":"Clear Cue","type":"int","min":0,"max":7,"access":"write"},
-{"key":"pattern_prepare_state","name":"Pattern Prepare State","type":"string","access":"read","live":true},
+{"key":"clip_prepare_state","name":"Clip Prepare State","type":"string","access":"read","live":true},
 {"key":"lane_source","name":"Lane Source","type":"string","access":"read","live":true},
 {"key":"lane_source_state","name":"Lane Source State","type":"string","access":"read","live":true},
 {"key":"last_error","name":"Last Error","type":"string","access":"read","live":true},
@@ -464,7 +490,7 @@ constexpr const char kUiHierarchy[] = R"json({
 "sample":{"name":"Sample","knobs":["sample_mode","locus","field","speed","manual_lane","lane_variation","pad_mode","output_gain"],"params":[{"key":"sample_mode"},{"key":"locus"},{"key":"field"},{"key":"speed"},{"key":"manual_lane"},{"key":"lane_variation"},{"key":"pad_mode"},{"key":"output_gain"}]},
 "slices":{"name":"Slices","knobs":["sample_mode","slice_region_mode","slice_regions","speed","manual_lane","lane_variation","pad_mode","output_gain"],"params":[{"key":"sample_mode"},{"key":"slice_region_mode"},{"key":"slice_regions"},{"key":"speed"},{"key":"manual_lane"},{"key":"lane_variation"},{"key":"pad_mode"},{"key":"output_gain"}]},
 "lane_mix":{"name":"Lane Mix","knobs":["lane_1_gain","lane_2_gain","lane_3_gain","lane_4_gain","lanes_stretch","stretch_ratio","pressure_mode","output_gain"],"params":[{"key":"lane_1_gain"},{"key":"lane_2_gain"},{"key":"lane_3_gain"},{"key":"lane_4_gain"},{"key":"lanes_stretch"},{"key":"stretch_ratio"},{"key":"pressure_mode"},{"key":"output_gain"}]},
-"performance_loop":{"name":"Performance Loop","knobs":["clip_rate","clip_record_mode","tempo_bpm","tempo_swing","chain_enabled","chain_slot","chain_pattern","chain_repeats"],"params":[{"key":"clip_rate"},{"key":"clip_record_mode"},{"key":"tempo_bpm"},{"key":"tempo_swing"},{"key":"chain_enabled"},{"key":"chain_slot"},{"key":"chain_pattern"},{"key":"chain_repeats"},{"key":"chain_clear"}]}
+"performance_loop":{"name":"Performance Loop","knobs":["clip_rate","clip_record_mode","tempo_bpm","tempo_swing","chain_enabled","chain_slot","chain_clip","chain_repeats"],"params":[{"key":"clip_rate"},{"key":"clip_record_mode"},{"key":"tempo_bpm"},{"key":"tempo_swing"},{"key":"chain_enabled"},{"key":"chain_slot"},{"key":"chain_clip"},{"key":"chain_repeats"},{"key":"chain_clear"}]}
 }
 })json";
 
@@ -757,6 +783,12 @@ bool writeU32(std::FILE* file, std::uint32_t value)
     return writeBytes(file, bytes, sizeof(bytes));
 }
 
+bool writeU64(std::FILE* file, std::uint64_t value)
+{
+    return writeU32(file, static_cast<std::uint32_t>(value & 0xffffffffu))
+        && writeU32(file, static_cast<std::uint32_t>(value >> 32u));
+}
+
 bool readU16(std::FILE* file, std::uint16_t& value)
 {
     std::uint8_t bytes[2] {};
@@ -777,10 +809,100 @@ bool readU32(std::FILE* file, std::uint32_t& value)
     return true;
 }
 
+bool readU64(std::FILE* file, std::uint64_t& value)
+{
+    std::uint32_t low = 0u;
+    std::uint32_t high = 0u;
+    if (!readU32(file, low) || !readU32(file, high)) return false;
+    value = static_cast<std::uint64_t>(low)
+        | static_cast<std::uint64_t>(high) << 32u;
+    return true;
+}
+
+bool checksummedPayloadSize(const char* path, long& payloadSize)
+{
+    payloadSize = 0l;
+    if (!path) return false;
+    std::FILE* file = std::fopen(path, "rb");
+    if (!file || std::fseek(file, 0l, SEEK_END) != 0) {
+        if (file) std::fclose(file);
+        return false;
+    }
+    const long totalSize = std::ftell(file);
+    if (totalSize < 4l || std::fseek(file, totalSize - 4l, SEEK_SET) != 0) {
+        std::fclose(file);
+        return false;
+    }
+    std::uint32_t expected = 0u;
+    if (!readU32(file, expected) || std::fseek(file, 0l, SEEK_SET) != 0) {
+        std::fclose(file);
+        return false;
+    }
+    std::uint32_t checksum = 2166136261u;
+    std::array<std::uint8_t, 4096u> bytes {};
+    long remaining = totalSize - 4l;
+    while (remaining > 0l) {
+        const std::size_t request = std::min<std::size_t>(bytes.size(),
+            static_cast<std::size_t>(remaining));
+        if (std::fread(bytes.data(), 1u, request, file) != request) {
+            std::fclose(file);
+            return false;
+        }
+        for (std::size_t index = 0u; index < request; ++index) {
+            checksum ^= bytes[index];
+            checksum *= 16777619u;
+        }
+        remaining -= static_cast<long>(request);
+    }
+    std::fclose(file);
+    if (checksum != expected) return false;
+    payloadSize = totalSize - 4l;
+    return true;
+}
+
+bool appendFileChecksum(const char* path)
+{
+    if (!path) return false;
+    std::FILE* file = std::fopen(path, "rb");
+    if (!file) return false;
+    std::uint32_t checksum = 2166136261u;
+    std::array<std::uint8_t, 4096u> bytes {};
+    std::size_t count = 0u;
+    while ((count = std::fread(bytes.data(), 1u, bytes.size(), file)) != 0u) {
+        for (std::size_t index = 0u; index < count; ++index) {
+            checksum ^= bytes[index];
+            checksum *= 16777619u;
+        }
+    }
+    const bool readOk = std::feof(file) != 0;
+    std::fclose(file);
+    if (!readOk) return false;
+    file = std::fopen(path, "ab");
+    if (!file) return false;
+    const bool wrote = writeU32(file, checksum);
+    return std::fclose(file) == 0 && wrote;
+}
+
+bool replaceFileWithBackup(const char* temporary, const char* path)
+{
+    if (!temporary || !path) return false;
+    std::array<char, kPersistencePathSize> backup {};
+    const int length = std::snprintf(backup.data(), backup.size(), "%s.bak", path);
+    if (length <= 0 || static_cast<std::size_t>(length) >= backup.size()) {
+        return false;
+    }
+    std::remove(backup.data());
+    const bool hadOriginal = access(path, F_OK) == 0;
+    if (hadOriginal && std::rename(path, backup.data()) != 0) return false;
+    if (std::rename(temporary, path) == 0) return true;
+    if (hadOriginal) std::rename(backup.data(), path);
+    return false;
+}
+
 bool writeF32(std::FILE* file, float value)
 {
     static_assert(sizeof(float) == sizeof(std::uint32_t),
-                  "pattern storage requires 32-bit floats");
+                  "clip storage requires 32-bit floats");
     std::uint32_t bits = 0u;
     std::memcpy(&bits, &value, sizeof(bits));
     return writeU32(file, bits);
@@ -797,17 +919,39 @@ bool readF32(std::FILE* file, float& value)
 bool jsonNumber(const char* json, const char* key, float& result)
 {
     if (!json || !key) return false;
-    char pattern[64] {};
-    const int patternLength = std::snprintf(pattern, sizeof(pattern), "\"%s\"", key);
-    if (patternLength <= 0 || patternLength >= static_cast<int>(sizeof(pattern))) return false;
-    const char* found = std::strstr(json, pattern);
+    char clip[64] {};
+    const int keyLength = std::snprintf(clip, sizeof(clip), "\"%s\"", key);
+    if (keyLength <= 0 || keyLength >= static_cast<int>(sizeof(clip))) return false;
+    const char* found = std::strstr(json, clip);
     if (!found) return false;
-    found = std::strchr(found + patternLength, ':');
+    found = std::strchr(found + keyLength, ':');
     if (!found) return false;
     char* end = nullptr;
     const float parsed = std::strtof(found + 1, &end);
     if (end == found + 1 || !std::isfinite(parsed)) return false;
     result = parsed;
+    return true;
+}
+
+bool jsonUnsigned64(const char* json, const char* key, std::uint64_t& result)
+{
+    if (!json || !key) return false;
+    char clip[64] {};
+    const int keyLength = std::snprintf(clip, sizeof(clip), "\"%s\"", key);
+    if (keyLength <= 0 || keyLength >= static_cast<int>(sizeof(clip))) return false;
+    const char* found = std::strstr(json, clip);
+    if (!found) return false;
+    found = std::strchr(found + keyLength, ':');
+    if (!found) return false;
+    const char* number = found + 1;
+    while (*number == ' ' || *number == '\t' || *number == '\r'
+           || *number == '\n') ++number;
+    if (*number == '-') return false;
+    errno = 0;
+    char* end = nullptr;
+    const unsigned long long parsed = std::strtoull(number, &end, 10);
+    if (end == number || errno == ERANGE) return false;
+    result = static_cast<std::uint64_t>(parsed);
     return true;
 }
 
@@ -857,7 +1001,7 @@ struct ThruInstance {
     std::array<PlaybackVoice, kVoiceCount> voices {};
     Engine::Controls controls;
     std::unique_ptr<float[]> storage;
-    std::unique_ptr<float[]> preparedPatternStorage;
+    std::unique_ptr<float[]> preparedClipStorage;
     std::size_t laneCapacityFrames = 0u;
     std::size_t planeCapacityFrames = 0u;
     float sampleRate = static_cast<float>(MOVE_SAMPLE_RATE);
@@ -894,8 +1038,8 @@ struct ThruInstance {
     float sampleTrimStart = 0.0f;
     float sampleTrimEnd = 1.0f;
 
-    std::array<Pattern, kPatternCount> patterns {};
-    std::array<PatternChainEntry, kPatternChainLength> patternChain {};
+    std::array<ClipSlot, kClipSlotCount> clipSlots {};
+    std::array<ClipChainEntry, kClipChainLength> clipChain {};
     Engine::Controls clipControls;
     float clipOutputGain = 1.0f;
     double clipPositionMs = 0.0;
@@ -906,6 +1050,7 @@ struct ThruInstance {
     std::array<double, 160u> clipOpenNoteStarts {};
     std::array<std::uint32_t, 32u> clipLastPressureTimes {};
     std::array<float, 32u> clipLastPressureValues {};
+    std::array<int, kClipCurveLaneCount> clipLastPointIndices {};
     ClipRecordMode clipRecordMode = ClipRecordMode::replace;
     bool clipRecording = false;
     bool clipReplacing = true;
@@ -913,6 +1058,10 @@ struct ThruInstance {
     bool clipNeedsStart = false;
     float tempoBpm = 120.0f;
     float tempoSwing = 0.5f;
+    LaunchQuantize launchQuantize = LaunchQuantize::off;
+    double transportBeats = 0.0;
+    bool clipLaunchPending = false;
+    std::size_t grainVoiceLimit = 8u;
     bool clipPlaying = false;
     bool chainEnabled = false;
     int chainPosition = 0;
@@ -920,17 +1069,17 @@ struct ThruInstance {
     int chainEditSlot = 0;
     int chainNextSlot = -1;
     std::uint32_t performanceRandom = 0x53334754u;
-    int activePattern = 0;
-    int queuedPattern = -1;
-    bool activePatternOccupied = false;
-    bool patternBankInitialized = false;
-    Pattern undoPattern {};
-    int undoPatternIndex = -1;
+    int activeClip = 0;
+    int queuedClip = -1;
+    bool activeClipOccupied = false;
+    bool clipBankInitialized = false;
+    ClipSlot undoClip {};
+    int undoClipIndex = -1;
     bool undoAvailable = false;
     bool persistentStateDirty = false;
     std::uint32_t pendingCaptureSaveMask = 0u;
     std::uint32_t pendingRegionAnalysisMask = 0u;
-    std::array<int, kLaneCount> pendingCapturePatterns { -1, -1, -1, -1 };
+    std::array<int, kLaneCount> pendingCaptureClips { -1, -1, -1, -1 };
     std::atomic<std::uint64_t> maximumRenderMicros { 0u };
     std::atomic<std::uint64_t> renderOverruns { 0u };
 
@@ -942,11 +1091,11 @@ struct ThruInstance {
     std::atomic<int> sampleLoadState {
         static_cast<int>(SampleLoadState::idle)
     };
-    std::atomic<int> patternPrepareState {
-        static_cast<int>(PatternPrepareState::idle)
+    std::atomic<int> clipPrepareState {
+        static_cast<int>(ClipPrepareState::idle)
     };
-    std::atomic<int> patternPrepareRequest { -1 };
-    std::atomic<int> preparedPattern { -1 };
+    std::atomic<int> clipPrepareRequest { -1 };
+    std::atomic<int> preparedClip { -1 };
     std::array<std::size_t, kLaneCount> preparedLaneFrames {};
     std::array<float, kLaneCount> preparedLaneRates {};
     std::array<LaneSourceKind, kLaneCount> preparedLaneKinds {
@@ -964,8 +1113,8 @@ struct ThruInstance {
     std::array<char, 96u> sampleLoadedName {};
     std::array<char, 128u> sampleLoadError {};
     int sampleRequestLane = 0;
-    int sampleRequestPattern = 0;
-    bool sampleRequestFromPattern = false;
+    int sampleRequestClip = 0;
+    bool sampleRequestFromClip = false;
     bool sampleRequestPreview = false;
     bool samplePreviewCancelled = false;
     int sampleApplyLane = 0;
@@ -985,8 +1134,8 @@ struct ThruInstance {
         LaneSourceKind::empty, LaneSourceKind::empty
     };
     std::array<std::array<char, kPersistencePathSize>, kLaneCount>
-        pendingPatternSourcePaths {};
-    std::uint32_t pendingPatternSourceMask = 0u;
+        pendingClipSourcePaths {};
+    std::uint32_t pendingClipSourceMask = 0u;
 
     ~ThruInstance() { stopSampleWorker(); }
 
@@ -1005,6 +1154,7 @@ struct ThruInstance {
     std::uint32_t recordingLaneMask = 0u;
     bool persistenceEnabled = false;
     bool persistenceRestored = false;
+    std::uint64_t persistenceGeneration = 0u;
 
     bool prepare(const char* moduleDir)
     {
@@ -1015,9 +1165,9 @@ struct ThruInstance {
         planeCapacityFrames = laneCapacityFrames * Engine::kLaneChannels;
         const std::size_t totalFloats = planeCapacityFrames * kChannelCount;
         storage.reset(new (std::nothrow) float[totalFloats] {});
-        preparedPatternStorage.reset(new (std::nothrow) float[totalFloats] {});
+        preparedClipStorage.reset(new (std::nothrow) float[totalFloats] {});
         sampleStage.reset(new (std::nothrow) float[planeCapacityFrames] {});
-        if (!storage || !preparedPatternStorage || !sampleStage) {
+        if (!storage || !preparedClipStorage || !sampleStage) {
             setError("Unable to allocate active and prepared sample banks");
             return false;
         }
@@ -1041,6 +1191,7 @@ struct ThruInstance {
         clipOpenNoteIndices.fill(-1);
         clipLastPressureTimes.fill(0xffffffffu);
         clipLastPressureValues.fill(-1.0f);
+        clipLastPointIndices.fill(-1);
         clipControls = controls;
         clipOutputGain = outputGain;
         attackCoefficient = 1.0f - std::exp(-1.0f / (sampleRate * 0.003f));
@@ -1065,7 +1216,9 @@ struct ThruInstance {
             }
             loadPersistentState();
         }
-        if (!patternBankInitialized) captureActivePattern(false);
+        if (!clipBankInitialized) captureActiveClip(false);
+        clipControls = controls;
+        clipOutputGain = outputGain;
         for (auto& voice : voices) {
             if (!voice.engine.prepare(sampleRate,
                                       storage.get() + planeCapacityFrames * 0u,
@@ -1376,26 +1529,26 @@ struct ThruInstance {
         if (laneRegionRevisions[lane] == 0u) ++laneRegionRevisions[lane];
     }
 
-    bool preparePatternBank(int patternIndex)
+    bool prepareClipBank(int clipIndex)
     {
-        if (patternIndex < 0
-            || patternIndex >= static_cast<int>(patterns.size())) return false;
+        if (clipIndex < 0
+            || clipIndex >= static_cast<int>(clipSlots.size())) return false;
         preparedLaneFrames.fill(0u);
         preparedLaneRates.fill(sampleRate);
         preparedRegions.fill(RegionMap {});
         for (std::size_t lane = 0u; lane < kLaneCount; ++lane) {
-            float* left = preparedPatternStorage.get()
+            float* left = preparedClipStorage.get()
                 + planeCapacityFrames * lane;
             float* right = left + laneCapacityFrames;
-            const char* path = "";
-            const char* label = "";
-            const LaneSourceKind kind = resolvePatternLaneSource(
-                patternIndex, lane, path, label);
+            const ClipSlot& clip = clipSlots[static_cast<std::size_t>(clipIndex)];
+            const char* path = clip.laneSourcePaths[lane].data();
+            const char* label = clip.laneSourceLabels[lane].data();
+            const LaneSourceKind kind = clip.laneSourceKinds[lane];
             preparedLaneKinds[lane] = kind;
             preparedLanePaths[lane][0] = '\0';
             preparedLaneLabels[lane][0] = '\0';
             if (kind == LaneSourceKind::empty) continue;
-            if (kind == LaneSourceKind::inherit || path[0] == '\0') {
+            if (path[0] == '\0') {
                 if (!engine.laneLoaded(lane)) continue;
                 const std::size_t frames = engine.laneFrames(lane);
                 const float* sourceLeft = engine.laneData(lane, 0u);
@@ -1432,7 +1585,7 @@ struct ThruInstance {
                               preparedLaneLabels[lane].size(), "%s", label);
             }
         }
-        preparedPattern.store(patternIndex, std::memory_order_relaxed);
+        preparedClip.store(clipIndex, std::memory_order_relaxed);
         return true;
     }
 
@@ -1464,14 +1617,14 @@ struct ThruInstance {
                 }
                 continue;
             }
-            if (instance->patternPrepareState.load(std::memory_order_acquire)
-                == static_cast<int>(PatternPrepareState::requested)) {
-                instance->patternPrepareState.store(
-                    static_cast<int>(PatternPrepareState::loading),
+            if (instance->clipPrepareState.load(std::memory_order_acquire)
+                == static_cast<int>(ClipPrepareState::requested)) {
+                instance->clipPrepareState.store(
+                    static_cast<int>(ClipPrepareState::loading),
                     std::memory_order_release);
-                const int target = instance->patternPrepareRequest.load(
+                const int target = instance->clipPrepareRequest.load(
                     std::memory_order_relaxed);
-                const bool prepared = instance->preparePatternBank(target);
+                const bool prepared = instance->prepareClipBank(target);
                 if (prepared
                     && instance->sampleLoadState.load(std::memory_order_acquire)
                         == static_cast<int>(SampleLoadState::error)) {
@@ -1479,8 +1632,8 @@ struct ThruInstance {
                         static_cast<int>(SampleLoadState::complete),
                         std::memory_order_release);
                 }
-                instance->patternPrepareState.store(static_cast<int>(prepared
-                    ? PatternPrepareState::ready : PatternPrepareState::error),
+                instance->clipPrepareState.store(static_cast<int>(prepared
+                    ? ClipPrepareState::ready : ClipPrepareState::error),
                     std::memory_order_release);
             }
         }
@@ -1519,7 +1672,7 @@ struct ThruInstance {
     }
 
     void requestLibrarySample(int lane, const char* path,
-                              bool fromPattern = false, int ownerPattern = -1,
+                              bool fromClip = false, int ownerClip = -1,
                               bool preview = false)
     {
         if (!sampleWorkerReady || lane < 0 || lane >= static_cast<int>(kLaneCount)
@@ -1527,18 +1680,18 @@ struct ThruInstance {
             setSampleLoadError("Sample loader is unavailable");
             return;
         }
-        const auto prepareState = static_cast<PatternPrepareState>(
-            patternPrepareState.load(std::memory_order_acquire));
-        if (prepareState == PatternPrepareState::requested
-            || prepareState == PatternPrepareState::loading) {
-            setError("Wait for the queued pattern to finish preparing");
+        const auto prepareState = static_cast<ClipPrepareState>(
+            clipPrepareState.load(std::memory_order_acquire));
+        if (prepareState == ClipPrepareState::requested
+            || prepareState == ClipPrepareState::loading) {
+            setError("Wait for the queued clip to finish preparing");
             return;
         }
         const int current = sampleLoadState.load(std::memory_order_acquire);
         if (current == static_cast<int>(SampleLoadState::previewing)
             && !preview
             && std::strcmp(path, sampleRequestPath.data()) == 0) {
-            if (!fromPattern) pushPatternUndo(activePattern);
+            if (!fromClip) pushClipUndo(activeClip);
             sampleRequestPreview = false;
             samplePreviewCancelled = false;
             previewActive = false;
@@ -1558,11 +1711,11 @@ struct ThruInstance {
             setError("Wait for the current sample load");
             return;
         }
-        if (!fromPattern && !preview) pushPatternUndo(activePattern);
+        if (!fromClip && !preview) pushClipUndo(activeClip);
         pthread_mutex_lock(&sampleWorkerMutex);
         sampleRequestLane = lane;
-        sampleRequestPattern = ownerPattern >= 0 ? ownerPattern : activePattern;
-        sampleRequestFromPattern = fromPattern;
+        sampleRequestClip = ownerClip >= 0 ? ownerClip : activeClip;
+        sampleRequestFromClip = fromClip;
         sampleRequestPreview = preview;
         samplePreviewCancelled = false;
         std::snprintf(sampleRequestPath.data(), sampleRequestPath.size(), "%s", path);
@@ -1574,24 +1727,24 @@ struct ThruInstance {
         pthread_mutex_unlock(&sampleWorkerMutex);
     }
 
-    bool requestPatternPreparation(int patternIndex)
+    bool requestClipPreparation(int clipIndex)
     {
-        if (!sampleWorkerReady || engine.recording() || patternIndex < 0
-            || patternIndex >= static_cast<int>(patterns.size())) return false;
+        if (!sampleWorkerReady || engine.recording() || clipIndex < 0
+            || clipIndex >= static_cast<int>(clipSlots.size())) return false;
         const auto sampleState = static_cast<SampleLoadState>(
             sampleLoadState.load(std::memory_order_acquire));
         if (sampleState >= SampleLoadState::requested
             && sampleState <= SampleLoadState::copying) return false;
-        const auto prepareState = static_cast<PatternPrepareState>(
-            patternPrepareState.load(std::memory_order_acquire));
-        if (prepareState == PatternPrepareState::requested
-            || prepareState == PatternPrepareState::loading) return false;
-        initializePatternIfNeeded(patternIndex);
+        const auto prepareState = static_cast<ClipPrepareState>(
+            clipPrepareState.load(std::memory_order_acquire));
+        if (prepareState == ClipPrepareState::requested
+            || prepareState == ClipPrepareState::loading) return false;
+        initializeClipIfNeeded(clipIndex);
         pthread_mutex_lock(&sampleWorkerMutex);
-        patternPrepareRequest.store(patternIndex, std::memory_order_relaxed);
-        preparedPattern.store(-1, std::memory_order_relaxed);
-        patternPrepareState.store(
-            static_cast<int>(PatternPrepareState::requested),
+        clipPrepareRequest.store(clipIndex, std::memory_order_relaxed);
+        preparedClip.store(-1, std::memory_order_relaxed);
+        clipPrepareState.store(
+            static_cast<int>(ClipPrepareState::requested),
             std::memory_order_release);
         sampleWorkerSignaled = true;
         pthread_cond_signal(&sampleWorkerCondition);
@@ -1599,42 +1752,24 @@ struct ThruInstance {
         return true;
     }
 
-    bool patternPreparationInFlight() const
+    bool clipPreparationInFlight() const
     {
-        const auto state = static_cast<PatternPrepareState>(
-            patternPrepareState.load(std::memory_order_acquire));
-        return state == PatternPrepareState::requested
-            || state == PatternPrepareState::loading;
+        const auto state = static_cast<ClipPrepareState>(
+            clipPrepareState.load(std::memory_order_acquire));
+        return state == ClipPrepareState::requested
+            || state == ClipPrepareState::loading;
     }
 
-    LaneSourceKind resolvePatternLaneSource(
-        int patternIndex, std::size_t lane,
-        const char*& path, const char*& label) const
+    void queueClipSources(int clipIndex)
     {
-        path = "";
-        label = "";
-        if (lane >= kLaneCount) return LaneSourceKind::empty;
-        for (int index = patternIndex; index >= 0; --index) {
-            const Pattern& pattern = patterns[static_cast<std::size_t>(index)];
-            const LaneSourceKind kind = pattern.laneSourceKinds[lane];
-            if (kind == LaneSourceKind::inherit) continue;
-            path = pattern.laneSourcePaths[lane].data();
-            label = pattern.laneSourceLabels[lane].data();
-            return kind;
-        }
-        return LaneSourceKind::inherit;
-    }
-
-    void queuePatternSources(int patternIndex)
-    {
-        pendingPatternSourceMask = 0u;
-        if (patternIndex < 0
-            || patternIndex >= static_cast<int>(patterns.size())) return;
+        pendingClipSourceMask = 0u;
+        if (clipIndex < 0
+            || clipIndex >= static_cast<int>(clipSlots.size())) return;
         for (std::size_t lane = 0u; lane < kLaneCount; ++lane) {
-            const char* path = "";
-            const char* label = "";
-            const LaneSourceKind kind = resolvePatternLaneSource(
-                patternIndex, lane, path, label);
+            const ClipSlot& clip = clipSlots[static_cast<std::size_t>(clipIndex)];
+            const char* path = clip.laneSourcePaths[lane].data();
+            const char* label = clip.laneSourceLabels[lane].data();
+            const LaneSourceKind kind = clip.laneSourceKinds[lane];
             if (kind == LaneSourceKind::empty) {
                 if (engine.laneLoaded(lane)) {
                     engine.beginLaneRemoval(lane);
@@ -1644,9 +1779,12 @@ struct ThruInstance {
                 currentLaneSourceKinds[lane] = LaneSourceKind::empty;
                 std::snprintf(laneSourceLabels[lane].data(),
                               laneSourceLabels[lane].size(), "EMPTY");
+                activeRegions[lane] = {};
+                ++laneRegionRevisions[lane];
+                waveDirtyMask |= 1u << lane;
                 continue;
             }
-            if (kind == LaneSourceKind::inherit || path[0] == '\0') continue;
+            if (path[0] == '\0') continue;
             if (std::strcmp(path, currentLaneSourcePaths[lane].data()) == 0) {
                 currentLaneSourceKinds[lane] = kind;
                 if (label[0] != '\0') {
@@ -1655,15 +1793,15 @@ struct ThruInstance {
                 }
                 continue;
             }
-            std::snprintf(pendingPatternSourcePaths[lane].data(),
-                          pendingPatternSourcePaths[lane].size(), "%s", path);
-            pendingPatternSourceMask |= 1u << lane;
+            std::snprintf(pendingClipSourcePaths[lane].data(),
+                          pendingClipSourcePaths[lane].size(), "%s", path);
+            pendingClipSourceMask |= 1u << lane;
         }
     }
 
-    void servicePatternSourceQueue()
+    void serviceClipSourceQueue()
     {
-        if (pendingPatternSourceMask == 0u || !sampleWorkerReady) return;
+        if (pendingClipSourceMask == 0u || !sampleWorkerReady) return;
         const int loadState = sampleLoadState.load(std::memory_order_acquire);
         if (loadState == static_cast<int>(SampleLoadState::requested)
             || loadState == static_cast<int>(SampleLoadState::loading)
@@ -1671,11 +1809,11 @@ struct ThruInstance {
             || loadState == static_cast<int>(SampleLoadState::removing)
             || loadState == static_cast<int>(SampleLoadState::copying)) return;
         for (std::size_t lane = 0u; lane < kLaneCount; ++lane) {
-            if ((pendingPatternSourceMask & (1u << lane)) == 0u) continue;
-            pendingPatternSourceMask &= ~(1u << lane);
+            if ((pendingClipSourceMask & (1u << lane)) == 0u) continue;
+            pendingClipSourceMask &= ~(1u << lane);
             requestLibrarySample(static_cast<int>(lane),
-                                 pendingPatternSourcePaths[lane].data(), true,
-                                 activePattern);
+                                 pendingClipSourcePaths[lane].data(), true,
+                                 activeClip);
             break;
         }
     }
@@ -1752,30 +1890,28 @@ struct ThruInstance {
         std::snprintf(currentLaneSourcePaths[lane].data(),
                       currentLaneSourcePaths[lane].size(), "%s",
                       sampleRequestPath.data());
-        const int owner = clampValue(sampleRequestPattern, 0,
-                                     static_cast<int>(kPatternCount) - 1);
-        if (!sampleRequestFromPattern) {
-            Pattern& pattern = patterns[static_cast<std::size_t>(owner)];
-            pattern.laneSourceKinds[lane] = LaneSourceKind::file;
-            std::snprintf(pattern.laneSourcePaths[lane].data(),
-                          pattern.laneSourcePaths[lane].size(), "%s",
+        const int owner = clampValue(sampleRequestClip, 0,
+                                     static_cast<int>(kClipSlotCount) - 1);
+        if (!sampleRequestFromClip) {
+            ClipSlot& clip = clipSlots[static_cast<std::size_t>(owner)];
+            clip.laneSourceKinds[lane] = LaneSourceKind::file;
+            std::snprintf(clip.laneSourcePaths[lane].data(),
+                          clip.laneSourcePaths[lane].size(), "%s",
                           sampleRequestPath.data());
-            std::snprintf(pattern.laneSourceLabels[lane].data(),
-                          pattern.laneSourceLabels[lane].size(), "%.*s",
-                          static_cast<int>(pattern.laneSourceLabels[lane].size() - 1u),
+            std::snprintf(clip.laneSourceLabels[lane].data(),
+                          clip.laneSourceLabels[lane].size(), "%.*s",
+                          static_cast<int>(clip.laneSourceLabels[lane].size() - 1u),
                           sampleLoadedName.data());
-            pattern.occupied = true;
+            clip.occupied = true;
             currentLaneSourceKinds[lane] = LaneSourceKind::file;
             markPersistentStateDirty();
         } else {
-            const char* resolvedPath = "";
-            const char* resolvedLabel = "";
-            currentLaneSourceKinds[lane] = resolvePatternLaneSource(
-                owner, lane, resolvedPath, resolvedLabel);
-            if (resolvedLabel[0] != '\0') {
+            const ClipSlot& clip = clipSlots[static_cast<std::size_t>(owner)];
+            currentLaneSourceKinds[lane] = clip.laneSourceKinds[lane];
+            if (clip.laneSourceLabels[lane][0] != '\0') {
                 std::snprintf(laneSourceLabels[lane].data(),
                               laneSourceLabels[lane].size(), "%s",
-                              resolvedLabel);
+                              clip.laneSourceLabels[lane].data());
             }
         }
         sampleLoadState.store(static_cast<int>(SampleLoadState::complete),
@@ -1785,20 +1921,20 @@ struct ThruInstance {
     void allNotesOff()
     {
         if (clipRecording) {
-            Pattern* pattern = activeClipPattern();
-            if (pattern) {
+            ClipSlot* clip = activeClipSlot();
+            if (clip) {
                 for (std::size_t key = 0u;
                      key < clipOpenNoteIndices.size(); ++key) {
                     const int index = clipOpenNoteIndices[key];
                     if (index < 0
-                        || index >= static_cast<int>(pattern->clipNoteCount)) {
+                        || index >= static_cast<int>(clip->clipNoteCount)) {
                         continue;
                     }
                     const double elapsed = std::max(1.0,
                         clipCaptureAbsoluteMs() - clipOpenNoteStarts[key]);
-                    const std::uint32_t maximum = pattern->clipDurationMs != 0u
-                        ? pattern->clipDurationMs : kClipMaximumDurationMs;
-                    pattern->clipNotes[static_cast<std::size_t>(index)].durationMs =
+                    const std::uint32_t maximum = clip->clipDurationMs != 0u
+                        ? clip->clipDurationMs : kClipMaximumDurationMs;
+                    clip->clipNotes[static_cast<std::size_t>(index)].durationMs =
                         static_cast<std::uint32_t>(clampValue(
                             elapsed, 1.0, static_cast<double>(maximum)));
                 }
@@ -1894,18 +2030,18 @@ struct ThruInstance {
         return loaded[choice];
     }
 
-    Pattern* activeClipPattern()
+    ClipSlot* activeClipSlot()
     {
-        return activePattern >= 0
-                && activePattern < static_cast<int>(patterns.size())
-            ? &patterns[static_cast<std::size_t>(activePattern)] : nullptr;
+        return activeClip >= 0
+                && activeClip < static_cast<int>(clipSlots.size())
+            ? &clipSlots[static_cast<std::size_t>(activeClip)] : nullptr;
     }
 
-    const Pattern* activeClipPattern() const
+    const ClipSlot* activeClipSlot() const
     {
-        return activePattern >= 0
-                && activePattern < static_cast<int>(patterns.size())
-            ? &patterns[static_cast<std::size_t>(activePattern)] : nullptr;
+        return activeClip >= 0
+                && activeClip < static_cast<int>(clipSlots.size())
+            ? &clipSlots[static_cast<std::size_t>(activeClip)] : nullptr;
     }
 
     double captureElapsedMs() const
@@ -1926,13 +2062,13 @@ struct ThruInstance {
 
     std::uint32_t clipCaptureTimeMs() const
     {
-        const Pattern* pattern = activeClipPattern();
+        const ClipSlot* clip = activeClipSlot();
         const double absolute = clipCaptureAbsoluteMs();
-        if (!clipReplacing && pattern
-            && pattern->clipDurationMs >= kClipMinimumDurationMs) {
+        if (!clipReplacing && clip
+            && clip->clipDurationMs >= kClipMinimumDurationMs) {
             return static_cast<std::uint32_t>(std::fmod(
                 std::max(0.0, absolute),
-                static_cast<double>(pattern->clipDurationMs)));
+                static_cast<double>(clip->clipDurationMs)));
         }
         return static_cast<std::uint32_t>(clampValue(
             absolute, 0.0, static_cast<double>(kClipMaximumDurationMs)));
@@ -1956,38 +2092,41 @@ struct ThruInstance {
             : kClipCurveLaneCount;
     }
 
-    static void rebuildClipPointIndex(Pattern& pattern)
+    static void rebuildClipPointIndex(ClipSlot& clip)
     {
-        std::sort(pattern.clipPoints.begin(),
-                  pattern.clipPoints.begin() + pattern.clipPointCount,
+        std::sort(clip.clipPoints.begin(),
+                  clip.clipPoints.begin() + clip.clipPointCount,
                   [](const ClipPoint& left, const ClipPoint& right) {
                       const std::size_t leftLane = clipPointLane(left);
                       const std::size_t rightLane = clipPointLane(right);
                       return leftLane != rightLane
                           ? leftLane < rightLane : left.timeMs < right.timeMs;
                   });
-        pattern.clipPointStarts.fill(0u);
-        pattern.clipPointCounts.fill(0u);
-        for (std::size_t index = 0u; index < pattern.clipPointCount; ++index) {
-            const std::size_t lane = clipPointLane(pattern.clipPoints[index]);
+        clip.clipPointStarts.fill(0u);
+        clip.clipPointCounts.fill(0u);
+        for (std::size_t index = 0u; index < clip.clipPointCount; ++index) {
+            const std::size_t lane = clipPointLane(clip.clipPoints[index]);
             if (lane >= kClipCurveLaneCount) continue;
-            if (pattern.clipPointCounts[lane] == 0u) {
-                pattern.clipPointStarts[lane] =
+            if (clip.clipPointCounts[lane] == 0u) {
+                clip.clipPointStarts[lane] =
                     static_cast<std::uint16_t>(index);
             }
-            ++pattern.clipPointCounts[lane];
+            ++clip.clipPointCounts[lane];
         }
     }
 
     void captureClipNoteOn(int note, int velocity, int sourcePad)
     {
-        Pattern* pattern = activeClipPattern();
-        if (!clipRecording || !pattern
-            || pattern->clipNoteCount >= kClipNoteCapacity) return;
+        ClipSlot* clip = activeClipSlot();
+        if (!clipRecording || !clip) return;
+        if (clip->clipNoteCount >= kClipNoteCapacity) {
+            clip->noteCapacityReached = true;
+            return;
+        }
         const int key = clipCaptureKey(note, sourcePad);
         if (key < 0 || key >= static_cast<int>(clipOpenNoteIndices.size())) return;
-        const std::size_t index = pattern->clipNoteCount++;
-        ClipNote& captured = pattern->clipNotes[index];
+        const std::size_t index = clip->clipNoteCount++;
+        ClipNote& captured = clip->clipNotes[index];
         captured.startMs = clipCaptureTimeMs();
         captured.durationMs = 1u;
         captured.note = static_cast<std::uint8_t>(clampValue(note, 0, 127));
@@ -2003,18 +2142,18 @@ struct ThruInstance {
 
     void captureClipNoteOff(int note, int sourcePad)
     {
-        Pattern* pattern = activeClipPattern();
-        if (!clipRecording || !pattern) return;
+        ClipSlot* clip = activeClipSlot();
+        if (!clipRecording || !clip) return;
         const int key = clipCaptureKey(note, sourcePad);
         if (key < 0 || key >= static_cast<int>(clipOpenNoteIndices.size())) return;
         const int index = clipOpenNoteIndices[static_cast<std::size_t>(key)];
-        if (index >= 0 && index < static_cast<int>(pattern->clipNoteCount)) {
+        if (index >= 0 && index < static_cast<int>(clip->clipNoteCount)) {
             const double elapsed = std::max(1.0,
                 clipCaptureAbsoluteMs()
                     - clipOpenNoteStarts[static_cast<std::size_t>(key)]);
-            const std::uint32_t maximum = pattern->clipDurationMs != 0u
-                ? pattern->clipDurationMs : kClipMaximumDurationMs;
-            pattern->clipNotes[static_cast<std::size_t>(index)].durationMs =
+            const std::uint32_t maximum = clip->clipDurationMs != 0u
+                ? clip->clipDurationMs : kClipMaximumDurationMs;
+            clip->clipNotes[static_cast<std::size_t>(index)].durationMs =
                 static_cast<std::uint32_t>(clampValue(
                     elapsed, 1.0, static_cast<double>(maximum)));
         }
@@ -2024,22 +2163,58 @@ struct ThruInstance {
     void captureClipPoint(ClipPointType type, std::size_t parameter,
                           int sourcePad, float value)
     {
-        Pattern* pattern = activeClipPattern();
-        if (!clipRecording || !pattern
-            || pattern->clipPointCount >= kClipPointCapacity) return;
+        ClipSlot* clip = activeClipSlot();
+        if (!clipRecording || !clip) return;
         const std::uint32_t time = clipCaptureTimeMs();
+        const std::size_t curveLane = type == ClipPointType::parameter
+            ? std::min(parameter, kLockParameterCount - 1u)
+            : (sourcePad >= 0 && sourcePad < 32
+                ? kLockParameterCount + static_cast<std::size_t>(sourcePad)
+                : kClipCurveLaneCount);
+        if (curveLane >= kClipCurveLaneCount) return;
+        const float use = static_cast<float>(clip->clipPointCount)
+            / static_cast<float>(kClipPointCapacity);
+        const std::uint32_t minimumInterval = use >= 0.90f ? 40u
+            : (use >= 0.75f ? 20u : 10u);
+        const float minimumChange = use >= 0.90f ? 0.05f
+            : (use >= 0.75f ? 0.03f : 0.02f);
         if (type == ClipPointType::pressure && sourcePad >= 0
             && sourcePad < static_cast<int>(clipLastPressureTimes.size())) {
             const std::size_t pad = static_cast<std::size_t>(sourcePad);
             const std::uint32_t previousTime = clipLastPressureTimes[pad];
             const float previousValue = clipLastPressureValues[pad];
             if (previousTime != 0xffffffffu && time >= previousTime
-                && time - previousTime < 10u
-                && std::fabs(value - previousValue) < 0.02f) return;
+                && time - previousTime < minimumInterval
+                && std::fabs(value - previousValue) < minimumChange) return;
             clipLastPressureTimes[pad] = time;
             clipLastPressureValues[pad] = value;
         }
-        ClipPoint& point = pattern->clipPoints[pattern->clipPointCount++];
+        const int previousIndex = clipLastPointIndices[curveLane];
+        if (previousIndex >= 0
+            && previousIndex < static_cast<int>(clip->clipPointCount)) {
+            ClipPoint& previous = clip->clipPoints[
+                static_cast<std::size_t>(previousIndex)];
+            if (time >= previous.timeMs
+                && time - previous.timeMs < minimumInterval
+                && std::fabs(value - previous.value) < minimumChange) {
+                previous.timeMs = time;
+                previous.value = value;
+                return;
+            }
+        }
+        if (clip->clipPointCount >= kClipPointCapacity) {
+            clip->pointCapacityReached = true;
+            if (previousIndex >= 0
+                && previousIndex < static_cast<int>(clip->clipPointCount)) {
+                ClipPoint& endpoint = clip->clipPoints[
+                    static_cast<std::size_t>(previousIndex)];
+                endpoint.timeMs = time;
+                endpoint.value = value;
+            }
+            return;
+        }
+        const std::size_t pointIndex = clip->clipPointCount++;
+        ClipPoint& point = clip->clipPoints[pointIndex];
         point.timeMs = time;
         point.value = value;
         point.parameter = static_cast<std::uint16_t>(std::min<std::size_t>(
@@ -2047,6 +2222,7 @@ struct ThruInstance {
         point.sourcePad = sourcePad >= 0 && sourcePad < 32
             ? static_cast<std::uint8_t>(sourcePad) : 255u;
         point.type = type;
+        clipLastPointIndices[curveLane] = static_cast<int>(pointIndex);
     }
 
     void captureClipParameter(int parameter)
@@ -2181,30 +2357,30 @@ struct ThruInstance {
 
     void storeCue(int slot, float position)
     {
-        if (activePattern < 0 || activePattern >= static_cast<int>(patterns.size())
+        if (activeClip < 0 || activeClip >= static_cast<int>(clipSlots.size())
             || slot < 0 || slot >= static_cast<int>(kCueCount)) return;
-        pushPatternUndo(activePattern);
-        patterns[static_cast<std::size_t>(activePattern)].cues[
+        pushClipUndo(activeClip);
+        clipSlots[static_cast<std::size_t>(activeClip)].cues[
             static_cast<std::size_t>(slot)] = clampValue(position, 0.0f, 1.0f);
-        patterns[static_cast<std::size_t>(activePattern)].occupied = true;
+        clipSlots[static_cast<std::size_t>(activeClip)].occupied = true;
         markPersistentStateDirty();
     }
 
     void clearCue(int slot)
     {
-        if (activePattern < 0 || activePattern >= static_cast<int>(patterns.size())
+        if (activeClip < 0 || activeClip >= static_cast<int>(clipSlots.size())
             || slot < 0 || slot >= static_cast<int>(kCueCount)) return;
-        pushPatternUndo(activePattern);
-        patterns[static_cast<std::size_t>(activePattern)].cues[
+        pushClipUndo(activeClip);
+        clipSlots[static_cast<std::size_t>(activeClip)].cues[
             static_cast<std::size_t>(slot)] = -1.0f;
         markPersistentStateDirty();
     }
 
     void triggerCue(int slot)
     {
-        if (activePattern < 0 || activePattern >= static_cast<int>(patterns.size())
+        if (activeClip < 0 || activeClip >= static_cast<int>(clipSlots.size())
             || slot < 0 || slot >= static_cast<int>(kCueCount)) return;
-        const float cue = patterns[static_cast<std::size_t>(activePattern)].cues[
+        const float cue = clipSlots[static_cast<std::size_t>(activeClip)].cues[
             static_cast<std::size_t>(slot)];
         if (cue < 0.0f) return;
         bool hasPerformanceVoice = false;
@@ -2285,10 +2461,10 @@ struct ThruInstance {
         }
     }
 
-    void triggerClipVoice(const Pattern& pattern, std::size_t noteIndex)
+    void triggerClipVoice(const ClipSlot& clip, std::size_t noteIndex)
     {
-        if (noteIndex >= pattern.clipNoteCount) return;
-        const ClipNote& event = pattern.clipNotes[noteIndex];
+        if (noteIndex >= clip.clipNoteCount) return;
+        const ClipNote& event = clip.clipNotes[noteIndex];
         ++noteClock;
         PlaybackVoice& voice = allocateClipVoice();
         voice.note = event.note;
@@ -2327,15 +2503,15 @@ struct ThruInstance {
             && static_cast<double>(eventTime) <= to;
     }
 
-    void processClipEvents(const Pattern& pattern, double from, double to,
+    void processClipEvents(const ClipSlot& clip, double from, double to,
                            bool includeFrom = false)
     {
         const std::uint32_t duration = std::max<std::uint32_t>(
-            kClipMinimumDurationMs, pattern.clipDurationMs);
+            kClipMinimumDurationMs, clip.clipDurationMs);
         // Releases precede attacks at the same loop position, so a note that
         // fills the complete loop retriggers cleanly at the seam.
-        for (std::size_t index = 0u; index < pattern.clipNoteCount; ++index) {
-            const ClipNote& note = pattern.clipNotes[index];
+        for (std::size_t index = 0u; index < clip.clipNoteCount; ++index) {
+            const ClipNote& note = clip.clipNotes[index];
             const std::uint32_t end = static_cast<std::uint32_t>(
                 (static_cast<std::uint64_t>(note.startMs)
                     + std::min(note.durationMs, duration)) % duration);
@@ -2348,16 +2524,16 @@ struct ThruInstance {
         // overdub playback with a linear fallback; committed clips use the
         // bounded sorted lookup below.
         if (clipRecording && !clipReplacing) {
-            for (std::size_t index = 0u; index < pattern.clipNoteCount; ++index) {
-                if (clipEventCrossed(pattern.clipNotes[index].startMs,
+            for (std::size_t index = 0u; index < clip.clipNoteCount; ++index) {
+                if (clipEventCrossed(clip.clipNotes[index].startMs,
                                      from, to, includeFrom)) {
-                    triggerClipVoice(pattern, index);
+                    triggerClipVoice(clip, index);
                 }
             }
             return;
         }
-        const auto begin = pattern.clipNotes.begin();
-        const auto end = begin + pattern.clipNoteCount;
+        const auto begin = clip.clipNotes.begin();
+        const auto end = begin + clip.clipNoteCount;
         const auto first = includeFrom
             ? std::lower_bound(begin, end, from,
                 [](const ClipNote& note, double time) {
@@ -2372,22 +2548,22 @@ struct ThruInstance {
                 return time < static_cast<double>(note.startMs);
             });
         for (auto event = first; event != last; ++event) {
-            triggerClipVoice(pattern,
+            triggerClipVoice(clip,
                 static_cast<std::size_t>(event - begin));
         }
     }
 
-    void applyClipCurves(const Pattern& pattern, double position)
+    void applyClipCurves(const ClipSlot& clip, double position)
     {
         clipControls = controls;
         clipOutputGain = outputGain;
-        if (pattern.clipPointCount == 0u || pattern.clipDurationMs == 0u) return;
-        const double duration = static_cast<double>(pattern.clipDurationMs);
+        if (clip.clipPointCount == 0u || clip.clipDurationMs == 0u) return;
+        const double duration = static_cast<double>(clip.clipDurationMs);
         for (std::size_t lane = 0u; lane < kClipCurveLaneCount; ++lane) {
-            const std::size_t count = pattern.clipPointCounts[lane];
+            const std::size_t count = clip.clipPointCounts[lane];
             if (count == 0u) continue;
-            const auto first = pattern.clipPoints.begin()
-                + pattern.clipPointStarts[lane];
+            const auto first = clip.clipPoints.begin()
+                + clip.clipPointStarts[lane];
             const auto last = first + count;
             const auto next = std::upper_bound(first, last, position,
                 [](double time, const ClipPoint& point) {
@@ -2425,28 +2601,30 @@ struct ThruInstance {
 
     void beginClipRecording()
     {
-        Pattern* pattern = activeClipPattern();
-        if (!pattern || patternPreparationInFlight()) {
+        ClipSlot* clip = activeClipSlot();
+        if (!clip || clipPreparationInFlight()) {
             setError("Wait for the queued clip to finish preparing");
             return;
         }
-        pushPatternUndo(activePattern);
+        pushClipUndo(activeClip);
         chainEnabled = false;
         chainNextSlot = -1;
         const bool overdub = clipRecordMode == ClipRecordMode::overdub
-            && pattern->clipRecorded
-            && pattern->clipDurationMs >= kClipMinimumDurationMs;
+            && clip->clipRecorded
+            && clip->clipDurationMs >= kClipMinimumDurationMs;
         clipReplacing = !overdub;
         if (!overdub) {
-            pattern->clipNoteCount = 0u;
-            pattern->clipPointCount = 0u;
-            pattern->clipPointStarts.fill(0u);
-            pattern->clipPointCounts.fill(0u);
-            pattern->clipDurationMs = 0u;
-            pattern->clipRecorded = false;
+            clip->clipNoteCount = 0u;
+            clip->clipPointCount = 0u;
+            clip->noteCapacityReached = false;
+            clip->pointCapacityReached = false;
+            clip->clipPointStarts.fill(0u);
+            clip->clipPointCounts.fill(0u);
+            clip->clipDurationMs = 0u;
+            clip->clipRecorded = false;
             for (std::size_t parameter = 0u;
                  parameter < kLockParameterCount; ++parameter) {
-                pattern->baseValues[parameter] = lockedValue(
+                clip->baseValues[parameter] = lockedValue(
                     controls, outputGain, parameter);
             }
             clipPlaying = false;
@@ -2460,6 +2638,16 @@ struct ThruInstance {
         clipOpenNoteIndices.fill(-1);
         clipLastPressureTimes.fill(0xffffffffu);
         clipLastPressureValues.fill(-1.0f);
+        clipLastPointIndices.fill(-1);
+        if (overdub) {
+            for (std::size_t index = 0u;
+                 index < clip->clipPointCount; ++index) {
+                const std::size_t lane = clipPointLane(clip->clipPoints[index]);
+                if (lane < kClipCurveLaneCount) {
+                    clipLastPointIndices[lane] = static_cast<int>(index);
+                }
+            }
+        }
         clipRecordStartSample = renderClockSamples.load(
             std::memory_order_relaxed);
         clipRecording = true;
@@ -2475,49 +2663,53 @@ struct ThruInstance {
             }
         }
         clipFinishPending = false;
-        pattern->occupied = true;
-        activePatternOccupied = true;
+        clip->occupied = true;
+        activeClipOccupied = true;
         markPersistentStateDirty();
     }
 
     void finishClipRecording()
     {
-        Pattern* pattern = activeClipPattern();
-        if (!clipRecording || !pattern) return;
+        ClipSlot* clip = activeClipSlot();
+        if (!clipRecording || !clip) return;
         for (std::size_t key = 0u; key < clipOpenNoteIndices.size(); ++key) {
             const int index = clipOpenNoteIndices[key];
-            if (index < 0 || index >= static_cast<int>(pattern->clipNoteCount)) continue;
+            if (index < 0 || index >= static_cast<int>(clip->clipNoteCount)) continue;
             const double elapsed = std::max(1.0,
                 clipCaptureAbsoluteMs() - clipOpenNoteStarts[key]);
-            pattern->clipNotes[static_cast<std::size_t>(index)].durationMs =
+            clip->clipNotes[static_cast<std::size_t>(index)].durationMs =
                 static_cast<std::uint32_t>(clampValue(
                     elapsed, 1.0, static_cast<double>(kClipMaximumDurationMs)));
         }
         clipOpenNoteIndices.fill(-1);
         if (clipReplacing
-            || pattern->clipDurationMs < kClipMinimumDurationMs) {
-            pattern->clipDurationMs = static_cast<std::uint32_t>(clampValue(
+            || clip->clipDurationMs < kClipMinimumDurationMs) {
+            clip->clipDurationMs = static_cast<std::uint32_t>(clampValue(
                 captureElapsedMs(),
                 static_cast<double>(kClipMinimumDurationMs),
                 static_cast<double>(kClipMaximumDurationMs)));
+            clip->recordedTempoBpm = tempoBpm;
+            clip->recordedBeats = static_cast<float>(
+                static_cast<double>(clip->clipDurationMs)
+                * static_cast<double>(tempoBpm) / 60000.0);
         }
-        const std::uint32_t duration = pattern->clipDurationMs;
-        for (std::size_t index = 0u; index < pattern->clipNoteCount; ++index) {
-            ClipNote& note = pattern->clipNotes[index];
+        const std::uint32_t duration = clip->clipDurationMs;
+        for (std::size_t index = 0u; index < clip->clipNoteCount; ++index) {
+            ClipNote& note = clip->clipNotes[index];
             note.startMs %= duration;
             note.durationMs = clampValue(note.durationMs, 1u, duration);
         }
-        for (std::size_t index = 0u; index < pattern->clipPointCount; ++index) {
-            pattern->clipPoints[index].timeMs %= duration;
+        for (std::size_t index = 0u; index < clip->clipPointCount; ++index) {
+            clip->clipPoints[index].timeMs %= duration;
         }
-        std::sort(pattern->clipNotes.begin(),
-                  pattern->clipNotes.begin() + pattern->clipNoteCount,
+        std::sort(clip->clipNotes.begin(),
+                  clip->clipNotes.begin() + clip->clipNoteCount,
                   [](const ClipNote& left, const ClipNote& right) {
                       return left.startMs < right.startMs;
                   });
-        rebuildClipPointIndex(*pattern);
-        pattern->clipRecorded = true;
-        pattern->occupied = true;
+        rebuildClipPointIndex(*clip);
+        clip->clipRecorded = true;
+        clip->occupied = true;
         clipRecording = false;
         clipFinishPending = false;
         clipPlaying = true;
@@ -2535,32 +2727,34 @@ struct ThruInstance {
         else beginClipRecording();
     }
 
-    void clearPatternClip(int index)
+    void clearClipSlot(int index)
     {
-        if (index < 0 || index >= static_cast<int>(patterns.size())
+        if (index < 0 || index >= static_cast<int>(clipSlots.size())
             || clipRecording) return;
-        pushPatternUndo(index);
-        Pattern& pattern = patterns[static_cast<std::size_t>(index)];
-        pattern.clipNoteCount = 0u;
-        pattern.clipPointCount = 0u;
-        pattern.clipPointStarts.fill(0u);
-        pattern.clipPointCounts.fill(0u);
-        pattern.clipDurationMs = 0u;
-        pattern.clipRecorded = false;
-        if (index == queuedPattern) {
-            queuedPattern = -1;
+        pushClipUndo(index);
+        ClipSlot& clip = clipSlots[static_cast<std::size_t>(index)];
+        clip.clipNoteCount = 0u;
+        clip.clipPointCount = 0u;
+        clip.clipPointStarts.fill(0u);
+        clip.clipPointCounts.fill(0u);
+        clip.clipDurationMs = 0u;
+        clip.clipRecorded = false;
+        clip.noteCapacityReached = false;
+        clip.pointCapacityReached = false;
+        if (index == queuedClip) {
+            queuedClip = -1;
             chainNextSlot = -1;
         }
         bool ownsSamples = false;
         for (std::size_t lane = 0u; lane < kLaneCount; ++lane) {
-            if (pattern.laneSourceKinds[lane] != LaneSourceKind::inherit) {
+            if (clip.laneSourceKinds[lane] != LaneSourceKind::empty) {
                 ownsSamples = true;
                 break;
             }
         }
-        pattern.occupied = ownsSamples;
-        if (index == activePattern) {
-            activePatternOccupied = pattern.occupied;
+        clip.occupied = ownsSamples;
+        if (index == activeClip) {
+            activeClipOccupied = clip.occupied;
             clipPositionMs = 0.0;
             clipAbsolutePositionMs = 0.0;
             clipPlaying = false;
@@ -2569,123 +2763,123 @@ struct ThruInstance {
         markPersistentStateDirty();
     }
 
-    void clearActiveClip() { clearPatternClip(activePattern); }
+    void clearActiveClip() { clearClipSlot(activeClip); }
 
     int nextEnabledChainSlot(int after) const
     {
-        for (std::size_t offset = 1u; offset <= patternChain.size(); ++offset) {
+        for (std::size_t offset = 1u; offset <= clipChain.size(); ++offset) {
             const int slot = (after + static_cast<int>(offset))
-                % static_cast<int>(patternChain.size());
-            if (patternChain[static_cast<std::size_t>(slot)].enabled) return slot;
+                % static_cast<int>(clipChain.size());
+            if (clipChain[static_cast<std::size_t>(slot)].enabled) return slot;
         }
         return -1;
     }
 
     int firstEnabledChainSlot() const
     {
-        for (std::size_t slot = 0u; slot < patternChain.size(); ++slot) {
-            if (patternChain[slot].enabled) return static_cast<int>(slot);
+        for (std::size_t slot = 0u; slot < clipChain.size(); ++slot) {
+            if (clipChain[slot].enabled) return static_cast<int>(slot);
         }
         return -1;
     }
 
-    void prepareNextChainPattern()
+    void prepareNextChainClip()
     {
         if (!chainEnabled) return;
         const int first = firstEnabledChainSlot();
         if (first < 0) return;
         if (chainPosition < 0
-            || chainPosition >= static_cast<int>(patternChain.size())
-            || !patternChain[static_cast<std::size_t>(chainPosition)].enabled) {
+            || chainPosition >= static_cast<int>(clipChain.size())
+            || !clipChain[static_cast<std::size_t>(chainPosition)].enabled) {
             chainPosition = first;
             chainRepeat = 0;
         }
         const int next = nextEnabledChainSlot(chainPosition);
         if (next < 0) return;
         chainNextSlot = next;
-        const int target = patternChain[static_cast<std::size_t>(next)].pattern;
-        queuedPattern = target;
-        requestPatternPreparation(target);
+        const int target = clipChain[static_cast<std::size_t>(next)].clip;
+        queuedClip = target;
+        requestClipPreparation(target);
     }
 
-    void advancePatternChain()
+    void advanceClipChain()
     {
         if (!chainEnabled) return;
         const int first = firstEnabledChainSlot();
         if (first < 0) return;
         if (chainPosition < 0
-            || chainPosition >= static_cast<int>(patternChain.size())
-            || !patternChain[static_cast<std::size_t>(chainPosition)].enabled) {
+            || chainPosition >= static_cast<int>(clipChain.size())
+            || !clipChain[static_cast<std::size_t>(chainPosition)].enabled) {
             chainPosition = first;
             chainRepeat = 0;
         }
-        if (chainNextSlot < 0) prepareNextChainPattern();
-        const PatternChainEntry& current =
-            patternChain[static_cast<std::size_t>(chainPosition)];
+        if (chainNextSlot < 0) prepareNextChainClip();
+        const ClipChainEntry& current =
+            clipChain[static_cast<std::size_t>(chainPosition)];
         ++chainRepeat;
         if (chainRepeat < std::max(1, static_cast<int>(current.repeats))) return;
         if (chainNextSlot < 0) return;
-        const int target = patternChain[
-            static_cast<std::size_t>(chainNextSlot)].pattern;
-        const auto prepareState = static_cast<PatternPrepareState>(
-            patternPrepareState.load(std::memory_order_acquire));
-        if (prepareState != PatternPrepareState::ready
-            || preparedPattern.load(std::memory_order_relaxed) != target) {
-            requestPatternPreparation(target);
+        const int target = clipChain[
+            static_cast<std::size_t>(chainNextSlot)].clip;
+        const auto prepareState = static_cast<ClipPrepareState>(
+            clipPrepareState.load(std::memory_order_acquire));
+        if (prepareState != ClipPrepareState::ready
+            || preparedClip.load(std::memory_order_relaxed) != target) {
+            requestClipPreparation(target);
             return;
         }
         chainPosition = chainNextSlot;
         chainNextSlot = -1;
         chainRepeat = 0;
-        activatePreparedPattern();
-        prepareNextChainPattern();
+        activatePreparedClip();
+        prepareNextChainClip();
     }
 
     void serviceClipBeforeBlock()
     {
-        auto prepareState = static_cast<PatternPrepareState>(
-            patternPrepareState.load(std::memory_order_acquire));
-        if (queuedPattern >= 0
-            && prepareState == PatternPrepareState::ready
-            && preparedPattern.load(std::memory_order_relaxed)
-                != queuedPattern) {
-            preparedPattern.store(-1, std::memory_order_relaxed);
-            patternPrepareState.store(static_cast<int>(PatternPrepareState::idle),
+        auto prepareState = static_cast<ClipPrepareState>(
+            clipPrepareState.load(std::memory_order_acquire));
+        if (queuedClip >= 0
+            && prepareState == ClipPrepareState::ready
+            && preparedClip.load(std::memory_order_relaxed)
+                != queuedClip) {
+            preparedClip.store(-1, std::memory_order_relaxed);
+            clipPrepareState.store(static_cast<int>(ClipPrepareState::idle),
                                       std::memory_order_release);
-            prepareState = PatternPrepareState::idle;
+            prepareState = ClipPrepareState::idle;
         }
-        if (queuedPattern >= 0
-            && prepareState == PatternPrepareState::idle) {
-            requestPatternPreparation(queuedPattern);
-            prepareState = PatternPrepareState::requested;
+        if (queuedClip >= 0
+            && prepareState == ClipPrepareState::idle) {
+            requestClipPreparation(queuedClip);
+            prepareState = ClipPrepareState::requested;
         }
-        if (!clipPlaying && queuedPattern >= 0
-            && prepareState == PatternPrepareState::ready
-            && preparedPattern.load(std::memory_order_relaxed)
-                == queuedPattern) {
-            activatePreparedPattern();
-        } else if (queuedPattern >= 0
-                   && prepareState == PatternPrepareState::error) {
-            setError("Queued pattern sample preparation failed");
+        if (!clipPlaying && queuedClip >= 0
+            && prepareState == ClipPrepareState::ready
+            && preparedClip.load(std::memory_order_relaxed)
+                == queuedClip) {
+            activatePreparedClip();
+        } else if (queuedClip >= 0
+                   && prepareState == ClipPrepareState::error) {
+            setError("Queued clip sample preparation failed");
         }
         if (!clipPlaying) return;
-        Pattern* pattern = activeClipPattern();
-        if (!pattern || !pattern->clipRecorded
-            || pattern->clipDurationMs < kClipMinimumDurationMs) {
-            if (queuedPattern >= 0
-                && prepareState == PatternPrepareState::ready
-                && preparedPattern.load(std::memory_order_relaxed)
-                    == queuedPattern) {
-                activatePreparedPattern();
+        ClipSlot* clip = activeClipSlot();
+        if (!clip || !clip->clipRecorded
+            || clip->clipDurationMs < kClipMinimumDurationMs) {
+            if (queuedClip >= 0
+                && prepareState == ClipPrepareState::ready
+                && preparedClip.load(std::memory_order_relaxed)
+                    == queuedClip) {
+                activatePreparedClip();
                 clipPositionMs = 0.0;
                 clipAbsolutePositionMs = 0.0;
                 clipNeedsStart = true;
             }
             return;
         }
-        applyClipCurves(*pattern, clipPositionMs);
+        applyClipCurves(*clip, clipPositionMs);
         if (clipNeedsStart) {
-            processClipEvents(*pattern, 0.0, 0.0, true);
+            processClipEvents(*clip, 0.0, 0.0, true);
             clipNeedsStart = false;
         }
     }
@@ -2693,44 +2887,63 @@ struct ThruInstance {
     void serviceClipAfterBlock(std::size_t frames)
     {
         renderClockSamples.fetch_add(frames, std::memory_order_relaxed);
+        const double previousBeat = transportBeats;
+        transportBeats += static_cast<double>(frames)
+            / static_cast<double>(std::max(1.0f, sampleRate))
+            * static_cast<double>(tempoBpm) / 60.0;
+        if (clipLaunchPending) {
+            const double quantum = launchQuantize == LaunchQuantize::bar
+                ? 4.0 : 1.0;
+            if (std::floor(previousBeat / quantum)
+                < std::floor(transportBeats / quantum)) {
+                clipLaunchPending = false;
+                startClipPlaybackNow();
+                return;
+            }
+        }
         if (clipRecording && clipReplacing
             && captureElapsedMs() >= static_cast<double>(kClipMaximumDurationMs)) {
             clipFinishPending = true;
         }
         if (!clipPlaying) return;
-        Pattern* pattern = activeClipPattern();
-        if (!pattern || !pattern->clipRecorded
-            || pattern->clipDurationMs < kClipMinimumDurationMs) return;
-        const double duration = static_cast<double>(pattern->clipDurationMs);
-        const double rate = clampValue(
-            static_cast<double>(pattern->clipRate), 0.25, 4.0);
+        ClipSlot* clip = activeClipSlot();
+        if (!clip || !clip->clipRecorded
+            || clip->clipDurationMs < kClipMinimumDurationMs) return;
+        const double duration = static_cast<double>(clip->clipDurationMs);
+        double rate = clampValue(
+            static_cast<double>(clip->clipRate), 0.25, 4.0);
+        if (clip->timingMode == ClipTimingMode::beatSync
+            && clip->recordedTempoBpm > 0.0f) {
+            rate *= static_cast<double>(tempoBpm)
+                / static_cast<double>(clip->recordedTempoBpm);
+        }
         const double advance = static_cast<double>(frames) * 1000.0
             / static_cast<double>(std::max(1.0f, sampleRate)) * rate;
         const double previous = clipPositionMs;
         double next = previous + advance;
         clipAbsolutePositionMs += advance;
         if (next < duration) {
-            processClipEvents(*pattern, previous, next);
+            processClipEvents(*clip, previous, next);
             clipPositionMs = next;
             return;
         }
-        processClipEvents(*pattern, previous, duration);
-        const int beforePattern = activePattern;
+        processClipEvents(*clip, previous, duration);
+        const int beforeClip = activeClip;
         if (chainEnabled && firstEnabledChainSlot() >= 0) {
-            advancePatternChain();
-        } else if (queuedPattern >= 0) {
-            const auto prepareState = static_cast<PatternPrepareState>(
-                patternPrepareState.load(std::memory_order_acquire));
-            if (prepareState == PatternPrepareState::ready
-                && preparedPattern.load(std::memory_order_relaxed)
-                    == queuedPattern) {
-                activatePreparedPattern();
-            } else if (prepareState == PatternPrepareState::idle
-                       || prepareState == PatternPrepareState::error) {
-                requestPatternPreparation(queuedPattern);
+            advanceClipChain();
+        } else if (queuedClip >= 0) {
+            const auto prepareState = static_cast<ClipPrepareState>(
+                clipPrepareState.load(std::memory_order_acquire));
+            if (prepareState == ClipPrepareState::ready
+                && preparedClip.load(std::memory_order_relaxed)
+                    == queuedClip) {
+                activatePreparedClip();
+            } else if (prepareState == ClipPrepareState::idle
+                       || prepareState == ClipPrepareState::error) {
+                requestClipPreparation(queuedClip);
             }
         }
-        if (activePattern != beforePattern) {
+        if (activeClip != beforeClip) {
             releaseClipVoices();
             clipPositionMs = 0.0;
             clipAbsolutePositionMs = 0.0;
@@ -2739,92 +2952,114 @@ struct ThruInstance {
         }
         next = std::fmod(next, duration);
         clipPositionMs = next;
-        processClipEvents(*pattern, 0.0, next, true);
+        processClipEvents(*clip, 0.0, next, true);
     }
 
-    void setClipPlaying(bool running)
+    void startClipPlaybackNow()
     {
-        if (running == clipPlaying) return;
-        clipPlaying = running;
+        clipPlaying = true;
         releaseClipVoices();
         clipPositionMs = 0.0;
         clipAbsolutePositionMs = 0.0;
-        clipNeedsStart = running;
-        if (running && chainEnabled) {
+        clipNeedsStart = true;
+        if (chainEnabled) {
             const int first = firstEnabledChainSlot();
             if (first >= 0) {
                 chainPosition = first;
                 chainRepeat = 0;
-                const int target = patternChain[static_cast<std::size_t>(first)].pattern;
-                if (target != activePattern) {
+                const int target = clipChain[static_cast<std::size_t>(first)].clip;
+                if (target != activeClip) {
                     chainNextSlot = first;
                     chainRepeat = std::max(1, static_cast<int>(
-                        patternChain[static_cast<std::size_t>(first)].repeats)) - 1;
-                    queuedPattern = target;
-                    requestPatternPreparation(target);
+                        clipChain[static_cast<std::size_t>(first)].repeats)) - 1;
+                    queuedClip = target;
+                    requestClipPreparation(target);
                 } else {
                     chainNextSlot = -1;
-                    prepareNextChainPattern();
+                    prepareNextChainClip();
                 }
             }
-        } else if (!running) {
-            chainNextSlot = -1;
         }
     }
 
-    bool workingPatternHasContent() const
+    void setClipPlaying(bool running)
     {
-        const Pattern* clip = activeClipPattern();
+        if (!running) {
+            if (!clipPlaying && !clipLaunchPending) return;
+            clipLaunchPending = false;
+            clipPlaying = false;
+            releaseClipVoices();
+            clipPositionMs = 0.0;
+            clipAbsolutePositionMs = 0.0;
+            clipNeedsStart = false;
+            chainNextSlot = -1;
+            return;
+        }
+        if (clipPlaying || clipLaunchPending) return;
+        if (launchQuantize == LaunchQuantize::off) {
+            startClipPlaybackNow();
+        } else {
+            clipLaunchPending = true;
+            releaseClipVoices();
+            clipPositionMs = 0.0;
+            clipAbsolutePositionMs = 0.0;
+            clipNeedsStart = false;
+        }
+    }
+
+    bool workingClipHasContent() const
+    {
+        const ClipSlot* clip = activeClipSlot();
         return clip && clip->clipRecorded
             && clip->clipDurationMs >= kClipMinimumDurationMs;
     }
 
     void markPersistentStateDirty() { persistentStateDirty = true; }
 
-    void pushPatternUndo(int index)
+    void pushClipUndo(int index)
     {
-        if (index < 0 || index >= static_cast<int>(patterns.size())) return;
-        if (index == activePattern) captureActivePattern(false);
-        undoPattern = patterns[static_cast<std::size_t>(index)];
-        undoPatternIndex = index;
+        if (index < 0 || index >= static_cast<int>(clipSlots.size())) return;
+        if (index == activeClip) captureActiveClip(false);
+        undoClip = clipSlots[static_cast<std::size_t>(index)];
+        undoClipIndex = index;
         undoAvailable = true;
     }
 
     void restoreUndo()
     {
-        if (!undoAvailable || undoPatternIndex < 0
-            || undoPatternIndex >= static_cast<int>(patterns.size())) return;
-        if (patternPreparationInFlight()) {
-            setError("Wait for the queued pattern to finish preparing");
+        if (!undoAvailable || undoClipIndex < 0
+            || undoClipIndex >= static_cast<int>(clipSlots.size())) return;
+        if (clipPreparationInFlight()) {
+            setError("Wait for the queued clip to finish preparing");
             return;
         }
-        patterns[static_cast<std::size_t>(undoPatternIndex)] = undoPattern;
-        if (activePattern == undoPatternIndex) activateStoredPattern(activePattern);
+        clipSlots[static_cast<std::size_t>(undoClipIndex)] = undoClip;
+        if (activeClip == undoClipIndex) activateStoredClip(activeClip);
         undoAvailable = false;
         markPersistentStateDirty();
     }
 
-    void captureActivePattern(bool forceOccupied)
+    void captureActiveClip(bool forceOccupied)
     {
-        if (activePattern < 0 || activePattern >= static_cast<int>(patterns.size())) {
+        if (activeClip < 0 || activeClip >= static_cast<int>(clipSlots.size())) {
             return;
         }
-        Pattern& pattern = patterns[static_cast<std::size_t>(activePattern)];
+        ClipSlot& clip = clipSlots[static_cast<std::size_t>(activeClip)];
         for (std::size_t index = 0u; index < kLockParameterCount; ++index) {
-            pattern.baseValues[index] = lockedValue(controls, outputGain, index);
+            clip.baseValues[index] = lockedValue(controls, outputGain, index);
         }
-        pattern.occupied = forceOccupied || activePatternOccupied
-            || workingPatternHasContent();
-        activePatternOccupied = pattern.occupied;
-        patternBankInitialized = true;
+        clip.occupied = forceOccupied || activeClipOccupied
+            || workingClipHasContent();
+        activeClipOccupied = clip.occupied;
+        clipBankInitialized = true;
     }
 
-    void activateStoredPattern(int index, bool queueSources = true)
+    void activateStoredClip(int index, bool queueSources = true)
     {
-        if (index < 0 || index >= static_cast<int>(patterns.size())) return;
-        Pattern& target = patterns[static_cast<std::size_t>(index)];
-        activePattern = index;
-        activePatternOccupied = target.occupied;
+        if (index < 0 || index >= static_cast<int>(clipSlots.size())) return;
+        ClipSlot& target = clipSlots[static_cast<std::size_t>(index)];
+        activeClip = index;
+        activeClipOccupied = target.occupied;
         for (std::size_t parameter = 0u;
              parameter < kLockParameterCount; ++parameter) {
             applyLockedValue(controls, outputGain, parameter,
@@ -2835,30 +3070,30 @@ struct ThruInstance {
         clipPositionMs = 0.0;
         clipAbsolutePositionMs = 0.0;
         clipNeedsStart = clipPlaying;
-        if (queueSources) queuePatternSources(index);
-        queuedPattern = -1;
+        if (queueSources) queueClipSources(index);
+        queuedClip = -1;
     }
 
-    bool activatePreparedPattern()
+    bool activatePreparedClip()
     {
-        if (patternPrepareState.load(std::memory_order_acquire)
-                != static_cast<int>(PatternPrepareState::ready)
-            || preparedPattern.load(std::memory_order_relaxed) < 0
-            || preparedPattern.load(std::memory_order_relaxed)
-                >= static_cast<int>(patterns.size())
+        if (clipPrepareState.load(std::memory_order_acquire)
+                != static_cast<int>(ClipPrepareState::ready)
+            || preparedClip.load(std::memory_order_relaxed) < 0
+            || preparedClip.load(std::memory_order_relaxed)
+                >= static_cast<int>(clipSlots.size())
             || engine.recording()) return false;
         allNotesOff();
-        storage.swap(preparedPatternStorage);
+        storage.swap(preparedClipStorage);
         if (!engine.rebindStorage(storage.get() + planeCapacityFrames * 0u,
                                   storage.get() + planeCapacityFrames * 1u,
                                   storage.get() + planeCapacityFrames * 2u,
                                   storage.get() + planeCapacityFrames * 3u,
                                   planeCapacityFrames)) {
-            storage.swap(preparedPatternStorage);
-            patternPrepareState.store(
-                static_cast<int>(PatternPrepareState::error),
+            storage.swap(preparedClipStorage);
+            clipPrepareState.store(
+                static_cast<int>(ClipPrepareState::error),
                 std::memory_order_release);
-            setError("Prepared pattern bank could not be activated");
+            setError("Prepared clip bank could not be activated");
             return false;
         }
         for (std::size_t lane = 0u; lane < kLaneCount; ++lane) {
@@ -2882,7 +3117,7 @@ struct ThruInstance {
                           preparedLaneLabels[lane][0] != '\0'
                               ? preparedLaneLabels[lane].data()
                               : (preparedLaneFrames[lane] != 0u
-                                  ? "INHERIT" : "EMPTY"));
+                                  ? "SAMPLE" : "EMPTY"));
         }
         for (auto& voice : voices) {
             voice.engine.rebindStorage(
@@ -2906,63 +3141,71 @@ struct ThruInstance {
         pendingClearMask = 0u;
         waveDirtyMask = (1u << kLaneCount) - 1u;
         scanLane = -1;
-        const int target = preparedPattern.load(std::memory_order_relaxed);
-        preparedPattern.store(-1, std::memory_order_relaxed);
-        patternPrepareState.store(static_cast<int>(PatternPrepareState::idle),
+        const int target = preparedClip.load(std::memory_order_relaxed);
+        preparedClip.store(-1, std::memory_order_relaxed);
+        clipPrepareState.store(static_cast<int>(ClipPrepareState::idle),
                                   std::memory_order_release);
-        activateStoredPattern(target, false);
+        activateStoredClip(target, false);
         return true;
     }
 
-    void loadPattern(int index)
+    void copyCurrentSourcesToClip(ClipSlot& target)
     {
-        if (index < 0 || index >= static_cast<int>(patterns.size())) return;
-        captureActivePattern(false);
-        Pattern& target = patterns[static_cast<std::size_t>(index)];
+        for (std::size_t lane = 0u; lane < kLaneCount; ++lane) {
+            target.laneSourceKinds[lane] = currentLaneSourceKinds[lane];
+            std::snprintf(target.laneSourcePaths[lane].data(),
+                          target.laneSourcePaths[lane].size(), "%s",
+                          currentLaneSourcePaths[lane].data());
+            std::snprintf(target.laneSourceLabels[lane].data(),
+                          target.laneSourceLabels[lane].size(), "%s",
+                          laneSourceLabels[lane].data());
+        }
+    }
+
+    void loadClip(int index)
+    {
+        if (index < 0 || index >= static_cast<int>(clipSlots.size())) return;
+        captureActiveClip(false);
+        ClipSlot& target = clipSlots[static_cast<std::size_t>(index)];
         if (!target.occupied) {
-            target = Pattern {};
+            target = ClipSlot {};
             for (std::size_t parameter = 0u;
                  parameter < kLockParameterCount; ++parameter) {
                 target.baseValues[parameter] = lockedValue(
                     controls, outputGain, parameter);
             }
-            if (activePattern >= 0
-                && activePattern < static_cast<int>(patterns.size())) {
-                const Pattern& previous = patterns[static_cast<std::size_t>(
-                    activePattern)];
-                target.laneSourcePaths = previous.laneSourcePaths;
-                target.laneSourceLabels = previous.laneSourceLabels;
-            }
+            copyCurrentSourcesToClip(target);
             target.occupied = true;
         }
-        activateStoredPattern(index);
+        activateStoredClip(index);
         markPersistentStateDirty();
     }
 
-    void initializePatternIfNeeded(int index)
+    void initializeClipIfNeeded(int index)
     {
-        if (index < 0 || index >= static_cast<int>(patterns.size())) return;
-        Pattern& target = patterns[static_cast<std::size_t>(index)];
+        if (index < 0 || index >= static_cast<int>(clipSlots.size())) return;
+        ClipSlot& target = clipSlots[static_cast<std::size_t>(index)];
         if (target.occupied) return;
-        target = Pattern {};
+        target = ClipSlot {};
         for (std::size_t parameter = 0u;
              parameter < kLockParameterCount; ++parameter) {
             target.baseValues[parameter] = lockedValue(
                 controls, outputGain, parameter);
         }
+        copyCurrentSourcesToClip(target);
         target.occupied = true;
         markPersistentStateDirty();
     }
 
-    void selectPattern(int index)
+    void selectClip(int index)
     {
-        if (index < 0 || index >= static_cast<int>(patterns.size())) return;
+        if (index < 0 || index >= static_cast<int>(clipSlots.size())) return;
         if (clipRecording) {
             setError("Stop performance recording before changing clips");
             return;
         }
-        if (index == activePattern) {
-            queuedPattern = -1;
+        if (index == activeClip) {
+            queuedClip = -1;
             return;
         }
         if (chainEnabled) {
@@ -2970,79 +3213,80 @@ struct ThruInstance {
             chainNextSlot = -1;
         }
         if (pendingCaptureSaveMask != 0u && !serviceMaintenance()) {
-            setError("Pattern change is waiting for capture save");
+            setError("Clip change is waiting for capture save");
             return;
         }
-        captureActivePattern(false);
-        queuedPattern = index;
-        requestPatternPreparation(index);
+        captureActiveClip(false);
+        queuedClip = index;
+        requestClipPreparation(index);
     }
 
-    bool patternPreparationBusy(int index) const
+    bool clipPreparationBusy(int index) const
     {
-        const auto state = static_cast<PatternPrepareState>(
-            patternPrepareState.load(std::memory_order_acquire));
-        return index == patternPrepareRequest.load(std::memory_order_relaxed)
-            && (state == PatternPrepareState::requested
-                || state == PatternPrepareState::loading);
+        const auto state = static_cast<ClipPrepareState>(
+            clipPrepareState.load(std::memory_order_acquire));
+        return index == clipPrepareRequest.load(std::memory_order_relaxed)
+            && (state == ClipPrepareState::requested
+                || state == ClipPrepareState::loading);
     }
 
-    void copyActivePattern(int destination)
+    void copyActiveClip(int destination)
     {
         if (destination < 0
-            || destination >= static_cast<int>(patterns.size())) return;
-        if (patternPreparationInFlight()) {
-            setError("Queued pattern is still preparing");
+            || destination >= static_cast<int>(clipSlots.size())) return;
+        if (clipPreparationInFlight()) {
+            setError("Queued clip is still preparing");
             return;
         }
-        captureActivePattern(true);
-        pushPatternUndo(destination);
-        patterns[static_cast<std::size_t>(destination)] =
-            patterns[static_cast<std::size_t>(activePattern)];
-        patterns[static_cast<std::size_t>(destination)].occupied = true;
+        captureActiveClip(true);
+        pushClipUndo(destination);
+        clipSlots[static_cast<std::size_t>(destination)] =
+            clipSlots[static_cast<std::size_t>(activeClip)];
+        clipSlots[static_cast<std::size_t>(destination)].occupied = true;
         markPersistentStateDirty();
     }
 
-    void clearPattern(int index)
+    void resetClip(int index)
     {
-        if (index < 0 || index >= static_cast<int>(patterns.size())) return;
+        if (index < 0 || index >= static_cast<int>(clipSlots.size())) return;
         if (clipRecording) {
             setError("Stop performance recording before clearing a clip");
             return;
         }
-        if (patternPreparationInFlight()) {
-            setError("Queued pattern is still preparing");
+        if (clipPreparationInFlight()) {
+            setError("Queued clip is still preparing");
             return;
         }
-        pushPatternUndo(index);
-        patterns[static_cast<std::size_t>(index)] = Pattern {};
-        if (queuedPattern == index) queuedPattern = -1;
-        if (activePattern == index) {
-            activePatternOccupied = false;
+        pushClipUndo(index);
+        clipSlots[static_cast<std::size_t>(index)] = ClipSlot {};
+        if (queuedClip == index) queuedClip = -1;
+        if (activeClip == index) {
+            activeClipOccupied = false;
             clipPlaying = false;
             clipPositionMs = 0.0;
             clipAbsolutePositionMs = 0.0;
             clipNeedsStart = false;
             releaseClipVoices();
+            queueClipSources(index);
         }
         markPersistentStateDirty();
     }
 
-    std::uint64_t occupiedPatternMask() const
+    std::uint64_t occupiedClipMask() const
     {
         std::uint64_t mask = 0u;
-        for (std::size_t index = 0u; index < patterns.size(); ++index) {
-            if (patterns[index].occupied) mask |= std::uint64_t { 1u } << index;
+        for (std::size_t index = 0u; index < clipSlots.size(); ++index) {
+            if (clipSlots[index].occupied) mask |= std::uint64_t { 1u } << index;
         }
         return mask;
     }
 
-    void setChainEntry(int slot, int pattern, int repeats)
+    void setChainEntry(int slot, int clip, int repeats)
     {
-        if (slot < 0 || slot >= static_cast<int>(patternChain.size())) return;
-        auto& entry = patternChain[static_cast<std::size_t>(slot)];
-        entry.pattern = static_cast<std::uint8_t>(clampValue(
-            pattern, 0, static_cast<int>(kPatternCount) - 1));
+        if (slot < 0 || slot >= static_cast<int>(clipChain.size())) return;
+        auto& entry = clipChain[static_cast<std::size_t>(slot)];
+        entry.clip = static_cast<std::uint8_t>(clampValue(
+            clip, 0, static_cast<int>(kClipSlotCount) - 1));
         entry.repeats = static_cast<std::uint8_t>(clampValue(repeats, 1, 16));
         entry.enabled = true;
         markPersistentStateDirty();
@@ -3050,22 +3294,71 @@ struct ThruInstance {
 
     void clearChainEntry(int slot)
     {
-        if (slot < 0 || slot >= static_cast<int>(patternChain.size())) return;
-        patternChain[static_cast<std::size_t>(slot)] = PatternChainEntry {};
+        if (slot < 0 || slot >= static_cast<int>(clipChain.size())) return;
+        clipChain[static_cast<std::size_t>(slot)] = ClipChainEntry {};
         if (chainPosition == slot) chainRepeat = 0;
         markPersistentStateDirty();
     }
 
-    int formatPatternChain(char* buffer, int bufferLength) const
+    void insertChainEntry(int slot, int clip)
+    {
+        if (slot < 0 || slot >= static_cast<int>(clipChain.size())) return;
+        for (std::size_t index = clipChain.size() - 1u;
+             index > static_cast<std::size_t>(slot); --index) {
+            clipChain[index] = clipChain[index - 1u];
+        }
+        setChainEntry(slot, clip, 1);
+        chainEditSlot = slot;
+    }
+
+    void deleteChainEntry(int slot)
+    {
+        if (slot < 0 || slot >= static_cast<int>(clipChain.size())) return;
+        for (std::size_t index = static_cast<std::size_t>(slot);
+             index + 1u < clipChain.size(); ++index) {
+            clipChain[index] = clipChain[index + 1u];
+        }
+        clipChain.back() = ClipChainEntry {};
+        if (chainPosition > slot) --chainPosition;
+        else if (chainPosition == slot) chainRepeat = 0;
+        chainEditSlot = std::min(chainEditSlot,
+            static_cast<int>(clipChain.size()) - 1);
+        markPersistentStateDirty();
+    }
+
+    void moveChainEntry(int source, int destination)
+    {
+        if (source < 0 || destination < 0
+            || source >= static_cast<int>(clipChain.size())
+            || destination >= static_cast<int>(clipChain.size())
+            || source == destination) return;
+        const ClipChainEntry moved = clipChain[static_cast<std::size_t>(source)];
+        if (source < destination) {
+            for (int index = source; index < destination; ++index) {
+                clipChain[static_cast<std::size_t>(index)] =
+                    clipChain[static_cast<std::size_t>(index + 1)];
+            }
+        } else {
+            for (int index = source; index > destination; --index) {
+                clipChain[static_cast<std::size_t>(index)] =
+                    clipChain[static_cast<std::size_t>(index - 1)];
+            }
+        }
+        clipChain[static_cast<std::size_t>(destination)] = moved;
+        chainEditSlot = destination;
+        markPersistentStateDirty();
+    }
+
+    int formatClipChain(char* buffer, int bufferLength) const
     {
         if (!buffer || bufferLength < 1) return -1;
         int position = 0;
-        for (std::size_t slot = 0u; slot < patternChain.size(); ++slot) {
-            const auto& entry = patternChain[slot];
+        for (std::size_t slot = 0u; slot < clipChain.size(); ++slot) {
+            const auto& entry = clipChain[slot];
             const int written = std::snprintf(
                 buffer + position, static_cast<std::size_t>(bufferLength - position),
                 slot == 0u ? "%u:%u:%u" : ",%u:%u:%u",
-                entry.enabled ? 1u : 0u, static_cast<unsigned>(entry.pattern),
+                entry.enabled ? 1u : 0u, static_cast<unsigned>(entry.clip),
                 static_cast<unsigned>(entry.repeats));
             if (written < 0 || written >= bufferLength - position) return -1;
             position += written;
@@ -3150,9 +3443,9 @@ struct ThruInstance {
 
     int formatCueState(char* buffer, int bufferLength) const
     {
-        if (!buffer || bufferLength < 1 || activePattern < 0
-            || activePattern >= static_cast<int>(patterns.size())) return -1;
-        const auto& cues = patterns[static_cast<std::size_t>(activePattern)].cues;
+        if (!buffer || bufferLength < 1 || activeClip < 0
+            || activeClip >= static_cast<int>(clipSlots.size())) return -1;
+        const auto& cues = clipSlots[static_cast<std::size_t>(activeClip)].cues;
         int position = 0;
         for (std::size_t index = 0u; index < cues.size(); ++index) {
             const int value = cues[index] < 0.0f ? -1
@@ -3229,12 +3522,12 @@ struct ThruInstance {
             case 58: if (value >= 64) clearChainEntry(chainEditSlot); break;
             case 65: chainEnabled = value >= 64; break;
             case 66: chainEditSlot = midiChoice(
-                value, static_cast<int>(kPatternChainLength)); break;
+                value, static_cast<int>(kClipChainLength)); break;
             case 67: setChainEntry(chainEditSlot, midiChoice(
-                value, static_cast<int>(kPatternCount)),
-                patternChain[static_cast<std::size_t>(chainEditSlot)].repeats); break;
+                value, static_cast<int>(kClipSlotCount)),
+                clipChain[static_cast<std::size_t>(chainEditSlot)].repeats); break;
             case 68: setChainEntry(chainEditSlot,
-                patternChain[static_cast<std::size_t>(chainEditSlot)].pattern,
+                clipChain[static_cast<std::size_t>(chainEditSlot)].clip,
                 1 + midiChoice(value, 16)); break;
             case 69: controls.motionTravel = midiUnit(value); break;
             case 70: controls.motionJitter = midiUnit(value); break;
@@ -3301,8 +3594,8 @@ struct ThruInstance {
                 midiChoice(value, 5)); break;
             case 113: previewLevel = midiUnit(value); break;
             case 114: {
-                Pattern* pattern = activeClipPattern();
-                if (pattern) pattern->clipRate = 0.25f
+                ClipSlot* clip = activeClipSlot();
+                if (clip) clip->clipRate = 0.25f
                     + midiUnit(value) * 3.75f;
                 break;
             }
@@ -3370,23 +3663,23 @@ struct ThruInstance {
             std::snprintf(laneSourceLabels[lane].data(),
                           laneSourceLabels[lane].size(), "SAVING TAKE");
             currentLaneSourceKinds[lane] = LaneSourceKind::capture;
-            if (activePattern >= 0
-                && activePattern < static_cast<int>(patterns.size())) {
-                Pattern& pattern = patterns[static_cast<std::size_t>(activePattern)];
+            if (activeClip >= 0
+                && activeClip < static_cast<int>(clipSlots.size())) {
+                ClipSlot& clip = clipSlots[static_cast<std::size_t>(activeClip)];
                 std::array<char, kPersistencePathSize> leaf {};
                 std::snprintf(leaf.data(), leaf.size(),
-                              "captures/p%02d-lane-%u.wav", activePattern + 1,
+                              "captures/c%02d-lane-%u.wav", activeClip + 1,
                               static_cast<unsigned>(lane + 1u));
-                persistencePath(leaf.data(), pattern.laneSourcePaths[lane].data(),
-                                pattern.laneSourcePaths[lane].size());
+                persistencePath(leaf.data(), clip.laneSourcePaths[lane].data(),
+                                clip.laneSourcePaths[lane].size());
                 std::snprintf(currentLaneSourcePaths[lane].data(),
                               currentLaneSourcePaths[lane].size(), "%s",
-                              pattern.laneSourcePaths[lane].data());
-                pattern.laneSourceKinds[lane] = LaneSourceKind::capture;
-                std::snprintf(pattern.laneSourceLabels[lane].data(),
-                              pattern.laneSourceLabels[lane].size(), "SAVING TAKE");
-                pattern.occupied = true;
-                pendingCapturePatterns[lane] = activePattern;
+                              clip.laneSourcePaths[lane].data());
+                clip.laneSourceKinds[lane] = LaneSourceKind::capture;
+                std::snprintf(clip.laneSourceLabels[lane].data(),
+                              clip.laneSourceLabels[lane].size(), "SAVING TAKE");
+                clip.occupied = true;
+                pendingCaptureClips[lane] = activeClip;
                 pendingCaptureSaveMask |= 1u << lane;
                 markPersistentStateDirty();
             }
@@ -3396,11 +3689,11 @@ struct ThruInstance {
     void startRecording()
     {
         if (engine.recording()) return;
-        const auto prepareState = static_cast<PatternPrepareState>(
-            patternPrepareState.load(std::memory_order_acquire));
-        if (prepareState == PatternPrepareState::requested
-            || prepareState == PatternPrepareState::loading) {
-            setError("Wait for the queued pattern to finish preparing");
+        const auto prepareState = static_cast<ClipPrepareState>(
+            clipPrepareState.load(std::memory_order_acquire));
+        if (prepareState == ClipPrepareState::requested
+            || prepareState == ClipPrepareState::loading) {
+            setError("Wait for the queued clip to finish preparing");
             return;
         }
         clearError();
@@ -3426,11 +3719,11 @@ struct ThruInstance {
     void clearSelectedLane()
     {
         if (!engine.laneLoaded(selectedLane)) return;
-        if (patternPreparationInFlight()) {
-            setError("Wait for the queued pattern to finish preparing");
+        if (clipPreparationInFlight()) {
+            setError("Wait for the queued clip to finish preparing");
             return;
         }
-        pushPatternUndo(activePattern);
+        pushClipUndo(activeClip);
         if (!engine.beginLaneRemoval(selectedLane)) {
             setError("Lane is busy and could not be cleared");
             return;
@@ -3443,13 +3736,13 @@ struct ThruInstance {
         currentLaneSourceKinds[selectedLane] = LaneSourceKind::empty;
         activeRegions[selectedLane] = {};
         ++laneRegionRevisions[selectedLane];
-        if (activePattern >= 0
-            && activePattern < static_cast<int>(patterns.size())) {
-            Pattern& pattern = patterns[static_cast<std::size_t>(activePattern)];
-            pattern.laneSourcePaths[selectedLane][0] = '\0';
-            pattern.laneSourceKinds[selectedLane] = LaneSourceKind::empty;
-            std::snprintf(pattern.laneSourceLabels[selectedLane].data(),
-                          pattern.laneSourceLabels[selectedLane].size(), "EMPTY");
+        if (activeClip >= 0
+            && activeClip < static_cast<int>(clipSlots.size())) {
+            ClipSlot& clip = clipSlots[static_cast<std::size_t>(activeClip)];
+            clip.laneSourcePaths[selectedLane][0] = '\0';
+            clip.laneSourceKinds[selectedLane] = LaneSourceKind::empty;
+            std::snprintf(clip.laneSourceLabels[selectedLane].data(),
+                          clip.laneSourceLabels[selectedLane].size(), "EMPTY");
         }
         markPersistentStateDirty();
         waveMinimum[selectedLane].fill(0);
@@ -3491,8 +3784,8 @@ struct ThruInstance {
             setError("Selected lane is empty");
             return false;
         }
-        if (patternPreparationInFlight()) {
-            setError("Wait for the queued pattern to finish preparing");
+        if (clipPreparationInFlight()) {
+            setError("Wait for the queued clip to finish preparing");
             return false;
         }
         if (pendingCaptureSaveMask != 0u && !serviceMaintenance()) {
@@ -3500,40 +3793,40 @@ struct ThruInstance {
             return false;
         }
         clearError();
-        pushPatternUndo(activePattern);
+        pushClipUndo(activeClip);
         allNotesOff();
         return true;
     }
 
     void finishSampleEdit(const char* label)
     {
-        if (activePattern < 0
-            || activePattern >= static_cast<int>(patterns.size())) return;
-        Pattern& pattern = patterns[static_cast<std::size_t>(activePattern)];
+        if (activeClip < 0
+            || activeClip >= static_cast<int>(clipSlots.size())) return;
+        ClipSlot& clip = clipSlots[static_cast<std::size_t>(activeClip)];
         const char* currentPath =
-            pattern.laneSourcePaths[selectedLane].data();
+            clip.laneSourcePaths[selectedLane].data();
         const char alternate = std::strstr(currentPath, "-edit-a.wav")
             ? 'b' : 'a';
         std::array<char, kPersistencePathSize> leaf {};
         std::snprintf(leaf.data(), leaf.size(),
-                      "captures/p%02d-lane-%u-edit-%c.wav",
-                      activePattern + 1,
+                      "captures/c%02d-lane-%u-edit-%c.wav",
+                      activeClip + 1,
                       static_cast<unsigned>(selectedLane + 1u), alternate);
-        persistencePath(leaf.data(), pattern.laneSourcePaths[selectedLane].data(),
-                        pattern.laneSourcePaths[selectedLane].size());
-        pattern.laneSourceKinds[selectedLane] = LaneSourceKind::capture;
-        std::snprintf(pattern.laneSourceLabels[selectedLane].data(),
-                      pattern.laneSourceLabels[selectedLane].size(), "%s",
+        persistencePath(leaf.data(), clip.laneSourcePaths[selectedLane].data(),
+                        clip.laneSourcePaths[selectedLane].size());
+        clip.laneSourceKinds[selectedLane] = LaneSourceKind::capture;
+        std::snprintf(clip.laneSourceLabels[selectedLane].data(),
+                      clip.laneSourceLabels[selectedLane].size(), "%s",
                       label ? label : "EDIT");
-        pattern.occupied = true;
+        clip.occupied = true;
         currentLaneSourceKinds[selectedLane] = LaneSourceKind::capture;
         std::snprintf(currentLaneSourcePaths[selectedLane].data(),
                       currentLaneSourcePaths[selectedLane].size(), "%s",
-                      pattern.laneSourcePaths[selectedLane].data());
+                      clip.laneSourcePaths[selectedLane].data());
         std::snprintf(laneSourceLabels[selectedLane].data(),
                       laneSourceLabels[selectedLane].size(), "%s",
-                      pattern.laneSourceLabels[selectedLane].data());
-        pendingCapturePatterns[selectedLane] = activePattern;
+                      clip.laneSourceLabels[selectedLane].data());
+        pendingCaptureClips[selectedLane] = activeClip;
         pendingCaptureSaveMask |= 1u << selectedLane;
         waveDirtyMask |= 1u << selectedLane;
         RegionMap regions;
@@ -3661,6 +3954,11 @@ struct ThruInstance {
 
     void serviceWaveScan()
     {
+        const auto loadState = static_cast<SampleLoadState>(
+            sampleLoadState.load(std::memory_order_acquire));
+        if (engine.recording()
+            || (loadState >= SampleLoadState::requested
+                && loadState <= SampleLoadState::copying)) return;
         beginNextWaveScan();
         if (scanLane < 0) return;
         const std::size_t lane = static_cast<std::size_t>(scanLane);
@@ -3712,7 +4010,7 @@ struct ThruInstance {
             const std::size_t count = std::min<std::size_t>(
                 kBlockFrames, static_cast<std::size_t>(frames - rendered));
             serviceSampleLoad();
-            servicePatternSourceQueue();
+            serviceClipSourceQueue();
             for (std::size_t frame = 0u; frame < count; ++frame) {
                 const std::size_t sourceFrame = static_cast<std::size_t>(rendered) + frame;
                 const float left = audioInput
@@ -3817,7 +4115,6 @@ struct ThruInstance {
             serviceClipAfterBlock(count);
             rendered += static_cast<int>(count);
         }
-        serviceWaveScan();
     }
 
     bool persistencePath(const char* leaf, char* path, std::size_t pathSize) const
@@ -3838,7 +4135,7 @@ struct ThruInstance {
     {
         if (!buffer || bufferLength < 1) return -1;
         return std::snprintf(buffer, static_cast<std::size_t>(bufferLength),
-            "{\"version\":5,\"locus\":%.5f,\"field\":%.5f,\"speed\":%.5f,"
+            "{\"version\":6,\"locus\":%.5f,\"field\":%.5f,\"speed\":%.5f,"
             "\"manual_lane\":%.5f,\"lane_cycles\":%.5f,\"algorithm\":%d,"
             "\"join\":%.5f,\"output_gain\":%.5f,\"record_gain\":%.5f,"
             "\"pressure_mode\":%d,\"root_note\":%d,\"pad_octave\":%d,"
@@ -3873,7 +4170,8 @@ struct ThruInstance {
             "\"cut_region_mode\":%d,\"sample_mode\":%d,"
             "\"slice_region_mode\":%d,\"slice_regions\":%.0f,"
             "\"pad_mode\":%d,\"lane_variation\":%d,\"clip_record_mode\":%d,"
-            "\"preview_level\":%.5f}",
+            "\"preview_level\":%.5f,\"grain_quality\":%zu,"
+            "\"launch_quantize\":%d,\"generation\":%llu,\"complete\":1}",
             controls.locus, controls.field, controls.speed,
             controls.manualLane + 1.0f, controls.laneCycles,
             static_cast<int>(controls.algorithm), controls.join,
@@ -3916,7 +4214,9 @@ struct ThruInstance {
             static_cast<int>(controls.sampleRegionMode),
             controls.sampleRegionCount, static_cast<int>(padMode),
             static_cast<int>(laneVariation), static_cast<int>(clipRecordMode),
-            previewLevel);
+            previewLevel, grainVoiceLimit,
+            static_cast<int>(launchQuantize),
+            static_cast<unsigned long long>(persistenceGeneration));
     }
 
     bool writeStateFile()
@@ -3934,62 +4234,71 @@ struct ThruInstance {
         if (!file) return false;
         const bool wrote = writeBytes(file, text.data(), static_cast<std::size_t>(length));
         const bool closed = std::fclose(file) == 0;
-        if (!wrote || !closed || std::rename(temporary.data(), path.data()) != 0) {
+        if (!wrote || !closed
+            || !replaceFileWithBackup(temporary.data(), path.data())) {
             std::remove(temporary.data());
             return false;
         }
         return true;
     }
 
-    bool writePatternFile()
+    bool writeClipFile()
     {
         std::array<char, kPersistencePathSize> path {};
         std::array<char, kPersistencePathSize> temporary {};
-        if (!persistencePath("thru-pattern.bin", path.data(), path.size())
-            || !persistencePath("thru-pattern.bin.tmp", temporary.data(),
+        if (!persistencePath("thru-clips.bin", path.data(), path.size())
+            || !persistencePath("thru-clips.bin.tmp", temporary.data(),
                                 temporary.size())) {
             return false;
         }
-        captureActivePattern(false);
+        captureActiveClip(false);
         std::FILE* file = std::fopen(temporary.data(), "wb");
         if (!file) return false;
-        const char magic[8] { 'S', '3', 'G', 'T', 'H', 'R', '2', '\0' };
+        const char magic[8] { 'S', '3', 'G', 'T', 'H', 'R', '3', '\0' };
         bool ok = writeBytes(file, magic, sizeof(magic))
             && writeU32(file, 1u)
+            && writeU64(file, persistenceGeneration)
             && writeF32(file, tempoBpm)
             && writeF32(file, tempoSwing)
-            && writeU32(file, static_cast<std::uint32_t>(activePattern))
+            && writeU32(file, static_cast<std::uint32_t>(launchQuantize))
+            && writeU32(file, static_cast<std::uint32_t>(grainVoiceLimit))
+            && writeU32(file, static_cast<std::uint32_t>(activeClip))
             && writeU32(file, static_cast<std::uint32_t>(chainPosition))
             && writeU32(file, static_cast<std::uint32_t>(chainEditSlot));
-        for (const auto& entry : patternChain) {
+        for (const auto& entry : clipChain) {
             ok = ok && writeU32(file, entry.enabled ? 1u : 0u)
-                && writeU32(file, entry.pattern)
+                && writeU32(file, entry.clip)
                 && writeU32(file, entry.repeats);
         }
-        for (const auto& pattern : patterns) {
-            ok = ok && writeU32(file, pattern.occupied ? 1u : 0u);
-            for (const float base : pattern.baseValues) {
+        for (const auto& clip : clipSlots) {
+            ok = ok && writeU32(file, clip.occupied ? 1u : 0u);
+            for (const float base : clip.baseValues) {
                 ok = ok && writeF32(file, base);
             }
             for (std::size_t lane = 0u; lane < kLaneCount; ++lane) {
                 ok = ok && writeU32(file, static_cast<std::uint32_t>(
-                                      pattern.laneSourceKinds[lane]))
-                    && writeBytes(file, pattern.laneSourcePaths[lane].data(),
-                                  pattern.laneSourcePaths[lane].size())
-                    && writeBytes(file, pattern.laneSourceLabels[lane].data(),
-                                  pattern.laneSourceLabels[lane].size());
+                                      clip.laneSourceKinds[lane]))
+                    && writeBytes(file, clip.laneSourcePaths[lane].data(),
+                                  clip.laneSourcePaths[lane].size())
+                    && writeBytes(file, clip.laneSourceLabels[lane].data(),
+                                  clip.laneSourceLabels[lane].size());
             }
-            for (const float cue : pattern.cues) {
+            for (const float cue : clip.cues) {
                 ok = ok && writeF32(file, cue);
             }
-            ok = ok && writeU32(file, pattern.clipRecorded ? 1u : 0u)
-                && writeU32(file, pattern.clipDurationMs)
-                && writeF32(file, pattern.clipRate)
-                && writeU32(file, pattern.clipNoteCount)
-                && writeU32(file, pattern.clipPointCount);
+            ok = ok && writeU32(file, clip.clipRecorded ? 1u : 0u)
+                && writeU32(file, clip.clipDurationMs)
+                && writeF32(file, clip.clipRate)
+                && writeF32(file, clip.recordedTempoBpm)
+                && writeF32(file, clip.recordedBeats)
+                && writeU32(file, static_cast<std::uint32_t>(clip.timingMode))
+                && writeU32(file, clip.noteCapacityReached ? 1u : 0u)
+                && writeU32(file, clip.pointCapacityReached ? 1u : 0u)
+                && writeU32(file, clip.clipNoteCount)
+                && writeU32(file, clip.clipPointCount);
             for (std::size_t index = 0u;
-                 index < pattern.clipNoteCount; ++index) {
-                const ClipNote& note = pattern.clipNotes[index];
+                 index < clip.clipNoteCount; ++index) {
+                const ClipNote& note = clip.clipNotes[index];
                 ok = ok && writeU32(file, note.startMs)
                     && writeU32(file, note.durationMs)
                     && writeU32(file, note.note)
@@ -3997,8 +4306,8 @@ struct ThruInstance {
                     && writeU32(file, note.sourcePad);
             }
             for (std::size_t index = 0u;
-                 index < pattern.clipPointCount; ++index) {
-                const ClipPoint& point = pattern.clipPoints[index];
+                 index < clip.clipPointCount; ++index) {
+                const ClipPoint& point = clip.clipPoints[index];
                 ok = ok && writeU32(file, point.timeMs)
                     && writeF32(file, point.value)
                     && writeU32(file, point.parameter)
@@ -4007,74 +4316,112 @@ struct ThruInstance {
             }
         }
         const bool closed = std::fclose(file) == 0;
-        if (!ok || !closed || std::rename(temporary.data(), path.data()) != 0) {
+        ok = ok && closed && appendFileChecksum(temporary.data());
+        if (!ok || !replaceFileWithBackup(temporary.data(), path.data())) {
             std::remove(temporary.data());
             return false;
         }
         return true;
     }
 
-    bool readPatternFile()
+    bool writeMetadataFiles()
     {
-        std::array<char, kPersistencePathSize> path {};
-        if (!persistencePath("thru-pattern.bin", path.data(), path.size())) {
-            return false;
-        }
-        std::FILE* file = std::fopen(path.data(), "rb");
+        ++persistenceGeneration;
+        if (!writeClipFile()) return false;
+        return writeStateFile();
+    }
+
+    bool clipFileGeneration(const char* path, std::uint64_t& generation) const
+    {
+        long payloadSize = 0l;
+        if (!checksummedPayloadSize(path, payloadSize)
+            || payloadSize < 20l) return false;
+        std::FILE* file = std::fopen(path, "rb");
+        if (!file) return false;
+        char magic[8] {};
+        std::uint32_t version = 0u;
+        const bool ok = std::fread(magic, 1u, sizeof(magic), file) == sizeof(magic)
+            && std::memcmp(magic, "S3GTHR3", 7u) == 0
+            && readU32(file, version) && version == 1u
+            && readU64(file, generation) && generation != 0u;
+        std::fclose(file);
+        return ok;
+    }
+
+    bool readClipFileFromPath(
+        const char* path,
+        std::uint64_t expectedGeneration = kAnyPersistenceGeneration)
+    {
+        long payloadSize = 0l;
+        if (!checksummedPayloadSize(path, payloadSize)) return false;
+        std::FILE* file = std::fopen(path, "rb");
         if (!file) return false;
         char magic[8] {};
         std::uint32_t version = 0u;
         std::uint32_t selected = 0u;
         std::uint32_t loadedChainPosition = 0u;
         std::uint32_t loadedChainEditSlot = 0u;
+        std::uint32_t loadedLaunchQuantize = 0u;
+        std::uint32_t loadedGrainVoiceLimit = 8u;
+        std::uint64_t loadedGeneration = 0u;
         float bpm = 120.0f;
         float swing = 0.5f;
-        std::array<PatternChainEntry, kPatternChainLength> loadedChain {};
-        auto loadedPatterns = std::unique_ptr<std::array<Pattern, kPatternCount>>(
-            new (std::nothrow) std::array<Pattern, kPatternCount> {});
-        bool ok = loadedPatterns
+        std::array<ClipChainEntry, kClipChainLength> loadedChain {};
+        auto loadedClips = std::unique_ptr<std::array<ClipSlot, kClipSlotCount>>(
+            new (std::nothrow) std::array<ClipSlot, kClipSlotCount> {});
+        bool ok = loadedClips
             && std::fread(magic, 1u, sizeof(magic), file) == sizeof(magic)
-            && std::memcmp(magic, "S3GTHR2", 7u) == 0
+            && std::memcmp(magic, "S3GTHR3", 7u) == 0
             && readU32(file, version) && version == 1u
+            && readU64(file, loadedGeneration)
+            && loadedGeneration != 0u
+            && (expectedGeneration == kAnyPersistenceGeneration
+                || loadedGeneration == expectedGeneration)
             && readF32(file, bpm) && readF32(file, swing)
-            && readU32(file, selected) && selected < kPatternCount
+            && readU32(file, loadedLaunchQuantize)
+            && loadedLaunchQuantize <= static_cast<std::uint32_t>(LaunchQuantize::bar)
+            && readU32(file, loadedGrainVoiceLimit)
+            && (loadedGrainVoiceLimit == 4u || loadedGrainVoiceLimit == 8u
+                || loadedGrainVoiceLimit == 16u)
+            && readU32(file, selected) && selected < kClipSlotCount
             && readU32(file, loadedChainPosition)
             && readU32(file, loadedChainEditSlot);
         for (auto& entry : loadedChain) {
             std::uint32_t enabled = 0u;
-            std::uint32_t pattern = 0u;
+            std::uint32_t clip = 0u;
             std::uint32_t repeats = 1u;
             ok = ok && readU32(file, enabled)
-                && readU32(file, pattern) && pattern < kPatternCount
+                && readU32(file, clip) && clip < kClipSlotCount
                 && readU32(file, repeats);
             entry.enabled = enabled != 0u;
-            entry.pattern = static_cast<std::uint8_t>(pattern);
+            entry.clip = static_cast<std::uint8_t>(clip);
             entry.repeats = static_cast<std::uint8_t>(clampValue(
                 repeats, 1u, 16u));
         }
-        if (loadedPatterns) {
-            for (auto& pattern : *loadedPatterns) {
+        if (loadedClips) {
+            for (auto& clip : *loadedClips) {
                 std::uint32_t occupied = 0u;
                 ok = ok && readU32(file, occupied);
-                pattern.occupied = occupied != 0u;
-                for (float& base : pattern.baseValues) {
+                clip.occupied = occupied != 0u;
+                for (float& base : clip.baseValues) {
                     ok = ok && readF32(file, base);
                 }
                 for (std::size_t lane = 0u; lane < kLaneCount; ++lane) {
                     std::uint32_t kind = 0u;
-                    ok = ok && readU32(file, kind) && kind <= 3u
-                        && std::fread(pattern.laneSourcePaths[lane].data(), 1u,
-                            pattern.laneSourcePaths[lane].size(), file)
-                            == pattern.laneSourcePaths[lane].size()
-                        && std::fread(pattern.laneSourceLabels[lane].data(), 1u,
-                            pattern.laneSourceLabels[lane].size(), file)
-                            == pattern.laneSourceLabels[lane].size();
-                    pattern.laneSourceKinds[lane] =
+                    ok = ok && readU32(file, kind)
+                        && kind <= static_cast<std::uint32_t>(LaneSourceKind::empty)
+                        && std::fread(clip.laneSourcePaths[lane].data(), 1u,
+                            clip.laneSourcePaths[lane].size(), file)
+                            == clip.laneSourcePaths[lane].size()
+                        && std::fread(clip.laneSourceLabels[lane].data(), 1u,
+                            clip.laneSourceLabels[lane].size(), file)
+                            == clip.laneSourceLabels[lane].size();
+                    clip.laneSourceKinds[lane] =
                         static_cast<LaneSourceKind>(kind);
-                    pattern.laneSourcePaths[lane].back() = '\0';
-                    pattern.laneSourceLabels[lane].back() = '\0';
+                    clip.laneSourcePaths[lane].back() = '\0';
+                    clip.laneSourceLabels[lane].back() = '\0';
                 }
-                for (float& cue : pattern.cues) {
+                for (float& cue : clip.cues) {
                     ok = ok && readF32(file, cue);
                     cue = clampValue(cue, -1.0f, 1.0f);
                 }
@@ -4082,25 +4429,40 @@ struct ThruInstance {
                 std::uint32_t durationMs = 0u;
                 std::uint32_t noteCount = 0u;
                 std::uint32_t pointCount = 0u;
+                std::uint32_t timingMode = 0u;
+                std::uint32_t noteCapacityReached = 0u;
+                std::uint32_t pointCapacityReached = 0u;
                 ok = ok && readU32(file, recorded)
                     && readU32(file, durationMs)
-                    && readF32(file, pattern.clipRate)
+                    && readF32(file, clip.clipRate)
+                    && readF32(file, clip.recordedTempoBpm)
+                    && readF32(file, clip.recordedBeats)
+                    && readU32(file, timingMode)
+                    && timingMode <= static_cast<std::uint32_t>(ClipTimingMode::beatSync)
+                    && readU32(file, noteCapacityReached)
+                    && readU32(file, pointCapacityReached)
                     && readU32(file, noteCount)
                     && readU32(file, pointCount)
                     && noteCount <= kClipNoteCapacity
                     && pointCount <= kClipPointCapacity;
-                pattern.clipRecorded = recorded != 0u;
-                pattern.clipDurationMs = clampValue(
+                clip.clipRecorded = recorded != 0u;
+                clip.clipDurationMs = clampValue(
                     durationMs, 0u, kClipMaximumDurationMs);
-                if (pattern.clipRecorded) {
-                    pattern.clipDurationMs = std::max(
-                        kClipMinimumDurationMs, pattern.clipDurationMs);
+                if (clip.clipRecorded) {
+                    clip.clipDurationMs = std::max(
+                        kClipMinimumDurationMs, clip.clipDurationMs);
                 }
-                pattern.clipRate = clampValue(pattern.clipRate, 0.25f, 4.0f);
-                pattern.clipNoteCount = static_cast<std::uint16_t>(noteCount);
-                pattern.clipPointCount = static_cast<std::uint16_t>(pointCount);
+                clip.clipRate = clampValue(clip.clipRate, 0.25f, 4.0f);
+                clip.recordedTempoBpm = clampValue(
+                    clip.recordedTempoBpm, 40.0f, 240.0f);
+                clip.recordedBeats = std::max(0.0f, clip.recordedBeats);
+                clip.timingMode = static_cast<ClipTimingMode>(timingMode);
+                clip.noteCapacityReached = noteCapacityReached != 0u;
+                clip.pointCapacityReached = pointCapacityReached != 0u;
+                clip.clipNoteCount = static_cast<std::uint16_t>(noteCount);
+                clip.clipPointCount = static_cast<std::uint16_t>(pointCount);
                 for (std::size_t index = 0u; ok && index < noteCount; ++index) {
-                    ClipNote& note = pattern.clipNotes[index];
+                    ClipNote& note = clip.clipNotes[index];
                     std::uint32_t pitch = 60u;
                     std::uint32_t velocity = 100u;
                     std::uint32_t sourcePad = 255u;
@@ -4109,11 +4471,11 @@ struct ThruInstance {
                         && readU32(file, pitch)
                         && readU32(file, velocity)
                         && readU32(file, sourcePad);
-                    if (pattern.clipDurationMs != 0u) {
-                        note.startMs %= pattern.clipDurationMs;
+                    if (clip.clipDurationMs != 0u) {
+                        note.startMs %= clip.clipDurationMs;
                     }
                     note.durationMs = clampValue(note.durationMs, 1u,
-                        std::max(1u, pattern.clipDurationMs));
+                        std::max(1u, clip.clipDurationMs));
                     note.note = static_cast<std::uint8_t>(
                         clampValue(pitch, 0u, 127u));
                     note.velocity = static_cast<std::uint8_t>(
@@ -4122,7 +4484,7 @@ struct ThruInstance {
                         sourcePad < 32u ? sourcePad : 255u);
                 }
                 for (std::size_t index = 0u; ok && index < pointCount; ++index) {
-                    ClipPoint& point = pattern.clipPoints[index];
+                    ClipPoint& point = clip.clipPoints[index];
                     std::uint32_t parameter = 0u;
                     std::uint32_t sourcePad = 255u;
                     std::uint32_t type = 0u;
@@ -4134,8 +4496,8 @@ struct ThruInstance {
                         && parameter < kLockParameterCount
                         && type <= static_cast<std::uint32_t>(
                             ClipPointType::pressure);
-                    if (pattern.clipDurationMs != 0u) {
-                        point.timeMs %= pattern.clipDurationMs;
+                    if (clip.clipDurationMs != 0u) {
+                        point.timeMs %= clip.clipDurationMs;
                     }
                     point.parameter = static_cast<std::uint16_t>(parameter);
                     point.sourcePad = static_cast<std::uint8_t>(
@@ -4143,30 +4505,46 @@ struct ThruInstance {
                     point.type = static_cast<ClipPointType>(type);
                 }
                 if (ok) {
-                    std::sort(pattern.clipNotes.begin(),
-                              pattern.clipNotes.begin() + pattern.clipNoteCount,
+                    std::sort(clip.clipNotes.begin(),
+                              clip.clipNotes.begin() + clip.clipNoteCount,
                               [](const ClipNote& left, const ClipNote& right) {
                                   return left.startMs < right.startMs;
                               });
-                    rebuildClipPointIndex(pattern);
+                    rebuildClipPointIndex(clip);
                 }
             }
         }
-        const bool atEnd = ok && std::fgetc(file) == EOF;
+        const bool atEnd = ok && std::ftell(file) == payloadSize;
         std::fclose(file);
-        if (!atEnd || !loadedPatterns) return false;
-        patterns = *loadedPatterns;
-        patternChain = loadedChain;
+        if (!atEnd || !loadedClips) return false;
+        clipSlots = *loadedClips;
+        clipChain = loadedChain;
         tempoBpm = clampValue(bpm, 40.0f, 240.0f);
         tempoSwing = clampValue(swing, 0.5f, 0.75f);
-        activePattern = static_cast<int>(selected);
+        launchQuantize = static_cast<LaunchQuantize>(loadedLaunchQuantize);
+        grainVoiceLimit = loadedGrainVoiceLimit;
+        controls.grainVoiceLimit = static_cast<float>(grainVoiceLimit);
+        persistenceGeneration = loadedGeneration;
+        activeClip = static_cast<int>(selected);
         chainPosition = clampValue(static_cast<int>(loadedChainPosition),
-            0, static_cast<int>(kPatternChainLength) - 1);
+            0, static_cast<int>(kClipChainLength) - 1);
         chainEditSlot = clampValue(static_cast<int>(loadedChainEditSlot),
-            0, static_cast<int>(kPatternChainLength) - 1);
-        patternBankInitialized = true;
-        activateStoredPattern(activePattern);
+            0, static_cast<int>(kClipChainLength) - 1);
+        clipBankInitialized = true;
+        activateStoredClip(activeClip);
         return true;
+    }
+
+    bool readClipFile(
+        std::uint64_t expectedGeneration = kAnyPersistenceGeneration)
+    {
+        std::array<char, kPersistencePathSize> path {};
+        std::array<char, kPersistencePathSize> backup {};
+        if (!persistencePath("thru-clips.bin", path.data(), path.size())
+            || std::snprintf(backup.data(), backup.size(), "%s.bak", path.data())
+                >= static_cast<int>(backup.size())) return false;
+        return readClipFileFromPath(path.data(), expectedGeneration)
+            || readClipFileFromPath(backup.data(), expectedGeneration);
     }
 
     bool writeLaneWavFile(std::size_t lane, const char* path,
@@ -4239,21 +4617,21 @@ struct ThruInstance {
         return writeLaneWavFile(lane, path.data(), temporary.data(), true);
     }
 
-    bool writePatternCapture(std::size_t lane, int patternIndex)
+    bool writeClipCapture(std::size_t lane, int clipIndex)
     {
-        if (lane >= kLaneCount || patternIndex < 0
-            || patternIndex >= static_cast<int>(kPatternCount)) return false;
-        Pattern& pattern = patterns[static_cast<std::size_t>(patternIndex)];
+        if (lane >= kLaneCount || clipIndex < 0
+            || clipIndex >= static_cast<int>(kClipSlotCount)) return false;
+        ClipSlot& clip = clipSlots[static_cast<std::size_t>(clipIndex)];
         std::array<char, kPersistencePathSize> path {};
         std::array<char, kPersistencePathSize> temporary {};
-        if (pattern.laneSourceKinds[lane] == LaneSourceKind::capture
-            && pattern.laneSourcePaths[lane][0] != '\0') {
+        if (clip.laneSourceKinds[lane] == LaneSourceKind::capture
+            && clip.laneSourcePaths[lane][0] != '\0') {
             std::snprintf(path.data(), path.size(), "%s",
-                          pattern.laneSourcePaths[lane].data());
+                          clip.laneSourcePaths[lane].data());
         } else {
             std::array<char, kPersistencePathSize> leaf {};
             std::snprintf(leaf.data(), leaf.size(),
-                          "captures/p%02d-lane-%u.wav", patternIndex + 1,
+                          "captures/c%02d-lane-%u.wav", clipIndex + 1,
                           static_cast<unsigned>(lane + 1u));
             if (!persistencePath(leaf.data(), path.data(), path.size())) {
                 return false;
@@ -4266,23 +4644,23 @@ struct ThruInstance {
         if (!writeLaneWavFile(lane, path.data(), temporary.data(), false)) {
             return false;
         }
-        pattern.laneSourceKinds[lane] = LaneSourceKind::capture;
-        std::snprintf(pattern.laneSourcePaths[lane].data(),
-                      pattern.laneSourcePaths[lane].size(), "%s", path.data());
-        const bool edited = std::strcmp(pattern.laneSourceLabels[lane].data(),
+        clip.laneSourceKinds[lane] = LaneSourceKind::capture;
+        std::snprintf(clip.laneSourcePaths[lane].data(),
+                      clip.laneSourcePaths[lane].size(), "%s", path.data());
+        const bool edited = std::strcmp(clip.laneSourceLabels[lane].data(),
                                         "SAVING TAKE") != 0;
         if (!edited) {
-            std::snprintf(pattern.laneSourceLabels[lane].data(),
-                          pattern.laneSourceLabels[lane].size(), "TAKE P%02d",
-                          patternIndex + 1);
+            std::snprintf(clip.laneSourceLabels[lane].data(),
+                          clip.laneSourceLabels[lane].size(), "TAKE C%02d",
+                          clipIndex + 1);
         }
-        if (patternIndex == activePattern) {
+        if (clipIndex == activeClip) {
             currentLaneSourceKinds[lane] = LaneSourceKind::capture;
             std::snprintf(currentLaneSourcePaths[lane].data(),
                           currentLaneSourcePaths[lane].size(), "%s", path.data());
             std::snprintf(laneSourceLabels[lane].data(),
                           laneSourceLabels[lane].size(), "%s",
-                          pattern.laneSourceLabels[lane].data());
+                          clip.laneSourceLabels[lane].data());
         }
         return true;
     }
@@ -4307,17 +4685,17 @@ struct ThruInstance {
         if (!persistenceEnabled) return true;
         for (std::size_t lane = 0u; lane < kLaneCount; ++lane) {
             if ((pendingCaptureSaveMask & (1u << lane)) == 0u) continue;
-            const int owner = pendingCapturePatterns[lane];
-            if (!writePatternCapture(lane, owner)) {
+            const int owner = pendingCaptureClips[lane];
+            if (!writeClipCapture(lane, owner)) {
                 ok = false;
                 continue;
             }
             pendingCaptureSaveMask &= ~(1u << lane);
-            pendingCapturePatterns[lane] = -1;
+            pendingCaptureClips[lane] = -1;
         }
         if (persistentStateDirty || pendingCaptureSaveMask != 0u) {
-            captureActivePattern(false);
-            const bool metadataSaved = writeStateFile() && writePatternFile();
+            captureActiveClip(false);
+            const bool metadataSaved = writeMetadataFiles();
             ok = metadataSaved && ok;
             if (metadataSaved && pendingCaptureSaveMask == 0u) {
                 persistentStateDirty = false;
@@ -4405,48 +4783,129 @@ struct ThruInstance {
         return true;
     }
 
-    void reconcileRestoredPatternSources()
+    void reconcileRestoredClipSources()
     {
-        if (activePattern < 0
-            || activePattern >= static_cast<int>(patterns.size())) return;
-        const Pattern& pattern = patterns[static_cast<std::size_t>(activePattern)];
+        if (activeClip < 0
+            || activeClip >= static_cast<int>(clipSlots.size())) return;
+        const ClipSlot& clip = clipSlots[static_cast<std::size_t>(activeClip)];
         for (std::size_t lane = 0u; lane < kLaneCount; ++lane) {
             if (!engine.laneLoaded(lane)
-                || pattern.laneSourcePaths[lane][0] == '\0') continue;
+                || clip.laneSourcePaths[lane][0] == '\0') continue;
             std::snprintf(currentLaneSourcePaths[lane].data(),
                           currentLaneSourcePaths[lane].size(), "%s",
-                          pattern.laneSourcePaths[lane].data());
-            if (pattern.laneSourceLabels[lane][0] != '\0') {
+                          clip.laneSourcePaths[lane].data());
+            if (clip.laneSourceLabels[lane][0] != '\0') {
                 std::snprintf(laneSourceLabels[lane].data(),
                               laneSourceLabels[lane].size(), "%s",
-                              pattern.laneSourceLabels[lane].data());
+                              clip.laneSourceLabels[lane].data());
             }
         }
-        queuePatternSources(activePattern);
+        queueClipSources(activeClip);
+    }
+
+    bool readStateTextFromPath(
+        const char* path,
+        std::array<char, kStateTextSize>& text) const
+    {
+        if (!path) return false;
+        std::FILE* file = std::fopen(path, "rb");
+        if (!file) return false;
+        const std::size_t length = std::fread(
+            text.data(), 1u, text.size() - 1u, file);
+        const bool complete = std::feof(file) != 0;
+        std::fclose(file);
+        if (!complete || length == 0u) return false;
+        text[length] = '\0';
+        return true;
+    }
+
+    bool stateFileGeneration(const char* path, std::uint64_t& generation) const
+    {
+        std::array<char, kStateTextSize> text {};
+        float version = 0.0f;
+        float complete = 0.0f;
+        return readStateTextFromPath(path, text)
+            && jsonNumber(text.data(), "version", version)
+            && static_cast<int>(version) == 6
+            && jsonNumber(text.data(), "complete", complete)
+            && static_cast<int>(complete) == 1
+            && jsonUnsigned64(text.data(), "generation", generation)
+            && generation != 0u;
+    }
+
+    bool readStateFileFromPath(const char* path)
+    {
+        std::array<char, kStateTextSize> text {};
+        if (!readStateTextFromPath(path, text)) return false;
+        return restoreState(text.data());
     }
 
     void loadPersistentState()
     {
         if (!persistenceEnabled) return;
-        std::array<char, kPersistencePathSize> path {};
-        if (persistencePath("thru-state.json", path.data(), path.size())) {
-            std::FILE* file = std::fopen(path.data(), "rb");
-            if (file) {
-                std::array<char, kStateTextSize> text {};
-                const std::size_t length = std::fread(text.data(), 1u, text.size() - 1u, file);
-                const bool complete = std::feof(file) != 0;
-                std::fclose(file);
-                if (complete && length != 0u) {
-                    text[length] = '\0';
-                    if (restoreState(text.data())) persistenceRestored = true;
+        std::array<std::array<char, kPersistencePathSize>, 2u> statePaths {};
+        std::array<std::array<char, kPersistencePathSize>, 2u> clipPaths {};
+        bool pathsReady = persistencePath(
+                "thru-state.json", statePaths[0u].data(), statePaths[0u].size())
+            && persistencePath(
+                "thru-clips.bin", clipPaths[0u].data(), clipPaths[0u].size());
+        if (pathsReady) {
+            const int stateLength = std::snprintf(
+                statePaths[1u].data(), statePaths[1u].size(), "%s.bak",
+                statePaths[0u].data());
+            const int clipLength = std::snprintf(
+                clipPaths[1u].data(), clipPaths[1u].size(), "%s.bak",
+                clipPaths[0u].data());
+            pathsReady = stateLength > 0 && clipLength > 0
+                && static_cast<std::size_t>(stateLength) < statePaths[1u].size()
+                && static_cast<std::size_t>(clipLength) < clipPaths[1u].size();
+        }
+
+        bool stateLoaded = false;
+        bool clipsLoaded = false;
+        if (pathsReady) {
+            std::array<std::uint64_t, 2u> stateGenerations {};
+            std::array<std::uint64_t, 2u> clipGenerations {};
+            std::array<bool, 2u> stateValid {};
+            std::array<bool, 2u> clipValid {};
+            for (std::size_t index = 0u; index < 2u; ++index) {
+                stateValid[index] = stateFileGeneration(
+                    statePaths[index].data(), stateGenerations[index]);
+                clipValid[index] = clipFileGeneration(
+                    clipPaths[index].data(), clipGenerations[index]);
+            }
+            int stateChoice = -1;
+            int clipChoice = -1;
+            std::uint64_t newest = 0u;
+            for (std::size_t state = 0u; state < 2u; ++state) {
+                for (std::size_t clips = 0u; clips < 2u; ++clips) {
+                    if (!stateValid[state] || !clipValid[clips]
+                        || stateGenerations[state] != clipGenerations[clips]
+                        || stateGenerations[state] <= newest) continue;
+                    newest = stateGenerations[state];
+                    stateChoice = static_cast<int>(state);
+                    clipChoice = static_cast<int>(clips);
                 }
             }
+            if (stateChoice >= 0 && clipChoice >= 0) {
+                stateLoaded = readStateFileFromPath(
+                    statePaths[static_cast<std::size_t>(stateChoice)].data());
+                clipsLoaded = stateLoaded && readClipFileFromPath(
+                    clipPaths[static_cast<std::size_t>(clipChoice)].data(), newest);
+            }
+            if (!stateLoaded) {
+                stateLoaded = readStateFileFromPath(statePaths[0u].data())
+                    || readStateFileFromPath(statePaths[1u].data());
+            }
+            if (!clipsLoaded) {
+                clipsLoaded = readClipFile();
+            }
         }
-        if (readPatternFile()) persistenceRestored = true;
+        persistenceRestored = stateLoaded || clipsLoaded;
         for (std::size_t lane = 0u; lane < kLaneCount; ++lane) {
             if (readLaneFile(lane)) persistenceRestored = true;
         }
-        reconcileRestoredPatternSources();
+        reconcileRestoredClipSources();
     }
 
     bool savePersistentState()
@@ -4457,16 +4916,15 @@ struct ThruInstance {
         bool ok = true;
         for (std::size_t lane = 0u; lane < kLaneCount; ++lane) {
             if ((pendingCaptureSaveMask & (1u << lane)) == 0u) continue;
-            const int owner = pendingCapturePatterns[lane];
-            const bool captureSaved = writePatternCapture(lane, owner);
+            const int owner = pendingCaptureClips[lane];
+            const bool captureSaved = writeClipCapture(lane, owner);
             ok = captureSaved && ok;
             if (captureSaved) {
                 pendingCaptureSaveMask &= ~(1u << lane);
-                pendingCapturePatterns[lane] = -1;
+                pendingCaptureClips[lane] = -1;
             }
         }
-        ok = writeStateFile() && ok;
-        ok = writePatternFile() && ok;
+        ok = writeMetadataFiles() && ok;
         for (std::size_t lane = 0u; lane < kLaneCount; ++lane) {
             ok = writeLaneFile(lane) && ok;
         }
@@ -4479,8 +4937,12 @@ struct ThruInstance {
     bool restoreState(const char* json)
     {
         float value = 0.0f;
+        std::uint64_t loadedGeneration = 0u;
         if (!jsonNumber(json, "version", value)
-            || static_cast<int>(value) != 5) return false;
+            || static_cast<int>(value) != 6
+            || !jsonNumber(json, "complete", value)
+            || static_cast<int>(value) != 1
+            || !jsonUnsigned64(json, "generation", loadedGeneration)) return false;
         if (jsonNumber(json, "locus", value)) controls.locus = clampValue(value, 0.0f, 1.0f);
         if (jsonNumber(json, "field", value)) controls.field = clampValue(value, 0.02f, 1.0f);
         if (jsonNumber(json, "speed", value)) controls.speed = clampValue(value, 0.05f, 4.0f);
@@ -4495,6 +4957,13 @@ struct ThruInstance {
         if (jsonNumber(json, "lane_variation", value)) laneVariation = static_cast<LaneVariation>(clampValue(static_cast<int>(value), 0, 4));
         if (jsonNumber(json, "clip_record_mode", value)) clipRecordMode = static_cast<ClipRecordMode>(clampValue(static_cast<int>(value), 0, 1));
         if (jsonNumber(json, "preview_level", value)) previewLevel = clampValue(value, 0.0f, 1.0f);
+        if (jsonNumber(json, "grain_quality", value)) {
+            const int voices = clampValue(static_cast<int>(std::lround(value)), 4, 16);
+            grainVoiceLimit = voices <= 4 ? 4u : (voices <= 8 ? 8u : 16u);
+            controls.grainVoiceLimit = static_cast<float>(grainVoiceLimit);
+        }
+        if (jsonNumber(json, "launch_quantize", value)) launchQuantize =
+            static_cast<LaunchQuantize>(clampValue(static_cast<int>(value), 0, 2));
         if (jsonNumber(json, "output_gain", value)) outputGain = clampValue(value, 0.0f, 2.0f);
         if (jsonNumber(json, "record_gain", value)) recordGain = clampValue(value, 0.0f, 4.0f);
         if (jsonNumber(json, "pressure_mode", value)) pressureMode = clampValue(static_cast<int>(value), 0, 1);
@@ -4566,6 +5035,7 @@ struct ThruInstance {
             tempoSwing = clampValue(value / 100.0f, 0.5f, 0.75f);
         }
         if (jsonNumber(json, "chain_enabled", value)) chainEnabled = value >= 0.5f;
+        persistenceGeneration = loadedGeneration;
         return true;
     }
 };
@@ -4654,11 +5124,13 @@ void setParam(void* opaque, const char* key, const char* value)
     if (std::strcmp(key, "pad_mode") == 0) { instance->padMode = static_cast<PadMode>(parseEnum(value, kPadModeNames, static_cast<int>(instance->padMode))); instance->allNotesOff(); return; }
     if (std::strcmp(key, "lane_variation") == 0) { instance->laneVariation = static_cast<LaneVariation>(parseEnum(value, kLaneVariationNames, static_cast<int>(instance->laneVariation))); return; }
     if (std::strcmp(key, "preview_level") == 0) { instance->previewLevel = clampValue(parseFloat(value, instance->previewLevel), 0.0f, 1.0f); return; }
-    if (std::strcmp(key, "clip_rate") == 0) { if (Pattern* pattern = instance->activeClipPattern()) pattern->clipRate = clampValue(parseFloat(value, pattern->clipRate), 0.25f, 4.0f); return; }
+    if (std::strcmp(key, "clip_rate") == 0) { if (ClipSlot* clip = instance->activeClipSlot()) clip->clipRate = clampValue(parseFloat(value, clip->clipRate), 0.25f, 4.0f); return; }
     if (std::strcmp(key, "clip_record_mode") == 0) { instance->clipRecordMode = static_cast<ClipRecordMode>(parseEnum(value, kClipRecordModeNames, static_cast<int>(instance->clipRecordMode))); return; }
+    if (std::strcmp(key, "clip_timing") == 0) { if (ClipSlot* clip = instance->activeClipSlot()) clip->timingMode = static_cast<ClipTimingMode>(parseEnum(value, kClipTimingModeNames, static_cast<int>(clip->timingMode))); return; }
+    if (std::strcmp(key, "launch_quantize") == 0) { instance->launchQuantize = static_cast<LaunchQuantize>(parseEnum(value, kLaunchQuantizeNames, static_cast<int>(instance->launchQuantize))); return; }
     if (std::strcmp(key, "clip_record") == 0) { if (isTruthy(value)) instance->toggleClipRecording(); return; }
     if (std::strcmp(key, "clip_clear") == 0) { if (isTruthy(value)) instance->clearActiveClip(); return; }
-    if (std::strcmp(key, "clip_clear_pattern") == 0) { instance->clearPatternClip(parseInteger(value, -1)); return; }
+    if (std::strcmp(key, "clip_reset") == 0) { instance->resetClip(parseInteger(value, -1)); return; }
     if (std::strcmp(key, "clip_automation") == 0) { char automationKey[32] {}; if (std::sscanf(value, "%31[^,]", automationKey) == 1) instance->captureClipParameter(lockParameterIndex(automationKey)); return; }
     if (std::strcmp(key, "join") == 0) { controls.join = clampValue(parseFloat(value, controls.join), 0.0f, 1.0f); return; }
     if (std::strcmp(key, "output_gain") == 0) { instance->outputGain = clampValue(parseFloat(value, instance->outputGain), 0.0f, 2.0f); return; }
@@ -4686,20 +5158,19 @@ void setParam(void* opaque, const char* key, const char* value)
     if (std::strcmp(key, "maintenance") == 0) { if (isTruthy(value)) instance->serviceMaintenance(); return; }
     if (std::strcmp(key, "performance_reset") == 0) { if (isTruthy(value)) { instance->maximumRenderMicros.store(0u, std::memory_order_relaxed); instance->renderOverruns.store(0u, std::memory_order_relaxed); } return; }
     if (std::strcmp(key, "chain_enabled") == 0) { instance->chainEnabled = isTruthy(value); instance->markPersistentStateDirty(); return; }
-    if (std::strcmp(key, "chain_slot") == 0) { instance->chainEditSlot = clampValue(parseInteger(value, instance->chainEditSlot + 1) - 1, 0, static_cast<int>(kPatternChainLength) - 1); return; }
-    if (std::strcmp(key, "chain_pattern") == 0) { const auto& entry = instance->patternChain[static_cast<std::size_t>(instance->chainEditSlot)]; instance->setChainEntry(instance->chainEditSlot, clampValue(parseInteger(value, static_cast<int>(entry.pattern) + 1) - 1, 0, static_cast<int>(kPatternCount) - 1), entry.repeats); return; }
-    if (std::strcmp(key, "chain_repeats") == 0) { const auto& entry = instance->patternChain[static_cast<std::size_t>(instance->chainEditSlot)]; instance->setChainEntry(instance->chainEditSlot, entry.pattern, parseInteger(value, entry.repeats)); return; }
+    if (std::strcmp(key, "chain_slot") == 0) { instance->chainEditSlot = clampValue(parseInteger(value, instance->chainEditSlot + 1) - 1, 0, static_cast<int>(kClipChainLength) - 1); return; }
+    if (std::strcmp(key, "chain_clip") == 0) { const auto& entry = instance->clipChain[static_cast<std::size_t>(instance->chainEditSlot)]; instance->setChainEntry(instance->chainEditSlot, clampValue(parseInteger(value, static_cast<int>(entry.clip) + 1) - 1, 0, static_cast<int>(kClipSlotCount) - 1), entry.repeats); return; }
+    if (std::strcmp(key, "chain_repeats") == 0) { const auto& entry = instance->clipChain[static_cast<std::size_t>(instance->chainEditSlot)]; instance->setChainEntry(instance->chainEditSlot, entry.clip, parseInteger(value, entry.repeats)); return; }
     if (std::strcmp(key, "chain_clear") == 0) { if (isTruthy(value)) instance->clearChainEntry(instance->chainEditSlot); return; }
-    if (std::strcmp(key, "pattern_select") == 0) {
-        instance->selectPattern(parseInteger(value, -1));
+    if (std::strcmp(key, "chain_insert") == 0) { int slot = -1; int clip = -1; if (std::sscanf(value, "%d,%d", &slot, &clip) == 2) instance->insertChainEntry(slot, clip); return; }
+    if (std::strcmp(key, "chain_delete") == 0) { instance->deleteChainEntry(parseInteger(value, -1)); return; }
+    if (std::strcmp(key, "chain_move") == 0) { int source = -1; int destination = -1; if (std::sscanf(value, "%d,%d", &source, &destination) == 2) instance->moveChainEntry(source, destination); return; }
+    if (std::strcmp(key, "clip_select") == 0) {
+        instance->selectClip(parseInteger(value, -1));
         return;
     }
-    if (std::strcmp(key, "pattern_copy") == 0) {
-        instance->copyActivePattern(parseInteger(value, -1));
-        return;
-    }
-    if (std::strcmp(key, "pattern_clear") == 0) {
-        instance->clearPattern(parseInteger(value, -1));
+    if (std::strcmp(key, "clip_copy") == 0) {
+        instance->copyActiveClip(parseInteger(value, -1));
         return;
     }
     if (std::strcmp(key, "load_lane_file") == 0) {
@@ -4770,6 +5241,7 @@ void setParam(void* opaque, const char* key, const char* value)
     if (std::strcmp(key, "grain_mode") == 0) { controls.grains = static_cast<Engine::GrainMode>(parseEnum(value, kGrainModeNames, static_cast<int>(controls.grains))); return; }
     if (std::strcmp(key, "grain_size") == 0) { controls.grainSizeMs = clampValue(parseFloat(value, controls.grainSizeMs), 8.0f, 1000.0f); return; }
     if (std::strcmp(key, "grain_density") == 0) { controls.grainDensityHz = clampValue(parseFloat(value, controls.grainDensityHz), 1.0f, 96.0f); return; }
+    if (std::strcmp(key, "grain_quality") == 0) { const int quality = parseEnum(value, kGrainQualityNames, instance->grainVoiceLimit == 4u ? 0 : (instance->grainVoiceLimit == 8u ? 1 : 2)); instance->grainVoiceLimit = quality == 0 ? 4u : (quality == 1 ? 8u : 16u); controls.grainVoiceLimit = static_cast<float>(instance->grainVoiceLimit); instance->clipControls.grainVoiceLimit = controls.grainVoiceLimit; return; }
     if (std::strcmp(key, "grain_pitch") == 0) { controls.grainPitch = clampValue(parseFloat(value, controls.grainPitch), 0.25f, 4.0f); return; }
     if (std::strcmp(key, "grain_window") == 0) { controls.grainWindow = static_cast<Engine::GrainWindow>(parseEnum(value, kGrainWindowNames, static_cast<int>(controls.grainWindow))); return; }
     if (std::strcmp(key, "grain_spread") == 0) { controls.grainStereoSpread = clampValue(parseFloat(value, controls.grainStereoSpread), 0.0f, 1.0f); return; }
@@ -4817,7 +5289,10 @@ int getParam(void* opaque, const char* key, char* buffer, int bufferLength)
         buffer, bufferLength, "%u", static_cast<unsigned>(kVoiceCount));
     if (std::strcmp(key, "surface") == 0) { buffer[0] = '\0'; return 0; }
     if (std::strcmp(key, "midi_map") == 0) return copyText(kMidiMap, buffer, bufferLength);
-    if (std::strcmp(key, "waveforms") == 0) return copyText(instance->waveText.data(), buffer, bufferLength);
+    if (std::strcmp(key, "waveforms") == 0) {
+        instance->serviceWaveScan();
+        return copyText(instance->waveText.data(), buffer, bufferLength);
+    }
     if (std::strcmp(key, "region_state") == 0) return instance->formatRegionState(buffer, bufferLength);
     if (std::strcmp(key, "cue_state") == 0) return instance->formatCueState(buffer, bufferLength);
     if (std::strcmp(key, "playheads") == 0) {
@@ -4881,18 +5356,19 @@ int getParam(void* opaque, const char* key, char* buffer, int bufferLength)
         instance->planeCapacityFrames * kChannelCount * sizeof(float),
         instance->planeCapacityFrames * sizeof(float));
     if (std::strcmp(key, "chain_state") == 0) return std::snprintf(
-        buffer, bufferLength, "%d,%d,%d,%d",
+        buffer, bufferLength, "%d,%d,%d,%d,%d",
         instance->chainEnabled ? 1 : 0, instance->chainPosition,
-        instance->chainRepeat, instance->chainEditSlot);
+        instance->chainRepeat, instance->chainEditSlot,
+        instance->chainNextSlot);
     if (std::strcmp(key, "chain_entries") == 0) {
-        return instance->formatPatternChain(buffer, bufferLength);
+        return instance->formatClipChain(buffer, bufferLength);
     }
     if (std::strcmp(key, "undo_available") == 0) return std::snprintf(
         buffer, bufferLength, "%d", instance->undoAvailable ? 1 : 0);
-    if (std::strcmp(key, "pattern_state") == 0) {
-        const std::uint64_t mask = instance->occupiedPatternMask();
+    if (std::strcmp(key, "clip_bank_state") == 0) {
+        const std::uint64_t mask = instance->occupiedClipMask();
         return std::snprintf(buffer, bufferLength, "%d,%d,%u,%u",
-            instance->activePattern, instance->queuedPattern,
+            instance->activeClip, instance->queuedClip,
             static_cast<unsigned>(mask & 0xffffffffu),
             static_cast<unsigned>(mask >> 32u));
     }
@@ -4913,17 +5389,17 @@ int getParam(void* opaque, const char* key, char* buffer, int bufferLength)
                 ? instance->sampleLoadError.data()
                 : instance->sampleLoadedName.data());
     }
-    if (std::strcmp(key, "pattern_prepare_state") == 0) return std::snprintf(
+    if (std::strcmp(key, "clip_prepare_state") == 0) return std::snprintf(
         buffer, bufferLength, "%d,%d",
-        instance->patternPrepareState.load(std::memory_order_acquire),
-        instance->patternPrepareRequest.load(std::memory_order_relaxed));
+        instance->clipPrepareState.load(std::memory_order_acquire),
+        instance->clipPrepareRequest.load(std::memory_order_relaxed));
     if (std::strcmp(key, "lane_source") == 0) return copyText(
         instance->laneSourceLabels[instance->selectedLane].data(),
         buffer, bufferLength);
     if (std::strcmp(key, "last_error") == 0) return copyText(
         instance->lastError.data(), buffer, bufferLength);
     if (std::strcmp(key, "lane_source_state") == 0) {
-        const char* kinds[] { "INHERIT", "FILE", "CAPTURE", "EMPTY" };
+        const char* kinds[] { "FILE", "CAPTURE", "EMPTY" };
         const int loadState = instance->sampleLoadState.load(
             std::memory_order_acquire);
         const bool selectedLoad = instance->sampleRequestLane
@@ -4935,16 +5411,16 @@ int getParam(void* opaque, const char* key, char* buffer, int bufferLength)
             && loadState == static_cast<int>(SampleLoadState::error);
         LaneSourceKind ownership = instance->currentLaneSourceKinds[
             instance->selectedLane];
-        if (instance->activePattern >= 0
-            && instance->activePattern < static_cast<int>(kPatternCount)) {
-            ownership = instance->patterns[static_cast<std::size_t>(
-                instance->activePattern)].laneSourceKinds[
+        if (instance->activeClip >= 0
+            && instance->activeClip < static_cast<int>(kClipSlotCount)) {
+            ownership = instance->clipSlots[static_cast<std::size_t>(
+                instance->activeClip)].laneSourceKinds[
                     instance->selectedLane];
         }
         const auto kind = static_cast<std::size_t>(ownership);
         return std::snprintf(buffer, bufferLength, "%s:%s",
             loading ? "LOADING" : (missing ? "MISSING"
-                : (kind < 4u ? kinds[kind] : "MISSING")),
+                : (kind < 3u ? kinds[kind] : "MISSING")),
             instance->laneSourceLabels[instance->selectedLane].data());
     }
 
@@ -4960,9 +5436,12 @@ int getParam(void* opaque, const char* key, char* buffer, int bufferLength)
     if (std::strcmp(key, "pad_mode") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(instance->padMode));
     if (std::strcmp(key, "lane_variation") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(instance->laneVariation));
     if (std::strcmp(key, "preview_level") == 0) return std::snprintf(buffer, bufferLength, "%.4f", instance->previewLevel);
-    if (std::strcmp(key, "clip_rate") == 0) { const Pattern* pattern = instance->activeClipPattern(); return std::snprintf(buffer, bufferLength, "%.4f", pattern ? pattern->clipRate : 1.0f); }
+    if (std::strcmp(key, "clip_rate") == 0) { const ClipSlot* clip = instance->activeClipSlot(); return std::snprintf(buffer, bufferLength, "%.4f", clip ? clip->clipRate : 1.0f); }
     if (std::strcmp(key, "clip_record_mode") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(instance->clipRecordMode));
-    if (std::strcmp(key, "clip_state") == 0) { const Pattern* pattern = instance->activeClipPattern(); const std::uint32_t duration = pattern ? pattern->clipDurationMs : 0u; const int position = duration != 0u ? static_cast<int>(std::lround(clampValue(instance->clipPositionMs / static_cast<double>(duration), 0.0, 1.0) * 1000.0)) : 0; return std::snprintf(buffer, bufferLength, "%d,%d,%d,%d,%u,%u,%u,%d", instance->clipRecording ? 1 : 0, instance->clipPlaying ? 1 : 0, instance->clipReplacing ? 0 : 1, position, duration, pattern ? static_cast<unsigned>(pattern->clipNoteCount) : 0u, pattern ? static_cast<unsigned>(pattern->clipPointCount) : 0u, pattern ? static_cast<int>(std::lround(pattern->clipRate * 1000.0f)) : 1000); }
+    if (std::strcmp(key, "clip_timing") == 0) { const ClipSlot* clip = instance->activeClipSlot(); return std::snprintf(buffer, bufferLength, "%d", clip ? static_cast<int>(clip->timingMode) : 0); }
+    if (std::strcmp(key, "launch_quantize") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(instance->launchQuantize));
+    if (std::strcmp(key, "clip_state") == 0) { const ClipSlot* clip = instance->activeClipSlot(); const std::uint32_t duration = clip ? clip->clipDurationMs : 0u; const int position = duration != 0u ? static_cast<int>(std::lround(clampValue(instance->clipPositionMs / static_cast<double>(duration), 0.0, 1.0) * 1000.0)) : 0; return std::snprintf(buffer, bufferLength, "%d,%d,%d,%d,%u,%u,%u,%d,%d,%d,%d,%d", instance->clipRecording ? 1 : 0, instance->clipPlaying ? 1 : 0, instance->clipReplacing ? 0 : 1, position, duration, clip ? static_cast<unsigned>(clip->clipNoteCount) : 0u, clip ? static_cast<unsigned>(clip->clipPointCount) : 0u, clip ? static_cast<int>(std::lround(clip->clipRate * 1000.0f)) : 1000, instance->clipLaunchPending ? 1 : 0, clip ? static_cast<int>(clip->timingMode) : 0, clip ? static_cast<int>(std::lround(clip->recordedTempoBpm * 100.0f)) : 12000, clip ? static_cast<int>(std::lround(clip->recordedBeats * 1000.0f)) : 0); }
+    if (std::strcmp(key, "clip_capacity_state") == 0) { const ClipSlot* clip = instance->activeClipSlot(); return std::snprintf(buffer, bufferLength, "%u,%u,%u,%u,%d,%d", clip ? static_cast<unsigned>(clip->clipNoteCount) : 0u, static_cast<unsigned>(kClipNoteCapacity), clip ? static_cast<unsigned>(clip->clipPointCount) : 0u, static_cast<unsigned>(kClipPointCapacity), clip && clip->noteCapacityReached ? 1 : 0, clip && clip->pointCapacityReached ? 1 : 0); }
     if (std::strcmp(key, "join") == 0) return std::snprintf(buffer, bufferLength, "%.4f", controls.join);
     if (std::strcmp(key, "output_gain") == 0) return std::snprintf(buffer, bufferLength, "%.4f", instance->outputGain);
     if (std::strcmp(key, "pressure_mode") == 0) return std::snprintf(buffer, bufferLength, "%d", instance->pressureMode);
@@ -4984,8 +5463,8 @@ int getParam(void* opaque, const char* key, char* buffer, int bufferLength)
     if (std::strcmp(key, "tempo_swing") == 0) return std::snprintf(buffer, bufferLength, "%.2f", instance->tempoSwing * 100.0f);
     if (std::strcmp(key, "chain_enabled") == 0) return std::snprintf(buffer, bufferLength, "%d", instance->chainEnabled ? 1 : 0);
     if (std::strcmp(key, "chain_slot") == 0) return std::snprintf(buffer, bufferLength, "%d", instance->chainEditSlot + 1);
-    if (std::strcmp(key, "chain_pattern") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(instance->patternChain[static_cast<std::size_t>(instance->chainEditSlot)].pattern) + 1);
-    if (std::strcmp(key, "chain_repeats") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(instance->patternChain[static_cast<std::size_t>(instance->chainEditSlot)].repeats));
+    if (std::strcmp(key, "chain_clip") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(instance->clipChain[static_cast<std::size_t>(instance->chainEditSlot)].clip) + 1);
+    if (std::strcmp(key, "chain_repeats") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(instance->clipChain[static_cast<std::size_t>(instance->chainEditSlot)].repeats));
 
     if (std::strcmp(key, "motion_mode") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(controls.motion));
     if (std::strcmp(key, "motion_sound") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(controls.motionSound));
@@ -5013,6 +5492,7 @@ int getParam(void* opaque, const char* key, char* buffer, int bufferLength)
     if (std::strcmp(key, "grain_mode") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(controls.grains));
     if (std::strcmp(key, "grain_size") == 0) return std::snprintf(buffer, bufferLength, "%.4f", controls.grainSizeMs);
     if (std::strcmp(key, "grain_density") == 0) return std::snprintf(buffer, bufferLength, "%.4f", controls.grainDensityHz);
+    if (std::strcmp(key, "grain_quality") == 0) return std::snprintf(buffer, bufferLength, "%d", instance->grainVoiceLimit == 4u ? 0 : (instance->grainVoiceLimit == 8u ? 1 : 2));
     if (std::strcmp(key, "grain_pitch") == 0) return std::snprintf(buffer, bufferLength, "%.4f", controls.grainPitch);
     if (std::strcmp(key, "grain_window") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(controls.grainWindow));
     if (std::strcmp(key, "grain_spread") == 0) return std::snprintf(buffer, bufferLength, "%.4f", controls.grainStereoSpread);

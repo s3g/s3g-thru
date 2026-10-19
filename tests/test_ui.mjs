@@ -43,20 +43,23 @@ const params = {
     lane_cycles: '1', algorithm: '0', join: '1', output_gain: '1',
     record_lane: '1', pad_octave: '0', record_source: '0',
     record_gain: '1', monitor_level: '0', preview_level: '0.7',
-    clip_rate: '1', clip_record_mode: '0',
-    clip_state: '0,0,0,250,4000,3,10,1000',
+    clip_rate: '1', clip_record_mode: '0', clip_timing: '0',
+    launch_quantize: '0', grain_quality: '1',
+    clip_state: '0,0,0,250,4000,3,10,1000,0,0,12000,8000',
+    clip_capacity_state: '3,1024,10,8192,0,0',
     ui_state: '1,1,0,0,250,100,900,1000,0,0,0,0,20,0,1,1,2',
     playheads: '100,700,-1,-1,-1,-1,-1,-1',
     voice_lanes: '333,800,-1,-1,-1,-1,-1,-1',
     voice_pads: '-1,-1,-1,-1,-1,-1,-1,-1',
     tempo_bpm: '120', tempo_swing: '50',
     chain_enabled: '0', chain_slot: '1',
-    chain_pattern: '1', chain_repeats: '1',
-    pattern_state: '0,-1,1,0',
+    chain_clip: '1', chain_repeats: '1',
+    clip_bank_state: '0,-1,1,0',
     sample_load_state: '0,1,0,',
     region_state: '2,0,500,1000', pad_mode: '0',
     cue_state: '-1,-1,-1,-1,-1,-1,-1,-1',
-    pattern_prepare_state: '0,-1', chain_state: '0,0,0,0',
+    clip_prepare_state: '0,-1', chain_state: '0,0,0,0,-1',
+    chain_entries: ['1:0:2', '1:1:1', ...Array(14).fill('0:0:1')].join(','),
     lane_source: 'LIVE',
     lane_source_state: 'CAPTURE:LIVE', undo_available: '0',
     last_error: '',
@@ -163,21 +166,21 @@ globalThis.onMidiMessageInternal([0xB0, 49, 0]);
 
 /* Every Step key is a performance-clip slot in the visible 16-slot bank. */
 globalThis.onMidiMessageInternal([0x90, 19, 127]);
-assert.deepEqual(blockingWrites.pop(), ['pattern_select', '3']);
+assert.deepEqual(blockingWrites.pop(), ['clip_select', '3']);
 globalThis.onMidiMessageInternal([0xB0, 119, 127]);
 globalThis.onMidiMessageInternal([0x90, 18, 127]);
-assert.deepEqual(blockingWrites.pop(), ['clip_clear_pattern', '2']);
+assert.deepEqual(blockingWrites.pop(), ['clip_reset', '2']);
 globalThis.onMidiMessageInternal([0xB0, 119, 0]);
 globalThis.onMidiMessageInternal([0xB0, 49, 127]);
 globalThis.onMidiMessageInternal([0x90, 17, 127]);
-assert.deepEqual(blockingWrites.pop(), ['pattern_copy', '1']);
+assert.deepEqual(blockingWrites.pop(), ['clip_copy', '1']);
 globalThis.onMidiMessageInternal([0xB0, 49, 0]);
 
 /* Left/Right changes A-D banks. The selected bank is used immediately by the
    Step row without entering a separate sequencing mode. */
 globalThis.onMidiMessageInternal([0xB0, 63, 127]);
 globalThis.onMidiMessageInternal([0x90, 16, 127]);
-assert.deepEqual(blockingWrites.pop(), ['pattern_select', '16']);
+assert.deepEqual(blockingWrites.pop(), ['clip_select', '16']);
 globalThis.onMidiMessageInternal([0xB0, 62, 127]);
 
 globalThis.onMidiMessageInternal([0xB0, 55, 127]);
@@ -241,16 +244,37 @@ globalThis.onMidiMessageInternal([0xB0, 50, 127]);
 globalThis.onMidiMessageInternal([0xB0, 49, 127]);
 globalThis.onMidiMessageInternal([0xB0, 85, 127]);
 globalThis.onMidiMessageInternal([0xB0, 49, 0]);
-const patternDrawStart = drawWrites.length;
+const clipDrawStart = drawWrites.length;
 globalThis.tick();
-assert(drawWrites.slice(patternDrawStart).some((write) => write[0] === 'print'
+assert(drawWrites.slice(clipDrawStart).some((write) => write[0] === 'print'
     && String(write[3]).includes('PERF CLIPS A01')));
 globalThis.onMidiMessageInternal([0xB0, 42, 127]);
 globalThis.onMidiMessageInternal([0x90, 17, 127]);
-assert.deepEqual(blockingWrites.pop(), ['pattern_select', '17']);
+assert.deepEqual(blockingWrites.pop(), ['clip_select', '17']);
 globalThis.onMidiMessageInternal([0xB0, 49, 127]);
 globalThis.onMidiMessageInternal([0xB0, 85, 127]);
 globalThis.onMidiMessageInternal([0xB0, 49, 0]);
+
+const chainDrawStart = drawWrites.length;
+globalThis.tick();
+assert(drawWrites.slice(chainDrawStart).some((write) => write[0] === 'print'
+    && String(write[3]).includes('CHAIN OFF')));
+globalThis.onMidiMessageInternal([0xB0, 49, 127]);
+globalThis.onMidiMessageInternal([0xB0, 3, 127]);
+globalThis.onMidiMessageInternal([0xB0, 49, 0]);
+assert.deepEqual(blockingWrites.at(-1), ['chain_insert', '0,0']);
+globalThis.onMidiMessageInternal([0xB0, 119, 127]);
+globalThis.onMidiMessageInternal([0x90, 17, 127]);
+globalThis.onMidiMessageInternal([0xB0, 119, 0]);
+assert.deepEqual(blockingWrites.slice(-2), [
+    ['chain_delete', '1'], ['chain_slot', '2'],
+]);
+globalThis.onMidiMessageInternal([0xB0, 49, 127]);
+globalThis.onMidiMessageInternal([0x90, 18, 127]);
+globalThis.onMidiMessageInternal([0xB0, 49, 0]);
+assert.deepEqual(blockingWrites.slice(-2), [
+    ['chain_move', '1,2'], ['chain_slot', '3'],
+]);
 
 /* Shift+Track opens the device sample library for that lane. Directories and
    WAVs are browsed with the main encoder/button, then handed to the worker. */

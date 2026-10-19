@@ -21,7 +21,7 @@ It is intentionally a new instrument rather than a Sample Neon variant.
   pad-addressed Slices playback algorithms;
 - detects up to 64 transient regions per lane outside the audio callback and
   draws their boundaries over the selected waveform;
-- auditions WAV files while browsing, before they replace a pattern lane;
+- auditions WAV files while browsing, before they replace a clip lane;
 - offers Keys, Slices, eight Cue, and held Roll pad modes plus Manual, Cycle,
   Random, No Repeat, and Velocity four-lane variation;
 - plays directly from Move's 32 pads with no track MIDI routing;
@@ -32,7 +32,8 @@ It is intentionally a new instrument rather than a Sample Neon variant.
   depth, while Velocity lane variation can deliberately choose a discrete lane;
 - plays eight notes polyphonically, with an independent engine and playhead for
   each active voice;
-- accepts a fixed external MIDI CC map for every engine/global parameter;
+- retains a provisional external MIDI CC map for the existing engine and global
+  controls;
 - recalls stereo captures, 64 performance clips, chains, recorded pressure and
   parameter gestures, and engine settings on the next launch;
 - exposes Engine, selected-engine pages, Mix / Rec, Sample, Performance Loop,
@@ -40,6 +41,10 @@ It is intentionally a new instrument rather than a Sample Neon variant.
 - records free-time polyphonic performances rather than quantizing them to a
   step grid, with Replace and Overdub modes and continuously variable
   0.25x–4x loop speed;
+- stores each clip's capture BPM and exact beat length, with Free or Beat Sync
+  playback plus Off/Beat/Bar launch quantization;
+- exposes 4-, 8-, and 16-grain quality levels for trading density against
+  Move's realtime CPU margin;
 - preserves each note's recorded onset, duration, strike velocity, source pad,
   poly pressure, and overlapping voice identity;
 - assigns a stable color to each of the eight DSP voice/playhead slots and
@@ -51,8 +56,9 @@ It is intentionally a new instrument rather than a Sample Neon variant.
 The composition layer has four banks (A-D) of 16 free-time performance clips.
 A 16-slot chain provides clip order and repeat counts, advancing at recorded
 loop boundaries. Live knob motion and per-pad pressure are captured with the
-notes. Host/Move transport synchronization remains a later milestone; v0.17.0
-uses each clip's own recorded duration.
+notes. Beat Sync follows Thru's internal BPM while preserving the captured
+microtiming; synchronization to Move's native transport remains a later
+milestone.
 Eight-voice realtime CPU behavior, particularly with the Grains engine, still
 needs acceptance on Move.
 
@@ -112,12 +118,13 @@ separate action.
 Use **Up/Down** to transpose the pad grid by octaves. Use **Left/Right** to
 select performance-clip banks A–D; **Shift + Up/Down** is an alternate gesture.
 The 16 Step keys select the 16 clips in that bank from the waveform or
-parameter view. **Menu** opens the
+parameter view. **Shift + Play** cycles through the clip overview, the 16-slot
+chain editor, and the main display. **Menu** opens the
 parameter pages; **Up/Down** then changes pages. Only the page for the selected
 playback engine is included. Each screen cell is aligned with one of the eight
 physical dials and shows a padded parameter name with its value underneath—no
 small dial graphic. **Shift + Back** restores the last destructive clip,
-pattern, source, or sample edit.
+source, or sample edit.
 **Shift + Menu** shows compact help. **Back** closes a secondary page, or exits
 from the waveform page. Schwung's universal
 **Shift + volume touch + jog-click** escape remains available.
@@ -133,16 +140,25 @@ from the waveform page. Schwung's universal
 
 The Performance Loop page selects `REPLACE` (clear the old event data and set a
 new duration) or `OVERDUB` (retain the duration and merge new notes/gestures),
-and sets Loop Rate from 0.25x to 4x. Turning a lockable engine parameter during
-recording writes a continuous gesture point; pressure is recorded separately
-for each pad/voice. The thin line below the waveforms shows loop position.
+and sets Loop Rate from 0.25x to 4x. `FREE` retains the recorded wall-clock
+duration; `BEAT SYNC` scales it from the BPM captured with the clip to the
+current BPM. Launch can be immediate or wait for the next internal beat/bar.
+Turning a lockable engine parameter during recording writes a continuous
+gesture point; pressure is recorded separately for each pad/voice. The thin
+line below the waveforms shows loop position.
+
+Each clip has a fixed capacity of 1,024 notes and 8,192 pressure/parameter
+points. Gesture capture progressively thins nearly identical points as the
+buffer fills. At capacity the latest endpoint for an existing gesture is still
+updated, playback continues, and the display reports `CLIP FULL` with the note
+and gesture counts.
 
 Use **Left/Right** for banks A–D and press a Step key to select or queue one of
 its 16 clips. White slots contain data or sample assignments, orange is the
 stopped active clip, green is the playing clip, red is recording, and
 blue-violet is queued. **Shift + Step** copies the current clip and its sample
-assignments. **Delete + Step** clears only that slot's performance events; it
-does not delete its samples. Clearing is undoable.
+assignments. **Delete + Step** resets that complete clip slot, including its
+sample assignments. Reset is undoable.
 
 ## Record the first audio lane
 
@@ -169,19 +185,20 @@ Up/Down) to select a folder or WAV, click the encoder to enter/load, and press
 Back to move up or leave the browser. Highlighting a WAV auditions it through
 Preview Level; clicking promotes that decoded preview into the selected lane.
 
-The selected lane may therefore contain either a pattern-local stereo capture
+The selected lane may therefore contain either a clip-local stereo capture
 or a library sample. Loading replaces only that lane. Mono/stereo PCM 16/24/32-bit
 and 32-bit float WAV files are supported; other sample rates are resampled to
 Move's rate and material longer than 12 seconds is truncated. File decoding is
 done on a background worker. The waveform footer shows ownership and source.
 
-Every pattern lane has explicit ownership: `INHERIT`, `FILE`, `CAPTURE`, or
-`EMPTY`; the display additionally reports `LOADING` and `MISSING`. `INHERIT`
-resolves through numerically preceding patterns. Recording assigns a
-pattern-local file under `captures/`; loading assigns a User Library path; and
-clearing creates an intentional `EMPTY` lane. Queued-pattern sources are
-decoded into a second four-lane bank and swapped together at a pattern
-boundary. If preparation is incomplete, the current pattern plays for another
+Every clip lane has explicit ownership: `FILE`, `CAPTURE`, or `EMPTY`; the
+display additionally reports `LOADING` and `MISSING`. The first time a blank
+clip is selected it snapshots the four sources currently in use, after which
+its assignments are independent—there is no dynamic previous-clip lookup.
+Recording assigns a clip-local file under `captures/`; loading assigns a User
+Library path; and resetting creates intentional `EMPTY` lanes. Queued-clip
+sources are decoded into a second four-lane bank and swapped together at a clip
+boundary. If preparation is incomplete, the current clip plays for another
 cycle instead of mixing old and new lane sources.
 
 The Sample page provides non-destructive source selection followed by explicit
@@ -189,7 +206,7 @@ editing actions: normalized Start/End trim, Trim Apply, Reverse, Normalize, and
 a short edge fade. Select the lane with a Track button, then turn the relevant
 Sample-page encoder in either direction. `TURN` is the ready state; a successful
 edit temporarily replaces the page title with `NORMALIZED L1`, `REVERSED L1`,
-`TRIMMED L1`, or `FADED L1`. Edits alternate between two pattern-local capture files, so
+`TRIMMED L1`, or `FADED L1`. Edits alternate between two clip-local capture files, so
 one-level Undo can return to the previous file or capture without that audio
 having been overwritten.
 
@@ -197,11 +214,14 @@ having been overwritten.
 
 Thru periodically autosaves changed metadata and completed stereo captures,
 then performs a final save on normal exit. Current-bank recovery WAVs remain
-`thru-lane-1.wav` through `thru-lane-4.wav`; pattern takes live under
+`thru-lane-1.wav` through `thru-lane-4.wav`; clip takes live under
 `captures/`; controls are in `thru-state.json`; performance notes, gesture
-points, durations, rates, chains, source ownership, and engine settings are in
-`thru-pattern.bin`. Files are written through temporary files and renamed only
-after a complete write.
+points, durations, rates, captured tempo, timing modes, chains, source
+ownership, and engine settings are in `thru-clips.bin`. Metadata uses generation
+numbers, the binary bank has a checksum, and each successful replacement keeps
+one `.bak` generation. On launch, Thru selects the newest matching JSON/binary
+generation across the current and backup files, so it does not combine two
+individually valid halves of interrupted saves.
 
 Use **Back** from the main waveform page for a normal save-and-exit. Autosave
 narrows the power-loss window, but power can still be removed before the next
@@ -209,11 +229,22 @@ maintenance pass. Uninstalling the module
 can also remove its saved bank, so copy those files elsewhere before an
 uninstall or future clean reinstall.
 
-Version 0.17.0 deliberately starts a new pre-release persistence format.
-Earlier step-pattern and compatibility-era state files are not imported. Move
-or delete an older `thru-pattern.bin` and `thru-state.json` before first
-launch if they are present; stereo WAV captures can be copied into the User
+Version 0.18.0 deliberately starts a new pre-release persistence format.
+Earlier step-sequence and compatibility-era metadata is not imported. Move or
+delete an older `thru-pattern.bin`, `thru-clips.bin`, and `thru-state.json`
+before first launch if present; stereo WAV captures can be copied into the User
 Library and loaded again.
+
+To make a portable backup of a module data directory, run:
+
+```sh
+scripts/export-set.sh /path/to/s3g-thru-data Thru-set.tar.gz
+```
+
+The archive includes current metadata, its recovery generation, saved lane
+WAVs, and local captures. User Library WAVs remain external references; after
+moving or renaming one, use **Shift + Track** on the reported `MISSING` lane to
+select its replacement.
 
 ## Performance controls
 
@@ -264,11 +295,15 @@ launcher in either view. A requested clip with different sample sources is
 prepared on a worker and changes at the current loop boundary; if preparation
 is incomplete, the current clip takes another pass rather than mixing banks.
 
-The Chain page edits a 16-slot clip list. Choose a slot, its A01–D16 clip, and a
-repeat count from 1–16, then enable Chain. The chain advances only on complete
-recorded-loop boundaries and only after the next clip's sample bank is ready.
-Manual clip selection disables Chain so it cannot silently override the request.
-Turn Clear Slot on the Chain page to remove the selected chain entry.
+The dedicated Chain view edits a 16-slot clip list. Use a Step key to select a
+slot, the main encoder to choose its A01–D16 clip, and Up/Down for 1–16 repeats.
+Click the main encoder to enable/disable playback, **Shift + click** to insert
+the active clip before the selected slot, **Delete + Step** to remove and
+compact an entry, or **Shift + Step** to move the selected entry. The screen and
+Step LEDs distinguish selected, current, queued, populated, and empty slots.
+The chain advances only on complete recorded-loop boundaries and only after the
+next clip's sample bank is ready. Manual clip selection disables Chain so it
+cannot silently override the request.
 
 Strike velocity chooses an offset within the moving lane-stack cycle and poly
 aftertouch moves that offset while the note is held. The lane scan continues
@@ -287,14 +322,15 @@ eight markers remain legible on the monochrome display.
 On the waveform page, each row now separates its lane number, activity fader,
 and waveform with dedicated padding so the three indicators remain legible.
 
-## External MIDI map
+## Provisional external MIDI map
 
 S3G Thru accepts notes, note-off, polyphonic aftertouch, All Sound Off (CC 120),
 and All Notes Off (CC 123) from Move's external/host MIDI path. All parameter
 mapping is 7-bit absolute: `0` selects the minimum/first choice and `127`
-selects the maximum/last choice. The map is intentionally fixed so a
+selects the maximum/last choice. The current map is intentionally fixed so a
 programmable controller such as the LightReft Monolit can recall it without a
-MIDI-learn file.
+MIDI-learn file. The new Quality, Clip Timing, and Launch controls are not
+mapped while the external-controller design is still being evaluated.
 
 | CC | Parameter | CC | Parameter |
 |---:|---|---:|---|
@@ -317,7 +353,7 @@ MIDI-learn file.
 | 36 | Lane 2 gain | 53 | Clear selected lane (>=64) |
 | 54 | Tempo 40–240 BPM | 65 | Chain Off/On |
 | 55 | Tempo swing 50–75% | 66 | Chain slot 1–16 |
-| 56 | Performance playback Off/On | 67 | Chain pattern A01–D16 |
+| 56 | Performance playback Off/On | 67 | Chain clip A01–D16 |
 | 57 | Undo trigger | 68 | Chain repeats 1–16 |
 | 58 | Clear selected chain slot |  |  |
 | 69 | Motion travel | 88 | Grain timing scatter |
@@ -365,7 +401,8 @@ and Sample and Slices each have one.
   motor rate, symmetry, and shape.
 - Lanes Path/Shape: eight stack paths including Random, Crossfade/Jump,
   breakpoint shape, offset, skew, curve, transition slew, stretch, and ratio.
-- Grains Main/Cloud/Process: 16 grains per playback voice; source mode, size,
+- Grains Main/Cloud/Process: selectable 4, 8, or 16 grains per playback voice;
+  source mode, size,
   density, independent grain pitch, six windows, stereo spread, position and
   pitch spray, directional bias, reverse/size/level variation, regular or
   scattered timing, envelope skew, slice regions, scan/per-grain advance, and
@@ -384,9 +421,9 @@ and Sample and Slices each have one.
   monitor level, and browser preview level.
 - Sample edit: trim start/end and apply, reverse, normalize, edge fade, record gain,
   and output level.
-- Performance Loop: playback rate, Replace/Overdub, pressure behavior, root
-  note, and the four primary Chain controls.
-- Chain: enable, slot, clip, repeats, root note, algorithm, join, and level.
+- Performance Loop: playback rate, Free/Beat Sync timing, Off/Beat/Bar launch,
+  BPM, Replace/Overdub, swing, pressure behavior, and root note.
+- Chain: enable, slot, clip, repeats, clear slot, algorithm, join, and level.
 
 Press **Back** once to return to the waveform page without exiting.
 
@@ -417,9 +454,9 @@ gesture for the motion-family engines.
   and bounded 64-clip event storage.
 - Playback uses eight independent voices. Voice stealing prefers a released
   voice, then the oldest held voice when all eight are occupied.
-- Each playback voice has 16 bounded grain slots (128 across eight voices).
-  Eight simultaneous dense Grains voices are the highest expected DSP load and
-  must be checked on Move before this build is considered accepted.
+- Each playback voice has 16 bounded grain slots, with Quality limiting active
+  grains to 4, 8, or 16 per voice. Start at 8 on Move and use 4 if the Help
+  screen's overrun counter rises; 16 is the maximum-density mode to validate.
 - The desktop Grains Sorter process and Motion segment-event router are not in
   this hardware-bounded pass. Motion Bounce remains an articulation rather
   than a separate event router. Transient maps are automatic and bounded to 64

@@ -39,10 +39,10 @@ It is intentionally a new instrument rather than a Sample Neon variant.
 - recalls stereo captures, 64 performance clips, chains, recorded pressure and
   parameter gestures, and engine settings on the next launch;
 - exposes Engine, selected-engine pages, Mix / Rec, Sample, Performance Loop,
-  and Chain as padded name/value cells;
+  Overdub Takes, and Chain as padded name/value cells;
 - records free-time polyphonic performances rather than quantizing them to a
-  step grid, with Replace and Overdub modes and continuously variable
-  0.25x–4x loop speed;
+  step grid, with Replace, layered undoable Overdub takes, and continuously
+  variable 0.25x–4x loop speed;
 - stores each clip's capture BPM and exact beat length, with Free or Beat Sync
   playback plus Off/Beat/Bar launch quantization;
 - exposes 4-, 8-, and 16-grain quality levels for trading density against
@@ -149,6 +149,14 @@ Turning a lockable engine parameter during recording writes a continuous
 gesture point; pressure is recorded separately for each pad/voice. The thin
 line below the waveforms shows loop position.
 
+Replace establishes take 1 as the protected base performance. Every completed
+Overdub pass that contains a note or gesture becomes another clip-local take;
+an empty pass does not consume a take. The Overdub Takes page displays the
+current count. Turn `UNDO TAKE`, or hold **Delete** and press **Record**, to
+remove the latest overdub's notes and gestures. Repeat to peel back takes in
+reverse order. The base take is never removed by Undo Take; use Replace or
+Clear Performance when a new blank foundation is intended.
+
 Each clip has a fixed capacity of 1,024 notes and 8,192 pressure/parameter
 points. Gesture capture progressively thins nearly identical points as the
 buffer fills. At capacity the latest endpoint for an existing gesture is still
@@ -228,13 +236,17 @@ one `.bak` generation. On launch, Thru selects the newest matching JSON/binary
 generation across the current and backup files, so it does not combine two
 individually valid halves of interrupted saves.
 
+The take-aware binary bank is format 2. Format-1 banks from 0.18 are imported
+with each recorded performance treated as its protected base take; subsequent
+saves write format 2 and preserve individual overdub membership.
+
 Use **Back** from the main waveform page for a normal save-and-exit. Autosave
 narrows the power-loss window, but power can still be removed before the next
 maintenance pass. Uninstalling the module
 can also remove its saved bank, so copy those files elsewhere before an
 uninstall or future clean reinstall.
 
-Version 0.18.x deliberately starts a new pre-release persistence format.
+Version 0.18.x deliberately started a new pre-release persistence format.
 Earlier step-sequence and compatibility-era metadata is not imported. Move or
 delete an older `thru-pattern.bin`, `thru-clips.bin`, and `thru-state.json`
 before first launch if present; stereo WAV captures can be copied into the User
@@ -289,7 +301,10 @@ eight-voice pool.
 
 Replace starts a blank event recording and determines the new loop duration
 when Record is pressed again. Overdub follows the active loop phase and merges
-new events without changing its duration. Parameter and pressure paths are
+new events without changing its duration. Each completed non-empty overdub is
+stored as a take, so Undo Take can remove its notes and gestures without
+touching the base performance or prior passes. Take membership is saved with
+the clip and copied with Shift+Step. Parameter and pressure paths are
 linearly interpolated around the loop seam, following the continuous recorder
 behavior used by the S3G Daisy instruments. Playback Rate scales the entire
 performance—including note timing and gesture motion—from 0.25x to 4x.
@@ -428,6 +443,9 @@ and Sample and Slices each have one.
   and output level.
 - Performance Loop: playback rate, Free/Beat Sync timing, Off/Beat/Bar launch,
   BPM, Replace/Overdub, swing, pressure behavior, and root note.
+- Overdub Takes: Replace/Overdub selection, the current take count in the page
+  title, and Undo Take. Delete+Record invokes the same take-only undo directly
+  from the waveform or parameter view.
 - Chain: enable, slot, clip, repeats, clear slot, algorithm, join, and level.
 
 Press **Back** once to return to the waveform page without exiting.

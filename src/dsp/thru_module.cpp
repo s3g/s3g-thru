@@ -41,6 +41,7 @@ constexpr std::size_t kClipChainLength = 16u;
 constexpr std::size_t kCueCount = 8u;
 constexpr std::size_t kClipNoteCapacity = 1024u;
 constexpr std::size_t kClipPointCapacity = 8192u;
+constexpr std::uint8_t kClipTakeLimit = 255u;
 constexpr std::uint32_t kClipMinimumDurationMs = 50u;
 constexpr std::uint32_t kClipMaximumDurationMs = 120000u;
 constexpr int kFirstPadNote = 68;
@@ -110,16 +111,19 @@ struct ClipNote {
     std::uint8_t note = 60u;
     std::uint8_t velocity = 100u;
     std::uint8_t sourcePad = 255u;
-    std::uint8_t reserved = 0u;
+    std::uint8_t take = 0u;
 };
 
 struct ClipPoint {
     std::uint32_t timeMs = 0u;
     float value = 0.0f;
+    // Low byte: LockParameter. High byte: overdub take index.
     std::uint16_t parameter = 0u;
     std::uint8_t sourcePad = 255u;
     ClipPointType type = ClipPointType::parameter;
 };
+static_assert(sizeof(ClipPoint) == 12u,
+              "overdub tags must not increase gesture-bank memory");
 
 enum class LockParameter : std::uint32_t {
     locus = 0u,
@@ -220,6 +224,7 @@ struct ClipSlot {
     std::uint32_t clipDurationMs = 0u;
     std::uint16_t clipNoteCount = 0u;
     std::uint16_t clipPointCount = 0u;
+    std::uint8_t takeCount = 0u;
     float clipRate = 1.0f;
     float recordedTempoBpm = 120.0f;
     float recordedBeats = 0.0f;
@@ -438,9 +443,11 @@ constexpr const char kChainParams[] = R"json([
 {"key":"launch_quantize","name":"Launch Quantize","short_name":"LAUNCH","type":"enum","options":["Off","Beat","Bar"],"default":0},
 {"key":"clip_record","name":"Record Performance","type":"int","min":0,"max":1,"access":"write"},
 {"key":"clip_clear","name":"Clear Performance","type":"int","min":0,"max":1,"access":"write"},
+{"key":"clip_take_undo","name":"Undo Last Overdub Take","type":"int","min":0,"max":1,"access":"write"},
 {"key":"clip_reset","name":"Reset Clip","type":"int","min":0,"max":63,"access":"write"},
 {"key":"clip_automation","name":"Record Gesture Point","type":"string","access":"write"},
 {"key":"clip_state","name":"Performance Loop State","type":"string","access":"read","live":true},
+{"key":"clip_take_state","name":"Performance Take State","type":"string","access":"read","live":true},
 {"key":"clip_capacity_state","name":"Clip Capture Capacity","type":"string","access":"read","live":true},
 {"key":"clip_playing","name":"Performance Playback","type":"int","min":0,"max":1,"access":"write"},
 {"key":"tempo_bpm","name":"Tempo","short_name":"BPM","type":"float","min":40,"max":240,"step":1,"default":120,"unit":"BPM"},
@@ -1053,6 +1060,9 @@ struct ThruInstance {
     std::array<std::uint32_t, 32u> clipLastPressureTimes {};
     std::array<float, 32u> clipLastPressureValues {};
     std::array<int, kClipCurveLaneCount> clipLastPointIndices {};
+    std::uint16_t clipRecordStartNoteCount = 0u;
+    std::uint16_t clipRecordStartPointCount = 0u;
+    std::uint8_t clipRecordingTake = 0u;
     ClipRecordMode clipRecordMode = ClipRecordMode::replace;
     bool clipRecording = false;
     bool clipReplacing = true;
@@ -2154,13 +2164,27 @@ struct ThruInstance {
     static std::size_t clipPointLane(const ClipPoint& point)
     {
         if (point.type == ClipPointType::parameter) {
-            return point.parameter < kLockParameterCount
-                ? static_cast<std::size_t>(point.parameter)
+            const std::size_t parameter = point.parameter & 0xffu;
+            return parameter < kLockParameterCount
+                ? parameter
                 : kClipCurveLaneCount;
         }
         return point.sourcePad < 32u
             ? kLockParameterCount + static_cast<std::size_t>(point.sourcePad)
             : kClipCurveLaneCount;
+    }
+
+    static std::uint8_t clipPointTake(const ClipPoint& point)
+    {
+        return static_cast<std::uint8_t>(point.parameter >> 8u);
+    }
+
+    static std::uint16_t clipPointDescriptor(
+        std::size_t parameter, std::uint8_t take)
+    {
+        return static_cast<std::uint16_t>(
+            std::min<std::size_t>(parameter, kLockParameterCount - 1u)
+            | (static_cast<std::uint16_t>(take) << 8u));
     }
 
     static void rebuildClipPointIndex(ClipSlot& clip)
@@ -2205,6 +2229,7 @@ struct ThruInstance {
             clampValue(velocity, 1, 127));
         captured.sourcePad = sourcePad >= 0 && sourcePad < 32
             ? static_cast<std::uint8_t>(sourcePad) : 255u;
+        captured.take = clipRecordingTake;
         clipOpenNoteIndices[static_cast<std::size_t>(key)] =
             static_cast<int>(index);
         clipOpenNoteStarts[static_cast<std::size_t>(key)] =
@@ -2288,8 +2313,7 @@ struct ThruInstance {
         ClipPoint& point = clip->clipPoints[pointIndex];
         point.timeMs = time;
         point.value = value;
-        point.parameter = static_cast<std::uint16_t>(std::min<std::size_t>(
-            parameter, kLockParameterCount - 1u));
+        point.parameter = clipPointDescriptor(parameter, clipRecordingTake);
         point.sourcePad = sourcePad >= 0 && sourcePad < 32
             ? static_cast<std::uint8_t>(sourcePad) : 255u;
         point.type = type;
@@ -2677,16 +2701,23 @@ struct ThruInstance {
             setError("Wait for the queued clip to finish preparing");
             return;
         }
-        pushClipUndo(activeClip);
-        chainEnabled = false;
-        chainNextSlot = -1;
         const bool overdub = clipRecordMode == ClipRecordMode::overdub
             && clip->clipRecorded
             && clip->clipDurationMs >= kClipMinimumDurationMs;
+        if (overdub && clip->takeCount >= kClipTakeLimit) {
+            setError("Performance take limit reached");
+            return;
+        }
+        clearError();
+        if (!overdub) pushClipUndo(activeClip);
+        chainEnabled = false;
+        chainNextSlot = -1;
         clipReplacing = !overdub;
+        clipRecordingTake = overdub ? clip->takeCount : 0u;
         if (!overdub) {
             clip->clipNoteCount = 0u;
             clip->clipPointCount = 0u;
+            clip->takeCount = 0u;
             clip->noteCapacityReached = false;
             clip->pointCapacityReached = false;
             clip->clipPointStarts.fill(0u);
@@ -2710,15 +2741,11 @@ struct ThruInstance {
         clipLastPressureTimes.fill(0xffffffffu);
         clipLastPressureValues.fill(-1.0f);
         clipLastPointIndices.fill(-1);
-        if (overdub) {
-            for (std::size_t index = 0u;
-                 index < clip->clipPointCount; ++index) {
-                const std::size_t lane = clipPointLane(clip->clipPoints[index]);
-                if (lane < kClipCurveLaneCount) {
-                    clipLastPointIndices[lane] = static_cast<int>(index);
-                }
-            }
-        }
+        // Each overdub owns its gesture points. Do not seed thinning from a
+        // previous take or a new pass could mutate data that Undo Take must
+        // preserve.
+        clipRecordStartNoteCount = clip->clipNoteCount;
+        clipRecordStartPointCount = clip->clipPointCount;
         clipRecordStartSample = renderClockSamples.load(
             std::memory_order_relaxed);
         clipRecording = true;
@@ -2780,6 +2807,13 @@ struct ThruInstance {
                   });
         rebuildClipPointIndex(*clip);
         clip->clipRecorded = true;
+        const bool passHasContent = clip->clipNoteCount > clipRecordStartNoteCount
+            || clip->clipPointCount > clipRecordStartPointCount;
+        if (clipReplacing) {
+            clip->takeCount = 1u;
+        } else if (passHasContent) {
+            clip->takeCount = static_cast<std::uint8_t>(clipRecordingTake + 1u);
+        }
         clip->occupied = true;
         clipRecording = false;
         clipFinishPending = false;
@@ -2810,6 +2844,7 @@ struct ThruInstance {
         clip.clipPointCounts.fill(0u);
         clip.clipDurationMs = 0u;
         clip.clipRecorded = false;
+        clip.takeCount = 0u;
         clip.noteCapacityReached = false;
         clip.pointCapacityReached = false;
         if (index == queuedClip) {
@@ -3107,6 +3142,50 @@ struct ThruInstance {
         clipSlots[static_cast<std::size_t>(undoClipIndex)] = undoClip;
         if (activeClip == undoClipIndex) activateStoredClip(activeClip);
         undoAvailable = false;
+        markPersistentStateDirty();
+    }
+
+    void undoLastClipTake()
+    {
+        ClipSlot* clip = activeClipSlot();
+        if (!clip || clipRecording) {
+            setError("Stop performance recording before undoing a take");
+            return;
+        }
+        if (clipPreparationInFlight()) {
+            setError("Wait for the queued clip to finish preparing");
+            return;
+        }
+        if (!clip->clipRecorded || clip->takeCount <= 1u) {
+            setError("No overdub take to undo");
+            return;
+        }
+        clearError();
+        const std::uint8_t removedTake = static_cast<std::uint8_t>(
+            clip->takeCount - 1u);
+        releaseClipVoices();
+        std::size_t noteWrite = 0u;
+        for (std::size_t index = 0u; index < clip->clipNoteCount; ++index) {
+            if (clip->clipNotes[index].take == removedTake) continue;
+            if (noteWrite != index) {
+                clip->clipNotes[noteWrite] = clip->clipNotes[index];
+            }
+            ++noteWrite;
+        }
+        std::size_t pointWrite = 0u;
+        for (std::size_t index = 0u; index < clip->clipPointCount; ++index) {
+            if (clipPointTake(clip->clipPoints[index]) == removedTake) continue;
+            if (pointWrite != index) {
+                clip->clipPoints[pointWrite] = clip->clipPoints[index];
+            }
+            ++pointWrite;
+        }
+        clip->clipNoteCount = static_cast<std::uint16_t>(noteWrite);
+        clip->clipPointCount = static_cast<std::uint16_t>(pointWrite);
+        --clip->takeCount;
+        clip->noteCapacityReached = false;
+        clip->pointCapacityReached = false;
+        rebuildClipPointIndex(*clip);
         markPersistentStateDirty();
     }
 
@@ -4350,7 +4429,7 @@ struct ThruInstance {
         if (!file) return false;
         const char magic[8] { 'S', '3', 'G', 'T', 'H', 'R', '3', '\0' };
         bool ok = writeBytes(file, magic, sizeof(magic))
-            && writeU32(file, 1u)
+            && writeU32(file, 2u)
             && writeU64(file, persistenceGeneration)
             && writeF32(file, tempoBpm)
             && writeF32(file, tempoSwing)
@@ -4388,6 +4467,7 @@ struct ThruInstance {
                 && writeU32(file, static_cast<std::uint32_t>(clip.timingMode))
                 && writeU32(file, clip.noteCapacityReached ? 1u : 0u)
                 && writeU32(file, clip.pointCapacityReached ? 1u : 0u)
+                && writeU32(file, clip.takeCount)
                 && writeU32(file, clip.clipNoteCount)
                 && writeU32(file, clip.clipPointCount);
             for (std::size_t index = 0u;
@@ -4397,16 +4477,18 @@ struct ThruInstance {
                     && writeU32(file, note.durationMs)
                     && writeU32(file, note.note)
                     && writeU32(file, note.velocity)
-                    && writeU32(file, note.sourcePad);
+                    && writeU32(file, note.sourcePad)
+                    && writeU32(file, note.take);
             }
             for (std::size_t index = 0u;
                  index < clip.clipPointCount; ++index) {
                 const ClipPoint& point = clip.clipPoints[index];
                 ok = ok && writeU32(file, point.timeMs)
                     && writeF32(file, point.value)
-                    && writeU32(file, point.parameter)
+                    && writeU32(file, point.parameter & 0xffu)
                     && writeU32(file, point.sourcePad)
-                    && writeU32(file, static_cast<std::uint32_t>(point.type));
+                    && writeU32(file, static_cast<std::uint32_t>(point.type))
+                    && writeU32(file, clipPointTake(point));
             }
         }
         const bool closed = std::fclose(file) == 0;
@@ -4436,7 +4518,7 @@ struct ThruInstance {
         std::uint32_t version = 0u;
         const bool ok = std::fread(magic, 1u, sizeof(magic), file) == sizeof(magic)
             && std::memcmp(magic, "S3GTHR3", 7u) == 0
-            && readU32(file, version) && version == 1u
+            && readU32(file, version) && (version == 1u || version == 2u)
             && readU64(file, generation) && generation != 0u;
         std::fclose(file);
         return ok;
@@ -4466,7 +4548,7 @@ struct ThruInstance {
         bool ok = loadedClips
             && std::fread(magic, 1u, sizeof(magic), file) == sizeof(magic)
             && std::memcmp(magic, "S3GTHR3", 7u) == 0
-            && readU32(file, version) && version == 1u
+            && readU32(file, version) && (version == 1u || version == 2u)
             && readU64(file, loadedGeneration)
             && loadedGeneration != 0u
             && (expectedGeneration == kAnyPersistenceGeneration
@@ -4526,6 +4608,7 @@ struct ThruInstance {
                 std::uint32_t timingMode = 0u;
                 std::uint32_t noteCapacityReached = 0u;
                 std::uint32_t pointCapacityReached = 0u;
+                std::uint32_t takeCount = 0u;
                 ok = ok && readU32(file, recorded)
                     && readU32(file, durationMs)
                     && readF32(file, clip.clipRate)
@@ -4535,10 +4618,15 @@ struct ThruInstance {
                     && timingMode <= static_cast<std::uint32_t>(ClipTimingMode::beatSync)
                     && readU32(file, noteCapacityReached)
                     && readU32(file, pointCapacityReached)
+                    && (version < 2u || readU32(file, takeCount))
                     && readU32(file, noteCount)
                     && readU32(file, pointCount)
                     && noteCount <= kClipNoteCapacity
                     && pointCount <= kClipPointCapacity;
+                if (version < 2u) takeCount = recorded != 0u ? 1u : 0u;
+                ok = ok && takeCount <= kClipTakeLimit
+                    && ((recorded != 0u && takeCount >= 1u)
+                        || (recorded == 0u && takeCount == 0u));
                 clip.clipRecorded = recorded != 0u;
                 clip.clipDurationMs = clampValue(
                     durationMs, 0u, kClipMaximumDurationMs);
@@ -4553,6 +4641,7 @@ struct ThruInstance {
                 clip.timingMode = static_cast<ClipTimingMode>(timingMode);
                 clip.noteCapacityReached = noteCapacityReached != 0u;
                 clip.pointCapacityReached = pointCapacityReached != 0u;
+                clip.takeCount = static_cast<std::uint8_t>(takeCount);
                 clip.clipNoteCount = static_cast<std::uint16_t>(noteCount);
                 clip.clipPointCount = static_cast<std::uint16_t>(pointCount);
                 for (std::size_t index = 0u; ok && index < noteCount; ++index) {
@@ -4560,11 +4649,14 @@ struct ThruInstance {
                     std::uint32_t pitch = 60u;
                     std::uint32_t velocity = 100u;
                     std::uint32_t sourcePad = 255u;
+                    std::uint32_t take = 0u;
                     ok = readU32(file, note.startMs)
                         && readU32(file, note.durationMs)
                         && readU32(file, pitch)
                         && readU32(file, velocity)
-                        && readU32(file, sourcePad);
+                        && readU32(file, sourcePad)
+                        && (version < 2u || readU32(file, take))
+                        && take < std::max(1u, takeCount);
                     if (clip.clipDurationMs != 0u) {
                         note.startMs %= clip.clipDurationMs;
                     }
@@ -4576,24 +4668,29 @@ struct ThruInstance {
                         clampValue(velocity, 1u, 127u));
                     note.sourcePad = static_cast<std::uint8_t>(
                         sourcePad < 32u ? sourcePad : 255u);
+                    note.take = static_cast<std::uint8_t>(take);
                 }
                 for (std::size_t index = 0u; ok && index < pointCount; ++index) {
                     ClipPoint& point = clip.clipPoints[index];
                     std::uint32_t parameter = 0u;
                     std::uint32_t sourcePad = 255u;
                     std::uint32_t type = 0u;
+                    std::uint32_t take = 0u;
                     ok = readU32(file, point.timeMs)
                         && readF32(file, point.value)
                         && readU32(file, parameter)
                         && readU32(file, sourcePad)
                         && readU32(file, type)
+                        && (version < 2u || readU32(file, take))
                         && parameter < kLockParameterCount
                         && type <= static_cast<std::uint32_t>(
-                            ClipPointType::pressure);
+                            ClipPointType::pressure)
+                        && take < std::max(1u, takeCount);
                     if (clip.clipDurationMs != 0u) {
                         point.timeMs %= clip.clipDurationMs;
                     }
-                    point.parameter = static_cast<std::uint16_t>(parameter);
+                    point.parameter = clipPointDescriptor(parameter,
+                        static_cast<std::uint8_t>(take));
                     point.sourcePad = static_cast<std::uint8_t>(
                         sourcePad < 32u ? sourcePad : 255u);
                     point.type = static_cast<ClipPointType>(type);
@@ -5227,6 +5324,7 @@ void setParam(void* opaque, const char* key, const char* value)
     if (std::strcmp(key, "launch_quantize") == 0) { instance->launchQuantize = static_cast<LaunchQuantize>(parseEnum(value, kLaunchQuantizeNames, static_cast<int>(instance->launchQuantize))); return; }
     if (std::strcmp(key, "clip_record") == 0) { if (isTruthy(value)) instance->toggleClipRecording(); return; }
     if (std::strcmp(key, "clip_clear") == 0) { if (isTruthy(value)) instance->clearActiveClip(); return; }
+    if (std::strcmp(key, "clip_take_undo") == 0) { if (isTruthy(value)) instance->undoLastClipTake(); return; }
     if (std::strcmp(key, "clip_reset") == 0) { instance->resetClip(parseInteger(value, -1)); return; }
     if (std::strcmp(key, "clip_automation") == 0) { char automationKey[32] {}; if (std::sscanf(value, "%31[^,]", automationKey) == 1) instance->captureClipParameter(lockParameterIndex(automationKey)); return; }
     if (std::strcmp(key, "join") == 0) { controls.join = clampValue(parseFloat(value, controls.join), 0.0f, 1.0f); return; }
@@ -5539,6 +5637,7 @@ int getParam(void* opaque, const char* key, char* buffer, int bufferLength)
     if (std::strcmp(key, "clip_timing") == 0) { const ClipSlot* clip = instance->activeClipSlot(); return std::snprintf(buffer, bufferLength, "%d", clip ? static_cast<int>(clip->timingMode) : 0); }
     if (std::strcmp(key, "launch_quantize") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(instance->launchQuantize));
     if (std::strcmp(key, "clip_state") == 0) { const ClipSlot* clip = instance->activeClipSlot(); const std::uint32_t duration = clip ? clip->clipDurationMs : 0u; const int position = duration != 0u ? static_cast<int>(std::lround(clampValue(instance->clipPositionMs / static_cast<double>(duration), 0.0, 1.0) * 1000.0)) : 0; return std::snprintf(buffer, bufferLength, "%d,%d,%d,%d,%u,%u,%u,%d,%d,%d,%d,%d", instance->clipRecording ? 1 : 0, instance->clipPlaying ? 1 : 0, instance->clipReplacing ? 0 : 1, position, duration, clip ? static_cast<unsigned>(clip->clipNoteCount) : 0u, clip ? static_cast<unsigned>(clip->clipPointCount) : 0u, clip ? static_cast<int>(std::lround(clip->clipRate * 1000.0f)) : 1000, instance->clipLaunchPending ? 1 : 0, clip ? static_cast<int>(clip->timingMode) : 0, clip ? static_cast<int>(std::lround(clip->recordedTempoBpm * 100.0f)) : 12000, clip ? static_cast<int>(std::lround(clip->recordedBeats * 1000.0f)) : 0); }
+    if (std::strcmp(key, "clip_take_state") == 0) { const ClipSlot* clip = instance->activeClipSlot(); return std::snprintf(buffer, bufferLength, "%u,%d,%u", clip ? static_cast<unsigned>(clip->takeCount) : 0u, clip && clip->takeCount > 1u && !instance->clipRecording ? 1 : 0, instance->clipRecording ? static_cast<unsigned>(instance->clipRecordingTake + 1u) : 0u); }
     if (std::strcmp(key, "clip_capacity_state") == 0) { const ClipSlot* clip = instance->activeClipSlot(); return std::snprintf(buffer, bufferLength, "%u,%u,%u,%u,%d,%d", clip ? static_cast<unsigned>(clip->clipNoteCount) : 0u, static_cast<unsigned>(kClipNoteCapacity), clip ? static_cast<unsigned>(clip->clipPointCount) : 0u, static_cast<unsigned>(kClipPointCapacity), clip && clip->noteCapacityReached ? 1 : 0, clip && clip->pointCapacityReached ? 1 : 0); }
     if (std::strcmp(key, "join") == 0) return std::snprintf(buffer, bufferLength, "%.4f", controls.join);
     if (std::strcmp(key, "output_gain") == 0) return std::snprintf(buffer, bufferLength, "%.4f", instance->outputGain);

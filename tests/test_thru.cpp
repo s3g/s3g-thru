@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <cstring>
 #include <string>
+#include <vector>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -139,6 +140,82 @@ void writePcm16Wav(const std::string& path)
         u16(static_cast<std::uint16_t>(burst ? 12000 : 0));
         u16(static_cast<std::uint16_t>(burst ? -6000 : 0));
     }
+    assert(std::fclose(file) == 0);
+}
+
+std::uint32_t littleU32(
+    const std::vector<std::uint8_t>& bytes, std::size_t offset)
+{
+    assert(offset + 4u <= bytes.size());
+    return static_cast<std::uint32_t>(bytes[offset])
+        | static_cast<std::uint32_t>(bytes[offset + 1u]) << 8u
+        | static_cast<std::uint32_t>(bytes[offset + 2u]) << 16u
+        | static_cast<std::uint32_t>(bytes[offset + 3u]) << 24u;
+}
+
+void appendLittleU32(
+    std::vector<std::uint8_t>& bytes, std::uint32_t value)
+{
+    bytes.push_back(static_cast<std::uint8_t>(value));
+    bytes.push_back(static_cast<std::uint8_t>(value >> 8u));
+    bytes.push_back(static_cast<std::uint8_t>(value >> 16u));
+    bytes.push_back(static_cast<std::uint8_t>(value >> 24u));
+}
+
+void downgradeClipBankToV1(const std::string& path)
+{
+    struct stat status {};
+    assert(stat(path.c_str(), &status) == 0);
+    assert(status.st_size > 4);
+    std::vector<std::uint8_t> input(
+        static_cast<std::size_t>(status.st_size) - 4u);
+    std::FILE* file = std::fopen(path.c_str(), "rb");
+    assert(file != nullptr);
+    assert(std::fread(input.data(), 1u, input.size(), file) == input.size());
+    assert(std::fclose(file) == 0);
+    assert(input.size() >= 240u);
+    assert(std::memcmp(input.data(), "S3GTHR3", 7u) == 0);
+    assert(littleU32(input, 8u) == 2u);
+
+    std::vector<std::uint8_t> output;
+    output.reserve(input.size());
+    output.insert(output.end(), input.begin(), input.begin() + 8u);
+    appendLittleU32(output, 1u);
+    std::size_t offset = 12u;
+    const auto copyBytes = [&](std::size_t count) {
+        assert(offset + count <= input.size());
+        output.insert(output.end(), input.begin() + offset,
+                      input.begin() + offset + count);
+        offset += count;
+    };
+    copyBytes(228u); // generation/globals plus the 16-entry chain
+    constexpr std::size_t clipPrefixBytes = 3652u;
+    for (std::size_t clip = 0u; clip < 64u; ++clip) {
+        copyBytes(clipPrefixBytes);
+        copyBytes(32u); // recorded through capacity flags
+        offset += 4u; // take count does not exist in format 1
+        const std::uint32_t noteCount = littleU32(input, offset);
+        const std::uint32_t pointCount = littleU32(input, offset + 4u);
+        copyBytes(8u);
+        for (std::uint32_t note = 0u; note < noteCount; ++note) {
+            copyBytes(20u);
+            offset += 4u; // note take
+        }
+        for (std::uint32_t point = 0u; point < pointCount; ++point) {
+            copyBytes(20u);
+            offset += 4u; // gesture take
+        }
+    }
+    assert(offset == input.size());
+    std::uint32_t checksum = 2166136261u;
+    for (const std::uint8_t byte : output) {
+        checksum ^= byte;
+        checksum *= 16777619u;
+    }
+    appendLittleU32(output, checksum);
+    file = std::fopen(path.c_str(), "wb");
+    assert(file != nullptr);
+    assert(std::fwrite(output.data(), 1u, output.size(), file) == output.size());
     assert(std::fclose(file) == 0);
 }
 
@@ -379,6 +456,8 @@ int main()
     assert(stateField(clipState, 6) >= 2);
     assert(stateField(clipState, 10) == 12000);
     assert(stateField(clipState, 11) > 0);
+    assert(stateField(get(api, instance, "clip_take_state"), 0) == 1);
+    assert(stateField(get(api, instance, "clip_take_state"), 1) == 0);
     render(api, instance, 4);
     assert(peak() > 0);
     const std::string loopVoicePads = get(api, instance, "voice_pads");
@@ -438,6 +517,8 @@ int main()
     clipState = get(api, instance, "clip_state");
     assert(stateField(clipState, 4) == originalDuration);
     assert(stateField(clipState, 5) == 3);
+    assert(stateField(get(api, instance, "clip_take_state"), 0) == 2);
+    assert(stateField(get(api, instance, "clip_take_state"), 1) == 1);
 
     /* Clearing only the performance layer is undoable and does not remove
        the clip's sample ownership. */
@@ -446,6 +527,23 @@ int main()
     assert(get(api, instance, "undo_available") == "1");
     api->set_param(instance, "undo", "1");
     assert(stateField(get(api, instance, "clip_state"), 5) == 3);
+    assert(stateField(get(api, instance, "clip_take_state"), 0) == 2);
+
+    /* Every completed overdub is a separate note/gesture take. A second
+       pass survives copy and persistence independently from the first. */
+    const int pointsBeforeSecondTake = stateField(
+        get(api, instance, "clip_state"), 6);
+    api->set_param(instance, "clip_record", "1");
+    midi(api, instance, 0x90, 71, 92, MOVE_MIDI_SOURCE_INTERNAL);
+    api->set_param(instance, "field", "0.75");
+    api->set_param(instance, "clip_automation", "field");
+    render(api, instance, 20);
+    midi(api, instance, 0x80, 71, 0, MOVE_MIDI_SOURCE_INTERNAL);
+    api->set_param(instance, "clip_record", "1");
+    assert(stateField(get(api, instance, "clip_state"), 5) == 4);
+    assert(stateField(get(api, instance, "clip_state"), 6)
+        == pointsBeforeSecondTake + 1);
+    assert(stateField(get(api, instance, "clip_take_state"), 0) == 3);
 
     /* Chains are a persistent ordered list with independent repeat counts. */
     api->set_param(instance, "chain_slot", "1");
@@ -478,6 +576,11 @@ int main()
     /* Four banks of sixteen performance clips snapshot event data, source
        assignments, and engine settings. Running changes queue at a loop seam. */
     api->set_param(instance, "clip_copy", "1");
+    api->set_param(instance, "clip_take_undo", "1");
+    assert(stateField(get(api, instance, "clip_state"), 5) == 3);
+    assert(stateField(get(api, instance, "clip_state"), 6)
+        == pointsBeforeSecondTake);
+    assert(stateField(get(api, instance, "clip_take_state"), 0) == 2);
     assert((unsignedStateField(get(api, instance, "clip_bank_state"), 2) & 0x7u)
         == 0x7u);
     api->set_param(instance, "clip_select", "1");
@@ -859,7 +962,7 @@ int main()
         == sizeof(clipMagic));
     assert(std::memcmp(clipMagic, "S3GTHR3", 7u) == 0);
     assert(std::fread(&clipVersion, sizeof(clipVersion), 1u, clipFile) == 1u);
-    assert(clipVersion == 1u);
+    assert(clipVersion == 2u);
     std::fclose(stateFile);
     std::fclose(laneFile);
     std::fclose(clipFile);
@@ -882,7 +985,15 @@ int main()
     api->set_param(instance, "clip_select", "1");
     waitForClip(api, instance, 1);
     assert(get(api, instance, "algorithm") == "1");
+    assert(stateField(get(api, instance, "clip_state"), 5) == 4);
+    assert(stateField(get(api, instance, "clip_take_state"), 0) == 3);
+    api->set_param(instance, "clip_take_undo", "1");
     assert(stateField(get(api, instance, "clip_state"), 5) == 3);
+    assert(stateField(get(api, instance, "clip_take_state"), 0) == 2);
+    api->set_param(instance, "clip_take_undo", "1");
+    assert(stateField(get(api, instance, "clip_state"), 5) == 2);
+    assert(stateField(get(api, instance, "clip_take_state"), 0) == 1);
+    assert(stateField(get(api, instance, "clip_take_state"), 1) == 0);
     assert(stateField(get(api, instance, "clip_state"), 6) >= 2);
     assert(get(api, instance, "clip_rate") == "4.0000");
     api->set_param(instance, "clip_select", "0");
@@ -939,6 +1050,24 @@ int main()
     assert(get(api, instance, "record_gain") == "2.5000");
     assert(stateField(get(api, instance, "clip_state"), 4) >= 150);
     api->destroy_instance(instance);
+
+    /* A 0.18 format-1 bank imports all existing events as its protected base
+       take, then upgrades to format 2 on the next successful save. */
+    downgradeClipBankToV1(clipPath);
+    instance = api->create_instance(persistenceDir.c_str(), nullptr);
+    assert(instance != nullptr);
+    assert(get(api, instance, "persistence") == "1,1");
+    assert(stateField(get(api, instance, "clip_state"), 5) == 3);
+    assert(stateField(get(api, instance, "clip_take_state"), 0) == 1);
+    assert(stateField(get(api, instance, "clip_take_state"), 1) == 0);
+    api->destroy_instance(instance);
+    clipFile = std::fopen(clipPath.c_str(), "rb");
+    assert(clipFile != nullptr);
+    assert(std::fread(clipMagic, 1u, sizeof(clipMagic), clipFile)
+        == sizeof(clipMagic));
+    assert(std::fread(&clipVersion, sizeof(clipVersion), 1u, clipFile) == 1u);
+    assert(clipVersion == 2u);
+    assert(std::fclose(clipFile) == 0);
 
     std::remove(statePath.c_str());
     std::remove(stateBackupPath.c_str());

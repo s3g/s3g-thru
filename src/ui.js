@@ -1,4 +1,4 @@
-/* S3G Thru 0.18.1 — polyphonic sampler/performance-looper takeover for Move. */
+/* S3G Thru 0.19.0 — polyphonic sampler/performance-looper takeover for Move. */
 
 import * as moveConstants from '/data/UserData/schwung/shared/constants.mjs';
 import * as moveInputFilter from '/data/UserData/schwung/shared/input_filter.mjs';
@@ -150,6 +150,7 @@ const PARAMS = {
     monitor_level: { key: 'monitor_level', label: 'MONITOR', min: 0, max: 1, step: 0.01, value: 0 },
     clip_rate: { key: 'clip_rate', label: 'LOOP RATE', min: 0.25, max: 4, step: 0.05, value: 1 },
     clip_record_mode: { key: 'clip_record_mode', label: 'REC MODE', min: 0, max: 1, step: 1, value: 0, integer: true, labels: ['REPLACE', 'OVERDUB'] },
+    clip_take_undo: { key: 'clip_take_undo', label: 'UNDO TAKE', min: 0, max: 1, step: 1, value: 0, integer: true, labels: ['TURN', 'UNDO'], momentary: true, result: 'TAKE UNDONE' },
     clip_timing: { key: 'clip_timing', label: 'TIMING', min: 0, max: 1, step: 1, value: 0, integer: true, labels: ['FREE', 'BEAT SYNC'] },
     launch_quantize: { key: 'launch_quantize', label: 'LAUNCH', min: 0, max: 2, step: 1, value: 0, integer: true, labels: ['OFF', 'BEAT', 'BAR'] },
     tempo_bpm: { key: 'tempo_bpm', label: 'TEMPO', min: 40, max: 240, step: 1, value: 120, integer: true },
@@ -236,6 +237,8 @@ const SAMPLE_PAGE = { title: 'SAMPLE EDIT', keys: ['sample_trim_start',
 const LOOP_PAGE = { title: 'PERFORMANCE LOOP', keys: ['clip_rate',
     'clip_timing', 'launch_quantize', 'tempo_bpm', 'clip_record_mode',
     'tempo_swing', 'pressure_mode', 'root_note'] };
+const TAKE_PAGE = { title: 'OVERDUB TAKES', keys: ['clip_record_mode',
+    'clip_take_undo'] };
 const CHAIN_PAGE = { title: 'CHAIN', keys: ['chain_enabled', 'chain_slot',
     'chain_clip', 'chain_repeats', 'chain_clear', 'algorithm', 'join',
     'output_gain'] };
@@ -352,6 +355,9 @@ const state = {
     clipPointCapacity: 8192,
     clipNoteFull: false,
     clipPointFull: false,
+    clipTakeCount: 0,
+    clipTakeCanUndo: false,
+    clipRecordingTake: 0,
     activeClip: 0,
     queuedClip: -1,
     clipBank: 0,
@@ -568,6 +574,14 @@ function parseClipCapacityState(text) {
     if (!wasFull && (state.clipNoteFull || state.clipPointFull)) {
         showMessage('CLIP FULL - ENDPOINTS KEPT', 100);
     }
+}
+
+function parseClipTakeState(text) {
+    const values = String(text || '').split(',').map((item) => Number(item));
+    if (values.length < 3 || !values.every((value) => Number.isFinite(value))) return;
+    state.clipTakeCount = clamp(values[0] | 0, 0, 255);
+    state.clipTakeCanUndo = values[1] !== 0;
+    state.clipRecordingTake = clamp(values[2] | 0, 0, 255);
 }
 
 function parseClipBankState(text) {
@@ -861,7 +875,7 @@ function drawMain() {
             : ((state.clipPlaying ? 'PLAY ' : 'STOP ')
                 + (state.clipTiming ? state.clipBeats.toFixed(1) + 'b SYNC '
                     : (state.clipDuration / 1000).toFixed(1) + 's ')
-                + state.clipRate.toFixed(2) + 'x'));
+                + state.clipRate.toFixed(2) + 'x T' + state.clipTakeCount));
     const footer = state.messageTicks > 0
         ? state.message
         : (state.laneSourceState.startsWith('MISSING')
@@ -881,7 +895,7 @@ function currentSettingsPage() {
 function parameterPages() {
     const enginePages = PLAYBACK_PAGES[state.algorithm] || PLAYBACK_PAGES[0];
     return [ENGINE_PAGE, ...enginePages,
-        MIX_REC_PAGE, SAMPLE_PAGE, LOOP_PAGE, CHAIN_PAGE];
+        MIX_REC_PAGE, SAMPLE_PAGE, LOOP_PAGE, TAKE_PAGE, CHAIN_PAGE];
 }
 
 function activeControlKeys() {
@@ -943,7 +957,9 @@ function drawSettings() {
     const page = currentSettingsPage();
     const target = state.clipRecording ? 'REC ' : (state.clipPlaying ? '> ' : '');
     const pages = parameterPages();
-    const pageTitle = target + page.title + ' ' + (state.settingsPage + 1)
+    const takeSuffix = page === TAKE_PAGE ? ' ' + state.clipTakeCount : '';
+    const pageTitle = target + page.title + takeSuffix + ' '
+        + (state.settingsPage + 1)
         + '/' + pages.length;
     const title = state.actionMessageTicks > 0
         ? state.actionMessage : pageTitle;
@@ -1314,6 +1330,7 @@ function togglePerformanceRecording() {
     }
     setParamBlocking('clip_record', 1);
     parseClipState(getParam('clip_state', ''));
+    parseClipTakeState(getParam('clip_take_state', '0,0,0'));
     showMessage(state.clipRecording
         ? ((PARAMS.clip_record_mode.value | 0) === 0
             ? 'RECORD PERFORMANCE' : 'OVERDUB PERFORMANCE')
@@ -1370,6 +1387,21 @@ function adjustSettingsPage(delta) {
 
 function applyMomentaryControl(control) {
     control.value = 0;
+    if (control.key === 'clip_take_undo') {
+        if (state.clipRecording) {
+            showActionMessage('STOP RECORDING FIRST');
+            return;
+        }
+        if (!state.clipTakeCanUndo) {
+            showActionMessage('BASE TAKE PROTECTED');
+            return;
+        }
+        const removed = state.clipTakeCount;
+        setParamBlocking('clip_take_undo', 1);
+        parseClipTakeState(getParam('clip_take_state', '0,0,0'));
+        showActionMessage('UNDID TAKE ' + removed);
+        return;
+    }
     if (state.recording) {
         showActionMessage('STOP RECORDING FIRST');
         return;
@@ -1450,6 +1482,7 @@ function pollDsp() {
     parseVoicePads(getParam('voice_pads', ''));
     parseClipBankState(getParam('clip_bank_state', '0,-1,0,0'));
     parseClipState(getParam('clip_state', ''));
+    parseClipTakeState(getParam('clip_take_state', '0,0,0'));
     parseClipCapacityState(getParam('clip_capacity_state', '0,1024,0,8192,0,0'));
     parseSampleLoadState(getParam('sample_load_state', '0,1,0,'));
     parseRegionState(getParam('region_state', '0'));
@@ -1502,6 +1535,7 @@ globalThis.init = function() {
     parseVoicePads(getParam('voice_pads', ''));
     parseClipBankState(getParam('clip_bank_state', '0,-1,0,0'));
     parseClipState(getParam('clip_state', ''));
+    parseClipTakeState(getParam('clip_take_state', '0,0,0'));
     parseClipCapacityState(getParam('clip_capacity_state', '0,1024,0,8192,0,0'));
     parseSampleLoadState(getParam('sample_load_state', '0,1,0,'));
     parseRegionState(getParam('region_state', '0'));
@@ -1621,7 +1655,17 @@ globalThis.onMidiMessageInternal = function(data) {
         return;
     }
     if ((number === MoveRecord || number === MoveRecordAlt) && value > 0) {
-        if (state.shiftHeld) toggleRecording();
+        if (state.deleteHeld) {
+            if (state.clipTakeCanUndo && !state.clipRecording) {
+                const removed = state.clipTakeCount;
+                setParamBlocking('clip_take_undo', 1);
+                parseClipTakeState(getParam('clip_take_state', '0,0,0'));
+                showMessage('UNDID TAKE ' + removed);
+            } else {
+                showMessage(state.clipRecording
+                    ? 'STOP DATA RECORD FIRST' : 'BASE TAKE PROTECTED');
+            }
+        } else if (state.shiftHeld) toggleRecording();
         else togglePerformanceRecording();
         return;
     }

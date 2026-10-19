@@ -1,4 +1,4 @@
-# S3G Thru 0.18.1 overtake hardware acceptance
+# S3G Thru 0.19.0 overtake hardware acceptance
 
 Desktop tests prove the module ABI and DSP behavior; they do not prove the
 exact Move input, screen, pad, or realtime paths. Preserve the previous
@@ -16,7 +16,7 @@ working Schwung installation and do this pass with headphones first.
 
 1. Set Move's main volume low and disconnect speakers.
 2. Uninstall the earlier 0.1 sound-generator build if present, restart Move,
-   then install the 0.18.1 tarball through Schwung Manager.
+   then install the 0.19.0 tarball through Schwung Manager.
 3. Open the Overtake menu with Shift + volume touch + jog-click and select
    S3G Thru.
 4. Confirm Thru opens directly on a four-row waveform page without selecting a
@@ -81,7 +81,8 @@ working Schwung installation and do this pass with headphones first.
 14. Use Up/Down to transpose the grid and confirm held/released notes do not
     stick.
 15. Press Menu. For each Algorithm, use Up/Down to visit Engine, only that
-    selected playback engine's pages, Mix / Rec, Sample, Performance Loop, and Chain. Confirm
+    selected playback engine's pages, Mix / Rec, Sample, Performance Loop,
+    Overdub Takes, and Chain. Confirm
     unrelated engine pages are absent. Confirm every parameter has a padded name with its value
     underneath, no miniature dial graphic or text overlap, and each physical
     dial edits the cell directly beneath it.
@@ -97,8 +98,13 @@ working Schwung installation and do this pass with headphones first.
     Record at one BPM, switch between Free and Beat Sync, then change BPM;
     confirm only Beat Sync follows the new tempo and preserves microtiming.
     Test Off, Beat, and Bar launch modes and confirm queued Play is violet.
-17. Choose Overdub, record another polyphonic pass, and confirm the original
-    duration and events remain. Use Left/Right (and Shift+Up/Down) to select
+17. Choose Overdub, record two distinct polyphonic/gesture passes, and confirm
+    the original duration and events remain. Confirm the waveform footer and
+    Overdub Takes page report three takes: protected base plus two overdubs.
+    Turn Undo Take once, then use Delete+Record once; confirm the two overdubs
+    disappear in reverse order while the base remains. Confirm Undo Take now
+    reports `BASE TAKE PROTECTED`. Record one more overdub for the persistence
+    checks below. Use Left/Right (and Shift+Up/Down) to select
     banks A-D; every Step key should launch a clip slot. Copy A01 to A02 with
     Shift+Step, edit A02, and verify A01 is unchanged. While running, select
     another clip and confirm it stays blue-violet/queued until the current loop
@@ -125,8 +131,9 @@ working Schwung installation and do this pass with headphones first.
 21. Reopen S3G Thru. Confirm all four waveforms, stereo audio, selected engine,
     octave, edited settings, performance notes/durations, source-pad identities,
     pressure/parameter paths, loop rates, active clip, and 64-slot bank are
-    recalled. Confirm the performance transport is stopped after recall until
-    Play is pressed.
+    recalled. Confirm the take count is recalled and Undo Take still removes
+    the last saved overdub. Confirm the performance transport is stopped after
+    recall until Play is pressed.
 22. Make an edit, wait at least ten seconds for an autosave interval, then use a
     normal overtake close/reopen and confirm the edit recovers. This does not
     authorize pulling power during a file write.

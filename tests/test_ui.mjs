@@ -47,6 +47,7 @@ const params = {
     clip_rate: '1', clip_record_mode: '0', clip_timing: '0',
     launch_quantize: '0', grain_quality: '1',
     clip_state: '0,0,0,250,4000,3,10,1000,0,0,12000,8000',
+    clip_take_state: '2,1,0',
     clip_capacity_state: '3,1024,10,8192,0,0',
     ui_state: '1,1,0,0,250,100,900,1000,0,0,0,0,20,0,1,1,2',
     playheads: '100,700,-1,-1,-1,-1,-1,-1',
@@ -88,6 +89,12 @@ globalThis.host_module_set_param_blocking = (key, value) => {
         clip[0] = recording ? '0' : '1';
         clip[1] = recording ? '1' : (params.clip_record_mode === '1' ? '1' : '0');
         params.clip_state = clip.join(',');
+    }
+    if (key === 'clip_take_undo') {
+        const take = params.clip_take_state.split(',');
+        take[0] = String(Math.max(1, Number(take[0]) - 1));
+        take[1] = Number(take[0]) > 1 ? '1' : '0';
+        params.clip_take_state = take.join(',');
     }
 };
 globalThis.host_exit_module = () => { exitCount++; };
@@ -171,6 +178,14 @@ assert.deepEqual(blockingWrites.slice(-2), [
 ]);
 globalThis.onMidiMessageInternal([0xB0, 49, 0]);
 
+/* Delete+Record removes only the most recent overdub take. */
+params.clip_take_state = '3,1,0';
+globalThis.onMidiMessageInternal([0xB0, 119, 127]);
+globalThis.onMidiMessageInternal([0xB0, 86, 127]);
+assert.deepEqual(blockingWrites.pop(), ['clip_take_undo', '1']);
+assert.equal(params.clip_take_state, '2,1,0');
+globalThis.onMidiMessageInternal([0xB0, 119, 0]);
+
 /* Every Step key is a performance-clip slot in the visible 16-slot bank. */
 globalThis.onMidiMessageInternal([0x90, 19, 127]);
 assert.deepEqual(blockingWrites.pop(), ['clip_select', '3']);
@@ -226,15 +241,23 @@ const lanesPageDrawStart = drawWrites.length;
 globalThis.tick();
 const lanesHeader = drawWrites.slice(lanesPageDrawStart).find((write) =>
     write[0] === 'print' && write[2] === 0);
-assert(String(lanesHeader?.[3]).includes('LANES PATH 2/7'));
+assert(String(lanesHeader?.[3]).includes('LANES PATH 2/8'));
 assert(!drawWrites.slice(lanesPageDrawStart).some((write) =>
     write[0] === 'print' && String(write[3]).includes('GRAIN')));
 
-/* The Chain page exposes an explicit slot clear instead of a compatibility
-   command hidden from the takeover surface. */
+/* The take page displays the layer count and provides the same action as
+   Delete+Record. The following Chain page retains its explicit slot clear. */
 for (let page = 0; page < 5; page++) {
     globalThis.onMidiMessageInternal([0xB0, 55, 127]);
 }
+const takePageDrawStart = drawWrites.length;
+globalThis.tick();
+assert(drawWrites.slice(takePageDrawStart).some((write) => write[0] === 'print'
+    && String(write[3]).includes('OVERDUB TAKES 2')));
+globalThis.onMidiMessageInternal([0xB0, 72, 1]);
+assert.deepEqual(blockingWrites.pop(), ['clip_take_undo', '1']);
+assert.equal(params.clip_take_state, '1,0,0');
+globalThis.onMidiMessageInternal([0xB0, 55, 127]);
 globalThis.onMidiMessageInternal([0xB0, 75, 1]);
 assert.deepEqual(blockingWrites.pop(), ['chain_clear', '1']);
 

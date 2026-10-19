@@ -24,15 +24,35 @@ public:
     static constexpr std::size_t kLaneChannels = 2u;
     static constexpr std::size_t kNoLane = kStackLanes;
     static constexpr std::size_t kResampleInputOffset = kChannels;
+    static constexpr std::size_t kRegionCount = 64u;
+    static constexpr std::size_t kRegionBoundaryCount = kRegionCount + 1u;
 
     enum class PlaybackAlgorithm : std::uint8_t {
         motion,
         lanes,
         grains,
         cutups,
+        sample,
+        slices,
     };
 
-    static constexpr std::size_t kPlaybackAlgorithmCount = 4u;
+    static constexpr std::size_t kPlaybackAlgorithmCount = 6u;
+
+    enum class SampleMode : std::uint8_t {
+        forward,
+        reverse,
+        loop,
+        pingPong,
+    };
+
+    static constexpr std::size_t kSampleModeCount = 4u;
+
+    enum class RegionMode : std::uint8_t {
+        equal,
+        transients,
+    };
+
+    static constexpr std::size_t kRegionModeCount = 2u;
 
     enum class MotionMode : std::uint8_t {
         forward,
@@ -268,6 +288,12 @@ public:
         CutPolyPath cutPolyPath = CutPolyPath::together;
         float cutPitch = 1.0f;
         float cutVoiceIndex = 0.0f;
+        RegionMode cutRegionMode = RegionMode::equal;
+        SampleMode sampleMode = SampleMode::forward;
+        RegionMode sampleRegionMode = RegionMode::transients;
+        float sampleRegionCount = 16.0f;
+        float sampleLane = 0.0f;
+        float sampleSlice = 0.0f;
         float recordInputGain = 1.0f;
     };
 
@@ -375,6 +401,9 @@ public:
             lanePositionScales_[lane] = 0.0;
             laneWeights_[lane] = 0.0f;
             laneWeightTargets_[lane] = 0.0f;
+            laneRegionCounts_[lane] = 0u;
+            laneRegionBoundaries_[lane][0u] = 0.0f;
+            laneRegionBoundaries_[lane][1u] = 1.0f;
         }
         phase_ = 0.0;
         speed_ = 1.0f;
@@ -647,6 +676,19 @@ public:
         playing_ = true;
     }
 
+    void seekNormalized(float position)
+    {
+        if (sourceFrames_ == 0u) return;
+        phase_ = currentAlgorithm_ == PlaybackAlgorithm::sample
+                && currentSampleMode_ == SampleMode::reverse
+            ? 1.0 - static_cast<double>(clamp01(position))
+            : static_cast<double>(clamp01(position));
+        resetEventReaders();
+        retriggerFadeRemaining_ = retriggerFadeFrames_;
+        sampleDone_ = false;
+        playing_ = true;
+    }
+
     void stopPlayback() { playing_ = false; }
 
     void process(const float* const* input,
@@ -737,6 +779,12 @@ public:
                 case PlaybackAlgorithm::cutups:
                     renderCutupsFrame(controls, wetOutput);
                     break;
+                case PlaybackAlgorithm::sample:
+                    renderSampleFrame(controls, false, wetOutput);
+                    break;
+                case PlaybackAlgorithm::slices:
+                    renderSampleFrame(controls, true, wetOutput);
+                    break;
             }
             advanceLaneClock();
             if (laneControlCountdown != 0u) {
@@ -792,6 +840,45 @@ public:
         return lane < kStackLanes && channel < kLaneChannels
                 && laneFrames_[lane] != 0u
             ? storage_[lane] + channel * laneCapacityFrames_ : nullptr;
+    }
+
+    bool setLaneRegions(std::size_t lane,
+                        const float* boundaries,
+                        std::size_t regionCount)
+    {
+        if (lane >= kStackLanes || !boundaries || regionCount == 0u
+            || regionCount > kRegionCount) return false;
+        float previous = 0.0f;
+        for (std::size_t index = 0u; index <= regionCount; ++index) {
+            const float boundary = clamp01(boundaries[index]);
+            laneRegionBoundaries_[lane][index] = std::max(previous, boundary);
+            previous = laneRegionBoundaries_[lane][index];
+        }
+        laneRegionBoundaries_[lane][0u] = 0.0f;
+        laneRegionBoundaries_[lane][regionCount] = 1.0f;
+        laneRegionCounts_[lane] = regionCount;
+        return true;
+    }
+
+    void clearLaneRegions(std::size_t lane)
+    {
+        if (lane >= kStackLanes) return;
+        laneRegionCounts_[lane] = 0u;
+        laneRegionBoundaries_[lane][0u] = 0.0f;
+        laneRegionBoundaries_[lane][1u] = 1.0f;
+    }
+
+    std::size_t laneRegionCount(std::size_t lane) const
+    {
+        return lane < kStackLanes ? laneRegionCounts_[lane] : 0u;
+    }
+
+    float laneRegionBoundary(std::size_t lane, std::size_t boundary) const
+    {
+        if (lane >= kStackLanes || boundary > laneRegionCounts_[lane]) {
+            return boundary == 0u ? 0.0f : 1.0f;
+        }
+        return laneRegionBoundaries_[lane][boundary];
     }
 
     bool prepared() const { return prepared_; }
@@ -1043,6 +1130,7 @@ private:
         cutRepeatIndex_ = 0u;
         cutRepeatedRegion_ = 0u;
         cutSwingPhase_ = false;
+        sampleDone_ = false;
         randomState_ = 0x51f15e5du;
         currentMotionSound_ = MotionSound::continuous;
         motionInnerPhase_ = 0.0;
@@ -1144,6 +1232,7 @@ private:
         if (laneTransition_ == LaneTransition::remove) {
             laneFrames_[transitionLane_] = 0u;
             laneSampleRates_[transitionLane_] = outputSampleRate_;
+            clearLaneRegions(transitionLane_);
             refreshStackAfterLaneChange();
         } else if (laneTransition_ == LaneTransition::adopt) {
             const bool hadPlayback = playing_ && sourceFrames_ != 0u;
@@ -2873,17 +2962,31 @@ private:
         cutCurrent_.gain = 1.0f - randomUnit()
             * clamp01(controls.cutLevelVariation);
         const double width = std::max(1.0, window.high - window.low);
-        const std::size_t regions = static_cast<std::size_t>(clamp(
-            controls.cutRegionCount, 1.0f,
-            static_cast<float>(kCutRegionCount)));
+        const bool transientRegions = stackMode_
+            && cutCurrent_.lane < kStackLanes
+            && controls.cutRegionMode == RegionMode::transients
+            && laneRegionCounts_[cutCurrent_.lane] != 0u;
+        const std::size_t regions = transientRegions
+            ? laneRegionCounts_[cutCurrent_.lane]
+            : static_cast<std::size_t>(clamp(
+                controls.cutRegionCount, 1.0f,
+                static_cast<float>(kCutRegionCount)));
         const std::size_t repeats = static_cast<std::size_t>(clamp(
             controls.cutRepeats, 1.0f, 16.0f));
         if (cutRepeatIndex_ == 0u) {
             cutRepeatedRegion_ = cutRegion(controls.cutups, regions);
         }
-        const double regionWidth = width / static_cast<double>(regions);
-        const double regionLow = window.low
-            + static_cast<double>(cutRepeatedRegion_) * regionWidth;
+        const std::size_t region = cutRepeatedRegion_ % regions;
+        const double regionLow = transientRegions
+            ? window.low + width * static_cast<double>(
+                laneRegionBoundaries_[cutCurrent_.lane][region])
+            : window.low + static_cast<double>(region)
+                * width / static_cast<double>(regions);
+        const double regionHigh = transientRegions
+            ? window.low + width * static_cast<double>(
+                laneRegionBoundaries_[cutCurrent_.lane][region + 1u])
+            : regionLow + width / static_cast<double>(regions);
+        const double regionWidth = std::max(1.0, regionHigh - regionLow);
         const bool reverse = randomUnit()
             < clamp01(controls.cutReverseChance);
         cutCurrent_.position = reverse
@@ -2909,6 +3012,99 @@ private:
 
         cutRepeatIndex_ = (cutRepeatIndex_ + 1u) % repeats;
         if (cutRepeatIndex_ == 0u) ++cutStep_;
+    }
+
+    std::size_t requestedSampleLane(const Controls& controls) const
+    {
+        const std::size_t requested = static_cast<std::size_t>(clamp(
+            std::floor(controls.sampleLane + 0.5f), 0.0f,
+            static_cast<float>(kStackLanes - 1u)));
+        if (stackMode_ && laneFrames_[requested] != 0u) return requested;
+        if (stackMode_) {
+            for (std::size_t lane = 0u; lane < kStackLanes; ++lane) {
+                if (laneFrames_[lane] != 0u) return lane;
+            }
+        }
+        return kNoLane;
+    }
+
+    void renderSampleFrame(const Controls& controls, bool sliced, float* wet)
+    {
+        if (currentSampleMode_ != controls.sampleMode) {
+            phase_ = 0.0;
+            sampleDone_ = false;
+        }
+        currentSampleMode_ = controls.sampleMode;
+        const Window window = smoothEventWindow(controls);
+        fieldLow_ = window.low;
+        fieldHigh_ = window.high;
+        const std::size_t lane = requestedSampleLane(controls);
+        const double fieldWidth = std::max(1.0, window.high - window.low);
+        double low = window.low;
+        double high = window.high;
+        if (sliced) {
+            const bool transientRegions = lane < kStackLanes
+                && controls.sampleRegionMode == RegionMode::transients
+                && laneRegionCounts_[lane] != 0u;
+            const std::size_t regions = transientRegions
+                ? laneRegionCounts_[lane]
+                : static_cast<std::size_t>(clamp(
+                    controls.sampleRegionCount, 1.0f,
+                    static_cast<float>(kRegionCount)));
+            const std::size_t region = static_cast<std::size_t>(std::max(
+                0.0f, std::floor(controls.sampleSlice))) % regions;
+            const double start = transientRegions
+                ? static_cast<double>(laneRegionBoundaries_[lane][region])
+                : static_cast<double>(region) / static_cast<double>(regions);
+            const double end = transientRegions
+                ? static_cast<double>(laneRegionBoundaries_[lane][region + 1u])
+                : static_cast<double>(region + 1u) / static_cast<double>(regions);
+            low = window.low + fieldWidth * start;
+            high = window.low + fieldWidth * end;
+        }
+        const double width = std::max(1.0, high - low);
+        const double laneScale = lane < kStackLanes
+            ? std::max(1.0e-12, lanePositionScales_[lane]) : 1.0;
+        const float laneRate = lane < kStackLanes
+            ? laneSampleRates_[lane] : sourceSampleRate_;
+        double increment = static_cast<double>(speed_)
+            * static_cast<double>(laneRate)
+            / static_cast<double>(outputSampleRate_) / laneScale / width;
+        // A ping-pong cycle contains both a forward and reverse traversal.
+        // Halving its phase rate keeps the audible pitch equal to the other
+        // sample modes instead of making both legs run at double speed.
+        if (controls.sampleMode == SampleMode::pingPong) increment *= 0.5;
+        double readPhase = phase_;
+        if (controls.sampleMode == SampleMode::reverse) {
+            readPhase = 1.0 - phase_;
+        } else if (controls.sampleMode == SampleMode::pingPong) {
+            readPhase = phase_ < 0.5 ? phase_ * 2.0 : 2.0 - phase_ * 2.0;
+        }
+        const double position = clamp(low + readPhase * width,
+                                      low, std::max(low, high - 1.0));
+        ReadHead head;
+        head.a = position;
+        head.b = position;
+        head.position = position;
+        displayPosition_ = position;
+        for (std::size_t channel = 0u; channel < kChannels; ++channel) {
+            if (sampleDone_) {
+                wet[channel] = 0.0f;
+            } else if (stackMode_ && lane < kStackLanes) {
+                wet[channel] = readLaneHead(lane, channel & 1u, head)
+                    * activeControlsLaneGains_[lane];
+            } else {
+                wet[channel] = readHead(mapSourceChannel(channel), head);
+            }
+        }
+        phase_ += increment;
+        if (controls.sampleMode == SampleMode::loop
+            || controls.sampleMode == SampleMode::pingPong) {
+            phase_ = wrapPhase(phase_);
+        } else if (phase_ >= 1.0) {
+            phase_ = 1.0;
+            sampleDone_ = true;
+        }
     }
 
     float readCut(const CutReader& reader, std::size_t channel) const
@@ -3064,6 +3260,8 @@ private:
         48000.0f, 48000.0f, 48000.0f, 48000.0f,
     };
     double lanePositionScales_[kStackLanes] {};
+    float laneRegionBoundaries_[kStackLanes][kRegionBoundaryCount] {};
+    std::size_t laneRegionCounts_[kStackLanes] {};
     std::size_t referenceLane_ = 0u;
     float lanePosition_ = 0.0f;
     float laneWeights_[kStackLanes] {};
@@ -3130,6 +3328,7 @@ private:
     MotionMode toMode_ = MotionMode::forward;
     MotionMode requestedMode_ = MotionMode::forward;
     MotionSound currentMotionSound_ = MotionSound::continuous;
+    SampleMode currentSampleMode_ = SampleMode::forward;
     PlaybackAlgorithm currentAlgorithm_ = PlaybackAlgorithm::motion;
     PlaybackAlgorithm pendingAlgorithm_ = PlaybackAlgorithm::motion;
     std::size_t windowFadeFrames_ = 1440u;
@@ -3157,6 +3356,7 @@ private:
     bool movingCenterInitialized_ = false;
     bool stackMode_ = false;
     bool laneWeightsInitialized_ = false;
+    bool sampleDone_ = false;
 };
 
 } // namespace s3g_daisy

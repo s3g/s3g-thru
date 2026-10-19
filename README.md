@@ -17,12 +17,19 @@ It is intentionally a new instrument rather than a Sample Neon variant.
   per-voice stack markers, lane weights, recording meter, and selected lane on
   Move's 128x64 display;
 - moves continuously through the lane stack;
-- includes Motion, Lanes, Grains, and Cutups playback algorithms;
+- includes Motion, Lanes, Grains, transient-aware Cutups, direct Sample, and
+  pad-addressed Slices playback algorithms;
+- detects up to 64 transient regions per lane outside the audio callback and
+  draws their boundaries over the selected waveform;
+- auditions WAV files while browsing, before they replace a pattern lane;
+- offers Keys, Slices, eight Cue, and held Roll pad modes plus Manual, Cycle,
+  Random, No Repeat, and Velocity four-lane variation;
 - plays directly from Move's 32 pads with no track MIDI routing;
 - lights a free-play pad only while it is held; sequencer note entry latches
   pads until their note-off Step is chosen;
 - uses Track 1-4 for lane selection and all 16 Step keys for sequencing;
-- uses note velocity and poly pressure for stack depth, never sample volume;
+- keeps velocity out of the gain stage; poly pressure controls continuous stack
+  depth, while Velocity lane variation can deliberately choose a discrete lane;
 - plays eight notes polyphonically, with an independent engine and playhead for
   each active voice;
 - accepts a fixed external MIDI CC map for every engine/global parameter;
@@ -46,7 +53,7 @@ can be assigned to each step, with free play remaining available at the same
 time. A 16-slot chain provides pattern order and repeat counts. Live knob
 motion can be written as step automation, and recent free play can be captured
 back into the sequence. Host/Move transport synchronization remains a later
-milestone; v0.14.0 uses its internal clock.
+milestone; v0.15.0 uses its internal clock.
 Eight-voice realtime CPU behavior, particularly with the Grains engine, still
 needs acceptance on Move.
 
@@ -137,7 +144,8 @@ lane. Monitor stays at zero in this direct first pass.
 Hold **Shift** and press **Track 1-4** to open the browser for that lane. It
 starts at `/data/UserData/UserLibrary/Samples`. Turn the main encoder (or use
 Up/Down) to select a folder or WAV, click the encoder to enter/load, and press
-Back to move up or leave the browser.
+Back to move up or leave the browser. Highlighting a WAV auditions it through
+Preview Level; clicking promotes that decoded preview into the selected lane.
 
 The selected lane may therefore contain either a pattern-local stereo capture
 or a library sample. Loading replaces only that lane. Mono/stereo PCM 16/24/32-bit
@@ -177,9 +185,10 @@ Use **Back** from the main waveform page for a normal save-and-exit. Autosave
 narrows the power-loss window, but power can still be removed before the next
 maintenance pass. Uninstalling the module
 can also remove its saved bank, so copy those files elsewhere before an
-uninstall or future clean reinstall. Pattern files from versions 1–7 are
-migrated into the v8 format when loaded; v8 adds the high half of the
-64-parameter lock mask and preserves older locks and base values.
+uninstall or future clean reinstall. Pattern files from versions 1–8 are
+migrated into the v9 format when loaded; v9 adds eight pattern-local cue
+positions and a third lock-mask word for the new region/sample controls while
+preserving older locks, base values, and lane ownership.
 
 ## Performance controls
 
@@ -197,7 +206,8 @@ The main waveform page carries eight knobs:
 | 8 | Output level |
 
 Track buttons 1-4 select the recording lane. In Free Play, dial 7 follows the
-selected engine and edits Motion Mode, Lanes Mode, Grain Mode, or Cutups Mode.
+selected engine and edits its principal mode. Sample exposes direct playback;
+Slices addresses regions from the 32 pads.
 Engine selection is dial 1 on the Engine parameter page; Step keys no longer
 change the engine.
 
@@ -342,6 +352,10 @@ MIDI-learn file.
 | 85 | Grain size variation | 104 | Cut level variation |
 | 86 | Grain level variation | 105 | Cut lane order |
 | 87 | Grain timing Regular/Scatter | 106 | Cut polyphonic path |
+| 107 | Cut region source Equal/Transient | 108 | Sample play mode |
+| 109 | Slice source Equal/Transient | 110 | Equal slice count |
+| 111 | Pad mode Keys/Slices/Cues/Rolls | 112 | Lane variation |
+| 113 | Browser preview level |  |  |
 
 CC 51 can create acoustic feedback when a microphone and speakers are active;
 leave it at `0` unless direct monitoring is intentional. Internal Move button
@@ -352,8 +366,8 @@ CCs are excluded from this mapping and continue to operate the takeover UI.
 Press **Menu** to open the parameter surface. The eight physical knobs edit the
 eight aligned name/value cells. Use **Up/Down** to move through contextual
 pages. Only the pages for the Algorithm chosen on the Engine page are present:
-Motion and Lanes each have two engine pages, Grains has three, and Cutups has
-two.
+Motion and Lanes each have two engine pages, Grains has three, Cutups has two,
+and Sample and Slices each have one.
 
 - Engine: algorithm, position, field, speed, stack position, scan rate, join,
   and level.
@@ -368,11 +382,18 @@ two.
   scattered timing, envelope skew, slice regions, scan/per-grain advance, and
   Ordinary, Stutter, Shrink, or Doublets processing.
 - Cutups Clock/Path: fixed or tempo clock with musical divisions, timing
-  variation, gate and join, 1–64 regions, repeats, reverse/pitch/level
+  variation, gate and join, equal or detected transient regions, repeats,
+  reverse/pitch/level
   variation, seven discrete lane orders, and four polyphonic lane paths.
+- Sample: direct forward, reverse, loop, or ping-pong playback of a discrete
+  lane. Slices uses the same modes with equal or detected transient regions;
+  source-pad identity is retained by the sequencer.
+- Performance: Keys is the chromatic grid; Slices maps the 32 pads to regions;
+  Cues uses pads 1–8 (Shift+pad stores the current playhead, Delete+pad clears,
+  pad jumps); Rolls turns held pads into tempo-divided Cutups voices.
 - Mix / Global: four independent lane gains, pressure behavior, root note,
   record gain, and output level.
-- Sample: trim start/end and apply, reverse, normalize, edge fade, record gain,
+- Sample edit: trim start/end and apply, reverse, normalize, edge fade, record gain,
   and output level.
 - Sequence: tempo, swing, length, Step page, automation record, probability,
   ratchets, and microtiming.
@@ -392,6 +413,9 @@ their transport. Grains notes change source scan speed while Grain Pitch stays
 independent. Cutups notes multiply the base Speed/pitch of each cut reader while
 the cut clock stays on its free rate or tempo division. In a stack, every cut chooses a discrete lane
 and source region; it does not read the continuously crossfaded Lanes mix.
+Direct Sample and Slices can select lanes manually or by Cycle, Random, No
+Repeat, or Velocity variation. Pressure remains a separate continuous stack
+gesture for the motion-family engines.
 
 ## Safety and current limits
 
@@ -408,9 +432,10 @@ and source region; it does not read the continuously crossfaded Lanes mix.
 - Each playback voice has 16 bounded grain slots (128 across eight voices).
   Eight simultaneous dense Grains voices are the highest expected DSP load and
   must be checked on Move before this build is considered accepted.
-- Transient-derived Cutups regions, the desktop Grains Sorter process, and the
-  desktop Motion segment-event router are not in this hardware-bounded pass;
-  Cutups currently uses equal regions and Motion Bounce remains an articulation.
+- The desktop Grains Sorter process and Motion segment-event router are not in
+  this hardware-bounded pass. Motion Bounce remains an articulation rather
+  than a separate event router. Transient maps are automatic and bounded to 64
+  regions; manual marker editing is not yet included.
 - Persistent WAV and metadata writes run only from non-audio maintenance or
   teardown calls, never in the audio callback.
 - User-library WAV decoding/resampling and queued-pattern preparation run on a

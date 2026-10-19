@@ -104,7 +104,7 @@ void recordLane(plugin_api_v2_t* api, void* instance,
 
 void writePcm16Wav(const std::string& path)
 {
-    constexpr std::uint32_t frames = 512u;
+    constexpr std::uint32_t frames = 4096u;
     constexpr std::uint32_t dataBytes = frames * 2u * sizeof(std::int16_t);
     std::FILE* file = std::fopen(path.c_str(), "wb");
     assert(file != nullptr);
@@ -132,8 +132,12 @@ void writePcm16Wav(const std::string& path)
     assert(std::fwrite("data", 1u, 4u, file) == 4u);
     u32(dataBytes);
     for (std::uint32_t frame = 0u; frame < frames; ++frame) {
-        u16(static_cast<std::uint16_t>(12000));
-        u16(static_cast<std::uint16_t>(-6000));
+        const bool burst = frame < 192u
+            || (frame >= 1100u && frame < 1292u)
+            || (frame >= 2200u && frame < 2392u)
+            || (frame >= 3300u && frame < 3492u);
+        u16(static_cast<std::uint16_t>(burst ? 12000 : 0));
+        u16(static_cast<std::uint16_t>(burst ? -6000 : 0));
     }
     assert(std::fclose(file) == 0);
 }
@@ -189,7 +193,7 @@ int main()
     const CcCheck ccChecks[] {
         {20, "locus", "1.0000"}, {21, "field", "1.0000"},
         {22, "speed", "4.0000"}, {23, "manual_lane", "4.0000"},
-        {24, "lane_cycles", "16.0000"}, {25, "algorithm", "3"},
+        {24, "lane_cycles", "16.0000"}, {25, "algorithm", "5"},
         {26, "join", "1.0000"}, {27, "output_gain", "2.0000"},
         {28, "motion_mode", "7"}, {29, "motion_sound", "3"},
         {30, "motion_rate", "20.0000"}, {31, "lanes_mode", "2"},
@@ -225,7 +229,10 @@ int main()
         {101, "cut_repeats", "16"}, {102, "cut_reverse", "100.00"},
         {103, "cut_pitch_variation", "24.0000"},
         {104, "cut_level_variation", "1.0000"}, {105, "cut_lane_order", "6"},
-        {106, "cut_poly_path", "3"},
+        {106, "cut_poly_path", "3"}, {107, "cut_region_mode", "1"},
+        {108, "sample_mode", "3"}, {109, "slice_region_mode", "1"},
+        {110, "slice_regions", "64"}, {111, "pad_mode", "3"},
+        {112, "lane_variation", "4"}, {113, "preview_level", "1.0000"},
     };
     for (const auto& check : ccChecks) {
         midi(api, instance, 0xB0, static_cast<std::uint8_t>(check.cc), 127,
@@ -298,6 +305,17 @@ int main()
     const std::string librarySample = libraryDir + "/Library Tone.wav";
     writePcm16Wav(librarySample);
     api->set_param(instance, "record_lane", "2");
+    api->set_param(instance, "preview_file", librarySample.c_str());
+    int previewState = 0;
+    for (int attempt = 0; attempt < 500 && previewState != 8
+         && previewState != 7; ++attempt) {
+        render(api, instance, 1);
+        usleep(1000);
+        previewState = stateField(get(api, instance, "sample_load_state"), 0);
+    }
+    assert(previewState == 8);
+    render(api, instance, 4);
+    assert(peak() > 0);
     const std::string loadCommand = "2," + librarySample;
     api->set_param(instance, "load_lane_file", loadCommand.c_str());
     int loadState = 0;
@@ -313,6 +331,7 @@ int main()
     }
     assert(loadState == 6);
     assert(get(api, instance, "lane_source") == "Library Tone.wav");
+    assert(stateField(get(api, instance, "region_state"), 0) > 1);
     assert((stateField(get(api, instance, "ui_state"), 1) & 0x2) != 0);
     api->set_param(instance, "pattern_copy", "2");
     api->set_param(instance, "clear_lane", "Clear");
@@ -328,6 +347,7 @@ int main()
     api->set_param(instance, "seq_lock", "0,algorithm,3");
     api->set_param(instance, "seq_lock", "0,output_gain,1");
     api->set_param(instance, "seq_lock", "0,lane_blend,1");
+    api->set_param(instance, "seq_lock", "0,sample_mode,2");
     api->set_param(instance, "seq_bpm", "240");
     api->set_param(instance, "seq_swing", "50");
     api->set_param(instance, "seq_length", "4");
@@ -337,6 +357,8 @@ int main()
     assert(stateField(get(api, instance, "seq_locks"), 0) != 0);
     assert((unsignedStateField(get(api, instance, "seq_locks_hi"), 0)
         & 0x1u) != 0u);
+    assert((unsignedStateField(get(api, instance, "seq_locks_x"), 0)
+        & 0x2u) != 0u);
     assert(stateField(get(api, instance, "seq_note_counts"), 0) == 2);
     api->set_param(instance, "seq_note_pad_toggle", "7,3,63,80");
     api->set_param(instance, "seq_lock", "7,field,0.25");
@@ -455,6 +477,7 @@ int main()
     api->set_param(instance, "seq_lock", "0,algorithm,3");
     api->set_param(instance, "seq_lock", "0,output_gain,1");
     api->set_param(instance, "seq_lock", "0,lane_blend,1");
+    api->set_param(instance, "seq_lock", "0,sample_mode,2");
 
     /* Four banks of sixteen patterns snapshot notes, locks, length/swing and
        engine settings. Running changes queue to the next pattern boundary. */
@@ -635,7 +658,7 @@ int main()
     recordLane(api, instance, 4, 18000, 12);
     ui = get(api, instance, "ui_state");
     assert((stateField(ui, 1) & 0x9) == 0x9);
-    for (int algorithm = 0; algorithm < 4; ++algorithm) {
+    for (int algorithm = 0; algorithm < 6; ++algorithm) {
         api->set_param(instance, "algorithm", std::to_string(algorithm).c_str());
         midi(api, instance, 0x90, 60, 64);
         render(api, instance, 8);
@@ -643,6 +666,28 @@ int main()
         midi(api, instance, 0x80, 60, 0);
         render(api, instance, 40);
     }
+
+    api->set_param(instance, "algorithm", "Slices");
+    api->set_param(instance, "slice_region_mode", "Transients");
+    api->set_param(instance, "slice_regions", "32");
+    api->set_param(instance, "sample_mode", "Forward");
+    api->set_param(instance, "lane_variation", "Cycle");
+    api->set_param(instance, "pad_mode", "Slices");
+    assert(get(api, instance, "algorithm") == "5");
+    assert(get(api, instance, "region_state").find(',') != std::string::npos);
+    midi(api, instance, 0x90, 68, 100, MOVE_MIDI_SOURCE_INTERNAL);
+    render(api, instance, 8);
+    assert(peak() > 0);
+    midi(api, instance, 0x80, 68, 0, MOVE_MIDI_SOURCE_INTERNAL);
+
+    api->set_param(instance, "pad_mode", "Cues");
+    api->set_param(instance, "cue_store", "0,0.25");
+    assert(stateField(get(api, instance, "cue_state"), 0) == 250);
+    api->set_param(instance, "cue_trigger", "0");
+    render(api, instance, 4);
+    assert(peak() > 0);
+    api->set_param(instance, "cue_clear", "0");
+    assert(stateField(get(api, instance, "cue_state"), 0) == -1);
 
     /* Fidelity controls exercise the hardware-bounded implementations of the
        source-family paths, grain event processes, and lane/region Cutups. */
@@ -735,6 +780,7 @@ int main()
     api->set_param(instance, "record_gain", "1.75");
     api->set_param(instance, "pad_octave", "2");
     api->set_param(instance, "algorithm", "Motion");
+    api->set_param(instance, "cue_store", "2,0.625");
     const std::string state = get(api, instance, "state");
     assert(state.find("\"version\":3") != std::string::npos);
     assert(state.find("\"monitor_level\"") == std::string::npos);
@@ -748,6 +794,7 @@ int main()
     assert(get(api, instance, "lane_2_gain") == "0.3750");
     assert(get(api, instance, "record_gain") == "1.7500");
     assert(get(api, instance, "pad_octave") == "2");
+    assert(stateField(get(api, instance, "cue_state"), 2) == 625);
     assert(get(api, instance, "chain_entries").rfind("1:1:2,1:2:1", 0u) == 0u);
 
     std::array<char, 256> error {};
@@ -768,7 +815,7 @@ int main()
     std::uint32_t patternVersion = 0u;
     assert(std::fseek(patternFile, 8, SEEK_SET) == 0);
     assert(std::fread(&patternVersion, sizeof(patternVersion), 1u, patternFile) == 1u);
-    assert(patternVersion == 8u);
+    assert(patternVersion == 9u);
     std::fclose(stateFile);
     std::fclose(laneFile);
     std::fclose(patternFile);
@@ -784,6 +831,7 @@ int main()
     assert(get(api, instance, "lane_2_gain") == "0.3750");
     assert(get(api, instance, "record_gain") == "1.7500");
     assert(get(api, instance, "pad_octave") == "2");
+    assert(stateField(get(api, instance, "cue_state"), 2) == 625);
     assert(get(api, instance, "chain_entries").rfind("1:1:2,1:2:1", 0u) == 0u);
     assert((unsignedStateField(get(api, instance, "pattern_state"), 2) & 0x3u)
         == 0x3u);
@@ -810,6 +858,8 @@ int main()
     assert(stateField(get(api, instance, "seq_locks"), 0) != 0);
     assert((unsignedStateField(get(api, instance, "seq_locks_hi"), 0)
         & 0x1u) != 0u);
+    assert((unsignedStateField(get(api, instance, "seq_locks_x"), 0)
+        & 0x2u) != 0u);
     assert(stateField(get(api, instance, "seq_note_counts"), 0) == 2);
     assert(unsignedStateField(get(api, instance, "seq_pad_masks"), 0)
         == ((1u << 5u) | (1u << 8u)));

@@ -1,10 +1,10 @@
 {
   "id": "s3g-thru",
   "name": "S3G Thru",
-  "version": "0.14.1",
+  "version": "0.15.0",
   "min_host_version": "1.7.3",
   "abbrev": "THRU",
-  "description": "Eight-voice Sample-family sampler with deep Motion, Lanes, Grains, Cutups, sequencing, and 64-parameter locks.",
+  "description": "Eight-voice Sample-family sampler with Motion, Lanes, Grains, transient Cutups, Sample, Slices, sequencing, cues, and rolls.",
   "author": "S3G",
   "component_type": "overtake",
   "ui": "ui.js",

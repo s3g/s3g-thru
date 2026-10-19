@@ -53,11 +53,14 @@ const params = {
     seq_state: '0,-1,0,120,16,50,80,1',
     seq_locks: Array(16).fill('0').join(','),
     seq_locks_hi: Array(16).fill('0').join(','),
+    seq_locks_x: Array(16).fill('0').join(','),
     seq_note_counts: Array(16).fill('0').join(','),
     seq_pad_masks: Array(16).fill('0').join(','),
     seq_open_mask: '0',
     pattern_state: '0,-1,1,0',
     sample_load_state: '0,1,0,',
+    region_state: '2,0,500,1000', pad_mode: '0',
+    cue_state: '-1,-1,-1,-1,-1,-1,-1,-1',
     pattern_prepare_state: '0,-1', chain_state: '0,0,0,0',
     lane_source: 'LIVE',
     lane_source_state: 'CAPTURE:LIVE', undo_available: '0',
@@ -143,6 +146,9 @@ assert(drawWrites.some((write) => write[0] === 'rect'
 assert(drawWrites.some((write) => write[0] === 'rect'
     && write[1] === 23 && write[2] === 23 && write[3] === 5
     && write[4] === 1 && write[5] === 1));
+assert(drawWrites.some((write) => write[0] === 'rect'
+    && write[1] === 71 && write[2] === 11 && write[3] === 1
+    && write[4] === 2), 'selected waveform should show transient markers');
 
 /* DSP voice slots have stable colors. Two isomorphic pads that produce the
    same pitch can therefore show two independently identifiable playheads. */
@@ -361,9 +367,30 @@ globalThis.onMidiMessageInternal([0xB0, 41, 127]);
 globalThis.onMidiMessageInternal([0xB0, 49, 0]);
 globalThis.onMidiMessageInternal([0xB0, 3, 127]);
 globalThis.onMidiMessageInternal([0xB0, 14, 1]);
+assert(paramWrites.some((write) => write[0] === 'preview_file'
+    && write[1].endsWith('/Drums/Kick 01.wav')));
 globalThis.onMidiMessageInternal([0xB0, 3, 127]);
 assert.deepEqual(blockingWrites.pop(), ['load_lane_file',
     '3,/data/UserData/UserLibrary/Samples/Drums/Kick 01.wav']);
+
+/* Cue pad mode uses Shift+pad to store the displayed playhead, a normal pad
+   to jump, and Delete+pad to clear. */
+params.pad_mode = '2';
+globalThis.tick(); globalThis.tick(); globalThis.tick();
+globalThis.onMidiMessageInternal([0xB0, 49, 127]);
+globalThis.onMidiMessageInternal([0x90, 68, 100]);
+assert.equal(blockingWrites.at(-1)[0], 'cue_store');
+globalThis.onMidiMessageInternal([0x80, 68, 0]);
+globalThis.onMidiMessageInternal([0xB0, 49, 0]);
+globalThis.onMidiMessageInternal([0x90, 68, 100]);
+assert.deepEqual(blockingWrites.at(-1), ['cue_trigger', '0']);
+globalThis.onMidiMessageInternal([0x80, 68, 0]);
+globalThis.onMidiMessageInternal([0xB0, 119, 127]);
+globalThis.onMidiMessageInternal([0x90, 68, 100]);
+assert.deepEqual(blockingWrites.at(-1), ['cue_clear', '0']);
+globalThis.onMidiMessageInternal([0x80, 68, 0]);
+globalThis.onMidiMessageInternal([0xB0, 119, 0]);
+params.pad_mode = '0';
 
 /* Shift+Menu is help. Back returns to the waveform before a second Back
    exits, which is the DSP persistence save boundary. */

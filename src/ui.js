@@ -1,4 +1,4 @@
-/* S3G Thru 0.14.1 — polyphonic sampler/sequencer takeover for Ableton Move. */
+/* S3G Thru 0.15.0 — polyphonic sampler/sequencer takeover for Ableton Move. */
 
 import * as moveConstants from '/data/UserData/schwung/shared/constants.mjs';
 import * as moveInputFilter from '/data/UserData/schwung/shared/input_filter.mjs';
@@ -63,7 +63,7 @@ const setButtonLED = typeof moveInputFilter.setButtonLED === 'function'
     };
 
 const WAVE_BINS = 112;
-const ALGORITHMS = ['MOTION', 'LANES', 'GRAINS', 'CUTUPS'];
+const ALGORITHMS = ['MOTION', 'LANES', 'GRAINS', 'CUTUPS', 'SAMPLE', 'SLICES'];
 const LEDS_PER_TICK = 8;
 const VOICE_COLORS = [BrightRed, BrightOrange, BrightYellow, NeonGreen,
     AzureBlue, BlueViolet, Purple, LightMagenta];
@@ -76,7 +76,7 @@ const PARAMS = {
     speed: { key: 'speed', label: 'SPEED', min: 0.05, max: 4, step: 0.02, value: 1 },
     manual_lane: { key: 'manual_lane', label: 'STACK', min: 1, max: 4, step: 0.04, value: 1 },
     lane_cycles: { key: 'lane_cycles', label: 'SCAN RATE', min: 0.125, max: 16, step: 0.125, value: 1 },
-    algorithm: { key: 'algorithm', label: 'ALGORITHM', min: 0, max: 3, step: 1, value: 0, integer: true, labels: ALGORITHMS },
+    algorithm: { key: 'algorithm', label: 'ALGORITHM', min: 0, max: 5, step: 1, value: 0, integer: true, labels: ALGORITHMS },
     join: { key: 'join', label: 'JOIN', min: 0, max: 1, step: 0.01, value: 1 },
     output_gain: { key: 'output_gain', label: 'LEVEL', min: 0, max: 2, step: 0.02, value: 1 },
     motion_mode: { key: 'motion_mode', label: 'MODE', min: 0, max: 7, step: 1, value: 0, integer: true, labels: ['FWD', 'REV', 'HOVER', 'ROUND', 'LOOP', 'MIRROR', 'ZIGZAG', 'DRUNK'] },
@@ -131,6 +131,13 @@ const PARAMS = {
     cut_level_variation: { key: 'cut_level_variation', label: 'LEVEL VAR', min: 0, max: 1, step: 0.01, value: 0 },
     cut_lane_order: { key: 'cut_lane_order', label: 'LANE ORDER', min: 0, max: 6, step: 1, value: 0, integer: true, labels: ['DOWN', 'UP', 'PALIN', 'RANDOM', 'PAIRS', 'OUT-IN', 'CTR-OUT'] },
     cut_poly_path: { key: 'cut_poly_path', label: 'POLY PATH', min: 0, max: 3, step: 1, value: 0, integer: true, labels: ['TOGETHER', 'STAGGER', 'ROTATE', 'RANDOM'] },
+    cut_region_mode: { key: 'cut_region_mode', label: 'REGION SOURCE', min: 0, max: 1, step: 1, value: 0, integer: true, labels: ['EQUAL', 'TRANSIENTS'] },
+    sample_mode: { key: 'sample_mode', label: 'PLAY MODE', min: 0, max: 3, step: 1, value: 0, integer: true, labels: ['FORWARD', 'REVERSE', 'LOOP', 'PINGPONG'] },
+    slice_region_mode: { key: 'slice_region_mode', label: 'SLICE SOURCE', min: 0, max: 1, step: 1, value: 1, integer: true, labels: ['EQUAL', 'TRANSIENTS'] },
+    slice_regions: { key: 'slice_regions', label: 'SLICE COUNT', min: 1, max: 64, step: 1, value: 16, integer: true },
+    pad_mode: { key: 'pad_mode', label: 'PAD MODE', min: 0, max: 3, step: 1, value: 0, integer: true, labels: ['KEYS', 'SLICES', 'CUES', 'ROLLS'] },
+    lane_variation: { key: 'lane_variation', label: 'VARIATION', min: 0, max: 4, step: 1, value: 0, integer: true, labels: ['MANUAL', 'CYCLE', 'RANDOM', 'NO REPEAT', 'VELOCITY'] },
+    preview_level: { key: 'preview_level', label: 'PREVIEW LEVEL', min: 0, max: 1, step: 0.01, value: 0.7 },
     lane_1_gain: { key: 'lane_1_gain', label: 'LANE 1', min: 0, max: 2, step: 0.02, value: 1 },
     lane_2_gain: { key: 'lane_2_gain', label: 'LANE 2', min: 0, max: 2, step: 0.02, value: 1 },
     lane_3_gain: { key: 'lane_3_gain', label: 'LANE 3', min: 0, max: 2, step: 0.02, value: 1 },
@@ -168,6 +175,10 @@ const MAIN_ENGINE_CONTROLS = [
         'lane_cycles', 'join', 'grain_mode', 'output_gain'],
     ['locus', 'field', 'speed', 'manual_lane',
         'lane_cycles', 'join', 'cutups_mode', 'output_gain'],
+    ['locus', 'field', 'speed', 'manual_lane',
+        'sample_mode', 'lane_variation', 'pad_mode', 'output_gain'],
+    ['locus', 'field', 'speed', 'manual_lane',
+        'sample_mode', 'slice_region_mode', 'slice_regions', 'output_gain'],
 ];
 const ENGINE_PAGE = { title: 'ENGINE', keys: ['algorithm', 'locus', 'field',
     'speed', 'manual_lane', 'lane_cycles', 'join', 'output_gain'] };
@@ -200,16 +211,25 @@ const PLAYBACK_PAGES = [
     [
         { title: 'CUTUPS CLOCK', keys: ['cutups_mode', 'cut_clock',
             'cut_division', 'cut_rate', 'cut_time_variation', 'cut_gate',
-            'cut_join', 'cut_regions'] },
+            'cut_join', 'cut_region_mode'] },
         { title: 'CUTUPS PATH', keys: ['cut_repeats', 'cut_reverse',
             'cut_pitch_variation', 'cut_level_variation', 'cut_lane_order',
-            'cut_poly_path', 'locus', 'field'] },
+            'cut_poly_path', 'cut_regions', 'field'] },
+    ],
+    [
+        { title: 'DIRECT SAMPLE', keys: ['sample_mode', 'locus', 'field', 'speed',
+            'manual_lane', 'lane_variation', 'pad_mode', 'output_gain'] },
+    ],
+    [
+        { title: 'SLICES', keys: ['sample_mode', 'slice_region_mode',
+            'slice_regions', 'speed', 'manual_lane', 'lane_variation',
+            'pad_mode', 'output_gain'] },
     ],
 ];
 const MIX_REC_PAGE = { title: 'MIX / REC', keys: ['lane_1_gain', 'lane_2_gain',
     'lane_3_gain', 'lane_4_gain', 'pressure_mode', 'root_note', 'record_gain',
-    'output_gain'] };
-const SAMPLE_PAGE = { title: 'SAMPLE', keys: ['sample_trim_start',
+    'preview_level'] };
+const SAMPLE_PAGE = { title: 'SAMPLE EDIT', keys: ['sample_trim_start',
     'sample_trim_end', 'sample_trim_apply', 'sample_reverse',
     'sample_normalize', 'sample_fade', 'record_gain', 'output_gain'] };
 const SEQUENCE_PAGE = { title: 'SEQUENCE', keys: ['seq_bpm', 'seq_swing',
@@ -236,6 +256,7 @@ const LOCKABLE_KEYS = [
     'cut_division', 'cut_rate', 'cut_time_variation', 'cut_gate', 'cut_join',
     'cut_regions', 'cut_repeats', 'cut_reverse', 'cut_pitch_variation',
     'cut_level_variation', 'cut_lane_order', 'cut_poly_path',
+    'cut_region_mode', 'sample_mode', 'slice_region_mode', 'slice_regions',
 ];
 const LOCKABLE_PARAMS = new Set(LOCKABLE_KEYS);
 
@@ -262,6 +283,9 @@ const SHORT_LABELS = {
     cut_repeats: 'REPT', cut_reverse: 'REV%', cut_pitch_variation: 'PVAR',
     cut_level_variation: 'LVAR', cut_lane_order: 'LORD',
     cut_poly_path: 'POLY',
+    cut_region_mode: 'RSRC', sample_mode: 'PLAY',
+    slice_region_mode: 'SSRC', slice_regions: 'SLIC', pad_mode: 'PADS',
+    lane_variation: 'VARI', preview_level: 'PREV',
     lane_2_gain: 'L2', lane_3_gain: 'L3', lane_4_gain: 'L4',
     pressure_mode: 'PRES', root_note: 'ROOT', record_gain: 'REC',
     seq_bpm: 'BPM', seq_swing: 'SWNG', seq_length: 'LEN', seq_gate: 'GATE',
@@ -320,6 +344,7 @@ const state = {
     sequencePage: 0,
     stepLockMasks: Array(16).fill(0),
     stepLockMasksHigh: Array(16).fill(0),
+    stepLockMasksExtra: Array(16).fill(0),
     stepNoteCounts: Array(16).fill(0),
     stepPadMasks: Array(16).fill(0),
     stepLocks: Array.from({ length: 16 }, () => Object.create(null)),
@@ -347,7 +372,30 @@ const state = {
     sampleLoadState: 0,
     sampleLoadProgress: 0,
     sampleLoadName: '',
+    regions: [],
+    padMode: 0,
+    cues: Array(8).fill(-1),
 };
+
+function parseRegionState(text) {
+    const values = String(text || '').split(',').map((item) => Number(item));
+    const count = values.length > 0 && Number.isFinite(values[0])
+        ? clamp(values[0] | 0, 0, 64) : 0;
+    state.regions = [];
+    for (let index = 1; index < values.length && index <= count + 1; index++) {
+        if (Number.isFinite(values[index])) {
+            state.regions.push(clamp(values[index] / 1000, 0, 1));
+        }
+    }
+}
+
+function parseCueState(text) {
+    const values = String(text || '').split(',').map((item) => Number(item));
+    for (let index = 0; index < state.cues.length; index++) {
+        state.cues[index] = Number.isFinite(values[index]) && values[index] >= 0
+            ? clamp(values[index] / 1000, 0, 1) : -1;
+    }
+}
 
 function clamp(value, low, high) {
     return Math.max(low, Math.min(high, value));
@@ -537,22 +585,40 @@ function parseSequenceLocksHigh(text) {
     if (changed) rebuildLedQueue();
 }
 
+function parseSequenceLocksExtra(text) {
+    const values = String(text || '').split(',').map((item) => Number(item));
+    if (values.length < 16) return;
+    let changed = false;
+    for (let index = 0; index < 16; index++) {
+        const mask = Number.isFinite(values[index]) ? values[index] >>> 0 : 0;
+        if (state.stepLockMasksExtra[index] !== mask) changed = true;
+        state.stepLockMasksExtra[index] = mask;
+    }
+    if (changed) rebuildLedQueue();
+}
+
 function stepHasLock(local, lockIndex) {
     if (local < 0 || lockIndex < 0) return false;
-    return lockIndex < 32
-        ? (state.stepLockMasks[local] & (1 << lockIndex)) !== 0
-        : (state.stepLockMasksHigh[local] & (1 << (lockIndex - 32))) !== 0;
+    if (lockIndex < 32) {
+        return (state.stepLockMasks[local] & (1 << lockIndex)) !== 0;
+    }
+    if (lockIndex < 64) {
+        return (state.stepLockMasksHigh[local] & (1 << (lockIndex - 32))) !== 0;
+    }
+    return (state.stepLockMasksExtra[local] & (1 << (lockIndex - 64))) !== 0;
 }
 
 function markStepLock(local, lockIndex) {
     if (local < 0 || lockIndex < 0) return;
     if (lockIndex < 32) state.stepLockMasks[local] |= 1 << lockIndex;
-    else state.stepLockMasksHigh[local] |= 1 << (lockIndex - 32);
+    else if (lockIndex < 64) state.stepLockMasksHigh[local] |= 1 << (lockIndex - 32);
+    else state.stepLockMasksExtra[local] |= 1 << (lockIndex - 64);
 }
 
 function stepHasAnyLocks(local) {
     return local >= 0 && (state.stepLockMasks[local] !== 0
-        || state.stepLockMasksHigh[local] !== 0);
+        || state.stepLockMasksHigh[local] !== 0
+        || state.stepLockMasksExtra[local] !== 0);
 }
 
 function parseSequenceNoteCounts(text) {
@@ -681,6 +747,9 @@ function patternOccupied(index) {
 }
 
 function basePadColor() {
+    if (state.padMode === 1) return AzureBlue;
+    if (state.padMode === 2) return WhiteLedDim;
+    if (state.padMode === 3) return Purple;
     return Black;
 }
 
@@ -689,6 +758,11 @@ function padColor(index) {
         if (state.voicePads[voice] === index) return VOICE_COLORS[voice];
     }
     if (state.pendingNotes.has(index)) return BrightOrange;
+    if (state.padMode === 2) {
+        if (index >= 8) return Black;
+        if (state.activePads.has(MovePads[index])) return Cyan;
+        return state.cues[index] >= 0 ? BrightOrange : WhiteLedDim;
+    }
     const selectedLocal = localStep(state.selectedStep);
     if (selectedLocal >= 0
         && ((state.stepPadMasks[selectedLocal] >>> index) & 1) !== 0) {
@@ -827,6 +901,13 @@ function drawMain() {
             const y1 = center - Math.round(high * 4 / 7);
             const y2 = center - Math.round(low * 4 / 7);
             drawRect(x, y1, 1, Math.max(1, y2 - y1 + 1), 1);
+        }
+        if (selected && state.regions.length > 2) {
+            for (let region = 1; region < state.regions.length - 1; region++) {
+                const x = left + Math.round(state.regions[region] * (width - 1));
+                drawRect(x, center - 4, 1, 2, 1);
+                drawRect(x, center + 3, 1, 2, 1);
+            }
         }
     }
 
@@ -1041,6 +1122,8 @@ function drawLibrary() {
         footer = 'LOADING ' + Math.round(state.sampleLoadProgress) + '%';
     } else if (state.sampleLoadState === 7) {
         footer = state.sampleLoadName || 'LOAD ERROR';
+    } else if (state.sampleLoadState === 8) {
+        footer = 'PREVIEW  CLICK LOAD';
     }
     print(1, 57, footer.slice(0, 21), 1);
 }
@@ -1110,6 +1193,7 @@ function openLibrary(lane) {
     setParamBlocking('record_lane', state.lane);
     scanLibrary(LIBRARY_ROOT);
     state.view = 'library';
+    previewLibraryItem();
     rebuildLedQueue();
 }
 
@@ -1122,10 +1206,21 @@ function moveLibrarySelection(delta) {
     } else if (state.libraryIndex >= state.libraryScroll + 4) {
         state.libraryScroll = state.libraryIndex - 3;
     }
+    previewLibraryItem();
+}
+
+function previewLibraryItem() {
+    const item = state.libraryItems[state.libraryIndex];
+    if (!item || item.directory || item.name === '..') {
+        setParam('preview_stop', 1);
+        return;
+    }
+    setParam('preview_file', state.libraryDir + '/' + item.name);
 }
 
 function libraryBack() {
     if (state.libraryDir === LIBRARY_ROOT) {
+        setParam('preview_stop', 1);
         state.view = 'main';
         rebuildLedQueue();
         return;
@@ -1144,6 +1239,7 @@ function activateLibraryItem() {
     const path = state.libraryDir + '/' + item.name;
     if (item.directory) {
         scanLibrary(path);
+        previewLibraryItem();
         return;
     }
     setParamBlocking('load_lane_file', state.libraryLane + ',' + path);
@@ -1192,7 +1288,7 @@ function selectPatternSlot(step) {
 }
 
 function selectAlgorithm(index) {
-    state.algorithm = clamp(index | 0, 0, 3);
+    state.algorithm = clamp(index | 0, 0, 5);
     PARAMS.algorithm.value = state.algorithm;
     setParamBlocking('algorithm', state.algorithm);
     showMessage(ALGORITHMS[state.algorithm]);
@@ -1217,6 +1313,9 @@ function toggleSequenceRunning() {
 }
 
 function padMidiNote(padIndex) {
+    if (state.padMode === 1 || state.padMode === 3) {
+        return Math.round(PARAMS.root_note.value);
+    }
     const row = Math.floor(padIndex / 8);
     const column = padIndex % 8;
     return clamp(48 + state.octave * 12 + row * 5 + column, 0, 127);
@@ -1244,6 +1343,7 @@ function clearSequenceStep(index) {
     state.sequenceMask &= ~(1 << index);
     state.stepLockMasks[index] = 0;
     state.stepLockMasksHigh[index] = 0;
+    state.stepLockMasksExtra[index] = 0;
     state.stepNoteCounts[index] = 0;
     state.stepPadMasks[index] = 0;
     state.stepLocks[index] = Object.create(null);
@@ -1429,6 +1529,10 @@ function adjustControl(index, delta) {
         state.chainSlot = clamp(Math.round(value) - 1, 0, 15);
         PARAMS.chain_pattern.value = clamp(getNumber('chain_pattern', 1), 1, 64);
         PARAMS.chain_repeats.value = clamp(getNumber('chain_repeats', 1), 1, 16);
+    } else if (control.key === 'pad_mode') {
+        state.padMode = clamp(Math.round(value), 0, 3);
+        state.activePads.clear();
+        rebuildLedQueue();
     }
     if (state.automationRecord && state.sequenceRunning
         && state.sequenceStep >= 0 && LOCKABLE_PARAMS.has(control.key)) {
@@ -1439,7 +1543,7 @@ function adjustControl(index, delta) {
 }
 
 function pollDsp() {
-    const algorithm = clamp(Math.round(getNumber('algorithm', state.algorithm)), 0, 3);
+    const algorithm = clamp(Math.round(getNumber('algorithm', state.algorithm)), 0, 5);
     if (algorithm !== state.algorithm) {
         state.algorithm = algorithm;
         PARAMS.algorithm.value = algorithm;
@@ -1453,11 +1557,15 @@ function pollDsp() {
     parseSequenceState(getParam('seq_state', ''));
     parseSequenceLocks(getParam('seq_locks', ''));
     parseSequenceLocksHigh(getParam('seq_locks_hi', ''));
+    parseSequenceLocksExtra(getParam('seq_locks_x', ''));
     parseSequenceNoteCounts(getParam('seq_note_counts', ''));
     parseSequencePadMasks(getParam('seq_pad_masks', ''));
     parseSequenceOpenMask(getParam('seq_open_mask', '0'));
     parseSequenceOpenSteps(getParam('seq_open_steps', ''));
     parseSampleLoadState(getParam('sample_load_state', '0,1,0,'));
+    parseRegionState(getParam('region_state', '0'));
+    parseCueState(getParam('cue_state', '-1,-1,-1,-1,-1,-1,-1,-1'));
+    state.padMode = clamp(Math.round(getNumber('pad_mode', state.padMode)), 0, 3);
     parsePatternPrepareState(getParam('pattern_prepare_state', '0,-1'));
     parseChainState(getParam('chain_state', '0,0,0,0'));
     state.laneSource = String(getParam('lane_source', state.laneSource) || 'EMPTY');
@@ -1520,11 +1628,14 @@ globalThis.init = function() {
     parseSequenceState(getParam('seq_state', ''));
     parseSequenceLocks(getParam('seq_locks', ''));
     parseSequenceLocksHigh(getParam('seq_locks_hi', ''));
+    parseSequenceLocksExtra(getParam('seq_locks_x', ''));
     parseSequenceNoteCounts(getParam('seq_note_counts', ''));
     parseSequencePadMasks(getParam('seq_pad_masks', ''));
     parseSequenceOpenMask(getParam('seq_open_mask', '0'));
     parseSequenceOpenSteps(getParam('seq_open_steps', ''));
     parseSampleLoadState(getParam('sample_load_state', '0,1,0,'));
+    parseRegionState(getParam('region_state', '0'));
+    parseCueState(getParam('cue_state', '-1,-1,-1,-1,-1,-1,-1,-1'));
     parsePatternPrepareState(getParam('pattern_prepare_state', '0,-1'));
     parseChainState(getParam('chain_state', '0,0,0,0'));
     state.laneSource = String(getParam('lane_source', 'EMPTY') || 'EMPTY');
@@ -1532,6 +1643,7 @@ globalThis.init = function() {
         || 'EMPTY:EMPTY');
     state.undoAvailable = getNumber('undo_available', 0) !== 0;
     state.automationRecord = getNumber('automation_record', 0) !== 0;
+    state.padMode = clamp(Math.round(getNumber('pad_mode', 0)), 0, 3);
     parseWaveforms(getParam('waveforms', ''));
     if (state.recalled) {
         state.message = 'RECALLED ' + state.mask.toString(2).replace(/0/g, '').length
@@ -1587,7 +1699,26 @@ globalThis.onMidiMessageInternal = function(data) {
         if (pad >= 0) {
             if (pressed) {
                 state.activePads.add(number);
-                if (!assignSelectedStepNote(pad, value)) {
+                if (state.padMode === 2 && state.selectedStep < 0) {
+                    if (pad >= 8) {
+                        showMessage('CUES USE PADS 1-8');
+                        rebuildLedQueue();
+                        return;
+                    }
+                    const cue = pad % 8;
+                    if (state.deleteHeld) {
+                        setParamBlocking('cue_clear', cue);
+                        showMessage('CLEARED CUE ' + (cue + 1));
+                    } else if (state.shiftHeld) {
+                        setParamBlocking('cue_store', cue + ','
+                            + state.position.toFixed(4));
+                        showMessage('STORED CUE ' + (cue + 1));
+                    } else {
+                        setParamBlocking('cue_trigger', cue);
+                        showMessage('CUE ' + (cue + 1));
+                    }
+                    rebuildLedQueue();
+                } else if (!assignSelectedStepNote(pad, value)) {
                     sendLedNow('note', number, Cyan);
                 }
             } else {
@@ -1651,6 +1782,7 @@ globalThis.onMidiMessageInternal = function(data) {
             state.stepLocks[heldLocal] = Object.create(null);
             state.stepLockMasks[heldLocal] = 0;
             state.stepLockMasksHigh[heldLocal] = 0;
+            state.stepLockMasksExtra[heldLocal] = 0;
         }
         showMessage('CLEARED S' + (state.heldStep + 1) + ' LOCKS');
         rebuildLedQueue();

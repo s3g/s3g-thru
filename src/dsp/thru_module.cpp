@@ -43,6 +43,7 @@ constexpr std::size_t kPatternBankCount = 4u;
 constexpr std::size_t kPatternsPerBank = 16u;
 constexpr std::size_t kPatternCount = kPatternBankCount * kPatternsPerBank;
 constexpr std::size_t kPatternChainLength = 16u;
+constexpr std::size_t kCueCount = 8u;
 constexpr int kFirstPadNote = 68;
 constexpr int kLastPadNote = 99;
 constexpr int kPadColumns = 8;
@@ -59,6 +60,26 @@ enum class LaneSourceKind : std::uint8_t {
     file,
     capture,
     empty,
+};
+
+enum class PadMode : std::uint8_t {
+    keys = 0u,
+    slices,
+    cues,
+    rolls,
+};
+
+enum class LaneVariation : std::uint8_t {
+    manual = 0u,
+    cycle,
+    random,
+    noRepeat,
+    velocity,
+};
+
+struct RegionMap {
+    std::array<float, Engine::kRegionBoundaryCount> boundaries {};
+    std::size_t count = 0u;
 };
 
 enum class LockParameter : std::uint32_t {
@@ -126,14 +147,19 @@ enum class LockParameter : std::uint32_t {
     cutLevelVariation,
     cutLaneOrder,
     cutPolyPath,
+    cutRegionMode,
+    sampleMode,
+    sampleRegionMode,
+    sampleRegionCount,
     count
 };
 
 constexpr std::size_t kLockParameterCount =
     static_cast<std::size_t>(LockParameter::count);
-static_assert(kLockParameterCount == 64u,
-              "parameter lock persistence is a low/high 64-bit pair");
+static_assert(kLockParameterCount == 68u,
+              "parameter lock persistence supports three 32-bit words");
 constexpr std::size_t kLegacyLockParameterCount = 26u;
+constexpr std::size_t kPreviousLockParameterCount = 64u;
 
 struct SequenceStep {
     std::array<float, kLockParameterCount> locks {};
@@ -148,6 +174,7 @@ struct SequenceStep {
     std::array<std::uint8_t, kSequenceChordSize> noteOpen {};
     std::uint32_t lockMask = 0u;
     std::uint32_t lockMaskHigh = 0u;
+    std::uint32_t lockMaskExtra = 0u;
     float gate = 0.8f;
     std::uint8_t noteCount = 0u;
     std::uint8_t probability = 100u;
@@ -159,24 +186,32 @@ struct SequenceStep {
 
 bool hasStepLock(const SequenceStep& step, std::size_t index)
 {
-    return index < 32u
-        ? (step.lockMask & (1u << static_cast<unsigned>(index))) != 0u
-        : (step.lockMaskHigh
+    if (index < 32u) {
+        return (step.lockMask & (1u << static_cast<unsigned>(index))) != 0u;
+    }
+    if (index < 64u) {
+        return (step.lockMaskHigh
             & (1u << static_cast<unsigned>(index - 32u))) != 0u;
+    }
+    return index < 96u && (step.lockMaskExtra
+        & (1u << static_cast<unsigned>(index - 64u))) != 0u;
 }
 
 void setStepLock(SequenceStep& step, std::size_t index)
 {
     if (index < 32u) {
         step.lockMask |= 1u << static_cast<unsigned>(index);
-    } else {
+    } else if (index < 64u) {
         step.lockMaskHigh |= 1u << static_cast<unsigned>(index - 32u);
+    } else if (index < 96u) {
+        step.lockMaskExtra |= 1u << static_cast<unsigned>(index - 64u);
     }
 }
 
 bool stepHasLocks(const SequenceStep& step)
 {
-    return step.lockMask != 0u || step.lockMaskHigh != 0u;
+    return step.lockMask != 0u || step.lockMaskHigh != 0u
+        || step.lockMaskExtra != 0u;
 }
 
 struct Pattern {
@@ -188,6 +223,10 @@ struct Pattern {
     std::array<LaneSourceKind, kLaneCount> laneSourceKinds {
         LaneSourceKind::inherit, LaneSourceKind::inherit,
         LaneSourceKind::inherit, LaneSourceKind::inherit
+    };
+    std::array<float, kCueCount> cues {
+        -1.0f, -1.0f, -1.0f, -1.0f,
+        -1.0f, -1.0f, -1.0f, -1.0f
     };
     float swing = 0.5f;
     float legacyGate = 0.8f;
@@ -210,6 +249,7 @@ enum class SampleLoadState : int {
     copying,
     complete,
     error,
+    previewing,
 };
 
 enum class PatternPrepareState : int {
@@ -223,7 +263,15 @@ enum class PatternPrepareState : int {
 const host_api_v1_t* g_host = nullptr;
 
 constexpr const char* kAlgorithmNames[] {
-    "Motion", "Lanes", "Grains", "Cutups"
+    "Motion", "Lanes", "Grains", "Cutups", "Sample", "Slices"
+};
+constexpr const char* kSampleModeNames[] {
+    "Forward", "Reverse", "Loop", "Ping Pong"
+};
+constexpr const char* kRegionModeNames[] { "Equal", "Transients" };
+constexpr const char* kPadModeNames[] { "Keys", "Slices", "Cues", "Rolls" };
+constexpr const char* kLaneVariationNames[] {
+    "Manual", "Cycle", "Random", "No Repeat", "Velocity"
 };
 constexpr const char* kMotionModeNames[] {
     "Forward", "Reverse", "Hover", "Round Trip", "Moving Loop", "Mirror", "Zigzag", "Drunk"
@@ -294,7 +342,9 @@ constexpr const char kMidiMap[] =
     "96 cut_rate,97 cut_time_variation,98 cut_gate,99 cut_join,"
     "100 cut_regions,101 cut_repeats,102 cut_reverse,"
     "103 cut_pitch_variation,104 cut_level_variation,"
-    "105 cut_lane_order,106 cut_poly_path";
+    "105 cut_lane_order,106 cut_poly_path,107 cut_region_mode,"
+    "108 sample_mode,109 slice_region_mode,110 slice_regions,"
+    "111 pad_mode,112 lane_variation,113 preview_level";
 
 constexpr const char kChainParams[] = R"json([
 {"key":"locus","name":"Position","short_name":"POS","type":"float","min":0,"max":1,"step":0.01,"default":0.5},
@@ -302,7 +352,7 @@ constexpr const char kChainParams[] = R"json([
 {"key":"speed","name":"Speed","short_name":"SPD","type":"float","min":0.05,"max":4,"step":0.01,"default":1},
 {"key":"manual_lane","name":"Stack Position","short_name":"STACK","type":"float","min":1,"max":4,"step":0.01,"default":1},
 {"key":"lane_cycles","name":"Stack Rate","short_name":"SCAN","type":"float","min":0.125,"max":16,"step":0.125,"default":1,"unit":"Hz"},
-{"key":"algorithm","name":"Algorithm","short_name":"ALG","type":"enum","options":["Motion","Lanes","Grains","Cutups"],"default":0},
+{"key":"algorithm","name":"Algorithm","short_name":"ALG","type":"enum","options":["Motion","Lanes","Grains","Cutups","Sample","Slices"],"default":0},
 {"key":"join","name":"Join","short_name":"JOIN","type":"float","min":0,"max":1,"step":0.01,"default":1},
 {"key":"output_gain","name":"Level","short_name":"LEVEL","type":"float","min":0,"max":2,"step":0.01,"default":1},
 {"key":"pressure_mode","name":"Pressure","short_name":"PRESS","type":"enum","options":["Off","Offset"],"default":1},
@@ -374,6 +424,13 @@ constexpr const char kChainParams[] = R"json([
 {"key":"cut_level_variation","name":"Level Variation","short_name":"LEVEL VAR","type":"float","min":0,"max":1,"step":0.01,"default":0},
 {"key":"cut_lane_order","name":"Lane Order","short_name":"LANE ORD","type":"enum","options":["Down","Up","Palindrome","Random","Pairs","Outside In","Center Out"],"default":0},
 {"key":"cut_poly_path","name":"Poly Path","short_name":"POLY","type":"enum","options":["Together","Stagger","Rotate","Random"],"default":0},
+{"key":"cut_region_mode","name":"Cut Region Source","short_name":"REGION SRC","type":"enum","options":["Equal","Transients"],"default":0},
+{"key":"sample_mode","name":"Sample Playback","short_name":"PLAY MODE","type":"enum","options":["Forward","Reverse","Loop","Ping Pong"],"default":0},
+{"key":"slice_region_mode","name":"Slice Region Source","short_name":"SLICE SRC","type":"enum","options":["Equal","Transients"],"default":1},
+{"key":"slice_regions","name":"Equal Slice Count","short_name":"SLICES","type":"int","min":1,"max":64,"default":16},
+{"key":"pad_mode","name":"Pad Mode","short_name":"PADS","type":"enum","options":["Keys","Slices","Cues","Rolls"],"default":0},
+{"key":"lane_variation","name":"Lane Variation","short_name":"VARIATION","type":"enum","options":["Manual","Cycle","Random","No Repeat","Velocity"],"default":0},
+{"key":"preview_level","name":"Browser Preview","short_name":"PREVIEW","type":"float","min":0,"max":1,"step":0.01,"default":0.7},
 {"key":"seq_bpm","name":"Pattern Tempo","short_name":"BPM","type":"float","min":40,"max":240,"step":1,"default":120,"unit":"BPM"},
 {"key":"seq_swing","name":"Pattern Swing","short_name":"SWING","type":"float","min":50,"max":75,"step":1,"default":50,"unit":"%"},
 {"key":"seq_length","name":"Pattern Length","short_name":"LEN","type":"int","min":1,"max":64,"default":16},
@@ -390,6 +447,7 @@ constexpr const char kChainParams[] = R"json([
 {"key":"seq_state","name":"Sequencer State","type":"string","access":"read","live":true},
 {"key":"seq_locks","name":"Step Lock Masks","type":"string","access":"read","live":true},
 {"key":"seq_locks_hi","name":"Step Lock Masks High","type":"string","access":"read","live":true},
+{"key":"seq_locks_x","name":"Step Lock Masks Extra","type":"string","access":"read","live":true},
 {"key":"seq_note_counts","name":"Step Note Counts","type":"string","access":"read","live":true},
 {"key":"seq_pad_masks","name":"Step Pad Masks","type":"string","access":"read","live":true},
 {"key":"seq_open_mask","name":"Open Note Pads","type":"string","access":"read","live":true},
@@ -400,6 +458,13 @@ constexpr const char kChainParams[] = R"json([
 {"key":"undo_available","name":"Undo Available","type":"int","min":0,"max":1,"access":"read","live":true},
 {"key":"pattern_state","name":"Pattern Bank State","type":"string","access":"read","live":true},
 {"key":"sample_load_state","name":"Sample Load State","type":"string","access":"read","live":true},
+{"key":"region_state","name":"Transient Regions","type":"string","access":"read","live":true},
+{"key":"cue_state","name":"Pattern Cues","type":"string","access":"read","live":true},
+{"key":"preview_file","name":"Preview Sample","type":"string","access":"write"},
+{"key":"preview_stop","name":"Stop Preview","type":"int","min":0,"max":1,"access":"write"},
+{"key":"cue_store","name":"Store Cue","type":"string","access":"write"},
+{"key":"cue_trigger","name":"Trigger Cue","type":"int","min":0,"max":7,"access":"write"},
+{"key":"cue_clear","name":"Clear Cue","type":"int","min":0,"max":7,"access":"write"},
 {"key":"pattern_prepare_state","name":"Pattern Prepare State","type":"string","access":"read","live":true},
 {"key":"lane_source","name":"Lane Source","type":"string","access":"read","live":true},
 {"key":"lane_source_state","name":"Lane Source State","type":"string","access":"read","live":true},
@@ -418,12 +483,14 @@ constexpr const char kChainParams[] = R"json([
 constexpr const char kUiHierarchy[] = R"json({
 "pad_layout":"chromatic",
 "levels":{
-"root":{"name":"S3G Thru","knobs":["algorithm","locus","field","speed","manual_lane","lane_cycles","join","output_gain"],"params":[{"level":"record","label":"Record"},{"level":"motion","label":"Motion"},{"level":"lanes","label":"Lanes"},{"level":"grains","label":"Grains"},{"level":"cutups","label":"Cutups"},{"level":"lane_mix","label":"Lane Mix"},{"level":"sequence","label":"Sequence"}]},
+"root":{"name":"S3G Thru","knobs":["algorithm","locus","field","speed","manual_lane","lane_cycles","join","output_gain"],"params":[{"level":"record","label":"Record"},{"level":"motion","label":"Motion"},{"level":"lanes","label":"Lanes"},{"level":"grains","label":"Grains"},{"level":"cutups","label":"Cutups"},{"level":"sample","label":"Sample"},{"level":"slices","label":"Slices"},{"level":"lane_mix","label":"Lane Mix"},{"level":"sequence","label":"Sequence"}]},
 "record":{"name":"Record","knobs":["record_lane","record_source","record_gain","monitor_level","pressure_mode","root_note","output_gain","clear_lane"],"params":[{"key":"record_lane"},{"key":"record_source"},{"key":"record_gain"},{"key":"monitor_level"},{"key":"pressure_mode"},{"key":"root_note"},{"key":"output_gain"},{"key":"clear_lane"}]},
 "motion":{"name":"Motion","knobs":["locus","field","speed","join","motion_mode","motion_sound","motion_rate","output_gain"],"params":[{"key":"locus"},{"key":"field"},{"key":"speed"},{"key":"join"},{"key":"motion_mode"},{"key":"motion_sound"},{"key":"motion_rate"},{"key":"output_gain"}]},
 "lanes":{"name":"Lanes","knobs":["locus","field","speed","join","lanes_mode","lane_path","lane_cycles","manual_lane"],"params":[{"key":"locus"},{"key":"field"},{"key":"speed"},{"key":"join"},{"key":"lanes_mode"},{"key":"lane_path"},{"key":"lane_cycles"},{"key":"manual_lane"},{"key":"lanes_stretch"},{"key":"stretch_ratio"}]},
 "grains":{"name":"Grains","knobs":["locus","field","speed","join","grain_mode","grain_size","grain_density","grain_pitch"],"params":[{"key":"locus"},{"key":"field"},{"key":"speed"},{"key":"join"},{"key":"grain_mode"},{"key":"grain_size"},{"key":"grain_density"},{"key":"grain_pitch"},{"key":"grain_window"},{"key":"grain_spread"},{"key":"lane_path"},{"key":"lane_cycles"},{"key":"manual_lane"}]},
 "cutups":{"name":"Cutups","knobs":["locus","field","speed","join","cutups_mode","lane_path","lane_cycles","manual_lane"],"params":[{"key":"locus"},{"key":"field"},{"key":"speed"},{"key":"join"},{"key":"cutups_mode"},{"key":"lane_path"},{"key":"lane_cycles"},{"key":"manual_lane"}]},
+"sample":{"name":"Sample","knobs":["sample_mode","locus","field","speed","manual_lane","lane_variation","pad_mode","output_gain"],"params":[{"key":"sample_mode"},{"key":"locus"},{"key":"field"},{"key":"speed"},{"key":"manual_lane"},{"key":"lane_variation"},{"key":"pad_mode"},{"key":"output_gain"}]},
+"slices":{"name":"Slices","knobs":["sample_mode","slice_region_mode","slice_regions","speed","manual_lane","lane_variation","pad_mode","output_gain"],"params":[{"key":"sample_mode"},{"key":"slice_region_mode"},{"key":"slice_regions"},{"key":"speed"},{"key":"manual_lane"},{"key":"lane_variation"},{"key":"pad_mode"},{"key":"output_gain"}]},
 "lane_mix":{"name":"Lane Mix","knobs":["lane_1_gain","lane_2_gain","lane_3_gain","lane_4_gain","lanes_stretch","stretch_ratio","pressure_mode","output_gain"],"params":[{"key":"lane_1_gain"},{"key":"lane_2_gain"},{"key":"lane_3_gain"},{"key":"lane_4_gain"},{"key":"lanes_stretch"},{"key":"stretch_ratio"},{"key":"pressure_mode"},{"key":"output_gain"}]},
 "sequence":{"name":"Sequence","knobs":["seq_bpm","seq_swing","seq_length","root_note","algorithm","manual_lane","join","output_gain"],"params":[{"key":"seq_bpm"},{"key":"seq_swing"},{"key":"seq_length"},{"key":"root_note"},{"key":"algorithm"},{"key":"manual_lane"},{"key":"join"},{"key":"output_gain"}]}
 }
@@ -508,7 +575,8 @@ int lockParameterIndex(const char* key)
         "cut_division", "cut_rate", "cut_time_variation", "cut_gate",
         "cut_join", "cut_regions", "cut_repeats", "cut_reverse",
         "cut_pitch_variation", "cut_level_variation", "cut_lane_order",
-        "cut_poly_path"
+        "cut_poly_path", "cut_region_mode", "sample_mode",
+        "slice_region_mode", "slice_regions"
     };
     for (std::size_t index = 0u; index < kLockParameterCount; ++index) {
         if (std::strcmp(key, keys[index]) == 0) return static_cast<int>(index);
@@ -525,7 +593,7 @@ void applyLockedValue(Engine::Controls& controls, float& outputGain,
         case LockParameter::speed: controls.speed = clampValue(value, 0.05f, 4.0f); break;
         case LockParameter::manualLane: controls.manualLane = clampValue(value - 1.0f, 0.0f, 3.0f); break;
         case LockParameter::laneCycles: controls.laneCycles = clampValue(value, 0.125f, 16.0f); break;
-        case LockParameter::algorithm: controls.algorithm = static_cast<Engine::PlaybackAlgorithm>(clampValue(static_cast<int>(std::lround(value)), 0, 3)); break;
+        case LockParameter::algorithm: controls.algorithm = static_cast<Engine::PlaybackAlgorithm>(clampValue(static_cast<int>(std::lround(value)), 0, static_cast<int>(Engine::kPlaybackAlgorithmCount) - 1)); break;
         case LockParameter::join: controls.join = clampValue(value, 0.0f, 1.0f); break;
         case LockParameter::outputGain: outputGain = clampValue(value, 0.0f, 2.0f); break;
         case LockParameter::motionMode: controls.motion = static_cast<Engine::MotionMode>(clampValue(static_cast<int>(std::lround(value)), 0, 7)); break;
@@ -584,6 +652,10 @@ void applyLockedValue(Engine::Controls& controls, float& outputGain,
         case LockParameter::cutLevelVariation: controls.cutLevelVariation = clampValue(value, 0.0f, 1.0f); break;
         case LockParameter::cutLaneOrder: controls.cutLaneOrder = static_cast<Engine::CutLaneOrder>(clampValue(static_cast<int>(std::lround(value)), 0, 6)); break;
         case LockParameter::cutPolyPath: controls.cutPolyPath = static_cast<Engine::CutPolyPath>(clampValue(static_cast<int>(std::lround(value)), 0, 3)); break;
+        case LockParameter::cutRegionMode: controls.cutRegionMode = static_cast<Engine::RegionMode>(clampValue(static_cast<int>(std::lround(value)), 0, 1)); break;
+        case LockParameter::sampleMode: controls.sampleMode = static_cast<Engine::SampleMode>(clampValue(static_cast<int>(std::lround(value)), 0, 3)); break;
+        case LockParameter::sampleRegionMode: controls.sampleRegionMode = static_cast<Engine::RegionMode>(clampValue(static_cast<int>(std::lround(value)), 0, 1)); break;
+        case LockParameter::sampleRegionCount: controls.sampleRegionCount = clampValue(value, 1.0f, 64.0f); break;
         case LockParameter::count: break;
     }
 }
@@ -656,6 +728,10 @@ float lockedValue(const Engine::Controls& controls, float outputGain,
         case LockParameter::cutLevelVariation: return controls.cutLevelVariation;
         case LockParameter::cutLaneOrder: return static_cast<float>(controls.cutLaneOrder);
         case LockParameter::cutPolyPath: return static_cast<float>(controls.cutPolyPath);
+        case LockParameter::cutRegionMode: return static_cast<float>(controls.cutRegionMode);
+        case LockParameter::sampleMode: return static_cast<float>(controls.sampleMode);
+        case LockParameter::sampleRegionMode: return static_cast<float>(controls.sampleRegionMode);
+        case LockParameter::sampleRegionCount: return controls.sampleRegionCount;
         case LockParameter::count: return 0.0f;
     }
     return 0.0f;
@@ -790,6 +866,8 @@ struct PlaybackVoice {
     int note = -1;
     int sourcePad = -1;
     int velocity = 100;
+    std::size_t variantLane = 0u;
+    std::array<std::uint32_t, kLaneCount> regionRevisions {};
     std::uint32_t age = 0u;
     float laneOffset = 0.0f;
     float envelope = 0.0f;
@@ -827,6 +905,10 @@ struct ThruInstance {
     int rootNote = 60;
     int padOctave = 0;
     int pressureMode = 1;
+    PadMode padMode = PadMode::keys;
+    LaneVariation laneVariation = LaneVariation::manual;
+    std::uint32_t variationCounter = 0u;
+    int lastVariationLane = -1;
     float performanceLane = 0.0f;
     float attackCoefficient = 1.0f;
     float releaseCoefficient = 1.0f;
@@ -836,6 +918,7 @@ struct ThruInstance {
     float recordGain = 1.0f;
     float monitorLevel = 0.0f;
     float outputGain = 1.0f;
+    float previewLevel = 0.7f;
     float sampleTrimStart = 0.0f;
     float sampleTrimEnd = 1.0f;
 
@@ -872,6 +955,7 @@ struct ThruInstance {
     bool undoAvailable = false;
     bool persistentStateDirty = false;
     std::uint32_t pendingCaptureSaveMask = 0u;
+    std::uint32_t pendingRegionAnalysisMask = 0u;
     std::array<int, kLaneCount> pendingCapturePatterns { -1, -1, -1, -1 };
     std::atomic<std::uint64_t> maximumRenderMicros { 0u };
     std::atomic<std::uint64_t> renderOverruns { 0u };
@@ -895,6 +979,10 @@ struct ThruInstance {
         LaneSourceKind::empty, LaneSourceKind::empty,
         LaneSourceKind::empty, LaneSourceKind::empty
     };
+    std::array<RegionMap, kLaneCount> activeRegions {};
+    std::array<RegionMap, kLaneCount> preparedRegions {};
+    RegionMap sampleStageRegions {};
+    std::array<std::uint32_t, kLaneCount> laneRegionRevisions {};
     std::array<std::array<char, kPersistencePathSize>, kLaneCount>
         preparedLanePaths {};
     std::array<std::array<char, 64u>, kLaneCount> preparedLaneLabels {};
@@ -904,11 +992,15 @@ struct ThruInstance {
     int sampleRequestLane = 0;
     int sampleRequestPattern = 0;
     bool sampleRequestFromPattern = false;
+    bool sampleRequestPreview = false;
+    bool samplePreviewCancelled = false;
     int sampleApplyLane = 0;
     std::size_t sampleStageFrames = 0u;
     float sampleStageRate = static_cast<float>(MOVE_SAMPLE_RATE);
     std::size_t sampleCopyFrame = 0u;
     bool sampleRemovalRequested = false;
+    std::size_t previewFrame = 0u;
+    bool previewActive = false;
     bool sampleWorkerReady = false;
     bool sampleWorkerSignaled = false;
     std::array<std::array<char, 64u>, kLaneCount> laneSourceLabels {};
@@ -1233,10 +1325,77 @@ struct ThruInstance {
 
     bool loadLibraryWav(const char* requestedPath)
     {
-        return decodeLibraryWav(
+        const bool loaded = decodeLibraryWav(
             requestedPath, sampleStage.get(),
             sampleStage.get() + laneCapacityFrames, sampleStageFrames,
             sampleStageRate, sampleLoadedName.data(), sampleLoadedName.size());
+        if (loaded) {
+            analyzeRegions(sampleStage.get(),
+                           sampleStage.get() + laneCapacityFrames,
+                           sampleStageFrames, sampleStageRate,
+                           sampleStageRegions);
+        }
+        return loaded;
+    }
+
+    static void analyzeRegions(const float* left, const float* right,
+                               std::size_t frames, float rate,
+                               RegionMap& result)
+    {
+        result = {};
+        result.boundaries[0u] = 0.0f;
+        if (!left || !right || frames < 2u || !(rate > 0.0f)) {
+            result.count = 1u;
+            result.boundaries[1u] = 1.0f;
+            return;
+        }
+        constexpr std::size_t hop = 64u;
+        const std::size_t minimumGap = std::max<std::size_t>(
+            hop, static_cast<std::size_t>(rate * 0.020f));
+        const std::size_t preRoll = static_cast<std::size_t>(rate * 0.001f);
+        float fast = 0.0f;
+        float slow = 0.0f;
+        float previous = 0.0f;
+        std::size_t last = 0u;
+        std::size_t regions = 1u;
+        for (std::size_t frame = 0u; frame < frames; frame += hop) {
+            const std::size_t end = std::min(frames, frame + hop);
+            float peak = 0.0f;
+            float mean = 0.0f;
+            for (std::size_t index = frame; index < end; ++index) {
+                const float magnitude = std::max(
+                    std::fabs(left[index]), std::fabs(right[index]));
+                peak = std::max(peak, magnitude);
+                mean += magnitude;
+            }
+            mean /= static_cast<float>(std::max<std::size_t>(1u, end - frame));
+            const float energy = peak * 0.65f + mean * 0.35f;
+            fast += (energy - fast) * 0.35f;
+            slow += (energy - slow) * 0.015f;
+            const float novelty = std::max(0.0f, fast - previous);
+            const float threshold = std::max(0.0015f, slow * 0.55f);
+            if (frame > minimumGap && frame - last >= minimumGap
+                && energy > std::max(0.003f, slow * 1.55f)
+                && novelty > threshold && regions < Engine::kRegionCount) {
+                const std::size_t onset = frame > preRoll ? frame - preRoll : 0u;
+                result.boundaries[regions++] = static_cast<float>(onset)
+                    / static_cast<float>(frames);
+                last = frame;
+            }
+            previous += (fast - previous) * 0.12f;
+        }
+        result.count = regions;
+        result.boundaries[regions] = 1.0f;
+    }
+
+    void installRegionMap(std::size_t lane, const RegionMap& map)
+    {
+        if (lane >= kLaneCount) return;
+        activeRegions[lane] = map;
+        engine.setLaneRegions(lane, map.boundaries.data(),
+                              std::max<std::size_t>(1u, map.count));
+        ++laneRegionRevisions[lane];
+        if (laneRegionRevisions[lane] == 0u) ++laneRegionRevisions[lane];
     }
 
     bool preparePatternBank(int patternIndex)
@@ -1245,6 +1404,7 @@ struct ThruInstance {
             || patternIndex >= static_cast<int>(patterns.size())) return false;
         preparedLaneFrames.fill(0u);
         preparedLaneRates.fill(sampleRate);
+        preparedRegions.fill(RegionMap {});
         for (std::size_t lane = 0u; lane < kLaneCount; ++lane) {
             float* left = preparedPatternStorage.get()
                 + planeCapacityFrames * lane;
@@ -1270,6 +1430,7 @@ struct ThruInstance {
                 preparedLaneFrames[lane] = frames;
                 preparedLaneRates[lane] = engine.laneSampleRate(lane);
                 preparedLaneKinds[lane] = currentLaneSourceKinds[lane];
+                preparedRegions[lane] = activeRegions[lane];
                 std::snprintf(preparedLanePaths[lane].data(),
                               preparedLanePaths[lane].size(), "%s",
                               currentLaneSourcePaths[lane].data());
@@ -1284,6 +1445,8 @@ struct ThruInstance {
                                   preparedLaneLabels[lane].size())) {
                 return false;
             }
+            analyzeRegions(left, right, preparedLaneFrames[lane],
+                           preparedLaneRates[lane], preparedRegions[lane]);
             std::snprintf(preparedLanePaths[lane].data(),
                           preparedLanePaths[lane].size(), "%s", path);
             if (label[0] != '\0') {
@@ -1378,7 +1541,8 @@ struct ThruInstance {
     }
 
     void requestLibrarySample(int lane, const char* path,
-                              bool fromPattern = false, int ownerPattern = -1)
+                              bool fromPattern = false, int ownerPattern = -1,
+                              bool preview = false)
     {
         if (!sampleWorkerReady || lane < 0 || lane >= static_cast<int>(kLaneCount)
             || !path || std::strlen(path) >= sampleRequestPath.size()) {
@@ -1393,7 +1557,22 @@ struct ThruInstance {
             return;
         }
         const int current = sampleLoadState.load(std::memory_order_acquire);
-        if (current == static_cast<int>(SampleLoadState::requested)
+        if (current == static_cast<int>(SampleLoadState::previewing)
+            && !preview
+            && std::strcmp(path, sampleRequestPath.data()) == 0) {
+            if (!fromPattern) pushPatternUndo(activePattern);
+            sampleRequestPreview = false;
+            samplePreviewCancelled = false;
+            previewActive = false;
+            sampleLoadState.store(static_cast<int>(SampleLoadState::ready),
+                                  std::memory_order_release);
+            return;
+        }
+        if (current == static_cast<int>(SampleLoadState::previewing)) {
+            previewActive = false;
+            sampleLoadState.store(static_cast<int>(SampleLoadState::complete),
+                                  std::memory_order_release);
+        } else if (current == static_cast<int>(SampleLoadState::requested)
             || current == static_cast<int>(SampleLoadState::loading)
             || current == static_cast<int>(SampleLoadState::ready)
             || current == static_cast<int>(SampleLoadState::removing)
@@ -1401,11 +1580,13 @@ struct ThruInstance {
             setError("Wait for the current sample load");
             return;
         }
-        if (!fromPattern) pushPatternUndo(activePattern);
+        if (!fromPattern && !preview) pushPatternUndo(activePattern);
         pthread_mutex_lock(&sampleWorkerMutex);
         sampleRequestLane = lane;
         sampleRequestPattern = ownerPattern >= 0 ? ownerPattern : activePattern;
         sampleRequestFromPattern = fromPattern;
+        sampleRequestPreview = preview;
+        samplePreviewCancelled = false;
         std::snprintf(sampleRequestPath.data(), sampleRequestPath.size(), "%s", path);
         sampleLoadError[0] = '\0';
         sampleLoadState.store(static_cast<int>(SampleLoadState::requested),
@@ -1527,6 +1708,22 @@ struct ThruInstance {
             sampleLoadState.load(std::memory_order_acquire));
         if (state == SampleLoadState::ready) {
             if (engine.recording()) return;
+            if (sampleRequestPreview) {
+                if (samplePreviewCancelled) {
+                    sampleRequestPreview = false;
+                    samplePreviewCancelled = false;
+                    previewActive = false;
+                    sampleLoadState.store(
+                        static_cast<int>(SampleLoadState::complete),
+                        std::memory_order_release);
+                    return;
+                }
+                previewFrame = 0u;
+                previewActive = true;
+                sampleLoadState.store(static_cast<int>(SampleLoadState::previewing),
+                                      std::memory_order_release);
+                return;
+            }
             sampleApplyLane = sampleRequestLane;
             sampleCopyFrame = 0u;
             sampleRemovalRequested = false;
@@ -1567,6 +1764,7 @@ struct ThruInstance {
             setSampleLoadError("Could not adopt loaded sample");
             return;
         }
+        installRegionMap(lane, sampleStageRegions);
         pendingClearMask &= ~(1u << lane);
         waveDirtyMask |= 1u << lane;
         std::snprintf(laneSourceLabels[lane].data(), laneSourceLabels[lane].size(),
@@ -1666,6 +1864,49 @@ struct ThruInstance {
         return *oldest;
     }
 
+    std::size_t chooseVariationLane(int velocity)
+    {
+        std::array<std::size_t, kLaneCount> loaded {};
+        std::size_t count = 0u;
+        for (std::size_t lane = 0u; lane < kLaneCount; ++lane) {
+            if (engine.laneLoaded(lane)) loaded[count++] = lane;
+        }
+        if (count == 0u) return 0u;
+        std::size_t choice = 0u;
+        switch (laneVariation) {
+            case LaneVariation::cycle:
+                choice = variationCounter++ % count;
+                break;
+            case LaneVariation::random:
+            case LaneVariation::noRepeat: {
+                sequenceRandom ^= sequenceRandom << 13u;
+                sequenceRandom ^= sequenceRandom >> 17u;
+                sequenceRandom ^= sequenceRandom << 5u;
+                choice = sequenceRandom % count;
+                if (laneVariation == LaneVariation::noRepeat && count > 1u
+                    && static_cast<int>(loaded[choice]) == lastVariationLane) {
+                    choice = (choice + 1u) % count;
+                }
+                break;
+            }
+            case LaneVariation::velocity:
+                choice = std::min<std::size_t>(count - 1u,
+                    static_cast<std::size_t>(clampValue(velocity, 1, 127))
+                        * count / 128u);
+                break;
+            case LaneVariation::manual: {
+                const std::size_t requested = static_cast<std::size_t>(clampValue(
+                    static_cast<int>(std::lround(controls.manualLane)), 0, 3));
+                for (std::size_t index = 0u; index < count; ++index) {
+                    if (loaded[index] == requested) choice = index;
+                }
+                break;
+            }
+        }
+        lastVariationLane = static_cast<int>(loaded[choice]);
+        return loaded[choice];
+    }
+
     void noteOn(int note, int velocity, int sourcePad = -1)
     {
         note = clampValue(note, 0, 127);
@@ -1675,8 +1916,9 @@ struct ThruInstance {
         voice.note = note;
         voice.sourcePad = sourcePad;
         voice.velocity = velocity;
+        voice.variantLane = chooseVariationLane(velocity);
         voice.age = noteClock;
-        voice.laneOffset = midiUnit(velocity);
+        voice.laneOffset = clampValue(controls.manualLane / 3.0f, 0.0f, 1.0f);
         voice.target = 1.0f;
         voice.active = true;
         voice.held = true;
@@ -1774,6 +2016,9 @@ struct ThruInstance {
     int padToMidiNote(int hardwareNote) const
     {
         const int index = clampValue(hardwareNote - kFirstPadNote, 0, 31);
+        if (padMode == PadMode::slices || padMode == PadMode::rolls) {
+            return rootNote;
+        }
         const int row = index / kPadColumns;
         const int column = index % kPadColumns;
         return clampValue(kPadBaseNote + padOctave * 12
@@ -1784,19 +2029,79 @@ struct ThruInstance {
     {
         const int index = hardwareNote - kFirstPadNote;
         if (index < 0 || index >= static_cast<int>(padMappedNotes.size())) return;
+        if (padMode == PadMode::cues) {
+            padMappedNotes[static_cast<std::size_t>(index)] = -1;
+            return;
+        }
         const int mappedNote = padToMidiNote(hardwareNote);
         padMappedNotes[static_cast<std::size_t>(index)] = mappedNote;
         noteOn(mappedNote, velocity, index);
+        if (padMode == PadMode::rolls) {
+            if (PlaybackVoice* voice = findVoiceForNote(mappedNote, index)) {
+                voice->snapshotControls = controls;
+                voice->snapshotControls.algorithm = Engine::PlaybackAlgorithm::cutups;
+                voice->snapshotControls.cutClock = Engine::CutClock::tempo;
+                voice->snapshotControls.cutDivision =
+                    static_cast<Engine::CutDivision>(index %
+                        static_cast<int>(Engine::kCutDivisionCount));
+                voice->snapshotControls.cutGate = 1.0f;
+                voice->snapshotOutputGain = outputGain;
+                voice->useSnapshot = true;
+            }
+        }
     }
 
     void padNoteOff(int hardwareNote)
     {
         const int index = hardwareNote - kFirstPadNote;
         if (index < 0 || index >= static_cast<int>(padMappedNotes.size())) return;
+        if (padMode == PadMode::cues) {
+            noteOff(rootNote, index % static_cast<int>(kCueCount));
+            return;
+        }
         int mappedNote = padMappedNotes[static_cast<std::size_t>(index)];
         if (mappedNote < 0) mappedNote = padToMidiNote(hardwareNote);
         padMappedNotes[static_cast<std::size_t>(index)] = -1;
         noteOff(mappedNote, index);
+    }
+
+    void storeCue(int slot, float position)
+    {
+        if (activePattern < 0 || activePattern >= static_cast<int>(patterns.size())
+            || slot < 0 || slot >= static_cast<int>(kCueCount)) return;
+        pushPatternUndo(activePattern);
+        patterns[static_cast<std::size_t>(activePattern)].cues[
+            static_cast<std::size_t>(slot)] = clampValue(position, 0.0f, 1.0f);
+        patterns[static_cast<std::size_t>(activePattern)].occupied = true;
+        markPersistentStateDirty();
+    }
+
+    void clearCue(int slot)
+    {
+        if (activePattern < 0 || activePattern >= static_cast<int>(patterns.size())
+            || slot < 0 || slot >= static_cast<int>(kCueCount)) return;
+        pushPatternUndo(activePattern);
+        patterns[static_cast<std::size_t>(activePattern)].cues[
+            static_cast<std::size_t>(slot)] = -1.0f;
+        markPersistentStateDirty();
+    }
+
+    void triggerCue(int slot)
+    {
+        if (activePattern < 0 || activePattern >= static_cast<int>(patterns.size())
+            || slot < 0 || slot >= static_cast<int>(kCueCount)) return;
+        const float cue = patterns[static_cast<std::size_t>(activePattern)].cues[
+            static_cast<std::size_t>(slot)];
+        if (cue < 0.0f) return;
+        bool hasPerformanceVoice = false;
+        for (const auto& voice : voices) {
+            hasPerformanceVoice = hasPerformanceVoice
+                || (voice.active && voice.held && !voice.sequencerOwned);
+        }
+        if (!hasPerformanceVoice) noteOn(rootNote, 100, slot);
+        for (auto& voice : voices) {
+            if (voice.active) voice.engine.seekNormalized(cue);
+        }
     }
 
     Engine::Controls effectiveControls(const PlaybackVoice& voice) const
@@ -1823,6 +2128,9 @@ struct ThruInstance {
         effective.cutTempoBpm = sequenceBpm;
         effective.cutSwing = sequenceSwing;
         effective.cutVoiceIndex = static_cast<float>(voice.sourcePad >= 0
+            ? voice.sourcePad : std::max(0, voice.note - rootNote));
+        effective.sampleLane = static_cast<float>(voice.variantLane);
+        effective.sampleSlice = static_cast<float>(voice.sourcePad >= 0
             ? voice.sourcePad : std::max(0, voice.note - rootNote));
         effective.lanePhaseOffset = pressureMode != 0
             ? clampValue(voice.laneOffset, 0.0f, 1.0f) : 0.0f;
@@ -1860,8 +2168,9 @@ struct ThruInstance {
         voice.note = clampValue(note, 0, 127);
         voice.sourcePad = sourcePad;
         voice.velocity = clampValue(velocity, 1, 127);
+        voice.variantLane = chooseVariationLane(voice.velocity);
         voice.age = noteClock;
-        voice.laneOffset = midiUnit(voice.velocity);
+        voice.laneOffset = clampValue(controls.manualLane / 3.0f, 0.0f, 1.0f);
         voice.snapshotControls = controls;
         voice.snapshotOutputGain = outputGain;
         for (std::size_t index = 0u; index < kLockParameterCount; ++index) {
@@ -2238,6 +2547,13 @@ struct ThruInstance {
             if (preparedLaneFrames[lane] != 0u) {
                 engine.adoptLane(lane, preparedLaneFrames[lane],
                                  preparedLaneRates[lane]);
+                activeRegions[lane] = preparedRegions[lane];
+                engine.setLaneRegions(lane,
+                    activeRegions[lane].boundaries.data(),
+                    std::max<std::size_t>(1u, activeRegions[lane].count));
+                ++laneRegionRevisions[lane];
+            } else {
+                activeRegions[lane] = {};
             }
             currentLaneSourceKinds[lane] = preparedLaneKinds[lane];
             std::snprintf(currentLaneSourcePaths[lane].data(),
@@ -2261,6 +2577,10 @@ struct ThruInstance {
                 if (preparedLaneFrames[lane] != 0u) {
                     voice.engine.adoptLane(lane, preparedLaneFrames[lane],
                                            preparedLaneRates[lane]);
+                    voice.engine.setLaneRegions(lane,
+                        preparedRegions[lane].boundaries.data(),
+                        std::max<std::size_t>(1u, preparedRegions[lane].count));
+                    voice.regionRevisions[lane] = laneRegionRevisions[lane];
                 }
             }
             voice.engine.stopPlayback();
@@ -2674,6 +2994,7 @@ struct ThruInstance {
         auto& step = sequence[static_cast<std::size_t>(stepIndex)];
         step.lockMask = 0u;
         step.lockMaskHigh = 0u;
+        step.lockMaskExtra = 0u;
         step.gateLocked = false;
         markPersistentStateDirty();
     }
@@ -2722,6 +3043,22 @@ struct ThruInstance {
             const int written = std::snprintf(
                 buffer + position, static_cast<std::size_t>(bufferLength - position),
                 index == 0u ? "%u" : ",%u", step.lockMaskHigh);
+            if (written < 0 || written >= bufferLength - position) return -1;
+            position += written;
+        }
+        return position;
+    }
+
+    int formatSequenceLocksExtra(char* buffer, int bufferLength) const
+    {
+        if (!buffer || bufferLength < 1) return -1;
+        int position = 0;
+        const std::size_t offset = visibleSequenceOffset();
+        for (std::size_t index = 0u; index < kVisibleStepCount; ++index) {
+            const auto& step = sequence[offset + index];
+            const int written = std::snprintf(
+                buffer + position, static_cast<std::size_t>(bufferLength - position),
+                index == 0u ? "%u" : ",%u", step.lockMaskExtra);
             if (written < 0 || written >= bufferLength - position) return -1;
             position += written;
         }
@@ -2862,6 +3199,42 @@ struct ThruInstance {
         return position;
     }
 
+    int formatRegionState(char* buffer, int bufferLength) const
+    {
+        if (!buffer || bufferLength < 1 || selectedLane >= kLaneCount) return -1;
+        const RegionMap& map = activeRegions[selectedLane];
+        int position = std::snprintf(buffer, static_cast<std::size_t>(bufferLength),
+                                     "%zu", map.count);
+        if (position < 0 || position >= bufferLength) return -1;
+        for (std::size_t index = 0u; index <= map.count; ++index) {
+            const int written = std::snprintf(
+                buffer + position, static_cast<std::size_t>(bufferLength - position),
+                ",%d", static_cast<int>(std::lround(
+                    clampValue(map.boundaries[index], 0.0f, 1.0f) * 1000.0f)));
+            if (written < 0 || written >= bufferLength - position) return -1;
+            position += written;
+        }
+        return position;
+    }
+
+    int formatCueState(char* buffer, int bufferLength) const
+    {
+        if (!buffer || bufferLength < 1 || activePattern < 0
+            || activePattern >= static_cast<int>(patterns.size())) return -1;
+        const auto& cues = patterns[static_cast<std::size_t>(activePattern)].cues;
+        int position = 0;
+        for (std::size_t index = 0u; index < cues.size(); ++index) {
+            const int value = cues[index] < 0.0f ? -1
+                : static_cast<int>(std::lround(cues[index] * 1000.0f));
+            const int written = std::snprintf(
+                buffer + position, static_cast<std::size_t>(bufferLength - position),
+                index == 0u ? "%d" : ",%d", value);
+            if (written < 0 || written >= bufferLength - position) return -1;
+            position += written;
+        }
+        return position;
+    }
+
     void applyMidiCc(int cc, int value)
     {
         value = clampValue(value, 0, 127);
@@ -2995,11 +3368,23 @@ struct ThruInstance {
                 midiChoice(value, static_cast<int>(Engine::kCutLaneOrderCount))); break;
             case 106: controls.cutPolyPath = static_cast<Engine::CutPolyPath>(
                 midiChoice(value, static_cast<int>(Engine::kCutPolyPathCount))); break;
+            case 107: controls.cutRegionMode = static_cast<Engine::RegionMode>(
+                midiChoice(value, static_cast<int>(Engine::kRegionModeCount))); break;
+            case 108: controls.sampleMode = static_cast<Engine::SampleMode>(
+                midiChoice(value, static_cast<int>(Engine::kSampleModeCount))); break;
+            case 109: controls.sampleRegionMode = static_cast<Engine::RegionMode>(
+                midiChoice(value, static_cast<int>(Engine::kRegionModeCount))); break;
+            case 110: controls.sampleRegionCount = 1.0f + static_cast<float>(
+                midiChoice(value, 64)); break;
+            case 111: padMode = static_cast<PadMode>(midiChoice(value, 4)); break;
+            case 112: laneVariation = static_cast<LaneVariation>(
+                midiChoice(value, 5)); break;
+            case 113: previewLevel = midiUnit(value); break;
             default: break;
         }
-        if (cc >= 20 && cc <= 106 && cc != 52) markPersistentStateDirty();
+        if (cc >= 20 && cc <= 113 && cc != 52) markPersistentStateDirty();
         const int lockParameter = cc >= 20 && cc <= 45
-            ? cc - 20 : (cc >= 69 && cc <= 106 ? cc - 43 : -1);
+            ? cc - 20 : (cc >= 69 && cc <= 110 ? cc - 43 : -1);
         if (automationRecord && sequenceRunning && sequenceCurrentStep >= 0
             && lockParameter >= 0
             && lockParameter < static_cast<int>(kLockParameterCount)) {
@@ -3028,13 +3413,34 @@ struct ThruInstance {
                 }
                 break;
             }
+            for (std::size_t lane = 0u; lane < kLaneCount; ++lane) {
+                if (!voice.engine.laneLoaded(lane)
+                    || voice.regionRevisions[lane] == laneRegionRevisions[lane]) {
+                    continue;
+                }
+                const RegionMap& map = activeRegions[lane];
+                voice.engine.setLaneRegions(lane, map.boundaries.data(),
+                    std::max<std::size_t>(1u, map.count));
+                voice.regionRevisions[lane] = laneRegionRevisions[lane];
+            }
         }
     }
 
-    void completedRecordingLane(std::size_t lane)
+    void completedRecordingLane(std::size_t lane, bool analyzeNow = true)
     {
         recordingLaneMask = 0u;
         if (lane < kLaneCount && engine.laneFrames(lane) != 0u) {
+            if (analyzeNow) {
+                RegionMap regions;
+                analyzeRegions(engine.laneData(lane, 0u),
+                               engine.laneData(lane, 1u),
+                               engine.laneFrames(lane),
+                               engine.laneSampleRate(lane), regions);
+                installRegionMap(lane, regions);
+                pendingRegionAnalysisMask &= ~(1u << lane);
+            } else {
+                pendingRegionAnalysisMask |= 1u << lane;
+            }
             pendingClearMask &= ~(1u << lane);
             waveDirtyMask |= 1u << lane;
             std::snprintf(laneSourceLabels[lane].data(),
@@ -3074,6 +3480,7 @@ struct ThruInstance {
             return;
         }
         clearError();
+        pendingRegionAnalysisMask &= ~(1u << selectedLane);
         recordingLaneMask = 1u << selectedLane;
         if (!engine.beginLaneRecording(selectedLane, 0u)) {
             recordingLaneMask = 0u;
@@ -3105,10 +3512,13 @@ struct ThruInstance {
             return;
         }
         pendingClearMask |= 1u << selectedLane;
+        pendingRegionAnalysisMask &= ~(1u << selectedLane);
         std::snprintf(laneSourceLabels[selectedLane].data(),
                       laneSourceLabels[selectedLane].size(), "EMPTY");
         currentLaneSourcePaths[selectedLane][0] = '\0';
         currentLaneSourceKinds[selectedLane] = LaneSourceKind::empty;
+        activeRegions[selectedLane] = {};
+        ++laneRegionRevisions[selectedLane];
         if (activePattern >= 0
             && activePattern < static_cast<int>(patterns.size())) {
             Pattern& pattern = patterns[static_cast<std::size_t>(activePattern)];
@@ -3137,6 +3547,10 @@ struct ThruInstance {
                 if (engine.laneLoaded(lane)) {
                     voice.engine.adoptLane(lane, engine.laneFrames(lane),
                                            engine.laneSampleRate(lane));
+                    voice.engine.setLaneRegions(lane,
+                        activeRegions[lane].boundaries.data(),
+                        std::max<std::size_t>(1u, activeRegions[lane].count));
+                    voice.regionRevisions[lane] = laneRegionRevisions[lane];
                 }
             }
             voice.engine.stopPlayback();
@@ -3198,6 +3612,12 @@ struct ThruInstance {
         pendingCapturePatterns[selectedLane] = activePattern;
         pendingCaptureSaveMask |= 1u << selectedLane;
         waveDirtyMask |= 1u << selectedLane;
+        RegionMap regions;
+        analyzeRegions(engine.laneData(selectedLane, 0u),
+                       engine.laneData(selectedLane, 1u),
+                       engine.laneFrames(selectedLane),
+                       engine.laneSampleRate(selectedLane), regions);
+        installRegionMap(selectedLane, regions);
         refreshPlaybackVoices();
         markPersistentStateDirty();
     }
@@ -3417,6 +3837,22 @@ struct ThruInstance {
                 }
             }
 
+            if (previewActive && sampleStageFrames != 0u) {
+                const std::size_t available = previewFrame < sampleStageFrames
+                    ? sampleStageFrames - previewFrame : 0u;
+                const std::size_t previewFrames = std::min(count, available);
+                const float* previewLeft = sampleStage.get();
+                const float* previewRight = sampleStage.get() + laneCapacityFrames;
+                for (std::size_t frame = 0u; frame < previewFrames; ++frame) {
+                    voiceMix[0u][frame] += previewLeft[previewFrame + frame]
+                        * previewLevel;
+                    voiceMix[1u][frame] += previewRight[previewFrame + frame]
+                        * previewLevel;
+                }
+                previewFrame += previewFrames;
+                if (previewFrame >= sampleStageFrames) previewActive = false;
+            }
+
             if (engine.recording() && recordSource == 1) {
                 for (std::size_t frame = 0u; frame < count; ++frame) {
                     input[0u][frame] = voiceMix[0u][frame];
@@ -3432,7 +3868,9 @@ struct ThruInstance {
             engine.process(inputPointers.data(), outputPointers.data(), count, bankControls);
             if (wasRecording && !engine.recording()) {
                 const std::size_t lane = engine.lastRecordedLane();
-                completedRecordingLane(lane);
+                // The engine can reach its recording capacity in this real-time
+                // callback. Defer the bounded transient scan to maintenance.
+                completedRecordingLane(lane, false);
             }
             serviceVoiceLaneSync();
 
@@ -3500,7 +3938,11 @@ struct ThruInstance {
             "\"cut_gate\":%.5f,\"cut_join\":%.5f,\"cut_regions\":%.0f,"
             "\"cut_repeats\":%.0f,\"cut_reverse\":%.5f,"
             "\"cut_pitch_variation\":%.5f,\"cut_level_variation\":%.5f,"
-            "\"cut_lane_order\":%d,\"cut_poly_path\":%d}",
+            "\"cut_lane_order\":%d,\"cut_poly_path\":%d,"
+            "\"cut_region_mode\":%d,\"sample_mode\":%d,"
+            "\"slice_region_mode\":%d,\"slice_regions\":%.0f,"
+            "\"pad_mode\":%d,\"lane_variation\":%d,"
+            "\"preview_level\":%.5f}",
             controls.locus, controls.field, controls.speed,
             controls.manualLane + 1.0f, controls.laneCycles,
             static_cast<int>(controls.algorithm), controls.join,
@@ -3538,7 +3980,12 @@ struct ThruInstance {
             controls.cutRegionCount, controls.cutRepeats,
             controls.cutReverseChance, controls.cutPitchVariation,
             controls.cutLevelVariation, static_cast<int>(controls.cutLaneOrder),
-            static_cast<int>(controls.cutPolyPath));
+            static_cast<int>(controls.cutPolyPath),
+            static_cast<int>(controls.cutRegionMode),
+            static_cast<int>(controls.sampleMode),
+            static_cast<int>(controls.sampleRegionMode),
+            controls.sampleRegionCount, static_cast<int>(padMode),
+            static_cast<int>(laneVariation), previewLevel);
     }
 
     bool writeStateFile()
@@ -3577,7 +4024,7 @@ struct ThruInstance {
         if (!file) return false;
         const char magic[8] { 'S', '3', 'G', 'T', 'S', 'E', 'Q', '\0' };
         bool ok = writeBytes(file, magic, sizeof(magic))
-            && writeU32(file, 8u)
+            && writeU32(file, 9u)
             && writeF32(file, sequenceBpm)
             && writeU32(file, static_cast<std::uint32_t>(activePattern))
             && writeU32(file, static_cast<std::uint32_t>(chainPosition))
@@ -3603,11 +4050,15 @@ struct ThruInstance {
                     && writeBytes(file, pattern.laneSourceLabels[lane].data(),
                                   pattern.laneSourceLabels[lane].size());
             }
+            for (const float cue : pattern.cues) {
+                ok = ok && writeF32(file, cue);
+            }
             for (const auto& step : pattern.steps) {
                 ok = ok && writeU32(file, step.enabled ? 1u : 0u)
                     && writeU32(file, step.noteCount)
                     && writeU32(file, step.lockMask)
                     && writeU32(file, step.lockMaskHigh)
+                    && writeU32(file, step.lockMaskExtra)
                     && writeU32(file, step.gateLocked ? 1u : 0u)
                     && writeF32(file, step.gate)
                     && writeU32(file, step.probability)
@@ -3652,7 +4103,7 @@ struct ThruInstance {
         bool ok = std::fread(magic, 1u, sizeof(magic), file) == sizeof(magic)
             && std::memcmp(magic, "S3GTSEQ", 7u) == 0
             && readU32(file, version)
-            && (version >= 1u && version <= 8u);
+            && (version >= 1u && version <= 9u);
         if (ok && version >= 5u) {
             std::uint32_t selected = 0u;
             std::array<Pattern, kPatternCount> loadedPatterns {};
@@ -3700,8 +4151,9 @@ struct ThruInstance {
                         version >= 7u
                             ? static_cast<std::uint32_t>(kSequenceStepCount)
                             : 16u));
-                const std::size_t storedParameterCount = version >= 8u
-                    ? kLockParameterCount : kLegacyLockParameterCount;
+                const std::size_t storedParameterCount = version >= 9u
+                    ? kLockParameterCount : (version >= 8u
+                        ? kPreviousLockParameterCount : kLegacyLockParameterCount);
                 for (std::size_t parameter = 0u;
                      parameter < storedParameterCount; ++parameter) {
                     float& base = pattern.baseValues[parameter];
@@ -3734,6 +4186,12 @@ struct ThruInstance {
                         }
                     }
                 }
+                if (version >= 9u) {
+                    for (float& cue : pattern.cues) {
+                        ok = ok && readF32(file, cue);
+                        cue = clampValue(cue, -1.0f, 1.0f);
+                    }
+                }
                 const std::size_t storedStepCount = version >= 7u
                     ? kSequenceStepCount : kVisibleStepCount;
                 for (std::size_t stepIndex = 0u;
@@ -3743,12 +4201,16 @@ struct ThruInstance {
                     std::uint32_t noteCount = 0u;
                     std::uint32_t lockMask = 0u;
                     std::uint32_t lockMaskHigh = 0u;
+                    std::uint32_t lockMaskExtra = 0u;
                     std::uint32_t gateLocked = 0u;
                     ok = ok && readU32(file, enabled)
                         && readU32(file, noteCount)
                         && readU32(file, lockMask);
                     if (version >= 8u) {
                         ok = ok && readU32(file, lockMaskHigh);
+                    }
+                    if (version >= 9u) {
+                        ok = ok && readU32(file, lockMaskExtra);
                     }
                     ok = ok
                         && readU32(file, gateLocked)
@@ -3759,6 +4221,7 @@ struct ThruInstance {
                         static_cast<std::uint32_t>(kSequenceChordSize)));
                     step.lockMask = lockMask;
                     step.lockMaskHigh = lockMaskHigh;
+                    step.lockMaskExtra = lockMaskExtra;
                     step.gateLocked = gateLocked != 0u;
                     step.gate = clampValue(step.gate, 0.05f, 8.0f);
                     if (version >= 7u) {
@@ -4020,8 +4483,21 @@ struct ThruInstance {
 
     bool serviceMaintenance()
     {
-        if (!persistenceEnabled || engine.recording()) return false;
+        if (engine.recording()) return false;
         bool ok = true;
+        for (std::size_t lane = 0u; lane < kLaneCount; ++lane) {
+            if ((pendingRegionAnalysisMask & (1u << lane)) == 0u) continue;
+            if (engine.laneFrames(lane) != 0u) {
+                RegionMap regions;
+                analyzeRegions(engine.laneData(lane, 0u),
+                               engine.laneData(lane, 1u),
+                               engine.laneFrames(lane),
+                               engine.laneSampleRate(lane), regions);
+                installRegionMap(lane, regions);
+            }
+            pendingRegionAnalysisMask &= ~(1u << lane);
+        }
+        if (!persistenceEnabled) return true;
         for (std::size_t lane = 0u; lane < kLaneCount; ++lane) {
             if ((pendingCaptureSaveMask & (1u << lane)) == 0u) continue;
             const int owner = pendingCapturePatterns[lane];
@@ -4113,6 +4589,9 @@ struct ThruInstance {
         }
         std::fclose(file);
         if (!ok || !engine.adoptLane(lane, frames, static_cast<float>(rate))) return false;
+        RegionMap regions;
+        analyzeRegions(left, right, frames, static_cast<float>(rate), regions);
+        installRegionMap(lane, regions);
         waveDirtyMask |= 1u << lane;
         std::snprintf(laneSourceLabels[lane].data(), laneSourceLabels[lane].size(),
                       "SAVED");
@@ -4199,7 +4678,13 @@ struct ThruInstance {
         if (jsonNumber(json, "join", value)) controls.join = clampValue(value, 0.0f, 1.0f);
         if (jsonNumber(json, "manual_lane", value)) controls.manualLane = clampValue(value - 1.0f, 0.0f, 3.0f);
         if (jsonNumber(json, "lane_cycles", value)) controls.laneCycles = clampValue(value, 0.125f, 16.0f);
-        if (jsonNumber(json, "algorithm", value)) controls.algorithm = static_cast<Engine::PlaybackAlgorithm>(clampValue(static_cast<int>(value), 0, 3));
+        if (jsonNumber(json, "algorithm", value)) controls.algorithm = static_cast<Engine::PlaybackAlgorithm>(clampValue(static_cast<int>(value), 0, static_cast<int>(Engine::kPlaybackAlgorithmCount) - 1));
+        if (jsonNumber(json, "sample_mode", value)) controls.sampleMode = static_cast<Engine::SampleMode>(clampValue(static_cast<int>(value), 0, static_cast<int>(Engine::kSampleModeCount) - 1));
+        if (jsonNumber(json, "slice_region_mode", value)) controls.sampleRegionMode = static_cast<Engine::RegionMode>(clampValue(static_cast<int>(value), 0, static_cast<int>(Engine::kRegionModeCount) - 1));
+        if (jsonNumber(json, "slice_regions", value)) controls.sampleRegionCount = clampValue(value, 1.0f, 64.0f);
+        if (jsonNumber(json, "pad_mode", value)) padMode = static_cast<PadMode>(clampValue(static_cast<int>(value), 0, 3));
+        if (jsonNumber(json, "lane_variation", value)) laneVariation = static_cast<LaneVariation>(clampValue(static_cast<int>(value), 0, 4));
+        if (jsonNumber(json, "preview_level", value)) previewLevel = clampValue(value, 0.0f, 1.0f);
         if (jsonNumber(json, "output_gain", value)) outputGain = clampValue(value, 0.0f, 2.0f);
         if (jsonNumber(json, "record_gain", value)) recordGain = clampValue(value, 0.0f, 4.0f);
         if (jsonNumber(json, "pressure_mode", value)) pressureMode = clampValue(static_cast<int>(value), 0, 1);
@@ -4263,6 +4748,7 @@ struct ThruInstance {
         if (jsonNumber(json, "cut_level_variation", value)) controls.cutLevelVariation = clampValue(value, 0.0f, 1.0f);
         if (jsonNumber(json, "cut_lane_order", value)) controls.cutLaneOrder = static_cast<Engine::CutLaneOrder>(clampValue(static_cast<int>(value), 0, 6));
         if (jsonNumber(json, "cut_poly_path", value)) controls.cutPolyPath = static_cast<Engine::CutPolyPath>(clampValue(static_cast<int>(value), 0, 3));
+        if (jsonNumber(json, "cut_region_mode", value)) controls.cutRegionMode = static_cast<Engine::RegionMode>(clampValue(static_cast<int>(value), 0, 1));
         if (jsonNumber(json, "seq_bpm", value)) sequenceBpm = clampValue(value, 40.0f, 240.0f);
         if (jsonNumber(json, "seq_swing", value)) sequenceSwing = clampValue(value / 100.0f, 0.5f, 0.75f);
         if (jsonNumber(json, "seq_length", value)) sequenceLength = clampValue(
@@ -4356,6 +4842,12 @@ void setParam(void* opaque, const char* key, const char* value)
     if (std::strcmp(key, "manual_lane") == 0) { controls.manualLane = clampValue(parseFloat(value, controls.manualLane + 1.0f) - 1.0f, 0.0f, 3.0f); return; }
     if (std::strcmp(key, "lane_cycles") == 0) { controls.laneCycles = clampValue(parseFloat(value, controls.laneCycles), 0.125f, 16.0f); return; }
     if (std::strcmp(key, "algorithm") == 0) { controls.algorithm = static_cast<Engine::PlaybackAlgorithm>(parseEnum(value, kAlgorithmNames, static_cast<int>(controls.algorithm))); return; }
+    if (std::strcmp(key, "sample_mode") == 0) { controls.sampleMode = static_cast<Engine::SampleMode>(parseEnum(value, kSampleModeNames, static_cast<int>(controls.sampleMode))); return; }
+    if (std::strcmp(key, "slice_region_mode") == 0) { controls.sampleRegionMode = static_cast<Engine::RegionMode>(parseEnum(value, kRegionModeNames, static_cast<int>(controls.sampleRegionMode))); return; }
+    if (std::strcmp(key, "slice_regions") == 0) { controls.sampleRegionCount = clampValue(parseFloat(value, controls.sampleRegionCount), 1.0f, 64.0f); return; }
+    if (std::strcmp(key, "pad_mode") == 0) { instance->padMode = static_cast<PadMode>(parseEnum(value, kPadModeNames, static_cast<int>(instance->padMode))); instance->allNotesOff(); return; }
+    if (std::strcmp(key, "lane_variation") == 0) { instance->laneVariation = static_cast<LaneVariation>(parseEnum(value, kLaneVariationNames, static_cast<int>(instance->laneVariation))); return; }
+    if (std::strcmp(key, "preview_level") == 0) { instance->previewLevel = clampValue(parseFloat(value, instance->previewLevel), 0.0f, 1.0f); return; }
     if (std::strcmp(key, "join") == 0) { controls.join = clampValue(parseFloat(value, controls.join), 0.0f, 1.0f); return; }
     if (std::strcmp(key, "output_gain") == 0) { instance->outputGain = clampValue(parseFloat(value, instance->outputGain), 0.0f, 2.0f); return; }
     if (std::strcmp(key, "pressure_mode") == 0) { instance->pressureMode = parseEnum(value, kPressureModeNames, instance->pressureMode); return; }
@@ -4477,6 +4969,37 @@ void setParam(void* opaque, const char* key, const char* value)
         }
         return;
     }
+    if (std::strcmp(key, "preview_file") == 0) {
+        if (value[0] != '\0') {
+            instance->requestLibrarySample(static_cast<int>(instance->selectedLane),
+                                           value, false, -1, true);
+        }
+        return;
+    }
+    if (std::strcmp(key, "preview_stop") == 0) {
+        if (isTruthy(value)) {
+            instance->previewActive = false;
+            if (instance->sampleLoadState.load(std::memory_order_acquire)
+                == static_cast<int>(SampleLoadState::previewing)) {
+                instance->sampleRequestPreview = false;
+                instance->sampleLoadState.store(
+                    static_cast<int>(SampleLoadState::complete),
+                    std::memory_order_release);
+            } else if (instance->sampleRequestPreview) {
+                instance->samplePreviewCancelled = true;
+            }
+        }
+        return;
+    }
+    if (std::strcmp(key, "cue_store") == 0) {
+        int slot = -1;
+        float position = 0.0f;
+        if (std::sscanf(value, "%d,%f", &slot, &position) == 2
+            && std::isfinite(position)) instance->storeCue(slot, position);
+        return;
+    }
+    if (std::strcmp(key, "cue_trigger") == 0) { instance->triggerCue(parseInteger(value, -1)); return; }
+    if (std::strcmp(key, "cue_clear") == 0) { instance->clearCue(parseInteger(value, -1)); return; }
 
     if (std::strcmp(key, "motion_mode") == 0) { controls.motion = static_cast<Engine::MotionMode>(parseEnum(value, kMotionModeNames, static_cast<int>(controls.motion))); return; }
     if (std::strcmp(key, "motion_sound") == 0) { controls.motionSound = static_cast<Engine::MotionSound>(parseEnum(value, kMotionSoundNames, static_cast<int>(controls.motionSound))); return; }
@@ -4535,6 +5058,7 @@ void setParam(void* opaque, const char* key, const char* value)
     if (std::strcmp(key, "cut_level_variation") == 0) { controls.cutLevelVariation = clampValue(parseFloat(value, controls.cutLevelVariation), 0.0f, 1.0f); return; }
     if (std::strcmp(key, "cut_lane_order") == 0) { controls.cutLaneOrder = static_cast<Engine::CutLaneOrder>(parseEnum(value, kCutLaneOrderNames, static_cast<int>(controls.cutLaneOrder))); return; }
     if (std::strcmp(key, "cut_poly_path") == 0) { controls.cutPolyPath = static_cast<Engine::CutPolyPath>(parseEnum(value, kCutPolyPathNames, static_cast<int>(controls.cutPolyPath))); return; }
+    if (std::strcmp(key, "cut_region_mode") == 0) { controls.cutRegionMode = static_cast<Engine::RegionMode>(parseEnum(value, kRegionModeNames, static_cast<int>(controls.cutRegionMode))); return; }
 }
 
 int getParam(void* opaque, const char* key, char* buffer, int bufferLength)
@@ -4552,6 +5076,8 @@ int getParam(void* opaque, const char* key, char* buffer, int bufferLength)
     if (std::strcmp(key, "surface") == 0) { buffer[0] = '\0'; return 0; }
     if (std::strcmp(key, "midi_map") == 0) return copyText(kMidiMap, buffer, bufferLength);
     if (std::strcmp(key, "waveforms") == 0) return copyText(instance->waveText.data(), buffer, bufferLength);
+    if (std::strcmp(key, "region_state") == 0) return instance->formatRegionState(buffer, bufferLength);
+    if (std::strcmp(key, "cue_state") == 0) return instance->formatCueState(buffer, bufferLength);
     if (std::strcmp(key, "playheads") == 0) {
         return instance->formatVoicePositions(buffer, bufferLength, false);
     }
@@ -4623,6 +5149,9 @@ int getParam(void* opaque, const char* key, char* buffer, int bufferLength)
     }
     if (std::strcmp(key, "seq_locks_hi") == 0) {
         return instance->formatSequenceLocksHigh(buffer, bufferLength);
+    }
+    if (std::strcmp(key, "seq_locks_x") == 0) {
+        return instance->formatSequenceLocksExtra(buffer, bufferLength);
     }
     if (std::strcmp(key, "seq_note_counts") == 0) {
         return instance->formatSequenceNoteCounts(buffer, bufferLength);
@@ -4709,6 +5238,12 @@ int getParam(void* opaque, const char* key, char* buffer, int bufferLength)
     if (std::strcmp(key, "manual_lane") == 0) return std::snprintf(buffer, bufferLength, "%.4f", controls.manualLane + 1.0f);
     if (std::strcmp(key, "lane_cycles") == 0) return std::snprintf(buffer, bufferLength, "%.4f", controls.laneCycles);
     if (std::strcmp(key, "algorithm") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(controls.algorithm));
+    if (std::strcmp(key, "sample_mode") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(controls.sampleMode));
+    if (std::strcmp(key, "slice_region_mode") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(controls.sampleRegionMode));
+    if (std::strcmp(key, "slice_regions") == 0) return std::snprintf(buffer, bufferLength, "%.0f", controls.sampleRegionCount);
+    if (std::strcmp(key, "pad_mode") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(instance->padMode));
+    if (std::strcmp(key, "lane_variation") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(instance->laneVariation));
+    if (std::strcmp(key, "preview_level") == 0) return std::snprintf(buffer, bufferLength, "%.4f", instance->previewLevel);
     if (std::strcmp(key, "join") == 0) return std::snprintf(buffer, bufferLength, "%.4f", controls.join);
     if (std::strcmp(key, "output_gain") == 0) return std::snprintf(buffer, bufferLength, "%.4f", instance->outputGain);
     if (std::strcmp(key, "pressure_mode") == 0) return std::snprintf(buffer, bufferLength, "%d", instance->pressureMode);
@@ -4796,6 +5331,7 @@ int getParam(void* opaque, const char* key, char* buffer, int bufferLength)
     if (std::strcmp(key, "cut_level_variation") == 0) return std::snprintf(buffer, bufferLength, "%.4f", controls.cutLevelVariation);
     if (std::strcmp(key, "cut_lane_order") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(controls.cutLaneOrder));
     if (std::strcmp(key, "cut_poly_path") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(controls.cutPolyPath));
+    if (std::strcmp(key, "cut_region_mode") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(controls.cutRegionMode));
     return -1;
 }
 

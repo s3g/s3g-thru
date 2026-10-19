@@ -45,4 +45,4 @@ trap 'rm -f "$temporary"' EXIT
 tar --exclude='*.tmp' -czf "$temporary" -C "$data_dir" "${members[@]}"
 mv "$temporary" "$output"
 trap - EXIT
-echo "Exported S3G Thru set: $output"
+echo "Exported s3g Thru set: $output"

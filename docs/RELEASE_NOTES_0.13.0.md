@@ -1,4 +1,4 @@
-# S3G Thru 0.13.0
+# s3g Thru 0.13.0
 
 This is the combined instrument-completion release. It deliberately collects
 the sampling-reliability, composition, performance-capture, and maintenance

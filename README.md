@@ -1,7 +1,7 @@
-# S3G Thru for Ableton Move
+# s3g Thru for Ableton Move
 
-S3G Thru is a four-lane live sampler for Ableton Move. It carries a fixed-
-memory adaptation of the S3G Sample family into a native
+s3g Thru is a four-lane live sampler for Ableton Move. It carries a fixed-
+memory adaptation of the s3g Sample family into a native
 [Schwung](https://github.com/charlesvestal/schwung) **overtake module** that
 owns Move's pads, display, LEDs, and recording gestures while it is open.
 
@@ -113,7 +113,7 @@ separate action.
 
 1. Hold **Shift**, touch the master-volume knob, and jog-click to open the
    Overtake menu.
-2. Select **S3G Thru**.
+2. Select **s3g Thru**.
 3. Press the pads. They play Thru directly; no Move MIDI Out or Schwung Signal
    Chain slot is involved.
 
@@ -174,7 +174,7 @@ sample assignments. Reset is undoable.
 
 1. Use headphones, select Move's microphone or line input, and set its hardware
    input gain.
-2. Open S3G Thru from the Overtake menu.
+2. Open s3g Thru from the Overtake menu.
 3. Press **Track 1-4** to choose the lane to replace.
 4. Hold **Shift** and press **Record** (or Shift+jog-click) to begin recording;
    repeat the gesture to stop.
@@ -306,7 +306,7 @@ stored as a take, so Undo Take can remove its notes and gestures without
 touching the base performance or prior passes. Take membership is saved with
 the clip and copied with Shift+Step. Parameter and pressure paths are
 linearly interpolated around the loop seam, following the continuous recorder
-behavior used by the S3G Daisy instruments. Playback Rate scales the entire
+behavior used by the s3g Daisy instruments. Playback Rate scales the entire
 performance—including note timing and gesture motion—from 0.25x to 4x.
 
 Hold **Shift** and press **Play** for a compact overview of the current 16-slot
@@ -344,7 +344,7 @@ and waveform with dedicated padding so the three indicators remain legible.
 
 ## Provisional external MIDI map
 
-S3G Thru accepts notes, note-off, polyphonic aftertouch, All Sound Off (CC 120),
+s3g Thru accepts notes, note-off, polyphonic aftertouch, All Sound Off (CC 120),
 and All Notes Off (CC 123) from Move's external/host MIDI path. All parameter
 mapping is 7-bit absolute: `0` selects the minimum/first choice and `127`
 selects the maximum/last choice. The current map is intentionally fixed so a

@@ -1,4 +1,4 @@
-# S3G Thru 0.18.0
+# s3g Thru 0.18.0
 
 This release turns the free-time performance recorder into a clearer clip and
 composition system while keeping Overdub and the existing external MIDI map

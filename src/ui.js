@@ -1,4 +1,4 @@
-/* S3G Thru 0.19.0 — polyphonic sampler/performance-looper takeover for Move. */
+/* s3g Thru 0.19.0 — polyphonic sampler/performance-looper takeover for Move. */
 
 import * as moveConstants from '/data/UserData/schwung/shared/constants.mjs';
 import * as moveInputFilter from '/data/UserData/schwung/shared/input_filter.mjs';
@@ -975,7 +975,7 @@ function drawSettings() {
 
 function drawHelp() {
     clear_screen();
-    print(1, 0, ('S3G THRU ' + state.maximumRenderMicros + 'us/'
+    print(1, 0, ('s3g THRU ' + state.maximumRenderMicros + 'us/'
         + state.renderOverruns).slice(0, 21), 1);
     print(1, 13, 'REC        data loop', 1);
     print(1, 23, 'SHIFT+REC  audio lane', 1);

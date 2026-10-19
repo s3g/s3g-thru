@@ -1,4 +1,4 @@
-# S3G Thru 0.19.0 overtake hardware acceptance
+# s3g Thru 0.19.0 overtake hardware acceptance
 
 Desktop tests prove the module ABI and DSP behavior; they do not prove the
 exact Move input, screen, pad, or realtime paths. Preserve the previous
@@ -18,7 +18,7 @@ working Schwung installation and do this pass with headphones first.
 2. Uninstall the earlier 0.1 sound-generator build if present, restart Move,
    then install the 0.19.0 tarball through Schwung Manager.
 3. Open the Overtake menu with Shift + volume touch + jog-click and select
-   S3G Thru.
+   s3g Thru.
 4. Confirm Thru opens directly on a four-row waveform page without selecting a
    Move track or configuring MIDI Out.
 5. With no lane recorded and monitoring disabled, confirm that mic/line input is
@@ -128,7 +128,7 @@ working Schwung installation and do this pass with headphones first.
     prepared clip slots. Return
     to the waveform page, press Back, and confirm Thru exits cleanly
     with no hanging note or monitor.
-21. Reopen S3G Thru. Confirm all four waveforms, stereo audio, selected engine,
+21. Reopen s3g Thru. Confirm all four waveforms, stereo audio, selected engine,
     octave, edited settings, performance notes/durations, source-pad identities,
     pressure/parameter paths, loop rates, active clip, and 64-slot bank are
     recalled. Confirm the take count is recalled and Undo Take still removes
@@ -152,7 +152,7 @@ working Schwung installation and do this pass with headphones first.
 
 - Monitoring defaults to zero. Mix / Rec or external CC 51 can enable it; use
   headphones and return it to zero after the explicit monitor test.
-- Compare Move's mic and line selections. S3G Thru receives whichever source
+- Compare Move's mic and line selections. s3g Thru receives whichever source
   Move exposes in the audio-input mailbox.
 - If `LIM` appears, reduce Move's input gain.
 

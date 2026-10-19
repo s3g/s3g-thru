@@ -1,4 +1,4 @@
-# S3G Thru 0.19.0
+# s3g Thru 0.19.0
 
 This release makes Overdub a layered, reversible part of the free-time
 performance recorder.
@@ -14,7 +14,7 @@ performance recorder.
   waveform or any parameter page.
 - Take membership follows clip copy and survives autosave, normal exit, recall,
   checksum recovery, and backup-generation recovery.
-- The binary clip bank advances to format 2. Version-1 banks from S3G Thru
+- The binary clip bank advances to format 2. Version-1 banks from s3g Thru
   0.18 are imported as a protected base take and upgraded on the next save.
 - Gesture take tags reuse unused bits in the existing point descriptor, so the
   feature does not enlarge the fixed 64-clip gesture bank or add render-time

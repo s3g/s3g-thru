@@ -258,6 +258,7 @@ int main()
     assert(mkdir(libraryDir.c_str(), 0700) == 0);
     void* instance = api->create_instance(persistenceDir.c_str(), nullptr);
     assert(instance != nullptr);
+    assert(get(api, instance, "name") == "s3g Thru");
 
     assert(get(api, instance, "polyphony") == "8");
     constexpr const char* noPlayheads = "-1,-1,-1,-1,-1,-1,-1,-1";
@@ -1097,7 +1098,7 @@ int main()
     }
     assert(std::remove(capturesDir.c_str()) == 0);
     assert(std::remove(persistenceDir.c_str()) == 0);
-    std::puts("S3G Thru native tests: PASS");
+    std::puts("s3g Thru native tests: PASS");
     return 0;
 }
 

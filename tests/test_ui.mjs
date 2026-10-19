@@ -352,4 +352,4 @@ globalThis.onUnload();
 assert(blockingWrites.some((write) => write[0] === 'all_notes_off'));
 assert(buttonWrites.length > 0);
 
-console.log('S3G Thru overtake UI tests: PASS');
+console.log('s3g Thru overtake UI tests: PASS');

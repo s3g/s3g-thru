@@ -490,7 +490,7 @@ constexpr const char kChainParams[] = R"json([
 constexpr const char kUiHierarchy[] = R"json({
 "pad_layout":"chromatic",
 "levels":{
-"root":{"name":"S3G Thru","knobs":["algorithm","locus","field","speed","manual_lane","lane_cycles","join","output_gain"],"params":[{"level":"record","label":"Record"},{"level":"motion","label":"Motion"},{"level":"lanes","label":"Lanes"},{"level":"grains","label":"Grains"},{"level":"cutups","label":"Cutups"},{"level":"sample","label":"Sample"},{"level":"slices","label":"Slices"},{"level":"lane_mix","label":"Lane Mix"},{"level":"performance_loop","label":"Performance Loop"}]},
+"root":{"name":"s3g Thru","knobs":["algorithm","locus","field","speed","manual_lane","lane_cycles","join","output_gain"],"params":[{"level":"record","label":"Record"},{"level":"motion","label":"Motion"},{"level":"lanes","label":"Lanes"},{"level":"grains","label":"Grains"},{"level":"cutups","label":"Cutups"},{"level":"sample","label":"Sample"},{"level":"slices","label":"Slices"},{"level":"lane_mix","label":"Lane Mix"},{"level":"performance_loop","label":"Performance Loop"}]},
 "record":{"name":"Record","knobs":["record_lane","record_source","record_gain","monitor_level","pressure_mode","root_note","output_gain","clear_lane"],"params":[{"key":"record_lane"},{"key":"record_source"},{"key":"record_gain"},{"key":"monitor_level"},{"key":"pressure_mode"},{"key":"root_note"},{"key":"output_gain"},{"key":"clear_lane"}]},
 "motion":{"name":"Motion","knobs":["locus","field","speed","join","motion_mode","motion_sound","motion_rate","output_gain"],"params":[{"key":"locus"},{"key":"field"},{"key":"speed"},{"key":"join"},{"key":"motion_mode"},{"key":"motion_sound"},{"key":"motion_rate"},{"key":"output_gain"}]},
 "lanes":{"name":"Lanes","knobs":["locus","field","speed","join","lanes_mode","lane_path","lane_cycles","manual_lane"],"params":[{"key":"locus"},{"key":"field"},{"key":"speed"},{"key":"join"},{"key":"lanes_mode"},{"key":"lane_path"},{"key":"lane_cycles"},{"key":"manual_lane"},{"key":"lanes_stretch"},{"key":"stretch_ratio"}]},
@@ -1259,7 +1259,7 @@ struct ThruInstance {
         }
         sampleWorkerReady = startSampleWorker();
         if (!sampleWorkerReady && g_host && g_host->log) {
-            g_host->log("S3G Thru sample-library worker unavailable");
+            g_host->log("s3g Thru sample-library worker unavailable");
         }
         rebuildWaveText();
         return true;
@@ -5123,7 +5123,7 @@ struct ThruInstance {
             ok = writeLaneFile(lane) && ok;
         }
         if (!ok && g_host && g_host->log) {
-            g_host->log("S3G Thru could not save all persistent state");
+            g_host->log("s3g Thru could not save all persistent state");
         }
         return ok;
     }
@@ -5238,14 +5238,14 @@ void* createInstance(const char* moduleDir, const char*)
 {
     std::unique_ptr<ThruInstance> instance(new (std::nothrow) ThruInstance());
     if (!instance) {
-        if (g_host && g_host->log) g_host->log("S3G Thru instance allocation failed");
+        if (g_host && g_host->log) g_host->log("s3g Thru instance allocation failed");
         return nullptr;
     }
     if (!instance->prepare(moduleDir)) {
         if (g_host && g_host->log) g_host->log(instance->lastError.data());
         return nullptr;
     }
-    if (g_host && g_host->log) g_host->log("S3G Thru instance created");
+    if (g_host && g_host->log) g_host->log("s3g Thru instance created");
     return instance.release();
 }
 
@@ -5479,7 +5479,7 @@ int getParam(void* opaque, const char* key, char* buffer, int bufferLength)
     if (std::strcmp(key, "chain_params") == 0) return copyText(kChainParams, buffer, bufferLength);
     if (std::strcmp(key, "ui_hierarchy") == 0) return copyText(kUiHierarchy, buffer, bufferLength);
     if (std::strcmp(key, "preset_name") == 0) { buffer[0] = '\0'; return 0; }
-    if (std::strcmp(key, "name") == 0) return std::snprintf(buffer, bufferLength, "S3G Thru");
+    if (std::strcmp(key, "name") == 0) return std::snprintf(buffer, bufferLength, "s3g Thru");
     if (std::strcmp(key, "polyphony") == 0) return std::snprintf(
         buffer, bufferLength, "%u", static_cast<unsigned>(kVoiceCount));
     if (std::strcmp(key, "surface") == 0) { buffer[0] = '\0'; return 0; }

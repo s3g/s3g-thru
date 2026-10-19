@@ -50,5 +50,5 @@ if "$repo_dir/scripts/export-set.sh" "$set_dir" "$set_archive" >/dev/null 2>&1; 
   exit 1
 fi
 
-echo "S3G Thru host and sanitizer tests: PASS"
+echo "s3g Thru host and sanitizer tests: PASS"
 

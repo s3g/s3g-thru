@@ -1,7 +1,7 @@
-# S3G Thru 0.14.0 — Engine Fidelity
+# s3g Thru 0.14.0 — Engine Fidelity
 
 This release deepens the four hardware-bounded playback engines and corrects
-their note semantics to match the S3G Sample family more closely.
+their note semantics to match the s3g Sample family more closely.
 
 ## Playback
 

@@ -1,11 +1,11 @@
 {
   "id": "s3g-thru",
-  "name": "S3G Thru",
+  "name": "s3g Thru",
   "version": "0.19.0",
   "min_host_version": "1.7.3",
   "abbrev": "THRU",
   "description": "Eight-voice Sample-family sampler with free-time performance looping, Motion, Lanes, Grains, transient Cutups, Sample, Slices, cues, and rolls.",
-  "author": "S3G",
+  "author": "s3g",
   "component_type": "overtake",
   "ui": "ui.js",
   "dsp": "dsp.so",

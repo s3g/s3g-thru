@@ -3,7 +3,7 @@
   "version": "0.19.0",
   "private": true,
   "type": "module",
-  "description": "S3G Thru takeover sampler for Ableton Move and Schwung.",
+  "description": "s3g Thru takeover sampler for Ableton Move and Schwung.",
   "scripts": {
     "test": "bash scripts/test-native.sh",
     "validate": "bash scripts/validate-native.sh",

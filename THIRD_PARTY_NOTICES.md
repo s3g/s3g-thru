@@ -9,10 +9,10 @@ MIT-licensed Schwung `plugin_api_v1.h` structure prefix.
 - Copyright: Schwung contributors
 - License: MIT
 
-## S3G Sample Motion engine
+## s3g Sample Motion engine
 
 `include/sample_motion_app.h` is the fixed-memory engine developed in the
-S3G Daisy firmware repository and is redistributed under this repository's
+s3g Daisy firmware repository and is redistributed under this repository's
 BSD-3-Clause license.
 
 - Source repository: `s3g-daisy`

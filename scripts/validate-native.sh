@@ -15,6 +15,8 @@ import sys
 path = pathlib.Path(sys.argv[1])
 module = json.loads(path.read_text())
 assert module["id"] == "s3g-thru"
+assert module["name"] == "s3g Thru"
+assert module["author"] == "s3g"
 assert module["version"] == "0.19.0"
 assert module["component_type"] == "overtake"
 assert module["ui"] == "ui.js"
@@ -38,5 +40,5 @@ if [[ -f "$repo_dir/build/native/s3g-thru/dsp.so" ]]; then
     grep -Eq '[[:space:]]T[[:space:]]move_plugin_init_v2$'
 fi
 
-echo "S3G Thru native validation: PASS"
+echo "s3g Thru native validation: PASS"
 

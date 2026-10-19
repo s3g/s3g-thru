@@ -1,4 +1,4 @@
-# S3G Thru 0.17.0
+# s3g Thru 0.17.0
 
 This pre-release makes performance clips the only composition model.
 

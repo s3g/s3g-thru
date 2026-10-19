@@ -1,4 +1,4 @@
-# S3G Thru 0.16.1
+# s3g Thru 0.16.1
 
 This maintenance release improves performance-capture continuity and realtime
 CPU headroom.

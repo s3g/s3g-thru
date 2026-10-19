@@ -1,8 +1,8 @@
-# S3G Thru 0.16.0
+# s3g Thru 0.16.0
 
 This release replaces the takeover's Step-grid composition workflow with a
 free-time performance-data recorder and looper inspired by the continuous
-control recorders in the S3G Daisy instruments.
+control recorders in the s3g Daisy instruments.
 
 ## Performance looper
 

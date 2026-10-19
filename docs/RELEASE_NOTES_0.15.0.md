@@ -1,4 +1,4 @@
-# S3G Thru 0.15.0 — Regions and Performance
+# s3g Thru 0.15.0 — Regions and Performance
 
 This release brings the direct-sample, transient-slice, Kit-variation, and
 compact Decks-style performance ideas into one compatible Thru update.

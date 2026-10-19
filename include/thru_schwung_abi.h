@@ -1,5 +1,5 @@
 /*
- * Minimal Schwung plugin API v2 declaration used by S3G Thru.
+ * Minimal Schwung plugin API v2 declaration used by s3g Thru.
  *
  * This is the stable ABI prefix required by the module, derived from
  * Schwung's MIT-licensed src/host/plugin_api_v1.h. Keep field order intact.

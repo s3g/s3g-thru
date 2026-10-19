@@ -1,4 +1,4 @@
-# S3G Thru 0.18.1
+# s3g Thru 0.18.1
 
 This maintenance release fixes delayed, flat, or stale waveform drawings after
 loading samples and changing clip sources.

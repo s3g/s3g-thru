@@ -1,4 +1,4 @@
-# S3G Thru 0.13.1
+# s3g Thru 0.13.1
 
 This patch makes 64-Step navigation unambiguous on Move.
 

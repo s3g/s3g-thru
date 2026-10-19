@@ -1,4 +1,4 @@
-# S3G Thru 0.14.1 — Visible Sample Actions
+# s3g Thru 0.14.1 — Visible Sample Actions
 
 Sample-page edits now behave as explicit actions on Move:
 

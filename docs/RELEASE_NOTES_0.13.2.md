@@ -1,4 +1,4 @@
-# S3G Thru 0.13.2
+# s3g Thru 0.13.2
 
 This patch restores responsive sequencer and transport LEDs under continuous
 DSP status updates.

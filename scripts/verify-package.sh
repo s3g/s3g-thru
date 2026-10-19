@@ -21,8 +21,16 @@ test "$file_count" = "5"
 entry_count="$(find "$verify_dir" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')"
 test "$entry_count" = "1"
 file "$verify_dir/s3g-thru/dsp.so" | grep -Eq 'ELF 64-bit.*ARM aarch64'
-python3 -m json.tool "$verify_dir/s3g-thru/module.json" >/dev/null
+python3 - "$verify_dir/s3g-thru/module.json" <<'PY'
+import json
+import pathlib
+import sys
+
+module = json.loads(pathlib.Path(sys.argv[1]).read_text())
+assert module["name"] == "s3g Thru"
+assert module["author"] == "s3g"
+PY
 node --check "$verify_dir/s3g-thru/ui.js"
 
-echo "S3G Thru package verification: PASS"
+echo "s3g Thru package verification: PASS"
 

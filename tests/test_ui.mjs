@@ -10,6 +10,7 @@ const paramWrites = [];
 const blockingWrites = [];
 const drawWrites = [];
 let exitCount = 0;
+let waveformReads = 0;
 
 globalThis.__moveConstants = {
     MovePads: Array.from({ length: 32 }, (_, i) => 68 + i),
@@ -65,7 +66,10 @@ const params = {
     last_error: '',
     waveforms: [flatWave, flatWave, flatWave, flatWave].join('|'),
 };
-globalThis.host_module_get_param = (key) => params[key] ?? '';
+globalThis.host_module_get_param = (key) => {
+    if (key === 'waveforms') waveformReads++;
+    return params[key] ?? '';
+};
 globalThis.host_module_set_param = (key, value) => {
     paramWrites.push([key, value]);
     if (Object.hasOwn(params, key)) params[key] = value;
@@ -109,6 +113,7 @@ assert.equal(typeof globalThis.onMidiMessageInternal, 'function');
 assert.equal(typeof globalThis.onUnload, 'function');
 
 globalThis.init();
+const waveformReadsAfterInit = waveformReads;
 assert(drawWrites.length > 100, 'waveform page should draw');
 assert(drawWrites.some((write) => write[0] === 'print'
     && String(write[3]).includes('A01 V')),
@@ -135,6 +140,8 @@ assert(drawWrites.some((write) => write[0] === 'rect'
 params.voice_pads = '-1,-1,-1,-1,-1,-1,-1,-1';
 params.voice_pads = '5,8,-1,-1,-1,-1,-1,-1';
 for (let tick = 0; tick < 6; tick++) globalThis.tick();
+assert.equal(waveformReads, waveformReadsAfterInit + 2,
+    'each DSP poll should advance or publish waveform analysis');
 assert(padWrites.some((write) => write[0] === 73 && write[1] === 1));
 assert(padWrites.some((write) => write[0] === 76 && write[1] === 3));
 params.voice_pads = '-1,-1,-1,-1,-1,-1,-1,-1';

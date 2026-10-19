@@ -1,4 +1,4 @@
-/* S3G Thru 0.18.0 — polyphonic sampler/performance-looper takeover for Move. */
+/* S3G Thru 0.18.1 — polyphonic sampler/performance-looper takeover for Move. */
 
 import * as moveConstants from '/data/UserData/schwung/shared/constants.mjs';
 import * as moveInputFilter from '/data/UserData/schwung/shared/input_filter.mjs';
@@ -1470,9 +1470,7 @@ function pollDsp() {
         state.renderOverruns = Number.isFinite(performance[1])
             ? performance[1] | 0 : 0;
     }
-    if (state.ticks % (state.scanning ? 5 : 24) === 0) {
-        parseWaveforms(getParam('waveforms', ''));
-    }
+    parseWaveforms(getParam('waveforms', ''));
 }
 
 globalThis.init = function() {

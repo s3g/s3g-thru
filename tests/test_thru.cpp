@@ -342,6 +342,10 @@ int main()
     assert(get(api, instance, "lane_source") == "Library Tone.wav");
     assert(stateField(get(api, instance, "region_state"), 0) > 1);
     assert((stateField(get(api, instance, "ui_state"), 1) & 0x2) != 0);
+    assert(stateField(get(api, instance, "ui_state"), 13) == 0);
+    const std::string libraryWaves = get(api, instance, "waveforms");
+    const std::string libraryLaneWave = libraryWaves.substr(225u, 224u);
+    assert(libraryLaneWave.find('e') != std::string::npos);
     api->set_param(instance, "clip_copy", "2");
     api->set_param(instance, "clear_lane", "Clear");
     render(api, instance, 8);
@@ -633,6 +637,9 @@ int main()
     api->set_param(instance, "clip_select", "2");
     waitForClip(api, instance, 2);
     assert(get(api, instance, "lane_source") == "Library Tone.wav");
+    assert(stateField(get(api, instance, "ui_state"), 13) == 0);
+    assert(get(api, instance, "waveforms").substr(225u, 224u)
+        .find('e') != std::string::npos);
     api->set_param(instance, "clip_select", "0");
     waitForClip(api, instance, 0);
     assert(get(api, instance, "lane_source") == "EMPTY");

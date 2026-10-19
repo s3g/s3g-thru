@@ -1,7 +1,7 @@
 {
   "id": "s3g-thru",
   "name": "S3G Thru",
-  "version": "0.18.0",
+  "version": "0.18.1",
   "min_host_version": "1.7.3",
   "abbrev": "THRU",
   "description": "Eight-voice Sample-family sampler with free-time performance looping, Motion, Lanes, Grains, transient Cutups, Sample, Slices, cues, and rolls.",

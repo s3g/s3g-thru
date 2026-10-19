@@ -1,4 +1,4 @@
-# S3G Thru 0.18.0 overtake hardware acceptance
+# S3G Thru 0.18.1 overtake hardware acceptance
 
 Desktop tests prove the module ABI and DSP behavior; they do not prove the
 exact Move input, screen, pad, or realtime paths. Preserve the previous
@@ -16,7 +16,7 @@ working Schwung installation and do this pass with headphones first.
 
 1. Set Move's main volume low and disconnect speakers.
 2. Uninstall the earlier 0.1 sound-generator build if present, restart Move,
-   then install the 0.18.0 tarball through Schwung Manager.
+   then install the 0.18.1 tarball through Schwung Manager.
 3. Open the Overtake menu with Shift + volume touch + jog-click and select
    S3G Thru.
 4. Confirm Thru opens directly on a four-row waveform page without selecting a
@@ -48,7 +48,9 @@ working Schwung installation and do this pass with headphones first.
     encoder. Confirm each highlighted WAV auditions without replacing the lane,
     and clicking loads it. Test one mono and one
     stereo WAV at a non-44.1-kHz rate; confirm loading does not glitch currently
-    playing audio and the footer shows the loaded filename.
+    playing audio, the footer shows the loaded filename, and its waveform appears
+    promptly without a prolonged `SCANNING WAVEFORM` state. Include a quiet WAV
+    and confirm its visible normalization does not change playback level.
     Assign a different library WAV to the same lane in two clip slots and switch
     between them. Confirm each clip recalls its own assignment and no lane
     changes before the complete queued bank is ready. Create a new clip and

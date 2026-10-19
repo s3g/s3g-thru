@@ -21,6 +21,8 @@ It is intentionally a new instrument rather than a Sample Neon variant.
   pad-addressed Slices playback algorithms;
 - detects up to 64 transient regions per lane outside the audio callback and
   draws their boundaries over the selected waveform;
+- prepares loaded-sample and queued-clip waveforms on the background worker,
+  with display-only normalization that leaves audio gain unchanged;
 - auditions WAV files while browsing, before they replace a clip lane;
 - offers Keys, Slices, eight Cue, and held Roll pad modes plus Manual, Cycle,
   Random, No Repeat, and Velocity four-lane variation;
@@ -171,7 +173,10 @@ sample assignments. Reset is undoable.
 5. Play the pads immediately.
 
 The waveform is computed incrementally after recording stops. `SCAN` may appear
-briefly. `REC` changes to `LIM` if the capture safety ceiling engaged.
+briefly; loaded-library and prepared clip waveforms arrive from their background
+load already cached. Display normalization makes quiet material legible without
+changing playback level. `REC` changes to `LIM` if the capture safety ceiling
+engaged.
 
 Choose Input or Resample with `REC SOURCE` on the Mix / Rec page. Hold **Shift**
 and press **Delete** to clear the selected lane. Monitor stays at zero by
@@ -229,7 +234,7 @@ maintenance pass. Uninstalling the module
 can also remove its saved bank, so copy those files elsewhere before an
 uninstall or future clean reinstall.
 
-Version 0.18.0 deliberately starts a new pre-release persistence format.
+Version 0.18.x deliberately starts a new pre-release persistence format.
 Earlier step-sequence and compatibility-era metadata is not imported. Move or
 delete an older `thru-pattern.bin`, `thru-clips.bin`, and `thru-state.json`
 before first launch if present; stereo WAV captures can be copied into the User

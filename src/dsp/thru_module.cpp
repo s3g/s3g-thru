@@ -32,7 +32,7 @@ constexpr std::size_t kLaneSeconds = 12u;
 constexpr std::size_t kWaveBins = 112u;
 constexpr std::size_t kWaveTextSize = kLaneCount * kWaveBins * 2u
     + (kLaneCount - 1u) + 1u;
-constexpr std::size_t kWaveScanBudget = 4096u;
+constexpr std::size_t kWaveScanBudget = 65536u;
 constexpr std::size_t kVoiceCount = 8u;
 constexpr std::size_t kClipBankCount = 4u;
 constexpr std::size_t kClipsPerBank = 16u;
@@ -54,6 +54,8 @@ constexpr std::size_t kWavIoFrames = 512u;
 constexpr std::size_t kLibraryCopyFrames = 4096u;
 constexpr std::uint64_t kAnyPersistenceGeneration = ~std::uint64_t { 0u };
 constexpr const char* kSampleLibraryRoot = "/data/UserData/UserLibrary/Samples/";
+
+using WaveBins = std::array<std::int8_t, kWaveBins>;
 
 enum class LaneSourceKind : std::uint8_t {
     file = 0u,
@@ -1105,6 +1107,10 @@ struct ThruInstance {
     std::array<RegionMap, kLaneCount> activeRegions {};
     std::array<RegionMap, kLaneCount> preparedRegions {};
     RegionMap sampleStageRegions {};
+    std::array<WaveBins, kLaneCount> preparedWaveMinimum {};
+    std::array<WaveBins, kLaneCount> preparedWaveMaximum {};
+    WaveBins sampleStageWaveMinimum {};
+    WaveBins sampleStageWaveMaximum {};
     std::array<std::uint32_t, kLaneCount> laneRegionRevisions {};
     std::array<std::array<char, kPersistencePathSize>, kLaneCount>
         preparedLanePaths {};
@@ -1139,14 +1145,15 @@ struct ThruInstance {
 
     ~ThruInstance() { stopSampleWorker(); }
 
-    std::array<std::array<std::int8_t, kWaveBins>, kLaneCount> waveMinimum {};
-    std::array<std::array<std::int8_t, kWaveBins>, kLaneCount> waveMaximum {};
+    std::array<WaveBins, kLaneCount> waveMinimum {};
+    std::array<WaveBins, kLaneCount> waveMaximum {};
     std::array<float, kWaveBins> scanMinimum {};
     std::array<float, kWaveBins> scanMaximum {};
     std::uint32_t waveDirtyMask = 0u;
     int scanLane = -1;
     std::size_t scanFrame = 0u;
     std::size_t scanFrames = 0u;
+    bool waveTextDirty = false;
     std::array<char, kWaveTextSize> waveText {};
     std::array<char, 160u> lastError {};
     std::array<char, kPersistencePathSize> moduleDirectory {};
@@ -1465,8 +1472,60 @@ struct ThruInstance {
                            sampleStage.get() + laneCapacityFrames,
                            sampleStageFrames, sampleStageRate,
                            sampleStageRegions);
+            analyzeWaveform(sampleStage.get(),
+                            sampleStage.get() + laneCapacityFrames,
+                            sampleStageFrames, sampleStageWaveMinimum,
+                            sampleStageWaveMaximum);
         }
         return loaded;
+    }
+
+    static void quantizeWaveform(
+        const std::array<float, kWaveBins>& minimum,
+        const std::array<float, kWaveBins>& maximum,
+        WaveBins& encodedMinimum, WaveBins& encodedMaximum)
+    {
+        float peak = 0.0f;
+        for (std::size_t bin = 0u; bin < kWaveBins; ++bin) {
+            peak = std::max(peak, std::fabs(minimum[bin]));
+            peak = std::max(peak, std::fabs(maximum[bin]));
+        }
+        if (peak < 1.0e-5f) {
+            encodedMinimum.fill(0);
+            encodedMaximum.fill(0);
+            return;
+        }
+        const float scale = 7.0f / peak;
+        for (std::size_t bin = 0u; bin < kWaveBins; ++bin) {
+            const float low = std::min(0.0f, minimum[bin]);
+            const float high = std::max(0.0f, maximum[bin]);
+            encodedMinimum[bin] = static_cast<std::int8_t>(std::lrintf(
+                clampValue(low * scale, -7.0f, 7.0f)));
+            encodedMaximum[bin] = static_cast<std::int8_t>(std::lrintf(
+                clampValue(high * scale, -7.0f, 7.0f)));
+        }
+    }
+
+    static void analyzeWaveform(const float* left, const float* right,
+                                std::size_t frames,
+                                WaveBins& minimum, WaveBins& maximum)
+    {
+        if (!left || !right || frames == 0u) {
+            minimum.fill(0);
+            maximum.fill(0);
+            return;
+        }
+        std::array<float, kWaveBins> rawMinimum {};
+        std::array<float, kWaveBins> rawMaximum {};
+        for (std::size_t frame = 0u; frame < frames; ++frame) {
+            const std::size_t bin = std::min(kWaveBins - 1u,
+                frame * kWaveBins / frames);
+            rawMinimum[bin] = std::min(rawMinimum[bin],
+                std::min(left[frame], right[frame]));
+            rawMaximum[bin] = std::max(rawMaximum[bin],
+                std::max(left[frame], right[frame]));
+        }
+        quantizeWaveform(rawMinimum, rawMaximum, minimum, maximum);
     }
 
     static void analyzeRegions(const float* left, const float* right,
@@ -1536,6 +1595,8 @@ struct ThruInstance {
         preparedLaneFrames.fill(0u);
         preparedLaneRates.fill(sampleRate);
         preparedRegions.fill(RegionMap {});
+        preparedWaveMinimum.fill(WaveBins {});
+        preparedWaveMaximum.fill(WaveBins {});
         for (std::size_t lane = 0u; lane < kLaneCount; ++lane) {
             float* left = preparedClipStorage.get()
                 + planeCapacityFrames * lane;
@@ -1562,6 +1623,9 @@ struct ThruInstance {
                 preparedLaneRates[lane] = engine.laneSampleRate(lane);
                 preparedLaneKinds[lane] = currentLaneSourceKinds[lane];
                 preparedRegions[lane] = activeRegions[lane];
+                analyzeWaveform(left, right, frames,
+                                preparedWaveMinimum[lane],
+                                preparedWaveMaximum[lane]);
                 std::snprintf(preparedLanePaths[lane].data(),
                               preparedLanePaths[lane].size(), "%s",
                               currentLaneSourcePaths[lane].data());
@@ -1578,6 +1642,9 @@ struct ThruInstance {
             }
             analyzeRegions(left, right, preparedLaneFrames[lane],
                            preparedLaneRates[lane], preparedRegions[lane]);
+            analyzeWaveform(left, right, preparedLaneFrames[lane],
+                            preparedWaveMinimum[lane],
+                            preparedWaveMaximum[lane]);
             std::snprintf(preparedLanePaths[lane].data(),
                           preparedLanePaths[lane].size(), "%s", path);
             if (label[0] != '\0') {
@@ -1781,7 +1848,7 @@ struct ThruInstance {
                               laneSourceLabels[lane].size(), "EMPTY");
                 activeRegions[lane] = {};
                 ++laneRegionRevisions[lane];
-                waveDirtyMask |= 1u << lane;
+                clearWaveform(lane);
                 continue;
             }
             if (path[0] == '\0') continue;
@@ -1882,7 +1949,11 @@ struct ThruInstance {
         }
         installRegionMap(lane, sampleStageRegions);
         pendingClearMask &= ~(1u << lane);
-        waveDirtyMask |= 1u << lane;
+        waveMinimum[lane] = sampleStageWaveMinimum;
+        waveMaximum[lane] = sampleStageWaveMaximum;
+        waveDirtyMask &= ~(1u << lane);
+        if (scanLane == static_cast<int>(lane)) scanLane = -1;
+        waveTextDirty = true;
         std::snprintf(laneSourceLabels[lane].data(), laneSourceLabels[lane].size(),
                       "%.*s",
                       static_cast<int>(laneSourceLabels[lane].size() - 1u),
@@ -3108,6 +3179,8 @@ struct ThruInstance {
             } else {
                 activeRegions[lane] = {};
             }
+            waveMinimum[lane] = preparedWaveMinimum[lane];
+            waveMaximum[lane] = preparedWaveMaximum[lane];
             currentLaneSourceKinds[lane] = preparedLaneKinds[lane];
             std::snprintf(currentLaneSourcePaths[lane].data(),
                           currentLaneSourcePaths[lane].size(), "%s",
@@ -3139,8 +3212,9 @@ struct ThruInstance {
             voice.engine.stopPlayback();
         }
         pendingClearMask = 0u;
-        waveDirtyMask = (1u << kLaneCount) - 1u;
+        waveDirtyMask = 0u;
         scanLane = -1;
+        waveTextDirty = true;
         const int target = preparedClip.load(std::memory_order_relaxed);
         preparedClip.store(-1, std::memory_order_relaxed);
         clipPrepareState.store(static_cast<int>(ClipPrepareState::idle),
@@ -3659,7 +3733,7 @@ struct ThruInstance {
                 pendingRegionAnalysisMask |= 1u << lane;
             }
             pendingClearMask &= ~(1u << lane);
-            waveDirtyMask |= 1u << lane;
+            markWaveformDirty(lane);
             std::snprintf(laneSourceLabels[lane].data(),
                           laneSourceLabels[lane].size(), "SAVING TAKE");
             currentLaneSourceKinds[lane] = LaneSourceKind::capture;
@@ -3745,9 +3819,7 @@ struct ThruInstance {
                           clip.laneSourceLabels[selectedLane].size(), "EMPTY");
         }
         markPersistentStateDirty();
-        waveMinimum[selectedLane].fill(0);
-        waveMaximum[selectedLane].fill(0);
-        rebuildWaveText();
+        clearWaveform(selectedLane);
     }
 
     void refreshPlaybackVoices()
@@ -3828,7 +3900,7 @@ struct ThruInstance {
                       clip.laneSourceLabels[selectedLane].data());
         pendingCaptureClips[selectedLane] = activeClip;
         pendingCaptureSaveMask |= 1u << selectedLane;
-        waveDirtyMask |= 1u << selectedLane;
+        markWaveformDirty(selectedLane);
         RegionMap regions;
         analyzeRegions(engine.laneData(selectedLane, 0u),
                        engine.laneData(selectedLane, 1u),
@@ -3915,6 +3987,32 @@ struct ThruInstance {
         finishSampleEdit("TRIMMED");
     }
 
+    void cancelWaveScan(std::size_t lane)
+    {
+        if (lane < kLaneCount && scanLane == static_cast<int>(lane)) {
+            scanLane = -1;
+            scanFrame = 0u;
+            scanFrames = 0u;
+        }
+    }
+
+    void markWaveformDirty(std::size_t lane)
+    {
+        if (lane >= kLaneCount) return;
+        cancelWaveScan(lane);
+        waveDirtyMask |= 1u << lane;
+    }
+
+    void clearWaveform(std::size_t lane)
+    {
+        if (lane >= kLaneCount) return;
+        cancelWaveScan(lane);
+        waveDirtyMask &= ~(1u << lane);
+        waveMinimum[lane].fill(0);
+        waveMaximum[lane].fill(0);
+        waveTextDirty = true;
+    }
+
     void rebuildWaveText()
     {
         static constexpr char hex[] = "0123456789abcdef";
@@ -3929,6 +4027,7 @@ struct ThruInstance {
             }
         }
         waveText[position] = '\0';
+        waveTextDirty = false;
     }
 
     void beginNextWaveScan()
@@ -3939,14 +4038,14 @@ struct ThruInstance {
             scanLane = static_cast<int>(lane);
             scanFrame = 0u;
             scanFrames = engine.laneFrames(lane);
-            scanMinimum.fill(1.0f);
-            scanMaximum.fill(-1.0f);
+            scanMinimum.fill(0.0f);
+            scanMaximum.fill(0.0f);
             if (scanFrames == 0u || !engine.laneData(lane, 0u)) {
                 waveMinimum[lane].fill(0);
                 waveMaximum[lane].fill(0);
                 waveDirtyMask &= ~(1u << lane);
                 scanLane = -1;
-                rebuildWaveText();
+                waveTextDirty = true;
             }
             return;
         }
@@ -3957,6 +4056,7 @@ struct ThruInstance {
         const auto loadState = static_cast<SampleLoadState>(
             sampleLoadState.load(std::memory_order_acquire));
         if (engine.recording()
+            || pendingClearMask != 0u
             || (loadState >= SampleLoadState::requested
                 && loadState <= SampleLoadState::copying)) return;
         beginNextWaveScan();
@@ -3983,17 +4083,11 @@ struct ThruInstance {
         scanFrame = end;
         if (scanFrame < scanFrames) return;
 
-        for (std::size_t bin = 0u; bin < kWaveBins; ++bin) {
-            const float low = scanMinimum[bin] > scanMaximum[bin] ? 0.0f : scanMinimum[bin];
-            const float high = scanMinimum[bin] > scanMaximum[bin] ? 0.0f : scanMaximum[bin];
-            waveMinimum[lane][bin] = static_cast<std::int8_t>(std::lrintf(
-                clampValue(low, -1.0f, 1.0f) * 7.0f));
-            waveMaximum[lane][bin] = static_cast<std::int8_t>(std::lrintf(
-                clampValue(high, -1.0f, 1.0f) * 7.0f));
-        }
+        quantizeWaveform(scanMinimum, scanMaximum,
+                         waveMinimum[lane], waveMaximum[lane]);
         waveDirtyMask &= ~(1u << lane);
         scanLane = -1;
-        rebuildWaveText();
+        waveTextDirty = true;
     }
 
     void render(int16_t* interleaved, int frames)
@@ -4777,7 +4871,10 @@ struct ThruInstance {
         RegionMap regions;
         analyzeRegions(left, right, frames, static_cast<float>(rate), regions);
         installRegionMap(lane, regions);
-        waveDirtyMask |= 1u << lane;
+        analyzeWaveform(left, right, frames,
+                        waveMinimum[lane], waveMaximum[lane]);
+        waveDirtyMask &= ~(1u << lane);
+        waveTextDirty = true;
         std::snprintf(laneSourceLabels[lane].data(), laneSourceLabels[lane].size(),
                       "SAVED");
         return true;
@@ -5291,6 +5388,7 @@ int getParam(void* opaque, const char* key, char* buffer, int bufferLength)
     if (std::strcmp(key, "midi_map") == 0) return copyText(kMidiMap, buffer, bufferLength);
     if (std::strcmp(key, "waveforms") == 0) {
         instance->serviceWaveScan();
+        if (instance->waveTextDirty) instance->rebuildWaveText();
         return copyText(instance->waveText.data(), buffer, bufferLength);
     }
     if (std::strcmp(key, "region_state") == 0) return instance->formatRegionState(buffer, bufferLength);

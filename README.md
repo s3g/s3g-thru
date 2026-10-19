@@ -514,7 +514,7 @@ gesture for the motion-family engines.
 - Move hardware remains the acceptance authority; desktop tests cannot certify
   input routing, control feel, display cadence, or realtime CPU margin.
 
-See [docs/HARDWARE_TEST.md](docs/HARDWARE_TEST.md) for the first device pass.
+See [HARDWARE_TEST.md](HARDWARE_TEST.md) for the first device pass.
 
 ## Repository layout
 
@@ -525,6 +525,7 @@ src/dsp/thru_module.cpp      Move wrapper, recording, MIDI, waveform cache
 src/ui.js                    Overtake controls, LEDs, and waveform screen
 src/module.json              Schwung overtake manifest
 docs/*.html                  Illustrated static manual website
+release-notes/              Pre-release change notes
 tests/                       Device-free ABI and DSP regressions
 scripts/                     Test, docs, cross-build, validate, package tools
 ```

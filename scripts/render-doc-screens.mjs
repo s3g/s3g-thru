@@ -63,12 +63,41 @@ function nibble(value) {
 }
 
 function waveform(lane) {
+    const laneEvents = [
+        [
+            { center: 5, width: 2, peak: 7 },
+            { center: 31, width: 3, peak: 5 },
+            { center: 70, width: 2, peak: 7 },
+            { center: 105, width: 4, peak: 4 },
+        ],
+        [
+            { center: 13, width: 7, peak: 4 },
+            { center: 43, width: 5, peak: 7 },
+            { center: 78, width: 8, peak: 5 },
+        ],
+        [
+            { center: 3, width: 2, peak: 5 },
+            { center: 28, width: 2, peak: 7 },
+            { center: 35, width: 2, peak: 4 },
+            { center: 67, width: 3, peak: 6 },
+            { center: 106, width: 2, peak: 7 },
+        ],
+        [
+            { center: 10, width: 4, peak: 6 },
+            { center: 40, width: 2, peak: 4 },
+            { center: 64, width: 6, peak: 7 },
+            { center: 100, width: 3, peak: 5 },
+        ],
+    ];
     let encoded = '';
     for (let index = 0; index < 112; index++) {
-        const period = 24 + lane * 4;
-        const phase = (index * (3 + lane) + lane * 5) % period;
-        const triangle = phase <= period / 2 ? phase : period - phase;
-        const amplitude = 1 + Math.round(triangle * 6 / (period / 2));
+        let amplitude = 0;
+        for (const event of laneEvents[lane]) {
+            const distance = Math.abs(index - event.center);
+            if (distance > event.width) continue;
+            const envelope = 1 - distance / (event.width + 0.5);
+            amplitude = Math.max(amplitude, Math.round(event.peak * envelope));
+        }
         encoded += nibble(-amplitude) + nibble(amplitude);
     }
     return encoded;
@@ -199,6 +228,34 @@ function tick(count = 1) {
     for (let index = 0; index < count; index++) globalThis.tick();
 }
 
+function moveSettingsPage(delta) {
+    const control = delta > 0 ? 55 : 54;
+    for (let index = 0; index < Math.abs(delta); index++) cc(control);
+    tick();
+}
+
+let selectedAlgorithm = Number(params.algorithm);
+function selectAlgorithm(algorithm) {
+    while (selectedAlgorithm < algorithm) {
+        cc(71, 1);
+        selectedAlgorithm++;
+    }
+    while (selectedAlgorithm > algorithm) {
+        cc(71, 127);
+        selectedAlgorithm--;
+    }
+    tick();
+}
+
+function captureEnginePages(algorithm, pages) {
+    selectAlgorithm(algorithm);
+    for (const page of pages) {
+        moveSettingsPage(1);
+        capture(page.filename, page.title);
+    }
+    moveSettingsPage(-pages.length);
+}
+
 globalThis.init();
 tick(82);
 capture('waveform.svg', 'Waveform page with three polyphonic playheads');
@@ -209,12 +266,32 @@ cc(50);
 tick();
 capture('engine-page.svg', 'Engine parameter page');
 
-cc(55);
-tick();
-capture('lanes-page.svg', 'Lanes Path parameter page');
+captureEnginePages(0, [
+    { filename: 'motion-path.svg', title: 'Motion Path parameter page' },
+    { filename: 'motion-sound.svg', title: 'Motion Sound parameter page' },
+]);
+captureEnginePages(1, [
+    { filename: 'lanes-page.svg', title: 'Lanes Path parameter page' },
+    { filename: 'lanes-shape.svg', title: 'Lanes Shape parameter page' },
+]);
+captureEnginePages(2, [
+    { filename: 'grains-main.svg', title: 'Grains Main parameter page' },
+    { filename: 'grains-cloud.svg', title: 'Grains Cloud parameter page' },
+    { filename: 'grains-process.svg', title: 'Grains Process parameter page' },
+]);
+captureEnginePages(3, [
+    { filename: 'cutups-clock.svg', title: 'Cutups Clock parameter page' },
+    { filename: 'cutups-path.svg', title: 'Cutups Path parameter page' },
+]);
+captureEnginePages(4, [
+    { filename: 'sample-page.svg', title: 'Direct Sample parameter page' },
+]);
+captureEnginePages(5, [
+    { filename: 'slices-page.svg', title: 'Slices parameter page' },
+]);
 
-for (let page = 0; page < 4; page++) cc(55);
-tick();
+selectAlgorithm(1);
+moveSettingsPage(5);
 capture('performance-page.svg', 'Performance Loop parameter page');
 
 cc(51);

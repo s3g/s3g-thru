@@ -4,6 +4,17 @@ import { fileURLToPath } from 'node:url';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const docsRoot = path.join(repoRoot, 'docs');
+const unexpectedRootEntries = fs.readdirSync(docsRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory()
+        ? entry.name !== 'assets'
+        : !entry.name.endsWith('.html'))
+    .map((entry) => entry.name);
+
+if (unexpectedRootEntries.length !== 0) {
+    throw new Error('The GitHub Pages root may contain only HTML files and assets/: '
+        + unexpectedRootEntries.join(', '));
+}
+
 const htmlFiles = fs.readdirSync(docsRoot)
     .filter((name) => name.endsWith('.html'))
     .map((name) => path.join(docsRoot, name));

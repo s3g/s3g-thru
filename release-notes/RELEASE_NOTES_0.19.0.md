@@ -10,7 +10,12 @@ performance recorder.
 - A six-page illustrated manual now covers setup, the screen model, audio and
   library sources, every playback engine, performance clips and chains, Move
   shortcuts, LEDs, and external MIDI. Screen figures are generated from the
-  actual takeover UI and checked for drift with the rest of the build.
+  actual takeover UI and checked for drift with the rest of the build. Every
+  engine-specific parameter page has its own figure, and the waveform example
+  uses four distinct sparse lane shapes so polyphonic playheads remain legible.
+- The manual is ready to publish from `main/docs` with only HTML and web assets
+  in that directory. Release history now lives in `release-notes/`, while the
+  hardware acceptance guide lives at the repository root.
 
 - Replace creates take 1, the protected base performance. Every completed
   non-empty Overdub pass adds one take containing both its notes and its

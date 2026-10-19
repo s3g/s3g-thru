@@ -44,7 +44,8 @@ public versions.
 ## Release gate
 
 Native, sanitizer, UI, AArch64 build, and package verification must pass before
-packaging. The exact tarball must then pass `docs/HARDWARE_TEST.md` on Move,
+packaging. The exact tarball must then pass
+[HARDWARE_TEST.md](../HARDWARE_TEST.md) on Move,
 with particular attention to the approximately 37 MiB sample allocation,
 eight dense Grains voices, long-WAV pattern preparation, autosave, and repeated
 overtake open/close cycles.

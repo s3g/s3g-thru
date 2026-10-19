@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Playback engines - s3g Thru manual</title>
     <meta name="description" content="Reference for the Motion, Lanes, Grains, Cutups, Sample, and Slices engines in s3g Thru.">
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="assets/styles.css">
   </head>
   <body>
     <header class="site-header">
@@ -45,6 +45,17 @@
 
         <p>Motion treats Position inside Field as a performed trajectory. Notes retune source travel; Sound adds an articulation without replacing the chosen path.</p>
 
+        <div class="screen-gallery">
+          <figure>
+            <div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/motion-path.svg" aria-label="Open the Motion Path figure"><img src="assets/screens/motion-path.svg" alt="Motion Path page with trajectory, travel, jitter, source region, speed, join, and level controls"></button></div>
+            <figcaption>Motion Path: choose the trajectory, then shape its travel, jitter, source region, speed, join, and level.</figcaption>
+          </figure>
+          <figure>
+            <div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/motion-sound.svg" aria-label="Open the Motion Sound figure"><img src="assets/screens/motion-sound.svg" alt="Motion Sound page with articulation and gesture controls"></button></div>
+            <figcaption>Motion Sound: select an articulation and tune its gesture or motor character without changing the path.</figcaption>
+          </figure>
+        </div>
+
         <table class="readout-table">
           <thead><tr><th>Motion mode</th><th>Path</th></tr></thead>
           <tbody>
@@ -62,16 +73,37 @@
 
         <h2 id="lanes">Lanes</h2>
 
-        <figure>
-          <div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/lanes-page.svg" aria-label="Open the Lanes Path figure"><img src="assets/screens/lanes-page.svg" alt="Lanes Path page with lane direction and stack trajectory controls"></button></div>
-          <figcaption>Lanes Path separates sample-reading direction (<code>MODE</code>) from movement through the four-lane stack (<code>PATH</code>).</figcaption>
-        </figure>
+        <div class="screen-gallery">
+          <figure>
+            <div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/lanes-page.svg" aria-label="Open the Lanes Path figure"><img src="assets/screens/lanes-page.svg" alt="Lanes Path page with lane direction and stack trajectory controls"></button></div>
+            <figcaption>Lanes Path separates sample-reading direction (<code>MODE</code>) from movement through the four-lane stack (<code>PATH</code>).</figcaption>
+          </figure>
+          <figure>
+            <div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/lanes-shape.svg" aria-label="Open the Lanes Shape figure"><img src="assets/screens/lanes-shape.svg" alt="Lanes Shape page with offset, skew, curve, slew, stretch, speed, and level controls"></button></div>
+            <figcaption>Lanes Shape: contour and smooth the stack path, then decide whether lane lengths stretch to a common reference.</figcaption>
+          </figure>
+        </div>
 
         <p><strong>Lanes Mode</strong> selects Forward, Reverse, or Ping Pong reading. <strong>Stack Path</strong> selects Down, Up, Triangle, Sine, Steps Down, Steps Up, Manual, or deterministic Random movement. Transition chooses continuous Crossfade or discrete Jump. Path Shape changes the curve to Linear, Smooth, Exponential, or Plateau.</p>
 
         <p>The Lanes Shape page adds path Offset, Skew, Curve, Jump Slew, Stretch, Stretch Ratio, Speed, and Level. Stretch compensates different lane lengths relative to the reference lane; turn it off when different durations should deliberately run at their own rate.</p>
 
         <h2 id="grains">Grains</h2>
+
+        <div class="screen-gallery">
+          <figure>
+            <div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/grains-main.svg" aria-label="Open the Grains Main figure"><img src="assets/screens/grains-main.svg" alt="Grains Main page with mode, size, density, pitch, window, spread, position, and field controls"></button></div>
+            <figcaption>Grains Main: the core grain voice—mode, size, density, pitch, window, stereo spread, and source region.</figcaption>
+          </figure>
+          <figure>
+            <div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/grains-cloud.svg" aria-label="Open the Grains Cloud figure"><img src="assets/screens/grains-cloud.svg" alt="Grains Cloud page with spray, bias, reverse, variation, and timing controls"></button></div>
+            <figcaption>Grains Cloud: distribute grains in position, pitch, direction, size, level, and time.</figcaption>
+          </figure>
+          <figure>
+            <div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/grains-process.svg" aria-label="Open the Grains Process figure"><img src="assets/screens/grains-process.svg" alt="Grains Process page with process, envelope, region, quality, stack path, and scan controls"></button></div>
+            <figcaption>Grains Process: apply rhythmic grain transformations and balance region advance, quality, and stack motion.</figcaption>
+          </figure>
+        </div>
 
         <table class="readout-table">
           <thead><tr><th>Page</th><th>Controls and purpose</th></tr></thead>
@@ -88,11 +120,33 @@
 
         <h2 id="cutups">Cutups</h2>
 
+        <div class="screen-gallery">
+          <figure>
+            <div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/cutups-clock.svg" aria-label="Open the Cutups Clock figure"><img src="assets/screens/cutups-clock.svg" alt="Cutups Clock page with clock, division, rate, timing variation, gate, join, and region source controls"></button></div>
+            <figcaption>Cutups Clock: set event timing and articulation, independently of which region or lane each event chooses.</figcaption>
+          </figure>
+          <figure>
+            <div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/cutups-path.svg" aria-label="Open the Cutups Path figure"><img src="assets/screens/cutups-path.svg" alt="Cutups Path page with repeat, reverse, variation, lane order, poly path, region, and field controls"></button></div>
+            <figcaption>Cutups Path: control repetitions, variation, lane order, polyphonic divergence, region count, and Field.</figcaption>
+          </figure>
+        </div>
+
         <p>Cutups chooses discrete regions and lane sources at event boundaries. The Clock page selects Free or Tempo timing, division, free rate, timing variation, gate, cut join, region count, and Equal/Transients region source. The Path page adds repeats, reverse chance, pitch and level variation, seven lane orders, four polyphonic paths, region count, and Field.</p>
 
         <p>Tempo divisions are 1/4, 1/8, 1/8T, 1/16, 1/16T, and 1/32. Cut note pitch retunes each region reader while the event clock stays at its free rate or tempo division. A cut chooses a discrete lane; it does not read the continuously crossfaded Lanes mix.</p>
 
         <h2 id="sample">Sample and Slices</h2>
+
+        <div class="screen-gallery">
+          <figure>
+            <div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/sample-page.svg" aria-label="Open the Direct Sample figure"><img src="assets/screens/sample-page.svg" alt="Direct Sample page with play mode, region, speed, stack, variation, pad mode, and level controls"></button></div>
+            <figcaption>Direct Sample: whole-region playback with explicit stack, lane-variation, and pad behavior.</figcaption>
+          </figure>
+          <figure>
+            <div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/slices-page.svg" aria-label="Open the Slices figure"><img src="assets/screens/slices-page.svg" alt="Slices page with play mode, slice source, count, speed, stack, variation, pad mode, and level controls"></button></div>
+            <figcaption>Slices: address equal or transient-derived regions while retaining the direct engine's playback and lane choices.</figcaption>
+          </figure>
+        </div>
 
         <p><strong>Sample</strong> plays a complete lane Forward, Reverse, Loop, or Ping Pong. <strong>Slices</strong> uses the same playback modes but maps pads to Equal or automatically detected Transient regions. Equal Slice Count ranges from 1 to 64.</p>
 
@@ -132,6 +186,6 @@
       </aside>
     </div>
     <footer class="manual-footer">All engines share the same four clip-local lane sources and eight-voice pool.</footer>
-    <script src="lightbox.js"></script>
+    <script src="assets/lightbox.js"></script>
   </body>
 </html>

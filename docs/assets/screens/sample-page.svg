@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="768" height="384" viewBox="0 0 128 64" role="img" aria-labelledby="title desc">
+  <title id="title">Direct Sample parameter page</title>
+  <desc id="desc">A reproducible rendering of the s3g Thru interface generated from its Move UI drawing code.</desc>
+  <rect width="128" height="64" fill="#050706"/>
+  <g shape-rendering="crispEdges" font-family="DejaVu Sans Mono, IBM Plex Mono, monospace" font-size="6" font-style="normal" font-weight="400" text-rendering="geometricPrecision">
+    <text x="1" y="5.5" fill="#dce8e1">DIRECT SAMPLE 2/7</text>
+    <rect x="0" y="8" width="128" height="1" fill="#dce8e1"/>
+    <text x="3" y="18.5" fill="#dce8e1">PLAY</text>
+    <text x="3" y="29.5" fill="#dce8e1">LOOP</text>
+    <text x="35" y="18.5" fill="#dce8e1">POS</text>
+    <text x="35" y="29.5" fill="#dce8e1">0.42</text>
+    <text x="67" y="18.5" fill="#dce8e1">FLD</text>
+    <text x="67" y="29.5" fill="#dce8e1">0.80</text>
+    <text x="99" y="18.5" fill="#dce8e1">SPD</text>
+    <text x="99" y="29.5" fill="#dce8e1">1.00</text>
+    <text x="3" y="44.5" fill="#dce8e1">STAK</text>
+    <text x="3" y="55.5" fill="#dce8e1">1.60</text>
+    <text x="35" y="44.5" fill="#dce8e1">VARI</text>
+    <text x="35" y="55.5" fill="#dce8e1">MANU</text>
+    <text x="67" y="44.5" fill="#dce8e1">PADS</text>
+    <text x="67" y="55.5" fill="#dce8e1">KEYS</text>
+    <text x="99" y="44.5" fill="#dce8e1">LEVL</text>
+    <text x="99" y="55.5" fill="#dce8e1">1.00</text>
+  </g>
+  <rect x="0.25" y="0.25" width="127.5" height="63.5" fill="none" stroke="#5b6661" stroke-width="0.5"/>
+</svg>

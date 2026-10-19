@@ -34,11 +34,6 @@ constexpr std::size_t kWaveTextSize = kLaneCount * kWaveBins * 2u
     + (kLaneCount - 1u) + 1u;
 constexpr std::size_t kWaveScanBudget = 4096u;
 constexpr std::size_t kVoiceCount = 8u;
-constexpr std::size_t kVisibleStepCount = 16u;
-constexpr std::size_t kSequencePageCount = 4u;
-constexpr std::size_t kSequenceStepCount =
-    kVisibleStepCount * kSequencePageCount;
-constexpr std::size_t kSequenceChordSize = kVoiceCount;
 constexpr std::size_t kPatternBankCount = 4u;
 constexpr std::size_t kPatternsPerBank = 16u;
 constexpr std::size_t kPatternCount = kPatternBankCount * kPatternsPerBank;
@@ -190,64 +185,7 @@ constexpr std::size_t kLockParameterCount =
 static_assert(kLockParameterCount == 68u,
               "parameter lock persistence supports three 32-bit words");
 constexpr std::size_t kClipCurveLaneCount = kLockParameterCount + 32u;
-constexpr std::size_t kLegacyLockParameterCount = 26u;
-constexpr std::size_t kPreviousLockParameterCount = 64u;
-
-struct SequenceStep {
-    std::array<float, kLockParameterCount> locks {};
-    std::array<std::uint8_t, kSequenceChordSize> notes {};
-    std::array<std::uint8_t, kSequenceChordSize> velocities {};
-    std::array<std::uint8_t, kSequenceChordSize> sourcePads {
-        255u, 255u, 255u, 255u, 255u, 255u, 255u, 255u
-    };
-    std::array<std::uint8_t, kSequenceChordSize> lengthSteps {
-        1u, 1u, 1u, 1u, 1u, 1u, 1u, 1u
-    };
-    std::array<std::uint8_t, kSequenceChordSize> noteOpen {};
-    std::uint32_t lockMask = 0u;
-    std::uint32_t lockMaskHigh = 0u;
-    std::uint32_t lockMaskExtra = 0u;
-    float gate = 0.8f;
-    std::uint8_t noteCount = 0u;
-    std::uint8_t probability = 100u;
-    std::uint8_t ratchets = 1u;
-    std::int8_t microTiming = 0;
-    bool enabled = false;
-    bool gateLocked = false;
-};
-
-bool hasStepLock(const SequenceStep& step, std::size_t index)
-{
-    if (index < 32u) {
-        return (step.lockMask & (1u << static_cast<unsigned>(index))) != 0u;
-    }
-    if (index < 64u) {
-        return (step.lockMaskHigh
-            & (1u << static_cast<unsigned>(index - 32u))) != 0u;
-    }
-    return index < 96u && (step.lockMaskExtra
-        & (1u << static_cast<unsigned>(index - 64u))) != 0u;
-}
-
-void setStepLock(SequenceStep& step, std::size_t index)
-{
-    if (index < 32u) {
-        step.lockMask |= 1u << static_cast<unsigned>(index);
-    } else if (index < 64u) {
-        step.lockMaskHigh |= 1u << static_cast<unsigned>(index - 32u);
-    } else if (index < 96u) {
-        step.lockMaskExtra |= 1u << static_cast<unsigned>(index - 64u);
-    }
-}
-
-bool stepHasLocks(const SequenceStep& step)
-{
-    return step.lockMask != 0u || step.lockMaskHigh != 0u
-        || step.lockMaskExtra != 0u;
-}
-
 struct Pattern {
-    std::array<SequenceStep, kSequenceStepCount> steps {};
     std::array<float, kLockParameterCount> baseValues {};
     std::array<std::array<char, kPersistencePathSize>, kLaneCount>
         laneSourcePaths {};
@@ -271,9 +209,6 @@ struct Pattern {
     std::uint16_t clipPointCount = 0u;
     float clipRate = 1.0f;
     bool clipRecorded = false;
-    float swing = 0.5f;
-    float legacyGate = 0.8f;
-    std::uint8_t length = 16u;
     bool occupied = false;
 };
 
@@ -371,10 +306,9 @@ constexpr const char kMidiMap[] =
     "39 grain_mode,40 grain_size,41 grain_density,42 grain_pitch,"
     "43 grain_window,44 grain_spread,45 cutups_mode,46 pressure_mode,"
     "47 root_note,48 record_lane,49 record_source,50 record_gain,"
-    "51 monitor_level,52 record_gate,53 clear_lane,54 seq_bpm,"
-    "55 seq_swing,56 seq_length,57 seq_gate,58 seq_page,59 undo,"
-    "60 seq_probability,61 seq_ratchets,62 seq_micro,63 automation_record,"
-    "64 seq_capture,65 chain_enabled,66 chain_slot,67 chain_pattern,"
+    "51 monitor_level,52 record_gate,53 clear_lane,54 tempo_bpm,"
+    "55 tempo_swing,56 clip_playing,57 undo,58 chain_clear,"
+    "65 chain_enabled,66 chain_slot,67 chain_pattern,"
     "68 chain_repeats,69 motion_travel,70 motion_jitter,71 packet_duty,"
     "72 motor_rate,73 motor_symmetry,74 motor_shape,75 lane_blend,"
     "76 lane_path_shape,77 lane_path_offset,78 lane_path_skew,"
@@ -483,28 +417,14 @@ constexpr const char kChainParams[] = R"json([
 {"key":"clip_clear_pattern","name":"Clear Stored Performance","type":"int","min":0,"max":63,"access":"write"},
 {"key":"clip_automation","name":"Record Gesture Point","type":"string","access":"write"},
 {"key":"clip_state","name":"Performance Loop State","type":"string","access":"read","live":true},
-{"key":"seq_bpm","name":"Pattern Tempo","short_name":"BPM","type":"float","min":40,"max":240,"step":1,"default":120,"unit":"BPM"},
-{"key":"seq_swing","name":"Pattern Swing","short_name":"SWING","type":"float","min":50,"max":75,"step":1,"default":50,"unit":"%"},
-{"key":"seq_length","name":"Pattern Length","short_name":"LEN","type":"int","min":1,"max":64,"default":16},
-{"key":"seq_gate","name":"Pattern Gate","short_name":"GATE","type":"float","min":5,"max":800,"step":5,"default":80,"unit":"%"},
-{"key":"seq_page","name":"Step Page","short_name":"PAGE","type":"int","min":1,"max":4,"default":1},
-{"key":"seq_probability","name":"Step Probability","short_name":"PROB","type":"int","min":0,"max":100,"default":100,"unit":"%"},
-{"key":"seq_ratchets","name":"Step Ratchets","short_name":"RATCH","type":"int","min":1,"max":4,"default":1},
-{"key":"seq_micro","name":"Step Microtiming","short_name":"MICRO","type":"int","min":-49,"max":49,"default":0},
-{"key":"automation_record","name":"Automation Record","short_name":"AUTO","type":"enum","options":["Off","On"],"default":0},
+{"key":"clip_playing","name":"Performance Playback","type":"int","min":0,"max":1,"access":"write"},
+{"key":"tempo_bpm","name":"Tempo","short_name":"BPM","type":"float","min":40,"max":240,"step":1,"default":120,"unit":"BPM"},
+{"key":"tempo_swing","name":"Tempo Swing","short_name":"SWING","type":"float","min":50,"max":75,"step":1,"default":50,"unit":"%"},
 {"key":"chain_enabled","name":"Pattern Chain","short_name":"CHAIN","type":"enum","options":["Off","On"],"default":0},
 {"key":"chain_slot","name":"Chain Slot","short_name":"SLOT","type":"int","min":1,"max":16,"default":1},
 {"key":"chain_pattern","name":"Chain Pattern","short_name":"PATT","type":"int","min":1,"max":64,"default":1},
 {"key":"chain_repeats","name":"Chain Repeats","short_name":"REPT","type":"int","min":1,"max":16,"default":1},
-{"key":"seq_state","name":"Sequencer State","type":"string","access":"read","live":true},
-{"key":"seq_locks","name":"Step Lock Masks","type":"string","access":"read","live":true},
-{"key":"seq_locks_hi","name":"Step Lock Masks High","type":"string","access":"read","live":true},
-{"key":"seq_locks_x","name":"Step Lock Masks Extra","type":"string","access":"read","live":true},
-{"key":"seq_note_counts","name":"Step Note Counts","type":"string","access":"read","live":true},
-{"key":"seq_pad_masks","name":"Step Pad Masks","type":"string","access":"read","live":true},
-{"key":"seq_open_mask","name":"Open Note Pads","type":"string","access":"read","live":true},
-{"key":"seq_open_steps","name":"Open Note Start Steps","type":"string","access":"read","live":true},
-{"key":"seq_clear_step","name":"Clear Sequence Step","type":"int","min":0,"max":63,"access":"write"},
+{"key":"chain_clear","name":"Clear Chain Slot","type":"int","min":0,"max":1,"access":"write"},
 {"key":"chain_state","name":"Pattern Chain State","type":"string","access":"read","live":true},
 {"key":"chain_entries","name":"Pattern Chain Entries","type":"string","access":"read","live":true},
 {"key":"undo_available","name":"Undo Available","type":"int","min":0,"max":1,"access":"read","live":true},
@@ -535,7 +455,7 @@ constexpr const char kChainParams[] = R"json([
 constexpr const char kUiHierarchy[] = R"json({
 "pad_layout":"chromatic",
 "levels":{
-"root":{"name":"S3G Thru","knobs":["algorithm","locus","field","speed","manual_lane","lane_cycles","join","output_gain"],"params":[{"level":"record","label":"Record"},{"level":"motion","label":"Motion"},{"level":"lanes","label":"Lanes"},{"level":"grains","label":"Grains"},{"level":"cutups","label":"Cutups"},{"level":"sample","label":"Sample"},{"level":"slices","label":"Slices"},{"level":"lane_mix","label":"Lane Mix"},{"level":"sequence","label":"Sequence"}]},
+"root":{"name":"S3G Thru","knobs":["algorithm","locus","field","speed","manual_lane","lane_cycles","join","output_gain"],"params":[{"level":"record","label":"Record"},{"level":"motion","label":"Motion"},{"level":"lanes","label":"Lanes"},{"level":"grains","label":"Grains"},{"level":"cutups","label":"Cutups"},{"level":"sample","label":"Sample"},{"level":"slices","label":"Slices"},{"level":"lane_mix","label":"Lane Mix"},{"level":"performance_loop","label":"Performance Loop"}]},
 "record":{"name":"Record","knobs":["record_lane","record_source","record_gain","monitor_level","pressure_mode","root_note","output_gain","clear_lane"],"params":[{"key":"record_lane"},{"key":"record_source"},{"key":"record_gain"},{"key":"monitor_level"},{"key":"pressure_mode"},{"key":"root_note"},{"key":"output_gain"},{"key":"clear_lane"}]},
 "motion":{"name":"Motion","knobs":["locus","field","speed","join","motion_mode","motion_sound","motion_rate","output_gain"],"params":[{"key":"locus"},{"key":"field"},{"key":"speed"},{"key":"join"},{"key":"motion_mode"},{"key":"motion_sound"},{"key":"motion_rate"},{"key":"output_gain"}]},
 "lanes":{"name":"Lanes","knobs":["locus","field","speed","join","lanes_mode","lane_path","lane_cycles","manual_lane"],"params":[{"key":"locus"},{"key":"field"},{"key":"speed"},{"key":"join"},{"key":"lanes_mode"},{"key":"lane_path"},{"key":"lane_cycles"},{"key":"manual_lane"},{"key":"lanes_stretch"},{"key":"stretch_ratio"}]},
@@ -544,7 +464,7 @@ constexpr const char kUiHierarchy[] = R"json({
 "sample":{"name":"Sample","knobs":["sample_mode","locus","field","speed","manual_lane","lane_variation","pad_mode","output_gain"],"params":[{"key":"sample_mode"},{"key":"locus"},{"key":"field"},{"key":"speed"},{"key":"manual_lane"},{"key":"lane_variation"},{"key":"pad_mode"},{"key":"output_gain"}]},
 "slices":{"name":"Slices","knobs":["sample_mode","slice_region_mode","slice_regions","speed","manual_lane","lane_variation","pad_mode","output_gain"],"params":[{"key":"sample_mode"},{"key":"slice_region_mode"},{"key":"slice_regions"},{"key":"speed"},{"key":"manual_lane"},{"key":"lane_variation"},{"key":"pad_mode"},{"key":"output_gain"}]},
 "lane_mix":{"name":"Lane Mix","knobs":["lane_1_gain","lane_2_gain","lane_3_gain","lane_4_gain","lanes_stretch","stretch_ratio","pressure_mode","output_gain"],"params":[{"key":"lane_1_gain"},{"key":"lane_2_gain"},{"key":"lane_3_gain"},{"key":"lane_4_gain"},{"key":"lanes_stretch"},{"key":"stretch_ratio"},{"key":"pressure_mode"},{"key":"output_gain"}]},
-"performance_loop":{"name":"Performance Loop","knobs":["clip_rate","clip_record_mode","pressure_mode","root_note","chain_enabled","chain_slot","chain_pattern","chain_repeats"],"params":[{"key":"clip_rate"},{"key":"clip_record_mode"},{"key":"pressure_mode"},{"key":"root_note"},{"key":"chain_enabled"},{"key":"chain_slot"},{"key":"chain_pattern"},{"key":"chain_repeats"}]}
+"performance_loop":{"name":"Performance Loop","knobs":["clip_rate","clip_record_mode","tempo_bpm","tempo_swing","chain_enabled","chain_slot","chain_pattern","chain_repeats"],"params":[{"key":"clip_rate"},{"key":"clip_record_mode"},{"key":"tempo_bpm"},{"key":"tempo_swing"},{"key":"chain_enabled"},{"key":"chain_slot"},{"key":"chain_pattern"},{"key":"chain_repeats"},{"key":"chain_clear"}]}
 }
 })json";
 
@@ -925,11 +845,9 @@ struct PlaybackVoice {
     float envelope = 0.0f;
     float target = 0.0f;
     float snapshotOutputGain = 1.0f;
-    int sequenceStepsRemaining = 0;
     int clipNoteIndex = -1;
     bool active = false;
     bool held = false;
-    bool sequencerOwned = false;
     bool clipOwned = false;
     bool useSnapshot = false;
 };
@@ -976,10 +894,7 @@ struct ThruInstance {
     float sampleTrimStart = 0.0f;
     float sampleTrimEnd = 1.0f;
 
-    std::array<SequenceStep, kSequenceStepCount> sequence {};
     std::array<Pattern, kPatternCount> patterns {};
-    std::array<SequenceStep, kSequenceStepCount> performanceCapture {};
-    std::array<int, 32u> captureStartSteps {};
     std::array<PatternChainEntry, kPatternChainLength> patternChain {};
     Engine::Controls clipControls;
     float clipOutputGain = 1.0f;
@@ -996,25 +911,15 @@ struct ThruInstance {
     bool clipReplacing = true;
     bool clipFinishPending = false;
     bool clipNeedsStart = false;
-    double sequenceSamplesUntilStep = 0.0;
-    double ratchetSamplesUntilTrigger = 0.0;
-    float sequenceBpm = 120.0f;
-    float sequenceSwing = 0.5f;
-    float sequenceGate = 0.8f;
-    int sequenceLength = 16;
-    int sequenceCurrentStep = -1;
-    int sequencePage = 0;
-    int sequenceEditStep = 0;
-    int ratchetStep = -1;
-    int ratchetsRemaining = 0;
-    bool sequenceRunning = false;
-    bool automationRecord = false;
+    float tempoBpm = 120.0f;
+    float tempoSwing = 0.5f;
+    bool clipPlaying = false;
     bool chainEnabled = false;
     int chainPosition = 0;
     int chainRepeat = 0;
     int chainEditSlot = 0;
     int chainNextSlot = -1;
-    std::uint32_t sequenceRandom = 0x53334754u;
+    std::uint32_t performanceRandom = 0x53334754u;
     int activePattern = 0;
     int queuedPattern = -1;
     bool activePatternOccupied = false;
@@ -1133,7 +1038,6 @@ struct ThruInstance {
             std::snprintf(label.data(), label.size(), "EMPTY");
         }
         padMappedNotes.fill(-1);
-        captureStartSteps.fill(-1);
         clipOpenNoteIndices.fill(-1);
         clipLastPressureTimes.fill(0xffffffffu);
         clipLastPressureValues.fill(-1.0f);
@@ -1906,19 +1810,7 @@ struct ThruInstance {
         for (auto& voice : voices) {
             voice.held = false;
             voice.target = 0.0f;
-            voice.sequenceStepsRemaining = 0;
         }
-    }
-
-    void releaseSequencerVoices()
-    {
-        for (auto& voice : voices) {
-            if (!voice.sequencerOwned) continue;
-            voice.held = false;
-            voice.target = 0.0f;
-            voice.sequenceStepsRemaining = 0;
-        }
-        updateActiveNote();
     }
 
     void updateActiveNote()
@@ -1926,7 +1818,7 @@ struct ThruInstance {
         activeNote = -1;
         std::uint32_t newestAge = 0u;
         for (const auto& voice : voices) {
-            if (voice.active && voice.held && !voice.sequencerOwned
+            if (voice.active && voice.held && !voice.clipOwned
                 && voice.age >= newestAge) {
                 activeNote = voice.note;
                 newestAge = voice.age;
@@ -1937,7 +1829,7 @@ struct ThruInstance {
     PlaybackVoice* findVoiceForNote(int note, int sourcePad)
     {
         for (auto& voice : voices) {
-            if (voice.active && !voice.sequencerOwned && voice.note == note
+            if (voice.active && !voice.clipOwned && voice.note == note
                 && voice.sourcePad == sourcePad) {
                 return &voice;
             }
@@ -1974,10 +1866,10 @@ struct ThruInstance {
                 break;
             case LaneVariation::random:
             case LaneVariation::noRepeat: {
-                sequenceRandom ^= sequenceRandom << 13u;
-                sequenceRandom ^= sequenceRandom >> 17u;
-                sequenceRandom ^= sequenceRandom << 5u;
-                choice = sequenceRandom % count;
+                performanceRandom ^= performanceRandom << 13u;
+                performanceRandom ^= performanceRandom >> 17u;
+                performanceRandom ^= performanceRandom << 5u;
+                choice = performanceRandom % count;
                 if (laneVariation == LaneVariation::noRepeat && count > 1u
                     && static_cast<int>(loaded[choice]) == lastVariationLane) {
                     choice = (choice + 1u) % count;
@@ -2182,38 +2074,12 @@ struct ThruInstance {
         voice.target = 1.0f;
         voice.active = true;
         voice.held = true;
-        voice.sequencerOwned = false;
         voice.clipOwned = false;
         voice.clipNoteIndex = -1;
         voice.useSnapshot = false;
-        voice.sequenceStepsRemaining = 0;
         performanceLane = voice.laneOffset * 3.0f;
         voice.engine.retrigger();
         captureClipNoteOn(note, velocity, sourcePad);
-        if (sequenceRunning && sequenceCurrentStep >= 0 && sourcePad >= 0
-            && sourcePad < static_cast<int>(captureStartSteps.size())) {
-            auto& capture = performanceCapture[
-                static_cast<std::size_t>(sequenceCurrentStep)];
-            std::size_t chord = capture.noteCount;
-            for (std::size_t index = 0u; index < capture.noteCount; ++index) {
-                if (capture.sourcePads[index]
-                    == static_cast<std::uint8_t>(sourcePad)) {
-                    chord = index;
-                    break;
-                }
-            }
-            if (chord < kSequenceChordSize) {
-                if (chord == capture.noteCount) ++capture.noteCount;
-                capture.notes[chord] = static_cast<std::uint8_t>(note);
-                capture.velocities[chord] = static_cast<std::uint8_t>(velocity);
-                capture.sourcePads[chord] = static_cast<std::uint8_t>(sourcePad);
-                capture.lengthSteps[chord] = 1u;
-                capture.noteOpen[chord] = 1u;
-                capture.enabled = true;
-                captureStartSteps[static_cast<std::size_t>(sourcePad)] =
-                    sequenceCurrentStep;
-            }
-        }
         updateActiveNote();
     }
 
@@ -2221,32 +2087,13 @@ struct ThruInstance {
     {
         note = clampValue(note, 0, 127);
         for (auto& voice : voices) {
-            if (voice.active && !voice.sequencerOwned && voice.note == note
+            if (voice.active && !voice.clipOwned && voice.note == note
                 && voice.sourcePad == sourcePad) {
                 voice.held = false;
                 voice.target = 0.0f;
             }
         }
         captureClipNoteOff(note, sourcePad);
-        if (sequenceRunning && sequenceCurrentStep >= 0 && sourcePad >= 0
-            && sourcePad < static_cast<int>(captureStartSteps.size())) {
-            const int start = captureStartSteps[static_cast<std::size_t>(sourcePad)];
-            if (start >= 0 && start < static_cast<int>(performanceCapture.size())) {
-                auto& capture = performanceCapture[static_cast<std::size_t>(start)];
-                int length = (sequenceCurrentStep - start + sequenceLength)
-                    % sequenceLength;
-                if (length == 0) length = sequenceLength;
-                for (std::size_t chord = 0u; chord < capture.noteCount; ++chord) {
-                    if (capture.sourcePads[chord]
-                        != static_cast<std::uint8_t>(sourcePad)) continue;
-                    capture.lengthSteps[chord] = static_cast<std::uint8_t>(
-                        clampValue(length, 1, static_cast<int>(kSequenceStepCount)));
-                    capture.noteOpen[chord] = 0u;
-                    break;
-                }
-            }
-            captureStartSteps[static_cast<std::size_t>(sourcePad)] = -1;
-        }
         updateActiveNote();
     }
 
@@ -2258,7 +2105,7 @@ struct ThruInstance {
             captureClipPoint(ClipPointType::pressure, 0u, sourcePad, offset);
         }
         for (auto& voice : voices) {
-            if (voice.active && voice.held && !voice.sequencerOwned
+            if (voice.active && voice.held && !voice.clipOwned
                 && voice.note == note && voice.sourcePad == sourcePad) {
                 voice.laneOffset = offset;
                 if (note == activeNote) performanceLane = offset * 3.0f;
@@ -2272,7 +2119,7 @@ struct ThruInstance {
         const float offset = performanceLane / 3.0f;
         PlaybackVoice* newest = nullptr;
         for (auto& voice : voices) {
-            if (voice.active && voice.held && !voice.sequencerOwned
+            if (voice.active && voice.held && !voice.clipOwned
                 && (!newest || voice.age > newest->age)) {
                 newest = &voice;
             }
@@ -2363,7 +2210,7 @@ struct ThruInstance {
         bool hasPerformanceVoice = false;
         for (const auto& voice : voices) {
             hasPerformanceVoice = hasPerformanceVoice
-                || (voice.active && voice.held && !voice.sequencerOwned);
+                || (voice.active && voice.held && !voice.clipOwned);
         }
         if (!hasPerformanceVoice) noteOn(rootNote, 100, slot);
         for (auto& voice : voices) {
@@ -2393,8 +2240,8 @@ struct ThruInstance {
             effective.speed = clampValue(
                 effective.speed * noteRatio, 0.05f, 4.0f);
         }
-        effective.cutTempoBpm = sequenceBpm;
-        effective.cutSwing = sequenceSwing;
+        effective.cutTempoBpm = tempoBpm;
+        effective.cutSwing = tempoSwing;
         effective.cutVoiceIndex = static_cast<float>(voice.sourcePad >= 0
             ? voice.sourcePad : std::max(0, voice.note - rootNote));
         effective.sampleLane = static_cast<float>(voice.variantLane);
@@ -2407,7 +2254,7 @@ struct ThruInstance {
         return effective;
     }
 
-    PlaybackVoice& allocateSequenceVoice()
+    PlaybackVoice& allocateClipVoice()
     {
         for (auto& voice : voices) {
             if (!voice.active) return voice;
@@ -2421,43 +2268,11 @@ struct ThruInstance {
         if (candidate) return *candidate;
         candidate = &voices[0u];
         for (auto& voice : voices) {
-            if (voice.sequencerOwned && !candidate->sequencerOwned) candidate = &voice;
-            else if (voice.sequencerOwned == candidate->sequencerOwned
+            if (voice.clipOwned && !candidate->clipOwned) candidate = &voice;
+            else if (voice.clipOwned == candidate->clipOwned
                      && voice.age < candidate->age) candidate = &voice;
         }
         return *candidate;
-    }
-
-    void triggerSequenceVoice(const SequenceStep& step, int note, int velocity,
-                              int sourcePad, int lengthSteps)
-    {
-        ++noteClock;
-        PlaybackVoice& voice = allocateSequenceVoice();
-        voice.note = clampValue(note, 0, 127);
-        voice.sourcePad = sourcePad;
-        voice.velocity = clampValue(velocity, 1, 127);
-        voice.variantLane = chooseVariationLane(voice.velocity);
-        voice.age = noteClock;
-        voice.laneOffset = clampValue(controls.manualLane / 3.0f, 0.0f, 1.0f);
-        voice.snapshotControls = controls;
-        voice.snapshotOutputGain = outputGain;
-        for (std::size_t index = 0u; index < kLockParameterCount; ++index) {
-            if (hasStepLock(step, index)) {
-                applyLockedValue(voice.snapshotControls, voice.snapshotOutputGain,
-                                 index, step.locks[index]);
-            }
-        }
-        voice.target = 1.0f;
-        voice.active = true;
-        voice.held = true;
-        voice.sequencerOwned = true;
-        voice.clipOwned = false;
-        voice.clipNoteIndex = -1;
-        voice.useSnapshot = true;
-        voice.sequenceStepsRemaining = clampValue(
-            lengthSteps, 1, static_cast<int>(kSequenceStepCount));
-        voice.engine.retrigger();
-        updateActiveNote();
     }
 
     void releaseClipVoices()
@@ -2475,7 +2290,7 @@ struct ThruInstance {
         if (noteIndex >= pattern.clipNoteCount) return;
         const ClipNote& event = pattern.clipNotes[noteIndex];
         ++noteClock;
-        PlaybackVoice& voice = allocateSequenceVoice();
+        PlaybackVoice& voice = allocateClipVoice();
         voice.note = event.note;
         voice.sourcePad = event.sourcePad < 32u
             ? static_cast<int>(event.sourcePad) : -1;
@@ -2486,10 +2301,8 @@ struct ThruInstance {
         voice.target = 1.0f;
         voice.active = true;
         voice.held = true;
-        voice.sequencerOwned = true;
         voice.clipOwned = true;
         voice.useSnapshot = false;
-        voice.sequenceStepsRemaining = 0;
         voice.clipNoteIndex = static_cast<int>(noteIndex);
         voice.engine.retrigger();
     }
@@ -2636,12 +2449,12 @@ struct ThruInstance {
                 pattern->baseValues[parameter] = lockedValue(
                     controls, outputGain, parameter);
             }
-            sequenceRunning = false;
+            clipPlaying = false;
             clipPositionMs = 0.0;
             clipAbsolutePositionMs = 0.0;
             releaseClipVoices();
-        } else if (!sequenceRunning) {
-            sequenceRunning = true;
+        } else if (!clipPlaying) {
+            clipPlaying = true;
             clipNeedsStart = true;
         }
         clipOpenNoteIndices.fill(-1);
@@ -2654,7 +2467,7 @@ struct ThruInstance {
         // those held free-play voices at the record origin/current overdub
         // phase so their later note-offs close valid captured notes.
         for (const auto& voice : voices) {
-            if (!voice.active || !voice.held || voice.sequencerOwned) continue;
+            if (!voice.active || !voice.held || voice.clipOwned) continue;
             captureClipNoteOn(voice.note, voice.velocity, voice.sourcePad);
             if (voice.sourcePad >= 0 && voice.sourcePad < 32) {
                 captureClipPoint(ClipPointType::pressure, 0u,
@@ -2707,7 +2520,7 @@ struct ThruInstance {
         pattern->occupied = true;
         clipRecording = false;
         clipFinishPending = false;
-        sequenceRunning = true;
+        clipPlaying = true;
         if (clipReplacing) {
             clipPositionMs = 0.0;
             clipAbsolutePositionMs = 0.0;
@@ -2734,7 +2547,6 @@ struct ThruInstance {
         pattern.clipPointCounts.fill(0u);
         pattern.clipDurationMs = 0u;
         pattern.clipRecorded = false;
-        pattern.steps = {};
         if (index == queuedPattern) {
             queuedPattern = -1;
             chainNextSlot = -1;
@@ -2748,73 +2560,16 @@ struct ThruInstance {
         }
         pattern.occupied = ownsSamples;
         if (index == activePattern) {
-            sequence = {};
             activePatternOccupied = pattern.occupied;
             clipPositionMs = 0.0;
             clipAbsolutePositionMs = 0.0;
-            sequenceRunning = false;
+            clipPlaying = false;
             releaseClipVoices();
         }
         markPersistentStateDirty();
     }
 
     void clearActiveClip() { clearPatternClip(activePattern); }
-
-    int legacySequenceLength(const SequenceStep& step) const
-    {
-        const float gate = step.gateLocked ? step.gate : sequenceGate;
-        return clampValue(static_cast<int>(std::ceil(gate)), 1,
-                          static_cast<int>(kSequenceStepCount));
-    }
-
-    void triggerSequenceStep(const SequenceStep& step)
-    {
-        if (step.noteCount == 0u) {
-            triggerSequenceVoice(step, rootNote, 100, -1,
-                                 legacySequenceLength(step));
-            return;
-        }
-        const std::size_t count = std::min<std::size_t>(
-            step.noteCount, kSequenceChordSize);
-        for (std::size_t index = 0u; index < count; ++index) {
-            const int sourcePad = step.sourcePads[index] < 32u
-                ? static_cast<int>(step.sourcePads[index]) : -1;
-            const int length = step.lengthSteps[index] > 0u
-                ? static_cast<int>(step.lengthSteps[index])
-                : legacySequenceLength(step);
-            triggerSequenceVoice(step, step.notes[index], step.velocities[index],
-                                 sourcePad, length);
-        }
-    }
-
-    double sequenceStepSamples(int step) const
-    {
-        const double base = static_cast<double>(sampleRate) * 15.0
-            / static_cast<double>(sequenceBpm);
-        const double swingFraction = clampValue(
-            static_cast<double>(sequenceSwing), 0.5, 0.75);
-        const double swung = base * ((step & 1) == 0
-            ? 2.0 * swingFraction : 2.0 * (1.0 - swingFraction));
-        const int next = (step + 1) % std::max(1, sequenceLength);
-        const double currentOffset = base
-            * static_cast<double>(sequence[static_cast<std::size_t>(step)].microTiming)
-            / 100.0;
-        const double nextOffset = base
-            * static_cast<double>(sequence[static_cast<std::size_t>(next)].microTiming)
-            / 100.0;
-        return std::max<double>(static_cast<double>(kBlockFrames),
-                                swung + nextOffset - currentOffset);
-    }
-
-    bool sequenceProbabilityPasses(const SequenceStep& step)
-    {
-        if (step.probability >= 100u) return true;
-        if (step.probability == 0u) return false;
-        sequenceRandom ^= sequenceRandom << 13u;
-        sequenceRandom ^= sequenceRandom >> 17u;
-        sequenceRandom ^= sequenceRandom << 5u;
-        return sequenceRandom % 100u < step.probability;
-    }
 
     int nextEnabledChainSlot(int after) const
     {
@@ -2883,55 +2638,10 @@ struct ThruInstance {
         chainNextSlot = -1;
         chainRepeat = 0;
         activatePreparedPattern();
-        sequenceCurrentStep = -1;
         prepareNextChainPattern();
     }
 
-    void advanceSequence()
-    {
-        for (auto& voice : voices) {
-            if (!voice.active || !voice.held || !voice.sequencerOwned) continue;
-            if (--voice.sequenceStepsRemaining <= 0) {
-                voice.held = false;
-                voice.target = 0.0f;
-                voice.sequenceStepsRemaining = 0;
-            }
-        }
-        const bool patternBoundary = sequenceCurrentStep >= 0
-            && (sequenceCurrentStep + 1) % sequenceLength == 0;
-        if (patternBoundary && chainEnabled && firstEnabledChainSlot() >= 0) {
-            advancePatternChain();
-        } else if (patternBoundary && queuedPattern >= 0) {
-            const auto prepareState = static_cast<PatternPrepareState>(
-                patternPrepareState.load(std::memory_order_acquire));
-            if (prepareState == PatternPrepareState::ready
-                && preparedPattern.load(std::memory_order_relaxed)
-                    == queuedPattern) {
-                activatePreparedPattern();
-                sequenceCurrentStep = -1;
-            } else if (prepareState == PatternPrepareState::idle
-                       || prepareState == PatternPrepareState::error) {
-                requestPatternPreparation(queuedPattern);
-            }
-        }
-        sequenceCurrentStep = (sequenceCurrentStep + 1) % sequenceLength;
-        const SequenceStep& step = sequence[static_cast<std::size_t>(sequenceCurrentStep)];
-        const double interval = sequenceStepSamples(sequenceCurrentStep);
-        sequenceSamplesUntilStep += interval;
-        ratchetStep = -1;
-        ratchetsRemaining = 0;
-        if (step.enabled && sequenceProbabilityPasses(step)) {
-            triggerSequenceStep(step);
-            const int ratchets = clampValue(static_cast<int>(step.ratchets), 1, 4);
-            if (ratchets > 1) {
-                ratchetStep = sequenceCurrentStep;
-                ratchetsRemaining = ratchets - 1;
-                ratchetSamplesUntilTrigger = interval / static_cast<double>(ratchets);
-            }
-        }
-    }
-
-    void serviceSequenceBeforeBlock()
+    void serviceClipBeforeBlock()
     {
         auto prepareState = static_cast<PatternPrepareState>(
             patternPrepareState.load(std::memory_order_acquire));
@@ -2949,7 +2659,7 @@ struct ThruInstance {
             requestPatternPreparation(queuedPattern);
             prepareState = PatternPrepareState::requested;
         }
-        if (!sequenceRunning && queuedPattern >= 0
+        if (!clipPlaying && queuedPattern >= 0
             && prepareState == PatternPrepareState::ready
             && preparedPattern.load(std::memory_order_relaxed)
                 == queuedPattern) {
@@ -2958,7 +2668,7 @@ struct ThruInstance {
                    && prepareState == PatternPrepareState::error) {
             setError("Queued pattern sample preparation failed");
         }
-        if (!sequenceRunning) return;
+        if (!clipPlaying) return;
         Pattern* pattern = activeClipPattern();
         if (!pattern || !pattern->clipRecorded
             || pattern->clipDurationMs < kClipMinimumDurationMs) {
@@ -2980,14 +2690,14 @@ struct ThruInstance {
         }
     }
 
-    void serviceSequenceAfterBlock(std::size_t frames)
+    void serviceClipAfterBlock(std::size_t frames)
     {
         renderClockSamples.fetch_add(frames, std::memory_order_relaxed);
         if (clipRecording && clipReplacing
             && captureElapsedMs() >= static_cast<double>(kClipMaximumDurationMs)) {
             clipFinishPending = true;
         }
-        if (!sequenceRunning) return;
+        if (!clipPlaying) return;
         Pattern* pattern = activeClipPattern();
         if (!pattern || !pattern->clipRecorded
             || pattern->clipDurationMs < kClipMinimumDurationMs) return;
@@ -3032,14 +2742,10 @@ struct ThruInstance {
         processClipEvents(*pattern, 0.0, next, true);
     }
 
-    void setSequenceRunning(bool running)
+    void setClipPlaying(bool running)
     {
-        if (running == sequenceRunning) return;
-        sequenceRunning = running;
-        sequenceCurrentStep = -1;
-        sequenceSamplesUntilStep = 0.0;
-        ratchetStep = -1;
-        ratchetsRemaining = 0;
+        if (running == clipPlaying) return;
+        clipPlaying = running;
         releaseClipVoices();
         clipPositionMs = 0.0;
         clipAbsolutePositionMs = 0.0;
@@ -3062,8 +2768,6 @@ struct ThruInstance {
                 }
             }
         } else if (!running) {
-            releaseSequencerVoices();
-            captureStartSteps.fill(-1);
             chainNextSlot = -1;
         }
     }
@@ -3071,14 +2775,8 @@ struct ThruInstance {
     bool workingPatternHasContent() const
     {
         const Pattern* clip = activeClipPattern();
-        if (clip && clip->clipRecorded
-            && clip->clipDurationMs >= kClipMinimumDurationMs) return true;
-        for (const auto& step : sequence) {
-            if (step.enabled || step.noteCount != 0u || stepHasLocks(step)) {
-                return true;
-            }
-        }
-        return false;
+        return clip && clip->clipRecorded
+            && clip->clipDurationMs >= kClipMinimumDurationMs;
     }
 
     void markPersistentStateDirty() { persistentStateDirty = true; }
@@ -3112,11 +2810,6 @@ struct ThruInstance {
             return;
         }
         Pattern& pattern = patterns[static_cast<std::size_t>(activePattern)];
-        pattern.steps = sequence;
-        pattern.swing = sequenceSwing;
-        pattern.legacyGate = sequenceGate;
-        pattern.length = static_cast<std::uint8_t>(clampValue(
-            sequenceLength, 1, static_cast<int>(kSequenceStepCount)));
         for (std::size_t index = 0u; index < kLockParameterCount; ++index) {
             pattern.baseValues[index] = lockedValue(controls, outputGain, index);
         }
@@ -3132,11 +2825,6 @@ struct ThruInstance {
         Pattern& target = patterns[static_cast<std::size_t>(index)];
         activePattern = index;
         activePatternOccupied = target.occupied;
-        sequence = target.steps;
-        sequenceSwing = clampValue(target.swing, 0.5f, 0.75f);
-        sequenceGate = clampValue(target.legacyGate, 0.05f, 8.0f);
-        sequenceLength = clampValue(static_cast<int>(target.length), 1,
-                                    static_cast<int>(kSequenceStepCount));
         for (std::size_t parameter = 0u;
              parameter < kLockParameterCount; ++parameter) {
             applyLockedValue(controls, outputGain, parameter,
@@ -3146,13 +2834,9 @@ struct ThruInstance {
         clipOutputGain = outputGain;
         clipPositionMs = 0.0;
         clipAbsolutePositionMs = 0.0;
-        clipNeedsStart = sequenceRunning;
+        clipNeedsStart = clipPlaying;
         if (queueSources) queuePatternSources(index);
         queuedPattern = -1;
-        if (!sequenceRunning) {
-            sequenceCurrentStep = -1;
-            sequenceSamplesUntilStep = 0.0;
-        }
     }
 
     bool activatePreparedPattern()
@@ -3237,9 +2921,6 @@ struct ThruInstance {
         Pattern& target = patterns[static_cast<std::size_t>(index)];
         if (!target.occupied) {
             target = Pattern {};
-            target.swing = sequenceSwing;
-            target.legacyGate = sequenceGate;
-            target.length = static_cast<std::uint8_t>(sequenceLength);
             for (std::size_t parameter = 0u;
                  parameter < kLockParameterCount; ++parameter) {
                 target.baseValues[parameter] = lockedValue(
@@ -3264,9 +2945,6 @@ struct ThruInstance {
         Pattern& target = patterns[static_cast<std::size_t>(index)];
         if (target.occupied) return;
         target = Pattern {};
-        target.swing = sequenceSwing;
-        target.legacyGate = sequenceGate;
-        target.length = static_cast<std::uint8_t>(sequenceLength);
         for (std::size_t parameter = 0u;
              parameter < kLockParameterCount; ++parameter) {
             target.baseValues[parameter] = lockedValue(
@@ -3340,16 +3018,12 @@ struct ThruInstance {
         patterns[static_cast<std::size_t>(index)] = Pattern {};
         if (queuedPattern == index) queuedPattern = -1;
         if (activePattern == index) {
-            sequence = {};
-            sequenceLength = 16;
-            sequenceSwing = 0.5f;
-            sequenceGate = 0.8f;
             activePatternOccupied = false;
-            sequenceRunning = false;
+            clipPlaying = false;
             clipPositionMs = 0.0;
             clipAbsolutePositionMs = 0.0;
             clipNeedsStart = false;
-            releaseSequencerVoices();
+            releaseClipVoices();
         }
         markPersistentStateDirty();
     }
@@ -3361,210 +3035,6 @@ struct ThruInstance {
             if (patterns[index].occupied) mask |= std::uint64_t { 1u } << index;
         }
         return mask;
-    }
-
-    std::size_t visibleSequenceOffset() const
-    {
-        return static_cast<std::size_t>(clampValue(
-            sequencePage, 0, static_cast<int>(kSequencePageCount) - 1))
-            * kVisibleStepCount;
-    }
-
-    std::uint32_t sequenceMask() const
-    {
-        std::uint32_t mask = 0u;
-        const std::size_t offset = visibleSequenceOffset();
-        for (std::size_t index = 0u; index < kVisibleStepCount; ++index) {
-            if (sequence[offset + index].enabled) mask |= 1u << index;
-        }
-        return mask;
-    }
-
-    void toggleSequenceStep(int index)
-    {
-        if (index < 0 || index >= static_cast<int>(sequence.size())) return;
-        auto& step = sequence[static_cast<std::size_t>(index)];
-        step.enabled = !step.enabled;
-        markPersistentStateDirty();
-    }
-
-    void setSequenceNote(int index, int note, int velocity)
-    {
-        if (index < 0 || index >= static_cast<int>(sequence.size())) return;
-        auto& step = sequence[static_cast<std::size_t>(index)];
-        step.notes[0u] = static_cast<std::uint8_t>(clampValue(note, 0, 127));
-        step.velocities[0u] = static_cast<std::uint8_t>(
-            clampValue(velocity, 1, 127));
-        step.sourcePads[0u] = 255u;
-        step.lengthSteps[0u] = static_cast<std::uint8_t>(
-            legacySequenceLength(step));
-        step.noteOpen[0u] = 0u;
-        step.noteCount = 1u;
-        step.enabled = true;
-        markPersistentStateDirty();
-    }
-
-    void removeSequenceNote(SequenceStep& step, std::size_t chord)
-    {
-        if (chord >= step.noteCount) return;
-        for (std::size_t move = chord + 1u; move < step.noteCount; ++move) {
-            step.notes[move - 1u] = step.notes[move];
-            step.velocities[move - 1u] = step.velocities[move];
-            step.sourcePads[move - 1u] = step.sourcePads[move];
-            step.lengthSteps[move - 1u] = step.lengthSteps[move];
-            step.noteOpen[move - 1u] = step.noteOpen[move];
-        }
-        --step.noteCount;
-        const std::size_t tail = step.noteCount;
-        step.notes[tail] = 0u;
-        step.velocities[tail] = 0u;
-        step.sourcePads[tail] = 255u;
-        step.lengthSteps[tail] = 1u;
-        step.noteOpen[tail] = 0u;
-    }
-
-    void toggleSequenceNote(int index, int note, int velocity)
-    {
-        if (index < 0 || index >= static_cast<int>(sequence.size())) return;
-        auto& step = sequence[static_cast<std::size_t>(index)];
-        const std::uint8_t storedNote = static_cast<std::uint8_t>(
-            clampValue(note, 0, 127));
-        for (std::size_t chord = 0u; chord < step.noteCount; ++chord) {
-            if (step.notes[chord] != storedNote) continue;
-            removeSequenceNote(step, chord);
-            step.enabled = true;
-            markPersistentStateDirty();
-            return;
-        }
-        if (step.noteCount >= kSequenceChordSize) return;
-        const std::size_t chord = step.noteCount++;
-        step.notes[chord] = storedNote;
-        step.velocities[chord] = static_cast<std::uint8_t>(
-            clampValue(velocity, 1, 127));
-        step.sourcePads[chord] = 255u;
-        step.lengthSteps[chord] = static_cast<std::uint8_t>(
-            legacySequenceLength(step));
-        step.noteOpen[chord] = 0u;
-        step.enabled = true;
-        markPersistentStateDirty();
-    }
-
-    void toggleSequencePadNote(int index, int pad, int note, int velocity)
-    {
-        if (index < 0 || index >= static_cast<int>(sequence.size())
-            || pad < 0 || pad >= 32) return;
-        auto& step = sequence[static_cast<std::size_t>(index)];
-        const std::uint8_t storedPad = static_cast<std::uint8_t>(pad);
-        for (std::size_t chord = 0u; chord < step.noteCount; ++chord) {
-            if (step.sourcePads[chord] != storedPad) continue;
-            removeSequenceNote(step, chord);
-            step.enabled = step.noteCount > 0u || stepHasLocks(step);
-            markPersistentStateDirty();
-            return;
-        }
-        if (step.noteCount >= kSequenceChordSize) return;
-        const std::size_t chord = step.noteCount++;
-        step.notes[chord] = static_cast<std::uint8_t>(clampValue(note, 0, 127));
-        step.velocities[chord] = static_cast<std::uint8_t>(
-            clampValue(velocity, 1, 127));
-        step.sourcePads[chord] = storedPad;
-        step.lengthSteps[chord] = static_cast<std::uint8_t>(sequenceLength);
-        step.noteOpen[chord] = 1u;
-        step.enabled = true;
-        markPersistentStateDirty();
-    }
-
-    void setSequenceNoteLength(int index, int pad, int length)
-    {
-        if (index < 0 || index >= static_cast<int>(sequence.size())
-            || pad < 0 || pad >= 32) return;
-        auto& step = sequence[static_cast<std::size_t>(index)];
-        for (std::size_t chord = 0u; chord < step.noteCount; ++chord) {
-            if (step.sourcePads[chord] == static_cast<std::uint8_t>(pad)) {
-                step.lengthSteps[chord] = static_cast<std::uint8_t>(
-                    clampValue(length, 1,
-                               static_cast<int>(kSequenceStepCount)));
-                step.noteOpen[chord] = 0u;
-                markPersistentStateDirty();
-                return;
-            }
-        }
-    }
-
-    void setSequenceLock(int stepIndex, const char* key, float value)
-    {
-        if (stepIndex < 0 || stepIndex >= static_cast<int>(sequence.size())) return;
-        const int lockIndex = lockParameterIndex(key);
-        if (lockIndex < 0) return;
-        auto& step = sequence[static_cast<std::size_t>(stepIndex)];
-        step.locks[static_cast<std::size_t>(lockIndex)] = value;
-        setStepLock(step, static_cast<std::size_t>(lockIndex));
-        step.enabled = true;
-        markPersistentStateDirty();
-    }
-
-    void setSequenceProbability(int percent)
-    {
-        auto& step = sequence[static_cast<std::size_t>(clampValue(
-            sequenceEditStep, 0, static_cast<int>(sequence.size()) - 1))];
-        step.probability = static_cast<std::uint8_t>(clampValue(percent, 0, 100));
-        step.enabled = step.enabled || stepHasLocks(step) || step.noteCount != 0u;
-        markPersistentStateDirty();
-    }
-
-    void setSequenceRatchets(int count)
-    {
-        auto& step = sequence[static_cast<std::size_t>(clampValue(
-            sequenceEditStep, 0, static_cast<int>(sequence.size()) - 1))];
-        step.ratchets = static_cast<std::uint8_t>(clampValue(count, 1, 4));
-        markPersistentStateDirty();
-    }
-
-    void setSequenceMicroTiming(int amount)
-    {
-        auto& step = sequence[static_cast<std::size_t>(clampValue(
-            sequenceEditStep, 0, static_cast<int>(sequence.size()) - 1))];
-        step.microTiming = static_cast<std::int8_t>(clampValue(amount, -49, 49));
-        markPersistentStateDirty();
-    }
-
-    void commitPerformanceCapture()
-    {
-        bool hasContent = false;
-        for (const auto& step : performanceCapture) {
-            hasContent = hasContent || step.noteCount != 0u;
-        }
-        if (!hasContent) return;
-        pushPatternUndo(activePattern);
-        for (std::size_t index = 0u; index < sequence.size(); ++index) {
-            const auto& captured = performanceCapture[index];
-            if (captured.noteCount == 0u) continue;
-            auto& target = sequence[index];
-            for (std::size_t capturedChord = 0u;
-                 capturedChord < captured.noteCount; ++capturedChord) {
-                std::size_t destination = target.noteCount;
-                for (std::size_t chord = 0u; chord < target.noteCount; ++chord) {
-                    if (captured.sourcePads[capturedChord] < 32u
-                        && target.sourcePads[chord]
-                            == captured.sourcePads[capturedChord]) {
-                        destination = chord;
-                        break;
-                    }
-                }
-                if (destination >= kSequenceChordSize) continue;
-                if (destination == target.noteCount) ++target.noteCount;
-                target.notes[destination] = captured.notes[capturedChord];
-                target.velocities[destination] = captured.velocities[capturedChord];
-                target.sourcePads[destination] = captured.sourcePads[capturedChord];
-                target.lengthSteps[destination] = captured.lengthSteps[capturedChord];
-                target.noteOpen[destination] = 0u;
-                target.enabled = true;
-            }
-        }
-        performanceCapture = {};
-        captureStartSteps.fill(-1);
-        activePatternOccupied = true;
-        markPersistentStateDirty();
     }
 
     void setChainEntry(int slot, int pattern, int repeats)
@@ -3597,191 +3067,6 @@ struct ThruInstance {
                 slot == 0u ? "%u:%u:%u" : ",%u:%u:%u",
                 entry.enabled ? 1u : 0u, static_cast<unsigned>(entry.pattern),
                 static_cast<unsigned>(entry.repeats));
-            if (written < 0 || written >= bufferLength - position) return -1;
-            position += written;
-        }
-        return position;
-    }
-
-    void setSequenceStepGate(int stepIndex, float percent)
-    {
-        if (stepIndex < 0 || stepIndex >= static_cast<int>(sequence.size())) return;
-        auto& step = sequence[static_cast<std::size_t>(stepIndex)];
-        step.gate = clampValue(percent / 100.0f, 0.05f, 8.0f);
-        step.gateLocked = true;
-        const std::uint8_t migratedLength = static_cast<std::uint8_t>(
-            legacySequenceLength(step));
-        for (std::size_t chord = 0u; chord < step.noteCount; ++chord) {
-            if (step.sourcePads[chord] == 255u) {
-                step.lengthSteps[chord] = migratedLength;
-            }
-        }
-        step.enabled = true;
-    }
-
-    void setSequenceGate(float percent)
-    {
-        sequenceGate = clampValue(percent / 100.0f, 0.05f, 8.0f);
-        for (auto& step : sequence) {
-            if (step.gateLocked) continue;
-            const std::uint8_t migratedLength = static_cast<std::uint8_t>(
-                legacySequenceLength(step));
-            for (std::size_t chord = 0u; chord < step.noteCount; ++chord) {
-                if (step.sourcePads[chord] == 255u) {
-                    step.lengthSteps[chord] = migratedLength;
-                }
-            }
-        }
-    }
-
-    void clearSequenceLocks(int stepIndex)
-    {
-        if (stepIndex < 0 || stepIndex >= static_cast<int>(sequence.size())) return;
-        auto& step = sequence[static_cast<std::size_t>(stepIndex)];
-        step.lockMask = 0u;
-        step.lockMaskHigh = 0u;
-        step.lockMaskExtra = 0u;
-        step.gateLocked = false;
-        markPersistentStateDirty();
-    }
-
-    void clearSequenceStep(int stepIndex)
-    {
-        if (stepIndex < 0 || stepIndex >= static_cast<int>(sequence.size())) return;
-        pushPatternUndo(activePattern);
-        sequence[static_cast<std::size_t>(stepIndex)] = SequenceStep {};
-        markPersistentStateDirty();
-    }
-
-    void clearSequence()
-    {
-        pushPatternUndo(activePattern);
-        setSequenceRunning(false);
-        for (auto& step : sequence) {
-            step = SequenceStep {};
-        }
-        markPersistentStateDirty();
-    }
-
-    int formatSequenceLocks(char* buffer, int bufferLength) const
-    {
-        if (!buffer || bufferLength < 1) return -1;
-        int position = 0;
-        const std::size_t offset = visibleSequenceOffset();
-        for (std::size_t index = 0u; index < kVisibleStepCount; ++index) {
-            const auto& step = sequence[offset + index];
-            const int written = std::snprintf(
-                buffer + position, static_cast<std::size_t>(bufferLength - position),
-                index == 0u ? "%u" : ",%u", step.lockMask);
-            if (written < 0 || written >= bufferLength - position) return -1;
-            position += written;
-        }
-        return position;
-    }
-
-    int formatSequenceLocksHigh(char* buffer, int bufferLength) const
-    {
-        if (!buffer || bufferLength < 1) return -1;
-        int position = 0;
-        const std::size_t offset = visibleSequenceOffset();
-        for (std::size_t index = 0u; index < kVisibleStepCount; ++index) {
-            const auto& step = sequence[offset + index];
-            const int written = std::snprintf(
-                buffer + position, static_cast<std::size_t>(bufferLength - position),
-                index == 0u ? "%u" : ",%u", step.lockMaskHigh);
-            if (written < 0 || written >= bufferLength - position) return -1;
-            position += written;
-        }
-        return position;
-    }
-
-    int formatSequenceLocksExtra(char* buffer, int bufferLength) const
-    {
-        if (!buffer || bufferLength < 1) return -1;
-        int position = 0;
-        const std::size_t offset = visibleSequenceOffset();
-        for (std::size_t index = 0u; index < kVisibleStepCount; ++index) {
-            const auto& step = sequence[offset + index];
-            const int written = std::snprintf(
-                buffer + position, static_cast<std::size_t>(bufferLength - position),
-                index == 0u ? "%u" : ",%u", step.lockMaskExtra);
-            if (written < 0 || written >= bufferLength - position) return -1;
-            position += written;
-        }
-        return position;
-    }
-
-    int formatSequenceNoteCounts(char* buffer, int bufferLength) const
-    {
-        if (!buffer || bufferLength < 1) return -1;
-        int position = 0;
-        const std::size_t offset = visibleSequenceOffset();
-        for (std::size_t index = 0u; index < kVisibleStepCount; ++index) {
-            const int written = std::snprintf(
-                buffer + position, static_cast<std::size_t>(bufferLength - position),
-                index == 0u ? "%u" : ",%u",
-                static_cast<unsigned>(sequence[offset + index].noteCount));
-            if (written < 0 || written >= bufferLength - position) return -1;
-            position += written;
-        }
-        return position;
-    }
-
-    int formatSequencePadMasks(char* buffer, int bufferLength) const
-    {
-        if (!buffer || bufferLength < 1) return -1;
-        int position = 0;
-        const std::size_t offset = visibleSequenceOffset();
-        for (std::size_t index = 0u; index < kVisibleStepCount; ++index) {
-            std::uint32_t mask = 0u;
-            const auto& step = sequence[offset + index];
-            for (std::size_t chord = 0u; chord < step.noteCount; ++chord) {
-                if (step.sourcePads[chord] < 32u) {
-                    mask |= 1u << step.sourcePads[chord];
-                }
-            }
-            const int written = std::snprintf(
-                buffer + position, static_cast<std::size_t>(bufferLength - position),
-                index == 0u ? "%u" : ",%u", mask);
-            if (written < 0 || written >= bufferLength - position) return -1;
-            position += written;
-        }
-        return position;
-    }
-
-    std::uint32_t sequenceOpenPadMask() const
-    {
-        std::uint32_t mask = 0u;
-        const std::size_t offset = visibleSequenceOffset();
-        for (std::size_t index = 0u; index < kVisibleStepCount; ++index) {
-            const auto& step = sequence[offset + index];
-            for (std::size_t chord = 0u; chord < step.noteCount; ++chord) {
-                if (step.noteOpen[chord] != 0u && step.sourcePads[chord] < 32u) {
-                    mask |= 1u << step.sourcePads[chord];
-                }
-            }
-        }
-        return mask;
-    }
-
-    int formatSequenceOpenSteps(char* buffer, int bufferLength) const
-    {
-        if (!buffer || bufferLength < 1) return -1;
-        std::array<int, 32u> starts {};
-        starts.fill(-1);
-        for (std::size_t stepIndex = 0u; stepIndex < sequence.size(); ++stepIndex) {
-            const auto& step = sequence[stepIndex];
-            for (std::size_t chord = 0u; chord < step.noteCount; ++chord) {
-                if (step.noteOpen[chord] != 0u && step.sourcePads[chord] < 32u) {
-                    starts[step.sourcePads[chord]] = static_cast<int>(stepIndex);
-                }
-            }
-        }
-        int position = 0;
-        for (std::size_t pad = 0u; pad < starts.size(); ++pad) {
-            const int written = std::snprintf(
-                buffer + position, static_cast<std::size_t>(bufferLength - position),
-                pad == 0u ? "%d" : ",%d", starts[pad]);
             if (written < 0 || written >= bufferLength - position) return -1;
             position += written;
         }
@@ -3937,22 +3222,11 @@ struct ThruInstance {
             case 53:
                 if (value >= 64) clearSelectedLane();
                 break;
-            case 54: sequenceBpm = midiRange(value, 40.0f, 240.0f); break;
-            case 55: sequenceSwing = midiRange(value, 50.0f, 75.0f) / 100.0f; break;
-            case 56: sequenceLength = clampValue(static_cast<int>(std::lround(
-                midiRange(value, 1.0f, static_cast<float>(kSequenceStepCount)))),
-                1, static_cast<int>(kSequenceStepCount)); break;
-            case 57: setSequenceGate(midiRange(value, 5.0f, 800.0f)); break;
-            case 58: sequencePage = midiChoice(
-                value, static_cast<int>(kSequencePageCount)); break;
-            case 59: if (value >= 64) restoreUndo(); break;
-            case 60: setSequenceProbability(static_cast<int>(std::lround(
-                midiRange(value, 0.0f, 100.0f)))); break;
-            case 61: setSequenceRatchets(1 + midiChoice(value, 4)); break;
-            case 62: setSequenceMicroTiming(static_cast<int>(std::lround(
-                midiRange(value, -49.0f, 49.0f)))); break;
-            case 63: automationRecord = value >= 64; break;
-            case 64: if (value >= 64) commitPerformanceCapture(); break;
+            case 54: tempoBpm = midiRange(value, 40.0f, 240.0f); break;
+            case 55: tempoSwing = midiRange(value, 50.0f, 75.0f) / 100.0f; break;
+            case 56: setClipPlaying(value >= 64); break;
+            case 57: if (value >= 64) restoreUndo(); break;
+            case 58: if (value >= 64) clearChainEntry(chainEditSlot); break;
             case 65: chainEnabled = value >= 64; break;
             case 66: chainEditSlot = midiChoice(
                 value, static_cast<int>(kPatternChainLength)); break;
@@ -4041,16 +3315,6 @@ struct ThruInstance {
         if (cc >= 20 && cc <= 117 && cc != 52) markPersistentStateDirty();
         const int lockParameter = cc >= 20 && cc <= 45
             ? cc - 20 : (cc >= 69 && cc <= 110 ? cc - 43 : -1);
-        if (automationRecord && sequenceRunning && sequenceCurrentStep >= 0
-            && lockParameter >= 0
-            && lockParameter < static_cast<int>(kLockParameterCount)) {
-            auto& step = sequence[static_cast<std::size_t>(sequenceCurrentStep)];
-            const std::size_t parameter = static_cast<std::size_t>(lockParameter);
-            step.locks[parameter] = lockedValue(controls, outputGain, parameter);
-            setStepLock(step, parameter);
-            step.enabled = true;
-            markPersistentStateDirty();
-        }
         if (clipRecording && lockParameter >= 0
             && lockParameter < static_cast<int>(kLockParameterCount)) {
             captureClipParameter(lockParameter);
@@ -4465,7 +3729,7 @@ struct ThruInstance {
                 voiceMix[1u][frame] = 0.0f;
             }
 
-            serviceSequenceBeforeBlock();
+            serviceClipBeforeBlock();
             serviceVoiceLaneSync();
             for (auto& voice : voices) {
                 // Inactive voices have no envelope or playback state to
@@ -4498,11 +3762,9 @@ struct ThruInstance {
                     voice.active = false;
                     voice.note = -1;
                     voice.sourcePad = -1;
-                    voice.sequencerOwned = false;
                     voice.clipOwned = false;
                     voice.clipNoteIndex = -1;
                     voice.useSnapshot = false;
-                    voice.sequenceStepsRemaining = 0;
                     voice.engine.stopPlayback();
                 }
             }
@@ -4552,7 +3814,7 @@ struct ThruInstance {
                         = toInt16(wet + monitor);
                 }
             }
-            serviceSequenceAfterBlock(count);
+            serviceClipAfterBlock(count);
             rendered += static_cast<int>(count);
         }
         serviceWaveScan();
@@ -4576,7 +3838,7 @@ struct ThruInstance {
     {
         if (!buffer || bufferLength < 1) return -1;
         return std::snprintf(buffer, static_cast<std::size_t>(bufferLength),
-            "{\"version\":4,\"locus\":%.5f,\"field\":%.5f,\"speed\":%.5f,"
+            "{\"version\":5,\"locus\":%.5f,\"field\":%.5f,\"speed\":%.5f,"
             "\"manual_lane\":%.5f,\"lane_cycles\":%.5f,\"algorithm\":%d,"
             "\"join\":%.5f,\"output_gain\":%.5f,\"record_gain\":%.5f,"
             "\"pressure_mode\":%d,\"root_note\":%d,\"pad_octave\":%d,"
@@ -4588,9 +3850,8 @@ struct ThruInstance {
             "\"grain_mode\":%d,\"grain_size\":%.5f,"
             "\"grain_density\":%.5f,\"grain_pitch\":%.5f,"
             "\"grain_window\":%d,\"grain_spread\":%.5f,"
-            "\"cutups_mode\":%d,\"seq_bpm\":%.5f,\"seq_swing\":%.5f,"
-            "\"seq_length\":%d,\"seq_gate\":%.5f,\"seq_page\":%d,"
-            "\"automation_record\":%d,\"chain_enabled\":%d,"
+            "\"cutups_mode\":%d,\"tempo_bpm\":%.5f,\"tempo_swing\":%.5f,"
+            "\"chain_enabled\":%d,"
             "\"motion_travel\":%.5f,\"motion_jitter\":%.5f,"
             "\"packet_duty\":%.5f,\"motor_rate\":%.5f,"
             "\"motor_symmetry\":%.5f,\"motor_shape\":%d,"
@@ -4627,9 +3888,8 @@ struct ThruInstance {
             static_cast<int>(controls.grains), controls.grainSizeMs,
             controls.grainDensityHz, controls.grainPitch,
             static_cast<int>(controls.grainWindow), controls.grainStereoSpread,
-            static_cast<int>(controls.cutups), sequenceBpm,
-            sequenceSwing * 100.0f, sequenceLength, sequenceGate * 100.0f,
-            sequencePage + 1, automationRecord ? 1 : 0,
+            static_cast<int>(controls.cutups), tempoBpm,
+            tempoSwing * 100.0f,
             chainEnabled ? 1 : 0,
             controls.motionTravel, controls.motionJitter, controls.packetDuty,
             controls.motorRateHz, controls.motorSymmetry,
@@ -4681,82 +3941,6 @@ struct ThruInstance {
         return true;
     }
 
-    void migrateLegacyPatternToClip(Pattern& pattern, float bpm)
-    {
-        bool hasLegacyData = false;
-        for (const auto& step : pattern.steps) {
-            if (step.enabled || step.noteCount != 0u || stepHasLocks(step)) {
-                hasLegacyData = true;
-                break;
-            }
-        }
-        if (!hasLegacyData) return;
-
-        const double stepMs = 15000.0
-            / static_cast<double>(clampValue(bpm, 40.0f, 240.0f));
-        const std::size_t stepCount = clampValue<std::size_t>(
-            pattern.length, 1u, kSequenceStepCount);
-        pattern.clipDurationMs = static_cast<std::uint32_t>(std::lround(
-            clampValue(stepMs * static_cast<double>(stepCount),
-                       static_cast<double>(kClipMinimumDurationMs),
-                       static_cast<double>(kClipMaximumDurationMs))));
-        pattern.clipNoteCount = 0u;
-        pattern.clipPointCount = 0u;
-        pattern.clipRate = 1.0f;
-
-        auto normalizedTime = [&](double timeMs) {
-            const double duration = static_cast<double>(pattern.clipDurationMs);
-            while (timeMs < 0.0) timeMs += duration;
-            while (timeMs >= duration) timeMs -= duration;
-            return static_cast<std::uint32_t>(std::lround(timeMs));
-        };
-        for (std::size_t stepIndex = 0u; stepIndex < stepCount; ++stepIndex) {
-            const SequenceStep& step = pattern.steps[stepIndex];
-            const double eventMs = stepMs * static_cast<double>(stepIndex)
-                + stepMs * static_cast<double>(step.microTiming) / 100.0;
-            const std::uint32_t timeMs = normalizedTime(eventMs);
-            if (step.enabled || step.noteCount != 0u) {
-                const std::size_t noteCount = step.noteCount != 0u
-                    ? step.noteCount : 1u;
-                for (std::size_t chord = 0u;
-                     chord < noteCount
-                     && pattern.clipNoteCount < kClipNoteCapacity; ++chord) {
-                    ClipNote& note = pattern.clipNotes[pattern.clipNoteCount++];
-                    note.startMs = timeMs;
-                    note.durationMs = static_cast<std::uint32_t>(std::lround(
-                        clampValue(stepMs * static_cast<double>(
-                            std::max<std::uint8_t>(1u, step.lengthSteps[chord])),
-                            1.0, static_cast<double>(pattern.clipDurationMs))));
-                    note.note = step.noteCount != 0u ? step.notes[chord] : 60u;
-                    note.velocity = step.noteCount != 0u
-                        ? std::max<std::uint8_t>(1u, step.velocities[chord])
-                        : 100u;
-                    note.sourcePad = step.noteCount != 0u
-                        ? step.sourcePads[chord] : 255u;
-                }
-            }
-            for (std::size_t parameter = 0u;
-                 parameter < kLockParameterCount
-                 && pattern.clipPointCount < kClipPointCapacity; ++parameter) {
-                if (!hasStepLock(step, parameter)) continue;
-                ClipPoint& point = pattern.clipPoints[pattern.clipPointCount++];
-                point.timeMs = timeMs;
-                point.value = step.locks[parameter];
-                point.parameter = static_cast<std::uint16_t>(parameter);
-                point.sourcePad = 255u;
-                point.type = ClipPointType::parameter;
-            }
-        }
-        std::sort(pattern.clipNotes.begin(),
-                  pattern.clipNotes.begin() + pattern.clipNoteCount,
-                  [](const ClipNote& a, const ClipNote& b) {
-                      return a.startMs < b.startMs;
-                  });
-        rebuildClipPointIndex(pattern);
-        pattern.clipRecorded = true;
-        pattern.occupied = true;
-    }
-
     bool writePatternFile()
     {
         std::array<char, kPersistencePathSize> path {};
@@ -4769,10 +3953,11 @@ struct ThruInstance {
         captureActivePattern(false);
         std::FILE* file = std::fopen(temporary.data(), "wb");
         if (!file) return false;
-        const char magic[8] { 'S', '3', 'G', 'T', 'S', 'E', 'Q', '\0' };
+        const char magic[8] { 'S', '3', 'G', 'T', 'H', 'R', '2', '\0' };
         bool ok = writeBytes(file, magic, sizeof(magic))
-            && writeU32(file, 10u)
-            && writeF32(file, sequenceBpm)
+            && writeU32(file, 1u)
+            && writeF32(file, tempoBpm)
+            && writeF32(file, tempoSwing)
             && writeU32(file, static_cast<std::uint32_t>(activePattern))
             && writeU32(file, static_cast<std::uint32_t>(chainPosition))
             && writeU32(file, static_cast<std::uint32_t>(chainEditSlot));
@@ -4782,10 +3967,7 @@ struct ThruInstance {
                 && writeU32(file, entry.repeats);
         }
         for (const auto& pattern : patterns) {
-            ok = ok && writeU32(file, pattern.occupied ? 1u : 0u)
-                && writeF32(file, pattern.swing)
-                && writeF32(file, pattern.legacyGate)
-                && writeU32(file, pattern.length);
+            ok = ok && writeU32(file, pattern.occupied ? 1u : 0u);
             for (const float base : pattern.baseValues) {
                 ok = ok && writeF32(file, base);
             }
@@ -4793,35 +3975,12 @@ struct ThruInstance {
                 ok = ok && writeU32(file, static_cast<std::uint32_t>(
                                       pattern.laneSourceKinds[lane]))
                     && writeBytes(file, pattern.laneSourcePaths[lane].data(),
-                                      pattern.laneSourcePaths[lane].size())
+                                  pattern.laneSourcePaths[lane].size())
                     && writeBytes(file, pattern.laneSourceLabels[lane].data(),
                                   pattern.laneSourceLabels[lane].size());
             }
             for (const float cue : pattern.cues) {
                 ok = ok && writeF32(file, cue);
-            }
-            for (const auto& step : pattern.steps) {
-                ok = ok && writeU32(file, step.enabled ? 1u : 0u)
-                    && writeU32(file, step.noteCount)
-                    && writeU32(file, step.lockMask)
-                    && writeU32(file, step.lockMaskHigh)
-                    && writeU32(file, step.lockMaskExtra)
-                    && writeU32(file, step.gateLocked ? 1u : 0u)
-                    && writeF32(file, step.gate)
-                    && writeU32(file, step.probability)
-                    && writeU32(file, step.ratchets)
-                    && writeU32(file, static_cast<std::uint32_t>(
-                        static_cast<std::int32_t>(step.microTiming)));
-                for (std::size_t chord = 0u; chord < kSequenceChordSize; ++chord) {
-                    ok = ok && writeU32(file, step.notes[chord])
-                        && writeU32(file, step.velocities[chord])
-                        && writeU32(file, step.sourcePads[chord])
-                        && writeU32(file, step.lengthSteps[chord])
-                        && writeU32(file, step.noteOpen[chord]);
-                }
-                for (const float lock : step.locks) {
-                    ok = ok && writeF32(file, lock);
-                }
             }
             ok = ok && writeU32(file, pattern.clipRecorded ? 1u : 0u)
                 && writeU32(file, pattern.clipDurationMs)
@@ -4865,353 +4024,148 @@ struct ThruInstance {
         if (!file) return false;
         char magic[8] {};
         std::uint32_t version = 0u;
-        std::uint32_t length = 0u;
+        std::uint32_t selected = 0u;
+        std::uint32_t loadedChainPosition = 0u;
+        std::uint32_t loadedChainEditSlot = 0u;
         float bpm = 120.0f;
         float swing = 0.5f;
-        float gate = 0.8f;
-        std::array<SequenceStep, kSequenceStepCount> loaded {};
-        bool ok = std::fread(magic, 1u, sizeof(magic), file) == sizeof(magic)
-            && std::memcmp(magic, "S3GTSEQ", 7u) == 0
-            && readU32(file, version)
-            && (version >= 1u && version <= 10u);
-        if (ok && version >= 5u) {
-            std::uint32_t selected = 0u;
-            auto loadedPatterns = std::unique_ptr<std::array<Pattern, kPatternCount>>(
-                new (std::nothrow) std::array<Pattern, kPatternCount> {});
-            if (!loadedPatterns) {
-                std::fclose(file);
-                return false;
-            }
-            ok = readF32(file, bpm) && std::isfinite(bpm)
-                && readU32(file, selected)
-                && selected < kPatternCount;
-            if (version >= 7u) {
-                std::uint32_t loadedChainPosition = 0u;
-                std::uint32_t loadedChainEditSlot = 0u;
-                ok = ok && readU32(file, loadedChainPosition)
-                    && readU32(file, loadedChainEditSlot);
-                chainPosition = clampValue(static_cast<int>(loadedChainPosition),
-                    0, static_cast<int>(kPatternChainLength) - 1);
-                chainEditSlot = clampValue(static_cast<int>(loadedChainEditSlot),
-                    0, static_cast<int>(kPatternChainLength) - 1);
-                for (auto& entry : patternChain) {
-                    std::uint32_t enabled = 0u;
-                    std::uint32_t pattern = 0u;
-                    std::uint32_t repeats = 1u;
-                    ok = ok && readU32(file, enabled)
-                        && readU32(file, pattern) && readU32(file, repeats);
-                    entry.enabled = enabled != 0u;
-                    entry.pattern = static_cast<std::uint8_t>(clampValue(
-                        pattern, 0u, static_cast<std::uint32_t>(kPatternCount - 1u)));
-                    entry.repeats = static_cast<std::uint8_t>(clampValue(
-                        repeats, 1u, 16u));
-                }
-            }
-            for (auto& pattern : *loadedPatterns) {
-                for (std::size_t parameter = 0u;
-                     parameter < kLockParameterCount; ++parameter) {
-                    pattern.baseValues[parameter] = lockedValue(
-                        controls, outputGain, parameter);
-                }
-                std::uint32_t occupied = 0u;
-                std::uint32_t patternLength = 16u;
-                ok = ok && readU32(file, occupied)
-                    && readF32(file, pattern.swing)
-                    && readF32(file, pattern.legacyGate)
-                    && readU32(file, patternLength);
-                pattern.occupied = occupied != 0u;
-                pattern.swing = clampValue(pattern.swing, 0.5f, 0.75f);
-                pattern.legacyGate = clampValue(pattern.legacyGate, 0.05f, 8.0f);
-                pattern.length = static_cast<std::uint8_t>(
-                    clampValue(patternLength, 1u,
-                        version >= 7u
-                            ? static_cast<std::uint32_t>(kSequenceStepCount)
-                            : 16u));
-                const std::size_t storedParameterCount = version >= 9u
-                    ? kLockParameterCount : (version >= 8u
-                        ? kPreviousLockParameterCount : kLegacyLockParameterCount);
-                for (std::size_t parameter = 0u;
-                     parameter < storedParameterCount; ++parameter) {
-                    float& base = pattern.baseValues[parameter];
-                    ok = ok && readF32(file, base) && std::isfinite(base);
-                }
-                if (version >= 6u) {
-                    for (std::size_t lane = 0u; lane < kLaneCount; ++lane) {
-                        if (version >= 7u) {
-                            std::uint32_t kind = 0u;
-                            ok = ok && readU32(file, kind);
-                            pattern.laneSourceKinds[lane] =
-                                static_cast<LaneSourceKind>(clampValue(
-                                    kind, 0u, 3u));
-                        }
-                        ok = ok && std::fread(
-                            pattern.laneSourcePaths[lane].data(), 1u,
-                            pattern.laneSourcePaths[lane].size(), file)
-                                == pattern.laneSourcePaths[lane].size()
-                            && std::fread(
-                                pattern.laneSourceLabels[lane].data(), 1u,
-                                pattern.laneSourceLabels[lane].size(), file)
-                                == pattern.laneSourceLabels[lane].size();
-                        pattern.laneSourcePaths[lane].back() = '\0';
-                        pattern.laneSourceLabels[lane].back() = '\0';
-                        if (version == 6u) {
-                            pattern.laneSourceKinds[lane] =
-                                pattern.laneSourcePaths[lane][0] != '\0'
-                                    ? LaneSourceKind::file
-                                    : LaneSourceKind::inherit;
-                        }
-                    }
-                }
-                if (version >= 9u) {
-                    for (float& cue : pattern.cues) {
-                        ok = ok && readF32(file, cue);
-                        cue = clampValue(cue, -1.0f, 1.0f);
-                    }
-                }
-                const std::size_t storedStepCount = version >= 7u
-                    ? kSequenceStepCount : kVisibleStepCount;
-                for (std::size_t stepIndex = 0u;
-                     stepIndex < storedStepCount; ++stepIndex) {
-                    auto& step = pattern.steps[stepIndex];
-                    std::uint32_t enabled = 0u;
-                    std::uint32_t noteCount = 0u;
-                    std::uint32_t lockMask = 0u;
-                    std::uint32_t lockMaskHigh = 0u;
-                    std::uint32_t lockMaskExtra = 0u;
-                    std::uint32_t gateLocked = 0u;
-                    ok = ok && readU32(file, enabled)
-                        && readU32(file, noteCount)
-                        && readU32(file, lockMask);
-                    if (version >= 8u) {
-                        ok = ok && readU32(file, lockMaskHigh);
-                    }
-                    if (version >= 9u) {
-                        ok = ok && readU32(file, lockMaskExtra);
-                    }
-                    ok = ok
-                        && readU32(file, gateLocked)
-                        && readF32(file, step.gate);
-                    step.enabled = enabled != 0u;
-                    step.noteCount = static_cast<std::uint8_t>(clampValue(
-                        noteCount, 0u,
-                        static_cast<std::uint32_t>(kSequenceChordSize)));
-                    step.lockMask = lockMask;
-                    step.lockMaskHigh = lockMaskHigh;
-                    step.lockMaskExtra = lockMaskExtra;
-                    step.gateLocked = gateLocked != 0u;
-                    step.gate = clampValue(step.gate, 0.05f, 8.0f);
-                    if (version >= 7u) {
-                        std::uint32_t probability = 100u;
-                        std::uint32_t ratchets = 1u;
-                        std::uint32_t microTiming = 0u;
-                        ok = ok && readU32(file, probability)
-                            && readU32(file, ratchets)
-                            && readU32(file, microTiming);
-                        step.probability = static_cast<std::uint8_t>(clampValue(
-                            probability, 0u, 100u));
-                        step.ratchets = static_cast<std::uint8_t>(clampValue(
-                            ratchets, 1u, 4u));
-                        step.microTiming = static_cast<std::int8_t>(clampValue(
-                            static_cast<std::int32_t>(microTiming), -49, 49));
-                    }
-                    for (std::size_t chord = 0u;
-                         chord < kSequenceChordSize; ++chord) {
-                        std::uint32_t note = 0u;
-                        std::uint32_t velocity = 1u;
-                        std::uint32_t sourcePad = 255u;
-                        std::uint32_t lengthSteps = 1u;
-                        std::uint32_t noteOpen = 0u;
-                        ok = ok && readU32(file, note)
-                            && readU32(file, velocity)
-                            && readU32(file, sourcePad)
-                            && readU32(file, lengthSteps)
-                            && readU32(file, noteOpen);
-                        step.notes[chord] = static_cast<std::uint8_t>(
-                            clampValue(note, 0u, 127u));
-                        step.velocities[chord] = static_cast<std::uint8_t>(
-                            clampValue(velocity, 1u, 127u));
-                        step.sourcePads[chord] = static_cast<std::uint8_t>(
-                            sourcePad < 32u ? sourcePad : 255u);
-                        step.lengthSteps[chord] = static_cast<std::uint8_t>(
-                            clampValue(lengthSteps, 1u,
-                                version >= 7u
-                                    ? static_cast<std::uint32_t>(kSequenceStepCount)
-                                    : 16u));
-                        step.noteOpen[chord] = noteOpen != 0u ? 1u : 0u;
-                    }
-                    for (std::size_t parameter = 0u;
-                         parameter < storedParameterCount; ++parameter) {
-                        float& lock = step.locks[parameter];
-                        ok = ok && readF32(file, lock) && std::isfinite(lock);
-                    }
-                }
-                if (version >= 10u) {
-                    std::uint32_t recorded = 0u;
-                    std::uint32_t durationMs = 0u;
-                    std::uint32_t noteCount = 0u;
-                    std::uint32_t pointCount = 0u;
-                    ok = ok && readU32(file, recorded)
-                        && readU32(file, durationMs)
-                        && readF32(file, pattern.clipRate)
-                        && std::isfinite(pattern.clipRate)
-                        && readU32(file, noteCount)
-                        && readU32(file, pointCount)
-                        && noteCount <= kClipNoteCapacity
-                        && pointCount <= kClipPointCapacity;
-                    pattern.clipRecorded = recorded != 0u;
-                    pattern.clipDurationMs = clampValue(
-                        durationMs, 0u, kClipMaximumDurationMs);
-                    if (pattern.clipRecorded) {
-                        pattern.clipDurationMs = std::max(
-                            kClipMinimumDurationMs, pattern.clipDurationMs);
-                    }
-                    pattern.clipRate = clampValue(
-                        pattern.clipRate, 0.25f, 4.0f);
-                    pattern.clipNoteCount = static_cast<std::uint16_t>(noteCount);
-                    pattern.clipPointCount = static_cast<std::uint16_t>(pointCount);
-                    for (std::size_t index = 0u; ok && index < noteCount; ++index) {
-                        ClipNote& note = pattern.clipNotes[index];
-                        std::uint32_t pitch = 60u;
-                        std::uint32_t velocity = 100u;
-                        std::uint32_t sourcePad = 255u;
-                        ok = readU32(file, note.startMs)
-                            && readU32(file, note.durationMs)
-                            && readU32(file, pitch)
-                            && readU32(file, velocity)
-                            && readU32(file, sourcePad);
-                        if (pattern.clipDurationMs != 0u) {
-                            note.startMs %= pattern.clipDurationMs;
-                        }
-                        note.durationMs = clampValue(note.durationMs, 1u,
-                            std::max(1u, pattern.clipDurationMs));
-                        note.note = static_cast<std::uint8_t>(
-                            clampValue(pitch, 0u, 127u));
-                        note.velocity = static_cast<std::uint8_t>(
-                            clampValue(velocity, 1u, 127u));
-                        note.sourcePad = static_cast<std::uint8_t>(
-                            sourcePad < 32u ? sourcePad : 255u);
-                    }
-                    for (std::size_t index = 0u; ok && index < pointCount; ++index) {
-                        ClipPoint& point = pattern.clipPoints[index];
-                        std::uint32_t parameter = 0u;
-                        std::uint32_t sourcePad = 255u;
-                        std::uint32_t type = 0u;
-                        ok = readU32(file, point.timeMs)
-                            && readF32(file, point.value)
-                            && std::isfinite(point.value)
-                            && readU32(file, parameter)
-                            && readU32(file, sourcePad)
-                            && readU32(file, type)
-                            && parameter < kLockParameterCount
-                            && type <= static_cast<std::uint32_t>(
-                                ClipPointType::pressure);
-                        if (pattern.clipDurationMs != 0u) {
-                            point.timeMs %= pattern.clipDurationMs;
-                        }
-                        point.parameter = static_cast<std::uint16_t>(parameter);
-                        point.sourcePad = static_cast<std::uint8_t>(
-                            sourcePad < 32u ? sourcePad : 255u);
-                        point.type = static_cast<ClipPointType>(type);
-                    }
-                    if (ok) rebuildClipPointIndex(pattern);
-                } else {
-                    migrateLegacyPatternToClip(pattern, bpm);
-                }
-            }
-            const bool atEnd = ok && std::fgetc(file) == EOF;
-            std::fclose(file);
-            if (!atEnd) return false;
-            patterns = *loadedPatterns;
-            sequenceBpm = clampValue(bpm, 40.0f, 240.0f);
-            activePattern = static_cast<int>(selected);
-            patternBankInitialized = true;
-            activateStoredPattern(activePattern);
-            return true;
-        }
-        ok = ok && version >= 1u && version <= 4u
-            && readF32(file, bpm) && std::isfinite(bpm)
-            && readF32(file, swing) && std::isfinite(swing)
-            && readF32(file, gate) && std::isfinite(gate)
-            && readU32(file, length);
-        for (std::size_t stepIndex = 0u; stepIndex < kVisibleStepCount;
-             ++stepIndex) {
-            auto& step = loaded[stepIndex];
+        std::array<PatternChainEntry, kPatternChainLength> loadedChain {};
+        auto loadedPatterns = std::unique_ptr<std::array<Pattern, kPatternCount>>(
+            new (std::nothrow) std::array<Pattern, kPatternCount> {});
+        bool ok = loadedPatterns
+            && std::fread(magic, 1u, sizeof(magic), file) == sizeof(magic)
+            && std::memcmp(magic, "S3GTHR2", 7u) == 0
+            && readU32(file, version) && version == 1u
+            && readF32(file, bpm) && readF32(file, swing)
+            && readU32(file, selected) && selected < kPatternCount
+            && readU32(file, loadedChainPosition)
+            && readU32(file, loadedChainEditSlot);
+        for (auto& entry : loadedChain) {
             std::uint32_t enabled = 0u;
-            std::uint32_t lockMask = 0u;
-            ok = ok && readU32(file, enabled);
-            if (version == 1u) {
-                std::uint32_t note = 60u;
-                std::uint32_t velocity = 100u;
-                ok = ok && readU32(file, note) && readU32(file, velocity)
-                    && readU32(file, lockMask);
-                step.noteCount = 1u;
-                step.notes[0u] = static_cast<std::uint8_t>(
-                    clampValue(note, 0u, 127u));
-                step.velocities[0u] = static_cast<std::uint8_t>(
-                    clampValue(velocity, 1u, 127u));
-            } else {
+            std::uint32_t pattern = 0u;
+            std::uint32_t repeats = 1u;
+            ok = ok && readU32(file, enabled)
+                && readU32(file, pattern) && pattern < kPatternCount
+                && readU32(file, repeats);
+            entry.enabled = enabled != 0u;
+            entry.pattern = static_cast<std::uint8_t>(pattern);
+            entry.repeats = static_cast<std::uint8_t>(clampValue(
+                repeats, 1u, 16u));
+        }
+        if (loadedPatterns) {
+            for (auto& pattern : *loadedPatterns) {
+                std::uint32_t occupied = 0u;
+                ok = ok && readU32(file, occupied);
+                pattern.occupied = occupied != 0u;
+                for (float& base : pattern.baseValues) {
+                    ok = ok && readF32(file, base);
+                }
+                for (std::size_t lane = 0u; lane < kLaneCount; ++lane) {
+                    std::uint32_t kind = 0u;
+                    ok = ok && readU32(file, kind) && kind <= 3u
+                        && std::fread(pattern.laneSourcePaths[lane].data(), 1u,
+                            pattern.laneSourcePaths[lane].size(), file)
+                            == pattern.laneSourcePaths[lane].size()
+                        && std::fread(pattern.laneSourceLabels[lane].data(), 1u,
+                            pattern.laneSourceLabels[lane].size(), file)
+                            == pattern.laneSourceLabels[lane].size();
+                    pattern.laneSourceKinds[lane] =
+                        static_cast<LaneSourceKind>(kind);
+                    pattern.laneSourcePaths[lane].back() = '\0';
+                    pattern.laneSourceLabels[lane].back() = '\0';
+                }
+                for (float& cue : pattern.cues) {
+                    ok = ok && readF32(file, cue);
+                    cue = clampValue(cue, -1.0f, 1.0f);
+                }
+                std::uint32_t recorded = 0u;
+                std::uint32_t durationMs = 0u;
                 std::uint32_t noteCount = 0u;
-                ok = ok && readU32(file, noteCount) && readU32(file, lockMask);
-                step.noteCount = static_cast<std::uint8_t>(
-                    clampValue(noteCount, 0u,
-                               static_cast<std::uint32_t>(kSequenceChordSize)));
-                if (version >= 3u) {
-                    std::uint32_t gateLocked = 0u;
-                    float stepGate = 0.8f;
-                    ok = ok && readU32(file, gateLocked)
-                        && readF32(file, stepGate);
-                    step.gateLocked = gateLocked != 0u;
-                    step.gate = clampValue(stepGate, 0.05f, 8.0f);
+                std::uint32_t pointCount = 0u;
+                ok = ok && readU32(file, recorded)
+                    && readU32(file, durationMs)
+                    && readF32(file, pattern.clipRate)
+                    && readU32(file, noteCount)
+                    && readU32(file, pointCount)
+                    && noteCount <= kClipNoteCapacity
+                    && pointCount <= kClipPointCapacity;
+                pattern.clipRecorded = recorded != 0u;
+                pattern.clipDurationMs = clampValue(
+                    durationMs, 0u, kClipMaximumDurationMs);
+                if (pattern.clipRecorded) {
+                    pattern.clipDurationMs = std::max(
+                        kClipMinimumDurationMs, pattern.clipDurationMs);
                 }
-                for (std::size_t chord = 0u; chord < kSequenceChordSize; ++chord) {
-                    std::uint32_t note = 0u;
-                    std::uint32_t velocity = 1u;
-                    ok = ok && readU32(file, note) && readU32(file, velocity);
-                    step.notes[chord] = static_cast<std::uint8_t>(
-                        clampValue(note, 0u, 127u));
-                    step.velocities[chord] = static_cast<std::uint8_t>(
-                        clampValue(velocity, 1u, 127u));
-                    if (version >= 4u) {
-                        std::uint32_t sourcePad = 255u;
-                        std::uint32_t lengthSteps = 1u;
-                        ok = ok && readU32(file, sourcePad)
-                            && readU32(file, lengthSteps);
-                        step.sourcePads[chord] = static_cast<std::uint8_t>(
-                            sourcePad < 32u ? sourcePad : 255u);
-                        step.lengthSteps[chord] = static_cast<std::uint8_t>(
-                            clampValue(lengthSteps, 1u, 16u));
+                pattern.clipRate = clampValue(pattern.clipRate, 0.25f, 4.0f);
+                pattern.clipNoteCount = static_cast<std::uint16_t>(noteCount);
+                pattern.clipPointCount = static_cast<std::uint16_t>(pointCount);
+                for (std::size_t index = 0u; ok && index < noteCount; ++index) {
+                    ClipNote& note = pattern.clipNotes[index];
+                    std::uint32_t pitch = 60u;
+                    std::uint32_t velocity = 100u;
+                    std::uint32_t sourcePad = 255u;
+                    ok = readU32(file, note.startMs)
+                        && readU32(file, note.durationMs)
+                        && readU32(file, pitch)
+                        && readU32(file, velocity)
+                        && readU32(file, sourcePad);
+                    if (pattern.clipDurationMs != 0u) {
+                        note.startMs %= pattern.clipDurationMs;
                     }
+                    note.durationMs = clampValue(note.durationMs, 1u,
+                        std::max(1u, pattern.clipDurationMs));
+                    note.note = static_cast<std::uint8_t>(
+                        clampValue(pitch, 0u, 127u));
+                    note.velocity = static_cast<std::uint8_t>(
+                        clampValue(velocity, 1u, 127u));
+                    note.sourcePad = static_cast<std::uint8_t>(
+                        sourcePad < 32u ? sourcePad : 255u);
                 }
-            }
-            if (version < 4u) {
-                const float effectiveGate = step.gateLocked ? step.gate : gate;
-                const std::uint8_t migratedLength = static_cast<std::uint8_t>(
-                    clampValue(static_cast<int>(std::ceil(effectiveGate)), 1, 16));
-                for (std::size_t chord = 0u; chord < step.noteCount; ++chord) {
-                    step.sourcePads[chord] = 255u;
-                    step.lengthSteps[chord] = migratedLength;
+                for (std::size_t index = 0u; ok && index < pointCount; ++index) {
+                    ClipPoint& point = pattern.clipPoints[index];
+                    std::uint32_t parameter = 0u;
+                    std::uint32_t sourcePad = 255u;
+                    std::uint32_t type = 0u;
+                    ok = readU32(file, point.timeMs)
+                        && readF32(file, point.value)
+                        && readU32(file, parameter)
+                        && readU32(file, sourcePad)
+                        && readU32(file, type)
+                        && parameter < kLockParameterCount
+                        && type <= static_cast<std::uint32_t>(
+                            ClipPointType::pressure);
+                    if (pattern.clipDurationMs != 0u) {
+                        point.timeMs %= pattern.clipDurationMs;
+                    }
+                    point.parameter = static_cast<std::uint16_t>(parameter);
+                    point.sourcePad = static_cast<std::uint8_t>(
+                        sourcePad < 32u ? sourcePad : 255u);
+                    point.type = static_cast<ClipPointType>(type);
                 }
-            }
-            step.enabled = enabled != 0u;
-            step.lockMask = lockMask;
-            for (std::size_t parameter = 0u;
-                 parameter < kLegacyLockParameterCount; ++parameter) {
-                ok = ok && readF32(file, step.locks[parameter]);
+                if (ok) {
+                    std::sort(pattern.clipNotes.begin(),
+                              pattern.clipNotes.begin() + pattern.clipNoteCount,
+                              [](const ClipNote& left, const ClipNote& right) {
+                                  return left.startMs < right.startMs;
+                              });
+                    rebuildClipPointIndex(pattern);
+                }
             }
         }
         const bool atEnd = ok && std::fgetc(file) == EOF;
         std::fclose(file);
-        if (!atEnd) return false;
-        sequence = loaded;
-        sequenceBpm = clampValue(bpm, 40.0f, 240.0f);
-        sequenceSwing = clampValue(swing, 0.5f, 0.75f);
-        sequenceGate = clampValue(gate, 0.05f, 8.0f);
-        sequenceLength = clampValue(static_cast<int>(length), 1, 16);
-        activePattern = 0;
-        activePatternOccupied = workingPatternHasContent();
-        captureActivePattern(activePatternOccupied);
-        migrateLegacyPatternToClip(patterns[0u], sequenceBpm);
-        activateStoredPattern(0, false);
+        if (!atEnd || !loadedPatterns) return false;
+        patterns = *loadedPatterns;
+        patternChain = loadedChain;
+        tempoBpm = clampValue(bpm, 40.0f, 240.0f);
+        tempoSwing = clampValue(swing, 0.5f, 0.75f);
+        activePattern = static_cast<int>(selected);
+        chainPosition = clampValue(static_cast<int>(loadedChainPosition),
+            0, static_cast<int>(kPatternChainLength) - 1);
+        chainEditSlot = clampValue(static_cast<int>(loadedChainEditSlot),
+            0, static_cast<int>(kPatternChainLength) - 1);
+        patternBankInitialized = true;
+        activateStoredPattern(activePattern);
         return true;
     }
 
@@ -5484,8 +4438,7 @@ struct ThruInstance {
                 std::fclose(file);
                 if (complete && length != 0u) {
                     text[length] = '\0';
-                    restoreState(text.data());
-                    persistenceRestored = true;
+                    if (restoreState(text.data())) persistenceRestored = true;
                 }
             }
         }
@@ -5523,9 +4476,11 @@ struct ThruInstance {
         return ok;
     }
 
-    void restoreState(const char* json)
+    bool restoreState(const char* json)
     {
         float value = 0.0f;
+        if (!jsonNumber(json, "version", value)
+            || static_cast<int>(value) != 5) return false;
         if (jsonNumber(json, "locus", value)) controls.locus = clampValue(value, 0.0f, 1.0f);
         if (jsonNumber(json, "field", value)) controls.field = clampValue(value, 0.02f, 1.0f);
         if (jsonNumber(json, "speed", value)) controls.speed = clampValue(value, 0.05f, 4.0f);
@@ -5604,18 +4559,14 @@ struct ThruInstance {
         if (jsonNumber(json, "cut_lane_order", value)) controls.cutLaneOrder = static_cast<Engine::CutLaneOrder>(clampValue(static_cast<int>(value), 0, 6));
         if (jsonNumber(json, "cut_poly_path", value)) controls.cutPolyPath = static_cast<Engine::CutPolyPath>(clampValue(static_cast<int>(value), 0, 3));
         if (jsonNumber(json, "cut_region_mode", value)) controls.cutRegionMode = static_cast<Engine::RegionMode>(clampValue(static_cast<int>(value), 0, 1));
-        if (jsonNumber(json, "seq_bpm", value)) sequenceBpm = clampValue(value, 40.0f, 240.0f);
-        if (jsonNumber(json, "seq_swing", value)) sequenceSwing = clampValue(value / 100.0f, 0.5f, 0.75f);
-        if (jsonNumber(json, "seq_length", value)) sequenceLength = clampValue(
-            static_cast<int>(value), 1, static_cast<int>(kSequenceStepCount));
-        if (jsonNumber(json, "seq_page", value)) sequencePage = clampValue(
-            static_cast<int>(value) - 1, 0,
-            static_cast<int>(kSequencePageCount) - 1);
-        if (jsonNumber(json, "automation_record", value)) {
-            automationRecord = value >= 0.5f;
+        if (jsonNumber(json, "tempo_bpm", value)) {
+            tempoBpm = clampValue(value, 40.0f, 240.0f);
+        }
+        if (jsonNumber(json, "tempo_swing", value)) {
+            tempoSwing = clampValue(value / 100.0f, 0.5f, 0.75f);
         }
         if (jsonNumber(json, "chain_enabled", value)) chainEnabled = value >= 0.5f;
-        if (jsonNumber(json, "seq_gate", value)) setSequenceGate(value);
+        return true;
     }
 };
 
@@ -5728,18 +4679,9 @@ void setParam(void* opaque, const char* key, const char* value)
     if (std::strcmp(key, "sample_fade") == 0) { if (isTruthy(value)) instance->fadeSelectedLane(); return; }
     if (std::strcmp(key, "sample_trim_apply") == 0) { if (isTruthy(value)) instance->trimSelectedLane(); return; }
     if (std::strcmp(key, "all_notes_off") == 0) { instance->allNotesOff(); return; }
-    if (std::strcmp(key, "seq_running") == 0) { instance->setSequenceRunning(isTruthy(value)); return; }
-    if (std::strcmp(key, "seq_bpm") == 0) { instance->sequenceBpm = clampValue(parseFloat(value, instance->sequenceBpm), 40.0f, 240.0f); return; }
-    if (std::strcmp(key, "seq_swing") == 0) { instance->sequenceSwing = clampValue(parseFloat(value, instance->sequenceSwing * 100.0f) / 100.0f, 0.5f, 0.75f); return; }
-    if (std::strcmp(key, "seq_length") == 0) { instance->sequenceLength = clampValue(parseInteger(value, instance->sequenceLength), 1, static_cast<int>(kSequenceStepCount)); instance->markPersistentStateDirty(); return; }
-    if (std::strcmp(key, "seq_gate") == 0) { instance->setSequenceGate(parseFloat(value, instance->sequenceGate * 100.0f)); return; }
-    if (std::strcmp(key, "seq_page") == 0) { instance->sequencePage = clampValue(parseInteger(value, instance->sequencePage + 1) - 1, 0, static_cast<int>(kSequencePageCount) - 1); return; }
-    if (std::strcmp(key, "seq_edit_step") == 0) { instance->sequenceEditStep = clampValue(parseInteger(value, instance->sequenceEditStep), 0, static_cast<int>(kSequenceStepCount) - 1); return; }
-    if (std::strcmp(key, "seq_probability") == 0) { instance->setSequenceProbability(parseInteger(value, 100)); return; }
-    if (std::strcmp(key, "seq_ratchets") == 0) { instance->setSequenceRatchets(parseInteger(value, 1)); return; }
-    if (std::strcmp(key, "seq_micro") == 0) { instance->setSequenceMicroTiming(parseInteger(value, 0)); return; }
-    if (std::strcmp(key, "automation_record") == 0) { instance->automationRecord = isTruthy(value); instance->markPersistentStateDirty(); return; }
-    if (std::strcmp(key, "seq_capture") == 0) { if (isTruthy(value)) instance->commitPerformanceCapture(); return; }
+    if (std::strcmp(key, "clip_playing") == 0) { instance->setClipPlaying(isTruthy(value)); return; }
+    if (std::strcmp(key, "tempo_bpm") == 0) { instance->tempoBpm = clampValue(parseFloat(value, instance->tempoBpm), 40.0f, 240.0f); return; }
+    if (std::strcmp(key, "tempo_swing") == 0) { instance->tempoSwing = clampValue(parseFloat(value, instance->tempoSwing * 100.0f) / 100.0f, 0.5f, 0.75f); return; }
     if (std::strcmp(key, "undo") == 0) { if (isTruthy(value)) instance->restoreUndo(); return; }
     if (std::strcmp(key, "maintenance") == 0) { if (isTruthy(value)) instance->serviceMaintenance(); return; }
     if (std::strcmp(key, "performance_reset") == 0) { if (isTruthy(value)) { instance->maximumRenderMicros.store(0u, std::memory_order_relaxed); instance->renderOverruns.store(0u, std::memory_order_relaxed); } return; }
@@ -5748,67 +4690,6 @@ void setParam(void* opaque, const char* key, const char* value)
     if (std::strcmp(key, "chain_pattern") == 0) { const auto& entry = instance->patternChain[static_cast<std::size_t>(instance->chainEditSlot)]; instance->setChainEntry(instance->chainEditSlot, clampValue(parseInteger(value, static_cast<int>(entry.pattern) + 1) - 1, 0, static_cast<int>(kPatternCount) - 1), entry.repeats); return; }
     if (std::strcmp(key, "chain_repeats") == 0) { const auto& entry = instance->patternChain[static_cast<std::size_t>(instance->chainEditSlot)]; instance->setChainEntry(instance->chainEditSlot, entry.pattern, parseInteger(value, entry.repeats)); return; }
     if (std::strcmp(key, "chain_clear") == 0) { if (isTruthy(value)) instance->clearChainEntry(instance->chainEditSlot); return; }
-    if (std::strcmp(key, "seq_toggle_step") == 0) { instance->toggleSequenceStep(parseInteger(value, -1)); return; }
-    if (std::strcmp(key, "seq_note") == 0) {
-        int step = -1;
-        int note = instance->rootNote;
-        int velocity = 100;
-        if (std::sscanf(value, "%d,%d,%d", &step, &note, &velocity) >= 2) {
-            instance->setSequenceNote(step, note, velocity);
-        }
-        return;
-    }
-    if (std::strcmp(key, "seq_note_toggle") == 0) {
-        int step = -1;
-        int note = instance->rootNote;
-        int velocity = 100;
-        if (std::sscanf(value, "%d,%d,%d", &step, &note, &velocity) >= 2) {
-            instance->toggleSequenceNote(step, note, velocity);
-        }
-        return;
-    }
-    if (std::strcmp(key, "seq_note_pad_toggle") == 0) {
-        int step = -1;
-        int pad = -1;
-        int note = instance->rootNote;
-        int velocity = 100;
-        if (std::sscanf(value, "%d,%d,%d,%d", &step, &pad, &note, &velocity)
-            >= 3) {
-            instance->toggleSequencePadNote(step, pad, note, velocity);
-        }
-        return;
-    }
-    if (std::strcmp(key, "seq_note_length") == 0) {
-        int step = -1;
-        int pad = -1;
-        int length = 1;
-        if (std::sscanf(value, "%d,%d,%d", &step, &pad, &length) == 3) {
-            instance->setSequenceNoteLength(step, pad, length);
-        }
-        return;
-    }
-    if (std::strcmp(key, "seq_step_gate") == 0) {
-        int step = -1;
-        float gate = instance->sequenceGate * 100.0f;
-        if (std::sscanf(value, "%d,%f", &step, &gate) == 2
-            && std::isfinite(gate)) {
-            instance->setSequenceStepGate(step, gate);
-        }
-        return;
-    }
-    if (std::strcmp(key, "seq_lock") == 0) {
-        int step = -1;
-        float lockValue = 0.0f;
-        char lockKey[32] {};
-        if (std::sscanf(value, "%d,%31[^,],%f", &step, lockKey, &lockValue) == 3
-            && std::isfinite(lockValue)) {
-            instance->setSequenceLock(step, lockKey, lockValue);
-        }
-        return;
-    }
-    if (std::strcmp(key, "seq_clear_locks") == 0) { instance->clearSequenceLocks(parseInteger(value, -1)); return; }
-    if (std::strcmp(key, "seq_clear_step") == 0) { instance->clearSequenceStep(parseInteger(value, -1)); return; }
-    if (std::strcmp(key, "seq_clear") == 0) { if (isTruthy(value)) instance->clearSequence(); return; }
     if (std::strcmp(key, "pattern_select") == 0) {
         instance->selectPattern(parseInteger(value, -1));
         return;
@@ -5999,32 +4880,6 @@ int getParam(void* opaque, const char* key, char* buffer, int bufferLength)
         instance->planeCapacityFrames * kChannelCount * sizeof(float),
         instance->planeCapacityFrames * kChannelCount * sizeof(float),
         instance->planeCapacityFrames * sizeof(float));
-    if (std::strcmp(key, "seq_state") == 0) return std::snprintf(
-        buffer, bufferLength, "%d,%d,%u,%.2f,%d,%.2f,%.2f,%d",
-        instance->sequenceRunning ? 1 : 0, instance->sequenceCurrentStep,
-        instance->sequenceMask(), instance->sequenceBpm,
-        instance->sequenceLength, instance->sequenceSwing * 100.0f,
-        instance->sequenceGate * 100.0f, instance->sequencePage + 1);
-    if (std::strcmp(key, "seq_locks") == 0) {
-        return instance->formatSequenceLocks(buffer, bufferLength);
-    }
-    if (std::strcmp(key, "seq_locks_hi") == 0) {
-        return instance->formatSequenceLocksHigh(buffer, bufferLength);
-    }
-    if (std::strcmp(key, "seq_locks_x") == 0) {
-        return instance->formatSequenceLocksExtra(buffer, bufferLength);
-    }
-    if (std::strcmp(key, "seq_note_counts") == 0) {
-        return instance->formatSequenceNoteCounts(buffer, bufferLength);
-    }
-    if (std::strcmp(key, "seq_pad_masks") == 0) {
-        return instance->formatSequencePadMasks(buffer, bufferLength);
-    }
-    if (std::strcmp(key, "seq_open_mask") == 0) return std::snprintf(
-        buffer, bufferLength, "%u", instance->sequenceOpenPadMask());
-    if (std::strcmp(key, "seq_open_steps") == 0) {
-        return instance->formatSequenceOpenSteps(buffer, bufferLength);
-    }
     if (std::strcmp(key, "chain_state") == 0) return std::snprintf(
         buffer, bufferLength, "%d,%d,%d,%d",
         instance->chainEnabled ? 1 : 0, instance->chainPosition,
@@ -6107,7 +4962,7 @@ int getParam(void* opaque, const char* key, char* buffer, int bufferLength)
     if (std::strcmp(key, "preview_level") == 0) return std::snprintf(buffer, bufferLength, "%.4f", instance->previewLevel);
     if (std::strcmp(key, "clip_rate") == 0) { const Pattern* pattern = instance->activeClipPattern(); return std::snprintf(buffer, bufferLength, "%.4f", pattern ? pattern->clipRate : 1.0f); }
     if (std::strcmp(key, "clip_record_mode") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(instance->clipRecordMode));
-    if (std::strcmp(key, "clip_state") == 0) { const Pattern* pattern = instance->activeClipPattern(); const std::uint32_t duration = pattern ? pattern->clipDurationMs : 0u; const int position = duration != 0u ? static_cast<int>(std::lround(clampValue(instance->clipPositionMs / static_cast<double>(duration), 0.0, 1.0) * 1000.0)) : 0; return std::snprintf(buffer, bufferLength, "%d,%d,%d,%d,%u,%u,%u,%d", instance->clipRecording ? 1 : 0, instance->sequenceRunning ? 1 : 0, instance->clipReplacing ? 0 : 1, position, duration, pattern ? static_cast<unsigned>(pattern->clipNoteCount) : 0u, pattern ? static_cast<unsigned>(pattern->clipPointCount) : 0u, pattern ? static_cast<int>(std::lround(pattern->clipRate * 1000.0f)) : 1000); }
+    if (std::strcmp(key, "clip_state") == 0) { const Pattern* pattern = instance->activeClipPattern(); const std::uint32_t duration = pattern ? pattern->clipDurationMs : 0u; const int position = duration != 0u ? static_cast<int>(std::lround(clampValue(instance->clipPositionMs / static_cast<double>(duration), 0.0, 1.0) * 1000.0)) : 0; return std::snprintf(buffer, bufferLength, "%d,%d,%d,%d,%u,%u,%u,%d", instance->clipRecording ? 1 : 0, instance->clipPlaying ? 1 : 0, instance->clipReplacing ? 0 : 1, position, duration, pattern ? static_cast<unsigned>(pattern->clipNoteCount) : 0u, pattern ? static_cast<unsigned>(pattern->clipPointCount) : 0u, pattern ? static_cast<int>(std::lround(pattern->clipRate * 1000.0f)) : 1000); }
     if (std::strcmp(key, "join") == 0) return std::snprintf(buffer, bufferLength, "%.4f", controls.join);
     if (std::strcmp(key, "output_gain") == 0) return std::snprintf(buffer, bufferLength, "%.4f", instance->outputGain);
     if (std::strcmp(key, "pressure_mode") == 0) return std::snprintf(buffer, bufferLength, "%d", instance->pressureMode);
@@ -6124,16 +4979,9 @@ int getParam(void* opaque, const char* key, char* buffer, int bufferLength)
     if (std::strcmp(key, "sample_trim_start") == 0) return std::snprintf(buffer, bufferLength, "%.4f", instance->sampleTrimStart);
     if (std::strcmp(key, "sample_trim_end") == 0) return std::snprintf(buffer, bufferLength, "%.4f", instance->sampleTrimEnd);
     if (std::strcmp(key, "sample_reverse") == 0 || std::strcmp(key, "sample_normalize") == 0 || std::strcmp(key, "sample_fade") == 0 || std::strcmp(key, "sample_trim_apply") == 0) return std::snprintf(buffer, bufferLength, "0");
-    if (std::strcmp(key, "seq_running") == 0) return std::snprintf(buffer, bufferLength, "%d", instance->sequenceRunning ? 1 : 0);
-    if (std::strcmp(key, "seq_bpm") == 0) return std::snprintf(buffer, bufferLength, "%.2f", instance->sequenceBpm);
-    if (std::strcmp(key, "seq_swing") == 0) return std::snprintf(buffer, bufferLength, "%.2f", instance->sequenceSwing * 100.0f);
-    if (std::strcmp(key, "seq_length") == 0) return std::snprintf(buffer, bufferLength, "%d", instance->sequenceLength);
-    if (std::strcmp(key, "seq_gate") == 0) return std::snprintf(buffer, bufferLength, "%.2f", instance->sequenceGate * 100.0f);
-    if (std::strcmp(key, "seq_page") == 0) return std::snprintf(buffer, bufferLength, "%d", instance->sequencePage + 1);
-    if (std::strcmp(key, "seq_probability") == 0) return std::snprintf(buffer, bufferLength, "%u", static_cast<unsigned>(instance->sequence[static_cast<std::size_t>(clampValue(instance->sequenceEditStep, 0, static_cast<int>(kSequenceStepCount) - 1))].probability));
-    if (std::strcmp(key, "seq_ratchets") == 0) return std::snprintf(buffer, bufferLength, "%u", static_cast<unsigned>(instance->sequence[static_cast<std::size_t>(clampValue(instance->sequenceEditStep, 0, static_cast<int>(kSequenceStepCount) - 1))].ratchets));
-    if (std::strcmp(key, "seq_micro") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(instance->sequence[static_cast<std::size_t>(clampValue(instance->sequenceEditStep, 0, static_cast<int>(kSequenceStepCount) - 1))].microTiming));
-    if (std::strcmp(key, "automation_record") == 0) return std::snprintf(buffer, bufferLength, "%d", instance->automationRecord ? 1 : 0);
+    if (std::strcmp(key, "clip_playing") == 0) return std::snprintf(buffer, bufferLength, "%d", instance->clipPlaying ? 1 : 0);
+    if (std::strcmp(key, "tempo_bpm") == 0) return std::snprintf(buffer, bufferLength, "%.2f", instance->tempoBpm);
+    if (std::strcmp(key, "tempo_swing") == 0) return std::snprintf(buffer, bufferLength, "%.2f", instance->tempoSwing * 100.0f);
     if (std::strcmp(key, "chain_enabled") == 0) return std::snprintf(buffer, bufferLength, "%d", instance->chainEnabled ? 1 : 0);
     if (std::strcmp(key, "chain_slot") == 0) return std::snprintf(buffer, bufferLength, "%d", instance->chainEditSlot + 1);
     if (std::strcmp(key, "chain_pattern") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(instance->patternChain[static_cast<std::size_t>(instance->chainEditSlot)].pattern) + 1);

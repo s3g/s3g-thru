@@ -49,17 +49,9 @@ const params = {
     playheads: '100,700,-1,-1,-1,-1,-1,-1',
     voice_lanes: '333,800,-1,-1,-1,-1,-1,-1',
     voice_pads: '-1,-1,-1,-1,-1,-1,-1,-1',
-    seq_bpm: '120', seq_swing: '50', seq_length: '16', seq_gate: '80',
-    seq_page: '1', seq_probability: '100', seq_ratchets: '1', seq_micro: '0',
-    automation_record: '0', chain_enabled: '0', chain_slot: '1',
+    tempo_bpm: '120', tempo_swing: '50',
+    chain_enabled: '0', chain_slot: '1',
     chain_pattern: '1', chain_repeats: '1',
-    seq_state: '0,-1,0,120,16,50,80,1',
-    seq_locks: Array(16).fill('0').join(','),
-    seq_locks_hi: Array(16).fill('0').join(','),
-    seq_locks_x: Array(16).fill('0').join(','),
-    seq_note_counts: Array(16).fill('0').join(','),
-    seq_pad_masks: Array(16).fill('0').join(','),
-    seq_open_mask: '0',
     pattern_state: '0,-1,1,0',
     sample_load_state: '0,1,0,',
     region_state: '2,0,500,1000', pad_mode: '0',
@@ -78,11 +70,7 @@ globalThis.host_module_set_param = (key, value) => {
 globalThis.host_module_set_param_blocking = (key, value) => {
     blockingWrites.push([key, value]);
     if (Object.hasOwn(params, key)) params[key] = value;
-    if (key === 'seq_running') {
-        const values = params.seq_state.split(',');
-        values[0] = value;
-        if (value === '0') values[1] = '-1';
-        params.seq_state = values.join(',');
+    if (key === 'clip_playing') {
         const clip = params.clip_state.split(',');
         clip[1] = value;
         params.clip_state = clip.join(',');
@@ -93,33 +81,6 @@ globalThis.host_module_set_param_blocking = (key, value) => {
         clip[0] = recording ? '0' : '1';
         clip[1] = recording ? '1' : (params.clip_record_mode === '1' ? '1' : '0');
         params.clip_state = clip.join(',');
-    }
-    if (key === 'seq_page') {
-        const values = params.seq_state.split(',');
-        values[7] = value;
-        params.seq_state = values.join(',');
-    }
-    if (key === 'seq_note_pad_toggle') {
-        const [step, pad] = String(value).split(',').map(Number);
-        const masks = params.seq_pad_masks.split(',').map(Number);
-        const counts = params.seq_note_counts.split(',').map(Number);
-        const bit = (1 << pad) >>> 0;
-        if ((masks[step] & bit) !== 0) {
-            masks[step] = (masks[step] & ~bit) >>> 0;
-            counts[step]--;
-            params.seq_open_mask = String((Number(params.seq_open_mask) & ~bit) >>> 0);
-        } else {
-            masks[step] = (masks[step] | bit) >>> 0;
-            counts[step]++;
-            params.seq_open_mask = String((Number(params.seq_open_mask) | bit) >>> 0);
-        }
-        params.seq_pad_masks = masks.join(',');
-        params.seq_note_counts = counts.join(',');
-    }
-    if (key === 'seq_note_length') {
-        const pad = Number(String(value).split(',')[1]);
-        params.seq_open_mask = String(
-            (Number(params.seq_open_mask) & ~((1 << pad) >>> 0)) >>> 0);
     }
 };
 globalThis.host_exit_module = () => { exitCount++; };
@@ -259,10 +220,18 @@ assert(String(lanesHeader?.[3]).includes('LANES PATH 2/7'));
 assert(!drawWrites.slice(lanesPageDrawStart).some((write) =>
     write[0] === 'print' && String(write[3]).includes('GRAIN')));
 
+/* The Chain page exposes an explicit slot clear instead of a compatibility
+   command hidden from the takeover surface. */
+for (let page = 0; page < 5; page++) {
+    globalThis.onMidiMessageInternal([0xB0, 55, 127]);
+}
+globalThis.onMidiMessageInternal([0xB0, 75, 1]);
+assert.deepEqual(blockingWrites.pop(), ['chain_clear', '1']);
+
 globalThis.onMidiMessageInternal([0xB0, 85, 127]);
-assert.deepEqual(blockingWrites.pop(), ['seq_running', '0']);
+assert.deepEqual(blockingWrites.pop(), ['clip_playing', '0']);
 globalThis.onMidiMessageInternal([0xB0, 85, 127]);
-assert.deepEqual(blockingWrites.pop(), ['seq_running', '1']);
+assert.deepEqual(blockingWrites.pop(), ['clip_playing', '1']);
 for (let tick = 0; tick < 3; tick++) globalThis.tick();
 assert.deepEqual(buttonWrites.filter((write) => write[0] === 85).at(-1),
     [85, 11], 'Play should turn green for a running performance loop');

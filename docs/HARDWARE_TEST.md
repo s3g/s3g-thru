@@ -102,9 +102,10 @@ working Schwung installation and do this pass with headphones first.
 18. On the Sample page, test trim, reverse, normalization, and edge fade on a
     disposable capture. Confirm Undo restores the preceding source and that an
     edited capture survives reopen.
-19. Connect the programmed external controller. Test CC 20–51, compatibility
-    CC 54–68, engine controls CC 69–113, and loop controls CC 114–117 at both
-    endpoints; test CC 52 as an audio record gate and CC 53 as a clear trigger. Confirm
+19. Connect the programmed external controller. Test CC 20–51, performance and
+    chain controls CC 54–58 and CC 65–68, engine controls CC 69–113, and loop
+    controls CC 114–117 at both endpoints; test CC 52 as an audio record gate
+    and CC 53 as a clear trigger. Confirm
     Move's own Menu/Back/Shift buttons do not alter mapped parameters.
 20. Open Help and record its maximum render-time and overrun counters while
     holding eight dense Grains voices and switching prepared patterns. Return

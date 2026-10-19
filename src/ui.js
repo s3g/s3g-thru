@@ -1,4 +1,4 @@
-/* S3G Thru 0.16.1 — polyphonic sampler/performance-looper takeover for Move. */
+/* S3G Thru 0.17.0 — polyphonic sampler/performance-looper takeover for Move. */
 
 import * as moveConstants from '/data/UserData/schwung/shared/constants.mjs';
 import * as moveInputFilter from '/data/UserData/schwung/shared/input_filter.mjs';
@@ -149,19 +149,13 @@ const PARAMS = {
     monitor_level: { key: 'monitor_level', label: 'MONITOR', min: 0, max: 1, step: 0.01, value: 0 },
     clip_rate: { key: 'clip_rate', label: 'LOOP RATE', min: 0.25, max: 4, step: 0.05, value: 1 },
     clip_record_mode: { key: 'clip_record_mode', label: 'REC MODE', min: 0, max: 1, step: 1, value: 0, integer: true, labels: ['REPLACE', 'OVERDUB'] },
-    seq_bpm: { key: 'seq_bpm', label: 'TEMPO', min: 40, max: 240, step: 1, value: 120, integer: true },
-    seq_swing: { key: 'seq_swing', label: 'SWING', min: 50, max: 75, step: 1, value: 50, integer: true },
-    seq_length: { key: 'seq_length', label: 'LENGTH', min: 1, max: 64, step: 1, value: 16, integer: true },
-    seq_gate: { key: 'seq_gate', label: 'GATE', min: 5, max: 800, step: 5, value: 80, integer: true },
-    seq_page: { key: 'seq_page', label: 'STEP PAGE', min: 1, max: 4, step: 1, value: 1, integer: true },
-    seq_probability: { key: 'seq_probability', label: 'PROBABILITY', min: 0, max: 100, step: 1, value: 100, integer: true },
-    seq_ratchets: { key: 'seq_ratchets', label: 'RATCHETS', min: 1, max: 4, step: 1, value: 1, integer: true },
-    seq_micro: { key: 'seq_micro', label: 'MICRO', min: -49, max: 49, step: 1, value: 0, integer: true },
-    automation_record: { key: 'automation_record', label: 'AUTOMATION', min: 0, max: 1, step: 1, value: 0, integer: true, labels: ['OFF', 'REC'] },
+    tempo_bpm: { key: 'tempo_bpm', label: 'TEMPO', min: 40, max: 240, step: 1, value: 120, integer: true },
+    tempo_swing: { key: 'tempo_swing', label: 'SWING', min: 50, max: 75, step: 1, value: 50, integer: true },
     chain_enabled: { key: 'chain_enabled', label: 'CHAIN', min: 0, max: 1, step: 1, value: 0, integer: true, labels: ['OFF', 'ON'] },
     chain_slot: { key: 'chain_slot', label: 'CHAIN SLOT', min: 1, max: 16, step: 1, value: 1, integer: true },
     chain_pattern: { key: 'chain_pattern', label: 'PATTERN', min: 1, max: 64, step: 1, value: 1, integer: true },
     chain_repeats: { key: 'chain_repeats', label: 'REPEATS', min: 1, max: 16, step: 1, value: 1, integer: true },
+    chain_clear: { key: 'chain_clear', label: 'CLEAR SLOT', min: 0, max: 1, step: 1, value: 0, integer: true, labels: ['TURN', 'CLEAR'], momentary: true },
     sample_trim_start: { key: 'sample_trim_start', label: 'TRIM START', min: 0, max: 0.99, step: 0.01, value: 0 },
     sample_trim_end: { key: 'sample_trim_end', label: 'TRIM END', min: 0.01, max: 1, step: 0.01, value: 1 },
     sample_reverse: { key: 'sample_reverse', label: 'REVERSE', min: 0, max: 1, step: 1, value: 0, integer: true, labels: ['TURN', 'APPLY'], momentary: true, result: 'REVERSED' },
@@ -237,10 +231,10 @@ const SAMPLE_PAGE = { title: 'SAMPLE EDIT', keys: ['sample_trim_start',
     'sample_trim_end', 'sample_trim_apply', 'sample_reverse',
     'sample_normalize', 'sample_fade', 'record_gain', 'output_gain'] };
 const LOOP_PAGE = { title: 'PERFORMANCE LOOP', keys: ['clip_rate',
-    'clip_record_mode', 'pressure_mode', 'root_note', 'chain_enabled',
-    'chain_slot', 'chain_pattern', 'chain_repeats'] };
+    'clip_record_mode', 'tempo_bpm', 'tempo_swing', 'pressure_mode',
+    'root_note', 'output_gain', 'join'] };
 const CHAIN_PAGE = { title: 'CHAIN', keys: ['chain_enabled', 'chain_slot',
-    'chain_pattern', 'chain_repeats', 'root_note', 'algorithm', 'join',
+    'chain_pattern', 'chain_repeats', 'chain_clear', 'algorithm', 'join',
     'output_gain'] };
 
 const LOCKABLE_KEYS = [
@@ -294,10 +288,9 @@ const SHORT_LABELS = {
     pressure_mode: 'PRES', root_note: 'ROOT', record_gain: 'REC',
     record_source: 'SRC', monitor_level: 'MON', clip_rate: 'RATE',
     clip_record_mode: 'MODE',
-    seq_bpm: 'BPM', seq_swing: 'SWNG', seq_length: 'LEN', seq_gate: 'GATE',
-    seq_page: 'PAGE', seq_probability: 'PROB', seq_ratchets: 'RATC',
-    seq_micro: 'MICR', automation_record: 'AUTO', chain_enabled: 'CHN',
+    tempo_bpm: 'BPM', tempo_swing: 'SWNG', chain_enabled: 'CHN',
     chain_slot: 'SLOT', chain_pattern: 'PATT', chain_repeats: 'REPT',
+    chain_clear: 'CLR',
     sample_trim_start: 'STRT', sample_trim_end: 'END',
     sample_trim_apply: 'TRIM', sample_reverse: 'REV',
     sample_normalize: 'NORM', sample_fade: 'FADE',
@@ -339,15 +332,6 @@ const state = {
     ledSent: new Map(),
     ledOrder: 0,
     activePads: new Set(),
-    heldStep: -1,
-    selectedStep: -1,
-    pendingNotes: new Map(),
-    stepGestureUsed: false,
-    sequenceRunning: false,
-    sequenceStep: -1,
-    sequenceMask: 0,
-    sequenceLength: 16,
-    sequencePage: 0,
     clipRecording: false,
     clipPlaying: false,
     clipOverdub: false,
@@ -356,12 +340,6 @@ const state = {
     clipNoteCount: 0,
     clipPointCount: 0,
     clipRate: 1,
-    stepLockMasks: Array(16).fill(0),
-    stepLockMasksHigh: Array(16).fill(0),
-    stepLockMasksExtra: Array(16).fill(0),
-    stepNoteCounts: Array(16).fill(0),
-    stepPadMasks: Array(16).fill(0),
-    stepLocks: Array.from({ length: 16 }, () => Object.create(null)),
     activePattern: 0,
     queuedPattern: -1,
     patternBank: 0,
@@ -379,7 +357,6 @@ const state = {
     chainPosition: 0,
     chainRepeat: 0,
     chainSlot: 0,
-    automationRecord: false,
     undoAvailable: false,
     maximumRenderMicros: 0,
     renderOverruns: 0,
@@ -413,15 +390,6 @@ function parseCueState(text) {
 
 function clamp(value, low, high) {
     return Math.max(low, Math.min(high, value));
-}
-
-function visibleStep(index) {
-    return state.sequencePage * 16 + clamp(index | 0, 0, 15);
-}
-
-function localStep(index) {
-    return index >= 0 && Math.floor(index / 16) === state.sequencePage
-        ? index % 16 : -1;
 }
 
 function decodeDelta(value) {
@@ -546,35 +514,6 @@ function parseWaveforms(text) {
     state.waves = decoded;
 }
 
-function parseSequenceState(text) {
-    const values = String(text || '').split(',').map((item) => Number(item));
-    if (values.length < 7 || !values.every((value) => Number.isFinite(value))) return;
-    const previousRunning = state.sequenceRunning;
-    const previousStep = state.sequenceStep;
-    const previousMask = state.sequenceMask;
-    let pageChanged = false;
-    state.sequenceRunning = values[0] !== 0;
-    state.sequenceStep = clamp(values[1] | 0, -1, 63);
-    state.sequenceMask = values[2] | 0;
-    state.sequenceLength = clamp(values[4] | 0, 1, 64);
-    PARAMS.seq_bpm.value = clamp(values[3], 40, 240);
-    PARAMS.seq_length.value = state.sequenceLength;
-    PARAMS.seq_swing.value = clamp(values[5], 50, 75);
-    PARAMS.seq_gate.value = clamp(values[6], 5, 800);
-    if (values.length >= 8) {
-        const page = clamp((values[7] | 0) - 1, 0, 3);
-        if (page !== state.sequencePage) {
-            state.sequencePage = page;
-            PARAMS.seq_page.value = page + 1;
-            state.selectedStep = -1;
-            pageChanged = true;
-        }
-    }
-    if (previousRunning !== state.sequenceRunning
-        || previousStep !== state.sequenceStep
-        || previousMask !== state.sequenceMask || pageChanged) rebuildLedQueue();
-}
-
 function parseClipState(text) {
     const values = String(text || '').split(',').map((item) => Number(item));
     if (values.length < 8 || !values.every((value) => Number.isFinite(value))) return;
@@ -582,7 +521,6 @@ function parseClipState(text) {
         state.clipPosition, state.clipDuration].join(',');
     state.clipRecording = values[0] !== 0;
     state.clipPlaying = values[1] !== 0;
-    state.sequenceRunning = state.clipPlaying;
     state.clipOverdub = values[2] !== 0;
     state.clipPosition = clamp(values[3] / 1000, 0, 1);
     state.clipDuration = Math.max(0, values[4] | 0);
@@ -592,123 +530,6 @@ function parseClipState(text) {
     PARAMS.clip_rate.value = state.clipRate;
     if (previous !== [state.clipRecording, state.clipPlaying,
         state.clipPosition, state.clipDuration].join(',')) rebuildLedQueue();
-}
-
-function parseSequenceLocks(text) {
-    const values = String(text || '').split(',').map((item) => Number(item));
-    if (values.length < 16) return;
-    let changed = false;
-    for (let index = 0; index < 16; index++) {
-        const mask = Number.isFinite(values[index]) ? values[index] >>> 0 : 0;
-        if (state.stepLockMasks[index] !== mask) changed = true;
-        state.stepLockMasks[index] = mask;
-    }
-    if (changed) rebuildLedQueue();
-}
-
-function parseSequenceLocksHigh(text) {
-    const values = String(text || '').split(',').map((item) => Number(item));
-    if (values.length < 16) return;
-    let changed = false;
-    for (let index = 0; index < 16; index++) {
-        const mask = Number.isFinite(values[index]) ? values[index] >>> 0 : 0;
-        if (state.stepLockMasksHigh[index] !== mask) changed = true;
-        state.stepLockMasksHigh[index] = mask;
-    }
-    if (changed) rebuildLedQueue();
-}
-
-function parseSequenceLocksExtra(text) {
-    const values = String(text || '').split(',').map((item) => Number(item));
-    if (values.length < 16) return;
-    let changed = false;
-    for (let index = 0; index < 16; index++) {
-        const mask = Number.isFinite(values[index]) ? values[index] >>> 0 : 0;
-        if (state.stepLockMasksExtra[index] !== mask) changed = true;
-        state.stepLockMasksExtra[index] = mask;
-    }
-    if (changed) rebuildLedQueue();
-}
-
-function stepHasLock(local, lockIndex) {
-    if (local < 0 || lockIndex < 0) return false;
-    if (lockIndex < 32) {
-        return (state.stepLockMasks[local] & (1 << lockIndex)) !== 0;
-    }
-    if (lockIndex < 64) {
-        return (state.stepLockMasksHigh[local] & (1 << (lockIndex - 32))) !== 0;
-    }
-    return (state.stepLockMasksExtra[local] & (1 << (lockIndex - 64))) !== 0;
-}
-
-function markStepLock(local, lockIndex) {
-    if (local < 0 || lockIndex < 0) return;
-    if (lockIndex < 32) state.stepLockMasks[local] |= 1 << lockIndex;
-    else if (lockIndex < 64) state.stepLockMasksHigh[local] |= 1 << (lockIndex - 32);
-    else state.stepLockMasksExtra[local] |= 1 << (lockIndex - 64);
-}
-
-function stepHasAnyLocks(local) {
-    return local >= 0 && (state.stepLockMasks[local] !== 0
-        || state.stepLockMasksHigh[local] !== 0
-        || state.stepLockMasksExtra[local] !== 0);
-}
-
-function parseSequenceNoteCounts(text) {
-    const values = String(text || '').split(',').map((item) => Number(item));
-    if (values.length < 16) return;
-    for (let index = 0; index < 16; index++) {
-        state.stepNoteCounts[index] = Number.isFinite(values[index])
-            ? clamp(values[index] | 0, 0, 8) : 0;
-    }
-}
-
-function parseSequencePadMasks(text) {
-    const values = String(text || '').split(',').map((item) => Number(item));
-    if (values.length < 16) return;
-    let changed = false;
-    for (let index = 0; index < 16; index++) {
-        const mask = Number.isFinite(values[index]) ? values[index] >>> 0 : 0;
-        if (state.stepPadMasks[index] !== mask) changed = true;
-        state.stepPadMasks[index] = mask;
-    }
-    if (changed) rebuildLedQueue();
-}
-
-function parseSequenceOpenMask(text) {
-    if (text == null || String(text) === '') return;
-    const openMask = Number(text) >>> 0;
-    const pending = new Map();
-    for (let pad = 0; pad < 32; pad++) {
-        if (((openMask >>> pad) & 1) === 0) continue;
-        for (let step = 0; step < 16; step++) {
-            if (((state.stepPadMasks[step] >>> pad) & 1) === 0) continue;
-            pending.set(pad, { startStep: visibleStep(step), padIndex: pad,
-                note: padMidiNote(pad) });
-            break;
-        }
-    }
-    const before = [...state.pendingNotes.keys()].join(',');
-    state.pendingNotes = pending;
-    if (before !== [...pending.keys()].join(',')) rebuildLedQueue();
-}
-
-function parseSequenceOpenSteps(text) {
-    const values = String(text || '').split(',').map((item) => Number(item));
-    if (values.length < 32) return;
-    const pending = new Map();
-    for (let pad = 0; pad < 32; pad++) {
-        const step = values[pad];
-        if (!Number.isFinite(step) || step < 0 || step >= 64) continue;
-        pending.set(pad, { startStep: step | 0, padIndex: pad,
-            note: padMidiNote(pad) });
-    }
-    const before = [...state.pendingNotes.entries()].map(([pad, event]) =>
-        pad + ':' + event.startStep).join(',');
-    const after = [...pending.entries()].map(([pad, event]) =>
-        pad + ':' + event.startStep).join(',');
-    state.pendingNotes = pending;
-    if (before !== after) rebuildLedQueue();
 }
 
 function parsePatternState(text) {
@@ -733,7 +554,6 @@ function parsePatternState(text) {
                 control.min, control.max);
         }
         state.algorithm = Math.round(PARAMS.algorithm.value);
-        state.selectedStep = -1;
     }
     if (changed) rebuildLedQueue();
 }
@@ -791,7 +611,6 @@ function padColor(index) {
     for (let voice = 0; voice < state.voicePads.length; voice++) {
         if (state.voicePads[voice] === index) return VOICE_COLORS[voice];
     }
-    if (state.pendingNotes.has(index)) return BrightOrange;
     if (state.padMode === 2) {
         if (index >= 8) return Black;
         if (state.activePads.has(MovePads[index])) return Cyan;
@@ -1040,27 +859,15 @@ function compactControlValue(control) {
     return control.value.toFixed(2).slice(0, 4);
 }
 
-function lockedControlValue(step, control) {
-    if (step < 0 || !control) return control ? control.value : 0;
-    const local = localStep(step);
-    if (local < 0) return control.value;
-    const value = state.stepLocks[local][control.key];
-    return Number.isFinite(value) ? value : control.value;
-}
-
-function drawParameterCell(index, control, locked, editStep) {
+function drawParameterCell(index, control) {
     const column = index % 4;
     const row = Math.floor(index / 4);
     const x = column * 32;
     const y = 13 + row * 26;
     const label = String(SHORT_LABELS[control.key] || control.label).slice(0, 4);
-    const shown = Object.assign({}, control, {
-        value: lockedControlValue(editStep, control),
-    });
-    const value = compactControlValue(shown);
+    const value = compactControlValue(control);
     print(x + 3, y, label, 1);
     print(x + 3, y + 11, value, 1);
-    if (locked) drawRect(x + 29, y, 2, 2, 1);
 }
 
 function drawSettings() {
@@ -1078,7 +885,7 @@ function drawSettings() {
         const key = page.keys[index];
         if (!key) continue;
         const control = PARAMS[key];
-        drawParameterCell(index, control, false, -1);
+        drawParameterCell(index, control);
     }
 }
 
@@ -1281,7 +1088,6 @@ function togglePatternView() {
         state.view = 'main';
     } else {
         state.patternBank = Math.floor(state.activePattern / 16);
-        state.heldStep = -1;
         state.view = 'patterns';
     }
     rebuildLedQueue();
@@ -1305,8 +1111,6 @@ function selectPatternSlot(step) {
         setParamBlocking('maintenance', 1);
         setParamBlocking('pattern_select', pattern);
         state.queuedPattern = pattern === state.activePattern ? -1 : pattern;
-        state.selectedStep = -1;
-        state.pendingNotes.clear();
         showMessage((state.queuedPattern >= 0 ? 'PREPARING ' : 'CURRENT ')
             + patternLabel(pattern));
     }
@@ -1349,12 +1153,10 @@ function togglePerformanceRecording() {
     rebuildLedQueue();
 }
 
-function toggleSequenceRunning() {
-    state.sequenceRunning = !state.sequenceRunning;
-    if (!state.sequenceRunning) state.sequenceStep = -1;
-    setParamBlocking('seq_running', state.sequenceRunning ? 1 : 0);
-    state.clipPlaying = state.sequenceRunning;
-    showMessage(state.sequenceRunning ? 'LOOP PLAY' : 'LOOP STOP');
+function toggleClipPlaying() {
+    state.clipPlaying = !state.clipPlaying;
+    setParamBlocking('clip_playing', state.clipPlaying ? 1 : 0);
+    showMessage(state.clipPlaying ? 'LOOP PLAY' : 'LOOP STOP');
     rebuildLedQueue();
 }
 
@@ -1365,101 +1167,6 @@ function padMidiNote(padIndex) {
     const row = Math.floor(padIndex / 8);
     const column = padIndex % 8;
     return clamp(48 + state.octave * 12 + row * 5 + column, 0, 127);
-}
-
-function finishPendingNote(padIndex) {
-    const event = state.pendingNotes.get(padIndex);
-    if (!event || state.selectedStep < 0) return false;
-    let length = (state.selectedStep - event.startStep + state.sequenceLength)
-        % state.sequenceLength;
-    if (length === 0) length = state.sequenceLength;
-    setParamBlocking('seq_note_length', event.startStep + ','
-        + event.padIndex + ',' + length);
-    state.pendingNotes.delete(padIndex);
-    showMessage(noteName(event.note) + ' OFF S'
-        + String(state.selectedStep + 1).padStart(2, '0'));
-    rebuildLedQueue();
-    return true;
-}
-
-function clearSequenceStep(index) {
-    if (index < 0 || index >= 16) return;
-    const absolute = visibleStep(index);
-    setParamBlocking('seq_clear_step', absolute);
-    state.sequenceMask &= ~(1 << index);
-    state.stepLockMasks[index] = 0;
-    state.stepLockMasksHigh[index] = 0;
-    state.stepLockMasksExtra[index] = 0;
-    state.stepNoteCounts[index] = 0;
-    state.stepPadMasks[index] = 0;
-    state.stepLocks[index] = Object.create(null);
-    for (const [pad, event] of state.pendingNotes) {
-        if (event.startStep === absolute) state.pendingNotes.delete(pad);
-    }
-    showMessage('CLEARED STEP ' + String(absolute + 1).padStart(2, '0'));
-    rebuildLedQueue();
-}
-
-function selectSequenceStepAbsolute(absolute) {
-    if (absolute < 0 || absolute >= 64) return;
-    if (state.selectedStep === absolute) {
-        if (state.pendingNotes.size > 0) {
-            showMessage('TAP LIT PAD FOR NOTE OFF');
-        } else {
-            state.selectedStep = -1;
-            showMessage('NOTE EDIT OFF');
-        }
-    } else {
-        state.selectedStep = absolute;
-        setParam('seq_edit_step', absolute);
-        showMessage((state.pendingNotes.size > 0 ? 'NOTE OFF AT S' : 'NOTE ON AT S')
-            + String(absolute + 1).padStart(2, '0'));
-    }
-    rebuildLedQueue();
-}
-
-function selectSequenceStep(index) {
-    if (index < 0 || index >= 16) return;
-    selectSequenceStepAbsolute(visibleStep(index));
-}
-
-function assignSelectedStepNote(padIndex, velocity) {
-    if (state.selectedStep < 0) return false;
-    if (finishPendingNote(padIndex)) return true;
-    const startStep = state.selectedStep;
-    const startLocal = localStep(startStep);
-    if (startLocal < 0) return true;
-    const note = padMidiNote(padIndex);
-    const bit = (1 << padIndex) >>> 0;
-    const alreadyAssigned = (state.stepPadMasks[startLocal] & bit) !== 0;
-    if (!alreadyAssigned && state.stepNoteCounts[startLocal] >= 8) {
-        showMessage('S' + (startStep + 1) + ' HAS 8 NOTES');
-        return true;
-    }
-    setParamBlocking('seq_note_pad_toggle', startStep + ',' + padIndex + ','
-        + note + ',' + clamp(velocity | 0, 1, 127));
-    if (alreadyAssigned) {
-        state.stepPadMasks[startLocal] =
-            (state.stepPadMasks[startLocal] & ~bit) >>> 0;
-        state.stepNoteCounts[startLocal] = Math.max(
-            0, state.stepNoteCounts[startLocal] - 1);
-        state.pendingNotes.delete(padIndex);
-        if (state.stepNoteCounts[startLocal] === 0
-            && !stepHasAnyLocks(startLocal)) {
-            state.sequenceMask &= ~(1 << startLocal);
-        }
-        showMessage('S' + (startStep + 1) + ' REMOVE ' + noteName(note));
-    } else {
-        state.stepPadMasks[startLocal] =
-            (state.stepPadMasks[startLocal] | bit) >>> 0;
-        state.stepNoteCounts[startLocal]++;
-        state.sequenceMask |= 1 << startLocal;
-        state.pendingNotes.set(padIndex, { startStep, padIndex, note });
-        showMessage('S' + (startStep + 1) + ' ON ' + noteName(note)
-            + ' - CHOOSE END');
-    }
-    rebuildLedQueue();
-    return true;
 }
 
 function adjustOctave(delta) {
@@ -1520,6 +1227,13 @@ function adjustControl(index, delta) {
     const keys = activeControlKeys();
     const control = PARAMS[keys[index]];
     if (!control || delta === 0) return;
+    if (control.key === 'chain_clear') {
+        setParamBlocking('chain_clear', 1);
+        PARAMS.chain_pattern.value = 1;
+        PARAMS.chain_repeats.value = 1;
+        showActionMessage('CLEARED CHAIN ' + (state.chainSlot + 1));
+        return;
+    }
     if (control.momentary) {
         applyMomentaryControl(control);
         return;
@@ -1532,9 +1246,7 @@ function adjustControl(index, delta) {
         return;
     }
     setParam(control.key, value.toFixed(control.integer ? 0 : 4));
-    if (control.key === 'automation_record') {
-        state.automationRecord = value !== 0;
-    } else if (control.key === 'chain_enabled') {
+    if (control.key === 'chain_enabled') {
         state.chainEnabled = value !== 0;
     } else if (control.key === 'chain_slot') {
         state.chainSlot = clamp(Math.round(value) - 1, 0, 15);
@@ -1601,10 +1313,6 @@ globalThis.init = function() {
     state.actionMessageTicks = 0;
     state.shiftHeld = false;
     state.deleteHeld = false;
-    state.heldStep = -1;
-    state.selectedStep = -1;
-    state.pendingNotes.clear();
-    state.stepGestureUsed = false;
     state.activePads.clear();
     state.ledPending.clear();
     state.ledSent.clear();
@@ -1633,7 +1341,6 @@ globalThis.init = function() {
     state.laneSourceState = String(getParam('lane_source_state', 'EMPTY:EMPTY')
         || 'EMPTY:EMPTY');
     state.undoAvailable = getNumber('undo_available', 0) !== 0;
-    state.automationRecord = getNumber('automation_record', 0) !== 0;
     state.padMode = clamp(Math.round(getNumber('pad_mode', 0)), 0, 3);
     parseWaveforms(getParam('waveforms', ''));
     if (state.recalled) {
@@ -1673,7 +1380,7 @@ globalThis.onMidiMessageInternal = function(data) {
         if (pad >= 0) {
             if (pressed) {
                 state.activePads.add(number);
-                if (state.padMode === 2 && state.selectedStep < 0) {
+                if (state.padMode === 2) {
                     if (pad >= 8) {
                         showMessage('CUES USE PADS 1-8');
                         rebuildLedQueue();
@@ -1720,7 +1427,7 @@ globalThis.onMidiMessageInternal = function(data) {
     }
     if (number === MovePlay && value > 0) {
         if (state.shiftHeld) togglePatternView();
-        else toggleSequenceRunning();
+        else toggleClipPlaying();
         return;
     }
     if (value <= 0 && number !== MoveMainKnob

@@ -51,9 +51,8 @@ It is intentionally a new instrument rather than a Sample Neon variant.
 The composition layer has four banks (A-D) of 16 free-time performance clips.
 A 16-slot chain provides clip order and repeat counts, advancing at recorded
 loop boundaries. Live knob motion and per-pad pressure are captured with the
-notes. Legacy v1–v9 step patterns are converted to timed clips when recalled.
-Host/Move transport synchronization remains a later milestone; v0.16.1 uses
-each clip's own recorded duration.
+notes. Host/Move transport synchronization remains a later milestone; v0.17.0
+uses each clip's own recorded duration.
 Eight-voice realtime CPU behavior, particularly with the Grains engine, still
 needs acceptance on Move.
 
@@ -208,11 +207,13 @@ Use **Back** from the main waveform page for a normal save-and-exit. Autosave
 narrows the power-loss window, but power can still be removed before the next
 maintenance pass. Uninstalling the module
 can also remove its saved bank, so copy those files elsewhere before an
-uninstall or future clean reinstall. Pattern files from versions 1–9 remain
-readable. Their step notes and parameter locks are deterministically converted
-to timed performance events; v10 adds free-time clip notes, pressure/parameter
-points, duration, and playback rate while preserving cues, engine state, and
-lane ownership.
+uninstall or future clean reinstall.
+
+Version 0.17.0 deliberately starts a new pre-release persistence format.
+Earlier step-pattern and compatibility-era state files are not imported. Move
+or delete an older `thru-pattern.bin` and `thru-state.json` before first
+launch if they are present; stereo WAV captures can be copied into the User
+Library and loaded again.
 
 ## Performance controls
 
@@ -267,8 +268,7 @@ The Chain page edits a 16-slot clip list. Choose a slot, its A01–D16 clip, and
 repeat count from 1–16, then enable Chain. The chain advances only on complete
 recorded-loop boundaries and only after the next clip's sample bank is ready.
 Manual clip selection disables Chain so it cannot silently override the request.
-Legacy sequence parameters and MIDI CCs remain available for state/controller
-compatibility, but the takeover UI no longer edits the step grid.
+Turn Clear Slot on the Chain page to remove the selected chain entry.
 
 Strike velocity chooses an offset within the moving lane-stack cycle and poly
 aftertouch moves that offset while the note is held. The lane scan continues
@@ -315,14 +315,11 @@ MIDI-learn file.
 | 34 | Stretch ratio | 51 | Monitor level |
 | 35 | Lane 1 gain | 52 | Record gate (>=64 records) |
 | 36 | Lane 2 gain | 53 | Clear selected lane (>=64) |
-| 54 | Legacy sequence BPM | 56 | Legacy sequence length |
-| 55 | Legacy sequence swing | 57 | Legacy sequence gate 5–800% |
-| 58 | Legacy Step page 1–4 | 59 | Undo trigger |
-| 60 | Legacy Step probability | 61 | Legacy Step ratchets |
-| 62 | Legacy Step microtiming | 63 | Legacy automation record |
-| 64 | Legacy performance commit | 65 | Chain Off/On |
-| 66 | Chain slot 1–16 | 67 | Chain pattern A01–D16 |
-| 68 | Chain repeats 1–16 |  |  |
+| 54 | Tempo 40–240 BPM | 65 | Chain Off/On |
+| 55 | Tempo swing 50–75% | 66 | Chain slot 1–16 |
+| 56 | Performance playback Off/On | 67 | Chain pattern A01–D16 |
+| 57 | Undo trigger | 68 | Chain repeats 1–16 |
+| 58 | Clear selected chain slot |  |  |
 | 69 | Motion travel | 88 | Grain timing scatter |
 | 70 | Motion jitter | 89 | Grain envelope skew |
 | 71 | Packet duty | 90 | Grain process |

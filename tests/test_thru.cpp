@@ -189,6 +189,12 @@ int main()
     /* Every engine/global control has a stable absolute external MIDI CC.
        Internal Move CCs remain reserved for the takeover surface. */
     const std::string defaultState = get(api, instance, "state");
+    const std::string initialLocus = get(api, instance, "locus");
+    api->set_param(instance, "state", "{\"version\":4,\"locus\":0}");
+    assert(get(api, instance, "locus") == initialLocus);
+    std::array<char, 16> removedParam {};
+    assert(api->get_param(instance, "seq_bpm", removedParam.data(),
+                          static_cast<int>(removedParam.size())) < 0);
     struct CcCheck { int cc; const char* key; const char* high; };
     const CcCheck ccChecks[] {
         {20, "locus", "1.0000"}, {21, "field", "1.0000"},
@@ -207,8 +213,8 @@ int main()
         {46, "pressure_mode", "1"}, {47, "root_note", "96"},
         {48, "record_lane", "4"}, {49, "record_source", "1"},
         {50, "record_gain", "4.0000"}, {51, "monitor_level", "1.0000"},
-        {54, "seq_bpm", "240.00"}, {55, "seq_swing", "75.00"},
-        {56, "seq_length", "64"}, {57, "seq_gate", "800.00"},
+        {54, "tempo_bpm", "240.00"}, {55, "tempo_swing", "75.00"},
+        {56, "clip_playing", "1"},
         {69, "motion_travel", "1.0000"}, {70, "motion_jitter", "1.0000"},
         {71, "packet_duty", "98.00"}, {72, "motor_rate", "20.0000"},
         {73, "motor_symmetry", "95.00"}, {74, "motor_shape", "2"},
@@ -242,7 +248,10 @@ int main()
     midi(api, instance, 0xB0, 20, 0, MOVE_MIDI_SOURCE_INTERNAL);
     assert(get(api, instance, "locus") == "1.0000");
     assert(get(api, instance, "midi_map").find("53 clear_lane") != std::string::npos);
-    assert(get(api, instance, "midi_map").find("54 seq_bpm") != std::string::npos);
+    assert(get(api, instance, "midi_map").find("54 tempo_bpm") != std::string::npos);
+    assert(get(api, instance, "midi_map").find("56 clip_playing") != std::string::npos);
+    assert(get(api, instance, "midi_map").find("58 chain_clear") != std::string::npos);
+    api->set_param(instance, "clip_playing", "0");
     api->set_param(instance, "state", defaultState.c_str());
     api->set_param(instance, "monitor_level", "0");
 
@@ -409,6 +418,11 @@ int main()
     api->set_param(instance, "chain_repeats", "1");
     const std::string chainEntries = get(api, instance, "chain_entries");
     assert(chainEntries.rfind("1:1:2,1:2:1", 0u) == 0u);
+    midi(api, instance, 0xB0, 58, 127, MOVE_MIDI_SOURCE_EXTERNAL);
+    assert(get(api, instance, "chain_entries").rfind("1:1:2,0:0:1", 0u)
+        == 0u);
+    api->set_param(instance, "chain_pattern", "3");
+    api->set_param(instance, "chain_repeats", "1");
     api->set_param(instance, "chain_enabled", "1");
     assert(stateField(get(api, instance, "chain_state"), 0) == 1);
     api->set_param(instance, "chain_enabled", "0");
@@ -425,7 +439,7 @@ int main()
     waitForPattern(api, instance, 0);
     assert(get(api, instance, "algorithm") == "0");
     assert(stateField(get(api, instance, "clip_state"), 5) == 3);
-    api->set_param(instance, "seq_running", "1");
+    api->set_param(instance, "clip_playing", "1");
     api->set_param(instance, "pattern_select", "1");
     assert(stateField(get(api, instance, "pattern_state"), 1) == 1);
     for (int block = 0; block < 240
@@ -434,7 +448,7 @@ int main()
     }
     assert(stateField(get(api, instance, "pattern_state"), 0) == 1);
     assert(get(api, instance, "algorithm") == "1");
-    api->set_param(instance, "seq_running", "0");
+    api->set_param(instance, "clip_playing", "0");
     api->set_param(instance, "pattern_select", "0");
     waitForPattern(api, instance, 0);
 
@@ -724,7 +738,7 @@ int main()
     api->set_param(instance, "algorithm", "Motion");
     api->set_param(instance, "cue_store", "2,0.625");
     const std::string state = get(api, instance, "state");
-    assert(state.find("\"version\":4") != std::string::npos);
+    assert(state.find("\"version\":5") != std::string::npos);
     assert(state.find("\"clip_record_mode\":1") != std::string::npos);
     assert(state.find("\"monitor_level\"") == std::string::npos);
     api->set_param(instance, "motion_mode", "Forward");
@@ -755,10 +769,13 @@ int main()
     assert(stateFile != nullptr);
     assert(laneFile != nullptr);
     assert(patternFile != nullptr);
+    char patternMagic[8] {};
     std::uint32_t patternVersion = 0u;
-    assert(std::fseek(patternFile, 8, SEEK_SET) == 0);
+    assert(std::fread(patternMagic, 1u, sizeof(patternMagic), patternFile)
+        == sizeof(patternMagic));
+    assert(std::memcmp(patternMagic, "S3GTHR2", 7u) == 0);
     assert(std::fread(&patternVersion, sizeof(patternVersion), 1u, patternFile) == 1u);
-    assert(patternVersion == 10u);
+    assert(patternVersion == 1u);
     std::fclose(stateFile);
     std::fclose(laneFile);
     std::fclose(patternFile);

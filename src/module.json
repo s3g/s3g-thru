@@ -1,0 +1,21 @@
+{
+  "id": "s3g-thru",
+  "name": "S3G Thru",
+  "version": "0.12.0",
+  "min_host_version": "1.7.3",
+  "abbrev": "THRU",
+  "description": "Eight-voice sampler with per-pattern library lanes, 64 patterns, colored playheads, and parameter locks.",
+  "author": "S3G",
+  "component_type": "overtake",
+  "ui": "ui.js",
+  "dsp": "dsp.so",
+  "api_version": 2,
+  "capabilities": {
+    "audio_in": true,
+    "audio_out": true,
+    "midi_in": true,
+    "aftertouch": true,
+    "component_type": "overtake"
+  }
+}
+

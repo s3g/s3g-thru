@@ -1,0 +1,1335 @@
+/* S3G Thru 0.12.0 — polyphonic sampler/sequencer takeover for Ableton Move. */
+
+import * as moveConstants from '/data/UserData/schwung/shared/constants.mjs';
+import * as moveInputFilter from '/data/UserData/schwung/shared/input_filter.mjs';
+import * as os from 'os';
+
+function constant(name, fallback) {
+    const value = moveConstants[name];
+    return Number.isFinite(value) ? value : fallback;
+}
+
+const MoveMainKnob = constant('MoveMainKnob', 14);
+const MoveMainButton = constant('MoveMainButton', 3);
+const MoveShift = constant('MoveShift', 49);
+const MoveMenu = constant('MoveMenu', 50);
+const MoveBack = constant('MoveBack', 51);
+const MoveUp = constant('MoveUp', 55);
+const MoveDown = constant('MoveDown', 54);
+const MoveRecord = constant('MoveRec', 86);
+const MoveRecordAlt = constant('MoveRecord', 118);
+const MovePlay = constant('MovePlay', 85);
+const MoveDelete = constant('MoveDelete', 119);
+const MoveKnob1 = constant('MoveKnob1', 71);
+const MovePads = Array.isArray(moveConstants.MovePads)
+    ? moveConstants.MovePads : Array.from({ length: 32 }, (_, i) => 68 + i);
+const MoveSteps = Array.isArray(moveConstants.MoveSteps)
+    ? moveConstants.MoveSteps : Array.from({ length: 16 }, (_, i) => 16 + i);
+const MoveTracks = [
+    constant('MoveRow1', 43), constant('MoveRow2', 42),
+    constant('MoveRow3', 41), constant('MoveRow4', 40),
+];
+
+const Black = constant('Black', 0);
+const White = constant('White', 120);
+const Cyan = constant('Cyan', 14);
+const BrightRed = constant('BrightRed', 1);
+const BrightOrange = constant('BrightOrange', 3);
+const BrightYellow = constant('BrightYellow', 8);
+const NeonGreen = constant('NeonGreen', 11);
+const AzureBlue = constant('AzureBlue', 16);
+const BlueViolet = constant('BlueViolet', 18);
+const Purple = constant('Purple', 22);
+const LightMagenta = constant('LightMagenta', 26);
+const WhiteLedDim = constant('WhiteLedDim', 8);
+const WhiteLedBright = constant('WhiteLedBright', 127);
+
+const setLED = typeof moveInputFilter.setLED === 'function'
+    ? moveInputFilter.setLED
+    : function(note, color) {
+        if (typeof move_midi_internal_send === 'function') {
+            move_midi_internal_send([0x09, 0x90, note, color]);
+        }
+    };
+
+const setButtonLED = typeof moveInputFilter.setButtonLED === 'function'
+    ? moveInputFilter.setButtonLED
+    : function(cc, color) {
+        if (typeof move_midi_internal_send === 'function') {
+            move_midi_internal_send([0x0B, 0xB0, cc, color]);
+        }
+    };
+
+const WAVE_BINS = 112;
+const ALGORITHMS = ['MOTION', 'LANES', 'GRAINS', 'CUTUPS'];
+const LEDS_PER_TICK = 8;
+const VOICE_COLORS = [BrightRed, BrightOrange, BrightYellow, NeonGreen,
+    AzureBlue, BlueViolet, Purple, LightMagenta];
+const LIBRARY_ROOT = '/data/UserData/UserLibrary/Samples';
+const BANK_NAMES = ['A', 'B', 'C', 'D'];
+
+const PARAMS = {
+    locus: { key: 'locus', label: 'POSITION', min: 0, max: 1, step: 0.01, value: 0.5 },
+    field: { key: 'field', label: 'FIELD', min: 0.02, max: 1, step: 0.01, value: 1 },
+    speed: { key: 'speed', label: 'SPEED', min: 0.05, max: 4, step: 0.02, value: 1 },
+    manual_lane: { key: 'manual_lane', label: 'STACK', min: 1, max: 4, step: 0.04, value: 1 },
+    lane_cycles: { key: 'lane_cycles', label: 'SCAN RATE', min: 0.125, max: 16, step: 0.125, value: 1 },
+    algorithm: { key: 'algorithm', label: 'ALGORITHM', min: 0, max: 3, step: 1, value: 0, integer: true, labels: ALGORITHMS },
+    join: { key: 'join', label: 'JOIN', min: 0, max: 1, step: 0.01, value: 1 },
+    output_gain: { key: 'output_gain', label: 'LEVEL', min: 0, max: 2, step: 0.02, value: 1 },
+    motion_mode: { key: 'motion_mode', label: 'MODE', min: 0, max: 6, step: 1, value: 0, integer: true, labels: ['FWD', 'REV', 'HOVER', 'ROUND', 'LOOP', 'MIRROR', 'ZIGZAG'] },
+    motion_sound: { key: 'motion_sound', label: 'SOUND', min: 0, max: 3, step: 1, value: 0, integer: true, labels: ['CONT', 'PACKETS', 'MOTOR', 'BOUNCE'] },
+    motion_rate: { key: 'motion_rate', label: 'GEST RATE', min: 0.25, max: 20, step: 0.25, value: 4 },
+    lanes_mode: { key: 'lanes_mode', label: 'MODE', min: 0, max: 2, step: 1, value: 0, integer: true, labels: ['FWD', 'REV', 'PINGPONG'] },
+    lane_path: { key: 'lane_path', label: 'PATH', min: 0, max: 6, step: 1, value: 2, integer: true, labels: ['DOWN', 'UP', 'TRI', 'SINE', 'STEP DN', 'STEP UP', 'MANUAL'] },
+    lanes_stretch: { key: 'lanes_stretch', label: 'STRETCH', min: 0, max: 1, step: 1, value: 1, integer: true, labels: ['OFF', 'ON'] },
+    stretch_ratio: { key: 'stretch_ratio', label: 'RATIO', min: 0.25, max: 4, step: 0.02, value: 1 },
+    grain_mode: { key: 'grain_mode', label: 'MODE', min: 0, max: 3, step: 1, value: 0, integer: true, labels: ['SCAN', 'FREEZE', 'CLOUD', 'SLICE'] },
+    grain_size: { key: 'grain_size', label: 'SIZE MS', min: 8, max: 500, step: 2, value: 90, integer: true },
+    grain_density: { key: 'grain_density', label: 'DENSITY', min: 1, max: 64, step: 1, value: 24, integer: true },
+    grain_pitch: { key: 'grain_pitch', label: 'PITCH', min: 0.25, max: 4, step: 0.02, value: 1 },
+    grain_window: { key: 'grain_window', label: 'WINDOW', min: 0, max: 5, step: 1, value: 5, integer: true, labels: ['PARZEN', 'SINE', 'HANN', 'TRI', 'GAUSS', 'BELL'] },
+    grain_spread: { key: 'grain_spread', label: 'SPREAD', min: 0, max: 1, step: 0.01, value: 0 },
+    cutups_mode: { key: 'cutups_mode', label: 'MODE', min: 0, max: 4, step: 1, value: 0, integer: true, labels: ['FWD', 'REV', 'PALIN', 'RANDOM', 'WALK'] },
+    lane_1_gain: { key: 'lane_1_gain', label: 'LANE 1', min: 0, max: 2, step: 0.02, value: 1 },
+    lane_2_gain: { key: 'lane_2_gain', label: 'LANE 2', min: 0, max: 2, step: 0.02, value: 1 },
+    lane_3_gain: { key: 'lane_3_gain', label: 'LANE 3', min: 0, max: 2, step: 0.02, value: 1 },
+    lane_4_gain: { key: 'lane_4_gain', label: 'LANE 4', min: 0, max: 2, step: 0.02, value: 1 },
+    pressure_mode: { key: 'pressure_mode', label: 'PRESSURE', min: 0, max: 1, step: 1, value: 1, integer: true, labels: ['OFF', 'OFFSET'] },
+    root_note: { key: 'root_note', label: 'ROOT', min: 24, max: 96, step: 1, value: 60, integer: true, note: true },
+    record_gain: { key: 'record_gain', label: 'REC GAIN', min: 0, max: 4, step: 0.05, value: 1 },
+    seq_bpm: { key: 'seq_bpm', label: 'TEMPO', min: 40, max: 240, step: 1, value: 120, integer: true },
+    seq_swing: { key: 'seq_swing', label: 'SWING', min: 50, max: 75, step: 1, value: 50, integer: true },
+    seq_length: { key: 'seq_length', label: 'LENGTH', min: 1, max: 16, step: 1, value: 16, integer: true },
+    seq_gate: { key: 'seq_gate', label: 'GATE', min: 5, max: 800, step: 5, value: 80, integer: true },
+};
+
+const MAIN_ENGINE_CONTROLS = [
+    ['locus', 'field', 'speed', 'manual_lane',
+        'lane_cycles', 'join', 'motion_mode', 'output_gain'],
+    ['locus', 'field', 'speed', 'manual_lane',
+        'lane_cycles', 'join', 'lanes_mode', 'output_gain'],
+    ['locus', 'field', 'speed', 'manual_lane',
+        'lane_cycles', 'join', 'grain_mode', 'output_gain'],
+    ['locus', 'field', 'speed', 'manual_lane',
+        'lane_cycles', 'join', 'cutups_mode', 'output_gain'],
+];
+const ENGINE_PAGE = { title: 'ENGINE', keys: ['algorithm', 'locus', 'field',
+    'speed', 'manual_lane', 'lane_cycles', 'join', 'output_gain'] };
+const PLAYBACK_PAGES = [
+    { title: 'MOTION', keys: ['motion_mode', 'motion_sound', 'motion_rate',
+        'locus', 'field', 'speed', 'join', 'output_gain'] },
+    { title: 'LANES', keys: ['lanes_mode', 'lane_path', 'lane_cycles',
+        'manual_lane', 'lanes_stretch', 'stretch_ratio', 'field', 'join'] },
+    { title: 'GRAINS', keys: ['grain_mode', 'grain_size', 'grain_density',
+        'grain_pitch', 'grain_window', 'grain_spread', 'locus', 'field'] },
+    { title: 'CUTUPS', keys: ['cutups_mode', 'lane_path', 'lane_cycles',
+        'manual_lane', 'locus', 'field', 'speed', 'join'] },
+];
+const MIX_REC_PAGE = { title: 'MIX / REC', keys: ['lane_1_gain', 'lane_2_gain',
+    'lane_3_gain', 'lane_4_gain', 'pressure_mode', 'root_note', 'record_gain',
+    'output_gain'] };
+const SEQUENCE_PAGE = { title: 'SEQUENCE', keys: ['seq_bpm', 'seq_swing',
+    'seq_length', 'root_note', 'algorithm', 'manual_lane', 'join',
+    'output_gain'] };
+
+const LOCKABLE_KEYS = [
+    'locus', 'field', 'speed', 'manual_lane', 'lane_cycles', 'algorithm',
+    'join', 'output_gain', 'motion_mode', 'motion_sound', 'motion_rate',
+    'lanes_mode', 'lane_path', 'lanes_stretch', 'stretch_ratio',
+    'lane_1_gain', 'lane_2_gain', 'lane_3_gain', 'lane_4_gain',
+    'grain_mode', 'grain_size', 'grain_density', 'grain_pitch',
+    'grain_window', 'grain_spread', 'cutups_mode',
+];
+const LOCKABLE_PARAMS = new Set(LOCKABLE_KEYS);
+
+const SHORT_LABELS = {
+    locus: 'POS', field: 'FLD', speed: 'SPD', manual_lane: 'STAK',
+    lane_cycles: 'RATE', algorithm: 'ALG', join: 'JOIN', output_gain: 'LEVL',
+    motion_mode: 'MODE', motion_sound: 'SND', motion_rate: 'RATE',
+    lanes_mode: 'MODE', lane_path: 'PATH', lanes_stretch: 'STR',
+    stretch_ratio: 'RATIO', grain_mode: 'MODE', grain_size: 'SIZE',
+    grain_density: 'DENS', grain_pitch: 'PIT', grain_window: 'WIN',
+    grain_spread: 'SPRD', cutups_mode: 'MODE', lane_1_gain: 'L1',
+    lane_2_gain: 'L2', lane_3_gain: 'L3', lane_4_gain: 'L4',
+    pressure_mode: 'PRES', root_note: 'ROOT', record_gain: 'REC',
+    seq_bpm: 'BPM', seq_swing: 'SWNG', seq_length: 'LEN', seq_gate: 'GATE',
+};
+
+const state = {
+    ticks: 0,
+    lane: 1,
+    mask: 0,
+    recording: false,
+    meter: 0,
+    position: 0,
+    fieldStart: 0,
+    fieldEnd: 1,
+    weights: [0, 0, 0, 0],
+    playheads: Array(8).fill(-1),
+    stackPositions: Array(8).fill(-1),
+    voicePads: Array(8).fill(-1),
+    voiceCount: 0,
+    limited: false,
+    tenths: 0,
+    scanning: false,
+    waves: Array.from({ length: 4 }, () =>
+        Array.from({ length: WAVE_BINS }, () => [0, 0])),
+    octave: 0,
+    algorithm: 0,
+    recordSource: 0,
+    shiftHeld: false,
+    deleteHeld: false,
+    view: 'main',
+    settingsPage: 0,
+    persistenceEnabled: false,
+    recalled: false,
+    message: '',
+    messageTicks: 0,
+    ledQueue: [],
+    activePads: new Set(),
+    heldStep: -1,
+    selectedStep: -1,
+    pendingNotes: new Map(),
+    stepGestureUsed: false,
+    sequenceRunning: false,
+    sequenceStep: -1,
+    sequenceMask: 0,
+    sequenceLength: 16,
+    stepLockMasks: Array(16).fill(0),
+    stepNoteCounts: Array(16).fill(0),
+    stepPadMasks: Array(16).fill(0),
+    stepLocks: Array.from({ length: 16 }, () => Object.create(null)),
+    activePattern: 0,
+    queuedPattern: -1,
+    patternBank: 0,
+    patternMaskLow: 0,
+    patternMaskHigh: 0,
+    libraryLane: 1,
+    libraryDir: LIBRARY_ROOT,
+    libraryItems: [],
+    libraryIndex: 0,
+    libraryScroll: 0,
+    laneSource: 'EMPTY',
+    sampleLoadState: 0,
+    sampleLoadProgress: 0,
+    sampleLoadName: '',
+};
+
+function clamp(value, low, high) {
+    return Math.max(low, Math.min(high, value));
+}
+
+function decodeDelta(value) {
+    const v = value | 0;
+    if (v === 0 || v === 64) return 0;
+    return v < 64 ? v : v - 128;
+}
+
+function getParam(key, fallback) {
+    try {
+        const value = host_module_get_param(key);
+        return value == null ? fallback : value;
+    } catch (error) {
+        return fallback;
+    }
+}
+
+function getNumber(key, fallback) {
+    const raw = getParam(key, fallback);
+    if (raw === '' || raw == null) return fallback;
+    const value = Number(raw);
+    return Number.isFinite(value) ? value : fallback;
+}
+
+function setParam(key, value) {
+    try {
+        host_module_set_param(key, String(value));
+    } catch (error) {}
+}
+
+function setParamBlocking(key, value) {
+    try {
+        if (typeof host_module_set_param_blocking === 'function') {
+            host_module_set_param_blocking(key, String(value), 180);
+        } else {
+            host_module_set_param(key, String(value));
+        }
+    } catch (error) {}
+}
+
+function showMessage(text, ticks) {
+    state.message = String(text || '');
+    state.messageTicks = ticks || 45;
+}
+
+function parseUiState(text) {
+    const values = String(text || '').split(',').map((item) => Number(item));
+    if (values.length < 14) return;
+    const oldLane = state.lane;
+    const oldMask = state.mask;
+    const oldRecording = state.recording;
+    state.lane = clamp(values[0] | 0, 1, 4);
+    state.mask = values[1] | 0;
+    state.recording = values[2] !== 0;
+    state.meter = clamp(values[3] / 1000, 0, 1);
+    state.position = clamp(values[4] / 1000, 0, 1);
+    state.fieldStart = clamp(values[5] / 1000, 0, 1);
+    state.fieldEnd = clamp(values[6] / 1000, 0, 1);
+    state.weights = [7, 8, 9, 10].map((index) => clamp(values[index] / 1000, 0, 1));
+    state.limited = values[11] !== 0;
+    state.tenths = Math.max(0, values[12] | 0);
+    state.scanning = values[13] !== 0;
+    if (values.length >= 16) {
+        state.persistenceEnabled = values[14] !== 0;
+        state.recalled = values[15] !== 0;
+    }
+    if (values.length >= 17) state.voiceCount = Math.max(0, values[16] | 0);
+    if (oldLane !== state.lane || oldMask !== state.mask
+        || oldRecording !== state.recording) rebuildLedQueue();
+}
+
+function parsePlayheads(text) {
+    const values = String(text || '').split(',').map((item) => Number(item));
+    state.playheads = Array.from({ length: 8 }, (_, index) => {
+        const value = values[index];
+        return Number.isFinite(value) && value >= 0
+            ? clamp(value / 1000, 0, 1) : -1;
+    });
+}
+
+function parseStackPositions(text) {
+    const values = String(text || '').split(',').map((item) => Number(item));
+    state.stackPositions = Array.from({ length: 8 }, (_, index) => {
+        const value = values[index];
+        return Number.isFinite(value) && value >= 0
+            ? clamp(value / 1000, 0, 1) : -1;
+    });
+}
+
+function parseVoicePads(text) {
+    const values = String(text || '').split(',').map((item) => Number(item));
+    const previous = state.voicePads.join(',');
+    state.voicePads = Array.from({ length: 8 }, (_, index) => {
+        const value = values[index];
+        return Number.isFinite(value) && value >= 0 && value < 32
+            ? value | 0 : -1;
+    });
+    if (previous !== state.voicePads.join(',')) rebuildLedQueue();
+}
+
+function parseWaveforms(text) {
+    const lanes = String(text || '').split('|');
+    const decoded = [];
+    for (let lane = 0; lane < 4; lane++) {
+        const source = lanes[lane] || '';
+        const bins = [];
+        for (let bin = 0; bin < WAVE_BINS; bin++) {
+            const low = parseInt(source[bin * 2] || '7', 16);
+            const high = parseInt(source[bin * 2 + 1] || '7', 16);
+            bins.push([
+                Number.isFinite(low) ? low - 7 : 0,
+                Number.isFinite(high) ? high - 7 : 0,
+            ]);
+        }
+        decoded.push(bins);
+    }
+    state.waves = decoded;
+}
+
+function parseSequenceState(text) {
+    const values = String(text || '').split(',').map((item) => Number(item));
+    if (values.length < 7 || !values.every((value) => Number.isFinite(value))) return;
+    const previousRunning = state.sequenceRunning;
+    const previousStep = state.sequenceStep;
+    const previousMask = state.sequenceMask;
+    state.sequenceRunning = values[0] !== 0;
+    state.sequenceStep = clamp(values[1] | 0, -1, 15);
+    state.sequenceMask = values[2] | 0;
+    state.sequenceLength = clamp(values[4] | 0, 1, 16);
+    PARAMS.seq_bpm.value = clamp(values[3], 40, 240);
+    PARAMS.seq_length.value = state.sequenceLength;
+    PARAMS.seq_swing.value = clamp(values[5], 50, 75);
+    PARAMS.seq_gate.value = clamp(values[6], 5, 800);
+    if (previousRunning !== state.sequenceRunning
+        || previousStep !== state.sequenceStep
+        || previousMask !== state.sequenceMask) rebuildLedQueue();
+}
+
+function parseSequenceLocks(text) {
+    const values = String(text || '').split(',').map((item) => Number(item));
+    if (values.length < 16) return;
+    let changed = false;
+    for (let index = 0; index < 16; index++) {
+        const mask = Number.isFinite(values[index]) ? values[index] >>> 0 : 0;
+        if (state.stepLockMasks[index] !== mask) changed = true;
+        state.stepLockMasks[index] = mask;
+    }
+    if (changed) rebuildLedQueue();
+}
+
+function parseSequenceNoteCounts(text) {
+    const values = String(text || '').split(',').map((item) => Number(item));
+    if (values.length < 16) return;
+    for (let index = 0; index < 16; index++) {
+        state.stepNoteCounts[index] = Number.isFinite(values[index])
+            ? clamp(values[index] | 0, 0, 8) : 0;
+    }
+}
+
+function parseSequencePadMasks(text) {
+    const values = String(text || '').split(',').map((item) => Number(item));
+    if (values.length < 16) return;
+    let changed = false;
+    for (let index = 0; index < 16; index++) {
+        const mask = Number.isFinite(values[index]) ? values[index] >>> 0 : 0;
+        if (state.stepPadMasks[index] !== mask) changed = true;
+        state.stepPadMasks[index] = mask;
+    }
+    if (changed) rebuildLedQueue();
+}
+
+function parseSequenceOpenMask(text) {
+    if (text == null || String(text) === '') return;
+    const openMask = Number(text) >>> 0;
+    const pending = new Map();
+    for (let pad = 0; pad < 32; pad++) {
+        if (((openMask >>> pad) & 1) === 0) continue;
+        for (let step = 0; step < 16; step++) {
+            if (((state.stepPadMasks[step] >>> pad) & 1) === 0) continue;
+            pending.set(pad, { startStep: step, padIndex: pad,
+                note: padMidiNote(pad) });
+            break;
+        }
+    }
+    const before = [...state.pendingNotes.keys()].join(',');
+    state.pendingNotes = pending;
+    if (before !== [...pending.keys()].join(',')) rebuildLedQueue();
+}
+
+function parsePatternState(text) {
+    const values = String(text || '').split(',').map((item) => Number(item));
+    if (values.length < 4 || !values.every((value) => Number.isFinite(value))) return;
+    const previousActive = state.activePattern;
+    const active = clamp(values[0] | 0, 0, 63);
+    const queued = values[1] < 0 ? -1 : clamp(values[1] | 0, 0, 63);
+    const low = values[2] >>> 0;
+    const high = values[3] >>> 0;
+    const changed = active !== state.activePattern || queued !== state.queuedPattern
+        || low !== state.patternMaskLow || high !== state.patternMaskHigh;
+    state.activePattern = active;
+    state.queuedPattern = queued;
+    state.patternMaskLow = low;
+    state.patternMaskHigh = high;
+    if (active !== previousActive) {
+        for (const key of Object.keys(PARAMS)) {
+            const control = PARAMS[key];
+            control.value = clamp(getNumber(control.key, control.value),
+                control.min, control.max);
+        }
+        state.algorithm = Math.round(PARAMS.algorithm.value);
+        state.selectedStep = -1;
+    }
+    if (changed) rebuildLedQueue();
+}
+
+function parseSampleLoadState(text) {
+    const parts = String(text || '').split(',');
+    const loadState = Number(parts.shift());
+    parts.shift();
+    const progress = Number(parts.shift());
+    const previous = state.sampleLoadState;
+    if (Number.isFinite(loadState)) state.sampleLoadState = loadState | 0;
+    if (Number.isFinite(progress)) state.sampleLoadProgress = clamp(progress / 10, 0, 100);
+    state.sampleLoadName = parts.join(',');
+    if (state.sampleLoadState === 6 && previous !== 6) {
+        showMessage('LOADED ' + state.sampleLoadName, 70);
+    } else if (state.sampleLoadState === 7 && previous !== 7) {
+        showMessage('LOAD ERROR ' + state.sampleLoadName, 100);
+    }
+}
+
+function patternOccupied(index) {
+    if (index < 32) return ((state.patternMaskLow >>> index) & 1) !== 0;
+    return ((state.patternMaskHigh >>> (index - 32)) & 1) !== 0;
+}
+
+function basePadColor() {
+    return Black;
+}
+
+function padColor(index) {
+    for (let voice = 0; voice < state.voicePads.length; voice++) {
+        if (state.voicePads[voice] === index) return VOICE_COLORS[voice];
+    }
+    if (state.pendingNotes.has(index)) return BrightOrange;
+    if (state.selectedStep >= 0
+        && ((state.stepPadMasks[state.selectedStep] >>> index) & 1) !== 0) {
+        return White;
+    }
+    return state.activePads.has(MovePads[index]) ? Cyan : basePadColor();
+}
+
+function rebuildLedQueue() {
+    const queue = [];
+    for (let i = 0; i < MovePads.length; i++) {
+        const note = MovePads[i];
+        queue.push({ type: 'note', id: note, color: padColor(i) });
+    }
+    for (let i = 0; i < MoveSteps.length; i++) {
+        let color = Black;
+        if (state.view === 'patterns') {
+            const pattern = state.patternBank * 16 + i;
+            if (patternOccupied(pattern)) color = White;
+            if (pattern === state.activePattern) color = BrightOrange;
+            if (pattern === state.queuedPattern) color = BlueViolet;
+        } else {
+            if ((state.sequenceMask & (1 << i)) !== 0) color = White;
+            if (state.sequenceRunning && i === state.sequenceStep) color = Cyan;
+            if (i === state.selectedStep) color = BrightOrange;
+            if (i === state.heldStep) color = BrightRed;
+        }
+        queue.push({ type: 'note', id: MoveSteps[i],
+            color });
+    }
+    for (let i = 0; i < MoveTracks.length; i++) {
+        queue.push({ type: 'cc', id: MoveTracks[i],
+            color: state.view === 'patterns'
+                ? (i === state.patternBank ? WhiteLedBright : WhiteLedDim)
+                : (i + 1 === state.lane ? WhiteLedBright : WhiteLedDim) });
+    }
+    queue.push({ type: 'cc', id: MoveRecord,
+        color: state.recording ? BrightRed : WhiteLedDim });
+    if (MoveRecordAlt !== MoveRecord) {
+        queue.push({ type: 'cc', id: MoveRecordAlt,
+            color: state.recording ? BrightRed : WhiteLedDim });
+    }
+    queue.push({ type: 'cc', id: MovePlay,
+        color: state.sequenceRunning ? WhiteLedBright : WhiteLedDim });
+    state.ledQueue = queue;
+}
+
+function drainLedQueue() {
+    const count = Math.min(LEDS_PER_TICK, state.ledQueue.length);
+    for (let index = 0; index < count; index++) {
+        const entry = state.ledQueue.shift();
+        if (entry.type === 'cc') setButtonLED(entry.id, entry.color);
+        else setLED(entry.id, entry.color);
+    }
+}
+
+function drawRect(x, y, width, height, value) {
+    if (width <= 0 || height <= 0) return;
+    if (typeof fill_rect === 'function') {
+        fill_rect(x | 0, y | 0, width | 0, height | 0, value === 0 ? 0 : 1);
+    }
+}
+
+function clearStackMarker(x, y) {
+    const centerX = clamp(Math.round(x), 2, 125);
+    const centerY = clamp(Math.round(y), 2, 61);
+    drawRect(centerX - 2, centerY - 2, 5, 5, 0);
+}
+
+function drawStackMarker(x, y) {
+    const centerX = clamp(Math.round(x), 2, 125);
+    const centerY = clamp(Math.round(y), 2, 61);
+    drawRect(centerX - 2, centerY - 2, 5, 1, 1);
+    drawRect(centerX - 2, centerY + 2, 5, 1, 1);
+    drawRect(centerX - 2, centerY - 1, 1, 3, 1);
+    drawRect(centerX + 2, centerY - 1, 1, 3, 1);
+}
+
+function drawMain() {
+    clear_screen();
+    const algorithm = ALGORITHMS[state.algorithm] || ALGORITHMS[0];
+    const recordTag = state.recording ? (state.limited ? ' LIM' : ' REC') : '';
+    print(1, 0, 'THRU ' + algorithm + ' L' + state.lane + ' V'
+        + state.voiceCount + recordTag, 1);
+
+    const left = 14;
+    const width = 114;
+    const top = 10;
+    const rowHeight = 10;
+    for (let lane = 0; lane < 4; lane++) {
+        const center = top + lane * rowHeight + 5;
+        const selected = state.lane === lane + 1;
+        if (selected) drawRect(0, center - 4, 2, 8, 1);
+        print(3, center - 4, String(lane + 1), 1);
+        const weightHeight = Math.round(state.weights[lane] * 7);
+        if (weightHeight > 0) {
+            drawRect(9, center + 4 - weightHeight, 2, weightHeight, 1);
+        }
+        if ((state.mask & (1 << lane)) === 0) {
+            drawRect(left, center, width, 1, 1);
+            continue;
+        }
+        const bins = state.waves[lane];
+        for (let bin = 0; bin < WAVE_BINS; bin++) {
+            const x = left + Math.floor(bin * (width - 1) / (WAVE_BINS - 1));
+            const low = clamp(bins[bin][0], -7, 7);
+            const high = clamp(bins[bin][1], -7, 7);
+            const y1 = center - Math.round(high * 4 / 7);
+            const y2 = center - Math.round(low * 4 / 7);
+            drawRect(x, y1, 1, Math.max(1, y2 - y1 + 1), 1);
+        }
+    }
+
+    if (state.mask !== 0) {
+        const startX = left + Math.round(state.fieldStart * (width - 1));
+        const endX = left + Math.round(state.fieldEnd * (width - 1));
+        drawRect(startX, top, 1, 2, 1);
+        drawRect(endX, top + 38, 1, 2, 1);
+        for (const playhead of state.playheads) {
+            if (playhead < 0) continue;
+            const playX = left + Math.round(playhead * (width - 1));
+            drawRect(playX, top, 1, 40, 1);
+        }
+        for (let voice = 0; voice < state.playheads.length; voice++) {
+            const playhead = state.playheads[voice];
+            const stackPosition = state.stackPositions[voice];
+            if (playhead < 0 || stackPosition < 0) continue;
+            const playX = left + playhead * (width - 1);
+            const stackY = top + 5 + stackPosition * rowHeight * 3;
+            clearStackMarker(playX, stackY);
+        }
+        for (let voice = 0; voice < state.playheads.length; voice++) {
+            const playhead = state.playheads[voice];
+            const stackPosition = state.stackPositions[voice];
+            if (playhead < 0 || stackPosition < 0) continue;
+            const playX = left + playhead * (width - 1);
+            const stackY = top + 5 + stackPosition * rowHeight * 3;
+            drawStackMarker(playX, stackY);
+        }
+    }
+
+    if (state.recording) {
+        drawRect(left, 51, Math.max(1, Math.round(width * state.meter)), 2, 1);
+    }
+    const footer = state.messageTicks > 0
+        ? state.message
+        : (state.scanning ? 'SCANNING WAVEFORM'
+            : (state.sequenceRunning
+                ? 'S' + String(state.sequenceStep + 1).padStart(2, '0') + ' '
+                    + Math.round(PARAMS.seq_bpm.value) + 'BPM MENU'
+                : state.laneSource + ' ' + Math.round(PARAMS.seq_bpm.value)
+                    + 'BPM MENU'));
+    print(1, 55, String(footer).slice(0, 21), 1);
+}
+
+function currentSettingsPage() {
+    const pages = parameterPages();
+    state.settingsPage = clamp(state.settingsPage | 0, 0, pages.length - 1);
+    return pages[state.settingsPage];
+}
+
+function parameterPages() {
+    return [ENGINE_PAGE, PLAYBACK_PAGES[state.algorithm] || PLAYBACK_PAGES[0],
+        MIX_REC_PAGE, SEQUENCE_PAGE];
+}
+
+function activeControlKeys() {
+    return state.view === 'settings'
+        ? currentSettingsPage().keys
+        : (MAIN_ENGINE_CONTROLS[state.algorithm] || MAIN_ENGINE_CONTROLS[0]);
+}
+
+function noteName(value) {
+    const names = ['C', 'C#', 'D', 'D#', 'E', 'F',
+        'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    const note = Math.round(value);
+    return names[((note % 12) + 12) % 12] + (Math.floor(note / 12) - 1);
+}
+
+function formatControlValue(control) {
+    if (!control) return '';
+    if (control.note) return noteName(control.value);
+    if (Array.isArray(control.labels)) {
+        return control.labels[clamp(Math.round(control.value), 0,
+            control.labels.length - 1)] || '';
+    }
+    if (control.integer) return String(Math.round(control.value));
+    if (control.value >= 10) return control.value.toFixed(1);
+    return control.value.toFixed(2);
+}
+
+function compactControlValue(control) {
+    if (!control) return '';
+    if (control.note) return noteName(control.value).slice(0, 4);
+    if (Array.isArray(control.labels)) {
+        const value = control.labels[clamp(Math.round(control.value), 0,
+            control.labels.length - 1)] || '';
+        if (control.key === 'lane_path') {
+            return ['DOWN', 'UP', 'TRI', 'SINE', 'SDN', 'SUP', 'MAN'][
+                clamp(Math.round(control.value), 0, 6)];
+        }
+        return String(value).slice(0, 4);
+    }
+    if (control.integer) return String(Math.round(control.value)).slice(0, 4);
+    if (control.value >= 100) return String(Math.round(control.value)).slice(0, 4);
+    if (control.value >= 10) return control.value.toFixed(1).slice(0, 4);
+    return control.value.toFixed(2).slice(0, 4);
+}
+
+function lockedControlValue(step, control) {
+    if (step < 0 || !control) return control ? control.value : 0;
+    const value = state.stepLocks[step][control.key];
+    return Number.isFinite(value) ? value : control.value;
+}
+
+function drawParameterCell(index, control, locked, editStep) {
+    const column = index % 4;
+    const row = Math.floor(index / 4);
+    const x = column * 32;
+    const y = 13 + row * 26;
+    const label = String(SHORT_LABELS[control.key] || control.label).slice(0, 4);
+    const shown = Object.assign({}, control, {
+        value: lockedControlValue(editStep, control),
+    });
+    const value = compactControlValue(shown);
+    print(x + 3, y, label, 1);
+    print(x + 3, y + 11, value, 1);
+    if (locked) drawRect(x + 29, y, 2, 2, 1);
+}
+
+function drawSettings() {
+    clear_screen();
+    const page = currentSettingsPage();
+    const editStep = state.heldStep >= 0 ? state.heldStep : state.selectedStep;
+    const noteCount = editStep >= 0 ? state.stepNoteCounts[editStep] : 0;
+    const target = editStep >= 0
+        ? 'S' + String(editStep + 1).padStart(2, '0')
+            + (noteCount > 0 ? 'x' + noteCount : '') + ' '
+        : (state.sequenceRunning ? '> ' : '');
+    const pages = parameterPages();
+    print(1, 0, (target + page.title + ' ' + (state.settingsPage + 1)
+        + '/' + pages.length).slice(0, 21), 1);
+    drawRect(0, 8, 128, 1, 1);
+    for (let index = 0; index < 8; index++) {
+        const key = page.keys[index];
+        if (!key) continue;
+        const control = PARAMS[key];
+        const lockIndex = LOCKABLE_KEYS.indexOf(key);
+        const locked = editStep >= 0 && lockIndex >= 0
+            && (state.stepLockMasks[editStep] & (1 << lockIndex)) !== 0;
+        drawParameterCell(index, control, locked, editStep);
+    }
+}
+
+function drawHelp() {
+    clear_screen();
+    print(1, 0, 'S3G THRU', 2);
+    print(1, 13, 'MENU       parameters', 1);
+    print(1, 23, 'SHIFT+PLAY patterns', 1);
+    print(1, 33, 'SHIFT+TRACK sample lib', 1);
+    print(1, 43, 'STEP+KNOB parameter lock', 1);
+    print(1, 55, 'EXIT SAVES WAV + SET', 1);
+}
+
+function patternLabel(index) {
+    return BANK_NAMES[Math.floor(index / 16)]
+        + String(index % 16 + 1).padStart(2, '0');
+}
+
+function drawPatterns() {
+    clear_screen();
+    const active = patternLabel(state.activePattern);
+    const queued = state.queuedPattern >= 0
+        ? ' >' + patternLabel(state.queuedPattern) : '';
+    print(1, 0, ('PATTERNS ' + active + queued).slice(0, 21), 1);
+    drawRect(0, 8, 128, 1, 1);
+    for (let index = 0; index < 16; index++) {
+        const pattern = state.patternBank * 16 + index;
+        const column = index % 4;
+        const row = Math.floor(index / 4);
+        const x = 2 + column * 31;
+        const y = 13 + row * 11;
+        let marker = patternOccupied(pattern) ? '*' : '-';
+        if (pattern === state.activePattern) marker = '>';
+        if (pattern === state.queuedPattern) marker = '+';
+        print(x, y, marker + String(index + 1).padStart(2, '0'), 1);
+    }
+    print(1, 57, 'TRK BANK SHIFT=COPY', 1);
+}
+
+function libraryLeaf(path) {
+    const parts = String(path || '').split('/');
+    return parts[parts.length - 1] || 'Samples';
+}
+
+function drawLibrary() {
+    clear_screen();
+    print(1, 0, ('L' + state.libraryLane + ' SAMPLE ' + libraryLeaf(
+        state.libraryDir)).slice(0, 21), 1);
+    drawRect(0, 8, 128, 1, 1);
+    if (state.libraryItems.length === 0) {
+        print(2, 23, 'NO WAV FILES', 1);
+    }
+    for (let row = 0; row < 4; row++) {
+        const index = state.libraryScroll + row;
+        const item = state.libraryItems[index];
+        if (!item) continue;
+        const prefix = index === state.libraryIndex ? '>' : ' ';
+        const suffix = item.directory ? '/' : '';
+        print(1, 12 + row * 11,
+            (prefix + item.name + suffix).slice(0, 21), 1);
+    }
+    let footer = 'KNOB browse CLICK load';
+    if (state.sampleLoadState >= 1 && state.sampleLoadState <= 5) {
+        footer = 'LOADING ' + Math.round(state.sampleLoadProgress) + '%';
+    } else if (state.sampleLoadState === 7) {
+        footer = state.sampleLoadName || 'LOAD ERROR';
+    }
+    print(1, 57, footer.slice(0, 21), 1);
+}
+
+function draw() {
+    if (state.view === 'help') drawHelp();
+    else if (state.view === 'settings') drawSettings();
+    else if (state.view === 'patterns') drawPatterns();
+    else if (state.view === 'library') drawLibrary();
+    else drawMain();
+}
+
+function selectLane(lane) {
+    if (state.recording) return;
+    state.lane = clamp(lane | 0, 1, 4);
+    setParamBlocking('record_lane', state.lane);
+    showMessage('RECORD LANE ' + state.lane);
+    rebuildLedQueue();
+}
+
+function statPath(path) {
+    try {
+        const result = os.stat(path);
+        return Array.isArray(result) ? result[0] : result;
+    } catch (error) {
+        return null;
+    }
+}
+
+function pathIsDirectory(path) {
+    const info = statPath(path);
+    return !!info && Number.isFinite(info.mode)
+        && (info.mode & 0xf000) === 0x4000;
+}
+
+function scanLibrary(path) {
+    let names = [];
+    try {
+        const result = os.readdir(path);
+        names = Array.isArray(result) && Array.isArray(result[0])
+            ? result[0] : result;
+    } catch (error) {}
+    if (!Array.isArray(names)) names = [];
+    const items = [];
+    if (path !== LIBRARY_ROOT) items.push({ name: '..', directory: true });
+    for (const name of names) {
+        if (!name || name[0] === '.') continue;
+        const fullPath = path + '/' + name;
+        const directory = pathIsDirectory(fullPath);
+        if (!directory && !String(name).toLowerCase().endsWith('.wav')) continue;
+        items.push({ name: String(name), directory });
+    }
+    const parent = items.length > 0 && items[0].name === '..' ? items.shift() : null;
+    items.sort((a, b) => Number(b.directory) - Number(a.directory)
+        || a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+    if (parent) items.unshift(parent);
+    state.libraryDir = path;
+    state.libraryItems = items;
+    state.libraryIndex = 0;
+    state.libraryScroll = 0;
+}
+
+function openLibrary(lane) {
+    if (state.recording) return;
+    state.libraryLane = clamp(lane | 0, 1, 4);
+    state.lane = state.libraryLane;
+    setParamBlocking('record_lane', state.lane);
+    scanLibrary(LIBRARY_ROOT);
+    state.view = 'library';
+    rebuildLedQueue();
+}
+
+function moveLibrarySelection(delta) {
+    if (state.libraryItems.length === 0 || delta === 0) return;
+    state.libraryIndex = clamp(state.libraryIndex + (delta > 0 ? 1 : -1),
+        0, state.libraryItems.length - 1);
+    if (state.libraryIndex < state.libraryScroll) {
+        state.libraryScroll = state.libraryIndex;
+    } else if (state.libraryIndex >= state.libraryScroll + 4) {
+        state.libraryScroll = state.libraryIndex - 3;
+    }
+}
+
+function libraryBack() {
+    if (state.libraryDir === LIBRARY_ROOT) {
+        state.view = 'main';
+        rebuildLedQueue();
+        return;
+    }
+    const slash = state.libraryDir.lastIndexOf('/');
+    scanLibrary(state.libraryDir.slice(0, slash));
+}
+
+function activateLibraryItem() {
+    const item = state.libraryItems[state.libraryIndex];
+    if (!item) return;
+    if (item.name === '..') {
+        libraryBack();
+        return;
+    }
+    const path = state.libraryDir + '/' + item.name;
+    if (item.directory) {
+        scanLibrary(path);
+        return;
+    }
+    setParamBlocking('load_lane_file', state.libraryLane + ',' + path);
+    state.sampleLoadState = 1;
+    state.sampleLoadProgress = 0;
+    state.sampleLoadName = item.name;
+    state.laneSource = item.name;
+    state.view = 'main';
+    showMessage('LOADING L' + state.libraryLane + ' ' + item.name, 90);
+    rebuildLedQueue();
+}
+
+function togglePatternView() {
+    if (state.view === 'patterns') {
+        state.view = 'main';
+    } else {
+        state.patternBank = Math.floor(state.activePattern / 16);
+        state.heldStep = -1;
+        state.view = 'patterns';
+    }
+    rebuildLedQueue();
+}
+
+function selectPatternSlot(step) {
+    const pattern = state.patternBank * 16 + step;
+    if (state.deleteHeld) {
+        setParamBlocking('pattern_clear', pattern);
+        if (pattern < 32) state.patternMaskLow &= ~(1 << pattern);
+        else state.patternMaskHigh &= ~(1 << (pattern - 32));
+        showMessage('CLEARED ' + patternLabel(pattern));
+    } else if (state.shiftHeld) {
+        setParamBlocking('pattern_copy', pattern);
+        if (pattern < 32) state.patternMaskLow |= 1 << pattern;
+        else state.patternMaskHigh |= 1 << (pattern - 32);
+        showMessage('COPIED TO ' + patternLabel(pattern));
+    } else {
+        setParamBlocking('pattern_select', pattern);
+        if (state.sequenceRunning) {
+            state.queuedPattern = pattern === state.activePattern ? -1 : pattern;
+        }
+        else {
+            state.activePattern = pattern;
+            state.queuedPattern = -1;
+            state.selectedStep = -1;
+            state.pendingNotes.clear();
+        }
+        showMessage((state.sequenceRunning && pattern !== state.activePattern
+            ? 'QUEUED ' : 'LOADED ')
+            + patternLabel(pattern));
+    }
+    rebuildLedQueue();
+}
+
+function selectAlgorithm(index) {
+    state.algorithm = clamp(index | 0, 0, 3);
+    PARAMS.algorithm.value = state.algorithm;
+    setParamBlocking('algorithm', state.algorithm);
+    showMessage(ALGORITHMS[state.algorithm]);
+    rebuildLedQueue();
+}
+
+function toggleRecording() {
+    const next = state.recording ? 0 : 1;
+    setParamBlocking('record_gate', next);
+    state.recording = next !== 0;
+    showMessage(state.recording ? 'RECORDING LANE ' + state.lane : 'RECORD STOPPED');
+    rebuildLedQueue();
+}
+
+function toggleSequenceRunning() {
+    state.sequenceRunning = !state.sequenceRunning;
+    if (!state.sequenceRunning) state.sequenceStep = -1;
+    setParamBlocking('seq_running', state.sequenceRunning ? 1 : 0);
+    showMessage(state.sequenceRunning ? 'PATTERN PLAY' : 'PATTERN STOP');
+    rebuildLedQueue();
+}
+
+function padMidiNote(padIndex) {
+    const row = Math.floor(padIndex / 8);
+    const column = padIndex % 8;
+    return clamp(48 + state.octave * 12 + row * 5 + column, 0, 127);
+}
+
+function finishPendingNote(padIndex) {
+    const event = state.pendingNotes.get(padIndex);
+    if (!event || state.selectedStep < 0) return false;
+    let length = (state.selectedStep - event.startStep + 16) % 16;
+    if (length === 0) length = 16;
+    setParamBlocking('seq_note_length', event.startStep + ','
+        + event.padIndex + ',' + length);
+    state.pendingNotes.delete(padIndex);
+    showMessage(noteName(event.note) + ' OFF S'
+        + String(state.selectedStep + 1).padStart(2, '0'));
+    rebuildLedQueue();
+    return true;
+}
+
+function clearSequenceStep(index) {
+    if (index < 0 || index >= 16) return;
+    setParamBlocking('seq_clear_step', index);
+    state.sequenceMask &= ~(1 << index);
+    state.stepLockMasks[index] = 0;
+    state.stepNoteCounts[index] = 0;
+    state.stepPadMasks[index] = 0;
+    state.stepLocks[index] = Object.create(null);
+    for (const [pad, event] of state.pendingNotes) {
+        if (event.startStep === index) state.pendingNotes.delete(pad);
+    }
+    showMessage('CLEARED STEP ' + String(index + 1).padStart(2, '0'));
+    rebuildLedQueue();
+}
+
+function selectSequenceStep(index) {
+    if (index < 0 || index >= 16) return;
+    if (state.selectedStep === index) {
+        if (state.pendingNotes.size > 0) {
+            showMessage('TAP LIT PAD FOR NOTE OFF');
+        } else {
+            state.selectedStep = -1;
+            showMessage('NOTE EDIT OFF');
+        }
+    } else {
+        state.selectedStep = index;
+        showMessage((state.pendingNotes.size > 0 ? 'NOTE OFF AT S' : 'NOTE ON AT S')
+            + String(index + 1).padStart(2, '0'));
+    }
+    rebuildLedQueue();
+}
+
+function assignSelectedStepNote(padIndex, velocity) {
+    if (state.selectedStep < 0) return false;
+    if (finishPendingNote(padIndex)) return true;
+    const startStep = state.selectedStep;
+    const note = padMidiNote(padIndex);
+    const bit = (1 << padIndex) >>> 0;
+    const alreadyAssigned = (state.stepPadMasks[startStep] & bit) !== 0;
+    if (!alreadyAssigned && state.stepNoteCounts[startStep] >= 8) {
+        showMessage('S' + (startStep + 1) + ' HAS 8 NOTES');
+        return true;
+    }
+    setParamBlocking('seq_note_pad_toggle', startStep + ',' + padIndex + ','
+        + note + ',' + clamp(velocity | 0, 1, 127));
+    if (alreadyAssigned) {
+        state.stepPadMasks[startStep] =
+            (state.stepPadMasks[startStep] & ~bit) >>> 0;
+        state.stepNoteCounts[startStep] = Math.max(
+            0, state.stepNoteCounts[startStep] - 1);
+        state.pendingNotes.delete(padIndex);
+        if (state.stepNoteCounts[startStep] === 0
+            && state.stepLockMasks[startStep] === 0) {
+            state.sequenceMask &= ~(1 << startStep);
+        }
+        showMessage('S' + (startStep + 1) + ' REMOVE ' + noteName(note));
+    } else {
+        state.stepPadMasks[startStep] =
+            (state.stepPadMasks[startStep] | bit) >>> 0;
+        state.stepNoteCounts[startStep]++;
+        state.sequenceMask |= 1 << startStep;
+        state.pendingNotes.set(padIndex, { startStep, padIndex, note });
+        showMessage('S' + (startStep + 1) + ' ON ' + noteName(note)
+            + ' - CHOOSE END');
+    }
+    rebuildLedQueue();
+    return true;
+}
+
+function adjustOctave(delta) {
+    const next = clamp(state.octave + (delta > 0 ? 1 : -1), -3, 3);
+    if (next === state.octave) return;
+    setParamBlocking('all_notes_off', 1);
+    state.activePads.clear();
+    state.octave = next;
+    setParamBlocking('pad_octave', state.octave);
+    showMessage('OCTAVE ' + (state.octave >= 0 ? '+' : '') + state.octave);
+    rebuildLedQueue();
+}
+
+function adjustSettingsPage(delta) {
+    const pages = parameterPages();
+    state.settingsPage = (state.settingsPage + (delta > 0 ? 1 : -1)
+        + pages.length) % pages.length;
+}
+
+function adjustControl(index, delta) {
+    const keys = activeControlKeys();
+    const control = PARAMS[keys[index]];
+    if (!control || delta === 0) return;
+    let value = clamp(control.value + delta * control.step, control.min, control.max);
+    if (state.heldStep >= 0 && LOCKABLE_PARAMS.has(control.key)) {
+        state.stepGestureUsed = true;
+        const previous = lockedControlValue(state.heldStep, control);
+        value = clamp(previous + delta * control.step, control.min, control.max);
+        if (control.integer) value = Math.round(value);
+        state.stepLocks[state.heldStep][control.key] = value;
+        const lockIndex = LOCKABLE_KEYS.indexOf(control.key);
+        if (lockIndex >= 0) {
+            state.stepLockMasks[state.heldStep] |= 1 << lockIndex;
+        }
+        state.sequenceMask |= 1 << state.heldStep;
+        setParam('seq_lock', state.heldStep + ',' + control.key + ','
+            + value.toFixed(control.integer ? 0 : 4));
+        showMessage('LOCK S' + String(state.heldStep + 1).padStart(2, '0')
+            + ' ' + (SHORT_LABELS[control.key] || control.label)
+            + ' ' + formatControlValue(Object.assign({}, control, { value })), 45);
+        rebuildLedQueue();
+        return;
+    }
+    if (control.integer) value = Math.round(value);
+    control.value = value;
+    if (control.key === 'algorithm') {
+        selectAlgorithm(value);
+        return;
+    }
+    setParam(control.key, value.toFixed(control.integer ? 0 : 4));
+    showMessage(control.label + ' ' + formatControlValue(control), 35);
+}
+
+function pollDsp() {
+    const algorithm = clamp(Math.round(getNumber('algorithm', state.algorithm)), 0, 3);
+    if (algorithm !== state.algorithm) {
+        state.algorithm = algorithm;
+        PARAMS.algorithm.value = algorithm;
+        state.settingsPage = clamp(state.settingsPage, 0, parameterPages().length - 1);
+    }
+    parseUiState(getParam('ui_state', ''));
+    parsePlayheads(getParam('playheads', ''));
+    parseStackPositions(getParam('voice_lanes', ''));
+    parseVoicePads(getParam('voice_pads', ''));
+    parsePatternState(getParam('pattern_state', '0,-1,0,0'));
+    parseSequenceState(getParam('seq_state', ''));
+    parseSequenceLocks(getParam('seq_locks', ''));
+    parseSequenceNoteCounts(getParam('seq_note_counts', ''));
+    parseSequencePadMasks(getParam('seq_pad_masks', ''));
+    parseSequenceOpenMask(getParam('seq_open_mask', '0'));
+    parseSampleLoadState(getParam('sample_load_state', '0,1,0,'));
+    state.laneSource = String(getParam('lane_source', state.laneSource) || 'EMPTY');
+    if (state.ticks % (state.scanning ? 5 : 24) === 0) {
+        parseWaveforms(getParam('waveforms', ''));
+    }
+}
+
+globalThis.init = function() {
+    state.ticks = 0;
+    state.view = 'main';
+    state.settingsPage = 0;
+    state.message = 'PADS PLAY - REC CAPTURES';
+    state.messageTicks = 80;
+    state.shiftHeld = false;
+    state.deleteHeld = false;
+    state.heldStep = -1;
+    state.selectedStep = -1;
+    state.pendingNotes.clear();
+    state.stepGestureUsed = false;
+    state.activePads.clear();
+    for (const key of Object.keys(PARAMS)) {
+        const control = PARAMS[key];
+        control.value = clamp(getNumber(control.key, control.value),
+            control.min, control.max);
+    }
+    state.algorithm = Math.round(PARAMS.algorithm.value);
+    state.lane = clamp(getNumber('record_lane', 1) | 0, 1, 4);
+    state.octave = clamp(getNumber('pad_octave', 0) | 0, -3, 3);
+    state.recordSource = clamp(getNumber('record_source', 0) | 0, 0, 1);
+    parseUiState(getParam('ui_state', ''));
+    parsePlayheads(getParam('playheads', ''));
+    parseStackPositions(getParam('voice_lanes', ''));
+    parseVoicePads(getParam('voice_pads', ''));
+    parsePatternState(getParam('pattern_state', '0,-1,0,0'));
+    parseSequenceState(getParam('seq_state', ''));
+    parseSequenceLocks(getParam('seq_locks', ''));
+    parseSequenceNoteCounts(getParam('seq_note_counts', ''));
+    parseSequencePadMasks(getParam('seq_pad_masks', ''));
+    parseSequenceOpenMask(getParam('seq_open_mask', '0'));
+    parseSampleLoadState(getParam('sample_load_state', '0,1,0,'));
+    state.laneSource = String(getParam('lane_source', 'EMPTY') || 'EMPTY');
+    parseWaveforms(getParam('waveforms', ''));
+    if (state.recalled) {
+        state.message = 'RECALLED ' + state.mask.toString(2).replace(/0/g, '').length
+            + ' STEREO LANES';
+    } else if (state.persistenceEnabled) {
+        state.message = 'EXIT SAVES BANK';
+    }
+    rebuildLedQueue();
+    draw();
+};
+
+globalThis.tick = function() {
+    state.ticks++;
+    if (state.ticks % 3 === 0) pollDsp();
+    if (state.messageTicks > 0) state.messageTicks--;
+    drainLedQueue();
+    draw();
+};
+
+globalThis.onMidiMessageInternal = function(data) {
+    if (!data || data.length < 3) return;
+    const status = data[0] & 0xF0;
+    const number = data[1] | 0;
+    const value = data[2] | 0;
+
+    if (status === 0x90 || status === 0x80) {
+        const pressed = status === 0x90 && value > 0;
+        const step = MoveSteps.indexOf(number);
+        if (step >= 0) {
+            if (state.view === 'patterns') {
+                if (pressed) selectPatternSlot(step);
+                return;
+            }
+            if (pressed) {
+                state.heldStep = step;
+                state.stepGestureUsed = state.deleteHeld;
+                if (state.deleteHeld) clearSequenceStep(step);
+                else rebuildLedQueue();
+            } else if (state.heldStep === step) {
+                const select = !state.stepGestureUsed;
+                state.heldStep = -1;
+                state.stepGestureUsed = false;
+                if (select) selectSequenceStep(step);
+                else rebuildLedQueue();
+            }
+            return;
+        }
+        const pad = MovePads.indexOf(number);
+        if (pad >= 0) {
+            if (pressed) {
+                state.activePads.add(number);
+                if (!assignSelectedStepNote(pad, value)) setLED(number, Cyan);
+            } else {
+                state.activePads.delete(number);
+                rebuildLedQueue();
+            }
+            return;
+        }
+    }
+
+    if (status === 0xA0 && MovePads.indexOf(number) >= 0) {
+        // Raw pad pressure also reaches the DSP, where it is associated with
+        // the exact polyphonic voice. Do not collapse it to a global value.
+        return;
+    }
+
+    if (status !== 0xB0) return;
+    if (number === MoveShift) {
+        state.shiftHeld = value > 0;
+        return;
+    }
+    if (number === MoveDelete) {
+        state.deleteHeld = value > 0;
+        if (state.view === 'patterns') return;
+    }
+    if (number === MovePlay && value > 0) {
+        if (state.shiftHeld) togglePatternView();
+        else toggleSequenceRunning();
+        return;
+    }
+    if (value <= 0 && number !== MoveMainKnob
+        && (number < MoveKnob1 || number > MoveKnob1 + 7)) return;
+
+    const track = MoveTracks.indexOf(number);
+    if (track >= 0 && value > 0) {
+        if (state.view === 'patterns') {
+            state.patternBank = track;
+            rebuildLedQueue();
+        } else if (state.shiftHeld) {
+            openLibrary(track + 1);
+        } else {
+            selectLane(track + 1);
+        }
+        return;
+    }
+    if ((number === MoveRecord || number === MoveRecordAlt) && value > 0) {
+        if (state.shiftHeld && !state.recording) {
+            state.recordSource = state.recordSource ? 0 : 1;
+            setParamBlocking('record_source', state.recordSource);
+            showMessage(state.recordSource ? 'SOURCE RESAMPLE' : 'SOURCE INPUT');
+        } else {
+            toggleRecording();
+        }
+        return;
+    }
+    if (number === MoveDelete && value > 0 && state.heldStep >= 0) {
+        state.stepGestureUsed = true;
+        setParamBlocking('seq_clear_locks', state.heldStep);
+        state.stepLocks[state.heldStep] = Object.create(null);
+        state.stepLockMasks[state.heldStep] = 0;
+        showMessage('CLEARED S' + (state.heldStep + 1) + ' LOCKS');
+        rebuildLedQueue();
+        return;
+    }
+    if (number === MoveDelete && value > 0 && state.shiftHeld && !state.recording) {
+        setParamBlocking('clear_lane', 'Clear');
+        showMessage('CLEARED LANE ' + state.lane);
+        return;
+    }
+    if (number === MoveUp && value > 0) {
+        if (state.view === 'settings') adjustSettingsPage(1);
+        else if (state.view === 'library') moveLibrarySelection(-1);
+        else if (state.view === 'main') adjustOctave(1);
+        return;
+    }
+    if (number === MoveDown && value > 0) {
+        if (state.view === 'settings') adjustSettingsPage(-1);
+        else if (state.view === 'library') moveLibrarySelection(1);
+        else if (state.view === 'main') adjustOctave(-1);
+        return;
+    }
+    if (number === MoveMainKnob) {
+        const delta = decodeDelta(value);
+        if (state.view === 'library') moveLibrarySelection(delta);
+        else if (delta !== 0) selectLane(state.lane + (delta > 0 ? 1 : -1));
+        return;
+    }
+    if (number === MoveMainButton && value > 0) {
+        if (state.view === 'library') activateLibraryItem();
+        else toggleRecording();
+        return;
+    }
+    if (number >= MoveKnob1 && number < MoveKnob1 + 8) {
+        if (state.view === 'main' || state.view === 'settings') {
+            adjustControl(number - MoveKnob1, decodeDelta(value));
+        }
+        return;
+    }
+    if (number === MoveMenu && value > 0) {
+        if (state.shiftHeld) {
+            state.view = state.view === 'help' ? 'main' : 'help';
+        } else {
+            state.view = state.view === 'settings' ? 'main' : 'settings';
+        }
+        return;
+    }
+    if (number === MoveBack && value > 0) {
+        if (state.view === 'library') {
+            libraryBack();
+        } else if (state.view !== 'main') {
+            state.view = 'main';
+            rebuildLedQueue();
+        } else if (typeof host_exit_module === 'function') {
+            host_exit_module();
+        }
+    }
+};
+
+globalThis.onUnload = function() {
+    if (state.recording) setParamBlocking('record_gate', 0);
+    setParamBlocking('all_notes_off', 1);
+    setButtonLED(MoveRecord, Black);
+    if (MoveRecordAlt !== MoveRecord) setButtonLED(MoveRecordAlt, Black);
+    setButtonLED(MovePlay, Black);
+};
+

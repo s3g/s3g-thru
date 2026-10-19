@@ -1,0 +1,2636 @@
+#pragma once
+
+#include <algorithm>
+#include <cmath>
+#include <cstddef>
+#include <cstdint>
+
+namespace s3g_daisy {
+
+/**
+ * Fixed-memory Daisy adaptation of the s3g Sample instrument family.
+ *
+ * The desktop engine owns decoded vectors, MIDI voices, envelopes, and event
+ * schedulers. This embedded version deliberately keeps each engine
+ * allocation-free. It accepts storage from the platform so audio can live in
+ * external SDRAM, then provides one bounded image with Motion, optionally
+ * stretched Lanes, Grains, and Cutups renderers. No renderer allocates or
+ * performs file I/O in the audio callback.
+ */
+class SampleMotionApp {
+public:
+    static constexpr std::size_t kChannels = 4u;
+    static constexpr std::size_t kStackLanes = 4u;
+    static constexpr std::size_t kLaneChannels = 2u;
+    static constexpr std::size_t kNoLane = kStackLanes;
+    static constexpr std::size_t kResampleInputOffset = kChannels;
+
+    enum class PlaybackAlgorithm : std::uint8_t {
+        motion,
+        lanes,
+        grains,
+        cutups,
+    };
+
+    static constexpr std::size_t kPlaybackAlgorithmCount = 4u;
+
+    enum class MotionMode : std::uint8_t {
+        forward,
+        reverse,
+        hover,
+        roundTrip,
+        movingLoop,
+        mirror,
+        zigzag,
+    };
+
+    static constexpr std::size_t kMotionModeCount = 7u;
+
+    enum class MotionSound : std::uint8_t {
+        continuous,
+        packets,
+        motor,
+        bounce,
+    };
+
+    static constexpr std::size_t kMotionSoundCount = 4u;
+
+    enum class LanesMode : std::uint8_t {
+        forward,
+        reverse,
+        pingPong,
+    };
+
+    static constexpr std::size_t kLanesModeCount = 3u;
+
+    enum class GrainMode : std::uint8_t {
+        scan,
+        freeze,
+        cloud,
+        slice,
+    };
+
+    static constexpr std::size_t kGrainModeCount = 4u;
+
+    enum class GrainWindow : std::uint8_t {
+        parzen,
+        sine,
+        hann,
+        triangle,
+        gaussian,
+        bell,
+    };
+
+    static constexpr std::size_t kGrainWindowCount = 6u;
+
+    enum class CutupsMode : std::uint8_t {
+        forward,
+        reverse,
+        palindrome,
+        random,
+        walk,
+    };
+
+    static constexpr std::size_t kCutupsModeCount = 5u;
+
+    enum class LanePath : std::uint8_t {
+        down,
+        up,
+        triangle,
+        sine,
+        stepsDown,
+        stepsUp,
+        manual,
+    };
+
+    static constexpr std::size_t kLanePathCount = 7u;
+
+    struct Controls {
+        float locus = 0.5f;
+        float field = 1.0f;
+        float speed = 1.0f;
+        float mix = 1.0f;
+        float join = 1.0f;
+        PlaybackAlgorithm algorithm = PlaybackAlgorithm::motion;
+        MotionMode motion = MotionMode::forward;
+        MotionSound motionSound = MotionSound::continuous;
+        float motionSoundRateHz = 4.0f;
+        LanesMode lanes = LanesMode::forward;
+        GrainMode grains = GrainMode::scan;
+        CutupsMode cutups = CutupsMode::forward;
+        LanePath lanePath = LanePath::triangle;
+        float laneCycles = 1.0f;
+        float manualLane = 0.0f;
+        float lanePhaseOffset = 0.0f;
+        float laneGains[kStackLanes] { 1.0f, 1.0f, 1.0f, 1.0f };
+        bool lanesStretch = true;
+        float lanesStretchRatio = 1.0f;
+        float grainSizeMs = 90.0f;
+        float grainDensityHz = 24.0f;
+        float grainPitch = 1.0f;
+        GrainWindow grainWindow = GrainWindow::bell;
+        float grainStereoSpread = 0.0f;
+        float recordInputGain = 1.0f;
+    };
+
+    bool prepare(float outputSampleRate,
+                 float* channel0,
+                 float* channel1,
+                 float* channel2,
+                 float* channel3,
+                 std::size_t capacityFrames)
+    {
+        if (!(outputSampleRate > 0.0f) || !channel0 || !channel1 || !channel2
+            || !channel3 || capacityFrames == 0u) {
+            prepared_ = false;
+            return false;
+        }
+
+        storage_[0] = channel0;
+        storage_[1] = channel1;
+        storage_[2] = channel2;
+        storage_[3] = channel3;
+        capacityFrames_ = capacityFrames;
+        laneCapacityFrames_ = capacityFrames_ / kLaneChannels;
+        outputSampleRate_ = outputSampleRate;
+        windowFadeFrames_ = std::max<std::size_t>(
+            32u, static_cast<std::size_t>(outputSampleRate_ * 0.030f));
+        retriggerFadeFrames_ = std::max<std::size_t>(
+            16u, static_cast<std::size_t>(outputSampleRate_ * 0.003f));
+        retriggerTransitionFrames_ = std::max<std::size_t>(
+            32u, static_cast<std::size_t>(outputSampleRate_ * 0.005f));
+        algorithmFadeFrames_ = std::max<std::size_t>(
+            32u, static_cast<std::size_t>(outputSampleRate_ * 0.010f));
+        recordTransitionFrames_ = std::max<std::size_t>(
+            32u, static_cast<std::size_t>(outputSampleRate_ * 0.005f));
+        speedSlew_ = 1.0f
+            - std::exp(-1.0f / std::max(1.0f, outputSampleRate_ * 0.020f));
+        laneSlew_ = 1.0f
+            - std::exp(-1.0f / std::max(1.0f, outputSampleRate_ * 0.020f));
+        eventWindowSlew_ = 1.0f
+            - std::exp(-1.0f / std::max(1.0f, outputSampleRate_ * 0.040f));
+        motionEnvelopeSlew_ = 1.0f
+            - std::exp(-1.0f / std::max(1.0f, outputSampleRate_ * 0.002f));
+        recordMeterRelease_ = std::exp(
+            -1.0f / std::max(1.0f, outputSampleRate_ * 0.250f));
+        prepareGrainWindowTables();
+        clear();
+        prepared_ = true;
+        return true;
+    }
+
+    void clear()
+    {
+        sourceFrames_ = 0u;
+        sourceChannels_ = 0u;
+        sourceSampleRate_ = outputSampleRate_;
+        recordFrames_ = 0u;
+        recordChannels_ = 0u;
+        recordingLane_ = kNoLane;
+        lastRecordedLane_ = kNoLane;
+        recordPeak_ = 0.0f;
+        recordMeterPeak_ = 0.0f;
+        lastRecordedPeak_ = 0.0f;
+        recordLimited_ = false;
+        lastRecordLimited_ = false;
+        recordInputOffset_ = 0u;
+        recordWriteActive_ = false;
+        recordTransitionRemaining_ = 0u;
+        laneTransition_ = LaneTransition::none;
+        transitionLane_ = kNoLane;
+        transitionFrames_ = 0u;
+        transitionSampleRate_ = outputSampleRate_;
+        stackMode_ = false;
+        referenceLane_ = 0u;
+        lanePosition_ = 0.0f;
+        lanePhase_ = 0.0f;
+        lanePhaseIncrement_ = 0.0f;
+        laneWeightsInitialized_ = false;
+        for (std::size_t lane = 0u; lane < kStackLanes; ++lane) {
+            laneFrames_[lane] = 0u;
+            laneSampleRates_[lane] = outputSampleRate_;
+            lanePositionScales_[lane] = 0.0;
+            laneWeights_[lane] = 0.0f;
+            laneWeightTargets_[lane] = 0.0f;
+        }
+        phase_ = 0.0;
+        speed_ = 1.0f;
+        displayPosition_ = 0.0;
+        fieldLow_ = 0.0;
+        fieldHigh_ = 0.0;
+        currentWindow_ = {};
+        fromWindow_ = {};
+        toWindow_ = {};
+        currentMode_ = MotionMode::forward;
+        fromMode_ = MotionMode::forward;
+        toMode_ = MotionMode::forward;
+        requestedMode_ = MotionMode::forward;
+        currentMotionSound_ = MotionSound::continuous;
+        currentAlgorithm_ = PlaybackAlgorithm::motion;
+        pendingAlgorithm_ = PlaybackAlgorithm::motion;
+        algorithmFadeRemaining_ = 0u;
+        windowFadeRemaining_ = 0u;
+        retriggerFadeRemaining_ = 0u;
+        retriggerTransitionRemaining_ = 0u;
+        windowInitialized_ = false;
+        eventWindowInitialized_ = false;
+        movingCenterInitialized_ = false;
+        lastControlLocus_ = -1.0f;
+        motionInnerPhase_ = 0.0;
+        motionOuterPhase_ = 0.5;
+        bouncePhase_ = 0.0;
+        bounceIndex_ = 0u;
+        motionEnvelope_ = 1.0f;
+        resetEventReaders();
+        playing_ = false;
+        recording_ = false;
+    }
+
+    bool adoptSource(std::size_t frames,
+                     std::size_t channels,
+                     float sourceSampleRate)
+    {
+        if (!prepared_ || frames == 0u || frames > capacityFrames_
+            || channels == 0u || channels > kChannels
+            || !(sourceSampleRate > 0.0f)) {
+            return false;
+        }
+
+        sourceFrames_ = frames;
+        sourceChannels_ = channels;
+        sourceSampleRate_ = sourceSampleRate;
+        stackMode_ = false;
+        for (std::size_t lane = 0u; lane < kStackLanes; ++lane) {
+            laneFrames_[lane] = 0u;
+        }
+        recordFrames_ = 0u;
+        recordChannels_ = 0u;
+        resetReader();
+        retriggerFadeRemaining_ = retriggerFadeFrames_;
+        recording_ = false;
+        recordWriteActive_ = false;
+        recordTransitionRemaining_ = 0u;
+        playing_ = true;
+        return true;
+    }
+
+    /** Adopt one planar-stereo file into a four-file Sample Lanes stack. */
+    bool adoptLane(std::size_t lane,
+                   std::size_t frames,
+                   float sourceSampleRate)
+    {
+        if (!prepared_ || lane >= kStackLanes || frames == 0u
+            || frames > laneCapacityFrames_ || !(sourceSampleRate > 0.0f)) {
+            return false;
+        }
+
+        if (!stackMode_) {
+            for (std::size_t index = 0u; index < kStackLanes; ++index) {
+                laneFrames_[index] = 0u;
+                laneSampleRates_[index] = outputSampleRate_;
+            }
+            referenceLane_ = lane;
+        }
+        stackMode_ = true;
+        laneFrames_[lane] = frames;
+        laneSampleRates_[lane] = sourceSampleRate;
+        sourceFrames_ = laneFrames_[referenceLane_];
+        sourceChannels_ = kLaneChannels;
+        sourceSampleRate_ = laneSampleRates_[referenceLane_];
+        updateLanePositionScales();
+        recordFrames_ = 0u;
+        recordChannels_ = 0u;
+        resetReader();
+        retriggerFadeRemaining_ = retriggerFadeFrames_;
+        recording_ = false;
+        recordWriteActive_ = false;
+        recordTransitionRemaining_ = 0u;
+        playing_ = true;
+        return true;
+    }
+
+    /** Record a Patch stereo input pair or the stereo output into a stack lane. */
+    bool beginLaneRecording(std::size_t lane, std::size_t inputOffset)
+    {
+        if (!prepared_ || recording_ || lane >= kStackLanes
+            || recordTransitionRemaining_ != 0u
+            || laneTransition_ != LaneTransition::none
+            || (inputOffset != 0u && inputOffset != 2u
+                && inputOffset != kResampleInputOffset)) {
+            return false;
+        }
+
+        const bool canContinuePlayback
+            = stackMode_ && loadedLaneCount() != 0u;
+        if (!stackMode_) {
+            for (std::size_t index = 0u; index < kStackLanes; ++index) {
+                laneFrames_[index] = 0u;
+                laneSampleRates_[index] = outputSampleRate_;
+            }
+            referenceLane_ = lane;
+            sourceFrames_ = 0u;
+            playing_ = false;
+        }
+        stackMode_ = true;
+        sourceChannels_ = kLaneChannels;
+        recordFrames_ = 0u;
+        recordChannels_ = kLaneChannels;
+        recordingLane_ = lane;
+        lastRecordedLane_ = kNoLane;
+        recordPeak_ = 0.0f;
+        recordMeterPeak_ = 0.0f;
+        recordLimited_ = false;
+        recordInputOffset_ = inputOffset;
+        recording_ = true;
+        recordWriteActive_ = false;
+        if (canContinuePlayback) {
+            // Keep the transition delay even when this engine is acting only
+            // as the record-bank coordinator. Shared playback voices use the
+            // same midpoint before the destination lane is overwritten.
+            recordTransitionRemaining_ = recordTransitionFrames_ * 2u;
+        } else {
+            recordTransitionRemaining_ = 0u;
+            activateLaneRecording();
+        }
+        return true;
+    }
+
+    /** Fade a loaded lane out of the active stack without erasing its memory. */
+    bool beginLaneRemoval(std::size_t lane)
+    {
+        if (!prepared_ || recording_ || lane >= kStackLanes
+            || laneFrames_[lane] == 0u || recordTransitionRemaining_ != 0u
+            || laneTransition_ != LaneTransition::none) {
+            return false;
+        }
+        laneTransition_ = LaneTransition::remove;
+        transitionLane_ = lane;
+        recordTransitionRemaining_ = recordTransitionFrames_ * 2u;
+        return true;
+    }
+
+    /**
+     * Fade a main-thread-loaded lane into the active stack. The destination
+     * must already be absent so its SDRAM can be written safely.
+     */
+    bool beginLaneAdoption(std::size_t lane,
+                           std::size_t frames,
+                           float sourceSampleRate)
+    {
+        if (!prepared_ || recording_ || lane >= kStackLanes
+            || laneFrames_[lane] != 0u || frames == 0u
+            || frames > laneCapacityFrames_ || !(sourceSampleRate > 0.0f)
+            || recordTransitionRemaining_ != 0u
+            || laneTransition_ != LaneTransition::none) {
+            return false;
+        }
+        laneTransition_ = LaneTransition::adopt;
+        transitionLane_ = lane;
+        transitionFrames_ = frames;
+        transitionSampleRate_ = sourceSampleRate;
+        recordTransitionRemaining_ = recordTransitionFrames_ * 2u;
+        return true;
+    }
+
+    bool beginRecording(std::size_t channels)
+    {
+        if (!prepared_ || channels == 0u || channels > kChannels) {
+            return false;
+        }
+
+        sourceFrames_ = 0u;
+        sourceChannels_ = 0u;
+        sourceSampleRate_ = outputSampleRate_;
+        stackMode_ = false;
+        for (std::size_t lane = 0u; lane < kStackLanes; ++lane) {
+            laneFrames_[lane] = 0u;
+        }
+        recordFrames_ = 0u;
+        recordChannels_ = channels;
+        recordingLane_ = kNoLane;
+        lastRecordedLane_ = kNoLane;
+        recordInputOffset_ = 0u;
+        recordWriteActive_ = true;
+        recordTransitionRemaining_ = 0u;
+        resetReader();
+        playing_ = false;
+        recording_ = true;
+        return true;
+    }
+
+    bool endRecording()
+    {
+        if (!recording_) {
+            return false;
+        }
+
+        recording_ = false;
+        if (recordingLane_ < kStackLanes) {
+            const std::size_t lane = recordingLane_;
+            if (!recordWriteActive_ && recordFrames_ == 0u) {
+                recordingLane_ = kNoLane;
+                recordChannels_ = 0u;
+                return playing_;
+            }
+            const bool continuingPlayback = playing_ && sourceFrames_ != 0u;
+            laneFrames_[lane] = recordFrames_;
+            laneSampleRates_[lane] = outputSampleRate_;
+            if (referenceLane_ >= kStackLanes
+                || laneFrames_[referenceLane_] == 0u) {
+                referenceLane_ = lane;
+            }
+            sourceFrames_ = laneFrames_[referenceLane_];
+            sourceChannels_ = kLaneChannels;
+            sourceSampleRate_ = laneSampleRates_[referenceLane_];
+            stackMode_ = true;
+            lastRecordedLane_ = lane;
+            lastRecordedPeak_ = recordPeak_;
+            lastRecordLimited_ = recordLimited_;
+            recordingLane_ = kNoLane;
+            recordChannels_ = 0u;
+            recordWriteActive_ = false;
+            updateLanePositionScales();
+            if (!continuingPlayback) {
+                resetReader();
+                retriggerFadeRemaining_ = retriggerFadeFrames_;
+            }
+            playing_ = sourceFrames_ != 0u;
+            return playing_;
+        }
+        sourceFrames_ = recordFrames_;
+        sourceChannels_ = recordChannels_;
+        sourceSampleRate_ = outputSampleRate_;
+        stackMode_ = false;
+        lastRecordedLane_ = kNoLane;
+        recordChannels_ = 0u;
+        recordWriteActive_ = false;
+        recordTransitionRemaining_ = 0u;
+        resetReader();
+        playing_ = sourceFrames_ != 0u;
+        return playing_;
+    }
+
+    void retrigger()
+    {
+        if (sourceFrames_ == 0u) {
+            return;
+        }
+        resetReader();
+        retriggerFadeRemaining_ = retriggerFadeFrames_;
+        playing_ = true;
+    }
+
+    void stopPlayback() { playing_ = false; }
+
+    void process(const float* const* input,
+                 float** output,
+                 std::size_t frames,
+                 const Controls& controls)
+    {
+        if (!prepared_ || !input || !output || frames == 0u) {
+            return;
+        }
+        for (std::size_t channel = 0u; channel < kChannels; ++channel) {
+            if (!input[channel] || !output[channel]) {
+                return;
+            }
+        }
+
+        const float dryWet = clamp01(controls.mix);
+        const float targetSpeed = clamp(controls.speed, 0.05f, 4.0f);
+        const float join = clamp01(controls.join);
+        recordInputGain_ = clamp(controls.recordInputGain, 0.0f, 1.0f);
+        for (std::size_t lane = 0u; lane < kStackLanes; ++lane) {
+            activeControlsLaneGains_[lane]
+                = clamp(controls.laneGains[lane], 0.0f, 4.0f);
+        }
+        requestAlgorithm(controls.algorithm);
+        prepareMotionSoundBlock(controls);
+        prepareGrainControls(controls);
+
+        std::size_t laneControlCountdown = 0u;
+        for (std::size_t frame = 0u; frame < frames; ++frame) {
+            const float recordGain = recordTransitionGain();
+            if (recording_ && recordWriteActive_
+                && recordInputOffset_ != kResampleInputOffset) {
+                if (recordingLane_ < kStackLanes) {
+                    recordFrame(input[recordInputOffset_][frame],
+                                input[recordInputOffset_ + 1u][frame]);
+                } else {
+                    recordInputFrame(input, frame);
+                }
+            }
+
+            if (!playing_ || sourceFrames_ == 0u) {
+                for (std::size_t channel = 0u; channel < kChannels; ++channel) {
+                    output[channel][frame] = input[channel][frame] * recordGain;
+                }
+                if (recording_ && recordWriteActive_
+                    && recordInputOffset_ == kResampleInputOffset) {
+                    recordFrame(output[0u][frame], output[1u][frame]);
+                }
+                advanceRecordTransition();
+                continue;
+            }
+
+            constexpr std::size_t laneControlFrames = 48u;
+            if (stackMode_ && laneControlCountdown == 0u) {
+                laneControlCountdown
+                    = std::min(laneControlFrames, frames - frame);
+                prepareLaneScanBlock(controls, laneControlCountdown);
+            }
+            if (stackMode_) {
+                advanceLaneWeights();
+            }
+            speed_ += (targetSpeed - speed_) * speedSlew_;
+            const float algorithmGain = algorithmTransitionGain();
+            const float retriggerGain = retriggerTransitionGain();
+            float wetOutput[kChannels] {};
+            switch (currentAlgorithm_) {
+                case PlaybackAlgorithm::motion:
+                    renderContinuousFrame(
+                        controls, join, false, false, wetOutput);
+                    break;
+                case PlaybackAlgorithm::lanes:
+                    renderContinuousFrame(
+                        controls, join, true, controls.lanesStretch, wetOutput);
+                    break;
+                case PlaybackAlgorithm::grains:
+                    renderGrainsFrame(controls, wetOutput);
+                    break;
+                case PlaybackAlgorithm::cutups:
+                    renderCutupsFrame(controls, wetOutput);
+                    break;
+            }
+            advanceLaneClock();
+            if (laneControlCountdown != 0u) {
+                --laneControlCountdown;
+            }
+
+            for (std::size_t channel = 0u; channel < kChannels; ++channel) {
+                float wet = wetOutput[channel] * algorithmGain * retriggerGain;
+                if (retriggerFadeRemaining_ != 0u) {
+                    const float retriggerMix = smoothStep(1.0f
+                        - static_cast<float>(retriggerFadeRemaining_)
+                            / static_cast<float>(retriggerFadeFrames_));
+                    wet *= retriggerMix;
+                }
+                output[channel][frame]
+                    = (input[channel][frame] * (1.0f - dryWet) + wet * dryWet)
+                        * recordGain;
+            }
+            if (recording_ && recordWriteActive_
+                && recordInputOffset_ == kResampleInputOffset) {
+                recordFrame(output[0u][frame], output[1u][frame]);
+            }
+            advanceAlgorithmTransition();
+            advanceRetriggerTransition();
+            advanceRecordTransition();
+            if (retriggerFadeRemaining_ != 0u) {
+                --retriggerFadeRemaining_;
+            }
+        }
+    }
+
+    float* writableChannel(std::size_t channel)
+    {
+        return channel < kChannels ? storage_[channel] : nullptr;
+    }
+
+    float* writableLane(std::size_t lane, std::size_t channel = 0u)
+    {
+        return lane < kStackLanes && channel < kLaneChannels
+            ? storage_[lane] + channel * laneCapacityFrames_ : nullptr;
+    }
+
+    const float* sourceChannel(std::size_t channel) const
+    {
+        if (stackMode_) {
+            return nullptr;
+        }
+        return channel < sourceChannels_ ? storage_[channel] : nullptr;
+    }
+
+    const float* laneData(std::size_t lane, std::size_t channel = 0u) const
+    {
+        return lane < kStackLanes && channel < kLaneChannels
+                && laneFrames_[lane] != 0u
+            ? storage_[lane] + channel * laneCapacityFrames_ : nullptr;
+    }
+
+    bool prepared() const { return prepared_; }
+    bool playing() const { return playing_; }
+    bool recording() const { return recording_; }
+    std::size_t sourceFrames() const { return sourceFrames_; }
+    std::size_t sourceChannels() const { return sourceChannels_; }
+    float sourceSampleRate() const { return sourceSampleRate_; }
+    std::size_t recordedFrames() const { return recordFrames_; }
+    std::size_t capacityFrames() const { return capacityFrames_; }
+    std::size_t laneCapacityFrames() const { return laneCapacityFrames_; }
+    std::size_t lastRecordedLane() const { return lastRecordedLane_; }
+    float recordPeak() const { return recordPeak_; }
+    float recordMeterPeak() const { return recordMeterPeak_; }
+    float lastRecordedPeak() const { return lastRecordedPeak_; }
+    bool recordLimited() const { return recordLimited_; }
+    bool lastRecordLimited() const { return lastRecordLimited_; }
+    bool stackMode() const { return stackMode_; }
+    bool laneLoaded(std::size_t lane) const
+    {
+        return lane < kStackLanes && laneFrames_[lane] != 0u;
+    }
+    std::size_t laneFrames(std::size_t lane) const
+    {
+        return lane < kStackLanes ? laneFrames_[lane] : 0u;
+    }
+    float laneSampleRate(std::size_t lane) const
+    {
+        return lane < kStackLanes ? laneSampleRates_[lane] : 0.0f;
+    }
+    std::size_t loadedLaneCount() const
+    {
+        std::size_t count = 0u;
+        for (std::size_t lane = 0u; lane < kStackLanes; ++lane) {
+            if (laneFrames_[lane] != 0u) {
+                ++count;
+            }
+        }
+        return count;
+    }
+    std::uint32_t loadedLaneMask() const
+    {
+        std::uint32_t mask = 0u;
+        for (std::size_t lane = 0u; lane < kStackLanes; ++lane) {
+            if (laneFrames_[lane] != 0u) {
+                mask |= 1u << lane;
+            }
+        }
+        return mask;
+    }
+    float normalizedLanePosition() const { return clamp01(lanePosition_ / 3.0f); }
+    float laneWeight(std::size_t lane) const
+    {
+        return lane < kStackLanes ? laneWeights_[lane] : 0.0f;
+    }
+
+    std::size_t activeGrainVoices() const
+    {
+        std::size_t active = 0u;
+        for (const auto& grain : grains_) {
+            if (grain.active) {
+                ++active;
+            }
+        }
+        return active;
+    }
+
+    float effectiveGrainDensityHz() const { return grainDensityHz_; }
+
+    float normalizedPosition() const
+    {
+        return sourceFrames_ == 0u
+            ? 0.0f
+            : clamp01(static_cast<float>(displayPosition_
+                / static_cast<double>(sourceFrames_)));
+    }
+
+    float normalizedFieldStart() const
+    {
+        return sourceFrames_ == 0u
+            ? 0.0f
+            : clamp01(static_cast<float>(fieldLow_
+                / static_cast<double>(sourceFrames_)));
+    }
+
+    float normalizedFieldEnd() const
+    {
+        return sourceFrames_ == 0u
+            ? 1.0f
+            : clamp01(static_cast<float>(fieldHigh_
+                / static_cast<double>(sourceFrames_)));
+    }
+
+private:
+    enum class LaneTransition : std::uint8_t {
+        none,
+        remove,
+        adopt,
+    };
+
+    struct Window {
+        double low = 0.0;
+        double high = 1.0;
+    };
+
+    struct ReadHead {
+        double a = 0.0;
+        double b = 0.0;
+        double position = 0.0;
+        double low = 0.0;
+        double high = 1.0;
+        float mix = 0.0f;
+        float gain = 1.0f;
+    };
+
+    struct LaneBlend {
+        std::size_t first = 0u;
+        std::size_t second = 0u;
+        float firstGain = 1.0f;
+        float secondGain = 0.0f;
+        float position = 0.0f;
+    };
+
+    struct Grain {
+        bool active = false;
+        std::size_t age = 0u;
+        std::size_t duration = 1u;
+        double position = 0.0;
+        double increment = 0.0;
+        double low = 0.0;
+        double high = 1.0;
+        double seam = 0.0;
+        LaneBlend lanes {};
+        float gain = 1.0f;
+        float channelGains[kLaneChannels] { 1.0f, 1.0f };
+        GrainWindow window = GrainWindow::bell;
+    };
+
+    struct CutReader {
+        bool active = false;
+        bool retiring = false;
+        std::size_t age = 0u;
+        std::size_t retirementAge = 0u;
+        std::size_t joinFrames = 1u;
+        double position = 0.0;
+        double increment = 0.0;
+        double low = 0.0;
+        double high = 1.0;
+        double seam = 0.0;
+    };
+
+    static constexpr std::size_t kGrainVoiceCount = 8u;
+    static constexpr std::size_t kCutRegionCount = 16u;
+
+    static float clamp(float value, float minimum, float maximum)
+    {
+        return std::max(minimum, std::min(maximum, value));
+    }
+
+    static double clamp(double value, double minimum, double maximum)
+    {
+        return std::max(minimum, std::min(maximum, value));
+    }
+
+    static float clamp01(float value) { return clamp(value, 0.0f, 1.0f); }
+
+    static float smoothStep(float value)
+    {
+        value = clamp01(value);
+        return value * value * (3.0f - 2.0f * value);
+    }
+
+    static float smoothBell(double phase)
+    {
+        phase = clamp(phase, 0.0, 1.0);
+        const float edge = static_cast<float>(phase < 0.5
+            ? phase * 2.0 : (1.0 - phase) * 2.0);
+        return smoothStep(edge);
+    }
+
+    // The STM32H7 has native single-precision floating point but software
+    // double precision. Keep the audio-rate Motion articulation envelopes on
+    // the native float path; source addressing remains double precision.
+    static float smoothBell(float phase)
+    {
+        phase = clamp01(phase);
+        const float edge = phase < 0.5f
+            ? phase * 2.0f : (1.0f - phase) * 2.0f;
+        return smoothStep(edge);
+    }
+
+    static double wrapPhase(double phase)
+    {
+        while (phase >= 1.0) {
+            phase -= 1.0;
+        }
+        while (phase < 0.0) {
+            phase += 1.0;
+        }
+        return phase;
+    }
+
+    float randomUnit()
+    {
+        randomState_ ^= randomState_ << 13u;
+        randomState_ ^= randomState_ >> 17u;
+        randomState_ ^= randomState_ << 5u;
+        if (randomState_ == 0u) {
+            randomState_ = 0x6d2b79f5u;
+        }
+        return static_cast<float>(randomState_ & 0x00ffffffu)
+            / static_cast<float>(0x01000000u);
+    }
+
+    void resetEventReaders()
+    {
+        for (auto& grain : grains_) {
+            grain = {};
+        }
+        grainCountdown_ = 0.0;
+        stretchPhase_ = 0.0;
+        stretchMix_ = 0.0f;
+        cutCurrent_ = {};
+        cutTail_ = {};
+        cutCountdown_ = 0.0;
+        cutStep_ = 0u;
+        cutWalkRegion_ = 0u;
+        randomState_ = 0x51f15e5du;
+        currentMotionSound_ = MotionSound::continuous;
+        motionInnerPhase_ = 0.0;
+        motionOuterPhase_ = 0.5;
+        bouncePhase_ = 0.0;
+        bounceIndex_ = 0u;
+        motionSoundPhaseIncrement_ = 0.0f;
+        motionEnvelope_ = 1.0f;
+    }
+
+    void activateLaneRecording()
+    {
+        if (!recording_ || recordingLane_ >= kStackLanes
+            || recordWriteActive_) {
+            return;
+        }
+
+        const std::size_t lane = recordingLane_;
+        laneFrames_[lane] = 0u;
+        if (referenceLane_ >= kStackLanes || referenceLane_ == lane
+            || laneFrames_[referenceLane_] == 0u) {
+            referenceLane_ = kNoLane;
+            for (std::size_t candidate = 0u;
+                 candidate < kStackLanes;
+                 ++candidate) {
+                if (laneFrames_[candidate] != 0u) {
+                    referenceLane_ = candidate;
+                    break;
+                }
+            }
+        }
+
+        if (referenceLane_ < kStackLanes) {
+            sourceFrames_ = laneFrames_[referenceLane_];
+            sourceSampleRate_ = laneSampleRates_[referenceLane_];
+            playing_ = sourceFrames_ != 0u;
+        } else {
+            sourceFrames_ = 0u;
+            sourceSampleRate_ = outputSampleRate_;
+            playing_ = false;
+        }
+        sourceChannels_ = kLaneChannels;
+        updateLanePositionScales();
+        laneWeightsInitialized_ = false;
+        windowInitialized_ = false;
+        eventWindowInitialized_ = false;
+        movingCenterInitialized_ = false;
+        lastControlLocus_ = -1.0f;
+        resetEventReaders();
+        recordWriteActive_ = true;
+    }
+
+    void refreshStackAfterLaneChange()
+    {
+        if (referenceLane_ >= kStackLanes
+            || laneFrames_[referenceLane_] == 0u) {
+            referenceLane_ = kNoLane;
+            for (std::size_t candidate = 0u;
+                 candidate < kStackLanes;
+                 ++candidate) {
+                if (laneFrames_[candidate] != 0u) {
+                    referenceLane_ = candidate;
+                    break;
+                }
+            }
+        }
+
+        if (referenceLane_ < kStackLanes) {
+            sourceFrames_ = laneFrames_[referenceLane_];
+            sourceSampleRate_ = laneSampleRates_[referenceLane_];
+            playing_ = sourceFrames_ != 0u;
+        } else {
+            sourceFrames_ = 0u;
+            sourceSampleRate_ = outputSampleRate_;
+            playing_ = false;
+        }
+        sourceChannels_ = kLaneChannels;
+        stackMode_ = true;
+        updateLanePositionScales();
+        laneWeightsInitialized_ = false;
+        windowInitialized_ = false;
+        eventWindowInitialized_ = false;
+        movingCenterInitialized_ = false;
+        lastControlLocus_ = -1.0f;
+        resetEventReaders();
+    }
+
+    void completeLaneTransition()
+    {
+        if (transitionLane_ >= kStackLanes) {
+            laneTransition_ = LaneTransition::none;
+            return;
+        }
+
+        if (laneTransition_ == LaneTransition::remove) {
+            laneFrames_[transitionLane_] = 0u;
+            laneSampleRates_[transitionLane_] = outputSampleRate_;
+            refreshStackAfterLaneChange();
+        } else if (laneTransition_ == LaneTransition::adopt) {
+            const bool hadPlayback = playing_ && sourceFrames_ != 0u;
+            laneFrames_[transitionLane_] = transitionFrames_;
+            laneSampleRates_[transitionLane_] = transitionSampleRate_;
+            if (referenceLane_ >= kStackLanes
+                || laneFrames_[referenceLane_] == 0u) {
+                referenceLane_ = transitionLane_;
+            }
+            refreshStackAfterLaneChange();
+            if (!hadPlayback) {
+                phase_ = 0.0;
+                displayPosition_ = 0.0;
+            }
+        }
+        laneTransition_ = LaneTransition::none;
+        transitionLane_ = kNoLane;
+        transitionFrames_ = 0u;
+    }
+
+    float recordTransitionGain()
+    {
+        if (recordTransitionRemaining_ == 0u) {
+            return 1.0f;
+        }
+        if (recordTransitionRemaining_ == recordTransitionFrames_) {
+            if (laneTransition_ == LaneTransition::none) {
+                activateLaneRecording();
+            } else {
+                completeLaneTransition();
+            }
+        }
+        if (recordTransitionRemaining_ > recordTransitionFrames_) {
+            return smoothStep(static_cast<float>(
+                recordTransitionRemaining_ - recordTransitionFrames_)
+                / static_cast<float>(recordTransitionFrames_));
+        }
+        return smoothStep(1.0f
+            - static_cast<float>(recordTransitionRemaining_)
+                / static_cast<float>(recordTransitionFrames_));
+    }
+
+    void advanceRecordTransition()
+    {
+        if (recordTransitionRemaining_ != 0u) {
+            --recordTransitionRemaining_;
+        }
+    }
+
+    void recordFrame(float left, float right)
+    {
+        const std::size_t recordCapacity = recordingLane_ < kStackLanes
+            ? laneCapacityFrames_ : capacityFrames_;
+        if (recordFrames_ < recordCapacity) {
+            if (recordingLane_ < kStackLanes) {
+                left = std::isfinite(left) ? left : 0.0f;
+                right = std::isfinite(right) ? right : 0.0f;
+                const float inputPeak = std::max(
+                    std::abs(left), std::abs(right));
+                recordPeak_ = std::max(recordPeak_, inputPeak);
+                recordMeterPeak_ = std::max(
+                    inputPeak, recordMeterPeak_ * recordMeterRelease_);
+                left *= recordInputGain_;
+                right *= recordInputGain_;
+                const float storedPeak = std::max(
+                    std::abs(left), std::abs(right));
+                constexpr float captureCeiling = 0.95f;
+                if (storedPeak > captureCeiling) {
+                    const float gain = captureCeiling / storedPeak;
+                    left *= gain;
+                    right *= gain;
+                    recordLimited_ = true;
+                }
+                writableLane(recordingLane_, 0u)[recordFrames_] = left;
+                writableLane(recordingLane_, 1u)[recordFrames_] = right;
+            } else {
+                storage_[0u][recordFrames_] = left;
+                if (recordChannels_ > 1u) {
+                    storage_[1u][recordFrames_] = right;
+                }
+            }
+            ++recordFrames_;
+        }
+        if (recordFrames_ >= recordCapacity) {
+            endRecording();
+        }
+    }
+
+    void recordInputFrame(const float* const* input, std::size_t frame)
+    {
+        if (recordFrames_ < capacityFrames_) {
+            for (std::size_t channel = 0u;
+                 channel < recordChannels_;
+                 ++channel) {
+                storage_[channel][recordFrames_] = input[channel][frame];
+            }
+            ++recordFrames_;
+        }
+        if (recordFrames_ >= capacityFrames_) {
+            endRecording();
+        }
+    }
+
+    void resetPlaybackForAlgorithm()
+    {
+        phase_ = 0.0;
+        windowFadeRemaining_ = 0u;
+        windowInitialized_ = false;
+        eventWindowInitialized_ = false;
+        movingCenterInitialized_ = false;
+        lastControlLocus_ = -1.0f;
+        laneWeightsInitialized_ = false;
+        resetEventReaders();
+    }
+
+    void requestAlgorithm(PlaybackAlgorithm algorithm)
+    {
+        if (algorithm == currentAlgorithm_ && algorithmFadeRemaining_ == 0u) {
+            pendingAlgorithm_ = algorithm;
+            return;
+        }
+        if (algorithm != pendingAlgorithm_ || algorithmFadeRemaining_ == 0u) {
+            pendingAlgorithm_ = algorithm;
+            if (pendingAlgorithm_ != currentAlgorithm_) {
+                algorithmFadeRemaining_ = algorithmFadeFrames_ * 2u;
+            }
+        }
+    }
+
+    float algorithmTransitionGain()
+    {
+        if (algorithmFadeRemaining_ == 0u) {
+            return 1.0f;
+        }
+        if (algorithmFadeRemaining_ == algorithmFadeFrames_) {
+            currentAlgorithm_ = pendingAlgorithm_;
+            resetPlaybackForAlgorithm();
+        }
+        if (algorithmFadeRemaining_ > algorithmFadeFrames_) {
+            return smoothStep(static_cast<float>(
+                algorithmFadeRemaining_ - algorithmFadeFrames_)
+                / static_cast<float>(algorithmFadeFrames_));
+        }
+        return smoothStep(1.0f - static_cast<float>(algorithmFadeRemaining_)
+            / static_cast<float>(algorithmFadeFrames_));
+    }
+
+    void advanceAlgorithmTransition()
+    {
+        if (algorithmFadeRemaining_ != 0u) {
+            --algorithmFadeRemaining_;
+        }
+    }
+
+    float retriggerTransitionGain()
+    {
+        if (retriggerTransitionRemaining_ == 0u) {
+            return 1.0f;
+        }
+        if (retriggerTransitionRemaining_ == retriggerTransitionFrames_) {
+            // Move every continuous or event reader only when the outgoing
+            // signal has reached silence. The second half then reveals the
+            // new loop start without interpolating from a held DC sample.
+            resetPlaybackForAlgorithm();
+        }
+        if (retriggerTransitionRemaining_ > retriggerTransitionFrames_) {
+            return smoothStep(static_cast<float>(
+                retriggerTransitionRemaining_ - retriggerTransitionFrames_)
+                / static_cast<float>(retriggerTransitionFrames_));
+        }
+        return smoothStep(1.0f
+            - static_cast<float>(retriggerTransitionRemaining_)
+                / static_cast<float>(retriggerTransitionFrames_));
+    }
+
+    void advanceRetriggerTransition()
+    {
+        if (retriggerTransitionRemaining_ != 0u) {
+            --retriggerTransitionRemaining_;
+        }
+    }
+
+    void resetReader()
+    {
+        phase_ = 0.0;
+        lanePhase_ = 0.0f;
+        lanePhaseIncrement_ = 0.0f;
+        speed_ = 1.0f;
+        displayPosition_ = 0.0;
+        fieldLow_ = 0.0;
+        fieldHigh_ = static_cast<double>(sourceFrames_);
+        windowFadeRemaining_ = 0u;
+        retriggerFadeRemaining_ = 0u;
+        retriggerTransitionRemaining_ = 0u;
+        windowInitialized_ = false;
+        eventWindowInitialized_ = false;
+        movingCenterInitialized_ = false;
+        lastControlLocus_ = -1.0f;
+        laneWeightsInitialized_ = false;
+        resetEventReaders();
+        for (std::size_t channel = 0u; channel < kChannels; ++channel) {
+            laneWeights_[channel] = 0.0f;
+            laneWeightTargets_[channel] = 0.0f;
+        }
+    }
+
+    Window controlWindow(const Controls& controls) const
+    {
+        const double frames = static_cast<double>(sourceFrames_);
+        if (!(frames > 1.0)) {
+            return { 0.0, std::max(1.0, frames) };
+        }
+        const double minimumWidth = std::min(frames, 4.0);
+        const double width = clamp(
+            static_cast<double>(clamp01(controls.field)) * frames,
+            minimumWidth, frames);
+        const double half = width * 0.5;
+        const double center = clamp(
+            static_cast<double>(clamp01(controls.locus)) * frames,
+            half, frames - half);
+        return { center - half, center + half };
+    }
+
+    Window smoothEventWindow(const Controls& controls)
+    {
+        const Window target = controlWindow(controls);
+        if (!eventWindowInitialized_) {
+            eventWindow_ = target;
+            eventWindowInitialized_ = true;
+        } else {
+            eventWindow_.low += static_cast<double>(eventWindowSlew_)
+                * (target.low - eventWindow_.low);
+            eventWindow_.high += static_cast<double>(eventWindowSlew_)
+                * (target.high - eventWindow_.high);
+        }
+        return eventWindow_;
+    }
+
+    Window requestedWindow(const Controls& controls) const
+    {
+        Window window = controlWindow(controls);
+        if (controls.motion != MotionMode::movingLoop) {
+            return window;
+        }
+        const double frames = static_cast<double>(sourceFrames_);
+        const double width = window.high - window.low;
+        const double half = width * 0.5;
+        const double center = clamp(movingCenterTarget_, half, frames - half);
+        return { center - half, center + half };
+    }
+
+    void updateMovingControl(const Controls& controls)
+    {
+        requestedMode_ = controls.motion;
+        if (controls.motion != MotionMode::movingLoop || sourceFrames_ == 0u) {
+            movingCenterInitialized_ = false;
+            lastControlLocus_ = clamp01(controls.locus);
+            return;
+        }
+
+        const float locus = clamp01(controls.locus);
+        if (!movingCenterInitialized_
+            || std::abs(locus - lastControlLocus_) >= 0.005f) {
+            movingCenterTarget_ = static_cast<double>(locus)
+                * static_cast<double>(sourceFrames_);
+            movingCenterInitialized_ = true;
+            lastControlLocus_ = locus;
+        }
+    }
+
+    void stepMovingLoop(double width)
+    {
+        const double frames = static_cast<double>(sourceFrames_);
+        width = clamp(width, std::min(4.0, frames), frames);
+        const double half = width * 0.5;
+        const double minimum = half;
+        const double maximum = frames - half;
+        const double range = maximum - minimum;
+        if (!(range > 1.0)) {
+            movingCenterTarget_ = frames * 0.5;
+            return;
+        }
+
+        const double step = std::max(width * 0.5,
+            static_cast<double>(sourceSampleRate_) * 0.100);
+        double offset = std::fmod(
+            movingCenterTarget_ + step - minimum, range);
+        if (offset < 0.0) {
+            offset += range;
+        }
+        movingCenterTarget_ = minimum + offset;
+    }
+
+    void beginWindowFadeIfNeeded(const Window& requested, MotionMode mode)
+    {
+        if (!windowInitialized_) {
+            currentWindow_ = requested;
+            currentMode_ = mode;
+            fromWindow_ = requested;
+            toWindow_ = requested;
+            fromMode_ = mode;
+            toMode_ = mode;
+            windowInitialized_ = true;
+            fieldLow_ = requested.low;
+            fieldHigh_ = requested.high;
+            return;
+        }
+        if (windowFadeRemaining_ != 0u) {
+            return;
+        }
+        const double deadband = std::max(1.0,
+            static_cast<double>(sourceFrames_) * 0.0005);
+        if (mode == currentMode_
+            && std::abs(requested.low - currentWindow_.low) < deadband
+            && std::abs(requested.high - currentWindow_.high) < deadband) {
+            return;
+        }
+
+        fromWindow_ = currentWindow_;
+        fromMode_ = currentMode_;
+        toWindow_ = requested;
+        toMode_ = mode;
+        windowFadeRemaining_ = windowFadeFrames_;
+    }
+
+    void followStretchWindow(const Window& requested, MotionMode mode)
+    {
+        if (!windowInitialized_) {
+            currentWindow_ = requested;
+            currentMode_ = mode;
+            fromWindow_ = requested;
+            toWindow_ = requested;
+            fromMode_ = mode;
+            toMode_ = mode;
+            windowInitialized_ = true;
+            fieldLow_ = requested.low;
+            fieldHigh_ = requested.high;
+            return;
+        }
+        if (windowFadeRemaining_ != 0u) {
+            // Mode changes retain the old/new render crossfade, but the target
+            // window follows the smoothed knobs so it cannot jump at the end.
+            toWindow_ = requested;
+            toMode_ = mode;
+            return;
+        }
+        if (mode != currentMode_) {
+            fromWindow_ = currentWindow_;
+            fromMode_ = currentMode_;
+            toWindow_ = requested;
+            toMode_ = mode;
+            windowFadeRemaining_ = windowFadeFrames_;
+            return;
+        }
+        // Live Start/End motion is already one-pole smoothed. Following it
+        // directly avoids doubling the expensive stretch renderer for every
+        // small analog-knob update.
+        currentWindow_ = requested;
+        fromWindow_ = requested;
+        toWindow_ = requested;
+    }
+
+    double joinFrames(const Window& window, float join) const
+    {
+        const double width = std::max(1.0, window.high - window.low);
+        if (join <= 0.0f || width < 8.0) {
+            return 0.0;
+        }
+        return std::max(0.0, std::min(width * 0.08,
+            static_cast<double>(sourceSampleRate_) * 0.020))
+            * static_cast<double>(join);
+    }
+
+    double pathFrames(const Window& window, MotionMode mode, float join) const
+    {
+        const double width = std::max(1.0, window.high - window.low);
+        if (mode == MotionMode::forward || mode == MotionMode::reverse
+            || mode == MotionMode::movingLoop) {
+            return std::max(1.0, width - joinFrames(window, join));
+        }
+        return std::max(1.0, width * 2.0);
+    }
+
+    ReadHead makeReadHead(const Window& window,
+                          MotionMode mode,
+                          double phase,
+                          float join) const
+    {
+        ReadHead result;
+        result.low = window.low;
+        result.high = window.high;
+        const double width = std::max(1.0, window.high - window.low);
+
+        if (mode == MotionMode::hover) {
+            // A globally eased out-and-back path retains Hover's long pauses
+            // at the field edges without an audio-rate trigonometric call.
+            const float palindrome = static_cast<float>(phase < 0.5
+                ? phase * 2.0 : 2.0 - phase * 2.0);
+            result.a = window.low
+                + static_cast<double>(smoothStep(palindrome)) * width;
+            result.b = result.a;
+            result.position = result.a;
+            return result;
+        }
+        if (mode == MotionMode::roundTrip || mode == MotionMode::mirror) {
+            // Retain the constant-speed palindrome over almost the entire
+            // field, easing only the final 5 ms at each reversal. This avoids
+            // the triangular path's one-sample velocity flip without turning
+            // Round Trip into the globally slowed Hover trajectory.
+            double palindrome = phase < 0.5
+                ? phase * 2.0 : 2.0 - phase * 2.0;
+            const double turnFrames = std::min(
+                width * 0.05,
+                static_cast<double>(sourceSampleRate_) * 0.005);
+            const double margin = clamp(turnFrames / width, 0.0, 0.05);
+            if (margin > 0.0 && palindrome < margin) {
+                const double x = palindrome / margin;
+                palindrome = margin * x * x * (2.0 - x);
+            } else if (margin > 0.0 && palindrome > 1.0 - margin) {
+                const double x = (1.0 - palindrome) / margin;
+                palindrome = 1.0 - margin * x * x * (2.0 - x);
+            }
+            result.a = window.low + palindrome * width;
+            result.b = result.a;
+            result.position = result.a;
+            if (mode == MotionMode::mirror) {
+                const float polarity = phase < 0.5 ? 1.0f : -1.0f;
+                // Reuse half the already-computed turn margin. The previous
+                // double-precision sine here caused short CPU overruns at
+                // every polarity reversal on the Cortex-M7. A smoothstep
+                // reaches the same zero-gain boundary without libm work.
+                const float transition = std::max(
+                    static_cast<float>(margin) * 0.5f,
+                    clamp01(join) * 0.04f);
+                const float distance = static_cast<float>(std::min({
+                    phase,
+                    std::abs(phase - 0.5),
+                    1.0 - phase,
+                }));
+                if (distance < transition) {
+                    result.gain = polarity
+                        * smoothStep(distance / transition);
+                } else {
+                    result.gain = polarity;
+                }
+            }
+            return result;
+        }
+        if (mode == MotionMode::zigzag) {
+            // Three continuous, alternating traversals make the embedded
+            // Zigzag distinct without adding a random target scheduler.  The
+            // phase spans are proportional to distance, retaining nearly
+            // constant source speed between its click-safe eased turns.
+            constexpr double highTarget = 0.72;
+            constexpr double lowTarget = 0.28;
+            constexpr double firstDistance = highTarget;
+            constexpr double secondDistance = highTarget - lowTarget;
+            constexpr double thirdDistance = 1.0 - lowTarget;
+            constexpr double totalDistance
+                = firstDistance + secondDistance + thirdDistance;
+            constexpr double firstBoundary = firstDistance / totalDistance;
+            constexpr double secondBoundary
+                = (firstDistance + secondDistance) / totalDistance;
+            double from = 0.0;
+            double to = highTarget;
+            double local = phase / firstBoundary;
+            if (phase >= secondBoundary) {
+                from = lowTarget;
+                to = 1.0;
+                local = (phase - secondBoundary) / (1.0 - secondBoundary);
+            } else if (phase >= firstBoundary) {
+                from = highTarget;
+                to = lowTarget;
+                local = (phase - firstBoundary)
+                    / (secondBoundary - firstBoundary);
+            }
+            const double eased = static_cast<double>(smoothStep(
+                static_cast<float>(local)));
+            result.a = window.low + (from + (to - from) * eased) * width;
+            result.b = result.a;
+            result.position = result.a;
+            return result;
+        }
+
+        const double crossfade = joinFrames(window, join);
+        const double cycle = std::max(1.0, width - crossfade);
+        const double travel = phase * cycle;
+        const bool reverse = mode == MotionMode::reverse;
+        result.a = reverse
+            ? window.high - crossfade - travel
+            : window.low + crossfade + travel;
+        result.b = result.a;
+        result.position = result.a;
+
+        if (crossfade > 0.0 && travel >= width - 2.0 * crossfade) {
+            const double local = clamp(
+                (travel - (width - 2.0 * crossfade)) / crossfade,
+                0.0, 1.0);
+            result.b = reverse
+                ? window.high - local * crossfade
+                : window.low + local * crossfade;
+            result.mix = smoothStep(static_cast<float>(local));
+            result.position = result.a + (result.b - result.a) * result.mix;
+        }
+        return result;
+    }
+
+    float sampleAt(std::size_t sourceChannel, double position) const
+    {
+        if (sourceFrames_ == 0u) {
+            return 0.0f;
+        }
+        position = clamp(position, 0.0,
+            static_cast<double>(sourceFrames_ - 1u));
+        const std::size_t first = static_cast<std::size_t>(position);
+        const std::size_t second = std::min(first + 1u, sourceFrames_ - 1u);
+        const float fraction = static_cast<float>(position
+            - static_cast<double>(first));
+        const float a = storage_[sourceChannel][first];
+        const float b = storage_[sourceChannel][second];
+        return a + (b - a) * fraction;
+    }
+
+    float readHead(std::size_t sourceChannel, const ReadHead& head) const
+    {
+        const float a = sampleAt(sourceChannel, head.a);
+        if (head.mix <= 0.0f) {
+            return a * head.gain;
+        }
+        return (a + (sampleAt(sourceChannel, head.b) - a) * head.mix)
+            * head.gain;
+    }
+
+    float sampleLaneAt(std::size_t lane,
+                       std::size_t channel,
+                       double referencePosition) const
+    {
+        if (lane >= kStackLanes || channel >= kLaneChannels
+            || laneFrames_[lane] == 0u
+            || sourceFrames_ == 0u) {
+            return 0.0f;
+        }
+        const double position = clamp(referencePosition
+                * lanePositionScales_[lane],
+            0.0, static_cast<double>(laneFrames_[lane] - 1u));
+        const std::size_t first = static_cast<std::size_t>(position);
+        const std::size_t second = std::min(first + 1u, laneFrames_[lane] - 1u);
+        const float fraction = static_cast<float>(position
+            - static_cast<double>(first));
+        const float* data = laneData(lane, channel);
+        const float a = data[first];
+        const float b = data[second];
+        return a + (b - a) * fraction;
+    }
+
+    float readLaneHead(std::size_t lane,
+                       std::size_t channel,
+                       const ReadHead& head) const
+    {
+        const float a = sampleLaneAt(lane, channel, head.a);
+        if (head.mix <= 0.0f) {
+            return a * head.gain;
+        }
+        return (a + (sampleLaneAt(lane, channel, head.b) - a) * head.mix)
+            * head.gain;
+    }
+
+    void updateLanePositionScales()
+    {
+        const double referenceRange = sourceFrames_ > 1u
+            ? static_cast<double>(sourceFrames_ - 1u) : 1.0;
+        for (std::size_t lane = 0u; lane < kStackLanes; ++lane) {
+            lanePositionScales_[lane] = laneFrames_[lane] > 1u
+                ? static_cast<double>(laneFrames_[lane] - 1u) / referenceRange
+                : 0.0;
+        }
+    }
+
+    LaneBlend makeLaneBlend(float phase,
+                            LanePath path,
+                            float manualLane) const
+    {
+        LaneBlend result;
+        while (phase >= 1.0f) {
+            phase -= 1.0f;
+        }
+        while (phase < 0.0f) {
+            phase += 1.0f;
+        }
+        float unit = phase;
+        switch (path) {
+            case LanePath::up:
+                unit = 1.0f - phase;
+                break;
+            case LanePath::triangle:
+                unit = 1.0f - std::abs(2.0f * phase - 1.0f);
+                break;
+            case LanePath::sine:
+                // Smooth triangle: cosine-like zero-slope turns without a
+                // transcendental call at control-block rate.
+                unit = smoothStep(
+                    1.0f - std::abs(2.0f * phase - 1.0f));
+                break;
+            case LanePath::stepsDown:
+                unit = static_cast<float>(std::min(3,
+                    static_cast<int>(std::floor(phase * 4.0f)))) / 3.0f;
+                break;
+            case LanePath::stepsUp:
+                unit = 1.0f - static_cast<float>(std::min(3,
+                    static_cast<int>(std::floor(phase * 4.0f)))) / 3.0f;
+                break;
+            case LanePath::manual:
+                unit = clamp(manualLane, 0.0f, 3.0f) / 3.0f;
+                break;
+            case LanePath::down:
+                break;
+        }
+        result.position = unit * 3.0f;
+
+        int lower = -1;
+        int upper = -1;
+        for (std::size_t lane = 0u; lane < kStackLanes; ++lane) {
+            if (laneFrames_[lane] == 0u) {
+                continue;
+            }
+            if (static_cast<float>(lane) <= result.position) {
+                lower = static_cast<int>(lane);
+            }
+            if (upper < 0 && static_cast<float>(lane) >= result.position) {
+                upper = static_cast<int>(lane);
+            }
+        }
+        if (lower < 0) {
+            lower = upper;
+        }
+        if (upper < 0) {
+            upper = lower;
+        }
+        if (lower < 0 || upper < 0) {
+            return result;
+        }
+
+        result.first = static_cast<std::size_t>(lower);
+        result.second = static_cast<std::size_t>(upper);
+        if (lower == upper) {
+            return result;
+        }
+        const float mix = smoothStep(clamp01(
+            (result.position - static_cast<float>(lower))
+                / static_cast<float>(upper - lower)));
+        result.firstGain = 1.0f - mix;
+        result.secondGain = mix;
+        return result;
+    }
+
+    void prepareLaneScanBlock(const Controls& controls, std::size_t frames)
+    {
+        if (!stackMode_) {
+            lanePhaseIncrement_ = 0.0f;
+            return;
+        }
+        lanePhaseIncrement_ = clamp(
+            controls.laneCycles, 0.125f, 16.0f) / outputSampleRate_;
+        float targetPhase = lanePhase_
+            + lanePhaseIncrement_ * static_cast<float>(frames)
+            + clamp(controls.lanePhaseOffset, 0.0f, 1.0f);
+        while (targetPhase >= 1.0f) {
+            targetPhase -= 1.0f;
+        }
+        const LaneBlend lanes = makeLaneBlend(
+            targetPhase, controls.lanePath, controls.manualLane);
+        lanePosition_ = lanes.position;
+        for (std::size_t lane = 0u; lane < kStackLanes; ++lane) {
+            laneWeightTargets_[lane] = 0.0f;
+        }
+        laneWeightTargets_[lanes.first] += lanes.firstGain;
+        laneWeightTargets_[lanes.second] += lanes.secondGain;
+        if (!laneWeightsInitialized_) {
+            for (std::size_t lane = 0u; lane < kStackLanes; ++lane) {
+                laneWeights_[lane] = laneWeightTargets_[lane];
+            }
+            laneWeightsInitialized_ = true;
+            return;
+        }
+
+        // Correct only once per block for accumulated floating-point drift.
+        float sum = 0.0f;
+        for (std::size_t lane = 0u; lane < kStackLanes; ++lane) {
+            sum += laneWeights_[lane];
+        }
+        if (sum > 1.0e-12f) {
+            const float normalizer = 1.0f / sum;
+            for (std::size_t lane = 0u; lane < kStackLanes; ++lane) {
+                laneWeights_[lane] *= normalizer;
+            }
+        }
+    }
+
+    void advanceLaneWeights()
+    {
+        for (std::size_t lane = 0u; lane < kStackLanes; ++lane) {
+            laneWeights_[lane] += laneSlew_
+                * (laneWeightTargets_[lane] - laneWeights_[lane]);
+        }
+    }
+
+    float readLaneStack(std::size_t channel, const ReadHead& head) const
+    {
+        float sample = 0.0f;
+        for (std::size_t lane = 0u; lane < kStackLanes; ++lane) {
+            if (laneWeights_[lane] > 1.0e-3f) {
+                sample += readLaneHead(lane, channel, head)
+                    * laneWeights_[lane] * activeControlsLaneGains_[lane];
+            }
+        }
+        return sample;
+    }
+
+    MotionMode lanesMotionMode(LanesMode mode) const
+    {
+        switch (mode) {
+            case LanesMode::reverse: return MotionMode::reverse;
+            case LanesMode::pingPong: return MotionMode::roundTrip;
+            case LanesMode::forward: return MotionMode::forward;
+        }
+        return MotionMode::forward;
+    }
+
+    float readLaneBlendAt(std::size_t channel,
+                          double position,
+                          const LaneBlend& lanes) const
+    {
+        const float first = sampleLaneAt(lanes.first, channel, position)
+            * activeControlsLaneGains_[lanes.first];
+        if (lanes.first == lanes.second || lanes.secondGain <= 0.0f) {
+            return first;
+        }
+        return first * lanes.firstGain
+            + sampleLaneAt(lanes.second, channel, position)
+                * activeControlsLaneGains_[lanes.second] * lanes.secondGain;
+    }
+
+    float readLaneBlendHead(std::size_t channel,
+                            const ReadHead& head,
+                            const LaneBlend& lanes) const
+    {
+        const float first = readLaneBlendAt(channel, head.a, lanes);
+        if (head.mix <= 0.0f) {
+            return first;
+        }
+        return first
+            + (readLaneBlendAt(channel, head.b, lanes) - first) * head.mix;
+    }
+
+    ReadHead makeEventReadHead(double position,
+                               double low,
+                               double high,
+                               double seam) const
+    {
+        ReadHead head;
+        head.a = position;
+        head.b = position;
+        head.position = position;
+        head.low = low;
+        head.high = high;
+        seam = clamp(seam, 0.0, std::max(0.0, (high - low) * 0.5));
+        if (!(seam > 0.0) || position < high - seam) {
+            return head;
+        }
+        const double local = clamp(
+            (position - (high - seam)) / seam, 0.0, 1.0);
+        head.b = low + local * seam;
+        head.mix = smoothStep(static_cast<float>(local));
+        head.position = head.a + (head.b - head.a) * head.mix;
+        return head;
+    }
+
+    static void advanceEventPosition(double& position,
+                                     double increment,
+                                     double low,
+                                     double high,
+                                     double seam)
+    {
+        const double width = std::max(1.0, high - low);
+        seam = clamp(seam, 0.0, width * 0.5);
+        const double cycle = std::max(1.0, width - seam);
+        position += increment;
+        while (position >= high) {
+            position -= cycle;
+        }
+        while (position < low) {
+            position += cycle;
+        }
+    }
+
+    float readAtPhase(std::size_t outputChannel,
+                      const Window& window,
+                      MotionMode mode,
+                      double phase,
+                      float join) const
+    {
+        const ReadHead head = makeReadHead(window, mode, wrapPhase(phase), join);
+        if (stackMode_) {
+            return readLaneStack(outputChannel & 1u, head);
+        }
+        return readHead(mapSourceChannel(outputChannel), head);
+    }
+
+    void readAtPhaseStereo(const Window& window,
+                           MotionMode mode,
+                           double phase,
+                           float join,
+                           float* stereo) const
+    {
+        const ReadHead head = makeReadHead(
+            window, mode, wrapPhase(phase), join);
+        stereo[0u] = 0.0f;
+        stereo[1u] = 0.0f;
+        if (!stackMode_) {
+            stereo[0u] = readHead(mapSourceChannel(0u), head);
+            stereo[1u] = readHead(mapSourceChannel(1u), head);
+            return;
+        }
+        for (std::size_t lane = 0u; lane < kStackLanes; ++lane) {
+            const float weight = laneWeights_[lane];
+            if (weight <= 1.0e-3f) {
+                continue;
+            }
+            const float gain = weight * activeControlsLaneGains_[lane];
+            stereo[0u] += readLaneHead(lane, 0u, head) * gain;
+            stereo[1u] += readLaneHead(lane, 1u, head) * gain;
+        }
+    }
+
+    float readStretchedAtPhase(std::size_t outputChannel,
+                               const Window& window,
+                               MotionMode mode,
+                               double phase,
+                               float join,
+                               float stretchRatio,
+                               float firstGain,
+                               float secondGain) const
+    {
+        const double path = pathFrames(window, mode, join);
+        const double baseIncrement = static_cast<double>(sourceSampleRate_)
+            / static_cast<double>(outputSampleRate_) / path;
+        const double pitchIncrement = baseIncrement
+            * static_cast<double>(speed_);
+        const double stretchedIncrement = pitchIncrement
+            / static_cast<double>(clamp(stretchRatio, 0.25f, 4.0f));
+        const double transportIncrement = pitchIncrement
+            + (stretchedIncrement - pitchIncrement)
+                * static_cast<double>(stretchMix_);
+        const double difference
+            = std::abs(pitchIncrement - transportIncrement);
+        const double windowPhase = clamp(
+            static_cast<double>(sourceSampleRate_) * 0.040 / path,
+            1.0 / path, 0.5);
+        if (!(difference > 1.0e-12) || !(windowPhase > 0.0)) {
+            return readAtPhase(outputChannel, window, mode, phase, join);
+        }
+        if (stretchMix_ <= 0.001f) {
+            return readAtPhase(outputChannel, window, mode, phase, join);
+        }
+
+        const auto readerPhase = [&](double windowClock) {
+            const double delay = pitchIncrement >= transportIncrement
+                ? windowPhase * (1.0 - windowClock)
+                : windowPhase * windowClock;
+            // phase_ always advances, including Reverse; makeReadHead() maps
+            // that clock to source direction. Keeping the OLA correction in
+            // phase-clock space preserves pitch in all three Lanes modes.
+            return wrapPhase(phase - delay);
+        };
+        const double firstClock = stretchPhase_;
+        const double secondClock = wrapPhase(stretchPhase_ + 0.5);
+        const float normalizer = 1.0f
+            / std::max(1.0e-6f, firstGain + secondGain);
+        const float granular = (readAtPhase(outputChannel, window, mode,
+                    readerPhase(firstClock), join) * firstGain
+                + readAtPhase(outputChannel, window, mode,
+                    readerPhase(secondClock), join) * secondGain)
+            * normalizer;
+        if (stretchMix_ >= 0.999f) {
+            return granular;
+        }
+        const float direct = readAtPhase(
+            outputChannel, window, mode, phase, join);
+        return direct + (granular - direct) * stretchMix_;
+    }
+
+    void readStretchedAtPhaseStereo(const Window& window,
+                                    MotionMode mode,
+                                    double phase,
+                                    float join,
+                                    float stretchRatio,
+                                    float firstGain,
+                                    float secondGain,
+                                    float* stereo) const
+    {
+        const double path = pathFrames(window, mode, join);
+        const double baseIncrement = static_cast<double>(sourceSampleRate_)
+            / static_cast<double>(outputSampleRate_) / path;
+        const double pitchIncrement = baseIncrement
+            * static_cast<double>(speed_);
+        const double stretchedIncrement = pitchIncrement
+            / static_cast<double>(clamp(stretchRatio, 0.25f, 4.0f));
+        const double transportIncrement = pitchIncrement
+            + (stretchedIncrement - pitchIncrement)
+                * static_cast<double>(stretchMix_);
+        const double difference
+            = std::abs(pitchIncrement - transportIncrement);
+        const double windowPhase = clamp(
+            static_cast<double>(sourceSampleRate_) * 0.040 / path,
+            1.0 / path, 0.5);
+        if (!(difference > 1.0e-12) || !(windowPhase > 0.0)
+            || stretchMix_ <= 0.001f) {
+            readAtPhaseStereo(window, mode, phase, join, stereo);
+            return;
+        }
+
+        const auto readerPhase = [&](double windowClock) {
+            const double delay = pitchIncrement >= transportIncrement
+                ? windowPhase * (1.0 - windowClock)
+                : windowPhase * windowClock;
+            return wrapPhase(phase - delay);
+        };
+        float first[kLaneChannels] {};
+        float second[kLaneChannels] {};
+        readAtPhaseStereo(window, mode, readerPhase(stretchPhase_),
+                          join, first);
+        readAtPhaseStereo(window, mode,
+                          readerPhase(wrapPhase(stretchPhase_ + 0.5)),
+                          join, second);
+        const float normalizer = 1.0f
+            / std::max(1.0e-6f, firstGain + secondGain);
+        float granular[kLaneChannels] {
+            (first[0u] * firstGain + second[0u] * secondGain) * normalizer,
+            (first[1u] * firstGain + second[1u] * secondGain) * normalizer,
+        };
+        if (stretchMix_ >= 0.999f) {
+            stereo[0u] = granular[0u];
+            stereo[1u] = granular[1u];
+            return;
+        }
+        float direct[kLaneChannels] {};
+        readAtPhaseStereo(window, mode, phase, join, direct);
+        stereo[0u] = direct[0u]
+            + (granular[0u] - direct[0u]) * stretchMix_;
+        stereo[1u] = direct[1u]
+            + (granular[1u] - direct[1u]) * stretchMix_;
+    }
+
+    void prepareMotionSound(const Controls& controls)
+    {
+        if (currentMotionSound_ == controls.motionSound) {
+            return;
+        }
+        currentMotionSound_ = controls.motionSound;
+        motionInnerPhase_ = controls.motionSound == MotionSound::motor
+            ? 0.325 : 0.0;
+        motionOuterPhase_ = 0.5;
+        bouncePhase_ = 0.0;
+        bounceIndex_ = 0u;
+    }
+
+    void prepareMotionSoundBlock(const Controls& controls)
+    {
+        prepareMotionSound(controls);
+        motionSoundPhaseIncrement_ = clamp(
+            controls.motionSoundRateHz, 0.25f, 32.0f)
+            / outputSampleRate_;
+    }
+
+    float motionSoundGain(float join)
+    {
+        constexpr float packetDuty = 0.65f;
+        float target = 1.0f;
+        if (currentMotionSound_ == MotionSound::packets
+            || currentMotionSound_ == MotionSound::motor) {
+            // The 2 ms follower below supplies click-safe edges, so the
+            // source clock can be a cheap binary gate instead of evaluating
+            // a polynomial bell for every sample.
+            const float packet
+                = motionInnerPhase_ < packetDuty ? 1.0f : 0.0f;
+            target = 1.0f + (packet - 1.0f) * clamp01(join);
+            if (currentMotionSound_ == MotionSound::motor) {
+                // Four packet pulses ride a triangular outer motor cycle.
+                const float motor = 1.0f
+                    - std::abs(motionOuterPhase_ * 2.0f - 1.0f);
+                target *= motor;
+            }
+        } else if (currentMotionSound_ == MotionSound::bounce) {
+            constexpr float bounceDecay[6u] {
+                1.0f, 0.76f, 0.5776f, 0.438976f, 0.3336218f, 0.2535526f,
+            };
+            const float bounce = 1.0f
+                - std::abs(bouncePhase_ * 2.0f - 1.0f);
+            target = bounce * bounceDecay[bounceIndex_];
+        }
+        motionEnvelope_ += motionEnvelopeSlew_ * (target - motionEnvelope_);
+        return motionEnvelope_;
+    }
+
+    void advanceMotionSound()
+    {
+        switch (currentMotionSound_) {
+            case MotionSound::continuous:
+                break;
+            case MotionSound::packets:
+                motionInnerPhase_ += motionSoundPhaseIncrement_;
+                if (motionInnerPhase_ >= 1.0f) {
+                    motionInnerPhase_ -= 1.0f;
+                }
+                break;
+            case MotionSound::motor:
+                motionInnerPhase_ += motionSoundPhaseIncrement_ * 4.0f;
+                if (motionInnerPhase_ >= 1.0f) {
+                    motionInnerPhase_ -= 1.0f;
+                }
+                motionOuterPhase_ += motionSoundPhaseIncrement_;
+                if (motionOuterPhase_ >= 1.0f) {
+                    motionOuterPhase_ -= 1.0f;
+                }
+                break;
+            case MotionSound::bounce: {
+                constexpr float bounceAcceleration[6u] {
+                    1.0f, 1.32f, 1.7424f, 2.299968f, 3.03595776f,
+                    4.00746424f,
+                };
+                bouncePhase_ += motionSoundPhaseIncrement_
+                    * bounceAcceleration[bounceIndex_];
+                if (bouncePhase_ >= 1.0f) {
+                    bouncePhase_ -= 1.0f;
+                    bounceIndex_ = (bounceIndex_ + 1u) % 6u;
+                }
+                break;
+            }
+        }
+    }
+
+    void renderContinuousFrame(const Controls& controls,
+                               float join,
+                               bool lanesAlgorithm,
+                               bool stretch,
+                               float* wet)
+    {
+        const MotionMode mode = lanesAlgorithm
+            ? lanesMotionMode(controls.lanes) : controls.motion;
+        if (lanesAlgorithm) {
+            requestedMode_ = mode;
+            movingCenterInitialized_ = false;
+            lastControlLocus_ = clamp01(controls.locus);
+        } else {
+            updateMovingControl(controls);
+        }
+        const Window requested = lanesAlgorithm
+            ? smoothEventWindow(controls) : requestedWindow(controls);
+        if (lanesAlgorithm) {
+            followStretchWindow(requested, mode);
+        } else {
+            beginWindowFadeIfNeeded(requested, mode);
+        }
+
+        const float windowMix = windowFadeRemaining_ == 0u
+            ? 1.0f
+            : smoothStep(1.0f
+                - static_cast<float>(windowFadeRemaining_)
+                    / static_cast<float>(windowFadeFrames_));
+        const Window firstWindow = windowFadeRemaining_ == 0u
+            ? currentWindow_ : fromWindow_;
+        const Window secondWindow = windowFadeRemaining_ == 0u
+            ? currentWindow_ : toWindow_;
+        const MotionMode firstMode = windowFadeRemaining_ == 0u
+            ? currentMode_ : fromMode_;
+        const MotionMode secondMode = windowFadeRemaining_ == 0u
+            ? currentMode_ : toMode_;
+        Window firstReadWindow = firstWindow;
+        Window secondReadWindow = secondWindow;
+        MotionMode firstReadMode = firstMode;
+        MotionMode secondReadMode = secondMode;
+        const double readPhase = phase_;
+        const float readJoin = join;
+
+        if (lanesAlgorithm) {
+            const float stretchTarget = stretch
+                    && std::abs(controls.lanesStretchRatio - 1.0f) > 1.0e-4f
+                ? 1.0f : 0.0f;
+            stretchMix_ += laneSlew_ * (stretchTarget - stretchMix_);
+        }
+        const bool renderStretch = lanesAlgorithm && stretchMix_ > 0.001f;
+        const float firstStretchGain = renderStretch
+            ? smoothBell(stretchPhase_) : 1.0f;
+        const float secondStretchGain = renderStretch
+            ? 1.0f - firstStretchGain : 0.0f;
+        if (stackMode_) {
+            float oldStereo[kLaneChannels] {};
+            if (renderStretch) {
+                readStretchedAtPhaseStereo(firstReadWindow, firstReadMode,
+                    readPhase, readJoin,
+                    controls.lanesStretchRatio,
+                    firstStretchGain, secondStretchGain, oldStereo);
+            } else {
+                readAtPhaseStereo(
+                    firstReadWindow, firstReadMode, readPhase, readJoin,
+                    oldStereo);
+            }
+            float newStereo[kLaneChannels] { oldStereo[0u], oldStereo[1u] };
+            if (windowFadeRemaining_ != 0u) {
+                if (renderStretch) {
+                    readStretchedAtPhaseStereo(secondReadWindow, secondReadMode,
+                        readPhase, readJoin, controls.lanesStretchRatio,
+                        firstStretchGain, secondStretchGain,
+                        newStereo);
+                } else {
+                    readAtPhaseStereo(
+                        secondReadWindow, secondReadMode, readPhase, readJoin,
+                        newStereo);
+                }
+            }
+            wet[0u] = oldStereo[0u]
+                + (newStereo[0u] - oldStereo[0u]) * windowMix;
+            wet[1u] = oldStereo[1u]
+                + (newStereo[1u] - oldStereo[1u]) * windowMix;
+            wet[2u] = wet[0u];
+            wet[3u] = wet[1u];
+        } else {
+            for (std::size_t channel = 0u; channel < kChannels; ++channel) {
+                const float oldWet = renderStretch
+                    ? readStretchedAtPhase(channel, firstReadWindow,
+                        firstReadMode, readPhase, readJoin,
+                        controls.lanesStretchRatio,
+                        firstStretchGain, secondStretchGain)
+                    : readAtPhase(
+                        channel, firstReadWindow, firstReadMode,
+                        readPhase, readJoin);
+                const float newWet = windowFadeRemaining_ == 0u
+                    ? oldWet
+                    : renderStretch
+                        ? readStretchedAtPhase(channel, secondReadWindow,
+                            secondReadMode, readPhase, readJoin,
+                            controls.lanesStretchRatio,
+                            firstStretchGain, secondStretchGain)
+                        : readAtPhase(
+                            channel, secondReadWindow, secondReadMode,
+                            readPhase, readJoin);
+                wet[channel] = oldWet + (newWet - oldWet) * windowMix;
+            }
+        }
+
+        if (!lanesAlgorithm
+            && currentMotionSound_ != MotionSound::continuous) {
+            const float articulation = motionSoundGain(join);
+            if (stackMode_) {
+                wet[0u] *= articulation;
+                wet[1u] *= articulation;
+                wet[2u] = wet[0u];
+                wet[3u] = wet[1u];
+            } else {
+                for (std::size_t channel = 0u;
+                     channel < kChannels;
+                     ++channel) {
+                    wet[channel] *= articulation;
+                }
+            }
+            advanceMotionSound();
+        }
+
+        const ReadHead firstHead = makeReadHead(firstReadWindow, firstReadMode,
+            readPhase, readJoin);
+        const ReadHead secondHead = windowFadeRemaining_ == 0u
+            ? firstHead : makeReadHead(secondReadWindow, secondReadMode,
+                readPhase, readJoin);
+        displayPosition_ = firstHead.position
+            + (secondHead.position - firstHead.position) * windowMix;
+        fieldLow_ = firstHead.low + (secondHead.low - firstHead.low) * windowMix;
+        fieldHigh_ = firstHead.high + (secondHead.high - firstHead.high)
+            * windowMix;
+
+        const double firstPath = pathFrames(firstWindow, firstMode, join);
+        const double secondPath = windowFadeRemaining_ == 0u
+            ? firstPath : pathFrames(secondWindow, secondMode, join);
+        const double path = std::max(1.0,
+            firstPath + (secondPath - firstPath) * windowMix);
+        const double baseIncrement = static_cast<double>(sourceSampleRate_)
+            / static_cast<double>(outputSampleRate_) / path;
+        const double pitchIncrement = static_cast<double>(speed_)
+            * baseIncrement;
+        const double requestedStretch = lanesAlgorithm
+            ? static_cast<double>(clamp(
+                controls.lanesStretchRatio, 0.25f, 4.0f))
+            : 1.0;
+        const double stretchedIncrement = pitchIncrement / requestedStretch;
+        const double phaseIncrement = pitchIncrement
+            + (stretchedIncrement - pitchIncrement)
+                * static_cast<double>(stretchMix_);
+        // Motion Mode owns the transport trajectory. Sound articulations may
+        // gate or shape it, but must not replace or reverse its clock;
+        // otherwise Bounce collapses Mirror and Zigzag to Forward and Motor
+        // can double-reverse an already palindromic path.
+        phase_ += phaseIncrement;
+        if (renderStretch) {
+            const double windowPhase = clamp(
+                static_cast<double>(sourceSampleRate_) * 0.040 / path,
+                1.0 / path, 0.5);
+            stretchPhase_ = wrapPhase(stretchPhase_
+                + std::abs(pitchIncrement - phaseIncrement) / windowPhase);
+        }
+
+        bool wrapped = false;
+        while (phase_ >= 1.0) {
+            phase_ -= 1.0;
+            wrapped = true;
+        }
+        while (phase_ < 0.0) {
+            phase_ += 1.0;
+            wrapped = true;
+        }
+        if (!lanesAlgorithm && wrapped
+            && requestedMode_ == MotionMode::movingLoop) {
+            stepMovingLoop(requested.high - requested.low);
+        }
+        if (windowFadeRemaining_ != 0u) {
+            --windowFadeRemaining_;
+            if (windowFadeRemaining_ == 0u) {
+                currentWindow_ = toWindow_;
+                currentMode_ = toMode_;
+            }
+        }
+    }
+
+    void prepareGrainControls(const Controls& controls)
+    {
+        const float durationSeconds
+            = clamp(controls.grainSizeMs, 8.0f, 500.0f) * 0.001f;
+        grainDurationFrames_ = std::max<std::size_t>(8u,
+            static_cast<std::size_t>(outputSampleRate_ * durationSeconds));
+        const float voiceSafeDensity
+            = static_cast<float>(kGrainVoiceCount - 1u) / durationSeconds;
+        grainDensityHz_ = std::min(
+            clamp(controls.grainDensityHz, 1.0f, 64.0f),
+            voiceSafeDensity);
+        grainIntervalFrames_ = static_cast<double>(outputSampleRate_)
+            / static_cast<double>(grainDensityHz_);
+        grainPitch_ = clamp(controls.grainPitch, 0.25f, 4.0f);
+        grainGain_ = 1.0f / std::max(
+            1.0f, grainDensityHz_ * durationSeconds);
+    }
+
+    static float parzenWindow(float phase)
+    {
+        const float triangle = phase < 0.5f
+            ? phase * 2.0f : (1.0f - phase) * 2.0f;
+        return triangle > 0.5f
+            ? 1.0f - (1.0f - triangle) * (1.0f - triangle)
+                * triangle * 6.0f
+            : triangle * triangle * triangle * 2.0f;
+    }
+
+    void prepareGrainWindowTables()
+    {
+        constexpr float pi = 3.14159265358979323846f;
+        for (std::size_t index = 0u;
+             index < kGrainWindowTableSize;
+             ++index) {
+            const float phase = static_cast<float>(index)
+                / static_cast<float>(kGrainWindowTableSize - 1u);
+            const float triangle = 1.0f
+                - std::abs(phase * 2.0f - 1.0f);
+            grainWindowTables_[static_cast<std::size_t>(
+                GrainWindow::parzen)][index] = parzenWindow(phase);
+            grainWindowTables_[static_cast<std::size_t>(
+                GrainWindow::sine)][index] = std::sin(pi * phase);
+            grainWindowTables_[static_cast<std::size_t>(
+                GrainWindow::hann)][index]
+                = 0.5f - 0.5f * std::cos(2.0f * pi * phase);
+            grainWindowTables_[static_cast<std::size_t>(
+                GrainWindow::triangle)][index] = triangle;
+            const float gaussian = (phase - 0.5f) / 0.18f;
+            grainWindowTables_[static_cast<std::size_t>(
+                GrainWindow::gaussian)][index]
+                = std::exp(-0.5f * gaussian * gaussian);
+            grainWindowTables_[static_cast<std::size_t>(
+                GrainWindow::bell)][index] = smoothBell(phase);
+        }
+    }
+
+    float grainEnvelope(const Grain& grain) const
+    {
+        const float phase = static_cast<float>(grain.age)
+            / static_cast<float>(std::max<std::size_t>(1u,
+                grain.duration - 1u));
+        const float tablePosition = clamp01(phase)
+            * static_cast<float>(kGrainWindowTableSize - 1u);
+        const std::size_t first = std::min<std::size_t>(
+            static_cast<std::size_t>(tablePosition),
+            kGrainWindowTableSize - 1u);
+        const std::size_t second = std::min<std::size_t>(
+            first + 1u, kGrainWindowTableSize - 1u);
+        const float mix = tablePosition - static_cast<float>(first);
+        const std::size_t window = std::min<std::size_t>(
+            static_cast<std::size_t>(grain.window),
+            kGrainWindowCount - 1u);
+        const float firstValue = grainWindowTables_[window][first];
+        return firstValue
+            + (grainWindowTables_[window][second] - firstValue) * mix;
+    }
+
+    void startGrain(const Controls& controls, const Window& window)
+    {
+        Grain* slot = nullptr;
+        for (auto& grain : grains_) {
+            if (!grain.active) {
+                slot = &grain;
+                break;
+            }
+        }
+        if (!slot) {
+            // Never tear down a live grain. Density is already capped with
+            // one voice of headroom, but a skipped event is still safer than
+            // discontinuously stealing a voice during rapid parameter moves.
+            return;
+        }
+
+        const double width = std::max(1.0, window.high - window.low);
+        double position = window.low + phase_ * width;
+        switch (controls.grains) {
+            case GrainMode::freeze:
+                position = 0.5 * (window.low + window.high);
+                break;
+            case GrainMode::cloud:
+                position = window.low + static_cast<double>(randomUnit())
+                    * width;
+                break;
+            case GrainMode::slice: {
+                const double slice = std::floor(phase_
+                    * static_cast<double>(kCutRegionCount));
+                position = window.low + (slice + 0.5) * width
+                    / static_cast<double>(kCutRegionCount);
+                break;
+            }
+            case GrainMode::scan:
+                break;
+        }
+
+        *slot = {};
+        slot->active = true;
+        slot->duration = grainDurationFrames_;
+        slot->position = position;
+        slot->increment = static_cast<double>(sourceSampleRate_)
+            / static_cast<double>(outputSampleRate_)
+            * static_cast<double>(grainPitch_);
+        slot->low = window.low;
+        slot->high = window.high;
+        slot->seam = joinFrames(window, controls.join);
+        slot->lanes = stackMode_
+            ? makeLaneBlend(lanePhase_, controls.lanePath,
+                controls.manualLane)
+            : LaneBlend {};
+        slot->gain = grainGain_;
+        const float spread = clamp01(controls.grainStereoSpread);
+        const float pan = spread > 0.0f
+            ? (randomUnit() * 2.0f - 1.0f) * spread
+            : 0.0f;
+        constexpr float quarterPi = 0.78539816339744830962f;
+        constexpr float rootTwo = 1.41421356237309504880f;
+        const float panAngle = (pan + 1.0f) * quarterPi;
+        slot->channelGains[0u] = rootTwo * std::cos(panAngle);
+        slot->channelGains[1u] = rootTwo * std::sin(panAngle);
+        slot->window = controls.grainWindow;
+    }
+
+    void renderGrainsFrame(const Controls& controls, float* wet)
+    {
+        const Window window = smoothEventWindow(controls);
+        fieldLow_ = window.low;
+        fieldHigh_ = window.high;
+        const double width = std::max(1.0, window.high - window.low);
+        displayPosition_ = window.low + phase_ * width;
+
+        if (grainCountdown_ <= 0.0) {
+            startGrain(controls, window);
+            grainCountdown_ += grainIntervalFrames_;
+        }
+        grainCountdown_ -= 1.0;
+
+        float stereo[kLaneChannels] {};
+        float envelopeGainSums[kLaneChannels] {};
+        for (auto& grain : grains_) {
+            if (!grain.active) {
+                continue;
+            }
+            const float gain = grain.gain * grainEnvelope(grain);
+            const ReadHead head = makeEventReadHead(
+                grain.position, grain.low, grain.high, grain.seam);
+            for (std::size_t channel = 0u;
+                 channel < kLaneChannels;
+                 ++channel) {
+                const float sample = stackMode_
+                    ? readLaneBlendHead(channel, head, grain.lanes)
+                    : readHead(mapSourceChannel(channel), head);
+                const float spatialGain = grain.channelGains[channel];
+                stereo[channel] += sample * gain * spatialGain;
+                envelopeGainSums[channel] += gain * spatialGain;
+            }
+            advanceEventPosition(grain.position,
+                                 grain.increment,
+                                 grain.low,
+                                 grain.high,
+                                 grain.seam);
+            if (++grain.age >= grain.duration) {
+                grain.active = false;
+            }
+        }
+        // A live Size/Density move can leave old grains carrying the previous
+        // overlap gain while new grains enter with the new one. Keep their
+        // continuously varying envelope weights a convex sum so correlated
+        // full-scale material cannot briefly overload the output. Grain starts
+        // and ends have zero envelope, so this guard introduces no gain step.
+        for (std::size_t channel = 0u;
+             channel < kLaneChannels;
+             ++channel) {
+            if (envelopeGainSums[channel] > 1.0f) {
+                stereo[channel] /= envelopeGainSums[channel];
+            }
+        }
+        for (std::size_t channel = 0u; channel < kChannels; ++channel) {
+            wet[channel] = stereo[channel & 1u];
+        }
+
+        const double phaseIncrement = static_cast<double>(speed_)
+            * static_cast<double>(sourceSampleRate_)
+            / static_cast<double>(outputSampleRate_) / width;
+        phase_ = wrapPhase(phase_ + phaseIncrement);
+    }
+
+    std::size_t cutRegion(CutupsMode mode)
+    {
+        switch (mode) {
+            case CutupsMode::reverse:
+                return kCutRegionCount - 1u
+                    - cutStep_ % kCutRegionCount;
+            case CutupsMode::palindrome: {
+                constexpr std::size_t period = (kCutRegionCount - 1u) * 2u;
+                const std::size_t phase = cutStep_ % period;
+                return phase < kCutRegionCount ? phase : period - phase;
+            }
+            case CutupsMode::random:
+                return static_cast<std::size_t>(randomUnit()
+                    * static_cast<float>(kCutRegionCount)) % kCutRegionCount;
+            case CutupsMode::walk:
+                if (cutStep_ != 0u) {
+                    const int move = randomUnit() < 0.5f ? -1 : 1;
+                    cutWalkRegion_ = static_cast<std::size_t>((
+                        static_cast<int>(cutWalkRegion_) + move
+                        + static_cast<int>(kCutRegionCount))
+                        % static_cast<int>(kCutRegionCount));
+                }
+                return cutWalkRegion_;
+            case CutupsMode::forward:
+                return cutStep_ % kCutRegionCount;
+        }
+        return 0u;
+    }
+
+    void beginCut(const Controls& controls,
+                  const Window& window,
+                  std::size_t intervalFrames)
+    {
+        const std::size_t join = std::max<std::size_t>(1u,
+            std::min<std::size_t>(
+                static_cast<std::size_t>(outputSampleRate_ * 0.010f),
+                intervalFrames / 2u));
+        if (cutCurrent_.active) {
+            cutTail_ = cutCurrent_;
+            cutTail_.retiring = true;
+            cutTail_.retirementAge = 0u;
+            cutTail_.joinFrames = join;
+        } else {
+            cutTail_ = {};
+        }
+
+        cutCurrent_ = {};
+        cutCurrent_.active = true;
+        cutCurrent_.joinFrames = join;
+        const double width = std::max(1.0, window.high - window.low);
+        cutCurrent_.position = window.low
+            + static_cast<double>(cutRegion(controls.cutups)) * width
+                / static_cast<double>(kCutRegionCount);
+        cutCurrent_.increment = static_cast<double>(sourceSampleRate_)
+            / static_cast<double>(outputSampleRate_);
+        cutCurrent_.low = window.low;
+        cutCurrent_.high = window.high;
+        cutCurrent_.seam = joinFrames(window, controls.join);
+
+        ++cutStep_;
+    }
+
+    float readCut(const CutReader& reader, std::size_t channel) const
+    {
+        if (!reader.active) {
+            return 0.0f;
+        }
+        const ReadHead head = makeEventReadHead(
+            reader.position, reader.low, reader.high, reader.seam);
+        const float sample = stackMode_
+            ? readLaneStack(channel, head)
+            : readHead(mapSourceChannel(channel), head);
+        if (reader.retiring) {
+            const float mix = smoothStep(static_cast<float>(
+                reader.retirementAge) / static_cast<float>(
+                    std::max<std::size_t>(1u, reader.joinFrames)));
+            return sample * (1.0f - mix);
+        }
+        if (reader.age < reader.joinFrames) {
+            const float mix = smoothStep(static_cast<float>(reader.age + 1u)
+                / static_cast<float>(reader.joinFrames));
+            return sample * mix;
+        }
+        return sample;
+    }
+
+    void advanceCutReader(CutReader& reader)
+    {
+        if (!reader.active) {
+            return;
+        }
+        advanceEventPosition(reader.position,
+                             reader.increment,
+                             reader.low,
+                             reader.high,
+                             reader.seam);
+        ++reader.age;
+        if (reader.retiring && ++reader.retirementAge >= reader.joinFrames) {
+            reader.active = false;
+        }
+    }
+
+    void renderCutupsFrame(const Controls& controls, float* wet)
+    {
+        const Window window = smoothEventWindow(controls);
+        fieldLow_ = window.low;
+        fieldHigh_ = window.high;
+        const std::size_t intervalFrames = std::max<std::size_t>(1u,
+            static_cast<std::size_t>(outputSampleRate_
+                / std::max(0.1f, 8.0f * speed_)));
+        if (cutCountdown_ <= 0.0) {
+            beginCut(controls, window, intervalFrames);
+            cutCountdown_ += static_cast<double>(intervalFrames);
+        }
+        cutCountdown_ -= 1.0;
+
+        float stereo[kLaneChannels] {};
+        for (std::size_t channel = 0u;
+             channel < kLaneChannels;
+             ++channel) {
+            stereo[channel] = readCut(cutTail_, channel)
+                + readCut(cutCurrent_, channel);
+        }
+        for (std::size_t channel = 0u; channel < kChannels; ++channel) {
+            wet[channel] = stereo[channel & 1u];
+        }
+        displayPosition_ = cutCurrent_.position;
+        advanceCutReader(cutTail_);
+        advanceCutReader(cutCurrent_);
+    }
+
+    void advanceLaneClock()
+    {
+        if (!stackMode_) {
+            return;
+        }
+        lanePhase_ += lanePhaseIncrement_;
+        if (lanePhase_ >= 1.0f) {
+            lanePhase_ -= 1.0f;
+        }
+    }
+
+    std::size_t mapSourceChannel(std::size_t outputChannel) const
+    {
+        if (sourceChannels_ <= 1u) {
+            return 0u;
+        }
+        if (sourceChannels_ == 2u) {
+            return outputChannel & 1u;
+        }
+        return outputChannel < sourceChannels_
+            ? outputChannel : sourceChannels_ - 1u;
+    }
+
+    float* storage_[kChannels] { nullptr, nullptr, nullptr, nullptr };
+    std::size_t capacityFrames_ = 0u;
+    std::size_t laneCapacityFrames_ = 0u;
+    float outputSampleRate_ = 48000.0f;
+    std::size_t sourceFrames_ = 0u;
+    std::size_t sourceChannels_ = 0u;
+    float sourceSampleRate_ = 48000.0f;
+    std::size_t recordFrames_ = 0u;
+    std::size_t recordChannels_ = 0u;
+    std::size_t recordingLane_ = kNoLane;
+    std::size_t lastRecordedLane_ = kNoLane;
+    float recordPeak_ = 0.0f;
+    float recordMeterPeak_ = 0.0f;
+    float lastRecordedPeak_ = 0.0f;
+    float recordMeterRelease_ = 0.9999f;
+    float recordInputGain_ = 1.0f;
+    bool recordLimited_ = false;
+    bool lastRecordLimited_ = false;
+    std::size_t recordInputOffset_ = 0u;
+    std::size_t laneFrames_[kStackLanes] {};
+    float laneSampleRates_[kStackLanes] {
+        48000.0f, 48000.0f, 48000.0f, 48000.0f,
+    };
+    double lanePositionScales_[kStackLanes] {};
+    std::size_t referenceLane_ = 0u;
+    float lanePosition_ = 0.0f;
+    float laneWeights_[kStackLanes] {};
+    float laneWeightTargets_[kStackLanes] {};
+    float activeControlsLaneGains_[kStackLanes] {
+        1.0f, 1.0f, 1.0f, 1.0f,
+    };
+    double phase_ = 0.0;
+    float lanePhase_ = 0.0f;
+    float lanePhaseIncrement_ = 0.0f;
+    double stretchPhase_ = 0.0;
+    float stretchMix_ = 0.0f;
+    Grain grains_[kGrainVoiceCount] {};
+    double grainCountdown_ = 0.0;
+    double grainIntervalFrames_ = 2000.0;
+    std::size_t grainDurationFrames_ = 4320u;
+    float grainDensityHz_ = 24.0f;
+    float grainPitch_ = 1.0f;
+    float grainGain_ = 1.0f;
+    static constexpr std::size_t kGrainWindowTableSize = 257u;
+    float grainWindowTables_[kGrainWindowCount][kGrainWindowTableSize] {};
+    CutReader cutCurrent_ {};
+    CutReader cutTail_ {};
+    double cutCountdown_ = 0.0;
+    std::size_t cutStep_ = 0u;
+    std::size_t cutWalkRegion_ = 0u;
+    std::uint32_t randomState_ = 0x51f15e5du;
+    float speed_ = 1.0f;
+    float speedSlew_ = 1.0f;
+    float laneSlew_ = 1.0f;
+    float eventWindowSlew_ = 1.0f;
+    float motionEnvelopeSlew_ = 1.0f;
+    float motionInnerPhase_ = 0.0f;
+    float motionOuterPhase_ = 0.5f;
+    float bouncePhase_ = 0.0f;
+    std::size_t bounceIndex_ = 0u;
+    float motionSoundPhaseIncrement_ = 0.0f;
+    float motionEnvelope_ = 1.0f;
+    double displayPosition_ = 0.0;
+    double fieldLow_ = 0.0;
+    double fieldHigh_ = 0.0;
+    Window currentWindow_ {};
+    Window fromWindow_ {};
+    Window toWindow_ {};
+    Window eventWindow_ {};
+    MotionMode currentMode_ = MotionMode::forward;
+    MotionMode fromMode_ = MotionMode::forward;
+    MotionMode toMode_ = MotionMode::forward;
+    MotionMode requestedMode_ = MotionMode::forward;
+    MotionSound currentMotionSound_ = MotionSound::continuous;
+    PlaybackAlgorithm currentAlgorithm_ = PlaybackAlgorithm::motion;
+    PlaybackAlgorithm pendingAlgorithm_ = PlaybackAlgorithm::motion;
+    std::size_t windowFadeFrames_ = 1440u;
+    std::size_t windowFadeRemaining_ = 0u;
+    std::size_t retriggerFadeFrames_ = 144u;
+    std::size_t retriggerFadeRemaining_ = 0u;
+    std::size_t retriggerTransitionFrames_ = 240u;
+    std::size_t retriggerTransitionRemaining_ = 0u;
+    std::size_t algorithmFadeFrames_ = 480u;
+    std::size_t algorithmFadeRemaining_ = 0u;
+    std::size_t recordTransitionFrames_ = 240u;
+    std::size_t recordTransitionRemaining_ = 0u;
+    LaneTransition laneTransition_ = LaneTransition::none;
+    std::size_t transitionLane_ = kNoLane;
+    std::size_t transitionFrames_ = 0u;
+    float transitionSampleRate_ = 48000.0f;
+    double movingCenterTarget_ = 0.0;
+    float lastControlLocus_ = -1.0f;
+    bool prepared_ = false;
+    bool playing_ = false;
+    bool recording_ = false;
+    bool recordWriteActive_ = false;
+    bool windowInitialized_ = false;
+    bool eventWindowInitialized_ = false;
+    bool movingCenterInitialized_ = false;
+    bool stackMode_ = false;
+    bool laneWeightsInitialized_ = false;
+};
+
+} // namespace s3g_daisy

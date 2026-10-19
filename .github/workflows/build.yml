@@ -1,0 +1,25 @@
+name: Build module
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install AArch64 toolchain
+        run: sudo apt-get update && sudo apt-get install -y g++-aarch64-linux-gnu file
+      - name: Test
+        run: npm test
+      - name: Package
+        run: npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: s3g-thru-module
+          path: dist/s3g-thru-module.tar.gz
+

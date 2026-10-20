@@ -117,6 +117,10 @@ source += `
 globalThis.__testParameterPageSets = PLAYBACK_PAGES.map((enginePages) =>
     [ENGINE_PAGE, ...enginePages, MIX_REC_PAGE, SAMPLE_PAGE, LOOP_PAGE,
         TAKE_PAGE, CHAIN_PAGE].map((page) => page.keys));
+globalThis.__testMotionPages = Array.from({ length: 8 }, (_, sound) =>
+    playbackPagesForAlgorithm(0, sound).map((page) => ({
+        title: page.title, keys: page.keys,
+    })));
 `;
 await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
 
@@ -128,6 +132,19 @@ for (const pageSet of globalThis.__testParameterPageSets) {
     const keys = pageSet.flat().filter(Boolean);
     assert.equal(new Set(keys).size, keys.length,
         'a parameter should appear on only one active page');
+}
+for (const motionPages of globalThis.__testMotionPages) {
+    const keys = motionPages.flatMap((page) => page.keys).filter(Boolean);
+    assert.equal(new Set(keys).size, keys.length,
+        'a Motion parameter should appear on only one active page');
+}
+assert.deepEqual(globalThis.__testMotionPages[0].map((page) => page.title),
+    ['STACK PATH', 'MOTION PATH', 'MOTION SOUND']);
+assert.equal(globalThis.__testMotionPages[1].at(-1).title, 'PACKETS');
+assert.equal(globalThis.__testMotionPages[2].at(-1).title, 'MOTOR');
+for (let sound = 3; sound < 8; sound++) {
+    assert.deepEqual(globalThis.__testMotionPages[sound].slice(-2)
+        .map((page) => page.title), ['EVENT CLOCK', 'EVENT SHAPE']);
 }
 assert.deepEqual(globalThis.__testParameterPageSets[0][1],
     globalThis.__testParameterPageSets[1][1]);

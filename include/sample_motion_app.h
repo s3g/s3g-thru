@@ -72,9 +72,35 @@ public:
         packets,
         motor,
         bounce,
+        freeze,
+        iterate,
+        pulser,
+        doublets,
     };
 
-    static constexpr std::size_t kMotionSoundCount = 4u;
+    static constexpr std::size_t kMotionSoundCount = 8u;
+
+    enum class MotionRateBasis : std::uint8_t {
+        normal,
+        hertz,
+    };
+
+    static constexpr std::size_t kMotionRateBasisCount = 2u;
+
+    enum class SegmentTrigger : std::uint8_t {
+        clock,
+        packet,
+        turn,
+    };
+
+    static constexpr std::size_t kSegmentTriggerCount = 3u;
+
+    enum class SegmentOverlap : std::uint8_t {
+        cut,
+        layer,
+    };
+
+    static constexpr std::size_t kSegmentOverlapCount = 2u;
 
     enum class LanesMode : std::uint8_t {
         forward,
@@ -110,9 +136,10 @@ public:
         palindrome,
         random,
         walk,
+        randomCycle,
     };
 
-    static constexpr std::size_t kCutupsModeCount = 5u;
+    static constexpr std::size_t kCutupsModeCount = 6u;
 
     enum class LanePath : std::uint8_t {
         down,
@@ -131,9 +158,11 @@ public:
         triangle,
         rounded,
         pulse,
+        exponential,
+        plateau,
     };
 
-    static constexpr std::size_t kMotorShapeCount = 3u;
+    static constexpr std::size_t kMotorShapeCount = 5u;
 
     enum class LaneBlendMode : std::uint8_t {
         crossfade,
@@ -171,9 +200,10 @@ public:
         stutter,
         shrink,
         doublets,
+        sorter,
     };
 
-    static constexpr std::size_t kGrainProcessCount = 4u;
+    static constexpr std::size_t kGrainProcessCount = 5u;
 
     enum class GrainAdvance : std::uint8_t {
         scan,
@@ -231,12 +261,25 @@ public:
         MotionMode motion = MotionMode::forward;
         MotionSound motionSound = MotionSound::continuous;
         float motionSoundRateHz = 4.0f;
+        MotionRateBasis motionRateBasis = MotionRateBasis::normal;
+        float motionPathRate = 1.0f;
+        float motionStep = 0.05f;
+        float motionSeed = 1.0f;
         float motionTravel = 1.0f;
         float motionJitter = 0.0f;
         float packetDuty = 0.65f;
         float motorRateHz = 1.0f;
         float motorSymmetry = 0.5f;
         MotorShape motorShape = MotorShape::rounded;
+        SegmentTrigger segmentTrigger = SegmentTrigger::clock;
+        SegmentOverlap segmentOverlap = SegmentOverlap::cut;
+        float segmentLayerLimit = 2.0f;
+        float segmentRateHz = 4.0f;
+        float segmentRepeats = 2.0f;
+        float segmentStep = 0.05f;
+        float segmentPitchScatter = 0.0f;
+        float segmentLevelVariation = 0.15f;
+        float segmentIntervalCurve = 0.0f;
         LanesMode lanes = LanesMode::forward;
         GrainMode grains = GrainMode::scan;
         CutupsMode cutups = CutupsMode::forward;
@@ -434,8 +477,6 @@ public:
         lastControlLocus_ = -1.0f;
         motionInnerPhase_ = 0.0;
         motionOuterPhase_ = 0.5;
-        bouncePhase_ = 0.0;
-        bounceIndex_ = 0u;
         motionEnvelope_ = 1.0f;
         resetEventReaders();
         playing_ = false;
@@ -1042,8 +1083,21 @@ private:
         float gain = 1.0f;
     };
 
+    struct MotionSegment {
+        bool active = false;
+        std::uint32_t age = 0u;
+        double phase = 0.0;
+        double low = 0.0;
+        double high = 1.0;
+        double increment = 0.0;
+        LaneBlend lanes {};
+        float gain = 1.0f;
+        bool forward = true;
+    };
+
     static constexpr std::size_t kGrainVoiceCount = 16u;
     static constexpr std::size_t kCutRegionCount = 64u;
+    static constexpr std::size_t kMotionSegmentLayerCount = 4u;
 
     static float clamp(float value, float minimum, float maximum)
     {
@@ -1128,6 +1182,7 @@ private:
         grainStutterAnchor_ = -1.0;
         grainDoubletPending_ = false;
         grainDoubletPosition_ = 0.0;
+        sorterCacheValid_ = false;
         stretchPhase_ = 0.0;
         stretchMix_ = 0.0f;
         cutCurrent_ = {};
@@ -1138,18 +1193,31 @@ private:
         cutRepeatIndex_ = 0u;
         cutRepeatedRegion_ = 0u;
         cutSwingPhase_ = false;
+        for (auto& segment : motionSegments_) {
+            segment = {};
+        }
+        motionSegmentAge_ = 0u;
+        motionEventPhase_ = 0.0;
+        motionEventRepeatIndex_ = 0u;
+        motionEventBasePosition_ = 0.5;
+        motionEventRateScale_ = 1.0f;
+        motionEventStarted_ = false;
+        motionPacketEvent_ = false;
+        motionTurnEvent_ = false;
+        motionPathForward_ = true;
+        motionRandomCycle_ = 0u;
         sampleDone_ = false;
         randomState_ = 0x51f15e5du;
         currentMotionSound_ = MotionSound::continuous;
         motionInnerPhase_ = 0.0;
         motionOuterPhase_ = 0.5;
-        bouncePhase_ = 0.0;
-        bounceIndex_ = 0u;
         motionSoundPhaseIncrement_ = 0.0f;
         motionMotorPhaseIncrement_ = 0.0f;
         motionPacketDuty_ = 0.65f;
         motionMotorSymmetry_ = 0.5f;
         motionMotorShape_ = MotorShape::rounded;
+        motionInnerRateScale_ = 1.0f;
+        motionSeed_ = 1u;
         motionEnvelope_ = 1.0f;
     }
 
@@ -1513,7 +1581,7 @@ private:
         }
     }
 
-    void stepMovingLoop(double width)
+    void stepMovingLoop(double width, float normalizedStep)
     {
         const double frames = static_cast<double>(sourceFrames_);
         width = clamp(width, std::min(4.0, frames), frames);
@@ -1526,8 +1594,9 @@ private:
             return;
         }
 
-        const double step = std::max(width * 0.5,
-            static_cast<double>(sourceSampleRate_) * 0.100);
+        const double step = std::max(1.0,
+            static_cast<double>(sourceFrames_)
+                * static_cast<double>(clamp01(normalizedStep)));
         double offset = std::fmod(
             movingCenterTarget_ + step - minimum, range);
         if (offset < 0.0) {
@@ -1626,6 +1695,55 @@ private:
         return std::max(1.0, width * 2.0);
     }
 
+    bool motionTrajectoryForward(MotionMode mode, double phase) const
+    {
+        phase = wrapPhase(phase);
+        if (mode == MotionMode::reverse) return false;
+        if (mode == MotionMode::hover || mode == MotionMode::roundTrip
+            || mode == MotionMode::mirror) {
+            return phase < 0.5;
+        }
+        if (mode == MotionMode::zigzag) {
+            if (motionTravel_ <= 1.0e-6f) return true;
+            const std::uint32_t cycleSeed = motionSeed_
+                + motionRandomCycle_ * 0x9e3779b9u;
+            const double reach = 0.5 * static_cast<double>(motionTravel_);
+            const double highTarget = 0.5 + reach * (1.0
+                - static_cast<double>(motionJitter_) * 0.8
+                    * hashUnit(cycleSeed + 0x7f4a7c15u));
+            const double lowTarget = 0.5 - reach * (1.0
+                - static_cast<double>(motionJitter_) * 0.8
+                    * hashUnit(cycleSeed + 0x94d049bbu));
+            const double firstDistance = std::max(0.001, highTarget);
+            const double secondDistance = std::max(0.001,
+                highTarget - lowTarget);
+            const double thirdDistance = std::max(0.001, 1.0 - lowTarget);
+            const double totalDistance
+                = firstDistance + secondDistance + thirdDistance;
+            const double firstBoundary = firstDistance / totalDistance;
+            const double secondBoundary
+                = (firstDistance + secondDistance) / totalDistance;
+            return phase < firstBoundary || phase >= secondBoundary;
+        }
+        if (mode == MotionMode::drunk) {
+            if (motionTravel_ <= 1.0e-6f) return true;
+            constexpr std::size_t segmentCount = 8u;
+            const std::size_t segment = std::min<std::size_t>(
+                static_cast<std::size_t>(phase
+                    * static_cast<double>(segmentCount)),
+                segmentCount - 1u);
+            const std::uint32_t globalSegment = motionRandomCycle_
+                * static_cast<std::uint32_t>(segmentCount)
+                + static_cast<std::uint32_t>(segment);
+            const float from = hashUnit(
+                motionSeed_ + globalSegment + 0x45d9f3bu);
+            const float to = hashUnit(
+                motionSeed_ + globalSegment + 1u + 0x45d9f3bu);
+            return to >= from;
+        }
+        return true;
+    }
+
     ReadHead makeReadHead(const Window& window,
                           MotionMode mode,
                           double phase,
@@ -1692,19 +1810,23 @@ private:
             return result;
         }
         if (mode == MotionMode::zigzag) {
-            // Three continuous, alternating traversals make the embedded
-            // Zigzag distinct without adding a random target scheduler.  The
-            // phase spans are proportional to distance, retaining nearly
-            // constant source speed between its click-safe eased turns.
-            constexpr double highTarget = 0.72;
-            constexpr double lowTarget = 0.28;
-            constexpr double firstDistance = highTarget;
-            constexpr double secondDistance = highTarget - lowTarget;
-            constexpr double thirdDistance = 1.0 - lowTarget;
-            constexpr double totalDistance
+            const std::uint32_t cycleSeed = motionSeed_
+                + motionRandomCycle_ * 0x9e3779b9u;
+            const double reach = 0.5 * static_cast<double>(motionTravel_);
+            const double highTarget = 0.5 + reach * (1.0
+                - static_cast<double>(motionJitter_) * 0.8
+                    * hashUnit(cycleSeed + 0x7f4a7c15u));
+            const double lowTarget = 0.5 - reach * (1.0
+                - static_cast<double>(motionJitter_) * 0.8
+                    * hashUnit(cycleSeed + 0x94d049bbu));
+            const double firstDistance = std::max(0.001, highTarget);
+            const double secondDistance = std::max(0.001,
+                highTarget - lowTarget);
+            const double thirdDistance = std::max(0.001, 1.0 - lowTarget);
+            const double totalDistance
                 = firstDistance + secondDistance + thirdDistance;
-            constexpr double firstBoundary = firstDistance / totalDistance;
-            constexpr double secondBoundary
+            const double firstBoundary = firstDistance / totalDistance;
+            const double secondBoundary
                 = (firstDistance + secondDistance) / totalDistance;
             double from = 0.0;
             double to = highTarget;
@@ -1733,15 +1855,18 @@ private:
                 static_cast<std::size_t>(scaled), segmentCount - 1u);
             const float local = static_cast<float>(scaled
                 - static_cast<double>(segment));
+            const std::uint32_t globalSegment = motionRandomCycle_
+                * static_cast<std::uint32_t>(segmentCount)
+                + static_cast<std::uint32_t>(segment);
             const float fromRandom = hashUnit(
-                static_cast<std::uint32_t>(segment) + 0x45d9f3bu);
+                motionSeed_ + globalSegment + 0x45d9f3bu);
             const float toRandom = hashUnit(
-                static_cast<std::uint32_t>(segment + 1u) + 0x45d9f3bu);
+                motionSeed_ + globalSegment + 1u + 0x45d9f3bu);
             const float center = 0.5f;
             const float from = center
                 + (fromRandom - center) * motionTravel_;
             const float to = center + (toRandom - center) * motionTravel_;
-            const float jitter = (hashUnit(static_cast<std::uint32_t>(segment)
+            const float jitter = (hashUnit(motionSeed_ + globalSegment
                 + 0x27d4eb2du) - 0.5f) * motionJitter_ * 0.24f;
             const float shaped = smoothStep(clamp01(local + jitter));
             result.a = window.low + static_cast<double>(
@@ -2281,11 +2406,19 @@ private:
             return;
         }
         currentMotionSound_ = controls.motionSound;
-        motionInnerPhase_ = controls.motionSound == MotionSound::motor
-            ? 0.325 : 0.0;
-        motionOuterPhase_ = 0.5;
-        bouncePhase_ = 0.0;
-        bounceIndex_ = 0u;
+        motionInnerPhase_ = controls.motionSound == MotionSound::continuous
+            ? 0.0 : clamp(controls.packetDuty, 0.02f, 0.98f) * 0.5f;
+        motionOuterPhase_ = clamp(controls.motorSymmetry, 0.05f, 0.95f);
+        motionEnvelope_ = 1.0f;
+        motionInnerRateScale_ = 1.0f;
+        for (auto& segment : motionSegments_) segment = {};
+        motionEventPhase_ = 0.0;
+        motionEventRepeatIndex_ = 0u;
+        motionEventBasePosition_ = clamp01(controls.locus);
+        motionEventRateScale_ = 1.0f;
+        motionEventStarted_ = false;
+        motionPacketEvent_ = false;
+        motionTurnEvent_ = false;
     }
 
     void prepareMotionSoundBlock(const Controls& controls)
@@ -2302,6 +2435,40 @@ private:
         motionMotorShape_ = controls.motorShape;
         motionTravel_ = clamp01(controls.motionTravel);
         motionJitter_ = clamp01(controls.motionJitter);
+        const std::uint32_t requestedSeed = std::max<std::uint32_t>(1u,
+            static_cast<std::uint32_t>(std::lround(clamp(
+                controls.motionSeed, 1.0f, 9999.0f))));
+        if (motionSeed_ != requestedSeed) {
+            motionSeed_ = requestedSeed;
+            motionRandomCycle_ = 0u;
+            randomState_ = 0x51f15e5du ^ (motionSeed_ * 0x9e3779b9u);
+            if (randomState_ == 0u) randomState_ = 0x6d2b79f5u;
+        }
+    }
+
+    static bool isSegmentSound(MotionSound sound)
+    {
+        return sound == MotionSound::bounce
+            || sound == MotionSound::freeze
+            || sound == MotionSound::iterate
+            || sound == MotionSound::pulser
+            || sound == MotionSound::doublets;
+    }
+
+    float motorEnvelopeLevel(float phase) const
+    {
+        float level = phase <= motionMotorSymmetry_
+            ? phase / motionMotorSymmetry_
+            : (1.0f - phase) / (1.0f - motionMotorSymmetry_);
+        level = clamp01(level);
+        switch (motionMotorShape_) {
+            case MotorShape::rounded: return smoothStep(level);
+            case MotorShape::pulse: return level > 0.5f ? 1.0f : 0.0f;
+            case MotorShape::exponential: return level * level;
+            case MotorShape::plateau: return std::min(1.0f, level * 3.0f);
+            case MotorShape::triangle: return level;
+        }
+        return level;
     }
 
     float motionSoundGain(float join)
@@ -2309,33 +2476,15 @@ private:
         float target = 1.0f;
         if (currentMotionSound_ == MotionSound::packets
             || currentMotionSound_ == MotionSound::motor) {
-            // The 2 ms follower below supplies click-safe edges, so the
-            // source clock can be a cheap binary gate instead of evaluating
-            // a polynomial bell for every sample.
-            const float packet
-                = motionInnerPhase_ < motionPacketDuty_ ? 1.0f : 0.0f;
+            float packet = 0.0f;
+            if (motionInnerPhase_ < motionPacketDuty_) {
+                packet = windowTableValue(GrainWindow::hann,
+                    motionInnerPhase_ / motionPacketDuty_);
+            }
             target = 1.0f + (packet - 1.0f) * clamp01(join);
             if (currentMotionSound_ == MotionSound::motor) {
-                // Four packet pulses ride a triangular outer motor cycle.
-                float motor = motionOuterPhase_ < motionMotorSymmetry_
-                    ? motionOuterPhase_ / motionMotorSymmetry_
-                    : (1.0f - motionOuterPhase_)
-                        / (1.0f - motionMotorSymmetry_);
-                motor = clamp01(motor);
-                if (motionMotorShape_ == MotorShape::rounded) {
-                    motor = smoothStep(motor);
-                } else if (motionMotorShape_ == MotorShape::pulse) {
-                    motor = motor > 0.5f ? 1.0f : 0.0f;
-                }
-                target *= motor;
+                target *= motorEnvelopeLevel(motionOuterPhase_);
             }
-        } else if (currentMotionSound_ == MotionSound::bounce) {
-            constexpr float bounceDecay[6u] {
-                1.0f, 0.76f, 0.5776f, 0.438976f, 0.3336218f, 0.2535526f,
-            };
-            const float bounce = 1.0f
-                - std::abs(bouncePhase_ * 2.0f - 1.0f);
-            target = bounce * bounceDecay[bounceIndex_];
         }
         motionEnvelope_ += motionEnvelopeSlew_ * (target - motionEnvelope_);
         return motionEnvelope_;
@@ -2347,34 +2496,264 @@ private:
             case MotionSound::continuous:
                 break;
             case MotionSound::packets:
-                motionInnerPhase_ += motionSoundPhaseIncrement_;
+                motionInnerPhase_ += motionSoundPhaseIncrement_
+                    * motionInnerRateScale_;
                 if (motionInnerPhase_ >= 1.0f) {
                     motionInnerPhase_ -= 1.0f;
+                    motionPacketEvent_ = true;
+                    motionInnerRateScale_ = std::max(0.05f,
+                        1.0f + (randomUnit() * 2.0f - 1.0f)
+                            * motionJitter_ * 0.5f);
                 }
                 break;
             case MotionSound::motor:
-                motionInnerPhase_ += motionSoundPhaseIncrement_ * 4.0f;
+                motionInnerPhase_ += motionSoundPhaseIncrement_
+                    * motionInnerRateScale_;
                 if (motionInnerPhase_ >= 1.0f) {
                     motionInnerPhase_ -= 1.0f;
+                    motionPacketEvent_ = true;
+                    motionInnerRateScale_ = std::max(0.05f,
+                        1.0f + (randomUnit() * 2.0f - 1.0f)
+                            * motionJitter_ * 0.5f);
                 }
                 motionOuterPhase_ += motionMotorPhaseIncrement_;
                 if (motionOuterPhase_ >= 1.0f) {
                     motionOuterPhase_ -= 1.0f;
                 }
                 break;
-            case MotionSound::bounce: {
-                constexpr float bounceAcceleration[6u] {
-                    1.0f, 1.32f, 1.7424f, 2.299968f, 3.03595776f,
-                    4.00746424f,
-                };
-                bouncePhase_ += motionSoundPhaseIncrement_
-                    * bounceAcceleration[bounceIndex_];
-                if (bouncePhase_ >= 1.0f) {
-                    bouncePhase_ -= 1.0f;
-                    bounceIndex_ = (bounceIndex_ + 1u) % 6u;
+            case MotionSound::bounce:
+            case MotionSound::freeze:
+            case MotionSound::iterate:
+            case MotionSound::pulser:
+            case MotionSound::doublets:
+                motionInnerPhase_ += motionSoundPhaseIncrement_
+                    * motionInnerRateScale_;
+                if (motionInnerPhase_ >= 1.0f) {
+                    motionInnerPhase_ -= 1.0f;
+                    motionPacketEvent_ = true;
+                    motionInnerRateScale_ = std::max(0.05f,
+                        1.0f + (randomUnit() * 2.0f - 1.0f)
+                            * motionJitter_ * 0.5f);
                 }
                 break;
+        }
+    }
+
+    MotionSegment* allocateMotionSegment(const Controls& controls)
+    {
+        const std::size_t limit = static_cast<std::size_t>(clamp(
+            std::round(controls.segmentLayerLimit), 1.0f,
+            static_cast<float>(kMotionSegmentLayerCount)));
+        for (std::size_t index = limit;
+             index < kMotionSegmentLayerCount; ++index) {
+            motionSegments_[index] = {};
+        }
+        if (controls.segmentOverlap == SegmentOverlap::cut) {
+            for (auto& segment : motionSegments_) segment = {};
+            return &motionSegments_[0u];
+        }
+        for (std::size_t index = 0u; index < limit; ++index) {
+            if (!motionSegments_[index].active) return &motionSegments_[index];
+        }
+        MotionSegment* oldest = &motionSegments_[0u];
+        for (std::size_t index = 1u; index < limit; ++index) {
+            if (motionSegments_[index].age < oldest->age) {
+                oldest = &motionSegments_[index];
             }
+        }
+        return oldest;
+    }
+
+    float effectiveMotionEventRate(const Controls& controls) const
+    {
+        const float repeat = static_cast<float>(motionEventRepeatIndex_);
+        const float curve = clamp(
+            controls.segmentIntervalCurve * repeat, -3.0f, 3.0f);
+        return clamp(controls.segmentRateHz * motionEventRateScale_
+                * std::pow(2.0f, curve),
+            0.03125f, 640.0f);
+    }
+
+    void startMotionSegment(const Controls& controls,
+                            const Window& window,
+                            double trajectoryPosition)
+    {
+        const double fieldWidth = std::max(1.0, window.high - window.low);
+        if (!motionEventStarted_
+            || motionEventBasePosition_ < window.low
+            || motionEventBasePosition_ >= window.high) {
+            motionEventBasePosition_ = clamp(
+                trajectoryPosition, window.low, window.high - 1.0);
+        }
+        double center = motionEventBasePosition_;
+        double width = fieldWidth;
+        const std::size_t repeats = static_cast<std::size_t>(clamp(
+            std::round(controls.segmentRepeats), 1.0f, 16.0f));
+        switch (currentMotionSound_) {
+            case MotionSound::freeze:
+                center = 0.5 * (window.low + window.high);
+                break;
+            case MotionSound::bounce: {
+                center = 0.5 * (window.low + window.high);
+                const float progress = repeats > 1u
+                    ? static_cast<float>(motionEventRepeatIndex_)
+                        / static_cast<float>(repeats - 1u)
+                    : 0.0f;
+                width *= 1.0 - static_cast<double>(progress
+                    * (1.0f - motionPacketDuty_));
+                break;
+            }
+            case MotionSound::iterate:
+                if (controls.segmentStep <= 0.0f) {
+                    center = trajectoryPosition;
+                }
+                break;
+            case MotionSound::pulser: {
+                center = window.low + static_cast<double>(randomUnit())
+                    * fieldWidth;
+                const double seconds = static_cast<double>(motionPacketDuty_)
+                    / std::max<double>(0.25,
+                        effectiveMotionEventRate(controls));
+                width = std::min(fieldWidth,
+                    static_cast<double>(sourceSampleRate_) * seconds
+                        * static_cast<double>(std::max(0.05f, speed_)));
+                break;
+            }
+            case MotionSound::doublets:
+            case MotionSound::continuous:
+            case MotionSound::packets:
+            case MotionSound::motor:
+                break;
+        }
+        width = clamp(width, 1.0, fieldWidth);
+        center = clamp(center, window.low, window.high);
+        double low = center - width * 0.5;
+        double high = center + width * 0.5;
+        if (low < window.low) {
+            high += window.low - low;
+            low = window.low;
+        }
+        if (high > window.high) {
+            low -= high - window.high;
+            high = window.high;
+        }
+        low = std::max(window.low, low);
+        high = std::min(window.high, high);
+
+        MotionSegment* segment = allocateMotionSegment(controls);
+        *segment = {};
+        segment->active = true;
+        segment->age = ++motionSegmentAge_;
+        segment->low = low;
+        segment->high = std::max(low + 1.0, high);
+        segment->lanes = stackMode_
+            ? makeLaneBlend(lanePhase_, controls) : LaneBlend {};
+        segment->forward = motionPathForward_;
+        const float semitones = (randomUnit() * 2.0f - 1.0f)
+            * clamp(controls.segmentPitchScatter, 0.0f, 12.0f);
+        const double pitch = std::pow(2.0,
+            static_cast<double>(semitones) / 12.0);
+        segment->increment = static_cast<double>(sourceSampleRate_)
+            / static_cast<double>(outputSampleRate_)
+            * static_cast<double>(std::max(0.05f, speed_)) * pitch
+            / std::max(1.0, segment->high - segment->low);
+        segment->gain = currentMotionSound_ == MotionSound::bounce
+            ? std::pow(std::max(0.0f,
+                1.0f - clamp01(controls.segmentLevelVariation)),
+                static_cast<float>(motionEventRepeatIndex_))
+            : 1.0f - randomUnit()
+                * clamp01(controls.segmentLevelVariation);
+
+        ++motionEventRepeatIndex_;
+        if (motionEventRepeatIndex_ >= repeats) motionEventRepeatIndex_ = 0u;
+        const double step = static_cast<double>(clamp01(controls.segmentStep))
+            * static_cast<double>(sourceFrames_);
+        if (currentMotionSound_ == MotionSound::doublets) {
+            if (motionEventRepeatIndex_ == 0u) {
+                motionEventBasePosition_ = window.low + std::fmod(
+                    motionEventBasePosition_ - window.low + step,
+                    fieldWidth);
+            }
+        } else if (currentMotionSound_ == MotionSound::iterate && step > 0.0) {
+            motionEventBasePosition_ = window.low + std::fmod(
+                motionEventBasePosition_ - window.low + step,
+                fieldWidth);
+        }
+    }
+
+    void renderMotionSegments(const Controls& controls,
+                              const Window& window,
+                              double trajectoryPosition,
+                              float join,
+                              float* wet)
+    {
+        bool trigger = !motionEventStarted_;
+        if (controls.segmentTrigger == SegmentTrigger::clock) {
+            trigger = trigger || motionEventPhase_ >= 1.0;
+        } else if (controls.segmentTrigger == SegmentTrigger::packet) {
+            trigger = trigger || motionPacketEvent_;
+        } else {
+            trigger = trigger || motionTurnEvent_;
+        }
+        motionPacketEvent_ = false;
+        motionTurnEvent_ = false;
+        if (trigger) {
+            motionEventPhase_ = wrapPhase(motionEventPhase_);
+            startMotionSegment(controls, window, trajectoryPosition);
+            motionEventStarted_ = true;
+            motionEventRateScale_ = std::max(0.10f,
+                1.0f + (randomUnit() * 2.0f - 1.0f)
+                    * motionJitter_ * 0.75f);
+        }
+
+        float stereo[kLaneChannels] {};
+        float gainSum = 0.0f;
+        MotionSegment* newest = nullptr;
+        for (auto& segment : motionSegments_) {
+            if (!segment.active) continue;
+            const double width = std::max(1.0, segment.high - segment.low);
+            const double position = segment.forward
+                ? segment.low + segment.phase * width
+                : segment.high - 1.0 - segment.phase * width;
+            ReadHead head;
+            head.a = clamp(position, segment.low,
+                std::max(segment.low, segment.high - 1.0));
+            head.b = head.a;
+            head.position = head.a;
+            const float shape = motorEnvelopeLevel(
+                static_cast<float>(segment.phase));
+            const float envelope = 1.0f
+                + (shape - 1.0f) * clamp01(join);
+            const float gain = segment.gain * envelope;
+            for (std::size_t channel = 0u;
+                 channel < kLaneChannels; ++channel) {
+                const float sample = stackMode_
+                    ? readLaneBlendHead(channel, head, segment.lanes)
+                    : readHead(mapSourceChannel(channel), head);
+                stereo[channel] += sample * gain;
+            }
+            gainSum += gain;
+            if (!newest || segment.age > newest->age) newest = &segment;
+            segment.phase += segment.increment;
+            if (segment.phase >= 1.0) segment.active = false;
+        }
+        if (gainSum > 1.0f) {
+            stereo[0u] /= gainSum;
+            stereo[1u] /= gainSum;
+        }
+        for (std::size_t channel = 0u; channel < kChannels; ++channel) {
+            wet[channel] = stereo[channel & 1u];
+        }
+        if (newest) {
+            const double width = newest->high - newest->low;
+            displayPosition_ = newest->forward
+                ? newest->low + std::min(1.0, newest->phase) * width
+                : newest->high - std::min(1.0, newest->phase) * width;
+        }
+        if (controls.segmentTrigger == SegmentTrigger::clock) {
+            motionEventPhase_ += static_cast<double>(
+                effectiveMotionEventRate(controls))
+                / static_cast<double>(outputSampleRate_);
         }
     }
 
@@ -2420,6 +2799,15 @@ private:
         MotionMode secondReadMode = secondMode;
         const double readPhase = phase_;
         const float readJoin = join;
+        const bool motorReverse = !lanesAlgorithm
+            && currentMotionSound_ == MotionSound::motor
+            && mode != MotionMode::forward && mode != MotionMode::reverse
+            && mode != MotionMode::movingLoop
+            && motionOuterPhase_ > motionMotorSymmetry_;
+        const bool intrinsicForward = motionTrajectoryForward(
+            secondReadMode, readPhase);
+        motionPathForward_ = motorReverse
+            ? !intrinsicForward : intrinsicForward;
 
         if (lanesAlgorithm) {
             const float stretchTarget = stretch
@@ -2487,20 +2875,18 @@ private:
             }
         }
 
-        if (!lanesAlgorithm
-            && currentMotionSound_ != MotionSound::continuous) {
+        if (!lanesAlgorithm && isSegmentSound(currentMotionSound_)) {
+            const ReadHead trajectory = makeReadHead(
+                secondReadWindow, secondReadMode, readPhase, readJoin);
+            renderMotionSegments(controls, secondReadWindow,
+                trajectory.position, join, wet);
+            advanceMotionSound();
+        } else if (!lanesAlgorithm
+                   && currentMotionSound_ != MotionSound::continuous) {
             const float articulation = motionSoundGain(join);
-            if (stackMode_) {
-                wet[0u] *= articulation;
-                wet[1u] *= articulation;
-                wet[2u] = wet[0u];
-                wet[3u] = wet[1u];
-            } else {
-                for (std::size_t channel = 0u;
-                     channel < kChannels;
-                     ++channel) {
-                    wet[channel] *= articulation;
-                }
+            for (std::size_t channel = 0u;
+                 channel < kChannels; ++channel) {
+                wet[channel] *= articulation;
             }
             advanceMotionSound();
         }
@@ -2510,8 +2896,10 @@ private:
         const ReadHead secondHead = windowFadeRemaining_ == 0u
             ? firstHead : makeReadHead(secondReadWindow, secondReadMode,
                 readPhase, readJoin);
-        displayPosition_ = firstHead.position
-            + (secondHead.position - firstHead.position) * windowMix;
+        if (!isSegmentSound(currentMotionSound_) || lanesAlgorithm) {
+            displayPosition_ = firstHead.position
+                + (secondHead.position - firstHead.position) * windowMix;
+        }
         fieldLow_ = firstHead.low + (secondHead.low - firstHead.low) * windowMix;
         fieldHigh_ = firstHead.high + (secondHead.high - firstHead.high)
             * windowMix;
@@ -2523,8 +2911,18 @@ private:
             firstPath + (secondPath - firstPath) * windowMix);
         const double baseIncrement = static_cast<double>(sourceSampleRate_)
             / static_cast<double>(outputSampleRate_) / path;
-        const double pitchIncrement = static_cast<double>(speed_)
-            * baseIncrement;
+        const double pathRate = lanesAlgorithm ? 1.0
+            : static_cast<double>(clamp(
+                controls.motionPathRate, 0.01f, 80.0f));
+        const double normalIncrement = static_cast<double>(speed_)
+            * pathRate * baseIncrement;
+        const double hertzIncrement = static_cast<double>(speed_)
+            * static_cast<double>(clamp(
+                controls.motionPathRate, 0.01f, 80.0f))
+            / static_cast<double>(outputSampleRate_);
+        const double pitchIncrement = !lanesAlgorithm
+                && controls.motionRateBasis == MotionRateBasis::hertz
+            ? hertzIncrement : normalIncrement;
         const double requestedStretch = lanesAlgorithm
             ? static_cast<double>(clamp(
                 controls.lanesStretchRatio, 0.25f, 4.0f))
@@ -2533,11 +2931,12 @@ private:
         const double phaseIncrement = pitchIncrement
             + (stretchedIncrement - pitchIncrement)
                 * static_cast<double>(stretchMix_);
-        // Motion Mode owns the transport trajectory. Sound articulations may
-        // gate or shape it, but must not replace or reverse its clock;
-        // otherwise Bounce collapses Mirror and Zigzag to Forward and Motor
-        // can double-reverse an already palindromic path.
-        phase_ += phaseIncrement;
+        const double directedIncrement = motorReverse
+            ? -phaseIncrement : phaseIncrement;
+        const double previousPhase = phase_;
+        const bool previousDirection = motionTrajectoryForward(
+            mode, previousPhase);
+        phase_ += directedIncrement;
         if (renderStretch) {
             const double windowPhase = clamp(
                 static_cast<double>(sourceSampleRate_) * 0.040 / path,
@@ -2555,9 +2954,16 @@ private:
             phase_ += 1.0;
             wrapped = true;
         }
+        if (!lanesAlgorithm) {
+            const bool directionTurn = !wrapped
+                && previousDirection != motionTrajectoryForward(mode, phase_);
+            motionTurnEvent_ = motionTurnEvent_ || wrapped || directionTurn;
+            if (wrapped) ++motionRandomCycle_;
+        }
         if (!lanesAlgorithm && wrapped
             && requestedMode_ == MotionMode::movingLoop) {
-            stepMovingLoop(requested.high - requested.low);
+            stepMovingLoop(requested.high - requested.low,
+                controls.motionStep);
         }
         if (windowFadeRemaining_ != 0u) {
             --windowFadeRemaining_;
@@ -2627,6 +3033,24 @@ private:
         }
     }
 
+    float windowTableValue(GrainWindow window, float phase) const
+    {
+        const float tablePosition = clamp01(phase)
+            * static_cast<float>(kGrainWindowTableSize - 1u);
+        const std::size_t first = std::min<std::size_t>(
+            static_cast<std::size_t>(tablePosition),
+            kGrainWindowTableSize - 1u);
+        const std::size_t second = std::min<std::size_t>(
+            first + 1u, kGrainWindowTableSize - 1u);
+        const float mix = tablePosition - static_cast<float>(first);
+        const std::size_t table = std::min<std::size_t>(
+            static_cast<std::size_t>(window),
+            kGrainWindowCount - 1u);
+        const float firstValue = grainWindowTables_[table][first];
+        return firstValue
+            + (grainWindowTables_[table][second] - firstValue) * mix;
+    }
+
     float grainEnvelope(const Grain& grain) const
     {
         float phase = static_cast<float>(grain.age)
@@ -2644,20 +3068,84 @@ private:
             const float early = 1.0f - fourth;
             phase += (early - phase) * -skew;
         }
-        const float tablePosition = clamp01(phase)
-            * static_cast<float>(kGrainWindowTableSize - 1u);
-        const std::size_t first = std::min<std::size_t>(
-            static_cast<std::size_t>(tablePosition),
-            kGrainWindowTableSize - 1u);
-        const std::size_t second = std::min<std::size_t>(
-            first + 1u, kGrainWindowTableSize - 1u);
-        const float mix = tablePosition - static_cast<float>(first);
-        const std::size_t window = std::min<std::size_t>(
-            static_cast<std::size_t>(grain.window),
-            kGrainWindowCount - 1u);
-        const float firstValue = grainWindowTables_[window][first];
-        return firstValue
-            + (grainWindowTables_[window][second] - firstValue) * mix;
+        return windowTableValue(grain.window, phase);
+    }
+
+    void prepareSorterRanking(const Window& window,
+                              std::size_t regions,
+                              std::size_t lane)
+    {
+        regions = std::max<std::size_t>(1u,
+            std::min<std::size_t>(regions, kRegionCount));
+        if (sorterCacheValid_ && sorterRegionCount_ == regions
+            && sorterLane_ == lane
+            && std::abs(sorterWindowLow_ - window.low) < 0.5
+            && std::abs(sorterWindowHigh_ - window.high) < 0.5) {
+            return;
+        }
+        const double width = std::max(1.0, window.high - window.low);
+        for (std::size_t region = 0u; region < regions; ++region) {
+            float energy = 0.0f;
+            for (std::size_t probe = 0u; probe < 8u; ++probe) {
+                const double unit = (static_cast<double>(region)
+                        + (static_cast<double>(probe) + 0.5) / 8.0)
+                    / static_cast<double>(regions);
+                const double position = window.low + unit * width;
+                for (std::size_t channel = 0u;
+                     channel < kLaneChannels; ++channel) {
+                    const float sample = stackMode_ && lane < kStackLanes
+                        ? sampleLaneAt(lane, channel, position)
+                        : sampleAt(mapSourceChannel(channel), position);
+                    energy += sample * sample;
+                }
+            }
+            sorterEnergies_[region] = energy;
+            sorterRanking_[region] = static_cast<std::uint8_t>(region);
+        }
+        for (std::size_t index = 1u; index < regions; ++index) {
+            const std::uint8_t candidate = sorterRanking_[index];
+            std::size_t insertion = index;
+            while (insertion > 0u) {
+                const std::uint8_t previous = sorterRanking_[insertion - 1u];
+                if (sorterEnergies_[previous] < sorterEnergies_[candidate]
+                    || (sorterEnergies_[previous]
+                            == sorterEnergies_[candidate]
+                        && previous < candidate)) {
+                    break;
+                }
+                sorterRanking_[insertion] = previous;
+                --insertion;
+            }
+            sorterRanking_[insertion] = candidate;
+        }
+        sorterRegionCount_ = regions;
+        sorterLane_ = lane;
+        sorterWindowLow_ = window.low;
+        sorterWindowHigh_ = window.high;
+        sorterCacheValid_ = true;
+    }
+
+    double sorterPosition(double original,
+                          const Window& window,
+                          const Controls& controls,
+                          const LaneBlend& lanes)
+    {
+        const std::size_t regions = static_cast<std::size_t>(clamp(
+            std::round(controls.grainRegionCount), 1.0f,
+            static_cast<float>(kRegionCount)));
+        const std::size_t lane = stackMode_
+            ? (lanes.secondGain > lanes.firstGain
+                ? lanes.second : lanes.first)
+            : kNoLane;
+        prepareSorterRanking(window, regions, lane);
+        const std::size_t sequence = grainProcessIndex_ % regions;
+        const double width = std::max(1.0, window.high - window.low);
+        const double sorted = window.low
+            + (static_cast<double>(sorterRanking_[sequence]) + 0.5)
+                * width / static_cast<double>(regions);
+        return clamp(original + (sorted - original)
+                * static_cast<double>(clamp01(controls.grainProcessAmount)),
+            window.low, window.high - 1.0);
     }
 
     void startGrain(const Controls& controls, const Window& window)
@@ -2718,7 +3206,12 @@ private:
             position = clamp(position, window.low, window.high - 1.0);
         }
 
+        const LaneBlend eventLanes = stackMode_
+            ? makeLaneBlend(lanePhase_, controls) : LaneBlend {};
         const float processAmount = clamp01(controls.grainProcessAmount);
+        if (controls.grainProcess == GrainProcess::sorter) {
+            position = sorterPosition(position, window, controls, eventLanes);
+        }
         if (controls.grainProcess == GrainProcess::stutter) {
             const std::size_t group = 1u + static_cast<std::size_t>(
                 std::lround(processAmount * 15.0f));
@@ -2759,9 +3252,7 @@ private:
         slot->low = window.low;
         slot->high = window.high;
         slot->seam = joinFrames(window, controls.join);
-        slot->lanes = stackMode_
-            ? makeLaneBlend(lanePhase_, controls)
-            : LaneBlend {};
+        slot->lanes = eventLanes;
         slot->gain = grainGain_ * (1.0f - randomUnit()
             * clamp01(controls.grainLevelVariation));
         slot->envelopeSkew = clamp(
@@ -2885,6 +3376,23 @@ private:
             case CutupsMode::random:
                 return static_cast<std::size_t>(randomUnit()
                     * static_cast<float>(regionCount)) % regionCount;
+            case CutupsMode::randomCycle: {
+                std::uint8_t bag[kRegionCount] {};
+                for (std::size_t index = 0u; index < regionCount; ++index) {
+                    bag[index] = static_cast<std::uint8_t>(index);
+                }
+                std::uint32_t state = 0x51f15e5du
+                    ^ static_cast<std::uint32_t>(
+                        cutStep_ / regionCount + 1u) * 0x85ebca6bu;
+                for (std::size_t remaining = regionCount;
+                     remaining > 1u; --remaining) {
+                    state ^= state << 13u;
+                    state ^= state >> 17u;
+                    state ^= state << 5u;
+                    std::swap(bag[remaining - 1u], bag[state % remaining]);
+                }
+                return bag[cutStep_ % regionCount];
+            }
             case CutupsMode::walk:
                 if (cutStep_ != 0u) {
                     const int move = randomUnit() < 0.5f ? -1 : 1;
@@ -3316,6 +3824,13 @@ private:
     double grainStutterAnchor_ = -1.0;
     bool grainDoubletPending_ = false;
     double grainDoubletPosition_ = 0.0;
+    std::uint8_t sorterRanking_[kRegionCount] {};
+    float sorterEnergies_[kRegionCount] {};
+    std::size_t sorterRegionCount_ = 0u;
+    std::size_t sorterLane_ = kNoLane;
+    double sorterWindowLow_ = 0.0;
+    double sorterWindowHigh_ = 0.0;
+    bool sorterCacheValid_ = false;
     static constexpr std::size_t kGrainWindowTableSize = 257u;
     float grainWindowTables_[kGrainWindowCount][kGrainWindowTableSize] {};
     CutReader cutCurrent_ {};
@@ -3335,8 +3850,6 @@ private:
     float motionEnvelopeSlew_ = 1.0f;
     float motionInnerPhase_ = 0.0f;
     float motionOuterPhase_ = 0.5f;
-    float bouncePhase_ = 0.0f;
-    std::size_t bounceIndex_ = 0u;
     float motionSoundPhaseIncrement_ = 0.0f;
     float motionMotorPhaseIncrement_ = 0.0f;
     float motionPacketDuty_ = 0.65f;
@@ -3345,6 +3858,19 @@ private:
     float motionJitter_ = 0.0f;
     MotorShape motionMotorShape_ = MotorShape::rounded;
     float motionEnvelope_ = 1.0f;
+    float motionInnerRateScale_ = 1.0f;
+    MotionSegment motionSegments_[kMotionSegmentLayerCount] {};
+    std::uint32_t motionSegmentAge_ = 0u;
+    double motionEventPhase_ = 0.0;
+    std::size_t motionEventRepeatIndex_ = 0u;
+    double motionEventBasePosition_ = 0.5;
+    float motionEventRateScale_ = 1.0f;
+    std::uint32_t motionSeed_ = 1u;
+    std::uint32_t motionRandomCycle_ = 0u;
+    bool motionEventStarted_ = false;
+    bool motionPacketEvent_ = false;
+    bool motionTurnEvent_ = false;
+    bool motionPathForward_ = true;
     double displayPosition_ = 0.0;
     double fieldLow_ = 0.0;
     double fieldHigh_ = 0.0;

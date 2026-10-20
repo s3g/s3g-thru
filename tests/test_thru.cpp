@@ -175,7 +175,7 @@ void downgradeClipBankToV1(const std::string& path)
     assert(std::fclose(file) == 0);
     assert(input.size() >= 240u);
     assert(std::memcmp(input.data(), "S3GTHR3", 7u) == 0);
-    assert(littleU32(input, 8u) == 2u);
+    assert(littleU32(input, 8u) == 3u);
 
     std::vector<std::uint8_t> output;
     output.reserve(input.size());
@@ -189,9 +189,10 @@ void downgradeClipBankToV1(const std::string& path)
         offset += count;
     };
     copyBytes(228u); // generation/globals plus the 16-entry chain
-    constexpr std::size_t clipPrefixBytes = 3652u;
     for (std::size_t clip = 0u; clip < 64u; ++clip) {
-        copyBytes(clipPrefixBytes);
+        copyBytes(4u + 68u * 4u); // occupied and version-1 base parameters
+        offset += 13u * 4u; // version-3 engine-fidelity base parameters
+        copyBytes(4u * (4u + 768u + 64u) + 8u * 4u); // sources and cues
         copyBytes(32u); // recorded through capacity flags
         offset += 4u; // take count does not exist in format 1
         const std::uint32_t noteCount = littleU32(input, offset);
@@ -205,6 +206,57 @@ void downgradeClipBankToV1(const std::string& path)
             copyBytes(20u);
             offset += 4u; // gesture take
         }
+    }
+    assert(offset == input.size());
+    std::uint32_t checksum = 2166136261u;
+    for (const std::uint8_t byte : output) {
+        checksum ^= byte;
+        checksum *= 16777619u;
+    }
+    appendLittleU32(output, checksum);
+    file = std::fopen(path.c_str(), "wb");
+    assert(file != nullptr);
+    assert(std::fwrite(output.data(), 1u, output.size(), file) == output.size());
+    assert(std::fclose(file) == 0);
+}
+
+void downgradeClipBankToV2(const std::string& path)
+{
+    struct stat status {};
+    assert(stat(path.c_str(), &status) == 0);
+    assert(status.st_size > 4);
+    std::vector<std::uint8_t> input(
+        static_cast<std::size_t>(status.st_size) - 4u);
+    std::FILE* file = std::fopen(path.c_str(), "rb");
+    assert(file != nullptr);
+    assert(std::fread(input.data(), 1u, input.size(), file) == input.size());
+    assert(std::fclose(file) == 0);
+    assert(input.size() >= 240u);
+    assert(std::memcmp(input.data(), "S3GTHR3", 7u) == 0);
+    assert(littleU32(input, 8u) == 3u);
+
+    std::vector<std::uint8_t> output;
+    output.reserve(input.size());
+    output.insert(output.end(), input.begin(), input.begin() + 8u);
+    appendLittleU32(output, 2u);
+    std::size_t offset = 12u;
+    const auto copyBytes = [&](std::size_t count) {
+        assert(offset + count <= input.size());
+        output.insert(output.end(), input.begin() + offset,
+                      input.begin() + offset + count);
+        offset += count;
+    };
+    copyBytes(228u); // generation/globals plus the 16-entry chain
+    for (std::size_t clip = 0u; clip < 64u; ++clip) {
+        copyBytes(4u + 68u * 4u); // occupied and format-2 base parameters
+        offset += 13u * 4u; // format-3 engine-fidelity base parameters
+        copyBytes(4u * (4u + 768u + 64u) + 8u * 4u); // sources and cues
+        copyBytes(32u + 4u); // capacities/flags and take count
+        const std::uint32_t noteCount = littleU32(input, offset);
+        const std::uint32_t pointCount = littleU32(input, offset + 4u);
+        copyBytes(8u);
+        copyBytes(static_cast<std::size_t>(noteCount) * 24u);
+        copyBytes(static_cast<std::size_t>(pointCount) * 24u);
     }
     assert(offset == input.size());
     std::uint32_t checksum = 2166136261u;
@@ -279,7 +331,7 @@ int main()
         {22, "speed", "4.0000"}, {23, "manual_lane", "4.0000"},
         {24, "lane_cycles", "16.0000"}, {25, "algorithm", "5"},
         {26, "join", "1.0000"}, {27, "output_gain", "2.0000"},
-        {28, "motion_mode", "7"}, {29, "motion_sound", "3"},
+        {28, "motion_mode", "7"}, {29, "motion_sound", "7"},
         {30, "motion_rate", "20.0000"}, {31, "lanes_mode", "2"},
         {32, "lane_path", "7"}, {33, "lanes_stretch", "1"},
         {34, "stretch_ratio", "4.0000"}, {35, "lane_1_gain", "2.0000"},
@@ -287,7 +339,7 @@ int main()
         {38, "lane_4_gain", "2.0000"}, {39, "grain_mode", "3"},
         {40, "grain_size", "1000.0000"}, {41, "grain_density", "96.0000"},
         {42, "grain_pitch", "4.0000"}, {43, "grain_window", "5"},
-        {44, "grain_spread", "1.0000"}, {45, "cutups_mode", "4"},
+        {44, "grain_spread", "1.0000"}, {45, "cutups_mode", "5"},
         {46, "pressure_mode", "1"}, {47, "root_note", "96"},
         {48, "record_lane", "4"}, {49, "record_source", "1"},
         {50, "record_gain", "4.0000"}, {51, "monitor_level", "1.0000"},
@@ -295,7 +347,7 @@ int main()
         {56, "clip_playing", "1"},
         {69, "motion_travel", "1.0000"}, {70, "motion_jitter", "1.0000"},
         {71, "packet_duty", "98.00"}, {72, "motor_rate", "20.0000"},
-        {73, "motor_symmetry", "95.00"}, {74, "motor_shape", "2"},
+        {73, "motor_symmetry", "95.00"}, {74, "motor_shape", "4"},
         {75, "lane_blend", "1"}, {76, "lane_path_shape", "3"},
         {77, "lane_path_offset", "1.0000"}, {78, "lane_path_skew", "0.9800"},
         {79, "lane_path_curve", "1.0000"}, {80, "lane_slew", "500.00"},
@@ -304,7 +356,7 @@ int main()
         {85, "grain_size_variation", "1.0000"},
         {86, "grain_level_variation", "1.0000"}, {87, "grain_timing", "1"},
         {88, "grain_timing_scatter", "1.0000"},
-        {89, "grain_envelope_skew", "1.0000"}, {90, "grain_process", "3"},
+        {89, "grain_envelope_skew", "1.0000"}, {90, "grain_process", "4"},
         {91, "grain_process_amount", "1.0000"}, {92, "grain_regions", "64"},
         {93, "grain_advance", "1"}, {94, "cut_clock", "1"},
         {95, "cut_division", "5"}, {96, "cut_rate", "64.0000"},
@@ -317,11 +369,27 @@ int main()
         {108, "sample_mode", "3"}, {109, "slice_region_mode", "1"},
         {110, "slice_regions", "64"}, {111, "pad_mode", "3"},
         {112, "lane_variation", "4"}, {113, "preview_level", "1.0000"},
+        {59, "motion_rate_basis", "1"},
+        {60, "motion_path_rate", "80.0000"},
+        {61, "motion_step", "1.0000"}, {62, "motion_seed", "9999"},
+        {63, "segment_trigger", "2"}, {64, "segment_overlap", "1"},
+        {118, "segment_layers", "4"},
+        {119, "segment_rate", "80.0000"},
+        {121, "segment_repeats", "16"},
+        {122, "segment_step", "1.0000"},
+        {124, "segment_pitch", "12.0000"},
+        {125, "segment_level", "1.0000"},
+        {126, "segment_curve", "1.0000"},
     };
     for (const auto& check : ccChecks) {
         midi(api, instance, 0xB0, static_cast<std::uint8_t>(check.cc), 127,
              MOVE_MIDI_SOURCE_EXTERNAL);
-        assert(get(api, instance, check.key) == check.high);
+        const std::string actual = get(api, instance, check.key);
+        if (actual != check.high) {
+            std::fprintf(stderr, "CC %d %s: expected %s, got %s\n",
+                check.cc, check.key, check.high, actual.c_str());
+        }
+        assert(actual == check.high);
     }
     midi(api, instance, 0xB0, 20, 0, MOVE_MIDI_SOURCE_INTERNAL);
     assert(get(api, instance, "locus") == "1.0000");
@@ -631,7 +699,7 @@ int main()
         return forward && backward;
     };
     constexpr const char* motionSounds[] {
-        "Continuous", "Packets", "Motor", "Bounce"
+        "Continuous", "Packets", "Motor"
     };
     for (const char* sound : motionSounds) {
         const bool mirrorMoves = cursorMovesBothWays("Mirror", sound);
@@ -642,6 +710,22 @@ int main()
         }
         assert(mirrorMoves);
         assert(zigzagMoves);
+    }
+    api->set_param(instance, "segment_trigger", "Clock");
+    api->set_param(instance, "segment_overlap", "Layer");
+    api->set_param(instance, "segment_layers", "4");
+    api->set_param(instance, "segment_rate", "20");
+    api->set_param(instance, "segment_repeats", "4");
+    constexpr const char* segmentSounds[] {
+        "Bounce", "Freeze", "Iterate", "Pulser", "Doublets"
+    };
+    for (const char* sound : segmentSounds) {
+        api->set_param(instance, "all_notes_off", "1");
+        api->set_param(instance, "motion_sound", sound);
+        midi(api, instance, 0x90, 60, 100);
+        render(api, instance, 40);
+        assert(peak() > 0);
+        midi(api, instance, 0x80, 60, 0);
     }
     api->set_param(instance, "motion_sound", "Continuous");
     api->set_param(instance, "motion_mode", "Forward");
@@ -889,7 +973,7 @@ int main()
     api->set_param(instance, "grain_regions", "31");
     api->set_param(instance, "grain_advance", "Per Grain");
     constexpr const char* grainProcesses[] {
-        "Ordinary", "Stutter", "Shrink", "Doublets"
+        "Ordinary", "Stutter", "Shrink", "Doublets", "Sorter"
     };
     midi(api, instance, 0x90, 72, 100);
     for (const char* process : grainProcesses) {
@@ -913,6 +997,7 @@ int main()
     api->set_param(instance, "cut_level_variation", "0.2");
     api->set_param(instance, "cut_lane_order", "Outside In");
     api->set_param(instance, "cut_poly_path", "Rotate");
+    api->set_param(instance, "cutups_mode", "Random Cycle");
     midi(api, instance, 0x90, 48, 100);
     midi(api, instance, 0x90, 72, 100);
     render(api, instance, 40);
@@ -932,6 +1017,14 @@ int main()
     assert((stateField(ui, 1) & 0x1) != 0);
 
     api->set_param(instance, "motion_mode", "Mirror");
+    api->set_param(instance, "motion_sound", "Iterate");
+    api->set_param(instance, "motion_rate_basis", "Hertz");
+    api->set_param(instance, "motion_path_rate", "2.5");
+    api->set_param(instance, "motion_step", "0.17");
+    api->set_param(instance, "motion_seed", "42");
+    api->set_param(instance, "segment_overlap", "Layer");
+    api->set_param(instance, "segment_layers", "3");
+    api->set_param(instance, "segment_curve", "-0.25");
     api->set_param(instance, "grain_window", "Hann");
     api->set_param(instance, "lane_2_gain", "0.375");
     api->set_param(instance, "record_gain", "1.75");
@@ -943,11 +1036,23 @@ int main()
     assert(state.find("\"clip_record_mode\":1") != std::string::npos);
     assert(state.find("\"monitor_level\"") == std::string::npos);
     api->set_param(instance, "motion_mode", "Forward");
+    api->set_param(instance, "motion_sound", "Continuous");
+    api->set_param(instance, "motion_rate_basis", "Normal");
+    api->set_param(instance, "motion_path_rate", "1");
+    api->set_param(instance, "segment_layers", "1");
     api->set_param(instance, "grain_window", "Bell");
     api->set_param(instance, "lane_2_gain", "1");
     api->set_param(instance, "record_gain", "1");
     api->set_param(instance, "state", state.c_str());
     assert(get(api, instance, "motion_mode") == "5");
+    assert(get(api, instance, "motion_sound") == "5");
+    assert(get(api, instance, "motion_rate_basis") == "1");
+    assert(get(api, instance, "motion_path_rate") == "2.5000");
+    assert(get(api, instance, "motion_step") == "0.1700");
+    assert(get(api, instance, "motion_seed") == "42");
+    assert(get(api, instance, "segment_overlap") == "1");
+    assert(get(api, instance, "segment_layers") == "3");
+    assert(get(api, instance, "segment_curve") == "-0.2500");
     assert(get(api, instance, "grain_window") == "2");
     assert(get(api, instance, "lane_2_gain") == "0.3750");
     assert(get(api, instance, "record_gain") == "1.7500");
@@ -977,7 +1082,7 @@ int main()
         == sizeof(clipMagic));
     assert(std::memcmp(clipMagic, "S3GTHR3", 7u) == 0);
     assert(std::fread(&clipVersion, sizeof(clipVersion), 1u, clipFile) == 1u);
-    assert(clipVersion == 2u);
+    assert(clipVersion == 3u);
     std::fclose(stateFile);
     std::fclose(laneFile);
     std::fclose(clipFile);
@@ -989,6 +1094,9 @@ int main()
     assert((stateField(ui, 1) & 0x1) != 0);
     assert((stateField(ui, 1) & 0x8) == 0);
     assert(get(api, instance, "motion_mode") == "5");
+    assert(get(api, instance, "motion_sound") == "5");
+    assert(get(api, instance, "motion_rate_basis") == "1");
+    assert(get(api, instance, "segment_layers") == "3");
     assert(get(api, instance, "grain_window") == "2");
     assert(get(api, instance, "lane_2_gain") == "0.3750");
     assert(get(api, instance, "record_gain") == "1.7500");
@@ -1023,11 +1131,15 @@ int main()
     assert(stateField(get(api, instance, "clip_state"), 5) == 3);
     api->set_param(instance, "pressure_mode", "Off");
     api->set_param(instance, "performance_lane", "1");
+    api->set_param(instance, "motion_sound", "Continuous");
+    api->set_param(instance, "motion_rate_basis", "Normal");
     midi(api, instance, 0x90, 60, 100);
     render(api, instance, 12);
     assert(peak() > 8000);
     assert(static_cast<int>(output[0]) * static_cast<int>(output[1]) < 0);
     midi(api, instance, 0x80, 60, 0);
+    api->set_param(instance, "motion_sound", "Iterate");
+    api->set_param(instance, "motion_rate_basis", "Hertz");
     api->set_param(instance, "record_gain", "2.5");
     api->destroy_instance(instance);
 
@@ -1066,8 +1178,21 @@ int main()
     assert(stateField(get(api, instance, "clip_state"), 4) >= 150);
     api->destroy_instance(instance);
 
+    /* A format-2 bank keeps take membership and receives the restored global
+       values for appended controls before upgrading on save. An actual 0.19
+       JSON has no such keys, so those values are the module defaults. */
+    downgradeClipBankToV2(clipPath);
+    instance = api->create_instance(persistenceDir.c_str(), nullptr);
+    assert(instance != nullptr);
+    assert(get(api, instance, "persistence") == "1,1");
+    assert(stateField(get(api, instance, "clip_state"), 5) == 3);
+    assert(stateField(get(api, instance, "clip_take_state"), 0) == 2);
+    assert(get(api, instance, "motion_path_rate") == "2.5000");
+    assert(get(api, instance, "segment_layers") == "3");
+    api->destroy_instance(instance);
+
     /* A 0.18 format-1 bank imports all existing events as its protected base
-       take, then upgrades to format 2 on the next successful save. */
+       take, then upgrades to format 3 on the next successful save. */
     downgradeClipBankToV1(clipPath);
     instance = api->create_instance(persistenceDir.c_str(), nullptr);
     assert(instance != nullptr);
@@ -1081,7 +1206,7 @@ int main()
     assert(std::fread(clipMagic, 1u, sizeof(clipMagic), clipFile)
         == sizeof(clipMagic));
     assert(std::fread(&clipVersion, sizeof(clipVersion), 1u, clipFile) == 1u);
-    assert(clipVersion == 2u);
+    assert(clipVersion == 3u);
     assert(std::fclose(clipFile) == 0);
 
     std::remove(statePath.c_str());

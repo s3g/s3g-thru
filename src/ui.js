@@ -1,4 +1,4 @@
-/* s3g Thru 0.19.0 — polyphonic sampler/performance-looper takeover for Move. */
+/* s3g Thru 0.20.0 — polyphonic sampler/performance-looper takeover for Move. */
 
 import * as moveConstants from '/data/UserData/schwung/shared/constants.mjs';
 import * as moveInputFilter from '/data/UserData/schwung/shared/input_filter.mjs';
@@ -81,14 +81,27 @@ const PARAMS = {
     join: { key: 'join', label: 'JOIN', min: 0, max: 1, step: 0.01, value: 1 },
     output_gain: { key: 'output_gain', label: 'LEVEL', min: 0, max: 2, step: 0.02, value: 1 },
     motion_mode: { key: 'motion_mode', label: 'MODE', min: 0, max: 7, step: 1, value: 0, integer: true, labels: ['FWD', 'REV', 'HOVER', 'ROUND', 'LOOP', 'MIRROR', 'ZIGZAG', 'DRUNK'] },
-    motion_sound: { key: 'motion_sound', label: 'SOUND', min: 0, max: 3, step: 1, value: 0, integer: true, labels: ['CONT', 'PACKETS', 'MOTOR', 'BOUNCE'] },
-    motion_rate: { key: 'motion_rate', label: 'GEST RATE', min: 0.25, max: 20, step: 0.25, value: 4 },
+    motion_sound: { key: 'motion_sound', label: 'SOUND', min: 0, max: 7, step: 1, value: 0, integer: true, labels: ['CONT', 'PACKETS', 'MOTOR', 'BOUNCE', 'FREEZE', 'ITERATE', 'PULSER', 'DOUBLETS'] },
+    motion_rate: { key: 'motion_rate', label: 'PACKET RATE', min: 0.25, max: 20, step: 0.25, value: 4 },
+    motion_rate_basis: { key: 'motion_rate_basis', label: 'RATE BASIS', min: 0, max: 1, step: 1, value: 0, integer: true, labels: ['NORMAL', 'HERTZ'] },
+    motion_path_rate: { key: 'motion_path_rate', label: 'PATH RATE', min: 0.01, max: 80, step: 0.05, value: 1 },
+    motion_step: { key: 'motion_step', label: 'LOOP STEP', min: 0, max: 1, step: 0.01, value: 0.05 },
+    motion_seed: { key: 'motion_seed', label: 'SEED', min: 1, max: 9999, step: 1, value: 1, integer: true },
     motion_travel: { key: 'motion_travel', label: 'TRAVEL', min: 0, max: 1, step: 0.01, value: 1 },
     motion_jitter: { key: 'motion_jitter', label: 'JITTER', min: 0, max: 1, step: 0.01, value: 0 },
     packet_duty: { key: 'packet_duty', label: 'PACKET DUTY', min: 2, max: 98, step: 1, value: 65, integer: true },
     motor_rate: { key: 'motor_rate', label: 'MOTOR RATE', min: 0.05, max: 20, step: 0.05, value: 1 },
     motor_symmetry: { key: 'motor_symmetry', label: 'MOTOR SYM', min: 5, max: 95, step: 1, value: 50, integer: true },
-    motor_shape: { key: 'motor_shape', label: 'MOTOR SHAPE', min: 0, max: 2, step: 1, value: 1, integer: true, labels: ['TRI', 'ROUND', 'PULSE'] },
+    motor_shape: { key: 'motor_shape', label: 'MOTOR SHAPE', min: 0, max: 4, step: 1, value: 1, integer: true, labels: ['LINEAR', 'ROUND', 'PULSE', 'EXP', 'PLATEAU'] },
+    segment_trigger: { key: 'segment_trigger', label: 'EVENT TRIGGER', min: 0, max: 2, step: 1, value: 0, integer: true, labels: ['CLOCK', 'PACKET', 'TURN'] },
+    segment_overlap: { key: 'segment_overlap', label: 'OVERLAP', min: 0, max: 1, step: 1, value: 0, integer: true, labels: ['CUT', 'LAYER'] },
+    segment_layers: { key: 'segment_layers', label: 'LAYERS', min: 1, max: 4, step: 1, value: 2, integer: true },
+    segment_rate: { key: 'segment_rate', label: 'EVENT RATE', min: 0.25, max: 80, step: 0.25, value: 4 },
+    segment_repeats: { key: 'segment_repeats', label: 'REPEATS', min: 1, max: 16, step: 1, value: 2, integer: true },
+    segment_step: { key: 'segment_step', label: 'EVENT STEP', min: 0, max: 1, step: 0.01, value: 0.05 },
+    segment_pitch: { key: 'segment_pitch', label: 'PITCH SCAT', min: 0, max: 12, step: 0.1, value: 0 },
+    segment_level: { key: 'segment_level', label: 'LEVEL VAR', min: 0, max: 1, step: 0.01, value: 0.15 },
+    segment_curve: { key: 'segment_curve', label: 'INT CURVE', min: -1, max: 1, step: 0.01, value: 0 },
     lanes_mode: { key: 'lanes_mode', label: 'MODE', min: 0, max: 2, step: 1, value: 0, integer: true, labels: ['FWD', 'REV', 'PINGPONG'] },
     lane_path: { key: 'lane_path', label: 'PATH', min: 0, max: 7, step: 1, value: 2, integer: true, labels: ['DOWN', 'UP', 'TRI', 'SINE', 'STEP DN', 'STEP UP', 'MANUAL', 'RANDOM'] },
     lane_blend: { key: 'lane_blend', label: 'TRANSITION', min: 0, max: 1, step: 1, value: 0, integer: true, labels: ['XFADE', 'JUMP'] },
@@ -115,11 +128,11 @@ const PARAMS = {
     grain_timing: { key: 'grain_timing', label: 'TIMING', min: 0, max: 1, step: 1, value: 0, integer: true, labels: ['REGULAR', 'SCATTER'] },
     grain_timing_scatter: { key: 'grain_timing_scatter', label: 'TIME SCAT', min: 0, max: 1, step: 0.01, value: 0 },
     grain_envelope_skew: { key: 'grain_envelope_skew', label: 'ENV SKEW', min: -1, max: 1, step: 0.01, value: 0 },
-    grain_process: { key: 'grain_process', label: 'PROCESS', min: 0, max: 3, step: 1, value: 0, integer: true, labels: ['ORDINARY', 'STUTTER', 'SHRINK', 'DOUBLETS'] },
+    grain_process: { key: 'grain_process', label: 'PROCESS', min: 0, max: 4, step: 1, value: 0, integer: true, labels: ['ORDINARY', 'STUTTER', 'SHRINK', 'DOUBLETS', 'SORTER'] },
     grain_process_amount: { key: 'grain_process_amount', label: 'PROC AMT', min: 0, max: 1, step: 0.01, value: 0.5 },
     grain_regions: { key: 'grain_regions', label: 'REGIONS', min: 1, max: 64, step: 1, value: 16, integer: true },
     grain_advance: { key: 'grain_advance', label: 'ADVANCE', min: 0, max: 1, step: 1, value: 0, integer: true, labels: ['SCAN', 'PER GRAIN'] },
-    cutups_mode: { key: 'cutups_mode', label: 'MODE', min: 0, max: 4, step: 1, value: 0, integer: true, labels: ['FWD', 'REV', 'PALIN', 'RANDOM', 'WALK'] },
+    cutups_mode: { key: 'cutups_mode', label: 'MODE', min: 0, max: 5, step: 1, value: 0, integer: true, labels: ['FWD', 'REV', 'PALIN', 'RANDOM', 'WALK', 'RCYC'] },
     cut_clock: { key: 'cut_clock', label: 'CLOCK', min: 0, max: 1, step: 1, value: 1, integer: true, labels: ['FREE', 'TEMPO'] },
     cut_division: { key: 'cut_division', label: 'DIVISION', min: 0, max: 5, step: 1, value: 3, integer: true, labels: ['1/4', '1/8', '1/8T', '1/16', '1/16T', '1/32'] },
     cut_rate: { key: 'cut_rate', label: 'FREE RATE', min: 0.25, max: 64, step: 0.25, value: 8 },
@@ -190,13 +203,23 @@ const STACK_PATH_PAGE = { title: 'STACK PATH', keys: ['lane_path',
     'lane_path_curve', 'lane_slew'] };
 const DIRECT_PLAY_PAGE = { title: 'DIRECT PLAY', keys: ['sample_mode',
     'lane_variation', 'pad_mode'] };
+const MOTION_SOUND_PAGE = { title: 'MOTION SOUND', keys: ['motion_sound'] };
+const PACKETS_PAGE = { title: 'PACKETS', keys: ['motion_rate',
+    'packet_duty'] };
+const MOTOR_PAGE = { title: 'MOTOR', keys: ['motion_rate', 'packet_duty',
+    'motor_rate', 'motor_symmetry', 'motor_shape'] };
+const EVENT_CLOCK_PAGE = { title: 'EVENT CLOCK', keys: ['segment_trigger',
+    'segment_rate', 'segment_repeats', 'segment_step'] };
+const EVENT_SHAPE_PAGE = { title: 'EVENT SHAPE', keys: ['segment_overlap',
+    'segment_layers', 'segment_pitch', 'segment_level', 'segment_curve',
+    'motor_symmetry', 'motor_shape', 'packet_duty'] };
 const PLAYBACK_PAGES = [
     [
         STACK_PATH_PAGE,
         { title: 'MOTION PATH', keys: ['motion_mode', 'motion_travel',
-            'motion_jitter'] },
-        { title: 'MOTION SOUND', keys: ['motion_sound', 'motion_rate',
-            'packet_duty', 'motor_rate', 'motor_symmetry', 'motor_shape'] },
+            'motion_jitter', 'motion_rate_basis', 'motion_path_rate',
+            'motion_step', 'motion_seed'] },
+        MOTION_SOUND_PAGE,
     ],
     [
         STACK_PATH_PAGE,
@@ -228,6 +251,15 @@ const PLAYBACK_PAGES = [
         { title: 'SLICE SOURCE', keys: ['slice_region_mode', 'slice_regions'] },
     ],
 ];
+
+function playbackPagesForAlgorithm(algorithm, motionSound) {
+    const pages = [...(PLAYBACK_PAGES[algorithm] || PLAYBACK_PAGES[0])];
+    if (algorithm !== 0) return pages;
+    if (motionSound === 1) pages.push(PACKETS_PAGE);
+    else if (motionSound === 2) pages.push(MOTOR_PAGE);
+    else if (motionSound >= 3) pages.push(EVENT_CLOCK_PAGE, EVENT_SHAPE_PAGE);
+    return pages;
+}
 const MIX_REC_PAGE = { title: 'MIX / REC', keys: ['lane_1_gain', 'lane_2_gain',
     'lane_3_gain', 'lane_4_gain', 'record_source', 'record_gain',
     'monitor_level', 'preview_level'] };
@@ -259,6 +291,10 @@ const LOCKABLE_KEYS = [
     'cut_regions', 'cut_repeats', 'cut_reverse', 'cut_pitch_variation',
     'cut_level_variation', 'cut_lane_order', 'cut_poly_path',
     'cut_region_mode', 'sample_mode', 'slice_region_mode', 'slice_regions',
+    'motion_rate_basis', 'motion_path_rate', 'motion_step', 'motion_seed',
+    'segment_trigger', 'segment_overlap', 'segment_layers', 'segment_rate',
+    'segment_repeats', 'segment_step', 'segment_pitch', 'segment_level',
+    'segment_curve',
 ];
 const LOCKABLE_PARAMS = new Set(LOCKABLE_KEYS);
 
@@ -266,8 +302,14 @@ const SHORT_LABELS = {
     locus: 'POS', field: 'FLD', speed: 'SPD', manual_lane: 'STAK',
     lane_cycles: 'RATE', algorithm: 'ALG', join: 'JOIN', output_gain: 'LEVL',
     motion_mode: 'MODE', motion_sound: 'SND', motion_rate: 'RATE',
+    motion_rate_basis: 'BAS', motion_path_rate: 'PATH',
+    motion_step: 'STEP', motion_seed: 'SEED',
     motion_travel: 'TRVL', motion_jitter: 'JITR', packet_duty: 'DUTY',
     motor_rate: 'MRAT', motor_symmetry: 'MSYM', motor_shape: 'MSHP',
+    segment_trigger: 'TRIG', segment_overlap: 'OVLP',
+    segment_layers: 'LAYR', segment_rate: 'ERAT',
+    segment_repeats: 'REPT', segment_step: 'ESTP',
+    segment_pitch: 'PITC', segment_level: 'LEVL', segment_curve: 'CURV',
     lanes_mode: 'MODE', lane_path: 'PATH', lanes_stretch: 'STR',
     lane_blend: 'BLND', lane_path_shape: 'SHAP', lane_path_offset: 'OFST',
     lane_path_skew: 'SKEW', lane_path_curve: 'CURV', lane_slew: 'SLEW',
@@ -895,7 +937,8 @@ function currentSettingsPage() {
 }
 
 function parameterPages() {
-    const enginePages = PLAYBACK_PAGES[state.algorithm] || PLAYBACK_PAGES[0];
+    const enginePages = playbackPagesForAlgorithm(
+        state.algorithm, Math.round(PARAMS.motion_sound.value));
     return [ENGINE_PAGE, ...enginePages,
         MIX_REC_PAGE, SAMPLE_PAGE, LOOP_PAGE, TAKE_PAGE, CHAIN_PAGE];
 }

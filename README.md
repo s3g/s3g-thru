@@ -17,8 +17,9 @@ It is intentionally a new instrument rather than a Sample Neon variant.
   per-voice stack markers, lane weights, recording meter, and selected lane on
   Move's 128x64 display;
 - moves continuously through the lane stack;
-- includes Motion, Lanes, Grains, transient-aware Cutups, direct Sample, and
-  pad-addressed Slices playback algorithms;
+- includes Motion with continuous, packet, motor, and bounded segment sounds;
+  Lanes; Grains with energy sorting; transient-aware Cutups with non-repeating
+  random cycles; direct Sample; and pad-addressed Slices playback algorithms;
 - detects up to 64 transient regions per lane outside the audio callback and
   draws their boundaries over the selected waveform;
 - prepares loaded-sample and queued-clip waveforms on the background worker,
@@ -250,9 +251,11 @@ one `.bak` generation. On launch, Thru selects the newest matching JSON/binary
 generation across the current and backup files, so it does not combine two
 individually valid halves of interrupted saves.
 
-The take-aware binary bank is format 2. Format-1 banks from 0.18 are imported
-with each recorded performance treated as its protected base take; subsequent
-saves write format 2 and preserve individual overdub membership.
+The take- and engine-aware binary bank is format 3. Format-1 and format-2 banks
+are imported with their original parameter identities intact; newly added
+Motion controls receive safe defaults. A format-1 recorded performance becomes
+its protected base take. Subsequent saves write format 3 and preserve individual
+overdub membership and all 81 lockable engine controls.
 
 Use **Back** from the main waveform page for a normal save-and-exit. Autosave
 narrows the power-loss window, but power can still be removed before the next
@@ -378,7 +381,7 @@ mapped while the external-controller design is still being evaluated.
 | 27 | Output level | 44 | Grain stereo spread |
 | 28 | Motion mode | 45 | Cutups mode |
 | 29 | Motion sound | 46 | Pressure Off/Offset |
-| 30 | Motion gesture rate | 47 | Root note (24–96) |
+| 30 | Packet rate | 47 | Root note (24–96) |
 | 31 | Lanes mode | 48 | Record lane 1–4 |
 | 32 | Stack path | 49 | Record source Input/Resample |
 | 33 | Lanes stretch Off/On | 50 | Record gain |
@@ -390,6 +393,13 @@ mapped while the external-controller design is still being evaluated.
 | 56 | Performance playback Off/On | 67 | Chain clip A01–D16 |
 | 57 | Undo trigger | 68 | Chain repeats 1–16 |
 | 58 | Clear selected chain slot |  |  |
+| 59 | Motion path rate basis | 118 | Motion event layers 1–4 |
+| 60 | Motion path rate | 119 | Motion event rate |
+| 61 | Moving Loop step | 121 | Motion event repeats |
+| 62 | Motion seed | 122 | Motion event step |
+| 63 | Motion event trigger | 124 | Motion event pitch scatter |
+| 64 | Motion event overlap | 125 | Motion event level variation |
+| 126 | Motion event interval curve |  |  |
 | 69 | Motion travel | 88 | Grain timing scatter |
 | 70 | Motion jitter | 89 | Grain envelope skew |
 | 71 | Packet duty | 90 | Grain process |
@@ -470,17 +480,22 @@ Scan Rate then advances that voice from the offset, and pressure can move its
 offset independently. The Loop-button hold freezes the final audible blend,
 including pressure offset, rather than snapping to a numbered lane.
 
-Motion Mode always owns the read-head trajectory. Mirror runs to the far edge
-and back; Zigzag alternates forward, backward, then forward segments; Drunk
-interpolates between deterministic random targets. Motion
-Sound (Continuous, Packets, Motor, or Bounce) shapes the sound without replacing
-that trajectory, so the audio reader and displayed playhead retain the selected
-direction changes.
+Motion Mode always owns the read-head trajectory. Path Rate can either scale
+normal source motion or run in hertz. Moving Loop has an adjustable source
+step; Zigzag and Drunk evolve from a repeatable Seed, Travel, and Jitter.
+Motion Sound leaves that path Continuous, applies Hann-windowed Packets, nests
+packets in a five-shape Motor envelope, or launches bounded Bounce, Freeze,
+Iterate, Pulser, and Doublets events. Segment events can follow the event clock,
+packet wraps, or path turns and can cut or layer up to four readers per voice.
+Only the pages needed by the selected sound appear.
 
 Note pitch follows the Sample-family semantics. Motion and Lanes notes retune
 their transport. Grains notes change source scan speed while Grain Pitch stays
-independent. Cutups notes multiply the base Speed/pitch of each cut reader while
-the cut clock stays on its free rate or tempo division. In a stack, every cut chooses a discrete lane
+independent. Grains Sorter divides Field into Regions, ranks those regions from
+quietest to loudest on the dominant lane, and blends toward that order with
+Process Amount. Cutups notes multiply the base Speed/pitch of each cut reader while
+the cut clock stays on its free rate or tempo division; Random Cycle visits every
+region once before reshuffling. In a stack, every cut chooses a discrete lane
 and source region; it does not read the continuously crossfaded Lanes mix.
 Sample and Slices can select lanes manually or by Cycle, Random, No
 Repeat, or Velocity variation. Pressure remains a separate continuous stack
@@ -500,10 +515,11 @@ gesture for the motion-family engines.
 - Each playback voice has 16 bounded grain slots, with Quality limiting active
   grains to 4, 8, or 16 per voice. Start at 8 on Move and use 4 if the Help
   screen's overrun counter rises; 16 is the maximum-density mode to validate.
-- The desktop Grains Sorter process and Motion segment-event router are not in
-  this hardware-bounded pass. Motion Bounce remains an articulation rather
-  than a separate event router. Transient maps are automatic and bounded to 64
-  regions; manual marker editing is not yet included.
+- Motion segment sounds use a fixed pool of four readers inside each playback
+  voice. Start with two layers and raise the limit only while the Help screen's
+  overrun counter remains at zero. Grains Sorter measures at most 64 regions
+  and caches its ranking outside the per-grain render loop. Transient maps are
+  automatic and bounded to 64 regions; manual marker editing is not yet included.
 - Persistent WAV and metadata writes run only from non-audio maintenance or
   teardown calls, never in the audio callback.
 - User-library WAV decoding/resampling and queued-clip preparation run on a

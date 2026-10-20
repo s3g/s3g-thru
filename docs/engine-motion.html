@@ -17,16 +17,20 @@
       <main class="content" id="content">
         <p class="eyebrow">Playback engine 1 of 6</p>
         <h1>Motion</h1>
-        <p class="lead">Motion moves a continuous read head through the Position/Field window. Path chooses where it travels; Sound applies a second articulation without replacing or reversing that path.</p>
+        <p class="lead">Motion moves a read head through the Position/Field window. Continuous, Packets, and Motor articulate that trajectory; five segment sounds turn it into a bounded event instrument.</p>
 
-        <div class="callout"><p><strong>Good for:</strong> smooth source traversal, moving loops, eased reversals, deterministic wandering, tremolo-like packets, motor rhythms, and bouncing amplitude gestures.</p></div>
+        <div class="callout"><p><strong>Good for:</strong> smooth source traversal, moving loops, evolving seeded paths, packet and motor rhythms, freeze/iterate gestures, layered pulses, and accelerating bounce events.</p></div>
 
         <h2 id="pages">Pages and navigation</h2>
-        <p>On Engine, set Algorithm to Motion. Press Up for the shared <a href="engines.html#stack-path">Stack Path</a> page, then Motion Path and Motion Sound. Knobs 1–4 are the top row and knobs 5–8 are the bottom row.</p>
+        <p>On Engine, set Algorithm to Motion. Press Up for the shared <a href="engines.html#stack-path">Stack Path</a> page, then Motion Path and Motion Sound. Choosing Packets, Motor, or a segment sound adds only the pages that sound needs. Knobs 1–4 are the top row and knobs 5–8 are the bottom row.</p>
 
         <div class="screen-gallery">
-          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/motion-path.svg" aria-label="Open Motion Path"><img src="assets/screens/motion-path.svg" alt="Motion Path parameter page with three controls and five reserved encoder positions"></button></div><figcaption>Motion Path contains only the three controls unique to the read-head trajectory.</figcaption></figure>
-          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/motion-sound.svg" aria-label="Open Motion Sound"><img src="assets/screens/motion-sound.svg" alt="Motion Sound parameter page"></button></div><figcaption>Motion Sound controls articulation layered over that trajectory.</figcaption></figure>
+          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/motion-path.svg" aria-label="Open Motion Path"><img src="assets/screens/motion-path.svg" alt="Motion Path parameter page with seven controls"></button></div><figcaption>Motion Path controls trajectory, rate basis, Moving Loop step, and the seeded evolving paths.</figcaption></figure>
+          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/motion-sound.svg" aria-label="Open Motion Sound"><img src="assets/screens/motion-sound.svg" alt="Motion Sound selection page"></button></div><figcaption>Motion Sound is a selector. Its additional pages appear only when required.</figcaption></figure>
+          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/motion-packets.svg" aria-label="Open Packets"><img src="assets/screens/motion-packets.svg" alt="Motion Packets parameter page"></button></div><figcaption>Packets exposes its independent packet clock and duty.</figcaption></figure>
+          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/motion-motor.svg" aria-label="Open Motor"><img src="assets/screens/motion-motor.svg" alt="Motion Motor parameter page"></button></div><figcaption>Motor adds a separate outer clock, symmetry, and envelope shape.</figcaption></figure>
+          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/motion-event-clock.svg" aria-label="Open Event Clock"><img src="assets/screens/motion-event-clock.svg" alt="Motion Event Clock parameter page"></button></div><figcaption>Segment sounds share event timing and repetition controls.</figcaption></figure>
+          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/motion-event-shape.svg" aria-label="Open Event Shape"><img src="assets/screens/motion-event-shape.svg" alt="Motion Event Shape parameter page"></button></div><figcaption>Event Shape sets overlap, the Move-safe layer limit, variation, and envelope.</figcaption></figure>
         </div>
 
         <p>The controls common to every playback engine are documented in the <a href="engines.html#shared">shared Engine page table</a>. The sections below cover Motion-specific controls.</p>
@@ -36,9 +40,13 @@
           <thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>Detail</th></tr></thead>
           <tbody>
             <tr><td>1</td><td>MODE</td><td>8 choices</td><td>Selects Forward, Reverse, Hover, Round Trip, Moving Loop, Mirror, Zigzag, or Drunk. See the mode table below.</td></tr>
-            <tr><td>2</td><td>TRVL</td><td>0.00–1.00</td><td>Drunk only: contracts or expands its deterministic random targets around the center of Field. 0 stays centered; 1 uses the full target range.</td></tr>
-            <tr><td>3</td><td>JITR</td><td>0.00–1.00</td><td>Drunk only: offsets the timing within each interpolation segment. It is deterministic, so saved clips recall the same movement.</td></tr>
-            <tr><td>4–8</td><td>Reserved</td><td>—</td><td>Inactive positions available for future Motion Path controls.</td></tr>
+            <tr><td>2</td><td>TRVL</td><td>0.00–1.00</td><td>Sets the excursion of Zigzag and Drunk targets. 0 stays centered; 1 uses the full available range.</td></tr>
+            <tr><td>3</td><td>JITR</td><td>0.00–1.00</td><td>Varies evolving target timing and distance. It also varies packet and event clocks while retaining a repeatable seeded character.</td></tr>
+            <tr><td>4</td><td>BAS</td><td>Normal / Hertz</td><td>Normal derives trajectory rate from source playback speed. Hertz makes Path Rate cycles per second.</td></tr>
+            <tr><td>5</td><td>PATH</td><td>0.01–80</td><td>Trajectory multiplier in Normal mode or cycles per second in Hertz mode. Pad pitch still multiplies the per-voice rate.</td></tr>
+            <tr><td>6</td><td>STEP</td><td>0.00–1.00</td><td>Distance the Moving Loop window advances after each cycle, as a fraction of the full source.</td></tr>
+            <tr><td>7</td><td>SEED</td><td>1–9999</td><td>Selects the repeatable evolving Zigzag/Drunk path and their timing variations.</td></tr>
+            <tr><td>8</td><td>Reserved</td><td>—</td><td>Inactive and available for a future Motion Path control.</td></tr>
           </tbody>
         </table>
 
@@ -52,26 +60,61 @@
             <tr><td>Round Trip</td><td>A nearly constant-speed forward/backward traversal with short eased reversals.</td></tr>
             <tr><td>Moving Loop</td><td>Runs a forward loop, then advances the whole Field window after each completed cycle.</td></tr>
             <tr><td>Mirror</td><td>Uses the Round Trip trajectory and reverses signal polarity on the return half, with Join smoothing around polarity boundaries.</td></tr>
-            <tr><td>Zigzag</td><td>Runs three eased segments: forward to 72%, backward to 28%, then forward to the far edge.</td></tr>
-            <tr><td>Drunk</td><td>Interpolates across eight deterministic random targets; Travel sets their span and Jitter perturbs segment timing.</td></tr>
+            <tr><td>Zigzag</td><td>Alternates forward/backward targets whose reach evolves from Seed, Travel, and Jitter, then continues with a new cycle.</td></tr>
+            <tr><td>Drunk</td><td>Interpolates through an evolving seeded chain of random targets. The end of one cycle becomes the start of the next.</td></tr>
           </tbody>
         </table>
 
-        <h2 id="sound">Motion Sound — every parameter</h2>
+        <h2 id="sound">Motion Sound</h2>
         <table class="readout-table parameter-table">
           <thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>Detail</th></tr></thead>
           <tbody>
-            <tr><td>1</td><td>SND</td><td>4 choices</td><td><strong>Continuous</strong> leaves level open. <strong>Packets</strong> gates at Gesture Rate. <strong>Motor</strong> places four packet pulses inside an outer motor cycle. <strong>Bounce</strong> cycles through six accelerating, decaying bounces.</td></tr>
-            <tr><td>2</td><td>RATE</td><td>0.25–20 Hz</td><td>Gesture Rate: packet repetition for Packets, the inner pulse basis for Motor, and the starting cadence for Bounce. Continuous ignores it.</td></tr>
-            <tr><td>3</td><td>DUTY</td><td>2–98%</td><td>Open portion of each packet gate. It affects Packets and Motor only.</td></tr>
-            <tr><td>4</td><td>MRAT</td><td>0.05–20 Hz</td><td>Rate of Motor's outer amplitude cycle. It is independent of the four-times-faster inner packet clock.</td></tr>
-            <tr><td>5</td><td>MSYM</td><td>5–95%</td><td>Moves the peak of the Motor cycle, balancing its rise time against its fall time.</td></tr>
-            <tr><td>6</td><td>MSHP</td><td>Triangle / Rounded / Pulse</td><td>Shapes Motor's outer cycle: linear slopes, smoothstep curves, or a two-state pulse.</td></tr>
-            <tr><td>7–8</td><td>Reserved</td><td>—</td><td>Inactive positions available for future Motion Sound controls. Join and Level remain on Engine.</td></tr>
+            <tr><td>1</td><td>SND</td><td>8 choices</td><td><strong>Continuous</strong> leaves the trajectory open. <strong>Packets</strong> applies Hann-shaped pulses. <strong>Motor</strong> nests that packet clock in an outer envelope and reverses non-one-way paths on its falling side. <strong>Bounce, Freeze, Iterate, Pulser,</strong> and <strong>Doublets</strong> launch segment readers.</td></tr>
+            <tr><td>2–8</td><td>Reserved</td><td>—</td><td>The selected sound's controls appear on following contextual pages.</td></tr>
           </tbody>
         </table>
 
-        <div class="callout"><p><strong>Path and Sound remain independent.</strong> Mirror and Zigzag still move backward where specified when Packets, Motor, or Bounce is active; the articulation changes amplitude, not transport direction.</p></div>
+        <h2 id="packets">Packets and Motor</h2>
+        <table class="readout-table parameter-table">
+          <thead><tr><th>Display</th><th>Range</th><th>Detail</th></tr></thead>
+          <tbody>
+            <tr><td>RATE</td><td>0.25–20 Hz</td><td>Independent inner packet clock. Jitter varies its timing after each completed packet.</td></tr>
+            <tr><td>DUTY</td><td>2–98%</td><td>Portion of each packet cycle occupied by the Hann-shaped pulse.</td></tr>
+            <tr><td>MRAT</td><td>0.05–20 Hz</td><td>Motor only: independent outer envelope clock.</td></tr>
+            <tr><td>MSYM</td><td>5–95%</td><td>Moves the outer envelope peak between its rise and fall.</td></tr>
+            <tr><td>MSHP</td><td>Linear / Rounded / Pulse / Exponential / Plateau</td><td>Shapes the outer Motor envelope.</td></tr>
+          </tbody>
+        </table>
+
+        <h2 id="events">Segment sounds</h2>
+        <table class="readout-table">
+          <thead><tr><th>Sound</th><th>Event behavior</th></tr></thead>
+          <tbody>
+            <tr><td>Bounce</td><td>Repeats around Position while segment width and level fall across the repeat cycle.</td></tr>
+            <tr><td>Freeze</td><td>Relaunches the Field around Position without advancing the event center.</td></tr>
+            <tr><td>Iterate</td><td>Moves the event center by Event Step after each launch.</td></tr>
+            <tr><td>Pulser</td><td>Chooses a random center in Field and derives a short segment from Duty and Event Rate.</td></tr>
+            <tr><td>Doublets</td><td>Repeats a center for the selected repeat count before advancing it by Event Step.</td></tr>
+          </tbody>
+        </table>
+        <table class="readout-table parameter-table">
+          <thead><tr><th>Page</th><th>Display</th><th>Range</th><th>Detail</th></tr></thead>
+          <tbody>
+            <tr><td>Event Clock</td><td>TRIG</td><td>Clock / Packet / Turn</td><td>Starts events from the event clock, packet-clock wrap, or a trajectory turn/wrap.</td></tr>
+            <tr><td>Event Clock</td><td>ERAT</td><td>0.25–80 Hz</td><td>Base event rate when Trigger is Clock.</td></tr>
+            <tr><td>Event Clock</td><td>REPT</td><td>1–16</td><td>Length of each model's repeat cycle.</td></tr>
+            <tr><td>Event Clock</td><td>ESTP</td><td>0.00–1.00</td><td>Source-distance step for Iterate and Doublets.</td></tr>
+            <tr><td>Event Shape</td><td>OVLP</td><td>Cut / Layer</td><td>Cut replaces the prior segment; Layer permits overlap.</td></tr>
+            <tr><td>Event Shape</td><td>LAYR</td><td>1–4</td><td>Maximum simultaneous segment readers per playback voice. Lower values reduce CPU use.</td></tr>
+            <tr><td>Event Shape</td><td>PITC</td><td>0–12 st</td><td>Random pitch scatter inside ± the selected range.</td></tr>
+            <tr><td>Event Shape</td><td>LEVL</td><td>0.00–1.00</td><td>Random attenuation, or repeat decay for Bounce.</td></tr>
+            <tr><td>Event Shape</td><td>CURV</td><td>−1.00–1.00</td><td>Accelerates or decelerates Clock intervals across the repeat cycle.</td></tr>
+            <tr><td>Event Shape</td><td>MSYM / MSHP</td><td>5–95% / 5 shapes</td><td>Peak position and contour of every segment envelope.</td></tr>
+            <tr><td>Event Shape</td><td>DUTY</td><td>2–98%</td><td>Minimum Bounce width and Pulser duration proportion.</td></tr>
+          </tbody>
+        </table>
+
+        <div class="callout"><p><strong>Hardware starting point:</strong> use Layer with two event layers. Raise LAYR only while the Help screen's overrun count remains at zero.</p></div>
 
         <nav class="page-nav" aria-label="Engine navigation"><a class="page-nav-link" href="engines.html"><span>Previous</span>Engine Index</a><a class="page-nav-link next" href="engine-lanes.html"><span>Next engine</span>Lanes</a></nav>
       </main>
@@ -79,7 +122,7 @@
       <aside class="toc" aria-label="Page navigation">
         <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
         <div class="toc-section"><h2>Engine guides</h2><a href="engine-motion.html">Motion</a><a href="engine-lanes.html">Lanes</a><a href="engine-grains.html">Grains</a><a href="engine-cutups.html">Cutups</a><a href="engine-sample.html">Sample</a><a href="engine-slices.html">Slices</a></div>
-        <div class="toc-section"><h2>On this page</h2><a href="#pages">Pages</a><a href="engines.html#shared">Shared Engine table</a><a href="#path">Motion Path</a><a href="#modes">Modes</a><a href="#sound">Motion Sound</a></div>
+        <div class="toc-section"><h2>On this page</h2><a href="#pages">Pages</a><a href="engines.html#shared">Shared Engine table</a><a href="#path">Motion Path</a><a href="#modes">Modes</a><a href="#sound">Motion Sound</a><a href="#packets">Packets / Motor</a><a href="#events">Segment sounds</a></div>
       </aside>
     </div>
     <footer class="manual-footer">Motion: continuous path first, articulation second.</footer>

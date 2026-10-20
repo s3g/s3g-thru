@@ -107,12 +107,19 @@ const params = {
     locus: '0.42', field: '0.80', speed: '1.00', manual_lane: '1.60',
     lane_cycles: '0.50', stack_scan_paused: '0', algorithm: '1', join: '0.72',
     output_gain: '1.00', motion_mode: '5', motion_sound: '0', motion_rate: '4',
+    motion_rate_basis: '0', motion_path_rate: '1.25', motion_step: '0.08',
+    motion_seed: '23', motion_travel: '0.8', motion_jitter: '0.25',
+    packet_duty: '65', motor_rate: '1.5', motor_symmetry: '58', motor_shape: '1',
+    segment_trigger: '0', segment_overlap: '1', segment_layers: '3',
+    segment_rate: '5', segment_repeats: '4', segment_step: '0.08',
+    segment_pitch: '3', segment_level: '0.2', segment_curve: '0.1',
     lanes_mode: '2', lane_path: '2', lane_blend: '0', lane_path_shape: '1',
     lane_path_offset: '0.15', lane_path_skew: '0.50', lane_path_curve: '0.20',
     lane_slew: '20', lanes_stretch: '1', stretch_ratio: '1',
     grain_mode: '0', grain_size: '90', grain_density: '24', grain_quality: '1',
     grain_pitch: '1', grain_window: '5', grain_spread: '0.35',
-    cutups_mode: '2', sample_mode: '2', slice_region_mode: '1',
+    grain_process: '4', grain_process_amount: '0.75',
+    cutups_mode: '5', sample_mode: '2', slice_region_mode: '1',
     slice_regions: '16', pad_mode: '0', lane_variation: '0',
     lane_1_gain: '1', lane_2_gain: '1', lane_3_gain: '1', lane_4_gain: '1',
     pressure_mode: '1', root_note: '60', record_lane: '2', pad_octave: '0',
@@ -271,6 +278,24 @@ captureEnginePages(0, [
     { filename: 'motion-path.svg', title: 'Motion Path parameter page' },
     { filename: 'motion-sound.svg', title: 'Motion Sound parameter page' },
 ]);
+moveSettingsPage(3);
+cc(71, 1);
+tick();
+moveSettingsPage(1);
+capture('motion-packets.svg', 'Motion Packets parameter page');
+moveSettingsPage(-1);
+cc(71, 1);
+tick();
+moveSettingsPage(1);
+capture('motion-motor.svg', 'Motion Motor parameter page');
+moveSettingsPage(-1);
+cc(71, 1);
+tick();
+moveSettingsPage(1);
+capture('motion-event-clock.svg', 'Motion Event Clock parameter page');
+moveSettingsPage(1);
+capture('motion-event-shape.svg', 'Motion Event Shape parameter page');
+moveSettingsPage(-5);
 captureEnginePages(1, [
     {},
     { filename: 'lanes-play.svg', title: 'Lanes Play parameter page' },

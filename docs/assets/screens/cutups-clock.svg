@@ -7,7 +7,7 @@
     <text x="1" y="5.5" fill="#dce8e1">CUTUPS CLOCK 2/8</text>
     <rect x="0" y="8" width="128" height="1" fill="#dce8e1"/>
     <text x="3" y="18.5" fill="#dce8e1">MODE</text>
-    <text x="3" y="29.5" fill="#dce8e1">PALI</text>
+    <text x="3" y="29.5" fill="#dce8e1">RCYC</text>
     <text x="35" y="18.5" fill="#dce8e1">CLCK</text>
     <text x="35" y="29.5" fill="#dce8e1">TEMP</text>
     <text x="67" y="18.5" fill="#dce8e1">DIV</text>

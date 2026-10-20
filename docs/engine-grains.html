@@ -14,8 +14,8 @@
       <main class="content" id="content">
         <p class="eyebrow">Playback engine 3 of 6</p>
         <h1>Grains</h1>
-        <p class="lead">Grains launches overlapping, windowed readers from a moving, frozen, random, or sliced source position. Note pitch moves the source trajectory; Grain Pitch transposes the grains themselves.</p>
-        <div class="callout"><p><strong>Good for:</strong> freezes, clouds, independent time/pitch motion, stereo spray, regular or scattered textures, rhythmic doublets, stutters, and shrinking grain trains.</p></div>
+        <p class="lead">Grains launches overlapping, windowed readers from a moving, frozen, random, or sliced source position. It can also reorder equal source regions from quietest to loudest. Note pitch moves the source trajectory; Grain Pitch transposes the grains themselves.</p>
+        <div class="callout"><p><strong>Good for:</strong> freezes, clouds, independent time/pitch motion, stereo spray, regular or scattered textures, rhythmic doublets, stutters, shrinking grain trains, and energy-ordered phrases.</p></div>
 
         <h2 id="pages">Pages and navigation</h2>
         <p>Set Algorithm to Grains. Up opens the shared <a href="engines.html#stack-path">Stack Path</a> page, then Grains Main, Grains Cloud, and Grains Process.</p>
@@ -61,10 +61,10 @@
         <table class="readout-table parameter-table">
           <thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>Detail</th></tr></thead>
           <tbody>
-            <tr><td>1</td><td>PROC</td><td>Ordinary / Stutter / Shrink / Doublets</td><td>Ordinary leaves events unchanged. Stutter groups grains at one source anchor. Shrink shortens successive grains in an eight-event cycle. Doublets alternates close and long launch gaps.</td></tr>
-            <tr><td>2</td><td>PAMT</td><td>0.00–1.00</td><td>Process strength: up to 16-grain Stutter groups, 85% Shrink depth, or increasingly close Doublet pairs.</td></tr>
+            <tr><td>1</td><td>PROC</td><td>Ordinary / Stutter / Shrink / Doublets / Sorter</td><td><strong>Ordinary</strong> leaves events unchanged. <strong>Stutter</strong> groups grains at one source anchor. <strong>Shrink</strong> shortens successive grains in an eight-event cycle. <strong>Doublets</strong> alternates close and long launch gaps. <strong>Sorter</strong> visits equal regions from quietest to loudest according to their sampled stereo energy.</td></tr>
+            <tr><td>2</td><td>PAMT</td><td>0.00–1.00</td><td>Process strength: up to 16-grain Stutter groups, 85% Shrink depth, increasingly close Doublet pairs, or a blend from the ordinary origin to the energy-sorted region.</td></tr>
             <tr><td>3</td><td>ESKW</td><td>−1.00–1.00</td><td>Moves the envelope peak in time. Negative values peak earlier; positive values peak later.</td></tr>
-            <tr><td>4</td><td>REGN</td><td>1–64</td><td>Number of equal source regions used by Grain Mode Slice.</td></tr>
+            <tr><td>4</td><td>REGN</td><td>1–64</td><td>Number of equal source regions used by Grain Mode Slice and Process Sorter. Sorter measures the dominant lane for the current blend and updates when the lane, region count, or Field changes.</td></tr>
             <tr><td>5</td><td>ADVN</td><td>Scan / Per Grain</td><td>Scan advances source phase continuously. Per Grain advances the origin only when a grain launches; paired Doublets share an origin.</td></tr>
             <tr><td>6</td><td>QUAL</td><td>4 / 8 / 16 voices</td><td>Maximum simultaneous grains inside each playback voice. More slots permit denser long grains but increase Move CPU cost.</td></tr>
             <tr><td>7–8</td><td>Reserved</td><td>—</td><td>Inactive positions available for future Grains Process controls. Path is on Stack Path; Scan Rate is on Engine.</td></tr>

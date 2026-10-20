@@ -194,12 +194,26 @@ enum class LockParameter : std::uint32_t {
     sampleMode,
     sampleRegionMode,
     sampleRegionCount,
+    motionRateBasis,
+    motionPathRate,
+    motionStep,
+    motionSeed,
+    segmentTrigger,
+    segmentOverlap,
+    segmentLayers,
+    segmentRate,
+    segmentRepeats,
+    segmentStep,
+    segmentPitch,
+    segmentLevel,
+    segmentCurve,
     count
 };
 
 constexpr std::size_t kLockParameterCount =
     static_cast<std::size_t>(LockParameter::count);
-static_assert(kLockParameterCount == 68u,
+constexpr std::size_t kLegacyLockParameterCount = 68u;
+static_assert(kLockParameterCount == 81u,
               "parameter lock persistence supports three 32-bit words");
 constexpr std::size_t kClipCurveLaneCount = kLockParameterCount + 32u;
 struct ClipSlot {
@@ -282,8 +296,12 @@ constexpr const char* kMotionModeNames[] {
     "Forward", "Reverse", "Hover", "Round Trip", "Moving Loop", "Mirror", "Zigzag", "Drunk"
 };
 constexpr const char* kMotionSoundNames[] {
-    "Continuous", "Packets", "Motor", "Bounce"
+    "Continuous", "Packets", "Motor", "Bounce", "Freeze", "Iterate",
+    "Pulser", "Doublets"
 };
+constexpr const char* kMotionRateBasisNames[] { "Normal", "Hertz" };
+constexpr const char* kSegmentTriggerNames[] { "Clock", "Packet", "Turn" };
+constexpr const char* kSegmentOverlapNames[] { "Cut", "Layer" };
 constexpr const char* kLanesModeNames[] {
     "Forward", "Reverse", "Ping Pong"
 };
@@ -294,12 +312,14 @@ constexpr const char* kGrainWindowNames[] {
     "Parzen", "Sine", "Hann", "Triangle", "Gaussian", "Bell"
 };
 constexpr const char* kCutupsModeNames[] {
-    "Forward", "Reverse", "Palindrome", "Random", "Walk"
+    "Forward", "Reverse", "Palindrome", "Random", "Walk", "Random Cycle"
 };
 constexpr const char* kLanePathNames[] {
     "Down", "Up", "Triangle", "Sine", "Steps Down", "Steps Up", "Manual", "Random"
 };
-constexpr const char* kMotorShapeNames[] { "Triangle", "Rounded", "Pulse" };
+constexpr const char* kMotorShapeNames[] {
+    "Triangle", "Rounded", "Pulse", "Exponential", "Plateau"
+};
 constexpr const char* kLaneBlendNames[] { "Crossfade", "Jump" };
 constexpr const char* kLanePathShapeNames[] {
     "Linear", "Smooth", "Exponential", "Plateau"
@@ -307,7 +327,7 @@ constexpr const char* kLanePathShapeNames[] {
 constexpr const char* kGrainTimingNames[] { "Regular", "Scatter" };
 constexpr const char* kGrainBiasNames[] { "Behind", "Around", "Ahead" };
 constexpr const char* kGrainProcessNames[] {
-    "Ordinary", "Stutter", "Shrink", "Doublets"
+    "Ordinary", "Stutter", "Shrink", "Doublets", "Sorter"
 };
 constexpr const char* kGrainAdvanceNames[] { "Scan", "Per Grain" };
 constexpr const char* kCutClockNames[] { "Free", "Tempo" };
@@ -349,7 +369,11 @@ constexpr const char kMidiMap[] =
     "105 cut_lane_order,106 cut_poly_path,107 cut_region_mode,"
     "108 sample_mode,109 slice_region_mode,110 slice_regions,"
     "111 pad_mode,112 lane_variation,113 preview_level,114 clip_rate,"
-    "115 clip_record_mode,116 clip_record,117 clip_clear";
+    "115 clip_record_mode,116 clip_record,117 clip_clear,"
+    "59 motion_rate_basis,60 motion_path_rate,61 motion_step,62 motion_seed,"
+    "63 segment_trigger,64 segment_overlap,118 segment_layers,"
+    "119 segment_rate,121 segment_repeats,122 segment_step,"
+    "124 segment_pitch,125 segment_level,126 segment_curve";
 
 constexpr const char kChainParams[] = R"json([
 {"key":"locus","name":"Position","short_name":"POS","type":"float","min":0,"max":1,"step":0.01,"default":0.5},
@@ -374,14 +398,27 @@ constexpr const char kChainParams[] = R"json([
 {"key":"sample_fade","name":"Edge Fade","short_name":"FADE","type":"enum","options":["Keep","Apply"],"default":0},
 {"key":"sample_trim_apply","name":"Apply Trim","short_name":"TRIM","type":"enum","options":["Keep","Apply"],"default":0},
 {"key":"motion_mode","name":"Motion Mode","short_name":"MODE","type":"enum","options":["Forward","Reverse","Hover","Round Trip","Moving Loop","Mirror","Zigzag","Drunk"],"default":0},
-{"key":"motion_sound","name":"Motion Sound","short_name":"SOUND","type":"enum","options":["Continuous","Packets","Motor","Bounce"],"default":0},
-{"key":"motion_rate","name":"Gesture Rate","short_name":"GEST","type":"float","min":0.25,"max":20,"step":0.25,"default":4,"unit":"Hz"},
+{"key":"motion_sound","name":"Motion Sound","short_name":"SOUND","type":"enum","options":["Continuous","Packets","Motor","Bounce","Freeze","Iterate","Pulser","Doublets"],"default":0},
+{"key":"motion_rate","name":"Packet Rate","short_name":"PKT RATE","type":"float","min":0.25,"max":20,"step":0.25,"default":4,"unit":"Hz"},
+{"key":"motion_rate_basis","name":"Path Rate Basis","short_name":"BASIS","type":"enum","options":["Normal","Hertz"],"default":0},
+{"key":"motion_path_rate","name":"Path Rate","short_name":"PATH RATE","type":"float","min":0.01,"max":80,"step":0.01,"default":1},
+{"key":"motion_step","name":"Moving Loop Step","short_name":"STEP","type":"float","min":0,"max":1,"step":0.01,"default":0.05},
+{"key":"motion_seed","name":"Motion Seed","short_name":"SEED","type":"int","min":1,"max":9999,"default":1},
 {"key":"motion_travel","name":"Path Travel","short_name":"TRAVEL","type":"float","min":0,"max":1,"step":0.01,"default":1},
 {"key":"motion_jitter","name":"Path Jitter","short_name":"JITTER","type":"float","min":0,"max":1,"step":0.01,"default":0},
 {"key":"packet_duty","name":"Packet Duty","short_name":"DUTY","type":"float","min":2,"max":98,"step":1,"default":65,"unit":"%"},
 {"key":"motor_rate","name":"Motor Rate","short_name":"M RATE","type":"float","min":0.05,"max":20,"step":0.05,"default":1,"unit":"Hz"},
 {"key":"motor_symmetry","name":"Motor Symmetry","short_name":"SYM","type":"float","min":5,"max":95,"step":1,"default":50,"unit":"%"},
-{"key":"motor_shape","name":"Motor Shape","short_name":"SHAPE","type":"enum","options":["Triangle","Rounded","Pulse"],"default":1},
+{"key":"motor_shape","name":"Motor Shape","short_name":"SHAPE","type":"enum","options":["Triangle","Rounded","Pulse","Exponential","Plateau"],"default":1},
+{"key":"segment_trigger","name":"Event Trigger","short_name":"TRIGGER","type":"enum","options":["Clock","Packet","Turn"],"default":0},
+{"key":"segment_overlap","name":"Event Overlap","short_name":"OVERLAP","type":"enum","options":["Cut","Layer"],"default":0},
+{"key":"segment_layers","name":"Event Layers","short_name":"LAYERS","type":"int","min":1,"max":4,"default":2},
+{"key":"segment_rate","name":"Event Rate","short_name":"EV RATE","type":"float","min":0.25,"max":80,"step":0.25,"default":4,"unit":"Hz"},
+{"key":"segment_repeats","name":"Event Repeats","short_name":"REPEATS","type":"int","min":1,"max":16,"default":2},
+{"key":"segment_step","name":"Event Step","short_name":"EV STEP","type":"float","min":0,"max":1,"step":0.01,"default":0.05},
+{"key":"segment_pitch","name":"Pitch Scatter","short_name":"PITCH","type":"float","min":0,"max":12,"step":0.1,"default":0,"unit":"st"},
+{"key":"segment_level","name":"Level Variation","short_name":"LEVEL","type":"float","min":0,"max":1,"step":0.01,"default":0.15},
+{"key":"segment_curve","name":"Interval Curve","short_name":"CURVE","type":"float","min":-1,"max":1,"step":0.01,"default":0},
 {"key":"lanes_mode","name":"Lanes Mode","short_name":"MODE","type":"enum","options":["Forward","Reverse","Ping Pong"],"default":0},
 {"key":"lane_path","name":"Stack Path","short_name":"PATH","type":"enum","options":["Down","Up","Triangle","Sine","Steps Down","Steps Up","Manual","Random"],"default":2},
 {"key":"stack_scan_paused","name":"Stack Scan","short_name":"SCAN","type":"enum","options":["Run","Hold"],"default":0,"live":true},
@@ -413,11 +450,11 @@ constexpr const char kChainParams[] = R"json([
 {"key":"grain_timing","name":"Grain Timing","short_name":"TIMING","type":"enum","options":["Regular","Scatter"],"default":0},
 {"key":"grain_timing_scatter","name":"Timing Scatter","short_name":"T SCAT","type":"float","min":0,"max":1,"step":0.01,"default":0},
 {"key":"grain_envelope_skew","name":"Envelope Skew","short_name":"ENV SKEW","type":"float","min":-1,"max":1,"step":0.01,"default":0},
-{"key":"grain_process","name":"Grain Process","short_name":"PROCESS","type":"enum","options":["Ordinary","Stutter","Shrink","Doublets"],"default":0},
+{"key":"grain_process","name":"Grain Process","short_name":"PROCESS","type":"enum","options":["Ordinary","Stutter","Shrink","Doublets","Sorter"],"default":0},
 {"key":"grain_process_amount","name":"Process Amount","short_name":"AMOUNT","type":"float","min":0,"max":1,"step":0.01,"default":0.5},
 {"key":"grain_regions","name":"Slice Regions","short_name":"REGIONS","type":"int","min":1,"max":64,"default":16},
 {"key":"grain_advance","name":"Source Advance","short_name":"ADVANCE","type":"enum","options":["Scan","Per Grain"],"default":0},
-{"key":"cutups_mode","name":"Cutups Mode","short_name":"MODE","type":"enum","options":["Forward","Reverse","Palindrome","Random","Walk"],"default":0},
+{"key":"cutups_mode","name":"Cutups Mode","short_name":"MODE","type":"enum","options":["Forward","Reverse","Palindrome","Random","Walk","Random Cycle"],"default":0},
 {"key":"cut_clock","name":"Cut Clock","short_name":"CLOCK","type":"enum","options":["Free","Tempo"],"default":1},
 {"key":"cut_division","name":"Cut Division","short_name":"DIV","type":"enum","options":["1/4","1/8","1/8T","1/16","1/16T","1/32"],"default":3},
 {"key":"cut_rate","name":"Free Cut Rate","short_name":"RATE","type":"float","min":0.25,"max":64,"step":0.25,"default":8,"unit":"Hz"},
@@ -493,7 +530,7 @@ constexpr const char kUiHierarchy[] = R"json({
 "levels":{
 "root":{"name":"s3g Thru","knobs":["algorithm","locus","field","speed","manual_lane","lane_cycles","join","output_gain"],"params":[{"level":"record","label":"Record"},{"level":"motion","label":"Motion"},{"level":"lanes","label":"Lanes"},{"level":"grains","label":"Grains"},{"level":"cutups","label":"Cutups"},{"level":"sample","label":"Sample"},{"level":"slices","label":"Slices"},{"level":"lane_mix","label":"Lane Mix"},{"level":"performance_loop","label":"Performance Loop"}]},
 "record":{"name":"Record","knobs":["record_lane","record_source","record_gain","monitor_level","pressure_mode","root_note","output_gain","clear_lane"],"params":[{"key":"record_lane"},{"key":"record_source"},{"key":"record_gain"},{"key":"monitor_level"},{"key":"pressure_mode"},{"key":"root_note"},{"key":"output_gain"},{"key":"clear_lane"}]},
-"motion":{"name":"Motion","knobs":["locus","field","speed","join","motion_mode","motion_sound","motion_rate","output_gain"],"params":[{"key":"locus"},{"key":"field"},{"key":"speed"},{"key":"join"},{"key":"motion_mode"},{"key":"motion_sound"},{"key":"motion_rate"},{"key":"output_gain"}]},
+"motion":{"name":"Motion","knobs":["locus","field","speed","join","motion_mode","motion_sound","motion_path_rate","output_gain"],"params":[{"key":"locus"},{"key":"field"},{"key":"speed"},{"key":"join"},{"key":"motion_mode"},{"key":"motion_sound"},{"key":"motion_rate_basis"},{"key":"motion_path_rate"},{"key":"motion_step"},{"key":"motion_seed"},{"key":"motion_rate"},{"key":"packet_duty"},{"key":"motor_rate"},{"key":"motor_symmetry"},{"key":"motor_shape"},{"key":"segment_trigger"},{"key":"segment_overlap"},{"key":"segment_layers"},{"key":"segment_rate"},{"key":"segment_repeats"},{"key":"segment_step"},{"key":"segment_pitch"},{"key":"segment_level"},{"key":"segment_curve"},{"key":"output_gain"}]},
 "lanes":{"name":"Lanes","knobs":["locus","field","speed","join","lanes_mode","lane_path","lane_cycles","manual_lane"],"params":[{"key":"locus"},{"key":"field"},{"key":"speed"},{"key":"join"},{"key":"lanes_mode"},{"key":"lane_path"},{"key":"lane_cycles"},{"key":"manual_lane"},{"key":"lanes_stretch"},{"key":"stretch_ratio"}]},
 "grains":{"name":"Grains","knobs":["locus","field","speed","join","grain_mode","grain_size","grain_density","grain_pitch"],"params":[{"key":"locus"},{"key":"field"},{"key":"speed"},{"key":"join"},{"key":"grain_mode"},{"key":"grain_size"},{"key":"grain_density"},{"key":"grain_pitch"},{"key":"grain_window"},{"key":"grain_spread"},{"key":"lane_path"},{"key":"lane_cycles"},{"key":"manual_lane"}]},
 "cutups":{"name":"Cutups","knobs":["locus","field","speed","join","cutups_mode","lane_path","lane_cycles","manual_lane"],"params":[{"key":"locus"},{"key":"field"},{"key":"speed"},{"key":"join"},{"key":"cutups_mode"},{"key":"lane_path"},{"key":"lane_cycles"},{"key":"manual_lane"}]},
@@ -584,7 +621,11 @@ int lockParameterIndex(const char* key)
         "cut_join", "cut_regions", "cut_repeats", "cut_reverse",
         "cut_pitch_variation", "cut_level_variation", "cut_lane_order",
         "cut_poly_path", "cut_region_mode", "sample_mode",
-        "slice_region_mode", "slice_regions"
+        "slice_region_mode", "slice_regions", "motion_rate_basis",
+        "motion_path_rate", "motion_step", "motion_seed",
+        "segment_trigger", "segment_overlap", "segment_layers",
+        "segment_rate", "segment_repeats", "segment_step",
+        "segment_pitch", "segment_level", "segment_curve"
     };
     for (std::size_t index = 0u; index < kLockParameterCount; ++index) {
         if (std::strcmp(key, keys[index]) == 0) return static_cast<int>(index);
@@ -605,7 +646,7 @@ void applyLockedValue(Engine::Controls& controls, float& outputGain,
         case LockParameter::join: controls.join = clampValue(value, 0.0f, 1.0f); break;
         case LockParameter::outputGain: outputGain = clampValue(value, 0.0f, 2.0f); break;
         case LockParameter::motionMode: controls.motion = static_cast<Engine::MotionMode>(clampValue(static_cast<int>(std::lround(value)), 0, 7)); break;
-        case LockParameter::motionSound: controls.motionSound = static_cast<Engine::MotionSound>(clampValue(static_cast<int>(std::lround(value)), 0, 3)); break;
+        case LockParameter::motionSound: controls.motionSound = static_cast<Engine::MotionSound>(clampValue(static_cast<int>(std::lround(value)), 0, static_cast<int>(Engine::kMotionSoundCount) - 1)); break;
         case LockParameter::motionRate: controls.motionSoundRateHz = clampValue(value, 0.25f, 20.0f); break;
         case LockParameter::lanesMode: controls.lanes = static_cast<Engine::LanesMode>(clampValue(static_cast<int>(std::lround(value)), 0, 2)); break;
         case LockParameter::lanePath: controls.lanePath = static_cast<Engine::LanePath>(clampValue(static_cast<int>(std::lround(value)), 0, 7)); break;
@@ -621,13 +662,13 @@ void applyLockedValue(Engine::Controls& controls, float& outputGain,
         case LockParameter::grainPitch: controls.grainPitch = clampValue(value, 0.25f, 4.0f); break;
         case LockParameter::grainWindow: controls.grainWindow = static_cast<Engine::GrainWindow>(clampValue(static_cast<int>(std::lround(value)), 0, 5)); break;
         case LockParameter::grainSpread: controls.grainStereoSpread = clampValue(value, 0.0f, 1.0f); break;
-        case LockParameter::cutupsMode: controls.cutups = static_cast<Engine::CutupsMode>(clampValue(static_cast<int>(std::lround(value)), 0, 4)); break;
+        case LockParameter::cutupsMode: controls.cutups = static_cast<Engine::CutupsMode>(clampValue(static_cast<int>(std::lround(value)), 0, static_cast<int>(Engine::kCutupsModeCount) - 1)); break;
         case LockParameter::motionTravel: controls.motionTravel = clampValue(value, 0.0f, 1.0f); break;
         case LockParameter::motionJitter: controls.motionJitter = clampValue(value, 0.0f, 1.0f); break;
         case LockParameter::packetDuty: controls.packetDuty = clampValue(value / 100.0f, 0.02f, 0.98f); break;
         case LockParameter::motorRate: controls.motorRateHz = clampValue(value, 0.05f, 20.0f); break;
         case LockParameter::motorSymmetry: controls.motorSymmetry = clampValue(value / 100.0f, 0.05f, 0.95f); break;
-        case LockParameter::motorShape: controls.motorShape = static_cast<Engine::MotorShape>(clampValue(static_cast<int>(std::lround(value)), 0, 2)); break;
+        case LockParameter::motorShape: controls.motorShape = static_cast<Engine::MotorShape>(clampValue(static_cast<int>(std::lround(value)), 0, static_cast<int>(Engine::kMotorShapeCount) - 1)); break;
         case LockParameter::laneBlend: controls.laneBlend = static_cast<Engine::LaneBlendMode>(clampValue(static_cast<int>(std::lround(value)), 0, 1)); break;
         case LockParameter::lanePathShape: controls.lanePathShape = static_cast<Engine::LanePathShape>(clampValue(static_cast<int>(std::lround(value)), 0, 3)); break;
         case LockParameter::lanePathOffset: controls.lanePathOffset = clampValue(value, 0.0f, 1.0f); break;
@@ -643,7 +684,7 @@ void applyLockedValue(Engine::Controls& controls, float& outputGain,
         case LockParameter::grainTiming: controls.grainTiming = static_cast<Engine::GrainTiming>(clampValue(static_cast<int>(std::lround(value)), 0, 1)); break;
         case LockParameter::grainTimingScatter: controls.grainTimingScatter = clampValue(value, 0.0f, 1.0f); break;
         case LockParameter::grainEnvelopeSkew: controls.grainEnvelopeSkew = clampValue(value, -1.0f, 1.0f); break;
-        case LockParameter::grainProcess: controls.grainProcess = static_cast<Engine::GrainProcess>(clampValue(static_cast<int>(std::lround(value)), 0, 3)); break;
+        case LockParameter::grainProcess: controls.grainProcess = static_cast<Engine::GrainProcess>(clampValue(static_cast<int>(std::lround(value)), 0, static_cast<int>(Engine::kGrainProcessCount) - 1)); break;
         case LockParameter::grainProcessAmount: controls.grainProcessAmount = clampValue(value, 0.0f, 1.0f); break;
         case LockParameter::grainRegionCount: controls.grainRegionCount = clampValue(value, 1.0f, 64.0f); break;
         case LockParameter::grainAdvance: controls.grainAdvance = static_cast<Engine::GrainAdvance>(clampValue(static_cast<int>(std::lround(value)), 0, 1)); break;
@@ -664,6 +705,19 @@ void applyLockedValue(Engine::Controls& controls, float& outputGain,
         case LockParameter::sampleMode: controls.sampleMode = static_cast<Engine::SampleMode>(clampValue(static_cast<int>(std::lround(value)), 0, 3)); break;
         case LockParameter::sampleRegionMode: controls.sampleRegionMode = static_cast<Engine::RegionMode>(clampValue(static_cast<int>(std::lround(value)), 0, 1)); break;
         case LockParameter::sampleRegionCount: controls.sampleRegionCount = clampValue(value, 1.0f, 64.0f); break;
+        case LockParameter::motionRateBasis: controls.motionRateBasis = static_cast<Engine::MotionRateBasis>(clampValue(static_cast<int>(std::lround(value)), 0, 1)); break;
+        case LockParameter::motionPathRate: controls.motionPathRate = clampValue(value, 0.01f, 80.0f); break;
+        case LockParameter::motionStep: controls.motionStep = clampValue(value, 0.0f, 1.0f); break;
+        case LockParameter::motionSeed: controls.motionSeed = clampValue(value, 1.0f, 9999.0f); break;
+        case LockParameter::segmentTrigger: controls.segmentTrigger = static_cast<Engine::SegmentTrigger>(clampValue(static_cast<int>(std::lround(value)), 0, 2)); break;
+        case LockParameter::segmentOverlap: controls.segmentOverlap = static_cast<Engine::SegmentOverlap>(clampValue(static_cast<int>(std::lround(value)), 0, 1)); break;
+        case LockParameter::segmentLayers: controls.segmentLayerLimit = clampValue(value, 1.0f, 4.0f); break;
+        case LockParameter::segmentRate: controls.segmentRateHz = clampValue(value, 0.25f, 80.0f); break;
+        case LockParameter::segmentRepeats: controls.segmentRepeats = clampValue(value, 1.0f, 16.0f); break;
+        case LockParameter::segmentStep: controls.segmentStep = clampValue(value, 0.0f, 1.0f); break;
+        case LockParameter::segmentPitch: controls.segmentPitchScatter = clampValue(value, 0.0f, 12.0f); break;
+        case LockParameter::segmentLevel: controls.segmentLevelVariation = clampValue(value, 0.0f, 1.0f); break;
+        case LockParameter::segmentCurve: controls.segmentIntervalCurve = clampValue(value, -1.0f, 1.0f); break;
         case LockParameter::count: break;
     }
 }
@@ -740,6 +794,19 @@ float lockedValue(const Engine::Controls& controls, float outputGain,
         case LockParameter::sampleMode: return static_cast<float>(controls.sampleMode);
         case LockParameter::sampleRegionMode: return static_cast<float>(controls.sampleRegionMode);
         case LockParameter::sampleRegionCount: return controls.sampleRegionCount;
+        case LockParameter::motionRateBasis: return static_cast<float>(controls.motionRateBasis);
+        case LockParameter::motionPathRate: return controls.motionPathRate;
+        case LockParameter::motionStep: return controls.motionStep;
+        case LockParameter::motionSeed: return controls.motionSeed;
+        case LockParameter::segmentTrigger: return static_cast<float>(controls.segmentTrigger);
+        case LockParameter::segmentOverlap: return static_cast<float>(controls.segmentOverlap);
+        case LockParameter::segmentLayers: return controls.segmentLayerLimit;
+        case LockParameter::segmentRate: return controls.segmentRateHz;
+        case LockParameter::segmentRepeats: return controls.segmentRepeats;
+        case LockParameter::segmentStep: return controls.segmentStep;
+        case LockParameter::segmentPitch: return controls.segmentPitchScatter;
+        case LockParameter::segmentLevel: return controls.segmentLevelVariation;
+        case LockParameter::segmentCurve: return controls.segmentIntervalCurve;
         case LockParameter::count: return 0.0f;
     }
     return 0.0f;
@@ -3676,6 +3743,18 @@ struct ThruInstance {
             case 56: setClipPlaying(value >= 64); break;
             case 57: if (value >= 64) restoreUndo(); break;
             case 58: if (value >= 64) clearChainEntry(chainEditSlot); break;
+            case 59: controls.motionRateBasis =
+                value >= 64 ? Engine::MotionRateBasis::hertz
+                    : Engine::MotionRateBasis::normal; break;
+            case 60: controls.motionPathRate = midiRange(value, 0.01f, 80.0f); break;
+            case 61: controls.motionStep = midiUnit(value); break;
+            case 62: controls.motionSeed = 1.0f
+                + static_cast<float>(midiChoice(value, 9999)); break;
+            case 63: controls.segmentTrigger = static_cast<Engine::SegmentTrigger>(
+                midiChoice(value, static_cast<int>(Engine::kSegmentTriggerCount))); break;
+            case 64: controls.segmentOverlap = value >= 64
+                ? Engine::SegmentOverlap::layer
+                : Engine::SegmentOverlap::cut; break;
             case 65: chainEnabled = value >= 64; break;
             case 66: chainEditSlot = midiChoice(
                 value, static_cast<int>(kClipChainLength)); break;
@@ -3759,11 +3838,28 @@ struct ThruInstance {
                 ? ClipRecordMode::overdub : ClipRecordMode::replace; break;
             case 116: if (value >= 64) toggleClipRecording(); break;
             case 117: if (value >= 64) clearActiveClip(); break;
+            case 118: controls.segmentLayerLimit = 1.0f
+                + static_cast<float>(midiChoice(value, 4)); break;
+            case 119: controls.segmentRateHz = midiRange(value, 0.25f, 80.0f); break;
+            case 121: controls.segmentRepeats = 1.0f
+                + static_cast<float>(midiChoice(value, 16)); break;
+            case 122: controls.segmentStep = midiUnit(value); break;
+            case 124: controls.segmentPitchScatter = midiRange(value, 0.0f, 12.0f); break;
+            case 125: controls.segmentLevelVariation = midiUnit(value); break;
+            case 126: controls.segmentIntervalCurve = midiRange(value, -1.0f, 1.0f); break;
             default: break;
         }
-        if (cc >= 20 && cc <= 117 && cc != 52) markPersistentStateDirty();
-        const int lockParameter = cc >= 20 && cc <= 45
+        if (cc >= 20 && cc <= 126 && cc != 52) markPersistentStateDirty();
+        int lockParameter = cc >= 20 && cc <= 45
             ? cc - 20 : (cc >= 69 && cc <= 110 ? cc - 43 : -1);
+        if (cc >= 59 && cc <= 64) lockParameter = 68 + cc - 59;
+        if (cc == 118) lockParameter = 74;
+        else if (cc == 119) lockParameter = 75;
+        else if (cc == 121) lockParameter = 76;
+        else if (cc == 122) lockParameter = 77;
+        else if (cc == 124) lockParameter = 78;
+        else if (cc == 125) lockParameter = 79;
+        else if (cc == 126) lockParameter = 80;
         if (clipRecording && lockParameter >= 0
             && lockParameter < static_cast<int>(kLockParameterCount)) {
             captureClipParameter(lockParameter);
@@ -4316,7 +4412,9 @@ struct ThruInstance {
             "\"join\":%.5f,\"output_gain\":%.5f,\"record_gain\":%.5f,"
             "\"pressure_mode\":%d,\"root_note\":%d,\"pad_octave\":%d,"
             "\"record_lane\":%u,\"record_source\":%d,\"motion_mode\":%d,"
-            "\"motion_sound\":%d,\"motion_rate\":%.5f,\"lanes_mode\":%d,"
+            "\"motion_sound\":%d,\"motion_rate\":%.5f,"
+            "\"motion_rate_basis\":%d,\"motion_path_rate\":%.5f,"
+            "\"motion_step\":%.5f,\"motion_seed\":%.0f,\"lanes_mode\":%d,"
             "\"lane_path\":%d,\"lanes_stretch\":%d,\"stretch_ratio\":%.5f,"
             "\"lane_1_gain\":%.5f,\"lane_2_gain\":%.5f,"
             "\"lane_3_gain\":%.5f,\"lane_4_gain\":%.5f,"
@@ -4328,6 +4426,11 @@ struct ThruInstance {
             "\"motion_travel\":%.5f,\"motion_jitter\":%.5f,"
             "\"packet_duty\":%.5f,\"motor_rate\":%.5f,"
             "\"motor_symmetry\":%.5f,\"motor_shape\":%d,"
+            "\"segment_trigger\":%d,\"segment_overlap\":%d,"
+            "\"segment_layers\":%.0f,\"segment_rate\":%.5f,"
+            "\"segment_repeats\":%.0f,\"segment_step\":%.5f,"
+            "\"segment_pitch\":%.5f,\"segment_level\":%.5f,"
+            "\"segment_curve\":%.5f,"
             "\"lane_blend\":%d,\"lane_path_shape\":%d,"
             "\"lane_path_offset\":%.5f,\"lane_path_skew\":%.5f,"
             "\"lane_path_curve\":%.5f,\"lane_slew\":%.5f,"
@@ -4354,7 +4457,10 @@ struct ThruInstance {
             outputGain, recordGain, pressureMode, rootNote, padOctave,
             static_cast<unsigned>(selectedLane + 1u), recordSource,
             static_cast<int>(controls.motion), static_cast<int>(controls.motionSound),
-            controls.motionSoundRateHz, static_cast<int>(controls.lanes),
+            controls.motionSoundRateHz,
+            static_cast<int>(controls.motionRateBasis), controls.motionPathRate,
+            controls.motionStep, controls.motionSeed,
+            static_cast<int>(controls.lanes),
             static_cast<int>(controls.lanePath), controls.lanesStretch ? 1 : 0,
             controls.lanesStretchRatio,
             controls.laneGains[0u], controls.laneGains[1u],
@@ -4368,6 +4474,12 @@ struct ThruInstance {
             controls.motionTravel, controls.motionJitter, controls.packetDuty,
             controls.motorRateHz, controls.motorSymmetry,
             static_cast<int>(controls.motorShape),
+            static_cast<int>(controls.segmentTrigger),
+            static_cast<int>(controls.segmentOverlap),
+            controls.segmentLayerLimit, controls.segmentRateHz,
+            controls.segmentRepeats, controls.segmentStep,
+            controls.segmentPitchScatter, controls.segmentLevelVariation,
+            controls.segmentIntervalCurve,
             static_cast<int>(controls.laneBlend),
             static_cast<int>(controls.lanePathShape), controls.lanePathOffset,
             controls.lanePathSkew, controls.lanePathCurve, controls.laneSlewMs,
@@ -4432,7 +4544,7 @@ struct ThruInstance {
         if (!file) return false;
         const char magic[8] { 'S', '3', 'G', 'T', 'H', 'R', '3', '\0' };
         bool ok = writeBytes(file, magic, sizeof(magic))
-            && writeU32(file, 2u)
+            && writeU32(file, 3u)
             && writeU64(file, persistenceGeneration)
             && writeF32(file, tempoBpm)
             && writeF32(file, tempoSwing)
@@ -4521,7 +4633,8 @@ struct ThruInstance {
         std::uint32_t version = 0u;
         const bool ok = std::fread(magic, 1u, sizeof(magic), file) == sizeof(magic)
             && std::memcmp(magic, "S3GTHR3", 7u) == 0
-            && readU32(file, version) && (version == 1u || version == 2u)
+            && readU32(file, version)
+            && (version == 1u || version == 2u || version == 3u)
             && readU64(file, generation) && generation != 0u;
         std::fclose(file);
         return ok;
@@ -4551,7 +4664,8 @@ struct ThruInstance {
         bool ok = loadedClips
             && std::fread(magic, 1u, sizeof(magic), file) == sizeof(magic)
             && std::memcmp(magic, "S3GTHR3", 7u) == 0
-            && readU32(file, version) && (version == 1u || version == 2u)
+            && readU32(file, version)
+            && (version == 1u || version == 2u || version == 3u)
             && readU64(file, loadedGeneration)
             && loadedGeneration != 0u
             && (expectedGeneration == kAnyPersistenceGeneration
@@ -4582,8 +4696,16 @@ struct ThruInstance {
                 std::uint32_t occupied = 0u;
                 ok = ok && readU32(file, occupied);
                 clip.occupied = occupied != 0u;
-                for (float& base : clip.baseValues) {
-                    ok = ok && readF32(file, base);
+                const std::size_t storedBaseCount = version >= 3u
+                    ? kLockParameterCount : kLegacyLockParameterCount;
+                for (std::size_t parameter = 0u;
+                     parameter < storedBaseCount; ++parameter) {
+                    ok = ok && readF32(file, clip.baseValues[parameter]);
+                }
+                for (std::size_t parameter = storedBaseCount;
+                     parameter < kLockParameterCount; ++parameter) {
+                    clip.baseValues[parameter] = lockedValue(
+                        controls, outputGain, parameter);
                 }
                 for (std::size_t lane = 0u; lane < kLaneCount; ++lane) {
                     std::uint32_t kind = 0u;
@@ -5169,8 +5291,12 @@ struct ThruInstance {
         if (jsonNumber(json, "record_lane", value) && !engine.recording()) selectedLane = static_cast<std::size_t>(clampValue(static_cast<int>(value), 1, 4) - 1);
         if (jsonNumber(json, "record_source", value) && !engine.recording()) recordSource = clampValue(static_cast<int>(value), 0, 1);
         if (jsonNumber(json, "motion_mode", value)) controls.motion = static_cast<Engine::MotionMode>(clampValue(static_cast<int>(value), 0, 7));
-        if (jsonNumber(json, "motion_sound", value)) controls.motionSound = static_cast<Engine::MotionSound>(clampValue(static_cast<int>(value), 0, 3));
+        if (jsonNumber(json, "motion_sound", value)) controls.motionSound = static_cast<Engine::MotionSound>(clampValue(static_cast<int>(value), 0, static_cast<int>(Engine::kMotionSoundCount) - 1));
         if (jsonNumber(json, "motion_rate", value)) controls.motionSoundRateHz = clampValue(value, 0.25f, 20.0f);
+        if (jsonNumber(json, "motion_rate_basis", value)) controls.motionRateBasis = static_cast<Engine::MotionRateBasis>(clampValue(static_cast<int>(value), 0, 1));
+        if (jsonNumber(json, "motion_path_rate", value)) controls.motionPathRate = clampValue(value, 0.01f, 80.0f);
+        if (jsonNumber(json, "motion_step", value)) controls.motionStep = clampValue(value, 0.0f, 1.0f);
+        if (jsonNumber(json, "motion_seed", value)) controls.motionSeed = clampValue(value, 1.0f, 9999.0f);
         if (jsonNumber(json, "lanes_mode", value)) controls.lanes = static_cast<Engine::LanesMode>(clampValue(static_cast<int>(value), 0, 2));
         if (jsonNumber(json, "lane_path", value)) controls.lanePath = static_cast<Engine::LanePath>(clampValue(static_cast<int>(value), 0, 7));
         if (jsonNumber(json, "lanes_stretch", value)) controls.lanesStretch = value >= 0.5f;
@@ -5185,13 +5311,22 @@ struct ThruInstance {
         if (jsonNumber(json, "grain_pitch", value)) controls.grainPitch = clampValue(value, 0.25f, 4.0f);
         if (jsonNumber(json, "grain_window", value)) controls.grainWindow = static_cast<Engine::GrainWindow>(clampValue(static_cast<int>(value), 0, 5));
         if (jsonNumber(json, "grain_spread", value)) controls.grainStereoSpread = clampValue(value, 0.0f, 1.0f);
-        if (jsonNumber(json, "cutups_mode", value)) controls.cutups = static_cast<Engine::CutupsMode>(clampValue(static_cast<int>(value), 0, 4));
+        if (jsonNumber(json, "cutups_mode", value)) controls.cutups = static_cast<Engine::CutupsMode>(clampValue(static_cast<int>(value), 0, static_cast<int>(Engine::kCutupsModeCount) - 1));
         if (jsonNumber(json, "motion_travel", value)) controls.motionTravel = clampValue(value, 0.0f, 1.0f);
         if (jsonNumber(json, "motion_jitter", value)) controls.motionJitter = clampValue(value, 0.0f, 1.0f);
         if (jsonNumber(json, "packet_duty", value)) controls.packetDuty = clampValue(value, 0.02f, 0.98f);
         if (jsonNumber(json, "motor_rate", value)) controls.motorRateHz = clampValue(value, 0.05f, 20.0f);
         if (jsonNumber(json, "motor_symmetry", value)) controls.motorSymmetry = clampValue(value, 0.05f, 0.95f);
-        if (jsonNumber(json, "motor_shape", value)) controls.motorShape = static_cast<Engine::MotorShape>(clampValue(static_cast<int>(value), 0, 2));
+        if (jsonNumber(json, "motor_shape", value)) controls.motorShape = static_cast<Engine::MotorShape>(clampValue(static_cast<int>(value), 0, static_cast<int>(Engine::kMotorShapeCount) - 1));
+        if (jsonNumber(json, "segment_trigger", value)) controls.segmentTrigger = static_cast<Engine::SegmentTrigger>(clampValue(static_cast<int>(value), 0, 2));
+        if (jsonNumber(json, "segment_overlap", value)) controls.segmentOverlap = static_cast<Engine::SegmentOverlap>(clampValue(static_cast<int>(value), 0, 1));
+        if (jsonNumber(json, "segment_layers", value)) controls.segmentLayerLimit = clampValue(value, 1.0f, 4.0f);
+        if (jsonNumber(json, "segment_rate", value)) controls.segmentRateHz = clampValue(value, 0.25f, 80.0f);
+        if (jsonNumber(json, "segment_repeats", value)) controls.segmentRepeats = clampValue(value, 1.0f, 16.0f);
+        if (jsonNumber(json, "segment_step", value)) controls.segmentStep = clampValue(value, 0.0f, 1.0f);
+        if (jsonNumber(json, "segment_pitch", value)) controls.segmentPitchScatter = clampValue(value, 0.0f, 12.0f);
+        if (jsonNumber(json, "segment_level", value)) controls.segmentLevelVariation = clampValue(value, 0.0f, 1.0f);
+        if (jsonNumber(json, "segment_curve", value)) controls.segmentIntervalCurve = clampValue(value, -1.0f, 1.0f);
         if (jsonNumber(json, "lane_blend", value)) controls.laneBlend = static_cast<Engine::LaneBlendMode>(clampValue(static_cast<int>(value), 0, 1));
         if (jsonNumber(json, "lane_path_shape", value)) controls.lanePathShape = static_cast<Engine::LanePathShape>(clampValue(static_cast<int>(value), 0, 3));
         if (jsonNumber(json, "lane_path_offset", value)) controls.lanePathOffset = clampValue(value, 0.0f, 1.0f);
@@ -5207,7 +5342,7 @@ struct ThruInstance {
         if (jsonNumber(json, "grain_timing", value)) controls.grainTiming = static_cast<Engine::GrainTiming>(clampValue(static_cast<int>(value), 0, 1));
         if (jsonNumber(json, "grain_timing_scatter", value)) controls.grainTimingScatter = clampValue(value, 0.0f, 1.0f);
         if (jsonNumber(json, "grain_envelope_skew", value)) controls.grainEnvelopeSkew = clampValue(value, -1.0f, 1.0f);
-        if (jsonNumber(json, "grain_process", value)) controls.grainProcess = static_cast<Engine::GrainProcess>(clampValue(static_cast<int>(value), 0, 3));
+        if (jsonNumber(json, "grain_process", value)) controls.grainProcess = static_cast<Engine::GrainProcess>(clampValue(static_cast<int>(value), 0, static_cast<int>(Engine::kGrainProcessCount) - 1));
         if (jsonNumber(json, "grain_process_amount", value)) controls.grainProcessAmount = clampValue(value, 0.0f, 1.0f);
         if (jsonNumber(json, "grain_regions", value)) controls.grainRegionCount = clampValue(value, 1.0f, 64.0f);
         if (jsonNumber(json, "grain_advance", value)) controls.grainAdvance = static_cast<Engine::GrainAdvance>(clampValue(static_cast<int>(value), 0, 1));
@@ -5417,12 +5552,25 @@ void setParam(void* opaque, const char* key, const char* value)
     if (std::strcmp(key, "motion_mode") == 0) { controls.motion = static_cast<Engine::MotionMode>(parseEnum(value, kMotionModeNames, static_cast<int>(controls.motion))); return; }
     if (std::strcmp(key, "motion_sound") == 0) { controls.motionSound = static_cast<Engine::MotionSound>(parseEnum(value, kMotionSoundNames, static_cast<int>(controls.motionSound))); return; }
     if (std::strcmp(key, "motion_rate") == 0) { controls.motionSoundRateHz = clampValue(parseFloat(value, controls.motionSoundRateHz), 0.25f, 20.0f); return; }
+    if (std::strcmp(key, "motion_rate_basis") == 0) { controls.motionRateBasis = static_cast<Engine::MotionRateBasis>(parseEnum(value, kMotionRateBasisNames, static_cast<int>(controls.motionRateBasis))); return; }
+    if (std::strcmp(key, "motion_path_rate") == 0) { controls.motionPathRate = clampValue(parseFloat(value, controls.motionPathRate), 0.01f, 80.0f); return; }
+    if (std::strcmp(key, "motion_step") == 0) { controls.motionStep = clampValue(parseFloat(value, controls.motionStep), 0.0f, 1.0f); return; }
+    if (std::strcmp(key, "motion_seed") == 0) { controls.motionSeed = clampValue(parseFloat(value, controls.motionSeed), 1.0f, 9999.0f); return; }
     if (std::strcmp(key, "motion_travel") == 0) { controls.motionTravel = clampValue(parseFloat(value, controls.motionTravel), 0.0f, 1.0f); return; }
     if (std::strcmp(key, "motion_jitter") == 0) { controls.motionJitter = clampValue(parseFloat(value, controls.motionJitter), 0.0f, 1.0f); return; }
     if (std::strcmp(key, "packet_duty") == 0) { controls.packetDuty = clampValue(parseFloat(value, controls.packetDuty * 100.0f) / 100.0f, 0.02f, 0.98f); return; }
     if (std::strcmp(key, "motor_rate") == 0) { controls.motorRateHz = clampValue(parseFloat(value, controls.motorRateHz), 0.05f, 20.0f); return; }
     if (std::strcmp(key, "motor_symmetry") == 0) { controls.motorSymmetry = clampValue(parseFloat(value, controls.motorSymmetry * 100.0f) / 100.0f, 0.05f, 0.95f); return; }
     if (std::strcmp(key, "motor_shape") == 0) { controls.motorShape = static_cast<Engine::MotorShape>(parseEnum(value, kMotorShapeNames, static_cast<int>(controls.motorShape))); return; }
+    if (std::strcmp(key, "segment_trigger") == 0) { controls.segmentTrigger = static_cast<Engine::SegmentTrigger>(parseEnum(value, kSegmentTriggerNames, static_cast<int>(controls.segmentTrigger))); return; }
+    if (std::strcmp(key, "segment_overlap") == 0) { controls.segmentOverlap = static_cast<Engine::SegmentOverlap>(parseEnum(value, kSegmentOverlapNames, static_cast<int>(controls.segmentOverlap))); return; }
+    if (std::strcmp(key, "segment_layers") == 0) { controls.segmentLayerLimit = clampValue(parseFloat(value, controls.segmentLayerLimit), 1.0f, 4.0f); return; }
+    if (std::strcmp(key, "segment_rate") == 0) { controls.segmentRateHz = clampValue(parseFloat(value, controls.segmentRateHz), 0.25f, 80.0f); return; }
+    if (std::strcmp(key, "segment_repeats") == 0) { controls.segmentRepeats = clampValue(parseFloat(value, controls.segmentRepeats), 1.0f, 16.0f); return; }
+    if (std::strcmp(key, "segment_step") == 0) { controls.segmentStep = clampValue(parseFloat(value, controls.segmentStep), 0.0f, 1.0f); return; }
+    if (std::strcmp(key, "segment_pitch") == 0) { controls.segmentPitchScatter = clampValue(parseFloat(value, controls.segmentPitchScatter), 0.0f, 12.0f); return; }
+    if (std::strcmp(key, "segment_level") == 0) { controls.segmentLevelVariation = clampValue(parseFloat(value, controls.segmentLevelVariation), 0.0f, 1.0f); return; }
+    if (std::strcmp(key, "segment_curve") == 0) { controls.segmentIntervalCurve = clampValue(parseFloat(value, controls.segmentIntervalCurve), -1.0f, 1.0f); return; }
     if (std::strcmp(key, "lanes_mode") == 0) { controls.lanes = static_cast<Engine::LanesMode>(parseEnum(value, kLanesModeNames, static_cast<int>(controls.lanes))); return; }
     if (std::strcmp(key, "lane_path") == 0) { controls.lanePath = static_cast<Engine::LanePath>(parseEnum(value, kLanePathNames, static_cast<int>(controls.lanePath))); return; }
     if (std::strcmp(key, "lane_blend") == 0) { controls.laneBlend = static_cast<Engine::LaneBlendMode>(parseEnum(value, kLaneBlendNames, static_cast<int>(controls.laneBlend))); return; }
@@ -5672,12 +5820,25 @@ int getParam(void* opaque, const char* key, char* buffer, int bufferLength)
     if (std::strcmp(key, "motion_mode") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(controls.motion));
     if (std::strcmp(key, "motion_sound") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(controls.motionSound));
     if (std::strcmp(key, "motion_rate") == 0) return std::snprintf(buffer, bufferLength, "%.4f", controls.motionSoundRateHz);
+    if (std::strcmp(key, "motion_rate_basis") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(controls.motionRateBasis));
+    if (std::strcmp(key, "motion_path_rate") == 0) return std::snprintf(buffer, bufferLength, "%.4f", controls.motionPathRate);
+    if (std::strcmp(key, "motion_step") == 0) return std::snprintf(buffer, bufferLength, "%.4f", controls.motionStep);
+    if (std::strcmp(key, "motion_seed") == 0) return std::snprintf(buffer, bufferLength, "%.0f", controls.motionSeed);
     if (std::strcmp(key, "motion_travel") == 0) return std::snprintf(buffer, bufferLength, "%.4f", controls.motionTravel);
     if (std::strcmp(key, "motion_jitter") == 0) return std::snprintf(buffer, bufferLength, "%.4f", controls.motionJitter);
     if (std::strcmp(key, "packet_duty") == 0) return std::snprintf(buffer, bufferLength, "%.2f", controls.packetDuty * 100.0f);
     if (std::strcmp(key, "motor_rate") == 0) return std::snprintf(buffer, bufferLength, "%.4f", controls.motorRateHz);
     if (std::strcmp(key, "motor_symmetry") == 0) return std::snprintf(buffer, bufferLength, "%.2f", controls.motorSymmetry * 100.0f);
     if (std::strcmp(key, "motor_shape") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(controls.motorShape));
+    if (std::strcmp(key, "segment_trigger") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(controls.segmentTrigger));
+    if (std::strcmp(key, "segment_overlap") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(controls.segmentOverlap));
+    if (std::strcmp(key, "segment_layers") == 0) return std::snprintf(buffer, bufferLength, "%.0f", controls.segmentLayerLimit);
+    if (std::strcmp(key, "segment_rate") == 0) return std::snprintf(buffer, bufferLength, "%.4f", controls.segmentRateHz);
+    if (std::strcmp(key, "segment_repeats") == 0) return std::snprintf(buffer, bufferLength, "%.0f", controls.segmentRepeats);
+    if (std::strcmp(key, "segment_step") == 0) return std::snprintf(buffer, bufferLength, "%.4f", controls.segmentStep);
+    if (std::strcmp(key, "segment_pitch") == 0) return std::snprintf(buffer, bufferLength, "%.4f", controls.segmentPitchScatter);
+    if (std::strcmp(key, "segment_level") == 0) return std::snprintf(buffer, bufferLength, "%.4f", controls.segmentLevelVariation);
+    if (std::strcmp(key, "segment_curve") == 0) return std::snprintf(buffer, bufferLength, "%.4f", controls.segmentIntervalCurve);
     if (std::strcmp(key, "lanes_mode") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(controls.lanes));
     if (std::strcmp(key, "lane_path") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(controls.lanePath));
     if (std::strcmp(key, "lane_blend") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(controls.laneBlend));

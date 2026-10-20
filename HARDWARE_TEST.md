@@ -1,4 +1,4 @@
-# s3g Thru 0.19.0 overtake hardware acceptance
+# s3g Thru 0.20.0 overtake hardware acceptance
 
 Desktop tests prove the module ABI and DSP behavior; they do not prove the
 exact Move input, screen, pad, or realtime paths. Preserve the previous
@@ -16,7 +16,7 @@ working Schwung installation and do this pass with headphones first.
 
 1. Set Move's main volume low and disconnect speakers.
 2. Uninstall the earlier 0.1 sound-generator build if present, restart Move,
-   then install the 0.19.0 tarball through Schwung Manager.
+   then install the 0.20.0 tarball through Schwung Manager.
 3. Open the Overtake menu with Shift + volume touch + jog-click and select
    s3g Thru.
 4. Confirm Thru opens directly on a four-row waveform page without selecting a
@@ -63,14 +63,22 @@ working Schwung installation and do this pass with headphones first.
     playing instead of partially switching.
 13. Press Menu and use dial 1 on the Engine page to test Motion, Lanes, Grains,
     Cutups, Sample, and Slices. Confirm the 16 Step keys no longer change the engine.
-    In Motion, test Mirror, Zigzag, and Drunk with each of Continuous, Packets,
-    Motor, and Bounce; the cursor must visibly travel backward as well as
-    forward. Verify Packet Duty and independent Motor rate/symmetry/shape.
+    In Motion, test Mirror, Zigzag, and Drunk with Continuous; the cursor must
+    visibly travel backward as well as forward. Switch Path Rate between Normal
+    and Hertz, vary Path Rate, Moving Loop Step, Seed, Travel, and Jitter, and
+    confirm each has a distinct effect. Verify Packets uses Hann-shaped pulses
+    with an independent rate, then verify Motor has independent inner/outer
+    rates plus symmetry and all five shapes. Test Bounce, Freeze, Iterate,
+    Pulser, and Doublets with Clock, Packet, and Turn triggers. Compare Cut and
+    Layer overlap, then increase Layers from 1 through 4 while watching Help's
+    overrun count.
     In Lanes, compare Crossfade and Jump, all path shapes, Random, and the
-    transition slew. In Grains, test all four processes and variation controls
-    at Quality 4, 8, and 16;
+    transition slew. In Grains, test all five processes and variation controls
+    at Quality 4, 8, and 16. For Sorter, use contrasting quiet/loud regions,
+    sweep Process Amount, and confirm the order moves toward quietest-to-loudest;
     notes must change scan speed without changing Grain Pitch. In Cutups, test
-    Free and Tempo clocks, divisions, repeats, several region counts, lane
+    Free and Tempo clocks, divisions, repeats, several region counts, every
+    region-order mode including Random Cycle, lane
     orders, and two held notes; notes must change slice pitch without changing
     the cut clock. Switch Cut Region Source between Equal and Transients and
     confirm the selected waveform shows detected boundary ticks. In Sample,
@@ -124,10 +132,12 @@ working Schwung installation and do this pass with headphones first.
     disposable capture. Confirm Undo restores the preceding source and that an
     edited capture survives reopen.
 19. If testing the provisional external-controller map, connect the programmed
-    controller. Test CC 20–51, performance and
-    chain controls CC 54–58 and CC 65–68, engine controls CC 69–113, and loop
-    controls CC 114–117 at both endpoints; test CC 52 as an audio record gate
-    and CC 53 as a clear trigger. Confirm
+    controller. Test CC 20–51, Motion controls CC 59–64, performance and
+    chain controls CC 54–58 and CC 65–68, engine controls CC 69–113, loop
+    controls CC 114–117, and Motion event controls CC 118, 119, 121, 122,
+    and 124–126 at both endpoints; test CC 52 as an audio record gate and CC 53
+    as a clear trigger. Confirm CC 120 and CC 123 retain their standard panic
+    behavior and are not reassigned. Confirm
     Move's own Menu/Back/Shift buttons do not alter mapped parameters.
 20. Open Help and record its maximum render-time and overrun counters while
     holding eight dense Grains voices at Quality 4, 8, and 16, switching
@@ -168,7 +178,8 @@ working Schwung installation and do this pass with headphones first.
 - display responsiveness while `SCAN` is active;
 - audio continuity while replacing a lane;
 - audio continuity and load time for long library WAVs;
-- CPU behavior for each algorithm, especially dense Grains;
+- CPU behavior for each algorithm, especially dense Grains and four-layer
+  Motion segment sounds;
 - CPU behavior with eight simultaneous voices and eight dense Grains voices;
 - Help-screen maximum render microseconds and overrun count for each engine;
 - peak memory/launch reliability with the active and prepared sample banks;

@@ -1,4 +1,4 @@
-# s3g Thru 0.20.0 overtake hardware acceptance
+# s3g Thru 0.21.0 overtake hardware acceptance
 
 Desktop tests prove the module ABI and DSP behavior; they do not prove the
 exact Move input, screen, pad, or realtime paths. Preserve the previous
@@ -16,7 +16,7 @@ working Schwung installation and do this pass with headphones first.
 
 1. Set Move's main volume low and disconnect speakers.
 2. Uninstall the earlier 0.1 sound-generator build if present, restart Move,
-   then install the 0.20.0 tarball through Schwung Manager.
+   then install the 0.21.0 tarball through Schwung Manager.
 3. Open the Overtake menu with Shift + volume touch + jog-click and select
    s3g Thru.
 4. Confirm Thru opens directly on a four-row waveform page without selecting a
@@ -62,7 +62,7 @@ working Schwung installation and do this pass with headphones first.
     Rename one assigned WAV temporarily and confirm `MISSING` leaves the current clip
     playing instead of partially switching.
 13. Press Menu and use dial 1 on the Engine page to test Motion, Lanes, Grains,
-    Cutups, Sample, and Slices. Confirm the 16 Step keys no longer change the engine.
+    Cutups, Sample, Slices, and Glitch. Confirm the 16 Step keys no longer change the engine.
     In Motion, test Mirror, Zigzag, and Drunk with Continuous; the cursor must
     visibly travel backward as well as forward. Switch Path Rate between Normal
     and Hertz, vary Path Rate, Moving Loop Step, Seed, Travel, and Jitter, and
@@ -89,17 +89,25 @@ working Schwung installation and do this pass with headphones first.
     pad mode, use Shift+pads 1–8 to store, pad to jump, and Delete+pad to clear.
     In Rolls mode, hold several pads and confirm independent tempo divisions
     stop on release.
+    In Glitch, compare all five modes. Set an odd Step length with fewer Pulses,
+    rotate it, and confirm the interruption pattern repeats. Raise Jump, Pitch,
+    Reverse, and Override separately; confirm every held voice keeps an
+    independent repeat buffer and does not produce stuck or silent voices.
 14. Use Up/Down to transpose the grid and confirm held/released notes do not
     stick.
 15. Press Menu. For each Algorithm, use Up/Down to visit Engine, only the shared
-    and unique pages used by that engine, Mix / Rec, Sample Edit, Performance
+    and unique pages used by that engine, Mix / Rec, Effects, Sample Edit, Performance
     Loop, Overdub Takes, and Chain. Confirm Stack Path has the same seven knob
-    positions for Motion, Lanes, and Grains, and Direct Play has the same three
+    positions for Motion, Lanes, Grains, and Glitch, and Direct Play has the same three
     positions for Sample and Slices. Confirm every parameter appears only once
     in an active page list, has a padded name with its value underneath, and
     has no miniature dial graphic or text overlap. Empty positions must show a
     small hollow reserved box, and turning their physical encoders must do
     nothing.
+    On Effects, verify defaults are transparent. Test Tone in both directions,
+    Drive, Bits, and Rate with Delay Mix at zero. Then raise Delay Mix and test
+    time, feedback, and width. Confirm Input Monitor remains dry, while Resample
+    records the processed output. Record and replay at least one Effects gesture.
 16. On Performance Loop choose Replace. Press Record, perform overlapping pads
     with different strike velocities, vary pressure independently, and turn
     Position, Field, Stack, and one engine-specific dial. Press Record again.

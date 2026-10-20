@@ -207,14 +207,39 @@ enum class LockParameter : std::uint32_t {
     segmentPitch,
     segmentLevel,
     segmentCurve,
+    glitchMode,
+    glitchClock,
+    glitchDivision,
+    glitchRate,
+    glitchSlice,
+    glitchRepeats,
+    glitchChance,
+    glitchMix,
+    glitchSteps,
+    glitchPulses,
+    glitchRotate,
+    glitchJump,
+    glitchPitch,
+    glitchReverse,
+    glitchDecay,
+    glitchSeed,
+    effectTone,
+    effectDrive,
+    effectBits,
+    effectRate,
+    effectDelay,
+    effectFeedback,
+    effectWidth,
+    effectMix,
     count
 };
 
 constexpr std::size_t kLockParameterCount =
     static_cast<std::size_t>(LockParameter::count);
 constexpr std::size_t kLegacyLockParameterCount = 68u;
-static_assert(kLockParameterCount == 81u,
-              "parameter lock persistence supports three 32-bit words");
+constexpr std::size_t kVersion3LockParameterCount = 81u;
+static_assert(kLockParameterCount == 105u,
+              "clip point descriptors support up to 255 lock parameters");
 constexpr std::size_t kClipCurveLaneCount = kLockParameterCount + 32u;
 struct ClipSlot {
     std::array<float, kLockParameterCount> baseValues {};
@@ -278,7 +303,7 @@ enum class ClipPrepareState : int {
 const host_api_v1_t* g_host = nullptr;
 
 constexpr const char* kAlgorithmNames[] {
-    "Motion", "Lanes", "Grains", "Cutups", "Sample", "Slices"
+    "Motion", "Lanes", "Grains", "Cutups", "Sample", "Slices", "Glitch"
 };
 constexpr const char* kSampleModeNames[] {
     "Forward", "Reverse", "Loop", "Ping Pong"
@@ -340,6 +365,9 @@ constexpr const char* kCutLaneOrderNames[] {
 constexpr const char* kCutPolyPathNames[] {
     "Together", "Stagger", "Rotate", "Random"
 };
+constexpr const char* kGlitchModeNames[] {
+    "Repeat", "Stutter", "Scatter", "Divide", "Override"
+};
 constexpr const char* kOnOffNames[] { "Off", "On" };
 constexpr const char* kPressureModeNames[] { "Off", "Offset" };
 constexpr const char* kRecordSourceNames[] { "Input", "Resample" };
@@ -381,7 +409,7 @@ constexpr const char kChainParams[] = R"json([
 {"key":"speed","name":"Speed","short_name":"SPD","type":"float","min":0.05,"max":4,"step":0.01,"default":1},
 {"key":"manual_lane","name":"Stack Start","short_name":"START","type":"float","min":1,"max":4,"step":0.01,"default":1},
 {"key":"lane_cycles","name":"Stack Rate","short_name":"SCAN","type":"float","min":0.125,"max":16,"step":0.125,"default":1,"unit":"Hz"},
-{"key":"algorithm","name":"Algorithm","short_name":"ALG","type":"enum","options":["Motion","Lanes","Grains","Cutups","Sample","Slices"],"default":0},
+{"key":"algorithm","name":"Algorithm","short_name":"ALG","type":"enum","options":["Motion","Lanes","Grains","Cutups","Sample","Slices","Glitch"],"default":0},
 {"key":"join","name":"Join","short_name":"JOIN","type":"float","min":0,"max":1,"step":0.01,"default":1},
 {"key":"output_gain","name":"Level","short_name":"LEVEL","type":"float","min":0,"max":2,"step":0.01,"default":1},
 {"key":"pressure_mode","name":"Pressure","short_name":"PRESS","type":"enum","options":["Off","Offset"],"default":1},
@@ -472,6 +500,30 @@ constexpr const char kChainParams[] = R"json([
 {"key":"sample_mode","name":"Sample Playback","short_name":"PLAY MODE","type":"enum","options":["Forward","Reverse","Loop","Ping Pong"],"default":0},
 {"key":"slice_region_mode","name":"Slice Region Source","short_name":"SLICE SRC","type":"enum","options":["Equal","Transients"],"default":1},
 {"key":"slice_regions","name":"Equal Slice Count","short_name":"SLICES","type":"int","min":1,"max":64,"default":16},
+{"key":"glitch_mode","name":"Glitch Mode","short_name":"MODE","type":"enum","options":["Repeat","Stutter","Scatter","Divide","Override"],"default":4},
+{"key":"glitch_clock","name":"Glitch Clock","short_name":"CLOCK","type":"enum","options":["Free","Tempo"],"default":1},
+{"key":"glitch_division","name":"Glitch Division","short_name":"DIV","type":"enum","options":["1/4","1/8","1/8T","1/16","1/16T","1/32"],"default":3},
+{"key":"glitch_rate","name":"Free Glitch Rate","short_name":"RATE","type":"float","min":0.25,"max":64,"step":0.25,"default":8,"unit":"Hz"},
+{"key":"glitch_slice","name":"Repeat Buffer","short_name":"BUFFER","type":"float","min":2,"max":160,"step":1,"default":32,"unit":"ms"},
+{"key":"glitch_repeats","name":"Repeat Count","short_name":"REPEATS","type":"int","min":1,"max":16,"default":4},
+{"key":"glitch_chance","name":"Hit Chance","short_name":"CHANCE","type":"float","min":0,"max":100,"step":1,"default":100,"unit":"%"},
+{"key":"glitch_mix","name":"Buffer Override","short_name":"OVERRIDE","type":"float","min":0,"max":100,"step":1,"default":100,"unit":"%"},
+{"key":"glitch_steps","name":"Pattern Length","short_name":"STEPS","type":"int","min":1,"max":16,"default":11},
+{"key":"glitch_pulses","name":"Pattern Pulses","short_name":"PULSES","type":"int","min":0,"max":16,"default":5},
+{"key":"glitch_rotate","name":"Pattern Rotate","short_name":"ROTATE","type":"int","min":0,"max":15,"default":0},
+{"key":"glitch_jump","name":"History Jump","short_name":"JUMP","type":"float","min":0,"max":160,"step":1,"default":120,"unit":"ms"},
+{"key":"glitch_pitch","name":"Pitch Range","short_name":"PITCH","type":"float","min":0,"max":24,"step":0.1,"default":7,"unit":"st"},
+{"key":"glitch_reverse","name":"Reverse Chance","short_name":"REVERSE","type":"float","min":0,"max":100,"step":1,"default":25,"unit":"%"},
+{"key":"glitch_decay","name":"Repeat Decay","short_name":"DECAY","type":"float","min":0,"max":100,"step":1,"default":90,"unit":"%"},
+{"key":"glitch_seed","name":"Pattern Seed","short_name":"SEED","type":"int","min":1,"max":9999,"default":1},
+{"key":"effect_tone","name":"Effect Tone","short_name":"TONE","type":"float","min":-1,"max":1,"step":0.01,"default":0},
+{"key":"effect_drive","name":"Effect Drive","short_name":"DRIVE","type":"float","min":0,"max":1,"step":0.01,"default":0},
+{"key":"effect_bits","name":"Bit Reduction","short_name":"BITS","type":"float","min":0,"max":1,"step":0.01,"default":0},
+{"key":"effect_rate","name":"Rate Reduction","short_name":"RATE","type":"int","min":1,"max":16,"default":1},
+{"key":"effect_delay","name":"Delay Time","short_name":"DELAY","type":"float","min":1,"max":750,"step":1,"default":250,"unit":"ms"},
+{"key":"effect_feedback","name":"Delay Feedback","short_name":"FDBK","type":"float","min":0,"max":90,"step":1,"default":35,"unit":"%"},
+{"key":"effect_width","name":"Delay Width","short_name":"WIDTH","type":"float","min":0,"max":100,"step":1,"default":100,"unit":"%"},
+{"key":"effect_mix","name":"Delay Mix","short_name":"DLY MIX","type":"float","min":0,"max":100,"step":1,"default":0,"unit":"%"},
 {"key":"pad_mode","name":"Pad Mode","short_name":"PADS","type":"enum","options":["Keys","Slices","Cues","Rolls"],"default":0},
 {"key":"lane_variation","name":"Lane Variation","short_name":"VARIATION","type":"enum","options":["Manual","Cycle","Random","No Repeat","Velocity"],"default":0},
 {"key":"preview_level","name":"Browser Preview","short_name":"PREVIEW","type":"float","min":0,"max":1,"step":0.01,"default":0.7},
@@ -528,7 +580,7 @@ constexpr const char kChainParams[] = R"json([
 constexpr const char kUiHierarchy[] = R"json({
 "pad_layout":"chromatic",
 "levels":{
-"root":{"name":"s3g Thru","knobs":["algorithm","locus","field","speed","manual_lane","lane_cycles","join","output_gain"],"params":[{"level":"record","label":"Record"},{"level":"motion","label":"Motion"},{"level":"lanes","label":"Lanes"},{"level":"grains","label":"Grains"},{"level":"cutups","label":"Cutups"},{"level":"sample","label":"Sample"},{"level":"slices","label":"Slices"},{"level":"lane_mix","label":"Lane Mix"},{"level":"performance_loop","label":"Performance Loop"}]},
+"root":{"name":"s3g Thru","knobs":["algorithm","locus","field","speed","manual_lane","lane_cycles","join","output_gain"],"params":[{"level":"record","label":"Record"},{"level":"motion","label":"Motion"},{"level":"lanes","label":"Lanes"},{"level":"grains","label":"Grains"},{"level":"cutups","label":"Cutups"},{"level":"sample","label":"Sample"},{"level":"slices","label":"Slices"},{"level":"glitch","label":"Glitch"},{"level":"effects","label":"Effects"},{"level":"lane_mix","label":"Lane Mix"},{"level":"performance_loop","label":"Performance Loop"}]},
 "record":{"name":"Record","knobs":["record_lane","record_source","record_gain","monitor_level","pressure_mode","root_note","output_gain","clear_lane"],"params":[{"key":"record_lane"},{"key":"record_source"},{"key":"record_gain"},{"key":"monitor_level"},{"key":"pressure_mode"},{"key":"root_note"},{"key":"output_gain"},{"key":"clear_lane"}]},
 "motion":{"name":"Motion","knobs":["locus","field","speed","join","motion_mode","motion_sound","motion_path_rate","output_gain"],"params":[{"key":"locus"},{"key":"field"},{"key":"speed"},{"key":"join"},{"key":"motion_mode"},{"key":"motion_sound"},{"key":"motion_rate_basis"},{"key":"motion_path_rate"},{"key":"motion_step"},{"key":"motion_seed"},{"key":"motion_rate"},{"key":"packet_duty"},{"key":"motor_rate"},{"key":"motor_symmetry"},{"key":"motor_shape"},{"key":"segment_trigger"},{"key":"segment_overlap"},{"key":"segment_layers"},{"key":"segment_rate"},{"key":"segment_repeats"},{"key":"segment_step"},{"key":"segment_pitch"},{"key":"segment_level"},{"key":"segment_curve"},{"key":"output_gain"}]},
 "lanes":{"name":"Lanes","knobs":["locus","field","speed","join","lanes_mode","lane_path","lane_cycles","manual_lane"],"params":[{"key":"locus"},{"key":"field"},{"key":"speed"},{"key":"join"},{"key":"lanes_mode"},{"key":"lane_path"},{"key":"lane_cycles"},{"key":"manual_lane"},{"key":"lanes_stretch"},{"key":"stretch_ratio"}]},
@@ -536,6 +588,8 @@ constexpr const char kUiHierarchy[] = R"json({
 "cutups":{"name":"Cutups","knobs":["locus","field","speed","join","cutups_mode","lane_path","lane_cycles","manual_lane"],"params":[{"key":"locus"},{"key":"field"},{"key":"speed"},{"key":"join"},{"key":"cutups_mode"},{"key":"lane_path"},{"key":"lane_cycles"},{"key":"manual_lane"}]},
 "sample":{"name":"Sample","knobs":["sample_mode","locus","field","speed","manual_lane","lane_variation","pad_mode","output_gain"],"params":[{"key":"sample_mode"},{"key":"locus"},{"key":"field"},{"key":"speed"},{"key":"manual_lane"},{"key":"lane_variation"},{"key":"pad_mode"},{"key":"output_gain"}]},
 "slices":{"name":"Slices","knobs":["sample_mode","slice_region_mode","slice_regions","speed","manual_lane","lane_variation","pad_mode","output_gain"],"params":[{"key":"sample_mode"},{"key":"slice_region_mode"},{"key":"slice_regions"},{"key":"speed"},{"key":"manual_lane"},{"key":"lane_variation"},{"key":"pad_mode"},{"key":"output_gain"}]},
+"glitch":{"name":"Glitch","knobs":["glitch_mode","glitch_clock","glitch_division","glitch_slice","glitch_steps","glitch_pulses","glitch_jump","glitch_mix"],"params":[{"key":"glitch_mode"},{"key":"glitch_clock"},{"key":"glitch_division"},{"key":"glitch_rate"},{"key":"glitch_slice"},{"key":"glitch_repeats"},{"key":"glitch_chance"},{"key":"glitch_mix"},{"key":"glitch_steps"},{"key":"glitch_pulses"},{"key":"glitch_rotate"},{"key":"glitch_jump"},{"key":"glitch_pitch"},{"key":"glitch_reverse"},{"key":"glitch_decay"},{"key":"glitch_seed"}]},
+"effects":{"name":"Effects","knobs":["effect_tone","effect_drive","effect_bits","effect_rate","effect_delay","effect_feedback","effect_width","effect_mix"],"params":[{"key":"effect_tone"},{"key":"effect_drive"},{"key":"effect_bits"},{"key":"effect_rate"},{"key":"effect_delay"},{"key":"effect_feedback"},{"key":"effect_width"},{"key":"effect_mix"}]},
 "lane_mix":{"name":"Lane Mix","knobs":["lane_1_gain","lane_2_gain","lane_3_gain","lane_4_gain","lanes_stretch","stretch_ratio","pressure_mode","output_gain"],"params":[{"key":"lane_1_gain"},{"key":"lane_2_gain"},{"key":"lane_3_gain"},{"key":"lane_4_gain"},{"key":"lanes_stretch"},{"key":"stretch_ratio"},{"key":"pressure_mode"},{"key":"output_gain"}]},
 "performance_loop":{"name":"Performance Loop","knobs":["clip_rate","clip_record_mode","tempo_bpm","tempo_swing","chain_enabled","chain_slot","chain_clip","chain_repeats"],"params":[{"key":"clip_rate"},{"key":"clip_record_mode"},{"key":"tempo_bpm"},{"key":"tempo_swing"},{"key":"chain_enabled"},{"key":"chain_slot"},{"key":"chain_clip"},{"key":"chain_repeats"},{"key":"chain_clear"}]}
 }
@@ -625,7 +679,13 @@ int lockParameterIndex(const char* key)
         "motion_path_rate", "motion_step", "motion_seed",
         "segment_trigger", "segment_overlap", "segment_layers",
         "segment_rate", "segment_repeats", "segment_step",
-        "segment_pitch", "segment_level", "segment_curve"
+        "segment_pitch", "segment_level", "segment_curve",
+        "glitch_mode", "glitch_clock", "glitch_division", "glitch_rate",
+        "glitch_slice", "glitch_repeats", "glitch_chance", "glitch_mix",
+        "glitch_steps", "glitch_pulses", "glitch_rotate", "glitch_jump",
+        "glitch_pitch", "glitch_reverse", "glitch_decay", "glitch_seed",
+        "effect_tone", "effect_drive", "effect_bits", "effect_rate",
+        "effect_delay", "effect_feedback", "effect_width", "effect_mix"
     };
     for (std::size_t index = 0u; index < kLockParameterCount; ++index) {
         if (std::strcmp(key, keys[index]) == 0) return static_cast<int>(index);
@@ -718,6 +778,30 @@ void applyLockedValue(Engine::Controls& controls, float& outputGain,
         case LockParameter::segmentPitch: controls.segmentPitchScatter = clampValue(value, 0.0f, 12.0f); break;
         case LockParameter::segmentLevel: controls.segmentLevelVariation = clampValue(value, 0.0f, 1.0f); break;
         case LockParameter::segmentCurve: controls.segmentIntervalCurve = clampValue(value, -1.0f, 1.0f); break;
+        case LockParameter::glitchMode: controls.glitchMode = static_cast<Engine::GlitchMode>(clampValue(static_cast<int>(std::lround(value)), 0, 4)); break;
+        case LockParameter::glitchClock: controls.glitchClock = static_cast<Engine::CutClock>(clampValue(static_cast<int>(std::lround(value)), 0, 1)); break;
+        case LockParameter::glitchDivision: controls.glitchDivision = static_cast<Engine::CutDivision>(clampValue(static_cast<int>(std::lround(value)), 0, 5)); break;
+        case LockParameter::glitchRate: controls.glitchRateHz = clampValue(value, 0.25f, 64.0f); break;
+        case LockParameter::glitchSlice: controls.glitchSliceMs = clampValue(value, 2.0f, 160.0f); break;
+        case LockParameter::glitchRepeats: controls.glitchRepeats = clampValue(value, 1.0f, 16.0f); break;
+        case LockParameter::glitchChance: controls.glitchChance = clampValue(value / 100.0f, 0.0f, 1.0f); break;
+        case LockParameter::glitchMix: controls.glitchMix = clampValue(value / 100.0f, 0.0f, 1.0f); break;
+        case LockParameter::glitchSteps: controls.glitchSteps = clampValue(value, 1.0f, 16.0f); break;
+        case LockParameter::glitchPulses: controls.glitchPulses = clampValue(value, 0.0f, 16.0f); break;
+        case LockParameter::glitchRotate: controls.glitchRotate = clampValue(value, 0.0f, 15.0f); break;
+        case LockParameter::glitchJump: controls.glitchJumpMs = clampValue(value, 0.0f, 160.0f); break;
+        case LockParameter::glitchPitch: controls.glitchPitch = clampValue(value, 0.0f, 24.0f); break;
+        case LockParameter::glitchReverse: controls.glitchReverseChance = clampValue(value / 100.0f, 0.0f, 1.0f); break;
+        case LockParameter::glitchDecay: controls.glitchDecay = clampValue(value / 100.0f, 0.0f, 1.0f); break;
+        case LockParameter::glitchSeed: controls.glitchSeed = clampValue(value, 1.0f, 9999.0f); break;
+        case LockParameter::effectTone: controls.effectTone = clampValue(value, -1.0f, 1.0f); break;
+        case LockParameter::effectDrive: controls.effectDrive = clampValue(value, 0.0f, 1.0f); break;
+        case LockParameter::effectBits: controls.effectBits = clampValue(value, 0.0f, 1.0f); break;
+        case LockParameter::effectRate: controls.effectRate = clampValue(value, 1.0f, 16.0f); break;
+        case LockParameter::effectDelay: controls.effectDelayMs = clampValue(value, 1.0f, 750.0f); break;
+        case LockParameter::effectFeedback: controls.effectFeedback = clampValue(value / 100.0f, 0.0f, 0.9f); break;
+        case LockParameter::effectWidth: controls.effectWidth = clampValue(value / 100.0f, 0.0f, 1.0f); break;
+        case LockParameter::effectMix: controls.effectMix = clampValue(value / 100.0f, 0.0f, 1.0f); break;
         case LockParameter::count: break;
     }
 }
@@ -807,6 +891,30 @@ float lockedValue(const Engine::Controls& controls, float outputGain,
         case LockParameter::segmentPitch: return controls.segmentPitchScatter;
         case LockParameter::segmentLevel: return controls.segmentLevelVariation;
         case LockParameter::segmentCurve: return controls.segmentIntervalCurve;
+        case LockParameter::glitchMode: return static_cast<float>(controls.glitchMode);
+        case LockParameter::glitchClock: return static_cast<float>(controls.glitchClock);
+        case LockParameter::glitchDivision: return static_cast<float>(controls.glitchDivision);
+        case LockParameter::glitchRate: return controls.glitchRateHz;
+        case LockParameter::glitchSlice: return controls.glitchSliceMs;
+        case LockParameter::glitchRepeats: return controls.glitchRepeats;
+        case LockParameter::glitchChance: return controls.glitchChance * 100.0f;
+        case LockParameter::glitchMix: return controls.glitchMix * 100.0f;
+        case LockParameter::glitchSteps: return controls.glitchSteps;
+        case LockParameter::glitchPulses: return controls.glitchPulses;
+        case LockParameter::glitchRotate: return controls.glitchRotate;
+        case LockParameter::glitchJump: return controls.glitchJumpMs;
+        case LockParameter::glitchPitch: return controls.glitchPitch;
+        case LockParameter::glitchReverse: return controls.glitchReverseChance * 100.0f;
+        case LockParameter::glitchDecay: return controls.glitchDecay * 100.0f;
+        case LockParameter::glitchSeed: return controls.glitchSeed;
+        case LockParameter::effectTone: return controls.effectTone;
+        case LockParameter::effectDrive: return controls.effectDrive;
+        case LockParameter::effectBits: return controls.effectBits;
+        case LockParameter::effectRate: return controls.effectRate;
+        case LockParameter::effectDelay: return controls.effectDelayMs;
+        case LockParameter::effectFeedback: return controls.effectFeedback * 100.0f;
+        case LockParameter::effectWidth: return controls.effectWidth * 100.0f;
+        case LockParameter::effectMix: return controls.effectMix * 100.0f;
         case LockParameter::count: return 0.0f;
     }
     return 0.0f;
@@ -1091,6 +1199,12 @@ struct ThruInstance {
     std::array<const float*, kChannelCount> inputPointers {};
     std::array<const float*, kChannelCount> silentInputPointers {};
     std::array<float*, kChannelCount> outputPointers {};
+    std::unique_ptr<float[]> effectDelayBuffer;
+    std::size_t effectDelayCapacity = 0u;
+    std::size_t effectDelayWrite = 0u;
+    std::array<float, 2u> effectToneState {};
+    std::array<float, 2u> effectRateHold {};
+    std::size_t effectRateCountdown = 0u;
 
     std::array<int, 32u> padMappedNotes {};
     std::uint32_t noteClock = 0u;
@@ -1253,7 +1367,11 @@ struct ThruInstance {
         storage.reset(new (std::nothrow) float[totalFloats] {});
         preparedClipStorage.reset(new (std::nothrow) float[totalFloats] {});
         sampleStage.reset(new (std::nothrow) float[planeCapacityFrames] {});
-        if (!storage || !preparedClipStorage || !sampleStage) {
+        effectDelayCapacity = static_cast<std::size_t>(hostRate) + 1u;
+        effectDelayBuffer.reset(new (std::nothrow)
+            float[effectDelayCapacity * 2u] {});
+        if (!storage || !preparedClipStorage || !sampleStage
+            || !effectDelayBuffer) {
             setError("Unable to allocate active and prepared sample banks");
             return false;
         }
@@ -1337,6 +1455,70 @@ struct ThruInstance {
     void setError(const char* message)
     {
         std::snprintf(lastError.data(), lastError.size(), "%s", message ? message : "");
+    }
+
+    void processEffects(std::size_t frames, const Engine::Controls& fx)
+    {
+        const float mix = clampValue(fx.effectMix, 0.0f, 1.0f);
+        if (!effectDelayBuffer || effectDelayCapacity < 2u) return;
+        const float tone = clampValue(fx.effectTone, -1.0f, 1.0f);
+        const float cutoff = tone < 0.0f
+            ? 18000.0f * std::pow(80.0f / 18000.0f, -tone)
+            : 20.0f * std::pow(8000.0f / 20.0f, tone);
+        const float alpha = 1.0f - std::exp(-6.28318530718f
+            * clampValue(cutoff, 20.0f, sampleRate * 0.45f) / sampleRate);
+        const float drive = clampValue(fx.effectDrive, 0.0f, 1.0f) * 12.0f;
+        const float bitsAmount = clampValue(fx.effectBits, 0.0f, 1.0f);
+        const float quantization = std::pow(2.0f,
+            15.0f - bitsAmount * 12.0f);
+        const std::size_t holdFrames = static_cast<std::size_t>(clampValue(
+            std::round(fx.effectRate), 1.0f, 16.0f));
+        const std::size_t delayFrames = std::min<std::size_t>(
+            effectDelayCapacity - 1u,
+            std::max<std::size_t>(1u, static_cast<std::size_t>(sampleRate
+                * clampValue(fx.effectDelayMs, 1.0f, 750.0f) * 0.001f)));
+        const float feedback = clampValue(fx.effectFeedback, 0.0f, 0.9f);
+        const float width = clampValue(fx.effectWidth, 0.0f, 1.0f);
+        for (std::size_t frame = 0u; frame < frames; ++frame) {
+            float colored[2u] {};
+            for (std::size_t channel = 0u; channel < 2u; ++channel) {
+                const float inputSample = voiceMix[channel][frame];
+                effectToneState[channel] += alpha
+                    * (inputSample - effectToneState[channel]);
+                float sample = tone < 0.0f ? effectToneState[channel]
+                    : tone > 0.0f ? inputSample - effectToneState[channel]
+                    : inputSample;
+                sample = sample * (1.0f + drive)
+                    / (1.0f + drive * std::abs(sample));
+                colored[channel] = sample;
+            }
+            if (effectRateCountdown == 0u) {
+                for (std::size_t channel = 0u; channel < 2u; ++channel) {
+                    effectRateHold[channel] = bitsAmount > 1.0e-5f
+                        ? std::round(colored[channel] * quantization)
+                            / quantization
+                        : colored[channel];
+                }
+                effectRateCountdown = holdFrames;
+            }
+            --effectRateCountdown;
+            const std::size_t read = (effectDelayWrite
+                + effectDelayCapacity - delayFrames) % effectDelayCapacity;
+            const float delayed[2u] {
+                effectDelayBuffer[read],
+                effectDelayBuffer[effectDelayCapacity + read],
+            };
+            for (std::size_t channel = 0u; channel < 2u; ++channel) {
+                const float feedbackSample = delayed[channel] * (1.0f - width)
+                    + delayed[1u - channel] * width;
+                effectDelayBuffer[channel * effectDelayCapacity
+                    + effectDelayWrite] = softLimit(
+                        effectRateHold[channel] + feedbackSample * feedback);
+                voiceMix[channel][frame] = effectRateHold[channel]
+                    + (delayed[channel] - effectRateHold[channel]) * mix;
+            }
+            effectDelayWrite = (effectDelayWrite + 1u) % effectDelayCapacity;
+        }
     }
 
     void clearError() { lastError[0] = '\0'; }
@@ -4355,6 +4537,8 @@ struct ThruInstance {
                 if (previewFrame >= sampleStageFrames) previewActive = false;
             }
 
+            processEffects(count, clipPlaying ? clipControls : controls);
+
             if (engine.recording() && recordSource == 1) {
                 for (std::size_t frame = 0u; frame < count; ++frame) {
                     input[0u][frame] = voiceMix[0u][frame];
@@ -4448,6 +4632,18 @@ struct ThruInstance {
             "\"cut_lane_order\":%d,\"cut_poly_path\":%d,"
             "\"cut_region_mode\":%d,\"sample_mode\":%d,"
             "\"slice_region_mode\":%d,\"slice_regions\":%.0f,"
+            "\"glitch_mode\":%d,\"glitch_clock\":%d,"
+            "\"glitch_division\":%d,\"glitch_rate\":%.5f,"
+            "\"glitch_slice\":%.5f,\"glitch_repeats\":%.0f,"
+            "\"glitch_chance\":%.5f,\"glitch_mix\":%.5f,"
+            "\"glitch_steps\":%.0f,\"glitch_pulses\":%.0f,"
+            "\"glitch_rotate\":%.0f,\"glitch_jump\":%.5f,"
+            "\"glitch_pitch\":%.5f,\"glitch_reverse\":%.5f,"
+            "\"glitch_decay\":%.5f,\"glitch_seed\":%.0f,"
+            "\"effect_tone\":%.5f,\"effect_drive\":%.5f,"
+            "\"effect_bits\":%.5f,\"effect_rate\":%.0f,"
+            "\"effect_delay\":%.5f,\"effect_feedback\":%.5f,"
+            "\"effect_width\":%.5f,\"effect_mix\":%.5f,"
             "\"pad_mode\":%d,\"lane_variation\":%d,\"clip_record_mode\":%d,"
             "\"preview_level\":%.5f,\"grain_quality\":%zu,"
             "\"launch_quantize\":%d,\"generation\":%llu,\"complete\":1}",
@@ -4500,7 +4696,20 @@ struct ThruInstance {
             static_cast<int>(controls.cutRegionMode),
             static_cast<int>(controls.sampleMode),
             static_cast<int>(controls.sampleRegionMode),
-            controls.sampleRegionCount, static_cast<int>(padMode),
+            controls.sampleRegionCount,
+            static_cast<int>(controls.glitchMode),
+            static_cast<int>(controls.glitchClock),
+            static_cast<int>(controls.glitchDivision), controls.glitchRateHz,
+            controls.glitchSliceMs, controls.glitchRepeats,
+            controls.glitchChance, controls.glitchMix,
+            controls.glitchSteps, controls.glitchPulses,
+            controls.glitchRotate, controls.glitchJumpMs,
+            controls.glitchPitch, controls.glitchReverseChance,
+            controls.glitchDecay, controls.glitchSeed,
+            controls.effectTone, controls.effectDrive, controls.effectBits,
+            controls.effectRate, controls.effectDelayMs,
+            controls.effectFeedback, controls.effectWidth, controls.effectMix,
+            static_cast<int>(padMode),
             static_cast<int>(laneVariation), static_cast<int>(clipRecordMode),
             previewLevel, grainVoiceLimit,
             static_cast<int>(launchQuantize),
@@ -4544,7 +4753,7 @@ struct ThruInstance {
         if (!file) return false;
         const char magic[8] { 'S', '3', 'G', 'T', 'H', 'R', '3', '\0' };
         bool ok = writeBytes(file, magic, sizeof(magic))
-            && writeU32(file, 3u)
+            && writeU32(file, 4u)
             && writeU64(file, persistenceGeneration)
             && writeF32(file, tempoBpm)
             && writeF32(file, tempoSwing)
@@ -4634,7 +4843,8 @@ struct ThruInstance {
         const bool ok = std::fread(magic, 1u, sizeof(magic), file) == sizeof(magic)
             && std::memcmp(magic, "S3GTHR3", 7u) == 0
             && readU32(file, version)
-            && (version == 1u || version == 2u || version == 3u)
+            && (version == 1u || version == 2u || version == 3u
+                || version == 4u)
             && readU64(file, generation) && generation != 0u;
         std::fclose(file);
         return ok;
@@ -4665,7 +4875,8 @@ struct ThruInstance {
             && std::fread(magic, 1u, sizeof(magic), file) == sizeof(magic)
             && std::memcmp(magic, "S3GTHR3", 7u) == 0
             && readU32(file, version)
-            && (version == 1u || version == 2u || version == 3u)
+            && (version == 1u || version == 2u || version == 3u
+                || version == 4u)
             && readU64(file, loadedGeneration)
             && loadedGeneration != 0u
             && (expectedGeneration == kAnyPersistenceGeneration
@@ -4696,8 +4907,10 @@ struct ThruInstance {
                 std::uint32_t occupied = 0u;
                 ok = ok && readU32(file, occupied);
                 clip.occupied = occupied != 0u;
-                const std::size_t storedBaseCount = version >= 3u
-                    ? kLockParameterCount : kLegacyLockParameterCount;
+                const std::size_t storedBaseCount = version >= 4u
+                    ? kLockParameterCount : (version >= 3u
+                        ? kVersion3LockParameterCount
+                        : kLegacyLockParameterCount);
                 for (std::size_t parameter = 0u;
                      parameter < storedBaseCount; ++parameter) {
                     ok = ok && readF32(file, clip.baseValues[parameter]);
@@ -5360,6 +5573,30 @@ struct ThruInstance {
         if (jsonNumber(json, "cut_lane_order", value)) controls.cutLaneOrder = static_cast<Engine::CutLaneOrder>(clampValue(static_cast<int>(value), 0, 6));
         if (jsonNumber(json, "cut_poly_path", value)) controls.cutPolyPath = static_cast<Engine::CutPolyPath>(clampValue(static_cast<int>(value), 0, 3));
         if (jsonNumber(json, "cut_region_mode", value)) controls.cutRegionMode = static_cast<Engine::RegionMode>(clampValue(static_cast<int>(value), 0, 1));
+        if (jsonNumber(json, "glitch_mode", value)) controls.glitchMode = static_cast<Engine::GlitchMode>(clampValue(static_cast<int>(value), 0, 4));
+        if (jsonNumber(json, "glitch_clock", value)) controls.glitchClock = static_cast<Engine::CutClock>(clampValue(static_cast<int>(value), 0, 1));
+        if (jsonNumber(json, "glitch_division", value)) controls.glitchDivision = static_cast<Engine::CutDivision>(clampValue(static_cast<int>(value), 0, 5));
+        if (jsonNumber(json, "glitch_rate", value)) controls.glitchRateHz = clampValue(value, 0.25f, 64.0f);
+        if (jsonNumber(json, "glitch_slice", value)) controls.glitchSliceMs = clampValue(value, 2.0f, 160.0f);
+        if (jsonNumber(json, "glitch_repeats", value)) controls.glitchRepeats = clampValue(value, 1.0f, 16.0f);
+        if (jsonNumber(json, "glitch_chance", value)) controls.glitchChance = clampValue(value, 0.0f, 1.0f);
+        if (jsonNumber(json, "glitch_mix", value)) controls.glitchMix = clampValue(value, 0.0f, 1.0f);
+        if (jsonNumber(json, "glitch_steps", value)) controls.glitchSteps = clampValue(value, 1.0f, 16.0f);
+        if (jsonNumber(json, "glitch_pulses", value)) controls.glitchPulses = clampValue(value, 0.0f, 16.0f);
+        if (jsonNumber(json, "glitch_rotate", value)) controls.glitchRotate = clampValue(value, 0.0f, 15.0f);
+        if (jsonNumber(json, "glitch_jump", value)) controls.glitchJumpMs = clampValue(value, 0.0f, 160.0f);
+        if (jsonNumber(json, "glitch_pitch", value)) controls.glitchPitch = clampValue(value, 0.0f, 24.0f);
+        if (jsonNumber(json, "glitch_reverse", value)) controls.glitchReverseChance = clampValue(value, 0.0f, 1.0f);
+        if (jsonNumber(json, "glitch_decay", value)) controls.glitchDecay = clampValue(value, 0.0f, 1.0f);
+        if (jsonNumber(json, "glitch_seed", value)) controls.glitchSeed = clampValue(value, 1.0f, 9999.0f);
+        if (jsonNumber(json, "effect_tone", value)) controls.effectTone = clampValue(value, -1.0f, 1.0f);
+        if (jsonNumber(json, "effect_drive", value)) controls.effectDrive = clampValue(value, 0.0f, 1.0f);
+        if (jsonNumber(json, "effect_bits", value)) controls.effectBits = clampValue(value, 0.0f, 1.0f);
+        if (jsonNumber(json, "effect_rate", value)) controls.effectRate = clampValue(value, 1.0f, 16.0f);
+        if (jsonNumber(json, "effect_delay", value)) controls.effectDelayMs = clampValue(value, 1.0f, 750.0f);
+        if (jsonNumber(json, "effect_feedback", value)) controls.effectFeedback = clampValue(value, 0.0f, 0.9f);
+        if (jsonNumber(json, "effect_width", value)) controls.effectWidth = clampValue(value, 0.0f, 1.0f);
+        if (jsonNumber(json, "effect_mix", value)) controls.effectMix = clampValue(value, 0.0f, 1.0f);
         if (jsonNumber(json, "tempo_bpm", value)) {
             tempoBpm = clampValue(value, 40.0f, 240.0f);
         }
@@ -5621,6 +5858,30 @@ void setParam(void* opaque, const char* key, const char* value)
     if (std::strcmp(key, "cut_lane_order") == 0) { controls.cutLaneOrder = static_cast<Engine::CutLaneOrder>(parseEnum(value, kCutLaneOrderNames, static_cast<int>(controls.cutLaneOrder))); return; }
     if (std::strcmp(key, "cut_poly_path") == 0) { controls.cutPolyPath = static_cast<Engine::CutPolyPath>(parseEnum(value, kCutPolyPathNames, static_cast<int>(controls.cutPolyPath))); return; }
     if (std::strcmp(key, "cut_region_mode") == 0) { controls.cutRegionMode = static_cast<Engine::RegionMode>(parseEnum(value, kRegionModeNames, static_cast<int>(controls.cutRegionMode))); return; }
+    if (std::strcmp(key, "glitch_mode") == 0) { controls.glitchMode = static_cast<Engine::GlitchMode>(parseEnum(value, kGlitchModeNames, static_cast<int>(controls.glitchMode))); return; }
+    if (std::strcmp(key, "glitch_clock") == 0) { controls.glitchClock = static_cast<Engine::CutClock>(parseEnum(value, kCutClockNames, static_cast<int>(controls.glitchClock))); return; }
+    if (std::strcmp(key, "glitch_division") == 0) { controls.glitchDivision = static_cast<Engine::CutDivision>(parseEnum(value, kCutDivisionNames, static_cast<int>(controls.glitchDivision))); return; }
+    if (std::strcmp(key, "glitch_rate") == 0) { controls.glitchRateHz = clampValue(parseFloat(value, controls.glitchRateHz), 0.25f, 64.0f); return; }
+    if (std::strcmp(key, "glitch_slice") == 0) { controls.glitchSliceMs = clampValue(parseFloat(value, controls.glitchSliceMs), 2.0f, 160.0f); return; }
+    if (std::strcmp(key, "glitch_repeats") == 0) { controls.glitchRepeats = clampValue(parseFloat(value, controls.glitchRepeats), 1.0f, 16.0f); return; }
+    if (std::strcmp(key, "glitch_chance") == 0) { controls.glitchChance = clampValue(parseFloat(value, controls.glitchChance * 100.0f) / 100.0f, 0.0f, 1.0f); return; }
+    if (std::strcmp(key, "glitch_mix") == 0) { controls.glitchMix = clampValue(parseFloat(value, controls.glitchMix * 100.0f) / 100.0f, 0.0f, 1.0f); return; }
+    if (std::strcmp(key, "glitch_steps") == 0) { controls.glitchSteps = clampValue(parseFloat(value, controls.glitchSteps), 1.0f, 16.0f); return; }
+    if (std::strcmp(key, "glitch_pulses") == 0) { controls.glitchPulses = clampValue(parseFloat(value, controls.glitchPulses), 0.0f, 16.0f); return; }
+    if (std::strcmp(key, "glitch_rotate") == 0) { controls.glitchRotate = clampValue(parseFloat(value, controls.glitchRotate), 0.0f, 15.0f); return; }
+    if (std::strcmp(key, "glitch_jump") == 0) { controls.glitchJumpMs = clampValue(parseFloat(value, controls.glitchJumpMs), 0.0f, 160.0f); return; }
+    if (std::strcmp(key, "glitch_pitch") == 0) { controls.glitchPitch = clampValue(parseFloat(value, controls.glitchPitch), 0.0f, 24.0f); return; }
+    if (std::strcmp(key, "glitch_reverse") == 0) { controls.glitchReverseChance = clampValue(parseFloat(value, controls.glitchReverseChance * 100.0f) / 100.0f, 0.0f, 1.0f); return; }
+    if (std::strcmp(key, "glitch_decay") == 0) { controls.glitchDecay = clampValue(parseFloat(value, controls.glitchDecay * 100.0f) / 100.0f, 0.0f, 1.0f); return; }
+    if (std::strcmp(key, "glitch_seed") == 0) { controls.glitchSeed = clampValue(parseFloat(value, controls.glitchSeed), 1.0f, 9999.0f); return; }
+    if (std::strcmp(key, "effect_tone") == 0) { controls.effectTone = clampValue(parseFloat(value, controls.effectTone), -1.0f, 1.0f); return; }
+    if (std::strcmp(key, "effect_drive") == 0) { controls.effectDrive = clampValue(parseFloat(value, controls.effectDrive), 0.0f, 1.0f); return; }
+    if (std::strcmp(key, "effect_bits") == 0) { controls.effectBits = clampValue(parseFloat(value, controls.effectBits), 0.0f, 1.0f); return; }
+    if (std::strcmp(key, "effect_rate") == 0) { controls.effectRate = clampValue(parseFloat(value, controls.effectRate), 1.0f, 16.0f); return; }
+    if (std::strcmp(key, "effect_delay") == 0) { controls.effectDelayMs = clampValue(parseFloat(value, controls.effectDelayMs), 1.0f, 750.0f); return; }
+    if (std::strcmp(key, "effect_feedback") == 0) { controls.effectFeedback = clampValue(parseFloat(value, controls.effectFeedback * 100.0f) / 100.0f, 0.0f, 0.9f); return; }
+    if (std::strcmp(key, "effect_width") == 0) { controls.effectWidth = clampValue(parseFloat(value, controls.effectWidth * 100.0f) / 100.0f, 0.0f, 1.0f); return; }
+    if (std::strcmp(key, "effect_mix") == 0) { controls.effectMix = clampValue(parseFloat(value, controls.effectMix * 100.0f) / 100.0f, 0.0f, 1.0f); return; }
 }
 
 int getParam(void* opaque, const char* key, char* buffer, int bufferLength)
@@ -5888,6 +6149,30 @@ int getParam(void* opaque, const char* key, char* buffer, int bufferLength)
     if (std::strcmp(key, "cut_lane_order") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(controls.cutLaneOrder));
     if (std::strcmp(key, "cut_poly_path") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(controls.cutPolyPath));
     if (std::strcmp(key, "cut_region_mode") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(controls.cutRegionMode));
+    if (std::strcmp(key, "glitch_mode") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(controls.glitchMode));
+    if (std::strcmp(key, "glitch_clock") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(controls.glitchClock));
+    if (std::strcmp(key, "glitch_division") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(controls.glitchDivision));
+    if (std::strcmp(key, "glitch_rate") == 0) return std::snprintf(buffer, bufferLength, "%.4f", controls.glitchRateHz);
+    if (std::strcmp(key, "glitch_slice") == 0) return std::snprintf(buffer, bufferLength, "%.2f", controls.glitchSliceMs);
+    if (std::strcmp(key, "glitch_repeats") == 0) return std::snprintf(buffer, bufferLength, "%.0f", controls.glitchRepeats);
+    if (std::strcmp(key, "glitch_chance") == 0) return std::snprintf(buffer, bufferLength, "%.2f", controls.glitchChance * 100.0f);
+    if (std::strcmp(key, "glitch_mix") == 0) return std::snprintf(buffer, bufferLength, "%.2f", controls.glitchMix * 100.0f);
+    if (std::strcmp(key, "glitch_steps") == 0) return std::snprintf(buffer, bufferLength, "%.0f", controls.glitchSteps);
+    if (std::strcmp(key, "glitch_pulses") == 0) return std::snprintf(buffer, bufferLength, "%.0f", controls.glitchPulses);
+    if (std::strcmp(key, "glitch_rotate") == 0) return std::snprintf(buffer, bufferLength, "%.0f", controls.glitchRotate);
+    if (std::strcmp(key, "glitch_jump") == 0) return std::snprintf(buffer, bufferLength, "%.2f", controls.glitchJumpMs);
+    if (std::strcmp(key, "glitch_pitch") == 0) return std::snprintf(buffer, bufferLength, "%.4f", controls.glitchPitch);
+    if (std::strcmp(key, "glitch_reverse") == 0) return std::snprintf(buffer, bufferLength, "%.2f", controls.glitchReverseChance * 100.0f);
+    if (std::strcmp(key, "glitch_decay") == 0) return std::snprintf(buffer, bufferLength, "%.2f", controls.glitchDecay * 100.0f);
+    if (std::strcmp(key, "glitch_seed") == 0) return std::snprintf(buffer, bufferLength, "%.0f", controls.glitchSeed);
+    if (std::strcmp(key, "effect_tone") == 0) return std::snprintf(buffer, bufferLength, "%.4f", controls.effectTone);
+    if (std::strcmp(key, "effect_drive") == 0) return std::snprintf(buffer, bufferLength, "%.4f", controls.effectDrive);
+    if (std::strcmp(key, "effect_bits") == 0) return std::snprintf(buffer, bufferLength, "%.4f", controls.effectBits);
+    if (std::strcmp(key, "effect_rate") == 0) return std::snprintf(buffer, bufferLength, "%.0f", controls.effectRate);
+    if (std::strcmp(key, "effect_delay") == 0) return std::snprintf(buffer, bufferLength, "%.2f", controls.effectDelayMs);
+    if (std::strcmp(key, "effect_feedback") == 0) return std::snprintf(buffer, bufferLength, "%.2f", controls.effectFeedback * 100.0f);
+    if (std::strcmp(key, "effect_width") == 0) return std::snprintf(buffer, bufferLength, "%.2f", controls.effectWidth * 100.0f);
+    if (std::strcmp(key, "effect_mix") == 0) return std::snprintf(buffer, bufferLength, "%.2f", controls.effectMix * 100.0f);
     return -1;
 }
 

@@ -175,7 +175,7 @@ void downgradeClipBankToV1(const std::string& path)
     assert(std::fclose(file) == 0);
     assert(input.size() >= 240u);
     assert(std::memcmp(input.data(), "S3GTHR3", 7u) == 0);
-    assert(littleU32(input, 8u) == 3u);
+    assert(littleU32(input, 8u) == 4u);
 
     std::vector<std::uint8_t> output;
     output.reserve(input.size());
@@ -191,7 +191,7 @@ void downgradeClipBankToV1(const std::string& path)
     copyBytes(228u); // generation/globals plus the 16-entry chain
     for (std::size_t clip = 0u; clip < 64u; ++clip) {
         copyBytes(4u + 68u * 4u); // occupied and version-1 base parameters
-        offset += 13u * 4u; // version-3 engine-fidelity base parameters
+        offset += 37u * 4u; // newer fidelity plus Glitch/FX base parameters
         copyBytes(4u * (4u + 768u + 64u) + 8u * 4u); // sources and cues
         copyBytes(32u); // recorded through capacity flags
         offset += 4u; // take count does not exist in format 1
@@ -233,7 +233,7 @@ void downgradeClipBankToV2(const std::string& path)
     assert(std::fclose(file) == 0);
     assert(input.size() >= 240u);
     assert(std::memcmp(input.data(), "S3GTHR3", 7u) == 0);
-    assert(littleU32(input, 8u) == 3u);
+    assert(littleU32(input, 8u) == 4u);
 
     std::vector<std::uint8_t> output;
     output.reserve(input.size());
@@ -249,7 +249,7 @@ void downgradeClipBankToV2(const std::string& path)
     copyBytes(228u); // generation/globals plus the 16-entry chain
     for (std::size_t clip = 0u; clip < 64u; ++clip) {
         copyBytes(4u + 68u * 4u); // occupied and format-2 base parameters
-        offset += 13u * 4u; // format-3 engine-fidelity base parameters
+        offset += 37u * 4u; // format-3 fidelity plus format-4 Glitch/FX parameters
         copyBytes(4u * (4u + 768u + 64u) + 8u * 4u); // sources and cues
         copyBytes(32u + 4u); // capacities/flags and take count
         const std::uint32_t noteCount = littleU32(input, offset);
@@ -329,7 +329,7 @@ int main()
     const CcCheck ccChecks[] {
         {20, "locus", "1.0000"}, {21, "field", "1.0000"},
         {22, "speed", "4.0000"}, {23, "manual_lane", "4.0000"},
-        {24, "lane_cycles", "16.0000"}, {25, "algorithm", "5"},
+        {24, "lane_cycles", "16.0000"}, {25, "algorithm", "6"},
         {26, "join", "1.0000"}, {27, "output_gain", "2.0000"},
         {28, "motion_mode", "7"}, {29, "motion_sound", "7"},
         {30, "motion_rate", "20.0000"}, {31, "lanes_mode", "2"},
@@ -886,7 +886,7 @@ int main()
     ui = get(api, instance, "ui_state");
     assert((stateField(ui, 1) & 0x9) == 0x9);
     api->set_param(instance, "field", "1");
-    for (int algorithm = 0; algorithm < 6; ++algorithm) {
+    for (int algorithm = 0; algorithm < 7; ++algorithm) {
         api->set_param(instance, "algorithm", std::to_string(algorithm).c_str());
         midi(api, instance, 0x90, 60, 64);
         render(api, instance, 8);
@@ -901,6 +901,38 @@ int main()
         midi(api, instance, 0x80, 60, 0);
         render(api, instance, 40);
     }
+
+    /* Glitch uses a live per-voice history and Effects colors the summed
+       instrument path without changing the dry input monitor. */
+    api->set_param(instance, "algorithm", "Glitch");
+    api->set_param(instance, "glitch_mode", "Override");
+    api->set_param(instance, "glitch_clock", "Free");
+    api->set_param(instance, "glitch_rate", "64");
+    api->set_param(instance, "glitch_slice", "8");
+    api->set_param(instance, "glitch_steps", "1");
+    api->set_param(instance, "glitch_pulses", "1");
+    api->set_param(instance, "glitch_mix", "100");
+    midi(api, instance, 0x90, 60, 100);
+    render(api, instance, 16);
+    assert(peak() > 0);
+    midi(api, instance, 0x80, 60, 0);
+    render(api, instance, 40);
+
+    api->set_param(instance, "algorithm", "Sample");
+    api->set_param(instance, "effect_mix", "0");
+    api->set_param(instance, "effect_drive", "0");
+    midi(api, instance, 0x90, 60, 100);
+    render(api, instance, 8);
+    const int cleanPeak = peak();
+    midi(api, instance, 0x80, 60, 0);
+    render(api, instance, 40);
+    api->set_param(instance, "effect_drive", "1");
+    midi(api, instance, 0x90, 60, 100);
+    render(api, instance, 8);
+    assert(peak() > cleanPeak);
+    midi(api, instance, 0x80, 60, 0);
+    render(api, instance, 40);
+    api->set_param(instance, "effect_drive", "0");
 
     api->set_param(instance, "algorithm", "Slices");
     api->set_param(instance, "slice_region_mode", "Transients");
@@ -1029,6 +1061,13 @@ int main()
     api->set_param(instance, "lane_2_gain", "0.375");
     api->set_param(instance, "record_gain", "1.75");
     api->set_param(instance, "pad_octave", "2");
+    api->set_param(instance, "glitch_mode", "Scatter");
+    api->set_param(instance, "glitch_steps", "13");
+    api->set_param(instance, "glitch_pulses", "7");
+    api->set_param(instance, "glitch_mix", "82");
+    api->set_param(instance, "effect_drive", "0.23");
+    api->set_param(instance, "effect_delay", "375");
+    api->set_param(instance, "effect_mix", "28");
     api->set_param(instance, "algorithm", "Motion");
     api->set_param(instance, "cue_store", "2,0.625");
     const std::string state = get(api, instance, "state");
@@ -1043,6 +1082,10 @@ int main()
     api->set_param(instance, "grain_window", "Bell");
     api->set_param(instance, "lane_2_gain", "1");
     api->set_param(instance, "record_gain", "1");
+    api->set_param(instance, "glitch_mode", "Repeat");
+    api->set_param(instance, "glitch_steps", "8");
+    api->set_param(instance, "effect_drive", "0");
+    api->set_param(instance, "effect_mix", "0");
     api->set_param(instance, "state", state.c_str());
     assert(get(api, instance, "motion_mode") == "5");
     assert(get(api, instance, "motion_sound") == "5");
@@ -1056,6 +1099,13 @@ int main()
     assert(get(api, instance, "grain_window") == "2");
     assert(get(api, instance, "lane_2_gain") == "0.3750");
     assert(get(api, instance, "record_gain") == "1.7500");
+    assert(get(api, instance, "glitch_mode") == "2");
+    assert(get(api, instance, "glitch_steps") == "13");
+    assert(get(api, instance, "glitch_pulses") == "7");
+    assert(get(api, instance, "glitch_mix") == "82.00");
+    assert(get(api, instance, "effect_drive") == "0.2300");
+    assert(get(api, instance, "effect_delay") == "375.00");
+    assert(get(api, instance, "effect_mix") == "28.00");
     assert(get(api, instance, "pad_octave") == "2");
     assert(get(api, instance, "grain_quality") == "1");
     assert(stateField(get(api, instance, "cue_state"), 2) == 625);
@@ -1082,7 +1132,7 @@ int main()
         == sizeof(clipMagic));
     assert(std::memcmp(clipMagic, "S3GTHR3", 7u) == 0);
     assert(std::fread(&clipVersion, sizeof(clipVersion), 1u, clipFile) == 1u);
-    assert(clipVersion == 3u);
+    assert(clipVersion == 4u);
     std::fclose(stateFile);
     std::fclose(laneFile);
     std::fclose(clipFile);
@@ -1101,6 +1151,10 @@ int main()
     assert(get(api, instance, "lane_2_gain") == "0.3750");
     assert(get(api, instance, "record_gain") == "1.7500");
     assert(get(api, instance, "pad_octave") == "2");
+    assert(get(api, instance, "glitch_mode") == "2");
+    assert(get(api, instance, "glitch_steps") == "13");
+    assert(get(api, instance, "effect_drive") == "0.2300");
+    assert(get(api, instance, "effect_mix") == "28.00");
     assert(stateField(get(api, instance, "cue_state"), 2) == 625);
     assert(get(api, instance, "chain_entries").rfind("1:1:2,1:2:1", 0u) == 0u);
     assert((unsignedStateField(get(api, instance, "clip_bank_state"), 2) & 0x3u)
@@ -1206,7 +1260,7 @@ int main()
     assert(std::fread(clipMagic, 1u, sizeof(clipMagic), clipFile)
         == sizeof(clipMagic));
     assert(std::fread(&clipVersion, sizeof(clipVersion), 1u, clipFile) == 1u);
-    assert(clipVersion == 3u);
+    assert(clipVersion == 4u);
     assert(std::fclose(clipFile) == 0);
 
     std::remove(statePath.c_str());

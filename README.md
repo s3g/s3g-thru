@@ -19,7 +19,10 @@ It is intentionally a new instrument rather than a Sample Neon variant.
 - moves continuously through the lane stack;
 - includes Motion with continuous, packet, motor, and bounded segment sounds;
   Lanes; Grains with energy sorting; transient-aware Cutups with non-repeating
-  random cycles; direct Sample; and pad-addressed Slices playback algorithms;
+  random cycles; direct Sample; pad-addressed Slices; and per-voice Glitch
+  repeat-buffer playback algorithms;
+- adds a clip-local post-engine chain with tone, drive, bit/rate reduction,
+  and stereo cross-feedback delay;
 - detects up to 64 transient regions per lane outside the audio callback and
   draws their boundaries over the selected waveform;
 - prepares loaded-sample and queued-clip waveforms on the background worker,
@@ -39,8 +42,8 @@ It is intentionally a new instrument rather than a Sample Neon variant.
   controls;
 - recalls stereo captures, 64 performance clips, chains, recorded pressure and
   parameter gestures, and engine settings on the next launch;
-- exposes Engine, selected-engine pages, Mix / Rec, Sample, Performance Loop,
-  Overdub Takes, and Chain as padded name/value cells;
+- exposes Engine, selected-engine pages, Mix / Rec, Effects, Sample,
+  Performance Loop, Overdub Takes, and Chain as padded name/value cells;
 - records free-time polyphonic performances rather than quantizing them to a
   step grid, with Replace, layered undoable Overdub takes, and continuously
   variable 0.25x–4x loop speed;
@@ -440,7 +443,7 @@ unassigned knob position reserved for a future control.
 
 - Engine: algorithm, position, field, speed, stack start, scan rate, join,
   and level.
-- Stack Path, shared by Motion, Lanes, and Grains: eight stack paths including
+- Stack Path, shared by Motion, Lanes, Grains, and Glitch: eight stack paths including
   Random, Crossfade/Jump, shape, offset, skew, curve, and transition slew.
 - Motion Path: eight trajectories including Drunk, travel, and jitter. Motion
   Sound adds packet duty plus independent motor rate, symmetry, and shape.
@@ -450,7 +453,7 @@ unassigned knob position reserved for a future control.
   density, independent grain pitch, six windows, stereo spread, position and
   pitch spray, directional bias, reverse/size/level variation, regular or
   scattered timing, envelope skew, slice regions, scan/per-grain advance, and
-  Ordinary, Stutter, Shrink, or Doublets processing.
+  Ordinary, Sorter, Stutter, Shrink, or Doublets processing.
 - Cutups Clock/Path: fixed or tempo clock with musical divisions, timing
   variation, gate and join, equal or detected transient regions, repeats,
   reverse/pitch/level
@@ -459,11 +462,17 @@ unassigned knob position reserved for a future control.
   ping-pong playback, discrete-lane variation, and pad mode. Slice Source adds
   equal or detected transient regions; pad identity is retained by the
   performance looper.
+- Glitch Clock/Pattern: five repeat-buffer behaviors, free or tempo clock,
+  fragment length, repeats, chance and override depth, plus a rotating
+  distributed pulse cycle with seeded jump, pitch, reverse, and decay.
 - Performance: Keys is the chromatic grid; Slices maps the 32 pads to regions;
   Cues uses pads 1–8 (Shift+pad stores the current playhead, Delete+pad clears,
   pad jumps); Rolls turns held pads into tempo-divided Cutups voices.
 - Mix / Rec: four independent lane gains, Input/Resample source, record gain,
   monitor level, and browser preview level.
+- Effects: tone, soft drive, bit and rate reduction, and stereo delay time,
+  feedback, cross-width, and wet mix. All eight values are clip-local and
+  recordable as performance-loop gestures.
 - Sample edit: trim start/end and apply, reverse, normalize, and edge fade.
 - Performance Loop: playback rate, Free/Beat Sync timing, Off/Beat/Bar launch,
   BPM, Replace/Overdub, swing, pressure behavior, and root note.

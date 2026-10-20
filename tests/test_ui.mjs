@@ -115,12 +115,15 @@ source = source.replace(
     'const os = globalThis.__os;');
 source += `
 globalThis.__testParameterPageSets = PLAYBACK_PAGES.map((enginePages) =>
-    [ENGINE_PAGE, ...enginePages, MIX_REC_PAGE, SAMPLE_PAGE, LOOP_PAGE,
+    [ENGINE_PAGE, ...enginePages, MIX_REC_PAGE, EFFECTS_PAGE, SAMPLE_PAGE, LOOP_PAGE,
         TAKE_PAGE, CHAIN_PAGE].map((page) => page.keys));
 globalThis.__testMotionPages = Array.from({ length: 8 }, (_, sound) =>
     playbackPagesForAlgorithm(0, sound).map((page) => ({
         title: page.title, keys: page.keys,
     })));
+globalThis.__testPlaybackPageTitles = PLAYBACK_PAGES.map((pages) =>
+    pages.map((page) => page.title));
+globalThis.__testLockableParams = Array.from(LOCKABLE_PARAMS);
 `;
 await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
 
@@ -152,6 +155,10 @@ assert.deepEqual(globalThis.__testParameterPageSets[1][1],
     globalThis.__testParameterPageSets[2][1]);
 assert.deepEqual(globalThis.__testParameterPageSets[4][1],
     globalThis.__testParameterPageSets[5][1]);
+assert.deepEqual(globalThis.__testPlaybackPageTitles[6],
+    ['STACK PATH', 'GLITCH CLOCK', 'GLITCH PATTERN']);
+assert(globalThis.__testLockableParams.includes('glitch_mix'));
+assert(globalThis.__testLockableParams.includes('effect_feedback'));
 
 globalThis.init();
 const waveformReadsAfterInit = waveformReads;
@@ -283,7 +290,7 @@ const lanesPageDrawStart = drawWrites.length;
 globalThis.tick();
 const lanesHeader = drawWrites.slice(lanesPageDrawStart).find((write) =>
     write[0] === 'print' && write[2] === 0);
-assert(String(lanesHeader?.[3]).includes('STACK PATH 2/8'));
+assert(String(lanesHeader?.[3]).includes('STACK PATH 2/9'));
 assert(!drawWrites.slice(lanesPageDrawStart).some((write) =>
     write[0] === 'print' && String(write[3]).includes('GRAIN')));
 const lanesPageWrites = drawWrites.slice(lanesPageDrawStart);
@@ -301,7 +308,7 @@ assert.equal(paramWrites.length, writesBeforeReservedTurn,
 
 /* The take page displays the layer count and provides the same action as
    Delete+Record. The following Chain page retains its explicit slot clear. */
-for (let page = 0; page < 5; page++) {
+for (let page = 0; page < 6; page++) {
     globalThis.onMidiMessageInternal([0xB0, 55, 127]);
 }
 const takePageDrawStart = drawWrites.length;

@@ -34,9 +34,10 @@ public:
         cutups,
         sample,
         slices,
+        glitch,
     };
 
-    static constexpr std::size_t kPlaybackAlgorithmCount = 6u;
+    static constexpr std::size_t kPlaybackAlgorithmCount = 7u;
 
     enum class SampleMode : std::uint8_t {
         forward,
@@ -251,6 +252,16 @@ public:
 
     static constexpr std::size_t kCutPolyPathCount = 4u;
 
+    enum class GlitchMode : std::uint8_t {
+        repeat,
+        stutter,
+        scatter,
+        divide,
+        override,
+    };
+
+    static constexpr std::size_t kGlitchModeCount = 5u;
+
     struct Controls {
         float locus = 0.5f;
         float field = 1.0f;
@@ -339,6 +350,30 @@ public:
         float sampleRegionCount = 16.0f;
         float sampleLane = 0.0f;
         float sampleSlice = 0.0f;
+        GlitchMode glitchMode = GlitchMode::override;
+        CutClock glitchClock = CutClock::tempo;
+        CutDivision glitchDivision = CutDivision::sixteenth;
+        float glitchRateHz = 8.0f;
+        float glitchSliceMs = 32.0f;
+        float glitchRepeats = 4.0f;
+        float glitchChance = 1.0f;
+        float glitchMix = 1.0f;
+        float glitchSteps = 11.0f;
+        float glitchPulses = 5.0f;
+        float glitchRotate = 0.0f;
+        float glitchJumpMs = 120.0f;
+        float glitchPitch = 7.0f;
+        float glitchReverseChance = 0.25f;
+        float glitchDecay = 0.9f;
+        float glitchSeed = 1.0f;
+        float effectTone = 0.0f;
+        float effectDrive = 0.0f;
+        float effectBits = 0.0f;
+        float effectRate = 1.0f;
+        float effectDelayMs = 250.0f;
+        float effectFeedback = 0.35f;
+        float effectWidth = 1.0f;
+        float effectMix = 0.0f;
         float recordInputGain = 1.0f;
     };
 
@@ -768,7 +803,11 @@ public:
                 = clamp(controls.laneGains[lane], 0.0f, 4.0f);
         }
         requestAlgorithm(controls.algorithm);
-        prepareMotionSoundBlock(controls);
+        Controls preparedControls = controls;
+        if (controls.algorithm == PlaybackAlgorithm::glitch) {
+            preparedControls.motionSound = MotionSound::continuous;
+        }
+        prepareMotionSoundBlock(preparedControls);
         prepareGrainControls(controls);
 
         std::size_t laneControlCountdown = 0u;
@@ -829,6 +868,9 @@ public:
                     break;
                 case PlaybackAlgorithm::slices:
                     renderSampleFrame(controls, true, wetOutput);
+                    break;
+                case PlaybackAlgorithm::glitch:
+                    renderGlitchFrame(controls, join, wetOutput);
                     break;
             }
             advanceLaneClock();
@@ -1193,6 +1235,18 @@ private:
         cutRepeatIndex_ = 0u;
         cutRepeatedRegion_ = 0u;
         cutSwingPhase_ = false;
+        glitchWriteIndex_ = 0u;
+        glitchHistoryFrames_ = 0u;
+        glitchReadStart_ = 0u;
+        glitchSliceFrames_ = 0u;
+        glitchRepeatIndex_ = 0u;
+        glitchRepeatLimit_ = 0u;
+        glitchStep_ = 0u;
+        glitchCycle_ = 0u;
+        glitchCountdown_ = 0.0;
+        glitchReadPhase_ = 0.0;
+        glitchReadIncrement_ = 1.0;
+        glitchActive_ = false;
         for (auto& segment : motionSegments_) {
             segment = {};
         }
@@ -3747,6 +3801,195 @@ private:
         advanceCutReader(cutCurrent_);
     }
 
+    static std::size_t wrapGlitchIndex(std::size_t index)
+    {
+        return index & (kGlitchBufferFrames - 1u);
+    }
+
+    double glitchIntervalFrames(const Controls& controls) const
+    {
+        if (controls.glitchClock == CutClock::free) {
+            return static_cast<double>(outputSampleRate_)
+                / static_cast<double>(clamp(
+                    controls.glitchRateHz, 0.25f, 64.0f));
+        }
+        constexpr float beats[kCutDivisionCount] {
+            1.0f, 0.5f, 1.0f / 3.0f, 0.25f,
+            1.0f / 6.0f, 0.125f,
+        };
+        const std::size_t division = std::min<std::size_t>(
+            static_cast<std::size_t>(controls.glitchDivision),
+            kCutDivisionCount - 1u);
+        return static_cast<double>(outputSampleRate_) * 60.0
+            / static_cast<double>(clamp(
+                controls.cutTempoBpm, 20.0f, 300.0f))
+            * static_cast<double>(beats[division]);
+    }
+
+    bool glitchPatternHit(const Controls& controls, std::size_t step) const
+    {
+        const std::size_t steps = static_cast<std::size_t>(clamp(
+            std::round(controls.glitchSteps), 1.0f, 16.0f));
+        const std::size_t pulses = static_cast<std::size_t>(clamp(
+            std::round(controls.glitchPulses), 0.0f,
+            static_cast<float>(steps)));
+        if (pulses == 0u) return false;
+        const std::size_t rotate = static_cast<std::size_t>(clamp(
+            std::round(controls.glitchRotate), 0.0f, 15.0f)) % steps;
+        const std::size_t rotated = (step + steps - rotate) % steps;
+        return (rotated * pulses) % steps < pulses;
+    }
+
+    void beginGlitch(const Controls& controls, std::size_t intervalFrames)
+    {
+        if (glitchHistoryFrames_ < 16u) return;
+        const std::size_t requested = static_cast<std::size_t>(
+            outputSampleRate_ * clamp(
+                controls.glitchSliceMs, 2.0f, 160.0f) * 0.001f);
+        glitchSliceFrames_ = std::max<std::size_t>(8u,
+            std::min({ requested, glitchHistoryFrames_,
+                       kGlitchBufferFrames - 1u }));
+        const std::uint32_t seed = static_cast<std::uint32_t>(clamp(
+            std::round(controls.glitchSeed), 1.0f, 9999.0f));
+        const std::uint32_t salt = static_cast<std::uint32_t>(
+            std::max(0.0f, controls.cutVoiceIndex));
+        const std::uint32_t hash = seed * 0x9e3779b9u
+            + static_cast<std::uint32_t>(glitchStep_) * 0x85ebca6bu
+            + glitchCycle_ * 0xc2b2ae35u + salt * 0x27d4eb2du;
+        const float randomA = hashUnit(hash);
+        const float randomB = hashUnit(hash ^ 0x68bc21ebu);
+        const float randomC = hashUnit(hash ^ 0x02e5be93u);
+        const std::size_t maximumJump = std::min<std::size_t>(
+            glitchHistoryFrames_ - glitchSliceFrames_,
+            static_cast<std::size_t>(outputSampleRate_
+                * clamp(controls.glitchJumpMs, 0.0f, 160.0f) * 0.001f));
+        std::size_t jump = 0u;
+        if (controls.glitchMode == GlitchMode::scatter
+            || controls.glitchMode == GlitchMode::override) {
+            jump = static_cast<std::size_t>(randomA
+                * static_cast<float>(maximumJump));
+        }
+        const std::size_t newest = wrapGlitchIndex(
+            glitchWriteIndex_ + kGlitchBufferFrames
+                - glitchSliceFrames_ - jump);
+        glitchReadStart_ = newest;
+        glitchReadPhase_ = 0.0;
+        glitchRepeatIndex_ = 0u;
+        glitchRepeatLimit_ = static_cast<std::size_t>(clamp(
+            std::round(controls.glitchRepeats), 1.0f, 16.0f));
+        if (controls.glitchMode == GlitchMode::stutter) {
+            const std::size_t durationRepeats = std::max<std::size_t>(1u,
+                intervalFrames / std::max<std::size_t>(1u, glitchSliceFrames_));
+            glitchRepeatLimit_ = std::max(glitchRepeatLimit_, durationRepeats + 1u);
+        }
+        float semitones = (randomB * 2.0f - 1.0f)
+            * clamp(controls.glitchPitch, 0.0f, 24.0f);
+        if (controls.glitchMode != GlitchMode::override) {
+            semitones = 0.0f;
+        }
+        glitchReadIncrement_ = std::pow(2.0,
+            static_cast<double>(semitones) / 12.0);
+        if (randomC < clamp01(controls.glitchReverseChance)) {
+            glitchReadIncrement_ = -glitchReadIncrement_;
+            glitchReadPhase_ = static_cast<double>(glitchSliceFrames_ - 1u);
+        }
+        glitchActive_ = true;
+    }
+
+    void renderGlitchFrame(const Controls& controls, float join, float* wet)
+    {
+        Controls source = controls;
+        source.motion = MotionMode::forward;
+        source.motionSound = MotionSound::continuous;
+        float dry[kChannels] {};
+        renderContinuousFrame(source, join, false, false, dry);
+
+        if (!glitchActive_) {
+            glitchBuffer_[0u][glitchWriteIndex_] = dry[0u];
+            glitchBuffer_[1u][glitchWriteIndex_] = dry[1u];
+            glitchWriteIndex_ = wrapGlitchIndex(glitchWriteIndex_ + 1u);
+            glitchHistoryFrames_ = std::min(
+                kGlitchBufferFrames, glitchHistoryFrames_ + 1u);
+        }
+
+        if (glitchCountdown_ <= 0.0) {
+            const std::size_t intervalFrames = std::max<std::size_t>(1u,
+                static_cast<std::size_t>(glitchIntervalFrames(controls)));
+            const std::size_t steps = static_cast<std::size_t>(clamp(
+                std::round(controls.glitchSteps), 1.0f, 16.0f));
+            const bool hit = glitchPatternHit(controls, glitchStep_);
+            const std::uint32_t seed = static_cast<std::uint32_t>(clamp(
+                std::round(controls.glitchSeed), 1.0f, 9999.0f));
+            const float chance = hashUnit(seed + glitchCycle_ * 257u
+                + static_cast<std::uint32_t>(glitchStep_) * 17u);
+            if (hit && chance <= clamp01(controls.glitchChance)) {
+                beginGlitch(controls, intervalFrames);
+            } else if (controls.glitchMode == GlitchMode::stutter) {
+                glitchActive_ = false;
+            }
+            glitchStep_ = (glitchStep_ + 1u) % steps;
+            if (glitchStep_ == 0u) ++glitchCycle_;
+            glitchCountdown_ += static_cast<double>(intervalFrames);
+        }
+        glitchCountdown_ -= 1.0;
+
+        float stereo[kLaneChannels] { dry[0u], dry[1u] };
+        if (glitchActive_ && glitchSliceFrames_ != 0u) {
+            const double wrappedPhase = glitchReadPhase_ < 0.0
+                ? glitchReadPhase_ + static_cast<double>(glitchSliceFrames_)
+                : glitchReadPhase_;
+            const std::size_t offset = std::min<std::size_t>(
+                static_cast<std::size_t>(wrappedPhase),
+                glitchSliceFrames_ - 1u);
+            const std::size_t read = wrapGlitchIndex(
+                glitchReadStart_ + offset);
+            const float mix = clamp01(controls.glitchMix);
+            const float decay = std::pow(clamp01(controls.glitchDecay),
+                static_cast<float>(glitchRepeatIndex_));
+            const std::size_t fadeFrames = std::min<std::size_t>(
+                std::max<std::size_t>(1u, glitchSliceFrames_ / 8u),
+                static_cast<std::size_t>(outputSampleRate_ * 0.004f));
+            const std::size_t age = glitchReadIncrement_ >= 0.0
+                ? offset : glitchSliceFrames_ - 1u - offset;
+            const float edge = std::min(1.0f,
+                static_cast<float>(std::min(age,
+                    glitchSliceFrames_ - 1u - age))
+                    / static_cast<float>(fadeFrames));
+            const float amount = mix * smoothStep(edge);
+            for (std::size_t channel = 0u; channel < kLaneChannels; ++channel) {
+                const float repeated = glitchBuffer_[channel][read]
+                    * decay;
+                stereo[channel] = dry[channel]
+                    + (repeated - dry[channel]) * amount;
+            }
+            glitchReadPhase_ += glitchReadIncrement_;
+            bool wrapped = false;
+            if (glitchReadPhase_ >= static_cast<double>(glitchSliceFrames_)) {
+                glitchReadPhase_ -= static_cast<double>(glitchSliceFrames_);
+                wrapped = true;
+            } else if (glitchReadPhase_ < 0.0) {
+                glitchReadPhase_ += static_cast<double>(glitchSliceFrames_);
+                wrapped = true;
+            }
+            if (wrapped) {
+                ++glitchRepeatIndex_;
+                if (controls.glitchMode == GlitchMode::divide
+                    && glitchSliceFrames_ > 16u) {
+                    glitchSliceFrames_ = std::max<std::size_t>(
+                        16u, glitchSliceFrames_ / 2u);
+                    glitchReadPhase_ = glitchReadIncrement_ < 0.0
+                        ? static_cast<double>(glitchSliceFrames_ - 1u) : 0.0;
+                }
+                if (glitchRepeatIndex_ >= glitchRepeatLimit_) {
+                    glitchActive_ = false;
+                }
+            }
+        }
+        for (std::size_t channel = 0u; channel < kChannels; ++channel) {
+            wet[channel] = stereo[channel & 1u];
+        }
+    }
+
     void advanceLaneClock()
     {
         if (!stackMode_) {
@@ -3841,6 +4084,22 @@ private:
     std::size_t cutRepeatIndex_ = 0u;
     std::size_t cutRepeatedRegion_ = 0u;
     bool cutSwingPhase_ = false;
+    static constexpr std::size_t kGlitchBufferFrames = 8192u;
+    static_assert((kGlitchBufferFrames & (kGlitchBufferFrames - 1u)) == 0u,
+                  "glitch buffer wrapping requires a power of two");
+    float glitchBuffer_[kLaneChannels][kGlitchBufferFrames] {};
+    std::size_t glitchWriteIndex_ = 0u;
+    std::size_t glitchHistoryFrames_ = 0u;
+    std::size_t glitchReadStart_ = 0u;
+    std::size_t glitchSliceFrames_ = 0u;
+    std::size_t glitchRepeatIndex_ = 0u;
+    std::size_t glitchRepeatLimit_ = 0u;
+    std::size_t glitchStep_ = 0u;
+    std::uint32_t glitchCycle_ = 0u;
+    double glitchCountdown_ = 0.0;
+    double glitchReadPhase_ = 0.0;
+    double glitchReadIncrement_ = 1.0;
+    bool glitchActive_ = false;
     std::uint32_t randomState_ = 0x51f15e5du;
     float speed_ = 1.0f;
     float speedSlew_ = 1.0f;

@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Effects - s3g Thru manual</title>
+    <meta name="description" content="Effects controls and starting points for s3g Thru.">
+    <link rel="stylesheet" href="assets/styles.css">
+  </head>
+  <body>
+    <header class="site-header"><a class="brand" href="index.html">s3g Thru <span>manual</span></a><nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav></header>
+
+    <div class="page-shell">
+      <main class="content" id="content">
+        <p class="eyebrow">Post-engine sound</p>
+        <h1>Effects</h1>
+        <p class="lead">Every playback engine feeds one compact stereo chain: tone shaping, drive, bit and rate reduction, then a cross-feedback delay. The page is available after Mix / Rec for every engine, and all eight values belong to the current clip.</p>
+
+        <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/effects.svg" aria-label="Open Effects page"><img src="assets/screens/effects.svg" alt="Effects parameter page"></button></div><figcaption>At the defaults the chain is transparent. Input Monitor stays dry, which prevents the delay from becoming a microphone monitoring loop.</figcaption></figure>
+
+        <h2 id="controls">Effects — every parameter</h2>
+        <table class="readout-table parameter-table">
+          <thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>Detail</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>TONE</td><td>−1.00–1.00</td><td>Darkens toward −1 with a low-pass contour; brightens toward +1 by progressively removing low frequencies. Zero is bypass.</td></tr>
+            <tr><td>2</td><td>DRIV</td><td>0.00–1.00</td><td>Adds level-dependent soft saturation. It is placed before reduction and delay.</td></tr>
+            <tr><td>3</td><td>BITS</td><td>0.00–1.00</td><td>Moves from transparent resolution toward coarse four-bit quantization.</td></tr>
+            <tr><td>4</td><td>RATE</td><td>1–16</td><td>Holds each stereo sample for this many output frames. One is transparent; higher values add stepped high-frequency aliasing.</td></tr>
+            <tr><td>5</td><td>DLY</td><td>1–750 ms</td><td>Delay time in milliseconds. It is deliberately free-running so recorded parameter motion can push it away from the performance clock.</td></tr>
+            <tr><td>6</td><td>FDBK</td><td>0–90%</td><td>Amount returned to the delay. The feedback path is safely limited but high values can still build a dense tail.</td></tr>
+            <tr><td>7</td><td>WDTH</td><td>0–100%</td><td>At 0%, each delay channel feeds itself. At 100%, left and right cross-feed for ping-pong motion.</td></tr>
+            <tr><td>8</td><td>MIX</td><td>0–100%</td><td>Delay wet balance. Tone, Drive, Bits, and Rate remain audible at 0% because they precede the dry/wet delay stage.</td></tr>
+          </tbody>
+        </table>
+
+        <h2 id="starts">Good starting points</h2>
+        <table class="readout-table">
+          <thead><tr><th>Starting point</th><th>TONE</th><th>DRIV</th><th>BITS</th><th>RATE</th><th>DLY</th><th>FDBK</th><th>WDTH</th><th>MIX</th></tr></thead>
+          <tbody>
+            <tr><td>Warm stack</td><td>−0.20</td><td>0.18</td><td>0.00</td><td>1</td><td>250 ms</td><td>20%</td><td>40%</td><td>0%</td></tr>
+            <tr><td>Dry digital edge</td><td>0.08</td><td>0.12</td><td>0.35</td><td>4</td><td>90 ms</td><td>12%</td><td>0%</td><td>8%</td></tr>
+            <tr><td>Wide repeat</td><td>−0.10</td><td>0.08</td><td>0.00</td><td>1</td><td>375 ms</td><td>55%</td><td>100%</td><td>30%</td></tr>
+            <tr><td>Unstable trail</td><td>0.15</td><td>0.22</td><td>0.18</td><td>2</td><td>143 ms</td><td>72%</td><td>100%</td><td>42%</td></tr>
+          </tbody>
+        </table>
+
+        <div class="callout"><p><strong>Resampling:</strong> Resample records the processed instrument output, including this chain. Input recording captures the selected Move input instead. Browser Preview also passes through the effects, while Monitor remains dry.</p></div>
+
+        <h2 id="locks">Performance-loop motion</h2>
+        <p>Every Effects control can be recorded as a continuous performance-loop gesture. Begin Replace or Overdub recording, then turn an Effects encoder. Undo Take removes the newest layer of effect motion together with the other notes and gestures in that take.</p>
+
+        <nav class="page-nav" aria-label="Page navigation"><a class="page-nav-link" href="engine-glitch.html"><span>Previous</span>Glitch</a><a class="page-nav-link next" href="performance.html"><span>Next</span>Performance Loops</a></nav>
+      </main>
+      <aside class="toc" aria-label="Page navigation">
+        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
+        <div class="toc-section"><h2>On this page</h2><a href="#controls">Controls</a><a href="#starts">Starting points</a><a href="#locks">Performance motion</a></div>
+      </aside>
+    </div>
+    <footer class="manual-footer">Effects are clip-local, lockable, and shared by all eight voices.</footer>
+    <script src="assets/lightbox.js"></script>
+  </body>
+</html>

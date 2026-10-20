@@ -1,4 +1,4 @@
-/* s3g Thru 0.20.0 — polyphonic sampler/performance-looper takeover for Move. */
+/* s3g Thru 0.21.0 — polyphonic sampler/performance-looper takeover for Move. */
 
 import * as moveConstants from '/data/UserData/schwung/shared/constants.mjs';
 import * as moveInputFilter from '/data/UserData/schwung/shared/input_filter.mjs';
@@ -64,7 +64,8 @@ const setButtonLED = typeof moveInputFilter.setButtonLED === 'function'
     };
 
 const WAVE_BINS = 112;
-const ALGORITHMS = ['MOTION', 'LANES', 'GRAINS', 'CUTUPS', 'SAMPLE', 'SLICES'];
+const ALGORITHMS = ['MOTION', 'LANES', 'GRAINS', 'CUTUPS', 'SAMPLE', 'SLICES',
+    'GLITCH'];
 const LEDS_PER_TICK = 8;
 const VOICE_COLORS = [BrightRed, BrightOrange, BrightYellow, NeonGreen,
     AzureBlue, BlueViolet, Purple, LightMagenta];
@@ -77,7 +78,7 @@ const PARAMS = {
     speed: { key: 'speed', label: 'SPEED', min: 0.05, max: 4, step: 0.02, value: 1 },
     manual_lane: { key: 'manual_lane', label: 'STACK START', min: 1, max: 4, step: 0.04, value: 1 },
     lane_cycles: { key: 'lane_cycles', label: 'SCAN RATE', min: 0.125, max: 16, step: 0.125, value: 1 },
-    algorithm: { key: 'algorithm', label: 'ALGORITHM', min: 0, max: 5, step: 1, value: 0, integer: true, labels: ALGORITHMS },
+    algorithm: { key: 'algorithm', label: 'ALGORITHM', min: 0, max: 6, step: 1, value: 0, integer: true, labels: ALGORITHMS },
     join: { key: 'join', label: 'JOIN', min: 0, max: 1, step: 0.01, value: 1 },
     output_gain: { key: 'output_gain', label: 'LEVEL', min: 0, max: 2, step: 0.02, value: 1 },
     motion_mode: { key: 'motion_mode', label: 'MODE', min: 0, max: 7, step: 1, value: 0, integer: true, labels: ['FWD', 'REV', 'HOVER', 'ROUND', 'LOOP', 'MIRROR', 'ZIGZAG', 'DRUNK'] },
@@ -150,6 +151,30 @@ const PARAMS = {
     sample_mode: { key: 'sample_mode', label: 'PLAY MODE', min: 0, max: 3, step: 1, value: 0, integer: true, labels: ['FORWARD', 'REVERSE', 'LOOP', 'PINGPONG'] },
     slice_region_mode: { key: 'slice_region_mode', label: 'SLICE SOURCE', min: 0, max: 1, step: 1, value: 1, integer: true, labels: ['EQUAL', 'TRANSIENTS'] },
     slice_regions: { key: 'slice_regions', label: 'SLICE COUNT', min: 1, max: 64, step: 1, value: 16, integer: true },
+    glitch_mode: { key: 'glitch_mode', label: 'MODE', min: 0, max: 4, step: 1, value: 4, integer: true, labels: ['REPEAT', 'STUTTER', 'SCATTER', 'DIVIDE', 'OVERRIDE'] },
+    glitch_clock: { key: 'glitch_clock', label: 'CLOCK', min: 0, max: 1, step: 1, value: 1, integer: true, labels: ['FREE', 'TEMPO'] },
+    glitch_division: { key: 'glitch_division', label: 'DIVISION', min: 0, max: 5, step: 1, value: 3, integer: true, labels: ['1/4', '1/8', '1/8T', '1/16', '1/16T', '1/32'] },
+    glitch_rate: { key: 'glitch_rate', label: 'FREE RATE', min: 0.25, max: 64, step: 0.25, value: 8 },
+    glitch_slice: { key: 'glitch_slice', label: 'BUFFER MS', min: 2, max: 160, step: 1, value: 32, integer: true },
+    glitch_repeats: { key: 'glitch_repeats', label: 'REPEATS', min: 1, max: 16, step: 1, value: 4, integer: true },
+    glitch_chance: { key: 'glitch_chance', label: 'CHANCE %', min: 0, max: 100, step: 1, value: 100, integer: true },
+    glitch_mix: { key: 'glitch_mix', label: 'OVERRIDE %', min: 0, max: 100, step: 1, value: 100, integer: true },
+    glitch_steps: { key: 'glitch_steps', label: 'STEPS', min: 1, max: 16, step: 1, value: 11, integer: true },
+    glitch_pulses: { key: 'glitch_pulses', label: 'PULSES', min: 0, max: 16, step: 1, value: 5, integer: true },
+    glitch_rotate: { key: 'glitch_rotate', label: 'ROTATE', min: 0, max: 15, step: 1, value: 0, integer: true },
+    glitch_jump: { key: 'glitch_jump', label: 'JUMP MS', min: 0, max: 160, step: 1, value: 120, integer: true },
+    glitch_pitch: { key: 'glitch_pitch', label: 'PITCH RANGE', min: 0, max: 24, step: 0.1, value: 7 },
+    glitch_reverse: { key: 'glitch_reverse', label: 'REVERSE %', min: 0, max: 100, step: 1, value: 25, integer: true },
+    glitch_decay: { key: 'glitch_decay', label: 'DECAY %', min: 0, max: 100, step: 1, value: 90, integer: true },
+    glitch_seed: { key: 'glitch_seed', label: 'SEED', min: 1, max: 9999, step: 1, value: 1, integer: true },
+    effect_tone: { key: 'effect_tone', label: 'TONE', min: -1, max: 1, step: 0.01, value: 0 },
+    effect_drive: { key: 'effect_drive', label: 'DRIVE', min: 0, max: 1, step: 0.01, value: 0 },
+    effect_bits: { key: 'effect_bits', label: 'BITS', min: 0, max: 1, step: 0.01, value: 0 },
+    effect_rate: { key: 'effect_rate', label: 'RATE REDUCE', min: 1, max: 16, step: 1, value: 1, integer: true },
+    effect_delay: { key: 'effect_delay', label: 'DELAY MS', min: 1, max: 750, step: 1, value: 250, integer: true },
+    effect_feedback: { key: 'effect_feedback', label: 'FEEDBACK %', min: 0, max: 90, step: 1, value: 35, integer: true },
+    effect_width: { key: 'effect_width', label: 'WIDTH %', min: 0, max: 100, step: 1, value: 100, integer: true },
+    effect_mix: { key: 'effect_mix', label: 'DELAY MIX %', min: 0, max: 100, step: 1, value: 0, integer: true },
     pad_mode: { key: 'pad_mode', label: 'PAD MODE', min: 0, max: 3, step: 1, value: 0, integer: true, labels: ['KEYS', 'SLICES', 'CUES', 'ROLLS'] },
     lane_variation: { key: 'lane_variation', label: 'VARIATION', min: 0, max: 4, step: 1, value: 0, integer: true, labels: ['MANUAL', 'CYCLE', 'RANDOM', 'NO REPEAT', 'VELOCITY'] },
     preview_level: { key: 'preview_level', label: 'PREVIEW LEVEL', min: 0, max: 1, step: 0.01, value: 0.7 },
@@ -195,6 +220,8 @@ const MAIN_ENGINE_CONTROLS = [
         'sample_mode', 'lane_variation', 'pad_mode', 'output_gain'],
     ['locus', 'field', 'speed', 'manual_lane',
         'sample_mode', 'slice_region_mode', 'slice_regions', 'output_gain'],
+    ['locus', 'field', 'speed', 'manual_lane',
+        'glitch_mode', 'glitch_slice', 'glitch_mix', 'output_gain'],
 ];
 const ENGINE_PAGE = { title: 'ENGINE', keys: ['algorithm', 'locus', 'field',
     'speed', 'manual_lane', 'lane_cycles', 'join', 'output_gain'] };
@@ -250,6 +277,15 @@ const PLAYBACK_PAGES = [
         DIRECT_PLAY_PAGE,
         { title: 'SLICE SOURCE', keys: ['slice_region_mode', 'slice_regions'] },
     ],
+    [
+        STACK_PATH_PAGE,
+        { title: 'GLITCH CLOCK', keys: ['glitch_mode', 'glitch_clock',
+            'glitch_division', 'glitch_rate', 'glitch_slice',
+            'glitch_repeats', 'glitch_chance', 'glitch_mix'] },
+        { title: 'GLITCH PATTERN', keys: ['glitch_steps', 'glitch_pulses',
+            'glitch_rotate', 'glitch_jump', 'glitch_pitch',
+            'glitch_reverse', 'glitch_decay', 'glitch_seed'] },
+    ],
 ];
 
 function playbackPagesForAlgorithm(algorithm, motionSound) {
@@ -263,6 +299,9 @@ function playbackPagesForAlgorithm(algorithm, motionSound) {
 const MIX_REC_PAGE = { title: 'MIX / REC', keys: ['lane_1_gain', 'lane_2_gain',
     'lane_3_gain', 'lane_4_gain', 'record_source', 'record_gain',
     'monitor_level', 'preview_level'] };
+const EFFECTS_PAGE = { title: 'EFFECTS', keys: ['effect_tone', 'effect_drive',
+    'effect_bits', 'effect_rate', 'effect_delay', 'effect_feedback',
+    'effect_width', 'effect_mix'] };
 const SAMPLE_PAGE = { title: 'SAMPLE EDIT', keys: ['sample_trim_start',
     'sample_trim_end', 'sample_trim_apply', 'sample_reverse',
     'sample_normalize', 'sample_fade'] };
@@ -294,7 +333,13 @@ const LOCKABLE_KEYS = [
     'motion_rate_basis', 'motion_path_rate', 'motion_step', 'motion_seed',
     'segment_trigger', 'segment_overlap', 'segment_layers', 'segment_rate',
     'segment_repeats', 'segment_step', 'segment_pitch', 'segment_level',
-    'segment_curve',
+    'segment_curve', 'glitch_mode', 'glitch_clock', 'glitch_division',
+    'glitch_rate', 'glitch_slice', 'glitch_repeats', 'glitch_chance',
+    'glitch_mix', 'glitch_steps', 'glitch_pulses', 'glitch_rotate',
+    'glitch_jump', 'glitch_pitch', 'glitch_reverse', 'glitch_decay',
+    'glitch_seed', 'effect_tone', 'effect_drive', 'effect_bits',
+    'effect_rate', 'effect_delay', 'effect_feedback', 'effect_width',
+    'effect_mix',
 ];
 const LOCKABLE_PARAMS = new Set(LOCKABLE_KEYS);
 
@@ -341,6 +386,14 @@ const SHORT_LABELS = {
     sample_trim_start: 'STRT', sample_trim_end: 'END',
     sample_trim_apply: 'TRIM', sample_reverse: 'REV',
     sample_normalize: 'NORM', sample_fade: 'FADE',
+    glitch_mode: 'MODE', glitch_clock: 'CLCK', glitch_division: 'DIV',
+    glitch_rate: 'RATE', glitch_slice: 'BUFF', glitch_repeats: 'REPT',
+    glitch_chance: 'CHNC', glitch_mix: 'OVRD', glitch_steps: 'STEP',
+    glitch_pulses: 'PULS', glitch_rotate: 'ROTA', glitch_jump: 'JUMP',
+    glitch_pitch: 'PITC', glitch_reverse: 'REV%', glitch_decay: 'DCAY',
+    glitch_seed: 'SEED', effect_tone: 'TONE', effect_drive: 'DRIV',
+    effect_bits: 'BITS', effect_rate: 'RATE', effect_delay: 'DLY',
+    effect_feedback: 'FDBK', effect_width: 'WDTH', effect_mix: 'MIX',
 };
 
 const state = {
@@ -940,7 +993,8 @@ function parameterPages() {
     const enginePages = playbackPagesForAlgorithm(
         state.algorithm, Math.round(PARAMS.motion_sound.value));
     return [ENGINE_PAGE, ...enginePages,
-        MIX_REC_PAGE, SAMPLE_PAGE, LOOP_PAGE, TAKE_PAGE, CHAIN_PAGE];
+        MIX_REC_PAGE, EFFECTS_PAGE, SAMPLE_PAGE, LOOP_PAGE, TAKE_PAGE,
+        CHAIN_PAGE];
 }
 
 function activeControlKeys() {
@@ -1359,7 +1413,7 @@ function selectClipSlot(step) {
 }
 
 function selectAlgorithm(index) {
-    state.algorithm = clamp(index | 0, 0, 5);
+    state.algorithm = clamp(index | 0, 0, 6);
     PARAMS.algorithm.value = state.algorithm;
     setParamBlocking('algorithm', state.algorithm);
     if (state.clipRecording) setParam('clip_automation', 'algorithm');
@@ -1527,7 +1581,7 @@ function adjustControl(index, delta) {
 }
 
 function pollDsp() {
-    const algorithm = clamp(Math.round(getNumber('algorithm', state.algorithm)), 0, 5);
+    const algorithm = clamp(Math.round(getNumber('algorithm', state.algorithm)), 0, 6);
     if (algorithm !== state.algorithm) {
         state.algorithm = algorithm;
         PARAMS.algorithm.value = algorithm;

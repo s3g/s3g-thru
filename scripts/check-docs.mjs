@@ -23,7 +23,7 @@ const requiredPages = [
     'index.html', 'interface.html', 'recording.html', 'engines.html',
     'engine-motion.html', 'engine-lanes.html', 'engine-grains.html',
     'engine-cutups.html', 'engine-sample.html', 'engine-slices.html',
-    'performance.html', 'shortcuts.html',
+    'engine-glitch.html', 'effects.html', 'performance.html', 'shortcuts.html',
 ];
 const missingPages = requiredPages.filter((name) =>
     !fs.existsSync(path.join(docsRoot, name)));

@@ -121,6 +121,14 @@ const params = {
     grain_process: '4', grain_process_amount: '0.75',
     cutups_mode: '5', sample_mode: '2', slice_region_mode: '1',
     slice_regions: '16', pad_mode: '0', lane_variation: '0',
+    glitch_mode: '4', glitch_clock: '1', glitch_division: '3',
+    glitch_rate: '8', glitch_slice: '32', glitch_repeats: '4',
+    glitch_chance: '100', glitch_mix: '100', glitch_steps: '11',
+    glitch_pulses: '5', glitch_rotate: '2', glitch_jump: '120',
+    glitch_pitch: '7', glitch_reverse: '25', glitch_decay: '90',
+    glitch_seed: '23', effect_tone: '-0.18', effect_drive: '0.22',
+    effect_bits: '0.16', effect_rate: '2', effect_delay: '375',
+    effect_feedback: '48', effect_width: '100', effect_mix: '28',
     lane_1_gain: '1', lane_2_gain: '1', lane_3_gain: '1', lane_4_gain: '1',
     pressure_mode: '1', root_note: '60', record_lane: '2', pad_octave: '0',
     record_source: '0', record_gain: '1', monitor_level: '0', preview_level: '0.7',
@@ -317,9 +325,16 @@ captureEnginePages(5, [
     {},
     { filename: 'slice-source.svg', title: 'Slice Source parameter page' },
 ]);
+captureEnginePages(6, [
+    {},
+    { filename: 'glitch-clock.svg', title: 'Glitch Clock parameter page' },
+    { filename: 'glitch-pattern.svg', title: 'Glitch Pattern parameter page' },
+]);
 
 selectAlgorithm(1);
-moveSettingsPage(5);
+moveSettingsPage(4);
+capture('effects.svg', 'Effects parameter page');
+moveSettingsPage(2);
 capture('performance-page.svg', 'Performance Loop parameter page');
 
 cc(51);

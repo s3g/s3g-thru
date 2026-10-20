@@ -26,20 +26,7 @@
           <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/grains-process.svg" aria-label="Open Grains Process"><img src="assets/screens/grains-process.svg" alt="Grains Process parameter page with two reserved positions"></button></div><figcaption>Process introduces event patterns and manages source advance and quality.</figcaption></figure>
         </div>
 
-        <h2 id="engine-page">Engine page behavior</h2>
-        <table class="readout-table parameter-table">
-          <thead><tr><th>Knob</th><th>Parameter</th><th>Range</th><th>Grains behavior</th></tr></thead>
-          <tbody>
-            <tr><td>1</td><td>Algorithm</td><td>Grains</td><td>Selects this engine and exposes Stack Path plus three Grains pages.</td></tr>
-            <tr><td>2</td><td>Position</td><td>0.00–1.00</td><td>Centers the source window used for grain origins.</td></tr>
-            <tr><td>3</td><td>Field</td><td>0.02–1.00</td><td>Limits scanning, cloud randomization, spray, and slice centers to a source window.</td></tr>
-            <tr><td>4</td><td>Speed</td><td>0.05–4.00×</td><td>Moves the grain-origin phase. Played notes multiply this scan rate; they do not replace Grain Pitch.</td></tr>
-            <tr><td>5</td><td>Stack Start</td><td>1.00–4.00</td><td>Seeds the stack phase. Each grain captures the current lane blend when it starts and retains that blend for its lifetime.</td></tr>
-            <tr><td>6</td><td>Scan Rate</td><td>0.125–16 Hz</td><td>Moves the lane blend sampled by new grains. <kbd>Loop</kbd> holds it at the current continuous crossfade.</td></tr>
-            <tr><td>7</td><td>Join</td><td>0.00–1.00</td><td>Smooths a grain reader when it crosses a source-window seam.</td></tr>
-            <tr><td>8</td><td>Level</td><td>0.00–2.00</td><td>Final gain after overlap normalization and grain envelopes.</td></tr>
-          </tbody>
-        </table>
+        <p>The controls common to every playback engine are documented in the <a href="engines.html#shared">shared Engine page table</a>. The sections below cover Grains-specific controls.</p>
 
         <h2 id="main">Grains Main — every parameter</h2>
         <table class="readout-table parameter-table">
@@ -91,7 +78,7 @@
       <aside class="toc" aria-label="Page navigation">
         <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
         <div class="toc-section"><h2>Engine guides</h2><a href="engine-motion.html">Motion</a><a href="engine-lanes.html">Lanes</a><a href="engine-grains.html">Grains</a><a href="engine-cutups.html">Cutups</a><a href="engine-sample.html">Sample</a><a href="engine-slices.html">Slices</a></div>
-        <div class="toc-section"><h2>On this page</h2><a href="#pages">Pages</a><a href="#engine-page">Engine page</a><a href="engines.html#stack-path">Stack Path</a><a href="#main">Grains Main</a><a href="#cloud">Grains Cloud</a><a href="#process">Grains Process</a></div>
+        <div class="toc-section"><h2>On this page</h2><a href="#pages">Pages</a><a href="engines.html#shared">Shared Engine table</a><a href="engines.html#stack-path">Stack Path</a><a href="#main">Grains Main</a><a href="#cloud">Grains Cloud</a><a href="#process">Grains Process</a></div>
       </aside>
     </div>
     <footer class="manual-footer">Grains: source advance and grain pitch are independent.</footer>

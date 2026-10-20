@@ -24,20 +24,7 @@
           <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/cutups-path.svg" aria-label="Open Cutups Path"><img src="assets/screens/cutups-path.svg" alt="Cutups Path parameter page with one reserved position"></button></div><figcaption>Path determines repetition, variation, region count, lane order, and voice divergence.</figcaption></figure>
         </div>
 
-        <h2 id="engine-page">Engine page behavior</h2>
-        <table class="readout-table parameter-table">
-          <thead><tr><th>Knob</th><th>Parameter</th><th>Range</th><th>Cutups behavior</th></tr></thead>
-          <tbody>
-            <tr><td>1</td><td>Algorithm</td><td>Cutups</td><td>Selects this engine and exposes Cutups Clock and Cutups Path.</td></tr>
-            <tr><td>2</td><td>Position</td><td>0.00–1.00</td><td>Centers the source window that is divided into equal or transient regions.</td></tr>
-            <tr><td>3</td><td>Field</td><td>0.02–1.00</td><td>Sets the total window within which regions are calculated.</td></tr>
-            <tr><td>4</td><td>Speed</td><td>0.05–4.00×</td><td>Sets base pitch/read rate for each cut. Notes multiply it around Root, but never change the cut clock.</td></tr>
-            <tr><td>5</td><td>Stack Start</td><td>1.00–4.00</td><td>Not used for Cutups lane choice. Cutups selects a discrete lane with Lane Order and Poly Path.</td></tr>
-            <tr><td>6</td><td>Scan Rate</td><td>0.125–16 Hz</td><td>Not used by Cutups. Its lane changes happen only at cut boundaries.</td></tr>
-            <tr><td>7</td><td>Join</td><td>0.00–1.00</td><td>Smooths wrapping inside the chosen source region. Cut Join separately crossfades consecutive cut events.</td></tr>
-            <tr><td>8</td><td>Level</td><td>0.00–2.00</td><td>Final gain after per-cut Level Variation.</td></tr>
-          </tbody>
-        </table>
+        <p>The controls common to every playback engine are documented in the <a href="engines.html#shared">shared Engine page table</a>. The sections below cover Cutups-specific controls.</p>
 
         <h2 id="clock">Cutups Clock — every parameter</h2>
         <table class="readout-table parameter-table">
@@ -90,7 +77,7 @@
       <aside class="toc" aria-label="Page navigation">
         <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
         <div class="toc-section"><h2>Engine guides</h2><a href="engine-motion.html">Motion</a><a href="engine-lanes.html">Lanes</a><a href="engine-grains.html">Grains</a><a href="engine-cutups.html">Cutups</a><a href="engine-sample.html">Sample</a><a href="engine-slices.html">Slices</a></div>
-        <div class="toc-section"><h2>On this page</h2><a href="#pages">Pages</a><a href="#engine-page">Engine page</a><a href="#clock">Cutups Clock</a><a href="#path">Cutups Path</a><a href="#lane-orders">Lane orders</a></div>
+        <div class="toc-section"><h2>On this page</h2><a href="#pages">Pages</a><a href="engines.html#shared">Shared Engine table</a><a href="#clock">Cutups Clock</a><a href="#path">Cutups Path</a><a href="#lane-orders">Lane orders</a></div>
       </aside>
     </div>
     <footer class="manual-footer">Cutups: event clock, region order, and lane order are separate systems.</footer>

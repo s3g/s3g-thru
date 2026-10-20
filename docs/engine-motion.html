@@ -29,20 +29,7 @@
           <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/motion-sound.svg" aria-label="Open Motion Sound"><img src="assets/screens/motion-sound.svg" alt="Motion Sound parameter page"></button></div><figcaption>Motion Sound controls articulation layered over that trajectory.</figcaption></figure>
         </div>
 
-        <h2 id="engine-page">Engine page behavior</h2>
-        <table class="readout-table parameter-table">
-          <thead><tr><th>Knob</th><th>Parameter</th><th>Range</th><th>Motion behavior</th></tr></thead>
-          <tbody>
-            <tr><td>1</td><td>Algorithm</td><td>Motion</td><td>Selects this engine and exposes Stack Path, Motion Path, and Motion Sound.</td></tr>
-            <tr><td>2</td><td>Position</td><td>0.00–1.00</td><td>Centers the travel window. Moving Loop treats a manual Position change as the next moving-window center.</td></tr>
-            <tr><td>3</td><td>Field</td><td>0.02–1.00</td><td>Sets the width available to the path. The window is clamped at the ends of the sample.</td></tr>
-            <tr><td>4</td><td>Speed</td><td>0.05–4.00×</td><td>Sets path transport speed and is multiplied by the played note's interval from Root.</td></tr>
-            <tr><td>5</td><td>Stack Start</td><td>1.00–4.00</td><td>Seeds each new voice's independent phase in the shared stack path; on a Manual path it is the exact lane/crossfade.</td></tr>
-            <tr><td>6</td><td>Scan Rate</td><td>0.125–16 Hz</td><td>Moves each voice through the lane stack. <kbd>Loop</kbd> holds the current per-voice blend without stopping Motion's read head.</td></tr>
-            <tr><td>7</td><td>Join</td><td>0.00–1.00</td><td>Scales read-wrap and reversal smoothing. On Packets and Motor it also controls gating depth: 0 leaves the sound continuous; 1 allows full closure.</td></tr>
-            <tr><td>8</td><td>Level</td><td>0.00–2.00</td><td>Sets final output gain after the path and Sound articulation.</td></tr>
-          </tbody>
-        </table>
+        <p>The controls common to every playback engine are documented in the <a href="engines.html#shared">shared Engine page table</a>. The sections below cover Motion-specific controls.</p>
 
         <h2 id="path">Motion Path — every parameter</h2>
         <table class="readout-table parameter-table">
@@ -92,7 +79,7 @@
       <aside class="toc" aria-label="Page navigation">
         <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
         <div class="toc-section"><h2>Engine guides</h2><a href="engine-motion.html">Motion</a><a href="engine-lanes.html">Lanes</a><a href="engine-grains.html">Grains</a><a href="engine-cutups.html">Cutups</a><a href="engine-sample.html">Sample</a><a href="engine-slices.html">Slices</a></div>
-        <div class="toc-section"><h2>On this page</h2><a href="#pages">Pages</a><a href="#engine-page">Engine page</a><a href="#path">Motion Path</a><a href="#modes">Modes</a><a href="#sound">Motion Sound</a></div>
+        <div class="toc-section"><h2>On this page</h2><a href="#pages">Pages</a><a href="engines.html#shared">Shared Engine table</a><a href="#path">Motion Path</a><a href="#modes">Modes</a><a href="#sound">Motion Sound</a></div>
       </aside>
     </div>
     <footer class="manual-footer">Motion: continuous path first, articulation second.</footer>

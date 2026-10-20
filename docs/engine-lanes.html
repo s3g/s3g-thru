@@ -24,20 +24,7 @@
           <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/lanes-play.svg" aria-label="Open Lanes Play"><img src="assets/screens/lanes-play.svg" alt="Lanes Play parameter page with three controls and five reserved positions"></button></div><figcaption>Lanes Play contains only direction and the two time-stretch controls unique to Lanes.</figcaption></figure>
         </div>
 
-        <h2 id="engine-page">Engine page behavior</h2>
-        <table class="readout-table parameter-table">
-          <thead><tr><th>Knob</th><th>Parameter</th><th>Range</th><th>Lanes behavior</th></tr></thead>
-          <tbody>
-            <tr><td>1</td><td>Algorithm</td><td>Lanes</td><td>Selects this engine and exposes Stack Path and Lanes Play.</td></tr>
-            <tr><td>2</td><td>Position</td><td>0.00–1.00</td><td>Centers the source window read by all participating lanes.</td></tr>
-            <tr><td>3</td><td>Field</td><td>0.02–1.00</td><td>Sets the source-window width before lane-length compensation is applied.</td></tr>
-            <tr><td>4</td><td>Speed</td><td>0.05–4.00×</td><td>Sets transport/pitch, multiplied by note interval from Root.</td></tr>
-            <tr><td>5</td><td>Stack Start</td><td>1.00–4.00</td><td>Exact lane/crossfade when Path is Manual; otherwise an independent starting phase for every new voice.</td></tr>
-            <tr><td>6</td><td>Scan Rate</td><td>0.125–16 Hz</td><td>Cycles each voice through its stack Path. Press <kbd>Loop</kbd> to hold the current crossfade.</td></tr>
-            <tr><td>7</td><td>Join</td><td>0.00–1.00</td><td>Smooths source wraps and direction reversals inside Field.</td></tr>
-            <tr><td>8</td><td>Level</td><td>0.00–2.00</td><td>Final output gain after lane gains and crossfades.</td></tr>
-          </tbody>
-        </table>
+        <p>The controls common to every playback engine are documented in the <a href="engines.html#shared">shared Engine page table</a>. The sections below cover Lanes-specific controls.</p>
 
         <h2 id="path">Stack Path — every parameter</h2>
         <p>This shared page is identical for Motion, Lanes, and Grains.</p>
@@ -89,7 +76,7 @@
       <aside class="toc" aria-label="Page navigation">
         <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
         <div class="toc-section"><h2>Engine guides</h2><a href="engine-motion.html">Motion</a><a href="engine-lanes.html">Lanes</a><a href="engine-grains.html">Grains</a><a href="engine-cutups.html">Cutups</a><a href="engine-sample.html">Sample</a><a href="engine-slices.html">Slices</a></div>
-        <div class="toc-section"><h2>On this page</h2><a href="#pages">Pages</a><a href="#engine-page">Engine page</a><a href="#path">Stack Path</a><a href="#paths">Path choices</a><a href="#play">Lanes Play</a></div>
+        <div class="toc-section"><h2>On this page</h2><a href="#pages">Pages</a><a href="engines.html#shared">Shared Engine table</a><a href="#path">Stack Path</a><a href="#paths">Path choices</a><a href="#play">Lanes Play</a></div>
       </aside>
     </div>
     <footer class="manual-footer">Lanes: source direction and stack direction remain independent.</footer>

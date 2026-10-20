@@ -43,6 +43,7 @@ const flatWave = '77'.repeat(112);
 const params = {
     locus: '0.5', field: '1', speed: '1', manual_lane: '1',
     lane_cycles: '1', stack_scan_paused: '0', algorithm: '0', join: '1', output_gain: '1',
+    glitch_buffer_lock: '0',
     record_lane: '1', pad_octave: '0', record_source: '0',
     record_gain: '1', monitor_level: '0', preview_level: '0.7',
     clip_rate: '1', clip_record_mode: '0', clip_timing: '0',
@@ -339,6 +340,33 @@ assert.deepEqual(buttonWrites.filter((write) => write[0] === 58).at(-1),
     [58, 127], 'Loop should light brightly while stack scanning is held');
 globalThis.onMidiMessageInternal([0xB0, 58, 127]);
 assert.deepEqual(blockingWrites.pop(), ['stack_scan_paused', '0']);
+
+/* Shift+Loop temporarily freezes each Glitch voice's rolling history. A
+   second quick tap latches the lock; one more chord releases it. Plain Loop
+   remains Stack Hold and is never overloaded. */
+params.algorithm = '6';
+for (let tick = 0; tick < 3; tick++) globalThis.tick();
+globalThis.onMidiMessageInternal([0xB0, 49, 127]);
+globalThis.onMidiMessageInternal([0xB0, 58, 127]);
+assert.deepEqual(blockingWrites.pop(), ['glitch_buffer_lock', '1']);
+for (let tick = 0; tick < 3; tick++) globalThis.tick();
+assert.deepEqual(buttonWrites.filter((write) => write[0] === 58).at(-1),
+    [58, 3], 'Loop should turn orange while Glitch history is locked');
+globalThis.onMidiMessageInternal([0xB0, 58, 0]);
+assert.deepEqual(blockingWrites.pop(), ['glitch_buffer_lock', '0']);
+globalThis.onMidiMessageInternal([0xB0, 58, 127]);
+assert.deepEqual(blockingWrites.pop(), ['glitch_buffer_lock', '1']);
+globalThis.onMidiMessageInternal([0xB0, 58, 0]);
+globalThis.onMidiMessageInternal([0xB0, 49, 0]);
+assert.equal(params.glitch_buffer_lock, '1',
+    'the second quick Shift+Loop tap should latch Buffer Lock');
+globalThis.onMidiMessageInternal([0xB0, 49, 127]);
+globalThis.onMidiMessageInternal([0xB0, 58, 127]);
+assert.deepEqual(blockingWrites.pop(), ['glitch_buffer_lock', '0']);
+globalThis.onMidiMessageInternal([0xB0, 58, 0]);
+globalThis.onMidiMessageInternal([0xB0, 49, 0]);
+params.algorithm = '1';
+for (let tick = 0; tick < 3; tick++) globalThis.tick();
 
 /* Shift+Play opens the optional clip overview. */
 globalThis.onMidiMessageInternal([0xB0, 50, 127]);

@@ -14,7 +14,7 @@
       <main class="content" id="content">
         <p class="eyebrow">Playback engine 7 of 7</p>
         <h1>Glitch</h1>
-        <p class="lead">Glitch continuously records each voice into its own short history, then replaces selected moments with repeating fragments. A rotating pulse pattern decides when overrides happen; deterministic history jumps, pitch changes, reversals, and shrinking loops make the result repeatable without becoming regular.</p>
+        <p class="lead">Glitch continuously records each voice into its own short history, then replaces selected moments with repeating fragments. A rotating pulse pattern decides when overrides happen; deterministic history jumps, pitch changes, reversals, shrinking loops, and a performable history lock make the result repeatable without becoming regular.</p>
         <div class="callout"><p><strong>Good for:</strong> hard stutters, unstable meters, asymmetric accents, repeat-buffer interruption, abrupt silences between dense events, and patterns that can be recalled exactly by Seed.</p></div>
 
         <h2 id="pages">Pages and navigation</h2>
@@ -25,6 +25,10 @@
         </div>
 
         <p>The controls common to every playback engine are documented in the <a href="engines.html#shared">shared Engine page table</a>. Stack Path keeps moving each voice through the four lanes while its history is being filled.</p>
+
+        <h2 id="lock">Buffer Lock</h2>
+        <p>Hold <kbd>Shift</kbd> + <kbd>Loop</kbd> to freeze the recent history owned by every active Glitch voice. Release the chord to return to live capture. Tap the chord twice quickly to latch the histories, then press it once more to release the latch. Plain <kbd>Loop</kbd> remains Stack Hold, so lane motion and buffer capture can be stopped independently.</p>
+        <p>The Loop key turns orange and the display shows <code>LOCK</code> while Buffer Lock is active. Pattern, Stack Path, note pitch, and Effects continue to run against the fixed captures. A voice triggered while locked first fills its own approximately 171 ms history and then freezes; it does not borrow another voice's material. Locked audio is temporary and is not written into the clip bank—use Resample when the captured result should become a saved lane.</p>
 
         <h2 id="clock">Glitch Clock — every parameter</h2>
         <table class="readout-table parameter-table">
@@ -66,14 +70,14 @@
           </tbody>
         </table>
 
-        <div class="callout"><p><strong>Performance tip:</strong> automate Steps, Pulses, Rotate, and Override in a performance loop. The audio buffer remains live; the recorded data changes the rules used to interrupt it.</p></div>
+        <div class="callout"><p><strong>Performance tip:</strong> lock a useful moment, then automate Steps, Pulses, Rotate, and Override in a performance loop. Buffer Lock itself remains a live gesture; Resample commits the result when needed.</p></div>
 
         <nav class="page-nav" aria-label="Engine navigation"><a class="page-nav-link" href="engine-slices.html"><span>Previous engine</span>Slices</a><a class="page-nav-link next" href="effects.html"><span>Next</span>Effects</a></nav>
       </main>
       <aside class="toc" aria-label="Page navigation">
         <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
         <div class="toc-section"><h2>Engine guides</h2><a href="engine-motion.html">Motion</a><a href="engine-lanes.html">Lanes</a><a href="engine-grains.html">Grains</a><a href="engine-cutups.html">Cutups</a><a href="engine-sample.html">Sample</a><a href="engine-slices.html">Slices</a><a href="engine-glitch.html">Glitch</a></div>
-        <div class="toc-section"><h2>On this page</h2><a href="#pages">Pages</a><a href="#clock">Glitch Clock</a><a href="#pattern">Glitch Pattern</a><a href="#starts">Starting points</a></div>
+        <div class="toc-section"><h2>On this page</h2><a href="#pages">Pages</a><a href="#lock">Buffer Lock</a><a href="#clock">Glitch Clock</a><a href="#pattern">Glitch Pattern</a><a href="#starts">Starting points</a></div>
       </aside>
     </div>
     <footer class="manual-footer">Glitch: independent voice histories interrupted by repeatable, asymmetric pulse patterns.</footer>

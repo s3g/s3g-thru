@@ -1,4 +1,4 @@
-# s3g Thru 0.21.0 overtake hardware acceptance
+# s3g Thru 0.22.0 overtake hardware acceptance
 
 Desktop tests prove the module ABI and DSP behavior; they do not prove the
 exact Move input, screen, pad, or realtime paths. Preserve the previous
@@ -16,7 +16,7 @@ working Schwung installation and do this pass with headphones first.
 
 1. Set Move's main volume low and disconnect speakers.
 2. Uninstall the earlier 0.1 sound-generator build if present, restart Move,
-   then install the 0.21.0 tarball through Schwung Manager.
+   then install the 0.22.0 tarball through Schwung Manager.
 3. Open the Overtake menu with Shift + volume touch + jog-click and select
    s3g Thru.
 4. Confirm Thru opens directly on a four-row waveform page without selecting a
@@ -93,6 +93,13 @@ working Schwung installation and do this pass with headphones first.
     rotate it, and confirm the interruption pattern repeats. Raise Jump, Pitch,
     Reverse, and Override separately; confirm every held voice keeps an
     independent repeat buffer and does not produce stuck or silent voices.
+    Hold Shift+Loop and confirm the Loop key turns orange, each voice freezes
+    its recent history, and release returns to live capture without a click.
+    Tap Shift+Loop twice quickly to latch the histories; change stack motion,
+    pitch, pattern, and effects while the capture remains fixed. Press
+    Shift+Loop once to return to live history. Trigger a new note while latched
+    and confirm it becomes active after filling its own short history rather
+    than staying silent. Plain Loop must still hold/resume the stack scan.
 14. Use Up/Down to transpose the grid and confirm held/released notes do not
     stick.
 15. Press Menu. For each Algorithm, use Up/Down to visit Engine, only the shared

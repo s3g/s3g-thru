@@ -1,10 +1,10 @@
 {
   "id": "s3g-thru",
   "name": "s3g Thru",
-  "version": "0.21.0",
+  "version": "0.22.0",
   "min_host_version": "1.7.3",
   "abbrev": "THRU",
-  "description": "Eight-voice Sample-family sampler with performance looping, seven playback engines including Glitch, clip-local effects, stereo recording, cues, and rolls.",
+  "description": "Eight-voice Sample-family sampler with performance looping, lockable Glitch histories, clip-local effects, stereo recording, cues, and rolls.",
   "author": "s3g",
   "component_type": "overtake",
   "ui": "ui.js",

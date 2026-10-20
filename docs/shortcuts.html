@@ -41,6 +41,7 @@
             <tr><td>Shift + Record or Shift + main click</td><td>Start/stop stereo audio capture into the selected lane.</td></tr>
             <tr><td>Play</td><td>Stop/start performance-loop playback.</td></tr>
             <tr><td>Loop</td><td>Hold/resume every voice's lane-stack scan at its exact crossfade. Sample playheads continue.</td></tr>
+            <tr><td>Shift + Loop</td><td>In Glitch, hold for temporary Buffer Lock; tap twice quickly to latch; press once while latched to return to live history.</td></tr>
             <tr><td>Menu</td><td>Toggle waveform and parameter pages.</td></tr>
             <tr><td>Shift + Menu</td><td>Toggle Help.</td></tr>
             <tr><td>Shift + Play</td><td>Cycle Main → Clip Overview → Chain → Main.</td></tr>
@@ -85,7 +86,7 @@
             <tr><td>Steps</td><td>White occupied; orange active/stopped; green active/playing; red recording; blue-violet queued.</td></tr>
             <tr><td>Record</td><td>Red during performance-data capture; orange during audio-lane capture; dim while idle.</td></tr>
             <tr><td>Play</td><td>Green while a performance loop runs; blue-violet while launch is queued.</td></tr>
-            <tr><td>Loop</td><td>Bright while stack scanning is held; dim while scans run.</td></tr>
+            <tr><td>Loop</td><td>Orange while Glitch Buffer Lock is active; otherwise bright while stack scanning is held and dim while scans run.</td></tr>
             <tr><td>Tracks</td><td>Selected lane on ordinary pages; selected clip bank in Clip Overview.</td></tr>
           </tbody>
         </table>
@@ -155,7 +156,7 @@
           </table>
         </details>
 
-        <div class="callout"><p><strong>Move and external CCs are handled separately.</strong> Move's Loop button controls Stack Hold, while CC 58 from an external controller clears the selected chain slot. External CC 51 enables monitoring and can cause acoustic feedback.</p></div>
+        <div class="callout"><p><strong>Move and external CCs are handled separately.</strong> Move's plain Loop button controls Stack Hold and Shift+Loop controls Glitch Buffer Lock, while CC 58 from an external controller clears the selected chain slot. External CC 51 enables monitoring and can cause acoustic feedback.</p></div>
 
         <nav class="page-nav" aria-label="Page navigation">
           <a class="page-nav-link" href="performance.html"><span>Previous</span>Performance Loops</a>

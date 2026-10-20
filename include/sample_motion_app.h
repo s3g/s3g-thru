@@ -366,6 +366,7 @@ public:
         float glitchReverseChance = 0.25f;
         float glitchDecay = 0.9f;
         float glitchSeed = 1.0f;
+        bool glitchBufferLocked = false;
         float effectTone = 0.0f;
         float effectDrive = 0.0f;
         float effectBits = 0.0f;
@@ -3843,6 +3844,10 @@ private:
     void beginGlitch(const Controls& controls, std::size_t intervalFrames)
     {
         if (glitchHistoryFrames_ < 16u) return;
+        if (controls.glitchBufferLocked
+            && glitchHistoryFrames_ < kGlitchBufferFrames) {
+            return;
+        }
         const std::size_t requested = static_cast<std::size_t>(
             outputSampleRate_ * clamp(
                 controls.glitchSliceMs, 2.0f, 160.0f) * 0.001f);
@@ -3904,7 +3909,13 @@ private:
         float dry[kChannels] {};
         renderContinuousFrame(source, join, false, false, dry);
 
-        if (!glitchActive_) {
+        // A newly started voice always fills one complete short history before
+        // honoring a global lock. This keeps notes triggered while locked from
+        // inheriting an empty or unusably tiny repeat buffer.
+        const bool fillingLockedHistory = controls.glitchBufferLocked
+            && glitchHistoryFrames_ < kGlitchBufferFrames;
+        if (!glitchActive_
+            && (!controls.glitchBufferLocked || fillingLockedHistory)) {
             glitchBuffer_[0u][glitchWriteIndex_] = dry[0u];
             glitchBuffer_[1u][glitchWriteIndex_] = dry[1u];
             glitchWriteIndex_ = wrapGlitchIndex(glitchWriteIndex_ + 1u);

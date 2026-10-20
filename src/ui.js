@@ -1,4 +1,4 @@
-/* s3g Thru 0.21.0 — polyphonic sampler/performance-looper takeover for Move. */
+/* s3g Thru 0.22.0 — polyphonic sampler/performance-looper takeover for Move. */
 
 import * as moveConstants from '/data/UserData/schwung/shared/constants.mjs';
 import * as moveInputFilter from '/data/UserData/schwung/shared/input_filter.mjs';
@@ -67,6 +67,7 @@ const WAVE_BINS = 112;
 const ALGORITHMS = ['MOTION', 'LANES', 'GRAINS', 'CUTUPS', 'SAMPLE', 'SLICES',
     'GLITCH'];
 const LEDS_PER_TICK = 8;
+const GLITCH_LOCK_TAP_TICKS = 30;
 const VOICE_COLORS = [BrightRed, BrightOrange, BrightYellow, NeonGreen,
     AzureBlue, BlueViolet, Purple, LightMagenta];
 const LIBRARY_ROOT = '/data/UserData/UserLibrary/Samples';
@@ -435,6 +436,11 @@ const state = {
     clipRecording: false,
     clipPlaying: false,
     stackScanPaused: false,
+    glitchBufferLocked: false,
+    glitchLockLatched: false,
+    glitchLockMomentary: false,
+    glitchLockChord: false,
+    glitchLockLastTapTick: -1000,
     clipOverdub: false,
     clipPosition: 0,
     clipDuration: 0,
@@ -812,7 +818,8 @@ function rebuildLedQueue() {
         state.clipLaunchPending ? BlueViolet
             : (state.clipPlaying ? NeonGreen : WhiteLedDim), 0);
     queueLed('cc', MoveLoop,
-        state.stackScanPaused ? WhiteLedBright : WhiteLedDim, 0);
+        state.glitchBufferLocked ? BrightOrange
+            : (state.stackScanPaused ? WhiteLedBright : WhiteLedDim), 0);
     for (let i = 0; i < MovePads.length; i++) {
         const note = MovePads[i];
         queueLed('note', note, padColor(i), 3);
@@ -891,7 +898,9 @@ function drawMain() {
     const algorithm = ALGORITHMS[state.algorithm] || ALGORITHMS[0];
     const recordTag = state.clipRecording ? ' DATA REC'
         : (state.recording ? (state.limited ? ' LIM' : ' AUDIO') : '');
-    print(1, 0, ('THRU ' + algorithm + ' ' + clipLabel(state.activeClip)
+    const displayedAlgorithm = state.algorithm === 6 && state.glitchBufferLocked
+        ? 'GLCH LOCK' : algorithm;
+    print(1, 0, ('THRU ' + displayedAlgorithm + ' ' + clipLabel(state.activeClip)
         + ' V' + state.voiceCount + recordTag).slice(0, 21), 1);
 
     const left = 14;
@@ -974,12 +983,14 @@ function drawMain() {
                 + state.clipRate.toFixed(2) + 'x T' + state.clipTakeCount));
     const footer = state.messageTicks > 0
         ? state.message
-        : (state.laneSourceState.startsWith('MISSING')
+        : (state.algorithm === 6 && state.glitchBufferLocked
+            ? 'GLITCH BUFFER LOCKED'
+            : (state.laneSourceState.startsWith('MISSING')
             ? 'MISSING SHIFT+TRK FIX'
             : (state.scanning ? 'SCANNING WAVEFORM'
                 : (state.stackScanPaused ? 'STACK HOLD - LOOP RUN'
                     : (state.clipDuration > 0 ? clipStatus
-                    : state.laneSourceState + ' MENU'))));
+                    : state.laneSourceState + ' MENU')))));
     print(1, 55, String(footer).slice(0, 21), 1);
 }
 
@@ -1066,7 +1077,9 @@ function drawSettings() {
     const target = state.clipRecording ? 'REC ' : (state.clipPlaying ? '> ' : '');
     const pages = parameterPages();
     const takeSuffix = page === TAKE_PAGE ? ' ' + state.clipTakeCount : '';
-    const pageTitle = target + page.title + takeSuffix + ' '
+    const lockTarget = state.algorithm === 6 && state.glitchBufferLocked
+        ? 'LCK ' : '';
+    const pageTitle = target + lockTarget + page.title + takeSuffix + ' '
         + (state.settingsPage + 1)
         + '/' + pages.length;
     const title = state.actionMessageTicks > 0
@@ -1092,7 +1105,7 @@ function drawHelp() {
     print(1, 23, 'SHIFT+REC  audio lane', 1);
     print(1, 33, 'STEPS      clip slots', 1);
     print(1, 43, 'LEFT/RIGHT clip bank', 1);
-    print(1, 55, 'LOOP hold MENU params', 1);
+    print(1, 55, 'SH+LOOP glitch lock', 1);
 }
 
 function clipLabel(index) {
@@ -1607,6 +1620,10 @@ function pollDsp() {
         state.laneSourceState) || 'EMPTY:EMPTY');
     state.undoAvailable = getNumber('undo_available', 0) !== 0;
     state.stackScanPaused = getNumber('stack_scan_paused', 0) !== 0;
+    state.glitchBufferLocked = getNumber('glitch_buffer_lock', 0) !== 0;
+    if (!state.glitchBufferLocked && !state.glitchLockMomentary) {
+        state.glitchLockLatched = false;
+    }
     if (state.ticks % 60 === 0) {
         const performance = String(getParam('performance_state', '0,0'))
             .split(',').map((item) => Number(item));
@@ -1628,6 +1645,10 @@ globalThis.init = function() {
     state.actionMessageTicks = 0;
     state.shiftHeld = false;
     state.deleteHeld = false;
+    state.glitchLockLatched = false;
+    state.glitchLockMomentary = false;
+    state.glitchLockChord = false;
+    state.glitchLockLastTapTick = -1000;
     state.activePads.clear();
     state.ledPending.clear();
     state.ledSent.clear();
@@ -1660,6 +1681,8 @@ globalThis.init = function() {
         || 'EMPTY:EMPTY');
     state.undoAvailable = getNumber('undo_available', 0) !== 0;
     state.stackScanPaused = getNumber('stack_scan_paused', 0) !== 0;
+    state.glitchBufferLocked = getNumber('glitch_buffer_lock', 0) !== 0;
+    state.glitchLockLatched = state.glitchBufferLocked;
     state.padMode = clamp(Math.round(getNumber('pad_mode', 0)), 0, 3);
     parseWaveforms(getParam('waveforms', ''));
     if (state.recalled) {
@@ -1741,6 +1764,15 @@ globalThis.onMidiMessageInternal = function(data) {
     if (status !== 0xB0) return;
     if (number === MoveShift) {
         state.shiftHeld = value > 0;
+        if (!state.shiftHeld && state.glitchLockMomentary
+            && !state.glitchLockLatched) {
+            state.glitchLockMomentary = false;
+            state.glitchLockLastTapTick = state.ticks;
+            state.glitchBufferLocked = false;
+            setParamBlocking('glitch_buffer_lock', 0);
+            showMessage('GLITCH BUFFER LIVE');
+            rebuildLedQueue();
+        }
         return;
     }
     if (number === MoveDelete) {
@@ -1752,11 +1784,54 @@ globalThis.onMidiMessageInternal = function(data) {
         else toggleClipPlaying();
         return;
     }
-    if (number === MoveLoop && value > 0) {
-        state.stackScanPaused = !state.stackScanPaused;
-        setParamBlocking('stack_scan_paused', state.stackScanPaused ? 1 : 0);
-        showMessage(state.stackScanPaused ? 'STACK SCAN HELD' : 'STACK SCAN RUNNING');
-        rebuildLedQueue();
+    if (number === MoveLoop) {
+        if (value > 0 && state.shiftHeld) {
+            state.glitchLockChord = true;
+            if (state.glitchLockLatched) {
+                state.glitchLockLatched = false;
+                state.glitchLockMomentary = false;
+                state.glitchLockLastTapTick = -1000;
+                state.glitchBufferLocked = false;
+                setParamBlocking('glitch_buffer_lock', 0);
+                showMessage('GLITCH BUFFER LIVE');
+            } else if (state.algorithm !== 6) {
+                showMessage('BUFFER LOCK: GLITCH');
+            } else if (state.ticks - state.glitchLockLastTapTick
+                <= GLITCH_LOCK_TAP_TICKS) {
+                state.glitchLockLatched = true;
+                state.glitchLockMomentary = false;
+                state.glitchLockLastTapTick = -1000;
+                state.glitchBufferLocked = true;
+                setParamBlocking('glitch_buffer_lock', 1);
+                showMessage('GLITCH LOCK LATCHED');
+            } else {
+                state.glitchLockMomentary = true;
+                state.glitchBufferLocked = true;
+                setParamBlocking('glitch_buffer_lock', 1);
+                showMessage('GLITCH BUFFER HELD');
+            }
+            rebuildLedQueue();
+            return;
+        }
+        if (value <= 0 && state.glitchLockChord) {
+            state.glitchLockChord = false;
+            if (state.glitchLockMomentary && !state.glitchLockLatched) {
+                state.glitchLockMomentary = false;
+                state.glitchLockLastTapTick = state.ticks;
+                state.glitchBufferLocked = false;
+                setParamBlocking('glitch_buffer_lock', 0);
+                showMessage('GLITCH BUFFER LIVE');
+                rebuildLedQueue();
+            }
+            return;
+        }
+        if (value > 0) {
+            state.stackScanPaused = !state.stackScanPaused;
+            setParamBlocking('stack_scan_paused', state.stackScanPaused ? 1 : 0);
+            showMessage(state.stackScanPaused
+                ? 'STACK SCAN HELD' : 'STACK SCAN RUNNING');
+            rebuildLedQueue();
+        }
         return;
     }
     if (value <= 0 && number !== MoveMainKnob
@@ -1878,6 +1953,7 @@ globalThis.onUnload = function() {
     if (state.recording) setParamBlocking('record_gate', 0);
     if (state.clipRecording) setParamBlocking('clip_record', 1);
     setParamBlocking('all_notes_off', 1);
+    setParamBlocking('glitch_buffer_lock', 0);
     setButtonLED(MoveRecord, Black);
     if (MoveRecordAlt !== MoveRecord) setButtonLED(MoveRecordAlt, Black);
     setButtonLED(MovePlay, Black);

@@ -1,6 +1,6 @@
 # Playback engine fidelity audit
 
-This audit compares s3g Thru 0.21 with the current Sample-family engines in
+This audit compares s3g Thru 0.22 with the current Sample-family engines in
 `s3g-dsp`. It distinguishes musical identity from desktop-host features that
 do not fit Move. Multichannel output assignment, plug-in voice routing, and
 host-specific editor behavior are not fidelity requirements for Thru.
@@ -15,7 +15,7 @@ host-specific editor behavior are not fidelity requirements for Thru.
 | Cutups | High performance core | Free/tempo clocks; equal/transient regions; six source orders including non-repeating Random Cycle; repeat, gate, join, timing, reverse, pitch, and level variation; seven lane orders; four poly paths | Whole/half divisions; manual source and file patterns; explicit pattern length; per-lane tempo metadata and sync; manual lane/source steps |
 | Sample | Medium | Forward, reverse, loop, and ping-pong; chromatic eight-voice playback; four discrete-lane variation modes plus velocity-selected lane; cues and rolls | Rate/Stretch/Hybrid pitch modes; host sync; Auto/Gate/One Shot/Toggle triggers; Layer/Restart/Ignore retrigger; Mono/Legato; dedicated attack/release and glide |
 | Slices | Medium | Equal or detected transient regions; pad-addressed regions; four playback directions; discrete lane variation; chromatic, slice, cue, and roll pad layouts | Per-slice gain, pitch, pan, direction, launch, loop bounds, and choke; trigger/retrigger/voice modes; stretch/sync pitch behavior; proportional slice envelopes |
-| Glitch | Native to Thru | Per-voice rolling history, five repeat-buffer modes, free/tempo clock, rotating distributed pulse patterns, deterministic chance, jump, pitch, reverse, decay, and full buffer override | Not a port. Future changes should follow Thru performance needs rather than desktop parity |
+| Glitch | Native to Thru | Per-voice rolling history with temporary/latched lock, five repeat-buffer modes, free/tempo clock, rotating distributed pulse patterns, deterministic chance, jump, pitch, reverse, decay, and full buffer override | Not a port. Future changes should follow Thru performance needs rather than desktop parity |
 
 ## Fidelity decisions
 

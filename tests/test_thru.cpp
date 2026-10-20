@@ -912,9 +912,14 @@ int main()
     api->set_param(instance, "glitch_steps", "1");
     api->set_param(instance, "glitch_pulses", "1");
     api->set_param(instance, "glitch_mix", "100");
+    assert(get(api, instance, "glitch_buffer_lock") == "0");
+    api->set_param(instance, "glitch_buffer_lock", "1");
+    assert(get(api, instance, "glitch_buffer_lock") == "1");
     midi(api, instance, 0x90, 60, 100);
-    render(api, instance, 16);
+    render(api, instance, 192);
     assert(peak() > 0);
+    api->set_param(instance, "glitch_buffer_lock", "0");
+    assert(get(api, instance, "glitch_buffer_lock") == "0");
     midi(api, instance, 0x80, 60, 0);
     render(api, instance, 40);
 

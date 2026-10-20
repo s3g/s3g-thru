@@ -516,6 +516,7 @@ constexpr const char kChainParams[] = R"json([
 {"key":"glitch_reverse","name":"Reverse Chance","short_name":"REVERSE","type":"float","min":0,"max":100,"step":1,"default":25,"unit":"%"},
 {"key":"glitch_decay","name":"Repeat Decay","short_name":"DECAY","type":"float","min":0,"max":100,"step":1,"default":90,"unit":"%"},
 {"key":"glitch_seed","name":"Pattern Seed","short_name":"SEED","type":"int","min":1,"max":9999,"default":1},
+{"key":"glitch_buffer_lock","name":"Glitch Buffer Lock","short_name":"LOCK","type":"enum","options":["Live","Locked"],"default":0,"live":true},
 {"key":"effect_tone","name":"Effect Tone","short_name":"TONE","type":"float","min":-1,"max":1,"step":0.01,"default":0},
 {"key":"effect_drive","name":"Effect Drive","short_name":"DRIVE","type":"float","min":0,"max":1,"step":0.01,"default":0},
 {"key":"effect_bits","name":"Bit Reduction","short_name":"BITS","type":"float","min":0,"max":1,"step":0.01,"default":0},
@@ -1218,6 +1219,7 @@ struct ThruInstance {
     int lastVariationLane = -1;
     float performanceLane = 0.0f;
     bool stackScanPaused = false;
+    bool glitchBufferLocked = false;
     float attackCoefficient = 1.0f;
     float releaseCoefficient = 1.0f;
 
@@ -2772,6 +2774,7 @@ struct ThruInstance {
         effective.lanePhaseOffset = pressureMode != 0
             ? clampValue(voice.laneOffset, 0.0f, 1.0f) : 0.0f;
         effective.laneScanPaused = stackScanPaused;
+        effective.glitchBufferLocked = glitchBufferLocked;
         effective.mix = 1.0f;
         effective.recordInputGain = 1.0f;
         return effective;
@@ -5677,6 +5680,7 @@ void setParam(void* opaque, const char* key, const char* value)
         && std::strcmp(key, "performance_reset") != 0
         && std::strcmp(key, "all_notes_off") != 0
         && std::strcmp(key, "stack_scan_paused") != 0
+        && std::strcmp(key, "glitch_buffer_lock") != 0
         && std::strcmp(key, "state") != 0) {
         instance->markPersistentStateDirty();
     }
@@ -5688,6 +5692,7 @@ void setParam(void* opaque, const char* key, const char* value)
     if (std::strcmp(key, "manual_lane") == 0) { controls.manualLane = clampValue(parseFloat(value, controls.manualLane + 1.0f) - 1.0f, 0.0f, 3.0f); return; }
     if (std::strcmp(key, "lane_cycles") == 0) { controls.laneCycles = clampValue(parseFloat(value, controls.laneCycles), 0.125f, 16.0f); return; }
     if (std::strcmp(key, "stack_scan_paused") == 0) { instance->stackScanPaused = isTruthy(value); return; }
+    if (std::strcmp(key, "glitch_buffer_lock") == 0) { instance->glitchBufferLocked = isTruthy(value); return; }
     if (std::strcmp(key, "algorithm") == 0) { controls.algorithm = static_cast<Engine::PlaybackAlgorithm>(parseEnum(value, kAlgorithmNames, static_cast<int>(controls.algorithm))); return; }
     if (std::strcmp(key, "sample_mode") == 0) { controls.sampleMode = static_cast<Engine::SampleMode>(parseEnum(value, kSampleModeNames, static_cast<int>(controls.sampleMode))); return; }
     if (std::strcmp(key, "slice_region_mode") == 0) { controls.sampleRegionMode = static_cast<Engine::RegionMode>(parseEnum(value, kRegionModeNames, static_cast<int>(controls.sampleRegionMode))); return; }
@@ -6040,6 +6045,7 @@ int getParam(void* opaque, const char* key, char* buffer, int bufferLength)
     if (std::strcmp(key, "manual_lane") == 0) return std::snprintf(buffer, bufferLength, "%.4f", controls.manualLane + 1.0f);
     if (std::strcmp(key, "lane_cycles") == 0) return std::snprintf(buffer, bufferLength, "%.4f", controls.laneCycles);
     if (std::strcmp(key, "stack_scan_paused") == 0) return std::snprintf(buffer, bufferLength, "%d", instance->stackScanPaused ? 1 : 0);
+    if (std::strcmp(key, "glitch_buffer_lock") == 0) return std::snprintf(buffer, bufferLength, "%d", instance->glitchBufferLocked ? 1 : 0);
     if (std::strcmp(key, "algorithm") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(controls.algorithm));
     if (std::strcmp(key, "sample_mode") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(controls.sampleMode));
     if (std::strcmp(key, "slice_region_mode") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(controls.sampleRegionMode));

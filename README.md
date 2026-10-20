@@ -143,7 +143,10 @@ playback engine is included. Each screen cell is aligned with one of the eight
 physical dials and shows a padded parameter name with its value underneath—no
 small dial graphic. **Loop** holds every active voice at its current stack
 position, including an in-between lane crossfade; press it again to resume each
-voice's independent scan from that point. **Shift + Back** restores the last destructive clip,
+voice's independent scan from that point. In Glitch, hold **Shift + Loop** for
+a temporary repeat-history lock. Tap the chord twice quickly to latch it; press
+it once more to release. The Loop key is orange while histories are locked.
+**Shift + Back** restores the last destructive clip,
 source, or sample edit.
 **Shift + Menu** shows compact help. **Back** closes a secondary page, or exits
 from the waveform page. Schwung's universal
@@ -464,7 +467,8 @@ unassigned knob position reserved for a future control.
   performance looper.
 - Glitch Clock/Pattern: five repeat-buffer behaviors, free or tempo clock,
   fragment length, repeats, chance and override depth, plus a rotating
-  distributed pulse cycle with seeded jump, pitch, reverse, and decay.
+  distributed pulse cycle with seeded jump, pitch, reverse, decay, and
+  temporary or latched live-history locking with Shift + Loop.
 - Performance: Keys is the chromatic grid; Slices maps the 32 pads to regions;
   Cues uses pads 1–8 (Shift+pad stores the current playhead, Delete+pad clears,
   pad jumps); Rolls turns held pads into tempo-divided Cutups voices.

@@ -9,7 +9,7 @@
     <text x="1" y="28.5" fill="#dce8e1">SHIFT+REC  audio lane</text>
     <text x="1" y="38.5" fill="#dce8e1">STEPS      clip slots</text>
     <text x="1" y="48.5" fill="#dce8e1">LEFT/RIGHT clip bank</text>
-    <text x="1" y="60.5" fill="#dce8e1">LOOP hold MENU params</text>
+    <text x="1" y="60.5" fill="#dce8e1">SH+LOOP glitch lock</text>
   </g>
   <rect x="0.25" y="0.25" width="127.5" height="63.5" fill="none" stroke="#5b6661" stroke-width="0.5"/>
 </svg>

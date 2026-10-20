@@ -17,13 +17,14 @@ Primary references:
 
 ## Ideas that fit Thru
 
-### 1. Lockable live history
+### 1. Lockable live history — implemented in 0.22
 
-Glitch 0.21 establishes a private rolling history per voice. A future Buffer
-Lock gesture could stop replacement of that history while notes, stack paths,
-and repeat patterns continue. Releasing the gesture would return to live
-capture. This extends the instrument's present material rather than adding a
-second sampling workflow.
+Glitch now stops replacement of each voice's short history while notes, stack
+paths, repeat patterns, and effects continue. Shift+Loop can hold the lock
+temporarily or latch it; release returns to live capture. A voice started while
+locked fills its own bounded history before freezing, so the gesture cannot
+strand it with an empty buffer. The captured audio remains deliberately
+ephemeral unless the user resamples it.
 
 ### 2. Relative performance macros
 

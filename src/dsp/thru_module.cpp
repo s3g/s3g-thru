@@ -233,6 +233,21 @@ enum class LockParameter : std::uint32_t {
     effectFeedback,
     effectWidth,
     effectMix,
+    longGrainMode,
+    longGrainLength,
+    longGrainLayers,
+    longGrainPitch,
+    longGrainShape,
+    longGrainEdge,
+    longGrainSpread,
+    longGrainReverse,
+    longGrainSpray,
+    longGrainBias,
+    longGrainDurationVariation,
+    longGrainPitchSpray,
+    longGrainLevelVariation,
+    longGrainPhase,
+    longGrainAdvance,
     count
 };
 
@@ -240,7 +255,8 @@ constexpr std::size_t kLockParameterCount =
     static_cast<std::size_t>(LockParameter::count);
 constexpr std::size_t kLegacyLockParameterCount = 68u;
 constexpr std::size_t kVersion3LockParameterCount = 81u;
-static_assert(kLockParameterCount == 105u,
+constexpr std::size_t kVersion4LockParameterCount = 105u;
+static_assert(kLockParameterCount == 120u,
               "clip point descriptors support up to 255 lock parameters");
 constexpr std::size_t kClipPressureLaneOffset = kLockParameterCount;
 constexpr std::size_t kClipStackPositionLaneOffset =
@@ -310,7 +326,8 @@ enum class ClipPrepareState : int {
 const host_api_v1_t* g_host = nullptr;
 
 constexpr const char* kAlgorithmNames[] {
-    "Motion", "Lanes", "Grains", "Cutups", "Sample", "Slices", "Glitch"
+    "Motion", "Lanes", "Grains", "Cutups", "Sample", "Slices", "Glitch",
+    "Long Grains"
 };
 constexpr const char* kSampleModeNames[] {
     "Forward", "Reverse", "Loop", "Ping Pong"
@@ -362,6 +379,10 @@ constexpr const char* kGrainProcessNames[] {
     "Ordinary", "Stutter", "Shrink", "Doublets", "Sorter"
 };
 constexpr const char* kGrainAdvanceNames[] { "Scan", "Per Grain" };
+constexpr const char* kLongGrainShapeNames[] {
+    "Bell", "Hann", "Triangle", "Plateau"
+};
+constexpr const char* kLongGrainAdvanceNames[] { "Scan", "Per Layer" };
 constexpr const char* kCutClockNames[] { "Free", "Tempo" };
 constexpr const char* kCutDivisionNames[] {
     "1/4", "1/8", "1/8T", "1/16", "1/16T", "1/32"
@@ -416,7 +437,7 @@ constexpr const char kChainParams[] = R"json([
 {"key":"speed","name":"Speed","short_name":"SPD","type":"float","min":0.05,"max":4,"step":0.01,"default":1},
 {"key":"manual_lane","name":"Stack Start","short_name":"START","type":"float","min":1,"max":4,"step":0.01,"default":1},
 {"key":"lane_cycles","name":"Stack Rate","short_name":"SCAN","type":"float","min":0.125,"max":16,"step":0.125,"default":1,"unit":"Hz"},
-{"key":"algorithm","name":"Algorithm","short_name":"ALG","type":"enum","options":["Motion","Lanes","Grains","Cutups","Sample","Slices","Glitch"],"default":0},
+{"key":"algorithm","name":"Algorithm","short_name":"ALG","type":"enum","options":["Motion","Lanes","Grains","Cutups","Sample","Slices","Glitch","Long Grains"],"default":0},
 {"key":"join","name":"Join","short_name":"JOIN","type":"float","min":0,"max":1,"step":0.01,"default":1},
 {"key":"output_gain","name":"Level","short_name":"LEVEL","type":"float","min":0,"max":2,"step":0.01,"default":1},
 {"key":"pressure_mode","name":"Pressure","short_name":"PRESS","type":"enum","options":["Off","Offset"],"default":1},
@@ -490,6 +511,21 @@ constexpr const char kChainParams[] = R"json([
 {"key":"grain_process_amount","name":"Process Amount","short_name":"AMOUNT","type":"float","min":0,"max":1,"step":0.01,"default":0.5},
 {"key":"grain_regions","name":"Slice Regions","short_name":"REGIONS","type":"int","min":1,"max":64,"default":16},
 {"key":"grain_advance","name":"Source Advance","short_name":"ADVANCE","type":"enum","options":["Scan","Per Grain"],"default":0},
+{"key":"long_grain_mode","name":"Long Grain Mode","short_name":"MODE","type":"enum","options":["Scan","Freeze","Cloud","Slice"],"default":0},
+{"key":"long_grain_length","name":"Long Grain Length","short_name":"LENGTH","type":"float","min":250,"max":12000,"step":10,"default":2000,"unit":"ms"},
+{"key":"long_grain_layers","name":"Long Grain Layers","short_name":"LAYERS","type":"int","min":1,"max":4,"default":2},
+{"key":"long_grain_pitch","name":"Long Grain Pitch","short_name":"PITCH","type":"float","min":0.25,"max":4,"step":0.01,"default":1},
+{"key":"long_grain_shape","name":"Long Grain Shape","short_name":"SHAPE","type":"enum","options":["Bell","Hann","Triangle","Plateau"],"default":3},
+{"key":"long_grain_edge","name":"Plateau Edge","short_name":"EDGE","type":"float","min":5,"max":2000,"step":5,"default":120,"unit":"ms"},
+{"key":"long_grain_spread","name":"Stereo Spread","short_name":"SPREAD","type":"float","min":0,"max":1,"step":0.01,"default":0.5},
+{"key":"long_grain_reverse","name":"Reverse Chance","short_name":"REVERSE","type":"float","min":0,"max":100,"step":1,"default":0,"unit":"%"},
+{"key":"long_grain_spray","name":"Position Spray","short_name":"SPRAY","type":"float","min":0,"max":1,"step":0.01,"default":0},
+{"key":"long_grain_bias","name":"Spray Bias","short_name":"BIAS","type":"enum","options":["Behind","Around","Ahead"],"default":1},
+{"key":"long_grain_duration_variation","name":"Duration Variation","short_name":"DUR VAR","type":"float","min":0,"max":1,"step":0.01,"default":0},
+{"key":"long_grain_pitch_spray","name":"Pitch Spray","short_name":"P SPRAY","type":"float","min":0,"max":24,"step":0.1,"default":0,"unit":"st"},
+{"key":"long_grain_level_variation","name":"Level Variation","short_name":"LVL VAR","type":"float","min":0,"max":1,"step":0.01,"default":0},
+{"key":"long_grain_phase","name":"Layer Phase Spread","short_name":"PHASE","type":"float","min":0,"max":1,"step":0.01,"default":0},
+{"key":"long_grain_advance","name":"Source Advance","short_name":"ADVANCE","type":"enum","options":["Scan","Per Layer"],"default":0},
 {"key":"cutups_mode","name":"Cutups Mode","short_name":"MODE","type":"enum","options":["Forward","Reverse","Palindrome","Random","Walk","Random Cycle"],"default":0},
 {"key":"cut_clock","name":"Cut Clock","short_name":"CLOCK","type":"enum","options":["Free","Tempo"],"default":1},
 {"key":"cut_division","name":"Cut Division","short_name":"DIV","type":"enum","options":["1/4","1/8","1/8T","1/16","1/16T","1/32"],"default":3},
@@ -591,11 +627,12 @@ constexpr const char kChainParams[] = R"json([
 constexpr const char kUiHierarchy[] = R"json({
 "pad_layout":"chromatic",
 "levels":{
-"root":{"name":"s3g Thru","knobs":["algorithm","locus","field","speed","manual_lane","lane_cycles","join","output_gain"],"params":[{"level":"record","label":"Record"},{"level":"motion","label":"Motion"},{"level":"lanes","label":"Lanes"},{"level":"grains","label":"Grains"},{"level":"cutups","label":"Cutups"},{"level":"sample","label":"Sample"},{"level":"slices","label":"Slices"},{"level":"glitch","label":"Glitch"},{"level":"effects","label":"Effects"},{"level":"lane_mix","label":"Lane Mix"},{"level":"performance_loop","label":"Performance Loop"}]},
+"root":{"name":"s3g Thru","knobs":["algorithm","locus","field","speed","manual_lane","lane_cycles","join","output_gain"],"params":[{"level":"record","label":"Record"},{"level":"motion","label":"Motion"},{"level":"lanes","label":"Lanes"},{"level":"grains","label":"Grains"},{"level":"long_grains","label":"Long Grains"},{"level":"cutups","label":"Cutups"},{"level":"sample","label":"Sample"},{"level":"slices","label":"Slices"},{"level":"glitch","label":"Glitch"},{"level":"effects","label":"Effects"},{"level":"lane_mix","label":"Lane Mix"},{"level":"performance_loop","label":"Performance Loop"}]},
 "record":{"name":"Record","knobs":["record_lane","record_source","record_gain","monitor_level","pressure_mode","root_note","output_gain","clear_lane"],"params":[{"key":"record_lane"},{"key":"record_source"},{"key":"record_gain"},{"key":"monitor_level"},{"key":"pressure_mode"},{"key":"root_note"},{"key":"output_gain"},{"key":"clear_lane"}]},
 "motion":{"name":"Motion","knobs":["locus","field","speed","join","motion_mode","motion_sound","motion_path_rate","output_gain"],"params":[{"key":"locus"},{"key":"field"},{"key":"speed"},{"key":"join"},{"key":"motion_mode"},{"key":"motion_sound"},{"key":"motion_rate_basis"},{"key":"motion_path_rate"},{"key":"motion_step"},{"key":"motion_seed"},{"key":"motion_rate"},{"key":"packet_duty"},{"key":"motor_rate"},{"key":"motor_symmetry"},{"key":"motor_shape"},{"key":"segment_trigger"},{"key":"segment_overlap"},{"key":"segment_layers"},{"key":"segment_rate"},{"key":"segment_repeats"},{"key":"segment_step"},{"key":"segment_pitch"},{"key":"segment_level"},{"key":"segment_curve"},{"key":"output_gain"}]},
 "lanes":{"name":"Lanes","knobs":["locus","field","speed","join","lanes_mode","lane_path","lane_cycles","manual_lane"],"params":[{"key":"locus"},{"key":"field"},{"key":"speed"},{"key":"join"},{"key":"lanes_mode"},{"key":"lane_path"},{"key":"lane_cycles"},{"key":"manual_lane"},{"key":"lanes_stretch"},{"key":"stretch_ratio"}]},
 "grains":{"name":"Grains","knobs":["locus","field","speed","join","grain_mode","grain_size","grain_density","grain_pitch"],"params":[{"key":"locus"},{"key":"field"},{"key":"speed"},{"key":"join"},{"key":"grain_mode"},{"key":"grain_size"},{"key":"grain_density"},{"key":"grain_pitch"},{"key":"grain_window"},{"key":"grain_spread"},{"key":"lane_path"},{"key":"lane_cycles"},{"key":"manual_lane"}]},
+"long_grains":{"name":"Long Grains","knobs":["long_grain_mode","long_grain_length","long_grain_layers","long_grain_pitch","long_grain_shape","long_grain_edge","long_grain_spread","long_grain_reverse"],"params":[{"key":"long_grain_mode"},{"key":"long_grain_length"},{"key":"long_grain_layers"},{"key":"long_grain_pitch"},{"key":"long_grain_shape"},{"key":"long_grain_edge"},{"key":"long_grain_spread"},{"key":"long_grain_reverse"},{"key":"long_grain_spray"},{"key":"long_grain_bias"},{"key":"long_grain_duration_variation"},{"key":"long_grain_pitch_spray"},{"key":"long_grain_level_variation"},{"key":"long_grain_phase"},{"key":"long_grain_advance"},{"key":"lane_path"},{"key":"lane_cycles"},{"key":"manual_lane"}]},
 "cutups":{"name":"Cutups","knobs":["locus","field","speed","join","cutups_mode","lane_path","lane_cycles","manual_lane"],"params":[{"key":"locus"},{"key":"field"},{"key":"speed"},{"key":"join"},{"key":"cutups_mode"},{"key":"lane_path"},{"key":"lane_cycles"},{"key":"manual_lane"}]},
 "sample":{"name":"Sample","knobs":["sample_mode","locus","field","speed","manual_lane","lane_variation","pad_mode","output_gain"],"params":[{"key":"sample_mode"},{"key":"locus"},{"key":"field"},{"key":"speed"},{"key":"manual_lane"},{"key":"lane_variation"},{"key":"pad_mode"},{"key":"output_gain"}]},
 "slices":{"name":"Slices","knobs":["sample_mode","slice_region_mode","slice_regions","speed","manual_lane","lane_variation","pad_mode","output_gain"],"params":[{"key":"sample_mode"},{"key":"slice_region_mode"},{"key":"slice_regions"},{"key":"speed"},{"key":"manual_lane"},{"key":"lane_variation"},{"key":"pad_mode"},{"key":"output_gain"}]},
@@ -696,7 +733,13 @@ int lockParameterIndex(const char* key)
         "glitch_steps", "glitch_pulses", "glitch_rotate", "glitch_jump",
         "glitch_pitch", "glitch_reverse", "glitch_decay", "glitch_seed",
         "effect_tone", "effect_drive", "effect_bits", "effect_rate",
-        "effect_delay", "effect_feedback", "effect_width", "effect_mix"
+        "effect_delay", "effect_feedback", "effect_width", "effect_mix",
+        "long_grain_mode", "long_grain_length", "long_grain_layers",
+        "long_grain_pitch", "long_grain_shape", "long_grain_edge",
+        "long_grain_spread", "long_grain_reverse", "long_grain_spray",
+        "long_grain_bias", "long_grain_duration_variation",
+        "long_grain_pitch_spray", "long_grain_level_variation",
+        "long_grain_phase", "long_grain_advance"
     };
     for (std::size_t index = 0u; index < kLockParameterCount; ++index) {
         if (std::strcmp(key, keys[index]) == 0) return static_cast<int>(index);
@@ -813,6 +856,21 @@ void applyLockedValue(Engine::Controls& controls, float& outputGain,
         case LockParameter::effectFeedback: controls.effectFeedback = clampValue(value / 100.0f, 0.0f, 0.9f); break;
         case LockParameter::effectWidth: controls.effectWidth = clampValue(value / 100.0f, 0.0f, 1.0f); break;
         case LockParameter::effectMix: controls.effectMix = clampValue(value / 100.0f, 0.0f, 1.0f); break;
+        case LockParameter::longGrainMode: controls.longGrainMode = static_cast<Engine::GrainMode>(clampValue(static_cast<int>(std::lround(value)), 0, 3)); break;
+        case LockParameter::longGrainLength: controls.longGrainLengthMs = clampValue(value, 250.0f, 12000.0f); break;
+        case LockParameter::longGrainLayers: controls.longGrainLayers = clampValue(value, 1.0f, 4.0f); break;
+        case LockParameter::longGrainPitch: controls.longGrainPitch = clampValue(value, 0.25f, 4.0f); break;
+        case LockParameter::longGrainShape: controls.longGrainShape = static_cast<Engine::LongGrainShape>(clampValue(static_cast<int>(std::lround(value)), 0, 3)); break;
+        case LockParameter::longGrainEdge: controls.longGrainEdgeMs = clampValue(value, 5.0f, 2000.0f); break;
+        case LockParameter::longGrainSpread: controls.longGrainSpread = clampValue(value, 0.0f, 1.0f); break;
+        case LockParameter::longGrainReverse: controls.longGrainReverseChance = clampValue(value / 100.0f, 0.0f, 1.0f); break;
+        case LockParameter::longGrainSpray: controls.longGrainSpray = clampValue(value, 0.0f, 1.0f); break;
+        case LockParameter::longGrainBias: controls.longGrainBias = static_cast<Engine::GrainBias>(clampValue(static_cast<int>(std::lround(value)), 0, 2)); break;
+        case LockParameter::longGrainDurationVariation: controls.longGrainDurationVariation = clampValue(value, 0.0f, 1.0f); break;
+        case LockParameter::longGrainPitchSpray: controls.longGrainPitchSpray = clampValue(value, 0.0f, 24.0f); break;
+        case LockParameter::longGrainLevelVariation: controls.longGrainLevelVariation = clampValue(value, 0.0f, 1.0f); break;
+        case LockParameter::longGrainPhase: controls.longGrainPhaseSpread = clampValue(value, 0.0f, 1.0f); break;
+        case LockParameter::longGrainAdvance: controls.longGrainAdvance = static_cast<Engine::GrainAdvance>(clampValue(static_cast<int>(std::lround(value)), 0, 1)); break;
         case LockParameter::count: break;
     }
 }
@@ -926,6 +984,21 @@ float lockedValue(const Engine::Controls& controls, float outputGain,
         case LockParameter::effectFeedback: return controls.effectFeedback * 100.0f;
         case LockParameter::effectWidth: return controls.effectWidth * 100.0f;
         case LockParameter::effectMix: return controls.effectMix * 100.0f;
+        case LockParameter::longGrainMode: return static_cast<float>(controls.longGrainMode);
+        case LockParameter::longGrainLength: return controls.longGrainLengthMs;
+        case LockParameter::longGrainLayers: return controls.longGrainLayers;
+        case LockParameter::longGrainPitch: return controls.longGrainPitch;
+        case LockParameter::longGrainShape: return static_cast<float>(controls.longGrainShape);
+        case LockParameter::longGrainEdge: return controls.longGrainEdgeMs;
+        case LockParameter::longGrainSpread: return controls.longGrainSpread;
+        case LockParameter::longGrainReverse: return controls.longGrainReverseChance * 100.0f;
+        case LockParameter::longGrainSpray: return controls.longGrainSpray;
+        case LockParameter::longGrainBias: return static_cast<float>(controls.longGrainBias);
+        case LockParameter::longGrainDurationVariation: return controls.longGrainDurationVariation;
+        case LockParameter::longGrainPitchSpray: return controls.longGrainPitchSpray;
+        case LockParameter::longGrainLevelVariation: return controls.longGrainLevelVariation;
+        case LockParameter::longGrainPhase: return controls.longGrainPhaseSpread;
+        case LockParameter::longGrainAdvance: return static_cast<float>(controls.longGrainAdvance);
         case LockParameter::count: return 0.0f;
     }
     return 0.0f;
@@ -2872,9 +2945,10 @@ struct ThruInstance {
         const float noteRatio = voice.note >= 0
             ? std::pow(2.0f, static_cast<float>(voice.note - rootNote) / 12.0f)
             : 1.0f;
-        if (effective.algorithm == Engine::PlaybackAlgorithm::grains) {
-            // Sample Grains maps note pitch to source advance. Grain pitch is
-            // an independent timbral parameter and remains lockable.
+        if (effective.algorithm == Engine::PlaybackAlgorithm::grains
+            || effective.algorithm == Engine::PlaybackAlgorithm::longGrains) {
+            // Both granular engines map note pitch to source advance. Their
+            // event pitch controls remain independent and lockable.
             effective.speed = clampValue(
                 effective.speed * noteRatio, 0.05f, 4.0f);
         } else if (effective.algorithm == Engine::PlaybackAlgorithm::cutups) {
@@ -4820,7 +4894,7 @@ struct ThruInstance {
     {
         if (!buffer || bufferLength < 1) return -1;
         return std::snprintf(buffer, static_cast<std::size_t>(bufferLength),
-            "{\"version\":6,\"locus\":%.5f,\"field\":%.5f,\"speed\":%.5f,"
+            "{\"version\":7,\"locus\":%.5f,\"field\":%.5f,\"speed\":%.5f,"
             "\"manual_lane\":%.5f,\"lane_cycles\":%.5f,\"algorithm\":%d,"
             "\"join\":%.5f,\"output_gain\":%.5f,\"record_gain\":%.5f,"
             "\"pressure_mode\":%d,\"root_note\":%d,\"pad_octave\":%d,"
@@ -4873,6 +4947,15 @@ struct ThruInstance {
             "\"effect_bits\":%.5f,\"effect_rate\":%.0f,"
             "\"effect_delay\":%.5f,\"effect_feedback\":%.5f,"
             "\"effect_width\":%.5f,\"effect_mix\":%.5f,"
+            "\"long_grain_mode\":%d,\"long_grain_length\":%.5f,"
+            "\"long_grain_layers\":%.0f,\"long_grain_pitch\":%.5f,"
+            "\"long_grain_shape\":%d,\"long_grain_edge\":%.5f,"
+            "\"long_grain_spread\":%.5f,\"long_grain_reverse\":%.5f,"
+            "\"long_grain_spray\":%.5f,\"long_grain_bias\":%d,"
+            "\"long_grain_duration_variation\":%.5f,"
+            "\"long_grain_pitch_spray\":%.5f,"
+            "\"long_grain_level_variation\":%.5f,"
+            "\"long_grain_phase\":%.5f,\"long_grain_advance\":%d,"
             "\"pad_mode\":%d,\"lane_variation\":%d,\"clip_record_mode\":%d,"
             "\"preview_level\":%.5f,\"grain_quality\":%zu,"
             "\"launch_quantize\":%d,\"next_capture_id\":%llu,"
@@ -4939,6 +5022,15 @@ struct ThruInstance {
             controls.effectTone, controls.effectDrive, controls.effectBits,
             controls.effectRate, controls.effectDelayMs,
             controls.effectFeedback, controls.effectWidth, controls.effectMix,
+            static_cast<int>(controls.longGrainMode),
+            controls.longGrainLengthMs, controls.longGrainLayers,
+            controls.longGrainPitch, static_cast<int>(controls.longGrainShape),
+            controls.longGrainEdgeMs, controls.longGrainSpread,
+            controls.longGrainReverseChance, controls.longGrainSpray,
+            static_cast<int>(controls.longGrainBias),
+            controls.longGrainDurationVariation, controls.longGrainPitchSpray,
+            controls.longGrainLevelVariation, controls.longGrainPhaseSpread,
+            static_cast<int>(controls.longGrainAdvance),
             static_cast<int>(padMode),
             static_cast<int>(laneVariation), static_cast<int>(clipRecordMode),
             previewLevel, grainVoiceLimit,
@@ -4984,7 +5076,7 @@ struct ThruInstance {
         if (!file) return false;
         const char magic[8] { 'S', '3', 'G', 'T', 'H', 'R', '3', '\0' };
         bool ok = writeBytes(file, magic, sizeof(magic))
-            && writeU32(file, 4u)
+            && writeU32(file, 5u)
             && writeU64(file, persistenceGeneration)
             && writeF32(file, tempoBpm)
             && writeF32(file, tempoSwing)
@@ -5075,7 +5167,7 @@ struct ThruInstance {
             && std::memcmp(magic, "S3GTHR3", 7u) == 0
             && readU32(file, version)
             && (version == 1u || version == 2u || version == 3u
-                || version == 4u)
+                || version == 4u || version == 5u)
             && readU64(file, generation) && generation != 0u;
         std::fclose(file);
         return ok;
@@ -5107,7 +5199,7 @@ struct ThruInstance {
             && std::memcmp(magic, "S3GTHR3", 7u) == 0
             && readU32(file, version)
             && (version == 1u || version == 2u || version == 3u
-                || version == 4u)
+                || version == 4u || version == 5u)
             && readU64(file, loadedGeneration)
             && loadedGeneration != 0u
             && (expectedGeneration == kAnyPersistenceGeneration
@@ -5138,10 +5230,11 @@ struct ThruInstance {
                 std::uint32_t occupied = 0u;
                 ok = ok && readU32(file, occupied);
                 clip.occupied = occupied != 0u;
-                const std::size_t storedBaseCount = version >= 4u
-                    ? kLockParameterCount : (version >= 3u
+                const std::size_t storedBaseCount = version >= 5u
+                    ? kLockParameterCount : (version >= 4u
+                        ? kVersion4LockParameterCount : (version >= 3u
                         ? kVersion3LockParameterCount
-                        : kLegacyLockParameterCount);
+                        : kLegacyLockParameterCount));
                 for (std::size_t parameter = 0u;
                      parameter < storedBaseCount; ++parameter) {
                     ok = ok && readF32(file, clip.baseValues[parameter]);
@@ -5583,7 +5676,8 @@ struct ThruInstance {
         float complete = 0.0f;
         return readStateTextFromPath(path, text)
             && jsonNumber(text.data(), "version", version)
-            && static_cast<int>(version) == 6
+            && (static_cast<int>(version) == 6
+                || static_cast<int>(version) == 7)
             && jsonNumber(text.data(), "complete", complete)
             && static_cast<int>(complete) == 1
             && jsonUnsigned64(text.data(), "generation", generation)
@@ -5694,10 +5788,12 @@ struct ThruInstance {
     bool restoreState(const char* json)
     {
         float value = 0.0f;
+        float stateVersion = 0.0f;
         std::uint64_t loadedGeneration = 0u;
         std::uint64_t loadedNextCaptureId = 1u;
-        if (!jsonNumber(json, "version", value)
-            || static_cast<int>(value) != 6
+        if (!jsonNumber(json, "version", stateVersion)
+            || static_cast<int>(stateVersion) < 6
+            || static_cast<int>(stateVersion) > 7
             || !jsonNumber(json, "complete", value)
             || static_cast<int>(value) != 1
             || !jsonUnsigned64(json, "generation", loadedGeneration)) return false;
@@ -5785,6 +5881,21 @@ struct ThruInstance {
         if (jsonNumber(json, "grain_process_amount", value)) controls.grainProcessAmount = clampValue(value, 0.0f, 1.0f);
         if (jsonNumber(json, "grain_regions", value)) controls.grainRegionCount = clampValue(value, 1.0f, 64.0f);
         if (jsonNumber(json, "grain_advance", value)) controls.grainAdvance = static_cast<Engine::GrainAdvance>(clampValue(static_cast<int>(value), 0, 1));
+        if (jsonNumber(json, "long_grain_mode", value)) controls.longGrainMode = static_cast<Engine::GrainMode>(clampValue(static_cast<int>(value), 0, 3));
+        if (jsonNumber(json, "long_grain_length", value)) controls.longGrainLengthMs = clampValue(value, 250.0f, 12000.0f);
+        if (jsonNumber(json, "long_grain_layers", value)) controls.longGrainLayers = clampValue(value, 1.0f, 4.0f);
+        if (jsonNumber(json, "long_grain_pitch", value)) controls.longGrainPitch = clampValue(value, 0.25f, 4.0f);
+        if (jsonNumber(json, "long_grain_shape", value)) controls.longGrainShape = static_cast<Engine::LongGrainShape>(clampValue(static_cast<int>(value), 0, 3));
+        if (jsonNumber(json, "long_grain_edge", value)) controls.longGrainEdgeMs = clampValue(value, 5.0f, 2000.0f);
+        if (jsonNumber(json, "long_grain_spread", value)) controls.longGrainSpread = clampValue(value, 0.0f, 1.0f);
+        if (jsonNumber(json, "long_grain_reverse", value)) controls.longGrainReverseChance = clampValue(value, 0.0f, 1.0f);
+        if (jsonNumber(json, "long_grain_spray", value)) controls.longGrainSpray = clampValue(value, 0.0f, 1.0f);
+        if (jsonNumber(json, "long_grain_bias", value)) controls.longGrainBias = static_cast<Engine::GrainBias>(clampValue(static_cast<int>(value), 0, 2));
+        if (jsonNumber(json, "long_grain_duration_variation", value)) controls.longGrainDurationVariation = clampValue(value, 0.0f, 1.0f);
+        if (jsonNumber(json, "long_grain_pitch_spray", value)) controls.longGrainPitchSpray = clampValue(value, 0.0f, 24.0f);
+        if (jsonNumber(json, "long_grain_level_variation", value)) controls.longGrainLevelVariation = clampValue(value, 0.0f, 1.0f);
+        if (jsonNumber(json, "long_grain_phase", value)) controls.longGrainPhaseSpread = clampValue(value, 0.0f, 1.0f);
+        if (jsonNumber(json, "long_grain_advance", value)) controls.longGrainAdvance = static_cast<Engine::GrainAdvance>(clampValue(static_cast<int>(value), 0, 1));
         if (jsonNumber(json, "cut_clock", value)) controls.cutClock = static_cast<Engine::CutClock>(clampValue(static_cast<int>(value), 0, 1));
         if (jsonNumber(json, "cut_division", value)) controls.cutDivision = static_cast<Engine::CutDivision>(clampValue(static_cast<int>(value), 0, 5));
         if (jsonNumber(json, "cut_rate", value)) controls.cutRateHz = clampValue(value, 0.25f, 64.0f);
@@ -6074,6 +6185,21 @@ void setParam(void* opaque, const char* key, const char* value)
     if (std::strcmp(key, "grain_process_amount") == 0) { controls.grainProcessAmount = clampValue(parseFloat(value, controls.grainProcessAmount), 0.0f, 1.0f); return; }
     if (std::strcmp(key, "grain_regions") == 0) { controls.grainRegionCount = clampValue(parseFloat(value, controls.grainRegionCount), 1.0f, 64.0f); return; }
     if (std::strcmp(key, "grain_advance") == 0) { controls.grainAdvance = static_cast<Engine::GrainAdvance>(parseEnum(value, kGrainAdvanceNames, static_cast<int>(controls.grainAdvance))); return; }
+    if (std::strcmp(key, "long_grain_mode") == 0) { controls.longGrainMode = static_cast<Engine::GrainMode>(parseEnum(value, kGrainModeNames, static_cast<int>(controls.longGrainMode))); return; }
+    if (std::strcmp(key, "long_grain_length") == 0) { controls.longGrainLengthMs = clampValue(parseFloat(value, controls.longGrainLengthMs), 250.0f, 12000.0f); return; }
+    if (std::strcmp(key, "long_grain_layers") == 0) { controls.longGrainLayers = clampValue(parseFloat(value, controls.longGrainLayers), 1.0f, 4.0f); return; }
+    if (std::strcmp(key, "long_grain_pitch") == 0) { controls.longGrainPitch = clampValue(parseFloat(value, controls.longGrainPitch), 0.25f, 4.0f); return; }
+    if (std::strcmp(key, "long_grain_shape") == 0) { controls.longGrainShape = static_cast<Engine::LongGrainShape>(parseEnum(value, kLongGrainShapeNames, static_cast<int>(controls.longGrainShape))); return; }
+    if (std::strcmp(key, "long_grain_edge") == 0) { controls.longGrainEdgeMs = clampValue(parseFloat(value, controls.longGrainEdgeMs), 5.0f, 2000.0f); return; }
+    if (std::strcmp(key, "long_grain_spread") == 0) { controls.longGrainSpread = clampValue(parseFloat(value, controls.longGrainSpread), 0.0f, 1.0f); return; }
+    if (std::strcmp(key, "long_grain_reverse") == 0) { controls.longGrainReverseChance = clampValue(parseFloat(value, controls.longGrainReverseChance * 100.0f) / 100.0f, 0.0f, 1.0f); return; }
+    if (std::strcmp(key, "long_grain_spray") == 0) { controls.longGrainSpray = clampValue(parseFloat(value, controls.longGrainSpray), 0.0f, 1.0f); return; }
+    if (std::strcmp(key, "long_grain_bias") == 0) { controls.longGrainBias = static_cast<Engine::GrainBias>(parseEnum(value, kGrainBiasNames, static_cast<int>(controls.longGrainBias))); return; }
+    if (std::strcmp(key, "long_grain_duration_variation") == 0) { controls.longGrainDurationVariation = clampValue(parseFloat(value, controls.longGrainDurationVariation), 0.0f, 1.0f); return; }
+    if (std::strcmp(key, "long_grain_pitch_spray") == 0) { controls.longGrainPitchSpray = clampValue(parseFloat(value, controls.longGrainPitchSpray), 0.0f, 24.0f); return; }
+    if (std::strcmp(key, "long_grain_level_variation") == 0) { controls.longGrainLevelVariation = clampValue(parseFloat(value, controls.longGrainLevelVariation), 0.0f, 1.0f); return; }
+    if (std::strcmp(key, "long_grain_phase") == 0) { controls.longGrainPhaseSpread = clampValue(parseFloat(value, controls.longGrainPhaseSpread), 0.0f, 1.0f); return; }
+    if (std::strcmp(key, "long_grain_advance") == 0) { controls.longGrainAdvance = static_cast<Engine::GrainAdvance>(parseEnum(value, kLongGrainAdvanceNames, static_cast<int>(controls.longGrainAdvance))); return; }
     if (std::strcmp(key, "cutups_mode") == 0) { controls.cutups = static_cast<Engine::CutupsMode>(parseEnum(value, kCutupsModeNames, static_cast<int>(controls.cutups))); return; }
     if (std::strcmp(key, "cut_clock") == 0) { controls.cutClock = static_cast<Engine::CutClock>(parseEnum(value, kCutClockNames, static_cast<int>(controls.cutClock))); return; }
     if (std::strcmp(key, "cut_division") == 0) { controls.cutDivision = static_cast<Engine::CutDivision>(parseEnum(value, kCutDivisionNames, static_cast<int>(controls.cutDivision))); return; }
@@ -6377,6 +6503,21 @@ int getParam(void* opaque, const char* key, char* buffer, int bufferLength)
     if (std::strcmp(key, "grain_process_amount") == 0) return std::snprintf(buffer, bufferLength, "%.4f", controls.grainProcessAmount);
     if (std::strcmp(key, "grain_regions") == 0) return std::snprintf(buffer, bufferLength, "%.0f", controls.grainRegionCount);
     if (std::strcmp(key, "grain_advance") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(controls.grainAdvance));
+    if (std::strcmp(key, "long_grain_mode") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(controls.longGrainMode));
+    if (std::strcmp(key, "long_grain_length") == 0) return std::snprintf(buffer, bufferLength, "%.2f", controls.longGrainLengthMs);
+    if (std::strcmp(key, "long_grain_layers") == 0) return std::snprintf(buffer, bufferLength, "%.0f", controls.longGrainLayers);
+    if (std::strcmp(key, "long_grain_pitch") == 0) return std::snprintf(buffer, bufferLength, "%.4f", controls.longGrainPitch);
+    if (std::strcmp(key, "long_grain_shape") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(controls.longGrainShape));
+    if (std::strcmp(key, "long_grain_edge") == 0) return std::snprintf(buffer, bufferLength, "%.2f", controls.longGrainEdgeMs);
+    if (std::strcmp(key, "long_grain_spread") == 0) return std::snprintf(buffer, bufferLength, "%.4f", controls.longGrainSpread);
+    if (std::strcmp(key, "long_grain_reverse") == 0) return std::snprintf(buffer, bufferLength, "%.2f", controls.longGrainReverseChance * 100.0f);
+    if (std::strcmp(key, "long_grain_spray") == 0) return std::snprintf(buffer, bufferLength, "%.4f", controls.longGrainSpray);
+    if (std::strcmp(key, "long_grain_bias") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(controls.longGrainBias));
+    if (std::strcmp(key, "long_grain_duration_variation") == 0) return std::snprintf(buffer, bufferLength, "%.4f", controls.longGrainDurationVariation);
+    if (std::strcmp(key, "long_grain_pitch_spray") == 0) return std::snprintf(buffer, bufferLength, "%.4f", controls.longGrainPitchSpray);
+    if (std::strcmp(key, "long_grain_level_variation") == 0) return std::snprintf(buffer, bufferLength, "%.4f", controls.longGrainLevelVariation);
+    if (std::strcmp(key, "long_grain_phase") == 0) return std::snprintf(buffer, bufferLength, "%.4f", controls.longGrainPhaseSpread);
+    if (std::strcmp(key, "long_grain_advance") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(controls.longGrainAdvance));
     if (std::strcmp(key, "cutups_mode") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(controls.cutups));
     if (std::strcmp(key, "cut_clock") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(controls.cutClock));
     if (std::strcmp(key, "cut_division") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(controls.cutDivision));

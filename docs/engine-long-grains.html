@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Long Grains engine - s3g Thru manual</title>
+    <meta name="description" content="Complete parameter reference for the s3g Thru Long Grains playback engine.">
+    <link rel="stylesheet" href="assets/styles.css">
+  </head>
+  <body>
+    <header class="site-header"><a class="brand" href="index.html">s3g Thru <span>manual</span></a><nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav></header>
+
+    <div class="page-shell">
+      <main class="content" id="content">
+        <p class="eyebrow">Playback engine 8 of 8</p>
+        <h1>Long Grains</h1>
+        <p class="lead">Long Grains launches one to four overlapping macro-events lasting from 250 ms to 12 seconds. Each event captures its own source position and lane blend, so stack motion becomes a slowly changing layer of sustained sample fragments rather than a dense grain cloud.</p>
+        <div class="callout"><p><strong>Good for:</strong> stretched phrases, overlapping tape-like layers, slowly separating stereo voices, long reversals, held textures, and transitions that preserve the attack and internal motion of the source.</p></div>
+
+        <h2 id="pages">Pages and navigation</h2>
+        <p>Set Algorithm to Long Grains. Up opens the shared <a href="engines.html#stack-path">Stack Path</a> page, then Long Grain and Long Motion.</p>
+        <div class="screen-gallery">
+          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/stack-path.svg" aria-label="Open Stack Path"><img src="assets/screens/stack-path.svg" alt="Shared Stack Path parameter page"></button></div><figcaption>Each new layer captures the lane blend reached by Stack Path at its launch.</figcaption></figure>
+          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/long-grain.svg" aria-label="Open Long Grain"><img src="assets/screens/long-grain.svg" alt="Long Grain parameter page"></button></div><figcaption>Long Grain sets event duration, overlap count, pitch, envelope, stereo spread, and direction.</figcaption></figure>
+          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/long-motion.svg" aria-label="Open Long Motion"><img src="assets/screens/long-motion.svg" alt="Long Motion parameter page with one reserved position"></button></div><figcaption>Long Motion separates the layers in source position, duration, pitch, level, and phase.</figcaption></figure>
+        </div>
+
+        <p>The controls common to every playback engine are documented in the <a href="engines.html#shared">shared Engine page table</a>. The sections below cover Long Grains-specific controls.</p>
+
+        <h2 id="grain">Long Grain — every parameter</h2>
+        <table class="readout-table parameter-table">
+          <thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>Detail</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>MODE</td><td>Scan / Freeze / Cloud / Slice</td><td><strong>Scan</strong> follows source phase; <strong>Freeze</strong> launches from Field center; <strong>Cloud</strong> chooses a random origin; <strong>Slice</strong> places the active layers at evenly spaced origins across Field.</td></tr>
+            <tr><td>2</td><td>LEN</td><td>250–12,000 ms</td><td>Nominal duration of each event. The encoder uses fine 10 ms steps to 1 second, 50 ms steps to 4 seconds, then 100 ms steps to 12 seconds.</td></tr>
+            <tr><td>3</td><td>LAYR</td><td>1–4</td><td>Maximum simultaneous long events per note. New events are spaced across the longest possible varied duration, keeping the renderer bounded to this count.</td></tr>
+            <tr><td>4</td><td>PIT</td><td>0.25–4.00×</td><td>Playback ratio inside each event. Pad pitch controls the source trajectory separately.</td></tr>
+            <tr><td>5</td><td>SHAP</td><td>Bell / Hann / Triangle / Plateau</td><td>Selects the event envelope. Bell, Hann, and Triangle span the complete duration. Plateau uses Edge for short fades with a sustained center.</td></tr>
+            <tr><td>6</td><td>EDGE</td><td>5–2000 ms</td><td>Fade-in and fade-out time for Plateau. It is limited automatically to half the current event duration. Other shapes ignore this control.</td></tr>
+            <tr><td>7</td><td>SPRD</td><td>0.00–1.00</td><td>Random constant-power stereo pan range for each new layer.</td></tr>
+            <tr><td>8</td><td>REV%</td><td>0–100%</td><td>Probability that a new layer reads backward.</td></tr>
+          </tbody>
+        </table>
+
+        <h2 id="motion">Long Motion — every parameter</h2>
+        <table class="readout-table parameter-table">
+          <thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>Detail</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>SPRY</td><td>0.00–1.00</td><td>Random displacement from the mode-selected origin, up to half the Field width at 1.00. Displacement wraps inside Field.</td></tr>
+            <tr><td>2</td><td>BIAS</td><td>Behind / Around / Ahead</td><td>Constrains Position Spray behind the origin, on both sides, or ahead of it.</td></tr>
+            <tr><td>3</td><td>DVAR</td><td>0.00–1.00</td><td>Varies each event duration by up to approximately ±75%. Launch spacing remains conservative so the selected layer limit is not exceeded.</td></tr>
+            <tr><td>4</td><td>PSPR</td><td>0–24 st</td><td>Applies a random pitch offset inside ± the selected semitone range to every new layer.</td></tr>
+            <tr><td>5</td><td>LVAR</td><td>0.00–1.00</td><td>Random attenuation only: 0 keeps nominal level; 1 ranges from nearly silent to nominal.</td></tr>
+            <tr><td>6</td><td>PHAS</td><td>0.00–1.00</td><td>Offsets successive layer origins across Field. At 1.00, the available layers divide one complete Field cycle.</td></tr>
+            <tr><td>7</td><td>ADVN</td><td>Scan / Per Layer</td><td>Scan follows continuously moving source phase. Per Layer advances the source origin only at the layer launch interval.</td></tr>
+            <tr><td>8</td><td>Reserved</td><td>—</td><td>Inactive and available for a future Long Motion control.</td></tr>
+          </tbody>
+        </table>
+
+        <div class="callout"><p><strong>Starting point:</strong> use Length 4000 ms, Layers 3, Plateau, Edge 180 ms, Spread 0.65, Phase 0.40, and Per Layer advance. Raise Position Spray or Pitch Spray only after the overlap is clear.</p></div>
+
+        <nav class="page-nav" aria-label="Engine navigation"><a class="page-nav-link" href="engine-glitch.html"><span>Previous engine</span>Glitch</a><a class="page-nav-link next" href="effects.html"><span>Next</span>Effects</a></nav>
+      </main>
+      <aside class="toc" aria-label="Page navigation">
+        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
+        <div class="toc-section"><h2>Engine guides</h2><a href="engine-motion.html">Motion</a><a href="engine-lanes.html">Lanes</a><a href="engine-grains.html">Grains</a><a href="engine-cutups.html">Cutups</a><a href="engine-sample.html">Sample</a><a href="engine-slices.html">Slices</a><a href="engine-glitch.html">Glitch</a><a href="engine-long-grains.html">Long Grains</a></div>
+        <div class="toc-section"><h2>On this page</h2><a href="#pages">Pages</a><a href="engines.html#shared">Shared Engine table</a><a href="engines.html#stack-path">Stack Path</a><a href="#grain">Long Grain</a><a href="#motion">Long Motion</a></div>
+      </aside>
+    </div>
+    <footer class="manual-footer">Long Grains: sustained macro-events with bounded overlap.</footer>
+    <script src="assets/lightbox.js"></script>
+  </body>
+</html>

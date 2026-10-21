@@ -136,6 +136,8 @@ globalThis.__testPlaybackPageTitles = PLAYBACK_PAGES.map((pages) =>
     pages.map((page) => page.title));
 globalThis.__testLockableParams = Array.from(LOCKABLE_PARAMS);
 globalThis.__testDrawMain = drawMain;
+globalThis.__testLongGrainLengthIndex = longGrainLengthIndex;
+globalThis.__testLongGrainLengthAt = longGrainLengthAt;
 `;
 await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
 
@@ -169,8 +171,19 @@ assert.deepEqual(globalThis.__testParameterPageSets[4][1],
     globalThis.__testParameterPageSets[5][1]);
 assert.deepEqual(globalThis.__testPlaybackPageTitles[6],
     ['STACK PATH', 'GLITCH CLOCK', 'GLITCH PATTERN']);
+assert.deepEqual(globalThis.__testPlaybackPageTitles[7],
+    ['STACK PATH', 'LONG GRAIN', 'LONG MOTION']);
 assert(globalThis.__testLockableParams.includes('glitch_mix'));
 assert(globalThis.__testLockableParams.includes('effect_feedback'));
+assert(globalThis.__testLockableParams.includes('long_grain_length'));
+assert.equal(globalThis.__testLongGrainLengthAt(0), 250);
+assert.equal(globalThis.__testLongGrainLengthAt(75), 1000);
+assert.equal(globalThis.__testLongGrainLengthAt(135), 4000);
+assert.equal(globalThis.__testLongGrainLengthAt(215), 12000);
+for (const length of [250, 500, 1000, 2000, 4000, 8000, 12000]) {
+    assert.equal(globalThis.__testLongGrainLengthAt(
+        globalThis.__testLongGrainLengthIndex(length)), length);
+}
 
 globalThis.init();
 const waveformReadsAfterInit = waveformReads;

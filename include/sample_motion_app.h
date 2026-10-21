@@ -14,8 +14,8 @@ namespace s3g_daisy {
  * schedulers. This embedded version deliberately keeps each engine
  * allocation-free. It accepts storage from the platform so audio can live in
  * external SDRAM, then provides one bounded image with Motion, optionally
- * stretched Lanes, Grains, and Cutups renderers. No renderer allocates or
- * performs file I/O in the audio callback.
+ * stretched Lanes, Grains, Long Grains, and Cutups renderers. No renderer
+ * allocates or performs file I/O in the audio callback.
  */
 class SampleMotionApp {
 public:
@@ -35,9 +35,10 @@ public:
         sample,
         slices,
         glitch,
+        longGrains,
     };
 
-    static constexpr std::size_t kPlaybackAlgorithmCount = 7u;
+    static constexpr std::size_t kPlaybackAlgorithmCount = 8u;
 
     enum class SampleMode : std::uint8_t {
         forward,
@@ -130,6 +131,15 @@ public:
     };
 
     static constexpr std::size_t kGrainWindowCount = 6u;
+
+    enum class LongGrainShape : std::uint8_t {
+        bell,
+        hann,
+        triangle,
+        plateau,
+    };
+
+    static constexpr std::size_t kLongGrainShapeCount = 4u;
 
     enum class CutupsMode : std::uint8_t {
         forward,
@@ -329,6 +339,21 @@ public:
         float grainProcessAmount = 0.5f;
         float grainRegionCount = 16.0f;
         GrainAdvance grainAdvance = GrainAdvance::scan;
+        GrainMode longGrainMode = GrainMode::scan;
+        float longGrainLengthMs = 2000.0f;
+        float longGrainLayers = 2.0f;
+        float longGrainPitch = 1.0f;
+        LongGrainShape longGrainShape = LongGrainShape::plateau;
+        float longGrainEdgeMs = 120.0f;
+        float longGrainSpread = 0.5f;
+        float longGrainReverseChance = 0.0f;
+        float longGrainSpray = 0.0f;
+        GrainBias longGrainBias = GrainBias::around;
+        float longGrainDurationVariation = 0.0f;
+        float longGrainPitchSpray = 0.0f;
+        float longGrainLevelVariation = 0.0f;
+        float longGrainPhaseSpread = 0.0f;
+        GrainAdvance longGrainAdvance = GrainAdvance::scan;
         CutClock cutClock = CutClock::tempo;
         CutDivision cutDivision = CutDivision::sixteenth;
         float cutRateHz = 8.0f;
@@ -812,6 +837,7 @@ public:
         }
         prepareMotionSoundBlock(preparedControls);
         prepareGrainControls(controls);
+        prepareLongGrainControls(controls);
 
         std::size_t laneControlCountdown = 0u;
         for (std::size_t frame = 0u; frame < frames; ++frame) {
@@ -874,6 +900,9 @@ public:
                     break;
                 case PlaybackAlgorithm::glitch:
                     renderGlitchFrame(controls, join, wetOutput);
+                    break;
+                case PlaybackAlgorithm::longGrains:
+                    renderLongGrainsFrame(controls, wetOutput);
                     break;
             }
             advanceLaneClock();
@@ -1120,6 +1149,22 @@ private:
         GrainWindow window = GrainWindow::bell;
     };
 
+    struct LongGrain {
+        bool active = false;
+        std::size_t age = 0u;
+        std::size_t duration = 1u;
+        std::size_t edgeFrames = 1u;
+        double position = 0.0;
+        double increment = 0.0;
+        double low = 0.0;
+        double high = 1.0;
+        double seam = 0.0;
+        LaneBlend lanes {};
+        float gain = 1.0f;
+        float channelGains[kLaneChannels] { 1.0f, 1.0f };
+        LongGrainShape shape = LongGrainShape::plateau;
+    };
+
     struct CutReader {
         bool active = false;
         bool retiring = false;
@@ -1149,6 +1194,7 @@ private:
     };
 
     static constexpr std::size_t kGrainVoiceCount = 16u;
+    static constexpr std::size_t kLongGrainVoiceCount = 4u;
     static constexpr std::size_t kCutRegionCount = 64u;
     static constexpr std::size_t kMotionSegmentLayerCount = 4u;
 
@@ -1228,6 +1274,9 @@ private:
         for (auto& grain : grains_) {
             grain = {};
         }
+        for (auto& grain : longGrains_) {
+            grain = {};
+        }
         grainCountdown_ = 0.0;
         grainSerial_ = 0u;
         grainProcessIndex_ = 0u;
@@ -1235,6 +1284,9 @@ private:
         grainStutterAnchor_ = -1.0;
         grainDoubletPending_ = false;
         grainDoubletPosition_ = 0.0;
+        longGrainCountdown_ = 0.0;
+        longGrainSerial_ = 0u;
+        longGrainSourcePhase_ = 0.0;
         sorterCacheValid_ = false;
         stretchPhase_ = 0.0;
         stretchMix_ = 0.0f;
@@ -3431,6 +3483,200 @@ private:
         phase_ = wrapPhase(phase_ + phaseIncrement);
     }
 
+    void prepareLongGrainControls(const Controls& controls)
+    {
+        const float durationSeconds
+            = clamp(controls.longGrainLengthMs, 250.0f, 12000.0f) * 0.001f;
+        longGrainDurationFrames_ = std::max<std::size_t>(8u,
+            static_cast<std::size_t>(outputSampleRate_ * durationSeconds));
+        longGrainLayerLimit_ = static_cast<std::size_t>(clamp(
+            std::round(controls.longGrainLayers), 1.0f,
+            static_cast<float>(kLongGrainVoiceCount)));
+        const float maximumDurationScale = 1.0f
+            + clamp01(controls.longGrainDurationVariation) * 0.75f;
+        longGrainIntervalFrames_ = std::max(1.0,
+            static_cast<double>(longGrainDurationFrames_)
+                * static_cast<double>(maximumDurationScale)
+                / static_cast<double>(longGrainLayerLimit_));
+        longGrainPitch_ = clamp(controls.longGrainPitch, 0.25f, 4.0f);
+    }
+
+    float longGrainEnvelope(const LongGrain& grain) const
+    {
+        constexpr float pi = 3.14159265358979323846f;
+        const float phase = static_cast<float>(grain.age)
+            / static_cast<float>(std::max<std::size_t>(
+                1u, grain.duration - 1u));
+        switch (grain.shape) {
+            case LongGrainShape::bell:
+                return smoothBell(phase);
+            case LongGrainShape::hann:
+                return 0.5f - 0.5f * std::cos(2.0f * pi * phase);
+            case LongGrainShape::triangle:
+                return 1.0f - std::abs(phase * 2.0f - 1.0f);
+            case LongGrainShape::plateau: {
+                const std::size_t edge = std::max<std::size_t>(1u,
+                    std::min(grain.edgeFrames, grain.duration / 2u));
+                const float fadeIn = static_cast<float>(grain.age)
+                    / static_cast<float>(edge);
+                const float fadeOut = static_cast<float>(
+                    grain.duration - 1u - grain.age)
+                    / static_cast<float>(edge);
+                return smoothStep(std::min(fadeIn, fadeOut));
+            }
+        }
+        return 0.0f;
+    }
+
+    void startLongGrain(const Controls& controls, const Window& window)
+    {
+        LongGrain* slot = nullptr;
+        for (std::size_t index = 0u;
+             index < longGrainLayerLimit_;
+             ++index) {
+            if (!longGrains_[index].active) {
+                slot = &longGrains_[index];
+                break;
+            }
+        }
+        if (!slot) return;
+
+        const double width = std::max(1.0, window.high - window.low);
+        const std::size_t layer = longGrainSerial_ % longGrainLayerLimit_;
+        const double sourcePhase
+            = controls.longGrainAdvance == GrainAdvance::grain
+                ? longGrainSourcePhase_ : phase_;
+        double origin = sourcePhase;
+        switch (controls.longGrainMode) {
+            case GrainMode::freeze:
+                origin = 0.5;
+                break;
+            case GrainMode::cloud:
+                origin = static_cast<double>(randomUnit());
+                break;
+            case GrainMode::slice:
+                origin = (static_cast<double>(layer) + 0.5)
+                    / static_cast<double>(longGrainLayerLimit_);
+                break;
+            case GrainMode::scan:
+                break;
+        }
+        origin = wrapPhase(origin
+            + static_cast<double>(clamp01(controls.longGrainPhaseSpread))
+                * static_cast<double>(layer)
+                / static_cast<double>(longGrainLayerLimit_));
+
+        float sprayDirection = randomUnit() * 2.0f - 1.0f;
+        if (controls.longGrainBias == GrainBias::behind) {
+            sprayDirection = -randomUnit();
+        } else if (controls.longGrainBias == GrainBias::ahead) {
+            sprayDirection = randomUnit();
+        }
+        origin = wrapPhase(origin + static_cast<double>(sprayDirection)
+            * static_cast<double>(clamp01(controls.longGrainSpray)) * 0.5);
+
+        *slot = {};
+        slot->active = true;
+        const float durationScale = std::max(0.25f,
+            1.0f + (randomUnit() * 2.0f - 1.0f)
+                * clamp01(controls.longGrainDurationVariation) * 0.75f);
+        slot->duration = std::max<std::size_t>(8u,
+            static_cast<std::size_t>(
+                static_cast<float>(longGrainDurationFrames_) * durationScale));
+        slot->edgeFrames = std::max<std::size_t>(1u,
+            static_cast<std::size_t>(outputSampleRate_ * 0.001f
+                * clamp(controls.longGrainEdgeMs, 5.0f, 2000.0f)));
+        slot->position = window.low + origin * width;
+        const float randomSemitones = (randomUnit() * 2.0f - 1.0f)
+            * clamp(controls.longGrainPitchSpray, 0.0f, 24.0f);
+        float eventPitch = longGrainPitch_
+            * std::pow(2.0f, randomSemitones / 12.0f);
+        if (randomUnit() < clamp01(controls.longGrainReverseChance)) {
+            eventPitch = -eventPitch;
+        }
+        slot->increment = static_cast<double>(sourceSampleRate_)
+            / static_cast<double>(outputSampleRate_)
+            * static_cast<double>(eventPitch);
+        slot->low = window.low;
+        slot->high = window.high;
+        slot->seam = joinFrames(window, controls.join);
+        slot->lanes = stackMode_
+            ? makeLaneBlend(lanePhase_, controls) : LaneBlend {};
+        slot->gain = 1.0f - randomUnit()
+            * clamp01(controls.longGrainLevelVariation);
+        slot->shape = controls.longGrainShape;
+        const float spread = clamp01(controls.longGrainSpread);
+        const float pan = spread > 0.0f
+            ? (randomUnit() * 2.0f - 1.0f) * spread : 0.0f;
+        constexpr float quarterPi = 0.78539816339744830962f;
+        constexpr float rootTwo = 1.41421356237309504880f;
+        const float panAngle = (pan + 1.0f) * quarterPi;
+        slot->channelGains[0u] = rootTwo * std::cos(panAngle);
+        slot->channelGains[1u] = rootTwo * std::sin(panAngle);
+
+        if (controls.longGrainAdvance == GrainAdvance::grain) {
+            const double sourceAdvance = static_cast<double>(speed_)
+                * static_cast<double>(sourceSampleRate_)
+                / static_cast<double>(outputSampleRate_) / width
+                * longGrainIntervalFrames_;
+            longGrainSourcePhase_ = wrapPhase(
+                longGrainSourcePhase_ + sourceAdvance);
+        }
+        ++longGrainSerial_;
+    }
+
+    void renderLongGrainsFrame(const Controls& controls, float* wet)
+    {
+        const Window window = smoothEventWindow(controls);
+        fieldLow_ = window.low;
+        fieldHigh_ = window.high;
+        const double width = std::max(1.0, window.high - window.low);
+        displayPosition_ = window.low + phase_ * width;
+
+        if (longGrainCountdown_ <= 0.0) {
+            startLongGrain(controls, window);
+            longGrainCountdown_ += longGrainIntervalFrames_;
+        }
+        longGrainCountdown_ -= 1.0;
+
+        float stereo[kLaneChannels] {};
+        float envelopeGainSums[kLaneChannels] {};
+        for (auto& grain : longGrains_) {
+            if (!grain.active) continue;
+            const float gain = grain.gain * longGrainEnvelope(grain);
+            const ReadHead head = makeEventReadHead(
+                grain.position, grain.low, grain.high, grain.seam);
+            for (std::size_t channel = 0u;
+                 channel < kLaneChannels;
+                 ++channel) {
+                const float sample = stackMode_
+                    ? readLaneBlendHead(channel, head, grain.lanes)
+                    : readHead(mapSourceChannel(channel), head);
+                const float weightedGain = gain * grain.channelGains[channel];
+                stereo[channel] += sample * weightedGain;
+                envelopeGainSums[channel] += weightedGain;
+            }
+            advanceEventPosition(grain.position, grain.increment,
+                                 grain.low, grain.high, grain.seam);
+            if (++grain.age >= grain.duration) grain.active = false;
+        }
+        for (std::size_t channel = 0u;
+             channel < kLaneChannels;
+             ++channel) {
+            if (envelopeGainSums[channel] > 1.0f) {
+                stereo[channel] /= envelopeGainSums[channel];
+            }
+        }
+        for (std::size_t channel = 0u; channel < kChannels; ++channel) {
+            wet[channel] = stereo[channel & 1u];
+        }
+
+        const double phaseIncrement = static_cast<double>(speed_)
+            * static_cast<double>(sourceSampleRate_)
+            / static_cast<double>(outputSampleRate_) / width;
+        phase_ = wrapPhase(phase_ + phaseIncrement);
+    }
+
     std::size_t cutRegion(CutupsMode mode, std::size_t regionCount)
     {
         regionCount = std::max<std::size_t>(1u, regionCount);
@@ -4093,6 +4339,14 @@ private:
     double grainStutterAnchor_ = -1.0;
     bool grainDoubletPending_ = false;
     double grainDoubletPosition_ = 0.0;
+    LongGrain longGrains_[kLongGrainVoiceCount] {};
+    double longGrainCountdown_ = 0.0;
+    double longGrainIntervalFrames_ = 48000.0;
+    std::size_t longGrainDurationFrames_ = 96000u;
+    std::size_t longGrainLayerLimit_ = 2u;
+    float longGrainPitch_ = 1.0f;
+    std::size_t longGrainSerial_ = 0u;
+    double longGrainSourcePhase_ = 0.0;
     std::uint8_t sorterRanking_[kRegionCount] {};
     float sorterEnergies_[kRegionCount] {};
     std::size_t sorterRegionCount_ = 0u;

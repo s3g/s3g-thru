@@ -124,6 +124,13 @@ const params = {
     grain_mode: '0', grain_size: '90', grain_density: '24', grain_quality: '1',
     grain_pitch: '1', grain_window: '5', grain_spread: '0.35',
     grain_process: '4', grain_process_amount: '0.75',
+    long_grain_mode: '0', long_grain_length: '4000',
+    long_grain_layers: '3', long_grain_pitch: '1', long_grain_shape: '3',
+    long_grain_edge: '180', long_grain_spread: '0.65',
+    long_grain_reverse: '20', long_grain_spray: '0.32',
+    long_grain_bias: '1', long_grain_duration_variation: '0.28',
+    long_grain_pitch_spray: '5', long_grain_level_variation: '0.18',
+    long_grain_phase: '0.4', long_grain_advance: '1',
     cutups_mode: '5', sample_mode: '2', slice_region_mode: '1',
     slice_regions: '16', pad_mode: '0', lane_variation: '0',
     glitch_mode: '4', glitch_clock: '1', glitch_division: '3',
@@ -335,6 +342,11 @@ captureEnginePages(6, [
     {},
     { filename: 'glitch-clock.svg', title: 'Glitch Clock parameter page' },
     { filename: 'glitch-pattern.svg', title: 'Glitch Pattern parameter page' },
+]);
+captureEnginePages(7, [
+    {},
+    { filename: 'long-grain.svg', title: 'Long Grain parameter page' },
+    { filename: 'long-motion.svg', title: 'Long Motion parameter page' },
 ]);
 
 selectAlgorithm(1);

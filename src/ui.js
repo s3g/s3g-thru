@@ -1,4 +1,4 @@
-/* s3g Thru 0.24.1 — polyphonic sampler/performance-looper takeover for Move. */
+/* s3g Thru 0.25.0 — polyphonic sampler/performance-looper takeover for Move. */
 
 import * as moveConstants from '/data/UserData/schwung/shared/constants.mjs';
 import * as moveInputFilter from '/data/UserData/schwung/shared/input_filter.mjs';
@@ -65,7 +65,7 @@ const setButtonLED = typeof moveInputFilter.setButtonLED === 'function'
 
 const WAVE_BINS = 112;
 const ALGORITHMS = ['MOTION', 'LANES', 'GRAINS', 'CUTUPS', 'SAMPLE', 'SLICES',
-    'GLITCH'];
+    'GLITCH', 'LONG GRAINS'];
 const LEDS_PER_TICK = 8;
 const GLITCH_LOCK_TAP_TICKS = 30;
 const VOICE_COLORS = [BrightRed, BrightOrange, BrightYellow, NeonGreen,
@@ -80,7 +80,7 @@ const PARAMS = {
     speed: { key: 'speed', label: 'SPEED', min: 0.05, max: 4, step: 0.02, value: 1 },
     manual_lane: { key: 'manual_lane', label: 'STACK START', min: 1, max: 4, step: 0.04, value: 1 },
     lane_cycles: { key: 'lane_cycles', label: 'SCAN RATE', min: 0.125, max: 16, step: 0.125, value: 1 },
-    algorithm: { key: 'algorithm', label: 'ALGORITHM', min: 0, max: 6, step: 1, value: 0, integer: true, labels: ALGORITHMS },
+    algorithm: { key: 'algorithm', label: 'ALGORITHM', min: 0, max: 7, step: 1, value: 0, integer: true, labels: ALGORITHMS },
     join: { key: 'join', label: 'JOIN', min: 0, max: 1, step: 0.01, value: 1 },
     output_gain: { key: 'output_gain', label: 'LEVEL', min: 0, max: 2, step: 0.02, value: 1 },
     motion_mode: { key: 'motion_mode', label: 'MODE', min: 0, max: 7, step: 1, value: 0, integer: true, labels: ['FWD', 'REV', 'HOVER', 'ROUND', 'LOOP', 'MIRROR', 'ZIGZAG', 'DRUNK'] },
@@ -135,6 +135,21 @@ const PARAMS = {
     grain_process_amount: { key: 'grain_process_amount', label: 'PROC AMT', min: 0, max: 1, step: 0.01, value: 0.5 },
     grain_regions: { key: 'grain_regions', label: 'REGIONS', min: 1, max: 64, step: 1, value: 16, integer: true },
     grain_advance: { key: 'grain_advance', label: 'ADVANCE', min: 0, max: 1, step: 1, value: 0, integer: true, labels: ['SCAN', 'PER GRAIN'] },
+    long_grain_mode: { key: 'long_grain_mode', label: 'MODE', min: 0, max: 3, step: 1, value: 0, integer: true, labels: ['SCAN', 'FREEZE', 'CLOUD', 'SLICE'] },
+    long_grain_length: { key: 'long_grain_length', label: 'LENGTH MS', min: 250, max: 12000, step: 10, value: 2000, integer: true },
+    long_grain_layers: { key: 'long_grain_layers', label: 'LAYERS', min: 1, max: 4, step: 1, value: 2, integer: true },
+    long_grain_pitch: { key: 'long_grain_pitch', label: 'PITCH', min: 0.25, max: 4, step: 0.02, value: 1 },
+    long_grain_shape: { key: 'long_grain_shape', label: 'SHAPE', min: 0, max: 3, step: 1, value: 3, integer: true, labels: ['BELL', 'HANN', 'TRI', 'PLATEAU'] },
+    long_grain_edge: { key: 'long_grain_edge', label: 'EDGE MS', min: 5, max: 2000, step: 5, value: 120, integer: true },
+    long_grain_spread: { key: 'long_grain_spread', label: 'SPREAD', min: 0, max: 1, step: 0.01, value: 0.5 },
+    long_grain_reverse: { key: 'long_grain_reverse', label: 'REVERSE %', min: 0, max: 100, step: 1, value: 0, integer: true },
+    long_grain_spray: { key: 'long_grain_spray', label: 'POS SPRAY', min: 0, max: 1, step: 0.01, value: 0 },
+    long_grain_bias: { key: 'long_grain_bias', label: 'SPRAY BIAS', min: 0, max: 2, step: 1, value: 1, integer: true, labels: ['BEHIND', 'AROUND', 'AHEAD'] },
+    long_grain_duration_variation: { key: 'long_grain_duration_variation', label: 'DURATION VAR', min: 0, max: 1, step: 0.01, value: 0 },
+    long_grain_pitch_spray: { key: 'long_grain_pitch_spray', label: 'PITCH SPRAY', min: 0, max: 24, step: 0.1, value: 0 },
+    long_grain_level_variation: { key: 'long_grain_level_variation', label: 'LEVEL VAR', min: 0, max: 1, step: 0.01, value: 0 },
+    long_grain_phase: { key: 'long_grain_phase', label: 'LAYER PHASE', min: 0, max: 1, step: 0.01, value: 0 },
+    long_grain_advance: { key: 'long_grain_advance', label: 'ADVANCE', min: 0, max: 1, step: 1, value: 0, integer: true, labels: ['SCAN', 'PER LAYER'] },
     cutups_mode: { key: 'cutups_mode', label: 'MODE', min: 0, max: 5, step: 1, value: 0, integer: true, labels: ['FWD', 'REV', 'PALIN', 'RANDOM', 'WALK', 'RCYC'] },
     cut_clock: { key: 'cut_clock', label: 'CLOCK', min: 0, max: 1, step: 1, value: 1, integer: true, labels: ['FREE', 'TEMPO'] },
     cut_division: { key: 'cut_division', label: 'DIVISION', min: 0, max: 5, step: 1, value: 3, integer: true, labels: ['1/4', '1/8', '1/8T', '1/16', '1/16T', '1/32'] },
@@ -224,6 +239,8 @@ const MAIN_ENGINE_CONTROLS = [
         'sample_mode', 'slice_region_mode', 'slice_regions', 'output_gain'],
     ['locus', 'field', 'speed', 'manual_lane',
         'glitch_mode', 'glitch_slice', 'glitch_mix', 'output_gain'],
+    ['locus', 'field', 'speed', 'manual_lane',
+        'lane_cycles', 'join', 'long_grain_mode', 'output_gain'],
 ];
 const ENGINE_PAGE = { title: 'ENGINE', keys: ['algorithm', 'locus', 'field',
     'speed', 'manual_lane', 'lane_cycles', 'join', 'output_gain'] };
@@ -288,6 +305,17 @@ const PLAYBACK_PAGES = [
             'glitch_rotate', 'glitch_jump', 'glitch_pitch',
             'glitch_reverse', 'glitch_decay', 'glitch_seed'] },
     ],
+    [
+        STACK_PATH_PAGE,
+        { title: 'LONG GRAIN', keys: ['long_grain_mode',
+            'long_grain_length', 'long_grain_layers', 'long_grain_pitch',
+            'long_grain_shape', 'long_grain_edge', 'long_grain_spread',
+            'long_grain_reverse'] },
+        { title: 'LONG MOTION', keys: ['long_grain_spray',
+            'long_grain_bias', 'long_grain_duration_variation',
+            'long_grain_pitch_spray', 'long_grain_level_variation',
+            'long_grain_phase', 'long_grain_advance'] },
+    ],
 ];
 
 function playbackPagesForAlgorithm(algorithm, motionSound) {
@@ -341,7 +369,12 @@ const LOCKABLE_KEYS = [
     'glitch_jump', 'glitch_pitch', 'glitch_reverse', 'glitch_decay',
     'glitch_seed', 'effect_tone', 'effect_drive', 'effect_bits',
     'effect_rate', 'effect_delay', 'effect_feedback', 'effect_width',
-    'effect_mix',
+    'effect_mix', 'long_grain_mode', 'long_grain_length',
+    'long_grain_layers', 'long_grain_pitch', 'long_grain_shape',
+    'long_grain_edge', 'long_grain_spread', 'long_grain_reverse',
+    'long_grain_spray', 'long_grain_bias',
+    'long_grain_duration_variation', 'long_grain_pitch_spray',
+    'long_grain_level_variation', 'long_grain_phase', 'long_grain_advance',
 ];
 const LOCKABLE_PARAMS = new Set(LOCKABLE_KEYS);
 
@@ -396,6 +429,14 @@ const SHORT_LABELS = {
     glitch_seed: 'SEED', effect_tone: 'TONE', effect_drive: 'DRIV',
     effect_bits: 'BITS', effect_rate: 'RATE', effect_delay: 'DLY',
     effect_feedback: 'FDBK', effect_width: 'WDTH', effect_mix: 'MIX',
+    long_grain_mode: 'MODE', long_grain_length: 'LEN',
+    long_grain_layers: 'LAYR', long_grain_pitch: 'PIT',
+    long_grain_shape: 'SHAP', long_grain_edge: 'EDGE',
+    long_grain_spread: 'SPRD', long_grain_reverse: 'REV%',
+    long_grain_spray: 'SPRY', long_grain_bias: 'BIAS',
+    long_grain_duration_variation: 'DVAR', long_grain_pitch_spray: 'PSPR',
+    long_grain_level_variation: 'LVAR', long_grain_phase: 'PHAS',
+    long_grain_advance: 'ADVN',
 };
 
 const state = {
@@ -515,6 +556,20 @@ function parseCueState(text) {
 
 function clamp(value, low, high) {
     return Math.max(low, Math.min(high, value));
+}
+
+function longGrainLengthIndex(value) {
+    const length = clamp(value, 250, 12000);
+    if (length <= 1000) return Math.round((length - 250) / 10);
+    if (length <= 4000) return 75 + Math.round((length - 1000) / 50);
+    return 135 + Math.round((length - 4000) / 100);
+}
+
+function longGrainLengthAt(index) {
+    const detent = clamp(Math.round(index), 0, 215);
+    if (detent <= 75) return 250 + detent * 10;
+    if (detent <= 135) return 1000 + (detent - 75) * 50;
+    return 4000 + (detent - 135) * 100;
 }
 
 function decodeDelta(value) {
@@ -1464,7 +1519,7 @@ function selectClipSlot(step) {
 }
 
 function selectAlgorithm(index) {
-    state.algorithm = clamp(index | 0, 0, 6);
+    state.algorithm = clamp(index | 0, 0, 7);
     PARAMS.algorithm.value = state.algorithm;
     setParamBlocking('algorithm', state.algorithm);
     if (state.clipRecording) setParam('clip_automation', 'algorithm');
@@ -1602,7 +1657,9 @@ function adjustControl(index, delta) {
         applyMomentaryControl(control);
         return;
     }
-    let value = clamp(control.value + delta * control.step, control.min, control.max);
+    let value = control.key === 'long_grain_length'
+        ? longGrainLengthAt(longGrainLengthIndex(control.value) + delta)
+        : clamp(control.value + delta * control.step, control.min, control.max);
     if (control.integer) value = Math.round(value);
     control.value = value;
     if (control.key === 'algorithm') {
@@ -1632,7 +1689,7 @@ function adjustControl(index, delta) {
 }
 
 function pollDsp() {
-    const algorithm = clamp(Math.round(getNumber('algorithm', state.algorithm)), 0, 6);
+    const algorithm = clamp(Math.round(getNumber('algorithm', state.algorithm)), 0, 7);
     if (algorithm !== state.algorithm) {
         state.algorithm = algorithm;
         PARAMS.algorithm.value = algorithm;

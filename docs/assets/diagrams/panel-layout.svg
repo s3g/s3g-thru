@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="720" viewBox="0 0 1200 720" role="img" aria-labelledby="title desc">
   <title id="title">s3g Thru control layout on Ableton Move</title>
-  <desc id="desc">A grayscale top-panel drawing based on the Ableton Move hardware layout, with ten numbered callouts for the OLED display, eight encoders, clickable wheel, four track buttons, 32 pads, 16 step buttons, transport, Loop, navigation, Shift, and Delete.</desc>
+  <desc id="desc">A grayscale top-panel drawing based on the Ableton Move hardware layout, with fourteen numbered callouts for the OLED display, eight encoders, clickable wheel, four track buttons, 32 pads, 16 step buttons, Play, Record, Loop, Back and Menu, navigation, octave and page controls, Delete, and Shift.</desc>
   <defs>
     <style>
       .body{fill:#dededb;stroke:#181818;stroke-width:2}
@@ -165,17 +165,21 @@
   <circle cx="985" cy="531" r="14" class="button"/><path d="M979 531H991" class="icon"/>
   <circle cx="1025" cy="512" r="17" class="button"/><path d="M1020 504L1028 512L1020 520" class="icon"/>
 
-  <!-- Numbered s3g Thru control groups. Leaders terminate at control edges. -->
+  <!-- Numbered s3g Thru controls. Leaders terminate at control edges. -->
   <path d="M168 193H112" class="leader"/><circle cx="95" cy="193" r="17" class="call"/><text x="95" y="193" class="num">1</text>
   <path d="M581 167V112" class="leader"/><circle cx="581" cy="95" r="17" class="call"/><text x="581" y="95" class="num">2</text>
   <path d="M176 297H112" class="leader"/><circle cx="95" cy="297" r="17" class="call"/><text x="95" y="297" class="num">3</text>
   <path d="M276 268H260V235H112" class="leader"/><circle cx="95" cy="235" r="17" class="call"/><text x="95" y="235" class="num">4</text>
   <path d="M916 244H1075V225H1093" class="leader"/><circle cx="1110" cy="225" r="17" class="call"/><text x="1110" y="225" class="num">5</text>
   <path d="M627 512H618V608" class="leader"/><circle cx="618" cy="625" r="17" class="call"/><text x="618" y="625" class="num">6</text>
-  <path d="M241 531V608" class="leader"/><circle cx="241" cy="625" r="17" class="call"/><text x="241" y="625" class="num">7</text>
-  <path d="M955 307V300H1075V310H1093" class="leader"/><circle cx="1110" cy="310" r="17" class="call"/><text x="1110" y="310" class="num">8</text>
-  <path d="M168 385H112" class="leader"/><circle cx="95" cy="385" r="17" class="call"/><text x="95" y="385" class="num">9</text>
-  <path d="M955 365V355H1040V442H1030M1040 413H1075V435H1093" class="leader"/><circle cx="1110" cy="435" r="17" class="call"/><text x="1110" y="435" class="num">10</text>
+  <path d="M188 531V608" class="leader"/><circle cx="188" cy="625" r="17" class="call"/><text x="188" y="625" class="num">7</text>
+  <path d="M241 531V608" class="leader"/><circle cx="241" cy="625" r="17" class="call"/><text x="241" y="625" class="num">8</text>
+  <path d="M955 307V300H1075V310H1093" class="leader"/><circle cx="1110" cy="310" r="17" class="call"/><text x="1110" y="310" class="num">9</text>
+  <path d="M168 365V355H241V365M204 355H112" class="leader"/><circle cx="95" cy="355" r="17" class="call"/><text x="95" y="355" class="num">10</text>
+  <path d="M1042 512H1075V525H1093" class="leader"/><circle cx="1110" cy="525" r="17" class="call"/><text x="1110" y="525" class="num">11</text>
+  <path d="M985 545V608" class="leader"/><circle cx="985" cy="625" r="17" class="call"/><text x="985" y="625" class="num">12</text>
+  <path d="M955 365V355H1075V370H1093" class="leader"/><circle cx="1110" cy="370" r="17" class="call"/><text x="1110" y="370" class="num">13</text>
+  <path d="M1030 442H1075V445H1093" class="leader"/><circle cx="1110" cy="445" r="17" class="call"/><text x="1110" y="445" class="num">14</text>
 
-  <text x="55" y="687" class="foot">Control placement follows Ableton Move hardware · numbered groups describe s3g Thru takeover behavior</text>
+  <text x="55" y="687" class="foot">Control placement follows Ableton Move hardware · numbered controls describe s3g Thru takeover behavior</text>
 </svg>

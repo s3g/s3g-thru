@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="520" viewBox="0 0 1200 520" role="img" aria-labelledby="title desc">
+  <title id="title">s3g Thru performance data flow</title>
+  <desc id="desc">Block diagram showing pads, pressure, encoders, and Stack Hold entering the performance recorder, stored in one of 64 clips, optionally arranged by the chain, and replayed through timing and eight independent voices.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" markerWidth="8" markerHeight="8" refX="9" refY="5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0L10 5L0 10Z" fill="#202020"/></marker>
+    <style>
+      .box{fill:#fff;stroke:#202020;stroke-width:2}
+      .soft{fill:#ececea;stroke:#202020;stroke-width:2}
+      .group{fill:#f5f5f2;stroke:#777;stroke-width:1.4}
+      .flow{fill:none;stroke:#202020;stroke-width:2;marker-end:url(#arrow)}
+      .choice{fill:none;stroke:#555;stroke-width:2;stroke-dasharray:8 6;marker-end:url(#arrow)}
+      .title{fill:#181818;font-family:Arial,Helvetica,sans-serif;font-size:16px;font-weight:700;text-anchor:middle}
+      .sub{fill:#505050;font-family:Arial,Helvetica,sans-serif;font-size:12px;text-anchor:middle}
+      .small{fill:#505050;font-family:Menlo,Monaco,monospace;font-size:11px;text-anchor:middle}
+      .legend{fill:#333;font-family:Arial,Helvetica,sans-serif;font-size:12px}
+    </style>
+  </defs>
+  <rect width="1200" height="520" fill="#fff"/>
+  <text x="42" y="48" class="legend" font-weight="700">PERFORMANCE DATA PATH</text>
+  <line x1="42" y1="63" x2="1158" y2="63" stroke="#202020" stroke-width="1.5"/>
+
+  <rect x="42" y="102" width="176" height="252" class="group"/>
+  <text x="130" y="132" class="title">LIVE GESTURES</text>
+  <rect x="66" y="157" width="128" height="34" class="box"/><text x="130" y="179" class="small">NOTES + GATES</text>
+  <rect x="66" y="202" width="128" height="34" class="box"/><text x="130" y="224" class="small">PAD PRESSURE</text>
+  <rect x="66" y="247" width="128" height="34" class="box"/><text x="130" y="269" class="small">ENCODER MOTION</text>
+  <rect x="66" y="292" width="128" height="34" class="box"/><text x="130" y="314" class="small">STACK HOLD / PHASE</text>
+
+  <rect x="270" y="138" width="180" height="178" class="soft"/>
+  <text x="360" y="174" class="title">DATA RECORDER</text>
+  <text x="360" y="202" class="sub">Replace or Overdub</text>
+  <text x="360" y="225" class="sub">unquantized capture</text>
+  <text x="360" y="248" class="sub">undoable takes</text>
+  <text x="360" y="283" class="small">MAX 120 SECONDS</text>
+
+  <rect x="500" y="93" width="220" height="268" class="group"/>
+  <text x="610" y="124" class="title">SELECTED CLIP</text>
+  <text x="610" y="146" class="sub">A01–D16 · 64 total</text>
+  <rect x="527" y="170" width="166" height="34" class="box"/><text x="610" y="192" class="small">NOTES + SOURCE PAD</text>
+  <rect x="527" y="215" width="166" height="34" class="box"/><text x="610" y="237" class="small">PRESSURE CURVES</text>
+  <rect x="527" y="260" width="166" height="34" class="box"/><text x="610" y="282" class="small">PARAMETER CURVES</text>
+  <rect x="527" y="305" width="166" height="34" class="box"/><text x="610" y="327" class="small">STACK HOLD + PHASE</text>
+
+  <rect x="500" y="402" width="220" height="66" class="box"/>
+  <text x="610" y="429" class="title">CHAIN</text>
+  <text x="610" y="452" class="sub">16 entries · clip + repeats</text>
+
+  <rect x="770" y="138" width="170" height="178" class="soft"/>
+  <text x="855" y="174" class="title">PLAYBACK CLOCK</text>
+  <text x="855" y="202" class="sub">Free / Beat Sync</text>
+  <text x="855" y="225" class="sub">0.25×–4.00× rate</text>
+  <text x="855" y="248" class="sub">Off / Beat / Bar launch</text>
+  <text x="855" y="283" class="small">GESTURES SCALE WITH TIME</text>
+
+  <rect x="990" y="102" width="168" height="252" class="group"/>
+  <text x="1074" y="132" class="title">VOICE REPLAY</text>
+  <rect x="1014" y="157" width="120" height="34" class="box"/><text x="1074" y="179" class="small">VOICE 1</text>
+  <rect x="1014" y="202" width="120" height="34" class="box"/><text x="1074" y="224" class="small">VOICE 2</text>
+  <rect x="1014" y="247" width="120" height="34" class="box"/><text x="1074" y="269" class="small">…</text>
+  <rect x="1014" y="292" width="120" height="34" class="box"/><text x="1074" y="314" class="small">VOICE 8</text>
+
+  <path d="M218 227H270" class="flow"/>
+  <path d="M450 227H500" class="flow"/>
+  <path d="M720 227H770" class="flow"/>
+  <path d="M940 227H990" class="flow"/>
+  <path d="M610 402V361" class="choice"/>
+  <path d="M720 435H855V316" class="choice"/>
+
+  <text x="1074" y="386" class="sub">Each voice restores its own</text>
+  <text x="1074" y="406" class="sub">pitch, pressure, playhead,</text>
+  <text x="1074" y="426" class="sub">stack phase, and envelope.</text>
+  <line x1="42" y1="482" x2="88" y2="482" stroke="#202020" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="102" y="486" class="legend">recorded / replayed data</text>
+  <line x1="284" y1="482" x2="330" y2="482" stroke="#555" stroke-width="2" stroke-dasharray="8 6" marker-end="url(#arrow)"/>
+  <text x="344" y="486" class="legend">selection or chain control</text>
+</svg>

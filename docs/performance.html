@@ -19,6 +19,19 @@
         <h1>Performance loops</h1>
         <p class="lead">The recorder captures performance data—not a mixed audio bounce. Notes, hold time, pitch, the pad played, polyphonic pressure, stack position and Hold/Run changes, and knob gestures remain editable through engine settings and can be replayed at other rates.</p>
 
+        <h2 id="data-flow">Performance data flow</h2>
+
+        <figure>
+          <div class="manual-diagram"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/diagrams/performance-data-flow.svg" aria-label="Open the s3g Thru performance-data flow chart"><img src="assets/diagrams/performance-data-flow.svg" alt="Block diagram of live gestures, data recording, clip storage, chain selection, playback timing, and eight-voice replay"></button></div>
+          <figcaption>The data recorder stores gestures rather than mixed audio. Rate and Beat Sync therefore transform notes, parameter curves, pressure, and stack motion together.</figcaption>
+        </figure>
+
+        <div class="flow-notes">
+          <div><strong>Capture</strong><p>Replace creates a new base performance. Overdub adds an undoable take without changing the existing loop duration.</p></div>
+          <div><strong>Storage</strong><p>Each A01–D16 clip owns notes, gestures, timing, engine settings, and its four audio-source assignments.</p></div>
+          <div><strong>Replay</strong><p>The loop reconstructs independent voices; it does not play a stereo bounce of the original performance.</p></div>
+        </div>
+
         <h2 id="record">Record a performance</h2>
 
         <figure>
@@ -113,7 +126,7 @@
 
       <aside class="toc" aria-label="Page navigation">
         <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
-        <div class="toc-section"><h2>On this page</h2><a href="#record">Record</a><a href="#timing">Timing</a><a href="#takes">Overdub takes</a><a href="#clips">Clip banks</a><a href="#chain">Chain</a><a href="#capacity">Capacity</a></div>
+        <div class="toc-section"><h2>On this page</h2><a href="#data-flow">Data flow</a><a href="#record">Record</a><a href="#timing">Timing</a><a href="#takes">Overdub takes</a><a href="#clips">Clip banks</a><a href="#chain">Chain</a><a href="#capacity">Capacity</a></div>
       </aside>
     </div>
     <footer class="manual-footer">Performance clips store data and source assignments; they do not duplicate the mixed audio output.</footer>

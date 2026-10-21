@@ -19,6 +19,19 @@
         <h1>Samples and recording</h1>
         <p class="lead">Each performance clip owns four audio lanes. A lane can be a stereo live capture, a stereo resample of Thru's output, a WAV in Move's User Library, or intentionally empty.</p>
 
+        <h2 id="signal-flow">Audio signal flow</h2>
+
+        <figure>
+          <div class="manual-diagram"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/diagrams/audio-signal-flow.svg" aria-label="Open the s3g Thru audio signal-flow chart"><img src="assets/diagrams/audio-signal-flow.svg" alt="Block diagram of input, four clip lanes, playback engines, effects, output, monitoring, and resampling"></button></div>
+          <figcaption>Solid arrows are audible paths. The dashed return shows Resample writing the processed stereo output back into the selected lane.</figcaption>
+        </figure>
+
+        <div class="flow-notes">
+          <div><strong>Sources</strong><p>Each clip owns four assignments chosen from live recordings, resamples, library WAVs, archived Thru recordings, or Empty.</p></div>
+          <div><strong>Playback</strong><p>The selected engine reads those lanes into as many as eight independent voices before lane gain and shared effects.</p></div>
+          <div><strong>Monitoring</strong><p>Input Monitor bypasses the sampler and effects. It is dry and defaults to zero to reduce feedback risk.</p></div>
+        </div>
+
         <h2 id="input">Set the input safely</h2>
 
         <ol>
@@ -103,7 +116,7 @@
 
       <aside class="toc" aria-label="Page navigation">
         <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
-        <div class="toc-section"><h2>On this page</h2><a href="#input">Input safety</a><a href="#capture">Audio capture</a><a href="#library">Sample library</a><a href="#ownership">Clip ownership</a><a href="#editing">Sample edits</a><a href="#saving">Saving</a></div>
+        <div class="toc-section"><h2>On this page</h2><a href="#signal-flow">Signal flow</a><a href="#input">Input safety</a><a href="#capture">Audio capture</a><a href="#library">Sample library</a><a href="#ownership">Clip ownership</a><a href="#editing">Sample edits</a><a href="#saving">Saving</a></div>
       </aside>
     </div>
     <footer class="manual-footer">Use headphones for the first microphone and resampling tests.</footer>

@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="520" viewBox="0 0 1200 520" role="img" aria-labelledby="title desc">
+  <title id="title">s3g Thru audio signal flow</title>
+  <desc id="desc">Block diagram showing microphone or line input and sample files entering four clip-local lanes, the eight-voice playback engine, lane gains, effects, level, stereo output, monitoring, and the resample return.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" markerWidth="8" markerHeight="8" refX="9" refY="5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0L10 5L0 10Z" fill="#202020"/></marker>
+    <style>
+      .box{fill:#fff;stroke:#202020;stroke-width:2}
+      .soft{fill:#ececea;stroke:#202020;stroke-width:2}
+      .group{fill:#f5f5f2;stroke:#777;stroke-width:1.4}
+      .audio{fill:none;stroke:#202020;stroke-width:2;marker-end:url(#arrow)}
+      .return{fill:none;stroke:#555;stroke-width:2;stroke-dasharray:8 6;marker-end:url(#arrow)}
+      .title{fill:#181818;font-family:Arial,Helvetica,sans-serif;font-size:16px;font-weight:700;text-anchor:middle}
+      .sub{fill:#505050;font-family:Arial,Helvetica,sans-serif;font-size:12px;text-anchor:middle}
+      .small{fill:#505050;font-family:Menlo,Monaco,monospace;font-size:11px;text-anchor:middle}
+      .legend{fill:#333;font-family:Arial,Helvetica,sans-serif;font-size:12px}
+    </style>
+  </defs>
+  <rect width="1200" height="520" fill="#fff"/>
+  <text x="42" y="48" class="legend" font-weight="700">AUDIO PATH</text>
+  <line x1="42" y1="63" x2="1158" y2="63" stroke="#202020" stroke-width="1.5"/>
+
+  <rect x="42" y="126" width="150" height="76" class="box"/>
+  <text x="117" y="156" class="title">MOVE INPUT</text>
+  <text x="117" y="179" class="sub">microphone / line</text>
+  <rect x="42" y="272" width="150" height="76" class="box"/>
+  <text x="117" y="302" class="title">SAMPLE FILE</text>
+  <text x="117" y="325" class="sub">Move / Thru archive</text>
+
+  <rect x="238" y="102" width="186" height="270" class="group"/>
+  <text x="331" y="130" class="title">ACTIVE CLIP</text>
+  <text x="331" y="151" class="sub">four source assignments</text>
+  <rect x="267" y="174" width="128" height="34" class="box"/><text x="331" y="196" class="small">LANE 1 · STEREO</text>
+  <rect x="267" y="219" width="128" height="34" class="box"/><text x="331" y="241" class="small">LANE 2 · STEREO</text>
+  <rect x="267" y="264" width="128" height="34" class="box"/><text x="331" y="286" class="small">LANE 3 · STEREO</text>
+  <rect x="267" y="309" width="128" height="34" class="box"/><text x="331" y="331" class="small">LANE 4 · STEREO</text>
+
+  <rect x="475" y="126" width="190" height="122" class="soft"/>
+  <text x="570" y="161" class="title">PLAYBACK ENGINE</text>
+  <text x="570" y="186" class="sub">Motion · Lanes · Grains</text>
+  <text x="570" y="207" class="sub">Cutups · Sample · Slices</text>
+  <text x="570" y="228" class="sub">Glitch · up to 8 voices</text>
+
+  <rect x="713" y="126" width="134" height="122" class="box"/>
+  <text x="780" y="161" class="title">LANE MIX</text>
+  <text x="780" y="185" class="sub">four gains</text>
+  <text x="780" y="207" class="sub">per-voice blend</text>
+
+  <rect x="895" y="126" width="134" height="122" class="soft"/>
+  <text x="962" y="155" class="title">EFFECTS</text>
+  <text x="962" y="180" class="sub">tone · drive</text>
+  <text x="962" y="201" class="sub">bits · rate · delay</text>
+  <text x="962" y="222" class="sub">final level</text>
+
+  <rect x="1074" y="126" width="84" height="122" class="box"/>
+  <text x="1116" y="168" class="title">OUT</text>
+  <text x="1116" y="192" class="sub">stereo</text>
+  <text x="1116" y="213" class="sub">Move</text>
+
+  <path d="M192 164H238" class="audio"/>
+  <path d="M192 310H238" class="audio"/>
+  <path d="M424 187H475" class="audio"/>
+  <path d="M665 187H713" class="audio"/>
+  <path d="M847 187H895" class="audio"/>
+  <path d="M1029 187H1074" class="audio"/>
+
+  <rect x="475" y="295" width="190" height="76" class="box"/>
+  <text x="570" y="325" class="title">INPUT MONITOR</text>
+  <text x="570" y="348" class="sub">dry · normally 0.00</text>
+  <path d="M117 202V333H475" class="audio"/>
+  <path d="M665 333H1074V228" class="audio"/>
+
+  <path d="M962 248V430H331V372" class="return"/>
+  <text x="665" y="421" class="small">RESAMPLE RETURN · PROCESSED OUTPUT TO SELECTED LANE</text>
+
+  <line x1="42" y1="478" x2="88" y2="478" stroke="#202020" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="102" y="482" class="legend">audio</text>
+  <line x1="178" y1="478" x2="224" y2="478" stroke="#555" stroke-width="2" stroke-dasharray="8 6" marker-end="url(#arrow)"/>
+  <text x="238" y="482" class="legend">resample write-back</text>
+</svg>

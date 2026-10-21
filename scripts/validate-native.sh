@@ -19,7 +19,7 @@ module = json.loads(path.read_text())
 assert module["id"] == "s3g-thru"
 assert module["name"] == "s3g Thru"
 assert module["author"] == "s3g"
-assert module["version"] == "0.24.0"
+assert module["version"] == "0.24.1"
 assert module["component_type"] == "overtake"
 assert module["ui"] == "ui.js"
 assert module["dsp"] == "dsp.so"

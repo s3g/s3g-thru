@@ -1,4 +1,4 @@
-# s3g Thru 0.24.0 overtake hardware acceptance
+# s3g Thru 0.24.1 overtake hardware acceptance
 
 Desktop tests prove the module ABI and DSP behavior; they do not prove the
 exact Move input, screen, pad, or realtime paths. Preserve the previous
@@ -16,7 +16,7 @@ working Schwung installation and do this pass with headphones first.
 
 1. Set Move's main volume low and disconnect speakers.
 2. Uninstall the earlier 0.1 sound-generator build if present, restart Move,
-   then install the 0.24.0 tarball through Schwung Manager.
+   then install the 0.24.1 tarball through Schwung Manager.
 3. Open the Overtake menu with Shift + volume touch + jog-click and select
    s3g Thru.
 4. Confirm Thru opens directly on a four-row waveform page without selecting a
@@ -43,7 +43,10 @@ working Schwung installation and do this pass with headphones first.
     between the four waveform rows as its lane blend changes.
     Press Loop while several markers are between rows. Confirm the Loop key
     lights, every marker and audible lane blend remains fixed despite continued
-    pressure changes, and a second press resumes each scan from its held point.
+    pressure changes. Release one pad completely, then press that same pad again
+    while Loop remains held; confirm its marker returns to the exact frozen
+    crossfade rather than the beginning of the stack. A second Loop press must
+    clear the retained key positions and resume every scan from its held point.
 12. Record contrasting material into lanes 2-4. Confirm replacing one lane
     does not erase the others.
     Then hold Shift and press a Track button. Confirm the sample browser opens

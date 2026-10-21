@@ -143,7 +143,9 @@ playback engine is included. Each screen cell is aligned with one of the eight
 physical dials and shows a padded parameter name with its value underneath—no
 small dial graphic. **Loop** holds every active voice at its current stack
 position, including an in-between lane crossfade; press it again to resume each
-voice's independent scan from that point. During performance recording, Loop's
+voice's independent scan from that point. Releasing and pressing the same pad
+while Loop remains held recalls that pad's frozen position; returning to Run
+clears the retained positions. During performance recording, Loop's
 Hold/Run changes and each held voice's exact stack position are stored in the
 clip. A recorded hold is recalled even after the physical Loop hold is released.
 In Glitch, hold **Shift + Loop** for

@@ -825,6 +825,45 @@ int main()
     render(api, instance, 160);
     assert(get(api, instance, "playheads") == noPlayheads);
 
+    const auto laneForPad = [&](int pad) {
+        const std::string pads = get(api, instance, "voice_pads");
+        const std::string lanes = get(api, instance, "voice_lanes");
+        for (int voice = 0; voice < 8; ++voice) {
+            if (stateField(pads, voice) == pad) {
+                return stateField(lanes, voice);
+            }
+        }
+        return -1;
+    };
+
+    /* A live Stack Hold belongs to the key, not the release-tail voice.
+       Releasing and retriggering the same pad while held restores its exact
+       frozen crossfade; Run clears that retained position. */
+    api->set_param(instance, "algorithm", "Lanes");
+    api->set_param(instance, "lane_path", "Down");
+    api->set_param(instance, "lane_cycles", "4");
+    midi(api, instance, 0x90, 68, 100, MOVE_MIDI_SOURCE_INTERNAL);
+    render(api, instance, 24);
+    api->set_param(instance, "stack_scan_paused", "1");
+    render(api, instance, 4);
+    const int liveHeldLane = laneForPad(0);
+    assert(liveHeldLane >= 0);
+    midi(api, instance, 0x80, 68, 0, MOVE_MIDI_SOURCE_INTERNAL);
+    render(api, instance, 160);
+    assert(laneForPad(0) == -1);
+    midi(api, instance, 0x90, 68, 100, MOVE_MIDI_SOURCE_INTERNAL);
+    render(api, instance, 4);
+    const int retriggeredHeldLane = laneForPad(0);
+    assert(retriggeredHeldLane >= 0);
+    assert(std::abs(retriggeredHeldLane - liveHeldLane) <= 2);
+    render(api, instance, 40);
+    assert(std::abs(laneForPad(0) - liveHeldLane) <= 2);
+    api->set_param(instance, "stack_scan_paused", "0");
+    render(api, instance, 40);
+    assert(std::abs(laneForPad(0) - liveHeldLane) > 2);
+    midi(api, instance, 0x80, 68, 0, MOVE_MIDI_SOURCE_INTERNAL);
+    render(api, instance, 160);
+
     /* Performance recording owns Stack Hold as data. If Record begins while
        a pad is frozen between lanes, loop playback restores that voice's
        exact stack phase after the physical hold is released. */
@@ -837,16 +876,6 @@ int main()
     render(api, instance, 24);
     api->set_param(instance, "stack_scan_paused", "1");
     render(api, instance, 8);
-    const auto laneForPad = [&](int pad) {
-        const std::string pads = get(api, instance, "voice_pads");
-        const std::string lanes = get(api, instance, "voice_lanes");
-        for (int voice = 0; voice < 8; ++voice) {
-            if (stateField(pads, voice) == pad) {
-                return stateField(lanes, voice);
-            }
-        }
-        return -1;
-    };
     const int recordedHeldLane = laneForPad(0);
     assert(recordedHeldLane >= 0);
     api->set_param(instance, "clip_record_mode", "Replace");

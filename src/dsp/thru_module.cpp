@@ -1183,6 +1183,7 @@ struct PlaybackVoice {
     std::uint32_t age = 0u;
     float laneOffset = 0.0f;
     float recordedStackPhase = 0.0f;
+    float liveStackPhase = 0.0f;
     float envelope = 0.0f;
     float target = 0.0f;
     float snapshotOutputGain = 1.0f;
@@ -1192,6 +1193,7 @@ struct PlaybackVoice {
     bool clipOwned = false;
     bool useSnapshot = false;
     bool recordedStackPhaseValid = false;
+    bool liveStackPhaseValid = false;
 };
 
 struct ThruInstance {
@@ -1230,6 +1232,8 @@ struct ThruInstance {
     std::uint32_t variationCounter = 0u;
     int lastVariationLane = -1;
     float performanceLane = 0.0f;
+    std::array<float, 160u> liveStackHoldPhases {};
+    std::array<bool, 160u> liveStackHoldPhaseValid {};
     bool stackScanPaused = false;
     bool glitchBufferLocked = false;
     float attackCoefficient = 1.0f;
@@ -2614,13 +2618,56 @@ struct ThruInstance {
                         static_cast<std::size_t>(parameter)));
     }
 
+    float voiceLanePhaseOffset(const PlaybackVoice& voice) const
+    {
+        return pressureMode != 0
+            ? clampValue(voice.laneOffset, 0.0f, 1.0f) : 0.0f;
+    }
+
+    float currentVoiceStackPhase(const PlaybackVoice& voice) const
+    {
+        if (voice.liveStackPhaseValid) return voice.liveStackPhase;
+        if (voice.clipOwned && clipControls.laneScanPaused
+            && voice.recordedStackPhaseValid) {
+            return voice.recordedStackPhase;
+        }
+        return voice.engine.normalizedLaneScanPhase(
+            voiceLanePhaseOffset(voice));
+    }
+
+    void rememberLiveStackPosition(PlaybackVoice& voice)
+    {
+        float phase = currentVoiceStackPhase(voice);
+        phase = clampValue(phase, 0.0f, 1.0f);
+        voice.liveStackPhase = phase;
+        voice.liveStackPhaseValid = true;
+        const int key = clipCaptureKey(voice.note, voice.sourcePad);
+        if (key < 0
+            || key >= static_cast<int>(liveStackHoldPhases.size())) return;
+        liveStackHoldPhases[static_cast<std::size_t>(key)] = phase;
+        liveStackHoldPhaseValid[static_cast<std::size_t>(key)] = true;
+    }
+
+    void restoreLiveStackPosition(PlaybackVoice& voice)
+    {
+        voice.liveStackPhaseValid = false;
+        const int key = clipCaptureKey(voice.note, voice.sourcePad);
+        if (key >= 0
+            && key < static_cast<int>(liveStackHoldPhases.size())
+            && liveStackHoldPhaseValid[static_cast<std::size_t>(key)]) {
+            voice.liveStackPhase = liveStackHoldPhases[
+                static_cast<std::size_t>(key)];
+            voice.liveStackPhaseValid = true;
+            return;
+        }
+        rememberLiveStackPosition(voice);
+    }
+
     void captureClipStackPosition(const PlaybackVoice& voice)
     {
         if (voice.sourcePad < 0 || voice.sourcePad >= 32) return;
-        const float phase = voice.engine.normalizedLaneScanPhase(
-            voice.laneOffset);
         captureClipPoint(ClipPointType::stackPosition, 0u,
-                         voice.sourcePad, phase);
+                         voice.sourcePad, currentVoiceStackPhase(voice));
     }
 
     void captureActiveStackPositions()
@@ -2633,12 +2680,23 @@ struct ThruInstance {
     void setStackScanPaused(bool paused)
     {
         if (paused == stackScanPaused) return;
+        if (paused) {
+            liveStackHoldPhaseValid.fill(false);
+            for (auto& voice : voices) {
+                voice.liveStackPhaseValid = false;
+                if (voice.active) rememberLiveStackPosition(voice);
+            }
+        }
         if (clipRecording) {
             captureClipPoint(ClipPointType::stackHold, 0u, -1,
                              paused ? 1.0f : 0.0f);
             if (paused) captureActiveStackPositions();
         }
         stackScanPaused = paused;
+        if (!paused) {
+            liveStackHoldPhaseValid.fill(false);
+            for (auto& voice : voices) voice.liveStackPhaseValid = false;
+        }
     }
 
     void noteOn(int note, int velocity, int sourcePad = -1)
@@ -2655,6 +2713,8 @@ struct ThruInstance {
         voice.laneOffset = clampValue(controls.manualLane / 3.0f, 0.0f, 1.0f);
         voice.recordedStackPhase = 0.0f;
         voice.recordedStackPhaseValid = false;
+        voice.liveStackPhase = 0.0f;
+        voice.liveStackPhaseValid = false;
         voice.target = 1.0f;
         voice.active = true;
         voice.held = true;
@@ -2663,6 +2723,7 @@ struct ThruInstance {
         voice.useSnapshot = false;
         performanceLane = voice.laneOffset * 3.0f;
         voice.engine.retrigger();
+        if (stackScanPaused) restoreLiveStackPosition(voice);
         captureClipNoteOn(note, velocity, sourcePad);
         if (stackScanPaused) captureClipStackPosition(voice);
         updateActiveNote();
@@ -2832,14 +2893,16 @@ struct ThruInstance {
         effective.sampleLane = static_cast<float>(voice.variantLane);
         effective.sampleSlice = static_cast<float>(voice.sourcePad >= 0
             ? voice.sourcePad : std::max(0, voice.note - rootNote));
-        effective.lanePhaseOffset = pressureMode != 0
-            ? clampValue(voice.laneOffset, 0.0f, 1.0f) : 0.0f;
+        effective.lanePhaseOffset = voiceLanePhaseOffset(voice);
         const bool recordedHold = voice.clipOwned
             && clipControls.laneScanPaused;
         effective.laneScanPaused = stackScanPaused || recordedHold;
-        effective.lanePhaseOverride = recordedHold
-            && voice.recordedStackPhaseValid;
-        effective.lanePhaseOverrideValue = voice.recordedStackPhase;
+        effective.lanePhaseOverride = (stackScanPaused
+                && voice.liveStackPhaseValid)
+            || (recordedHold && voice.recordedStackPhaseValid);
+        effective.lanePhaseOverrideValue = stackScanPaused
+                && voice.liveStackPhaseValid
+            ? voice.liveStackPhase : voice.recordedStackPhase;
         effective.glitchBufferLocked = glitchBufferLocked;
         effective.mix = 1.0f;
         effective.recordInputGain = 1.0f;
@@ -2930,6 +2993,8 @@ struct ThruInstance {
         voice.laneOffset = clampValue(clipControls.manualLane / 3.0f, 0.0f, 1.0f);
         voice.recordedStackPhase = 0.0f;
         voice.recordedStackPhaseValid = false;
+        voice.liveStackPhase = 0.0f;
+        voice.liveStackPhaseValid = false;
         if (voice.sourcePad >= 0 && voice.sourcePad < 32) {
             float value = 0.0f;
             if (sampleClipCurve(clip,
@@ -2953,6 +3018,7 @@ struct ThruInstance {
         voice.useSnapshot = false;
         voice.clipNoteIndex = static_cast<int>(noteIndex);
         voice.engine.retrigger();
+        if (stackScanPaused) restoreLiveStackPosition(voice);
     }
 
     void releaseClipVoice(std::size_t noteIndex)

@@ -20,6 +20,17 @@
   <text x="42" y="48" class="legend" font-weight="700">PERFORMANCE DATA PATH</text>
   <line x1="42" y1="63" x2="1158" y2="63" stroke="#202020" stroke-width="1.5"/>
 
+  <!-- Draw connectors beneath cells. Segmented control paths finish
+       perpendicular to the destination edge so their direction is explicit. -->
+  <g aria-hidden="true">
+    <path d="M218 227H270" class="flow"/>
+    <path d="M450 227H500" class="flow"/>
+    <path d="M720 227H770" class="flow"/>
+    <path d="M940 227H990" class="flow"/>
+    <path d="M610 402V361" class="choice"/>
+    <path d="M720 435H855V316" class="choice"/>
+  </g>
+
   <rect x="42" y="102" width="176" height="252" class="group"/>
   <text x="130" y="132" class="title">LIVE GESTURES</text>
   <rect x="66" y="157" width="128" height="34" class="box"/><text x="130" y="179" class="small">NOTES + GATES</text>
@@ -59,13 +70,6 @@
   <rect x="1014" y="202" width="120" height="34" class="box"/><text x="1074" y="224" class="small">VOICE 2</text>
   <rect x="1014" y="247" width="120" height="34" class="box"/><text x="1074" y="269" class="small">…</text>
   <rect x="1014" y="292" width="120" height="34" class="box"/><text x="1074" y="314" class="small">VOICE 8</text>
-
-  <path d="M218 227H270" class="flow"/>
-  <path d="M450 227H500" class="flow"/>
-  <path d="M720 227H770" class="flow"/>
-  <path d="M940 227H990" class="flow"/>
-  <path d="M610 402V361" class="choice"/>
-  <path d="M720 435H855V316" class="choice"/>
 
   <text x="1074" y="386" class="sub">Each voice restores its own</text>
   <text x="1074" y="406" class="sub">pitch, pressure, playhead,</text>

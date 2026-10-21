@@ -103,12 +103,12 @@
   <path d="M164 184H90V112" class="line"/><circle cx="90" cy="96" r="17" class="call"/><text x="90" y="96" class="num">1</text>
   <path d="M672 146V96" class="line"/><circle cx="672" cy="78" r="17" class="call"/><text x="672" y="78" class="num">2</text>
   <path d="M162 303H90" class="line"/><circle cx="72" cy="303" r="17" class="call"/><text x="72" y="303" class="num">3</text>
-  <path d="M304 272H90V246" class="line"/><circle cx="90" cy="229" r="17" class="call"/><text x="90" y="229" class="num">4</text>
+  <path d="M290 272V250H90V246" class="line"/><circle cx="90" cy="229" r="17" class="call"/><text x="90" y="229" class="num">4</text>
   <path d="M988 465H1110" class="line"/><circle cx="1128" cy="465" r="17" class="call"/><text x="1128" y="465" class="num">5</text>
   <path d="M670 572V636" class="line"/><circle cx="670" cy="654" r="17" class="call"/><text x="670" y="654" class="num">6</text>
   <path d="M239 462V636" class="line"/><circle cx="239" cy="654" r="17" class="call"/><text x="239" y="654" class="num">7</text>
-  <path d="M291 434V498H1128" class="line"/><circle cx="1128" cy="498" r="17" class="call"/><text x="1128" y="498" class="num">8</text>
-  <path d="M279 390V165H103" class="line"/><circle cx="86" cy="165" r="17" class="call"/><text x="86" y="165" class="num">9</text>
+  <path d="M291 462V498H1128" class="line"/><circle cx="1128" cy="498" r="17" class="call"/><text x="1128" y="498" class="num">8</text>
+  <path d="M279 390V250H118V165H103" class="line"/><circle cx="86" cy="165" r="17" class="call"/><text x="86" y="165" class="num">9</text>
   <path d="M1042 350H1110V282" class="line"/><circle cx="1128" cy="282" r="17" class="call"/><text x="1128" y="282" class="num">10</text>
   <text x="56" y="698" class="tiny" text-anchor="start">Simplified control map · labels describe s3g Thru takeover behavior</text>
 </svg>

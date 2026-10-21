@@ -20,6 +20,20 @@
   <text x="42" y="48" class="legend" font-weight="700">AUDIO PATH</text>
   <line x1="42" y1="63" x2="1158" y2="63" stroke="#202020" stroke-width="1.5"/>
 
+  <!-- Draw connectors first so cell fills mask every route cleanly. Each
+       segmented path finishes perpendicular to its destination edge. -->
+  <g aria-hidden="true">
+    <path d="M192 164H238" class="audio"/>
+    <path d="M192 310H238" class="audio"/>
+    <path d="M424 187H475" class="audio"/>
+    <path d="M665 187H713" class="audio"/>
+    <path d="M847 187H895" class="audio"/>
+    <path d="M1029 187H1074" class="audio"/>
+    <path d="M192 187H215V390H570V371" class="audio"/>
+    <path d="M665 333H1050V270H1116V248" class="audio"/>
+    <path d="M962 248V272H450V350H424" class="return"/>
+  </g>
+
   <rect x="42" y="126" width="150" height="76" class="box"/>
   <text x="117" y="156" class="title">MOVE INPUT</text>
   <text x="117" y="179" class="sub">microphone / line</text>
@@ -57,21 +71,11 @@
   <text x="1116" y="192" class="sub">stereo</text>
   <text x="1116" y="213" class="sub">Move</text>
 
-  <path d="M192 164H238" class="audio"/>
-  <path d="M192 310H238" class="audio"/>
-  <path d="M424 187H475" class="audio"/>
-  <path d="M665 187H713" class="audio"/>
-  <path d="M847 187H895" class="audio"/>
-  <path d="M1029 187H1074" class="audio"/>
-
   <rect x="475" y="295" width="190" height="76" class="box"/>
   <text x="570" y="325" class="title">INPUT MONITOR</text>
   <text x="570" y="348" class="sub">dry · normally 0.00</text>
-  <path d="M117 202V333H475" class="audio"/>
-  <path d="M665 333H1074V228" class="audio"/>
 
-  <path d="M962 248V430H331V372" class="return"/>
-  <text x="665" y="421" class="small">RESAMPLE RETURN · PROCESSED OUTPUT TO SELECTED LANE</text>
+  <text x="665" y="443" class="small">RESAMPLE RETURN · PROCESSED OUTPUT TO SELECTED LANE</text>
 
   <line x1="42" y1="478" x2="88" y2="478" stroke="#202020" stroke-width="2" marker-end="url(#arrow)"/>
   <text x="102" y="482" class="legend">audio</text>

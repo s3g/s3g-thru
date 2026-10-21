@@ -21,6 +21,7 @@ test "$file_count" = "5"
 entry_count="$(find "$verify_dir" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')"
 test "$entry_count" = "1"
 file "$verify_dir/s3g-thru/dsp.so" | grep -Eq 'ELF 64-bit.*ARM aarch64'
+"$repo_dir/scripts/verify-move-abi.sh" "$verify_dir/s3g-thru/dsp.so"
 python3 - "$verify_dir/s3g-thru/module.json" <<'PY'
 import json
 import pathlib

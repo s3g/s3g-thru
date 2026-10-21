@@ -16,7 +16,8 @@ performance loops, and shortcuts.
 2. Open Schwung Manager at `http://move.local:7700`.
 3. Choose **Modules → Install Custom Module → GitHub URL**.
 4. Enter `https://github.com/s3g/s3g-thru` and install.
-5. On Move, open Overtake and select **s3g Thru**.
+5. Restart Move when Schwung Manager requests it.
+6. On Move, open Overtake and select **s3g Thru**.
 
 The installer reads [`release.json`](release.json) and downloads the matching
 ARM64 package from [GitHub Releases](https://github.com/s3g/s3g-thru/releases).
@@ -35,13 +36,11 @@ npm test
 npm run build
 ```
 
-On Debian or Ubuntu:
-
-```sh
-sudo apt-get install g++-aarch64-linux-gnu file
-npm test
-npm run build
-```
+On Linux, use an AArch64 toolchain with a glibc 2.34-or-earlier sysroot. The
+pinned toolchain and checksum used for official packages are documented in
+[the release workflow](.github/workflows/release.yml). A current distribution’s
+default cross-compiler may target a newer glibc and will be rejected by the
+Move ABI check.
 
 The installable is written to `dist/s3g-thru-module.tar.gz`. Run
 `npm run docs:serve` to preview the manual locally and `npm run release:check`

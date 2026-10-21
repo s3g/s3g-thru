@@ -1,6 +1,7 @@
 name: Release
 
 on:
+  workflow_dispatch:
   push:
     tags:
       - "v*"
@@ -21,18 +22,39 @@ jobs:
         with:
           node-version: 20
 
-      - name: Install AArch64 toolchain
+      - name: Install host validation tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y g++-aarch64-linux-gnu file
+          sudo apt-get install -y file
+
+      - name: Install Move-compatible AArch64 toolchain
+        env:
+          TOOLCHAIN_URL: https://developer.arm.com/-/media/Files/downloads/gnu-a/10.3-2021.07/binrel/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu.tar.xz
+          TOOLCHAIN_SHA256: 1e33d53dea59c8de823bbdfe0798280bdcd138636c7060da9d77a97ded095a84
+        run: |
+          curl --fail --location --retry 3 \
+            --output "$RUNNER_TEMP/arm-toolchain.tar.xz" "$TOOLCHAIN_URL"
+          echo "$TOOLCHAIN_SHA256  $RUNNER_TEMP/arm-toolchain.tar.xz" | sha256sum --check
+          tar -xJf "$RUNNER_TEMP/arm-toolchain.tar.xz" -C "$RUNNER_TEMP"
 
       - name: Verify tag and release metadata
-        run: node scripts/validate-release.mjs "$GITHUB_REF_NAME"
+        run: |
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            node scripts/validate-release.mjs "$GITHUB_REF_NAME"
+          else
+            node scripts/validate-release.mjs
+          fi
 
       - name: Build and validate module
+        env:
+          AARCH64_CXX: ${{ runner.temp }}/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-none-linux-gnu-g++
+          AARCH64_STRIP: ${{ runner.temp }}/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-none-linux-gnu-strip
+          AARCH64_NM: ${{ runner.temp }}/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-none-linux-gnu-nm
+          AARCH64_READELF: ${{ runner.temp }}/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-none-linux-gnu-readelf
         run: npm run build
 
       - name: Prepare release files
+        if: github.ref_type == 'tag'
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           cp "release-notes/RELEASE_NOTES_${VERSION}.md" "$RUNNER_TEMP/release-notes.md"
@@ -40,6 +62,7 @@ jobs:
           sha256sum s3g-thru-module.tar.gz > s3g-thru-module.tar.gz.sha256
 
       - name: Publish GitHub Release
+        if: github.ref_type == 'tag'
         uses: softprops/action-gh-release@v2
         with:
           body_path: ${{ runner.temp }}/release-notes.md

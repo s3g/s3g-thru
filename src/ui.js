@@ -1,4 +1,4 @@
-/* s3g Thru 0.25.0 — polyphonic sampler/performance-looper takeover for Move. */
+/* s3g Thru 0.25.1 — polyphonic sampler/performance-looper takeover for Move. */
 
 import * as moveConstants from '/data/UserData/schwung/shared/constants.mjs';
 import * as moveInputFilter from '/data/UserData/schwung/shared/input_filter.mjs';

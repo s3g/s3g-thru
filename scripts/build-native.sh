@@ -56,6 +56,8 @@ if command -v "$nm_bin" >/dev/null 2>&1; then
   fi
 fi
 
+"$repo_dir/scripts/verify-move-abi.sh" "$module_dir/dsp.so"
+
 cp "$repo_dir/src/module.json" "$module_dir/module.json"
 cp "$repo_dir/src/ui.js" "$module_dir/ui.js"
 cp "$repo_dir/LICENSE" "$module_dir/LICENSE"

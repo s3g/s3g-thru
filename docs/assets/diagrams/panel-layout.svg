@@ -1,114 +1,153 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="720" viewBox="0 0 1200 720" role="img" aria-labelledby="title desc">
   <title id="title">s3g Thru control layout on Ableton Move</title>
-  <desc id="desc">Simplified grayscale top-panel drawing with ten numbered callouts for the display, encoders, main wheel, track keys, pads, step keys, transport, Loop, navigation, and Shift and Delete controls.</desc>
+  <desc id="desc">A grayscale top-panel drawing based on the Ableton Move hardware layout, with ten numbered callouts for the OLED display, eight encoders, clickable wheel, four track buttons, 32 pads, 16 step buttons, transport, Loop, navigation, Shift, and Delete.</desc>
   <defs>
     <style>
-      .body{fill:#d8d8d5;stroke:#171717;stroke-width:2}
-      .zone{fill:#ececea;stroke:#757572;stroke-width:1}
+      .body{fill:#dededb;stroke:#181818;stroke-width:2}
       .screen{fill:#292929;stroke:#111;stroke-width:2}
-      .knob{fill:#f8f8f6;stroke:#171717;stroke-width:2}
-      .key{fill:#f7f7f5;stroke:#3f3f3d;stroke-width:1.4}
-      .pad{fill:#f5f5f2;stroke:#333;stroke-width:1.5}
-      .step{fill:#f8f8f6;stroke:#333;stroke-width:1.2}
-      .line{fill:none;stroke:#171717;stroke-width:1.5;stroke-linecap:square;stroke-linejoin:miter}
-      .call{fill:#171717;stroke:#171717;stroke-width:1}
+      .encoder{fill:#fafaf8;stroke:#202020;stroke-width:1.8}
+      .button{fill:#fafaf8;stroke:#343432;stroke-width:1.5}
+      .shift{fill:#c9c9c5;stroke:#343432;stroke-width:1.5}
+      .pad{fill:#f7f7f4;stroke:#30302f;stroke-width:1.5}
+      .step{fill:#fafaf8;stroke:#30302f;stroke-width:1.3}
+      .led{fill:#2b2b2a}
+      .icon{fill:none;stroke:#242424;stroke-width:2;stroke-linecap:square;stroke-linejoin:miter}
+      .thin{fill:none;stroke:#555;stroke-width:1.2;stroke-linecap:square;stroke-linejoin:miter}
+      .leader{fill:none;stroke:#181818;stroke-width:1.5;stroke-linecap:square;stroke-linejoin:miter}
+      .call{fill:#181818;stroke:#181818;stroke-width:1}
       .num{fill:#fff;font-family:Arial,Helvetica,sans-serif;font-size:18px;font-weight:700;text-anchor:middle;dominant-baseline:central}
       .label{fill:#242424;font-family:Arial,Helvetica,sans-serif;font-size:13px;font-weight:700;letter-spacing:.6px}
-      .tiny{fill:#555;font-family:Menlo,Monaco,monospace;font-size:10px;text-anchor:middle}
-      .screenText{fill:#f4f4f1;font-family:Menlo,Monaco,monospace;font-size:12px}
+      .tiny{fill:#555;font-family:Menlo,Monaco,monospace;font-size:9px;text-anchor:middle}
+      .foot{fill:#555;font-family:Menlo,Monaco,monospace;font-size:9px;text-anchor:start}
+      .screenText{fill:#f4f4f1;font-family:Menlo,Monaco,monospace;font-size:11px}
     </style>
   </defs>
+
   <rect width="1200" height="720" fill="#fff"/>
-  <text x="56" y="58" class="label">OVERTAKE CONTROL SURFACE</text>
-  <line x1="56" y1="74" x2="1144" y2="74" class="line"/>
+  <text x="55" y="55" class="label">ABLETON MOVE · OVERTAKE CONTROL SURFACE</text>
+  <line x1="55" y1="72" x2="1145" y2="72" class="leader"/>
 
-  <rect x="132" y="130" width="936" height="470" rx="9" class="body"/>
-  <rect x="164" y="164" width="180" height="70" class="screen"/>
-  <text x="178" y="189" class="screenText">THRU LANES A01 V3</text>
-  <text x="178" y="211" class="screenText">PLAY 13.6b 1.00x</text>
+  <!-- Chassis: 313.5 × 146.3 mm proportions. -->
+  <rect x="145" y="140" width="910" height="425" rx="9" class="body"/>
 
-  <circle cx="205" cy="303" r="43" class="knob"/>
-  <line x1="205" y1="303" x2="228" y2="279" class="line"/>
-  <text x="205" y="360" class="tiny">MAIN</text>
-  <circle cx="304" cy="272" r="14" class="key"/>
-  <circle cx="304" cy="313" r="14" class="key"/>
-  <circle cx="304" cy="354" r="14" class="key"/>
-  <circle cx="304" cy="395" r="14" class="key"/>
-  <text x="304" y="430" class="tiny">TRACK 1–4</text>
+  <!-- OLED and clickable wheel. -->
+  <rect x="168" y="168" width="100" height="50" class="screen"/>
+  <text x="174" y="188" class="screenText">THRU LANES</text>
+  <text x="174" y="207" class="screenText">PLAY A01 V3</text>
+  <circle cx="214" cy="297" r="38" class="encoder"/>
+  <line x1="214" y1="297" x2="232" y2="279" class="icon"/>
 
-  <rect x="164" y="390" width="70" height="28" rx="4" class="key"/>
-  <text x="199" y="408" class="tiny">MENU</text>
-  <rect x="244" y="390" width="70" height="28" rx="4" class="key"/>
-  <text x="279" y="408" class="tiny">BACK</text>
-  <rect x="164" y="434" width="46" height="28" rx="4" class="key"/>
-  <text x="187" y="452" class="tiny">PLAY</text>
-  <rect x="216" y="434" width="46" height="28" rx="4" class="key"/>
-  <text x="239" y="452" class="tiny">REC</text>
-  <rect x="268" y="434" width="46" height="28" rx="4" class="key"/>
-  <text x="291" y="452" class="tiny">LOOP</text>
+  <!-- Back and Menu. -->
+  <circle cx="188" cy="385" r="20" class="button"/>
+  <path d="M194 376L185 385L194 394" class="icon"/>
+  <circle cx="241" cy="385" r="20" class="button"/>
+  <path d="M233 377H249M233 385H249M233 393H249" class="icon"/>
 
-  <rect x="366" y="146" width="622" height="68" class="zone"/>
+  <!-- Eight touch-sensitive encoders and their touch LEDs. -->
   <g>
-    <circle cx="403" cy="180" r="19" class="knob"/><circle cx="480" cy="180" r="19" class="knob"/>
-    <circle cx="557" cy="180" r="19" class="knob"/><circle cx="634" cy="180" r="19" class="knob"/>
-    <circle cx="711" cy="180" r="19" class="knob"/><circle cx="788" cy="180" r="19" class="knob"/>
-    <circle cx="865" cy="180" r="19" class="knob"/><circle cx="942" cy="180" r="19" class="knob"/>
-    <text x="403" y="208" class="tiny">1</text><text x="480" y="208" class="tiny">2</text>
-    <text x="557" y="208" class="tiny">3</text><text x="634" y="208" class="tiny">4</text>
-    <text x="711" y="208" class="tiny">5</text><text x="788" y="208" class="tiny">6</text>
-    <text x="865" y="208" class="tiny">7</text><text x="942" y="208" class="tiny">8</text>
+    <circle cx="350" cy="183" r="16" class="encoder"/><circle cx="350" cy="218" r="3" class="button"/>
+    <circle cx="427" cy="183" r="16" class="encoder"/><circle cx="427" cy="218" r="3" class="button"/>
+    <circle cx="504" cy="183" r="16" class="encoder"/><circle cx="504" cy="218" r="3" class="button"/>
+    <circle cx="581" cy="183" r="16" class="encoder"/><circle cx="581" cy="218" r="3" class="button"/>
+    <circle cx="658" cy="183" r="16" class="encoder"/><circle cx="658" cy="218" r="3" class="button"/>
+    <circle cx="735" cy="183" r="16" class="encoder"/><circle cx="735" cy="218" r="3" class="button"/>
+    <circle cx="812" cy="183" r="16" class="encoder"/><circle cx="812" cy="218" r="3" class="button"/>
+    <circle cx="889" cy="183" r="16" class="encoder"/><circle cx="889" cy="218" r="3" class="button"/>
   </g>
 
-  <rect x="366" y="230" width="622" height="280" class="zone"/>
+  <!-- Built-in microphone and output-volume encoder. -->
+  <circle cx="948" cy="183" r="2.5" class="led"/>
+  <circle cx="1012" cy="188" r="23" class="encoder"/>
+  <text x="1012" y="192" class="tiny">VOL</text>
+
+  <!-- Four vertical track buttons. -->
   <g>
-    <rect x="382" y="246" width="60" height="54" rx="4" class="pad"/><rect x="457" y="246" width="60" height="54" rx="4" class="pad"/>
-    <rect x="532" y="246" width="60" height="54" rx="4" class="pad"/><rect x="607" y="246" width="60" height="54" rx="4" class="pad"/>
-    <rect x="682" y="246" width="60" height="54" rx="4" class="pad"/><rect x="757" y="246" width="60" height="54" rx="4" class="pad"/>
-    <rect x="832" y="246" width="60" height="54" rx="4" class="pad"/><rect x="907" y="246" width="60" height="54" rx="4" class="pad"/>
-    <rect x="382" y="310" width="60" height="54" rx="4" class="pad"/><rect x="457" y="310" width="60" height="54" rx="4" class="pad"/>
-    <rect x="532" y="310" width="60" height="54" rx="4" class="pad"/><rect x="607" y="310" width="60" height="54" rx="4" class="pad"/>
-    <rect x="682" y="310" width="60" height="54" rx="4" class="pad"/><rect x="757" y="310" width="60" height="54" rx="4" class="pad"/>
-    <rect x="832" y="310" width="60" height="54" rx="4" class="pad"/><rect x="907" y="310" width="60" height="54" rx="4" class="pad"/>
-    <rect x="382" y="374" width="60" height="54" rx="4" class="pad"/><rect x="457" y="374" width="60" height="54" rx="4" class="pad"/>
-    <rect x="532" y="374" width="60" height="54" rx="4" class="pad"/><rect x="607" y="374" width="60" height="54" rx="4" class="pad"/>
-    <rect x="682" y="374" width="60" height="54" rx="4" class="pad"/><rect x="757" y="374" width="60" height="54" rx="4" class="pad"/>
-    <rect x="832" y="374" width="60" height="54" rx="4" class="pad"/><rect x="907" y="374" width="60" height="54" rx="4" class="pad"/>
-    <rect x="382" y="438" width="60" height="54" rx="4" class="pad"/><rect x="457" y="438" width="60" height="54" rx="4" class="pad"/>
-    <rect x="532" y="438" width="60" height="54" rx="4" class="pad"/><rect x="607" y="438" width="60" height="54" rx="4" class="pad"/>
-    <rect x="682" y="438" width="60" height="54" rx="4" class="pad"/><rect x="757" y="438" width="60" height="54" rx="4" class="pad"/>
-    <rect x="832" y="438" width="60" height="54" rx="4" class="pad"/><rect x="907" y="438" width="60" height="54" rx="4" class="pad"/>
+    <rect x="276" y="244" width="25" height="47" rx="12.5" class="button"/><rect x="286" y="254" width="5" height="27" rx="2" class="led"/>
+    <rect x="276" y="302" width="25" height="47" rx="12.5" class="button"/><rect x="286" y="312" width="5" height="27" rx="2" class="led"/>
+    <rect x="276" y="360" width="25" height="47" rx="12.5" class="button"/><rect x="286" y="370" width="5" height="27" rx="2" class="led"/>
+    <rect x="276" y="418" width="25" height="47" rx="12.5" class="button"/><rect x="286" y="428" width="5" height="27" rx="2" class="led"/>
   </g>
 
-  <rect x="366" y="526" width="622" height="46" class="zone"/>
+  <!-- 32 velocity- and pressure-sensitive pads. -->
   <g>
-    <circle cx="390" cy="549" r="11" class="step"/><circle cx="428" cy="549" r="11" class="step"/>
-    <circle cx="466" cy="549" r="11" class="step"/><circle cx="504" cy="549" r="11" class="step"/>
-    <circle cx="542" cy="549" r="11" class="step"/><circle cx="580" cy="549" r="11" class="step"/>
-    <circle cx="618" cy="549" r="11" class="step"/><circle cx="656" cy="549" r="11" class="step"/>
-    <circle cx="694" cy="549" r="11" class="step"/><circle cx="732" cy="549" r="11" class="step"/>
-    <circle cx="770" cy="549" r="11" class="step"/><circle cx="808" cy="549" r="11" class="step"/>
-    <circle cx="846" cy="549" r="11" class="step"/><circle cx="884" cy="549" r="11" class="step"/>
-    <circle cx="922" cy="549" r="11" class="step"/><circle cx="960" cy="549" r="11" class="step"/>
+    <rect x="318" y="244" width="66" height="47" rx="2" class="pad"/><rect x="394" y="244" width="66" height="47" rx="2" class="pad"/>
+    <rect x="470" y="244" width="66" height="47" rx="2" class="pad"/><rect x="546" y="244" width="66" height="47" rx="2" class="pad"/>
+    <rect x="622" y="244" width="66" height="47" rx="2" class="pad"/><rect x="698" y="244" width="66" height="47" rx="2" class="pad"/>
+    <rect x="774" y="244" width="66" height="47" rx="2" class="pad"/><rect x="850" y="244" width="66" height="47" rx="2" class="pad"/>
+    <rect x="318" y="302" width="66" height="47" rx="2" class="pad"/><rect x="394" y="302" width="66" height="47" rx="2" class="pad"/>
+    <rect x="470" y="302" width="66" height="47" rx="2" class="pad"/><rect x="546" y="302" width="66" height="47" rx="2" class="pad"/>
+    <rect x="622" y="302" width="66" height="47" rx="2" class="pad"/><rect x="698" y="302" width="66" height="47" rx="2" class="pad"/>
+    <rect x="774" y="302" width="66" height="47" rx="2" class="pad"/><rect x="850" y="302" width="66" height="47" rx="2" class="pad"/>
+    <rect x="318" y="360" width="66" height="47" rx="2" class="pad"/><rect x="394" y="360" width="66" height="47" rx="2" class="pad"/>
+    <rect x="470" y="360" width="66" height="47" rx="2" class="pad"/><rect x="546" y="360" width="66" height="47" rx="2" class="pad"/>
+    <rect x="622" y="360" width="66" height="47" rx="2" class="pad"/><rect x="698" y="360" width="66" height="47" rx="2" class="pad"/>
+    <rect x="774" y="360" width="66" height="47" rx="2" class="pad"/><rect x="850" y="360" width="66" height="47" rx="2" class="pad"/>
+    <rect x="318" y="418" width="66" height="47" rx="2" class="pad"/><rect x="394" y="418" width="66" height="47" rx="2" class="pad"/>
+    <rect x="470" y="418" width="66" height="47" rx="2" class="pad"/><rect x="546" y="418" width="66" height="47" rx="2" class="pad"/>
+    <rect x="622" y="418" width="66" height="47" rx="2" class="pad"/><rect x="698" y="418" width="66" height="47" rx="2" class="pad"/>
+    <rect x="774" y="418" width="66" height="47" rx="2" class="pad"/><rect x="850" y="418" width="66" height="47" rx="2" class="pad"/>
   </g>
 
-  <rect x="1004" y="170" width="38" height="38" rx="19" class="key"/><text x="1023" y="194" class="tiny">VOL</text>
-  <rect x="1004" y="234" width="38" height="28" rx="4" class="key"/><text x="1023" y="252" class="tiny">UP</text>
-  <rect x="1004" y="269" width="38" height="28" rx="4" class="key"/><text x="1023" y="287" class="tiny">DN</text>
-  <rect x="1004" y="318" width="38" height="28" rx="4" class="key"/><text x="1023" y="336" class="tiny">DEL</text>
-  <rect x="1004" y="353" width="38" height="28" rx="4" class="key"/><text x="1023" y="371" class="tiny">SHIFT</text>
-  <rect x="1004" y="402" width="38" height="28" rx="4" class="key"/><text x="1023" y="420" class="tiny">L</text>
-  <rect x="1004" y="437" width="38" height="28" rx="4" class="key"/><text x="1023" y="455" class="tiny">R</text>
+  <!-- Right-hand function buttons: Capture/Sampling, Loop/Mute,
+       Delete/Copy, and Undo/Shift. -->
+  <g>
+    <circle cx="955" cy="268" r="19" class="button"/>
+    <path d="M947 264V260H951M959 260H963V264M963 272V276H959M951 276H947V272" class="icon"/>
+    <circle cx="1011" cy="268" r="19" class="button"/><circle cx="1011" cy="268" r="4.5" class="led"/>
+    <circle cx="955" cy="326" r="19" class="button"/>
+    <path d="M962 327C961 333 950 334 948 327C945 320 954 317 961 321M961 321V328H954" class="icon"/>
+    <circle cx="1011" cy="326" r="19" class="button"/><text x="1011" y="331" class="label" text-anchor="middle">M</text>
+    <circle cx="955" cy="384" r="19" class="button"/>
+    <path d="M948 377L962 391M962 377L948 391" class="icon"/>
+    <circle cx="1011" cy="384" r="19" class="button"/>
+    <rect x="1003" y="382" width="10" height="9" class="icon"/><path d="M1008 377H1018V386" class="icon"/>
+    <circle cx="955" cy="442" r="19" class="button"/>
+    <path d="M962 448C963 438 959 434 949 436M949 436L953 432M949 436L954 439" class="icon"/>
+    <circle cx="1011" cy="442" r="19" class="shift"/>
+    <circle cx="1004" cy="442" r="2" class="led"/><circle cx="1011" cy="442" r="2" class="led"/><circle cx="1018" cy="442" r="2" class="led"/>
+  </g>
 
-  <path d="M164 184H90V112" class="line"/><circle cx="90" cy="96" r="17" class="call"/><text x="90" y="96" class="num">1</text>
-  <path d="M672 146V96" class="line"/><circle cx="672" cy="78" r="17" class="call"/><text x="672" y="78" class="num">2</text>
-  <path d="M162 303H90" class="line"/><circle cx="72" cy="303" r="17" class="call"/><text x="72" y="303" class="num">3</text>
-  <path d="M290 272V250H90V246" class="line"/><circle cx="90" cy="229" r="17" class="call"/><text x="90" y="229" class="num">4</text>
-  <path d="M988 465H1110" class="line"/><circle cx="1128" cy="465" r="17" class="call"/><text x="1128" y="465" class="num">5</text>
-  <path d="M670 572V636" class="line"/><circle cx="670" cy="654" r="17" class="call"/><text x="670" y="654" class="num">6</text>
-  <path d="M239 462V636" class="line"/><circle cx="239" cy="654" r="17" class="call"/><text x="239" y="654" class="num">7</text>
-  <path d="M291 462V498H1128" class="line"/><circle cx="1128" cy="498" r="17" class="call"/><text x="1128" y="498" class="num">8</text>
-  <path d="M279 390V250H118V165H103" class="line"/><circle cx="86" cy="165" r="17" class="call"/><text x="86" y="165" class="num">9</text>
-  <path d="M1042 350H1110V282" class="line"/><circle cx="1128" cy="282" r="17" class="call"/><text x="1128" y="282" class="num">10</text>
-  <text x="56" y="698" class="tiny" text-anchor="start">Simplified control map · labels describe s3g Thru takeover behavior</text>
+  <!-- Play, Record, 16 step buttons, and printed secondary-function marks. -->
+  <circle cx="188" cy="512" r="19" class="button"/><path d="M182 502L198 512L182 522Z" class="icon"/>
+  <circle cx="241" cy="512" r="19" class="button"/><circle cx="241" cy="512" r="8" class="icon"/>
+  <g>
+    <circle cx="333" cy="512" r="10" class="step"/><circle cx="333" cy="512" r="2.5" class="led"/>
+    <circle cx="371" cy="512" r="10" class="step"/><circle cx="371" cy="512" r="2.5" class="led"/>
+    <circle cx="409" cy="512" r="10" class="step"/><circle cx="409" cy="512" r="2.5" class="led"/>
+    <circle cx="447" cy="512" r="10" class="step"/><circle cx="447" cy="512" r="2.5" class="led"/>
+    <circle cx="485" cy="512" r="10" class="step"/><circle cx="485" cy="512" r="2.5" class="led"/>
+    <circle cx="523" cy="512" r="10" class="step"/><circle cx="523" cy="512" r="2.5" class="led"/>
+    <circle cx="561" cy="512" r="10" class="step"/><circle cx="561" cy="512" r="2.5" class="led"/>
+    <circle cx="599" cy="512" r="10" class="step"/><circle cx="599" cy="512" r="2.5" class="led"/>
+    <circle cx="637" cy="512" r="10" class="step"/><circle cx="637" cy="512" r="2.5" class="led"/>
+    <circle cx="675" cy="512" r="10" class="step"/><circle cx="675" cy="512" r="2.5" class="led"/>
+    <circle cx="713" cy="512" r="10" class="step"/><circle cx="713" cy="512" r="2.5" class="led"/>
+    <circle cx="751" cy="512" r="10" class="step"/><circle cx="751" cy="512" r="2.5" class="led"/>
+    <circle cx="789" cy="512" r="10" class="step"/><circle cx="789" cy="512" r="2.5" class="led"/>
+    <circle cx="827" cy="512" r="10" class="step"/><circle cx="827" cy="512" r="2.5" class="led"/>
+    <circle cx="865" cy="512" r="10" class="step"/><circle cx="865" cy="512" r="2.5" class="led"/>
+    <circle cx="903" cy="512" r="10" class="step"/><circle cx="903" cy="512" r="2.5" class="led"/>
+  </g>
+  <path d="M333 532V539M371 532L367 539H375ZM407 536H411M443 536H451M483 532V539H488M519 536H527M559 533C564 530 566 538 561 539M595 533H603M635 532V539M673 532V539M709 533H717M747 533H755M787 532V539M823 533H831M863 532V539M901 532V539" class="thin"/>
+
+  <!-- Loop navigation / octave controls. -->
+  <circle cx="945" cy="512" r="17" class="button"/><path d="M950 504L942 512L950 520" class="icon"/>
+  <circle cx="985" cy="493" r="14" class="button"/><path d="M979 493H991M985 487V499" class="icon"/>
+  <circle cx="985" cy="531" r="14" class="button"/><path d="M979 531H991" class="icon"/>
+  <circle cx="1025" cy="512" r="17" class="button"/><path d="M1020 504L1028 512L1020 520" class="icon"/>
+
+  <!-- Numbered s3g Thru control groups. Leaders terminate at control edges. -->
+  <path d="M168 193H112" class="leader"/><circle cx="95" cy="193" r="17" class="call"/><text x="95" y="193" class="num">1</text>
+  <path d="M581 167V112" class="leader"/><circle cx="581" cy="95" r="17" class="call"/><text x="581" y="95" class="num">2</text>
+  <path d="M176 297H112" class="leader"/><circle cx="95" cy="297" r="17" class="call"/><text x="95" y="297" class="num">3</text>
+  <path d="M276 268H260V235H112" class="leader"/><circle cx="95" cy="235" r="17" class="call"/><text x="95" y="235" class="num">4</text>
+  <path d="M916 244H1075V225H1093" class="leader"/><circle cx="1110" cy="225" r="17" class="call"/><text x="1110" y="225" class="num">5</text>
+  <path d="M637 522V608" class="leader"/><circle cx="637" cy="625" r="17" class="call"/><text x="637" y="625" class="num">6</text>
+  <path d="M241 531V608" class="leader"/><circle cx="241" cy="625" r="17" class="call"/><text x="241" y="625" class="num">7</text>
+  <path d="M955 307V300H1075V310H1093" class="leader"/><circle cx="1110" cy="310" r="17" class="call"/><text x="1110" y="310" class="num">8</text>
+  <path d="M168 385H112" class="leader"/><circle cx="95" cy="385" r="17" class="call"/><text x="95" y="385" class="num">9</text>
+  <path d="M955 365V355H1040V442H1030M1040 413H1075V435H1093" class="leader"/><circle cx="1110" cy="435" r="17" class="call"/><text x="1110" y="435" class="num">10</text>
+
+  <text x="55" y="687" class="foot">Control placement follows Ableton Move hardware · numbered groups describe s3g Thru takeover behavior</text>
 </svg>

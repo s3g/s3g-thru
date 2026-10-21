@@ -30,7 +30,7 @@
     <path d="M847 187H895" class="audio"/>
     <path d="M1029 187H1074" class="audio"/>
     <path d="M192 187H215V390H570V371" class="audio"/>
-    <path d="M665 333H1050V270H1116V248" class="audio"/>
+    <path d="M665 333H1116V248" class="audio"/>
     <path d="M962 248V272H450V350H424" class="return"/>
   </g>
 

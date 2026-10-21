@@ -1,4 +1,4 @@
-# s3g Thru 0.22.0 overtake hardware acceptance
+# s3g Thru 0.23.0 overtake hardware acceptance
 
 Desktop tests prove the module ABI and DSP behavior; they do not prove the
 exact Move input, screen, pad, or realtime paths. Preserve the previous
@@ -16,7 +16,7 @@ working Schwung installation and do this pass with headphones first.
 
 1. Set Move's main volume low and disconnect speakers.
 2. Uninstall the earlier 0.1 sound-generator build if present, restart Move,
-   then install the 0.22.0 tarball through Schwung Manager.
+   then install the 0.23.0 tarball through Schwung Manager.
 3. Open the Overtake menu with Shift + volume touch + jog-click and select
    s3g Thru.
 4. Confirm Thru opens directly on a four-row waveform page without selecting a
@@ -178,6 +178,16 @@ working Schwung installation and do this pass with headphones first.
     Turn Normalize in either direction and confirm the header briefly reads
     `NORMALIZED L#`; compare the result at a fixed Level. Repeat on an empty lane
     and confirm the UI reports that the lane is empty instead of failing silently.
+25. Record a recognizable sound into one lane, stop, then record a different
+    sound into that same clip and lane. Confirm the second sound is active. Use
+    Shift + Back once and wait for preparation; confirm the first sound and its
+    waveform return rather than only its label.
+26. Hold Shift and press the selected Track key. Confirm the browser first shows
+    `Move Samples` and `Thru Recordings`. Enter Thru Recordings, confirm the
+    newest capture appears first, audition both recordings from step 25, and
+    load the older one. Exit and reopen Thru; confirm the chosen archive source
+    is recalled. Off-device, confirm the two WAVs have different names and both
+    remain after clearing the lane and resetting its clip.
 
 ## Monitor and input checks
 

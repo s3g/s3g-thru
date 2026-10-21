@@ -36,13 +36,13 @@
           <li>Press <kbd>Track 1</kbd>, <kbd>2</kbd>, <kbd>3</kbd>, or <kbd>4</kbd> to select the destination.</li>
           <li>On Mix / Rec, choose <code>INPUT</code> for Move's selected hardware input or <code>RESAMPLE</code> for Thru's stereo output.</li>
           <li>Hold <kbd>Shift</kbd> and press <kbd>Record</kbd>. The Record key is orange during audio capture.</li>
-          <li>Repeat <kbd>Shift</kbd> + <kbd>Record</kbd> to stop. The completed capture replaces that lane; the other three lanes are unchanged.</li>
+          <li>Repeat <kbd>Shift</kbd> + <kbd>Record</kbd> to stop. The completed capture becomes that lane's active source; the other three lanes are unchanged.</li>
           <li>Wait briefly if <code>SCANNING WAVEFORM</code> appears. The waveform fills in as the scan completes.</li>
         </ol>
 
         <p>The main display's lane number and left selection mark identify the target. The adjacent vertical bar reports the selected/displayed voice's current contribution from that lane—it is not the input meter. During recording, the horizontal bar near the bottom is the capture level.</p>
 
-        <p>Hold <kbd>Shift</kbd> and press <kbd>Delete</kbd> to clear the selected lane. A destructive capture, clear, library replacement, or sample edit can be reversed once with <kbd>Shift</kbd> + <kbd>Back</kbd>.</p>
+        <p>Each completed input recording or resample is written as a new stereo WAV. Recording the lane again changes its active assignment but does not overwrite the earlier file. Hold <kbd>Shift</kbd> and press <kbd>Delete</kbd> to clear the selected lane. The latest capture, clear, library replacement, or sample edit can be reversed once with <kbd>Shift</kbd> + <kbd>Back</kbd>.</p>
 
         <h2 id="library">Load from the sample library</h2>
 
@@ -50,7 +50,7 @@
           <div class="doc-graphic doc-screenshot move-screen">
             <button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/library.svg" aria-label="Open the sample browser figure"><img src="assets/screens/library.svg" alt="s3g Thru sample browser showing folders and WAV files"></button>
           </div>
-          <figcaption>Hold Shift and press a Track key to open this browser for that lane. The header always shows the destination lane and current directory.</figcaption>
+          <figcaption>Hold Shift and press a Track key to open this browser for that lane. Choose Move Samples or the saved Thru Recordings archive.</figcaption>
         </figure>
 
         <table class="readout-table">
@@ -58,11 +58,11 @@
           <tbody>
             <tr><td>Main encoder or Up/Down</td><td>Move the selection. Highlighted WAV files audition at Preview Level.</td></tr>
             <tr><td>Main encoder click</td><td>Enter a folder or load the highlighted WAV into the lane.</td></tr>
-            <tr><td>Back</td><td>Move to the parent folder; at the User Library root, return to the waveform page.</td></tr>
+            <tr><td>Back</td><td>Move to the parent folder or source list; from the source list, return to the waveform page.</td></tr>
           </tbody>
         </table>
 
-        <p>The browser starts at <code>/data/UserData/UserLibrary/Samples</code>. It accepts mono or stereo PCM 16/24/32-bit and 32-bit-float WAV files. Mono files play from both channels, other sample rates are converted automatically, and material beyond the 12-second lane capacity is truncated.</p>
+        <p>The browser starts with two sources. <strong>Move Samples</strong> opens <code>/data/UserData/UserLibrary/Samples</code>. <strong>Thru Recordings</strong> opens the module's capture archive with the newest files first. It accepts mono or stereo PCM 16/24/32-bit and 32-bit-float WAV files. Mono files play from both channels, other sample rates are converted automatically, and material beyond the 12-second lane capacity is truncated.</p>
 
         <h2 id="ownership">Sources belong to clips</h2>
 
@@ -83,17 +83,17 @@
           </tbody>
         </table>
 
-        <p>Knobs 7–8 show reserved boxes because Record Gain is on Mix / Rec and Level is on Engine. The action controls show <code>TURN</code> until either encoder direction is moved. A successful action temporarily changes the title to <code>TRIMMED L1</code>, <code>REVERSED L1</code>, <code>NORMALIZED L1</code>, or <code>FADED L1</code>. <kbd>Shift</kbd> + <kbd>Back</kbd> restores the source from before the most recent edit.</p>
+        <p>Knobs 7–8 show reserved boxes because Record Gain is on Mix / Rec and Level is on Engine. The action controls show <code>TURN</code> until either encoder direction is moved. A successful action temporarily changes the title to <code>TRIMMED L1</code>, <code>REVERSED L1</code>, <code>NORMALIZED L1</code>, or <code>FADED L1</code>. Every committed edit writes a new archive WAV; <kbd>Shift</kbd> + <kbd>Back</kbd> restores the source from before the most recent edit.</p>
 
         <h2 id="saving">Saving, recall, and backup</h2>
 
-        <p>Thru autosaves changed settings and completed captures, then saves again when <kbd>Back</kbd> exits from the main waveform page. It also keeps one recovery copy in case a save is interrupted.</p>
+        <p>Thru autosaves changed settings and completed captures, then saves again when <kbd>Back</kbd> exits from the main waveform page. It also keeps one recovery copy in case a metadata save is interrupted. Capture WAVs are append-only during normal use: rerecording, editing, clearing, and resetting do not delete older files.</p>
 
         <p>Uninstalling a module may remove its data. Before uninstalling or moving to another Move, export the module data with:</p>
 
         <pre><code>scripts/export-set.sh /path/to/s3g-thru-data Thru-set.tar.gz</code></pre>
 
-        <p>The archive includes current metadata, recovery files, saved lane WAVs, and local captures. User Library samples remain external paths and should be backed up separately.</p>
+        <p>The exported archive includes current metadata, recovery files, saved lane WAVs, and every local capture. User Library samples remain external paths and should be backed up separately. Because old captures are retained, storage use grows over time. Export before manually removing unused WAVs; deleting a file still assigned to a clip makes that lane report <code>MISSING</code>.</p>
 
         <nav class="page-nav" aria-label="Page navigation">
           <a class="page-nav-link" href="interface.html"><span>Previous</span>Interface Tour</a>

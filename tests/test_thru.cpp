@@ -9,6 +9,7 @@
 #include <cstring>
 #include <string>
 #include <vector>
+#include <dirent.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -288,6 +289,20 @@ void waitForClip(plugin_api_v2_t* api, void* instance, int clip)
     assert(stateField(get(api, instance, "clip_bank_state"), 0) == clip);
 }
 
+std::vector<std::string> directoryFiles(const std::string& directory)
+{
+    std::vector<std::string> files;
+    DIR* handle = opendir(directory.c_str());
+    if (!handle) return files;
+    while (dirent* entry = readdir(handle)) {
+        if (entry->d_name[0] == '.') continue;
+        files.emplace_back(directory + "/" + entry->d_name);
+    }
+    closedir(handle);
+    std::sort(files.begin(), files.end());
+    return files;
+}
+
 } // namespace
 
 int main()
@@ -311,6 +326,8 @@ int main()
     void* instance = api->create_instance(persistenceDir.c_str(), nullptr);
     assert(instance != nullptr);
     assert(get(api, instance, "name") == "s3g Thru");
+    assert(get(api, instance, "captures_directory")
+        == persistenceDir + "/captures");
 
     assert(get(api, instance, "polyphony") == "8");
     constexpr const char* noPlayheads = "-1,-1,-1,-1,-1,-1,-1,-1";
@@ -414,23 +431,47 @@ int main()
     assert(waves.size() == 4u * 112u * 2u + 3u);
     assert(waves.substr(0u, 224u).find_first_not_of('7') != std::string::npos);
     api->set_param(instance, "maintenance", "1");
-    const std::string firstCapture = persistenceDir
-        + "/captures/c01-lane-1.wav";
+    const std::string firstCapture = get(api, instance, "lane_source_path");
+    assert(firstCapture == persistenceDir
+        + "/captures/t0000000001-c01-l1-input.wav");
     struct stat captureStatus {};
     assert(stat(firstCapture.c_str(), &captureStatus) == 0);
-    assert(get(api, instance, "lane_source_state").rfind("CAPTURE:TAKE C01", 0u)
+    assert(get(api, instance, "lane_source_state").rfind(
+        "CAPTURE:TAKE 0000000001", 0u)
         == 0u);
+
+    /* Rerecording archives a new WAV rather than replacing the earlier take.
+       Shift+Back's generic lane undo can therefore restore actual old audio. */
+    recordLane(api, instance, 1, 2000, 12);
+    api->set_param(instance, "maintenance", "1");
+    const std::string secondCapture = get(api, instance, "lane_source_path");
+    assert(secondCapture == persistenceDir
+        + "/captures/t0000000002-c01-l1-input.wav");
+    assert(secondCapture != firstCapture);
+    assert(stat(firstCapture.c_str(), &captureStatus) == 0);
+    assert(stat(secondCapture.c_str(), &captureStatus) == 0);
+    api->set_param(instance, "undo", "1");
+    for (int attempt = 0; attempt < 500
+         && get(api, instance, "lane_source_path") != firstCapture; ++attempt) {
+        render(api, instance, 1);
+        usleep(1000);
+    }
+    assert(get(api, instance, "lane_source_path") == firstCapture);
+
     api->set_param(instance, "sample_trim_start", "0.10");
     api->set_param(instance, "sample_trim_end", "0.90");
     api->set_param(instance, "sample_trim_apply", "1");
     assert(get(api, instance, "lane_source") == "TRIMMED");
+    const std::string trimCapture = get(api, instance, "lane_source_path");
     api->set_param(instance, "sample_reverse", "1");
+    const std::string reverseCapture = get(api, instance, "lane_source_path");
     midi(api, instance, 0x90, 60, 127);
     render(api, instance, 4);
     const int peakBeforeNormalize = peak();
     midi(api, instance, 0x80, 60, 0);
     api->set_param(instance, "sample_normalize", "1");
     assert(get(api, instance, "last_error").empty());
+    const std::string normalizeCapture = get(api, instance, "lane_source_path");
     midi(api, instance, 0x90, 60, 127);
     render(api, instance, 4);
     const int peakAfterNormalize = peak();
@@ -438,15 +479,21 @@ int main()
     assert(peakBeforeNormalize > 0);
     assert(peakAfterNormalize > peakBeforeNormalize * 2);
     api->set_param(instance, "sample_fade", "1");
+    const std::string fadeCapture = get(api, instance, "lane_source_path");
     api->set_param(instance, "maintenance", "1");
     assert(get(api, instance, "lane_source_state").rfind("CAPTURE:FADED", 0u)
         == 0u);
-    const std::string editCaptureA = persistenceDir
-        + "/captures/c01-lane-1-edit-a.wav";
-    const std::string editCaptureB = persistenceDir
-        + "/captures/c01-lane-1-edit-b.wav";
-    assert(stat(editCaptureA.c_str(), &captureStatus) == 0);
-    assert(stat(editCaptureB.c_str(), &captureStatus) == 0);
+    assert(trimCapture.find("-trim.wav") != std::string::npos);
+    assert(reverseCapture.find("-reverse.wav") != std::string::npos);
+    assert(normalizeCapture.find("-normalize.wav") != std::string::npos);
+    assert(fadeCapture.find("-fade.wav") != std::string::npos);
+    assert(trimCapture != reverseCapture && reverseCapture != normalizeCapture
+        && normalizeCapture != fadeCapture);
+    for (const std::string& path : {
+             firstCapture, secondCapture, trimCapture, reverseCapture,
+             normalizeCapture, fadeCapture }) {
+        assert(stat(path.c_str(), &captureStatus) == 0);
+    }
     api->set_param(instance, "undo", "1");
     for (int attempt = 0; attempt < 500
          && get(api, instance, "lane_source") != "NORMALIZED"; ++attempt) {
@@ -1281,18 +1328,8 @@ int main()
     assert(std::remove(librarySample.c_str()) == 0);
     assert(std::remove(libraryDir.c_str()) == 0);
     const std::string capturesDir = persistenceDir + "/captures";
-    for (int clip = 1; clip <= 64; ++clip) {
-        for (int lane = 1; lane <= 4; ++lane) {
-            const std::string path = capturesDir + "/c"
-                + (clip < 10 ? "0" : "") + std::to_string(clip)
-                + "-lane-" + std::to_string(lane) + ".wav";
-            std::remove(path.c_str());
-            const std::string editBase = capturesDir + "/c"
-                + (clip < 10 ? "0" : "") + std::to_string(clip)
-                + "-lane-" + std::to_string(lane) + "-edit-";
-            std::remove((editBase + "a.wav").c_str());
-            std::remove((editBase + "b.wav").c_str());
-        }
+    for (const std::string& path : directoryFiles(capturesDir)) {
+        assert(std::remove(path.c_str()) == 0);
     }
     assert(std::remove(capturesDir.c_str()) == 0);
     assert(std::remove(persistenceDir.c_str()) == 0);

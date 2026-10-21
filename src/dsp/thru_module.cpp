@@ -566,6 +566,8 @@ constexpr const char kChainParams[] = R"json([
 {"key":"clip_prepare_state","name":"Clip Prepare State","type":"string","access":"read","live":true},
 {"key":"lane_source","name":"Lane Source","type":"string","access":"read","live":true},
 {"key":"lane_source_state","name":"Lane Source State","type":"string","access":"read","live":true},
+{"key":"lane_source_path","name":"Lane Source Path","type":"string","access":"read","live":true},
+{"key":"captures_directory","name":"Recordings Directory","type":"string","access":"read"},
 {"key":"last_error","name":"Last Error","type":"string","access":"read","live":true},
 {"key":"recording","name":"Recording","type":"int","min":0,"max":1,"access":"read","live":true},
 {"key":"ui_state","name":"UI State","type":"string","access":"read","live":true},
@@ -1357,6 +1359,7 @@ struct ThruInstance {
     bool persistenceEnabled = false;
     bool persistenceRestored = false;
     std::uint64_t persistenceGeneration = 0u;
+    std::uint64_t nextCaptureId = 1u;
 
     bool prepare(const char* moduleDir)
     {
@@ -4097,24 +4100,31 @@ struct ThruInstance {
             }
             pendingClearMask &= ~(1u << lane);
             markWaveformDirty(lane);
-            std::snprintf(laneSourceLabels[lane].data(),
-                          laneSourceLabels[lane].size(), "SAVING TAKE");
             currentLaneSourceKinds[lane] = LaneSourceKind::capture;
             if (activeClip >= 0
                 && activeClip < static_cast<int>(clipSlots.size())) {
                 ClipSlot& clip = clipSlots[static_cast<std::size_t>(activeClip)];
-                std::array<char, kPersistencePathSize> leaf {};
-                std::snprintf(leaf.data(), leaf.size(),
-                              "captures/c%02d-lane-%u.wav", activeClip + 1,
-                              static_cast<unsigned>(lane + 1u));
-                persistencePath(leaf.data(), clip.laneSourcePaths[lane].data(),
-                                clip.laneSourcePaths[lane].size());
+                std::uint64_t captureId = 0u;
+                const char* kind = recordSource == 1 ? "resample" : "input";
+                if (!allocateCapturePath(
+                        activeClip, lane, kind,
+                        clip.laneSourcePaths[lane].data(),
+                        clip.laneSourcePaths[lane].size(), &captureId)) {
+                    std::snprintf(laneSourceLabels[lane].data(),
+                                  laneSourceLabels[lane].size(), "UNSAVED TAKE");
+                    setError("A unique recording archive path could not be created");
+                    return;
+                }
                 std::snprintf(currentLaneSourcePaths[lane].data(),
                               currentLaneSourcePaths[lane].size(), "%s",
                               clip.laneSourcePaths[lane].data());
                 clip.laneSourceKinds[lane] = LaneSourceKind::capture;
                 std::snprintf(clip.laneSourceLabels[lane].data(),
-                              clip.laneSourceLabels[lane].size(), "SAVING TAKE");
+                              clip.laneSourceLabels[lane].size(), "TAKE %010llu",
+                              static_cast<unsigned long long>(captureId));
+                std::snprintf(laneSourceLabels[lane].data(),
+                              laneSourceLabels[lane].size(), "%s",
+                              clip.laneSourceLabels[lane].data());
                 clip.occupied = true;
                 pendingCaptureClips[lane] = activeClip;
                 pendingCaptureSaveMask |= 1u << lane;
@@ -4133,13 +4143,19 @@ struct ThruInstance {
             setError("Wait for the queued clip to finish preparing");
             return;
         }
+        if (pendingCaptureSaveMask != 0u && !serviceMaintenance()) {
+            setError("Save the current take before recording again");
+            return;
+        }
         clearError();
         pendingRegionAnalysisMask &= ~(1u << selectedLane);
         recordingLaneMask = 1u << selectedLane;
         if (!engine.beginLaneRecording(selectedLane, 0u)) {
             recordingLaneMask = 0u;
             setError("Lane recording could not start");
+            return;
         }
+        pushClipUndo(activeClip);
     }
 
     void finishRecording()
@@ -4233,34 +4249,27 @@ struct ThruInstance {
         return true;
     }
 
-    void finishSampleEdit(const char* label)
+    void finishSampleEdit(const char* label, const char* captureKind)
     {
         if (activeClip < 0
             || activeClip >= static_cast<int>(clipSlots.size())) return;
         ClipSlot& clip = clipSlots[static_cast<std::size_t>(activeClip)];
-        const char* currentPath =
-            clip.laneSourcePaths[selectedLane].data();
-        const char alternate = std::strstr(currentPath, "-edit-a.wav")
-            ? 'b' : 'a';
-        std::array<char, kPersistencePathSize> leaf {};
-        std::snprintf(leaf.data(), leaf.size(),
-                      "captures/c%02d-lane-%u-edit-%c.wav",
-                      activeClip + 1,
-                      static_cast<unsigned>(selectedLane + 1u), alternate);
-        persistencePath(leaf.data(), clip.laneSourcePaths[selectedLane].data(),
-                        clip.laneSourcePaths[selectedLane].size());
+        if (!allocateCapturePath(
+                activeClip, selectedLane, captureKind ? captureKind : "edit",
+                clip.laneSourcePaths[selectedLane].data(),
+                clip.laneSourcePaths[selectedLane].size())) {
+            setError("A unique sample-edit archive path could not be created");
+            return;
+        }
         clip.laneSourceKinds[selectedLane] = LaneSourceKind::capture;
         std::snprintf(clip.laneSourceLabels[selectedLane].data(),
                       clip.laneSourceLabels[selectedLane].size(), "%s",
                       label ? label : "EDIT");
         clip.occupied = true;
         currentLaneSourceKinds[selectedLane] = LaneSourceKind::capture;
-        std::snprintf(currentLaneSourcePaths[selectedLane].data(),
-                      currentLaneSourcePaths[selectedLane].size(), "%s",
-                      clip.laneSourcePaths[selectedLane].data());
-        std::snprintf(laneSourceLabels[selectedLane].data(),
-                      laneSourceLabels[selectedLane].size(), "%s",
-                      clip.laneSourceLabels[selectedLane].data());
+        currentLaneSourcePaths[selectedLane] =
+            clip.laneSourcePaths[selectedLane];
+        laneSourceLabels[selectedLane] = clip.laneSourceLabels[selectedLane];
         pendingCaptureClips[selectedLane] = activeClip;
         pendingCaptureSaveMask |= 1u << selectedLane;
         markWaveformDirty(selectedLane);
@@ -4282,7 +4291,7 @@ struct ThruInstance {
             float* data = engine.writableLane(selectedLane, channel);
             std::reverse(data, data + frames);
         }
-        finishSampleEdit("REVERSED");
+        finishSampleEdit("REVERSED", "reverse");
     }
 
     void normalizeSelectedLane()
@@ -4305,7 +4314,7 @@ struct ThruInstance {
                 }
             }
         }
-        finishSampleEdit("NORMALIZED");
+        finishSampleEdit("NORMALIZED", "normalize");
     }
 
     void fadeSelectedLane()
@@ -4323,7 +4332,7 @@ struct ThruInstance {
                 data[frames - 1u - frame] *= gain;
             }
         }
-        finishSampleEdit("FADED");
+        finishSampleEdit("FADED", "fade");
     }
 
     void trimSelectedLane()
@@ -4347,7 +4356,7 @@ struct ThruInstance {
                          engine.laneSampleRate(selectedLane));
         sampleTrimStart = 0.0f;
         sampleTrimEnd = 1.0f;
-        finishSampleEdit("TRIMMED");
+        finishSampleEdit("TRIMMED", "trim");
     }
 
     void cancelWaveScan(std::size_t lane)
@@ -4590,6 +4599,37 @@ struct ThruInstance {
         return true;
     }
 
+    bool allocateCapturePath(int clipIndex, std::size_t lane,
+                             const char* kind, char* path,
+                             std::size_t pathSize,
+                             std::uint64_t* allocatedId = nullptr)
+    {
+        if (!persistenceEnabled || clipIndex < 0
+            || clipIndex >= static_cast<int>(kClipSlotCount)
+            || lane >= kLaneCount || !kind || !path || pathSize == 0u) {
+            return false;
+        }
+        for (std::size_t attempt = 0u; attempt < 100000u; ++attempt) {
+            const std::uint64_t id = std::max<std::uint64_t>(1u, nextCaptureId++);
+            std::array<char, 96u> leaf {};
+            const int length = std::snprintf(
+                leaf.data(), leaf.size(),
+                "captures/t%010llu-c%02d-l%u-%s.wav",
+                static_cast<unsigned long long>(id), clipIndex + 1,
+                static_cast<unsigned>(lane + 1u), kind);
+            if (length <= 0 || static_cast<std::size_t>(length) >= leaf.size()
+                || !persistencePath(leaf.data(), path, pathSize)) {
+                return false;
+            }
+            errno = 0;
+            if (access(path, F_OK) != 0 && errno == ENOENT) {
+                if (allocatedId) *allocatedId = id;
+                return true;
+            }
+        }
+        return false;
+    }
+
     int serializeState(char* buffer, int bufferLength) const
     {
         if (!buffer || bufferLength < 1) return -1;
@@ -4649,7 +4689,8 @@ struct ThruInstance {
             "\"effect_width\":%.5f,\"effect_mix\":%.5f,"
             "\"pad_mode\":%d,\"lane_variation\":%d,\"clip_record_mode\":%d,"
             "\"preview_level\":%.5f,\"grain_quality\":%zu,"
-            "\"launch_quantize\":%d,\"generation\":%llu,\"complete\":1}",
+            "\"launch_quantize\":%d,\"next_capture_id\":%llu,"
+            "\"generation\":%llu,\"complete\":1}",
             controls.locus, controls.field, controls.speed,
             controls.manualLane + 1.0f, controls.laneCycles,
             static_cast<int>(controls.algorithm), controls.join,
@@ -4716,6 +4757,7 @@ struct ThruInstance {
             static_cast<int>(laneVariation), static_cast<int>(clipRecordMode),
             previewLevel, grainVoiceLimit,
             static_cast<int>(launchQuantize),
+            static_cast<unsigned long long>(nextCaptureId),
             static_cast<unsigned long long>(persistenceGeneration));
     }
 
@@ -5161,13 +5203,14 @@ struct ThruInstance {
             std::snprintf(path.data(), path.size(), "%s",
                           clip.laneSourcePaths[lane].data());
         } else {
-            std::array<char, kPersistencePathSize> leaf {};
-            std::snprintf(leaf.data(), leaf.size(),
-                          "captures/c%02d-lane-%u.wav", clipIndex + 1,
-                          static_cast<unsigned>(lane + 1u));
-            if (!persistencePath(leaf.data(), path.data(), path.size())) {
+            std::uint64_t captureId = 0u;
+            if (!allocateCapturePath(clipIndex, lane, "recovery",
+                                     path.data(), path.size(), &captureId)) {
                 return false;
             }
+            std::snprintf(clip.laneSourceLabels[lane].data(),
+                          clip.laneSourceLabels[lane].size(), "TAKE %010llu",
+                          static_cast<unsigned long long>(captureId));
         }
         if (std::snprintf(temporary.data(), temporary.size(), "%s.tmp",
                           path.data()) >= static_cast<int>(temporary.size())) {
@@ -5179,13 +5222,6 @@ struct ThruInstance {
         clip.laneSourceKinds[lane] = LaneSourceKind::capture;
         std::snprintf(clip.laneSourcePaths[lane].data(),
                       clip.laneSourcePaths[lane].size(), "%s", path.data());
-        const bool edited = std::strcmp(clip.laneSourceLabels[lane].data(),
-                                        "SAVING TAKE") != 0;
-        if (!edited) {
-            std::snprintf(clip.laneSourceLabels[lane].data(),
-                          clip.laneSourceLabels[lane].size(), "TAKE C%02d",
-                          clipIndex + 1);
-        }
         if (clipIndex == activeClip) {
             currentLaneSourceKinds[lane] = LaneSourceKind::capture;
             std::snprintf(currentLaneSourcePaths[lane].data(),
@@ -5473,6 +5509,7 @@ struct ThruInstance {
     {
         float value = 0.0f;
         std::uint64_t loadedGeneration = 0u;
+        std::uint64_t loadedNextCaptureId = 1u;
         if (!jsonNumber(json, "version", value)
             || static_cast<int>(value) != 6
             || !jsonNumber(json, "complete", value)
@@ -5607,6 +5644,9 @@ struct ThruInstance {
             tempoSwing = clampValue(value / 100.0f, 0.5f, 0.75f);
         }
         if (jsonNumber(json, "chain_enabled", value)) chainEnabled = value >= 0.5f;
+        if (jsonUnsigned64(json, "next_capture_id", loadedNextCaptureId)) {
+            nextCaptureId = std::max<std::uint64_t>(1u, loadedNextCaptureId);
+        }
         persistenceGeneration = loadedGeneration;
         return true;
     }
@@ -5899,6 +5939,11 @@ int getParam(void* opaque, const char* key, char* buffer, int bufferLength)
     if (std::strcmp(key, "ui_hierarchy") == 0) return copyText(kUiHierarchy, buffer, bufferLength);
     if (std::strcmp(key, "preset_name") == 0) { buffer[0] = '\0'; return 0; }
     if (std::strcmp(key, "name") == 0) return std::snprintf(buffer, bufferLength, "s3g Thru");
+    if (std::strcmp(key, "captures_directory") == 0) {
+        if (!instance->persistenceEnabled) { buffer[0] = '\0'; return 0; }
+        return std::snprintf(buffer, bufferLength, "%s/captures",
+                             instance->moduleDirectory.data());
+    }
     if (std::strcmp(key, "polyphony") == 0) return std::snprintf(
         buffer, bufferLength, "%u", static_cast<unsigned>(kVoiceCount));
     if (std::strcmp(key, "surface") == 0) { buffer[0] = '\0'; return 0; }
@@ -6010,6 +6055,9 @@ int getParam(void* opaque, const char* key, char* buffer, int bufferLength)
         instance->clipPrepareRequest.load(std::memory_order_relaxed));
     if (std::strcmp(key, "lane_source") == 0) return copyText(
         instance->laneSourceLabels[instance->selectedLane].data(),
+        buffer, bufferLength);
+    if (std::strcmp(key, "lane_source_path") == 0) return copyText(
+        instance->currentLaneSourcePaths[instance->selectedLane].data(),
         buffer, bufferLength);
     if (std::strcmp(key, "last_error") == 0) return copyText(
         instance->lastError.data(), buffer, bufferLength);

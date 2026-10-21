@@ -1,4 +1,4 @@
-/* s3g Thru 0.22.0 — polyphonic sampler/performance-looper takeover for Move. */
+/* s3g Thru 0.23.0 — polyphonic sampler/performance-looper takeover for Move. */
 
 import * as moveConstants from '/data/UserData/schwung/shared/constants.mjs';
 import * as moveInputFilter from '/data/UserData/schwung/shared/input_filter.mjs';
@@ -71,6 +71,7 @@ const GLITCH_LOCK_TAP_TICKS = 30;
 const VOICE_COLORS = [BrightRed, BrightOrange, BrightYellow, NeonGreen,
     AzureBlue, BlueViolet, Purple, LightMagenta];
 const LIBRARY_ROOT = '/data/UserData/UserLibrary/Samples';
+const LIBRARY_HOME = '@s3g-thru-sources';
 const BANK_NAMES = ['A', 'B', 'C', 'D'];
 
 const PARAMS = {
@@ -464,7 +465,8 @@ const state = {
     clipMaskLow: 0,
     clipMaskHigh: 0,
     libraryLane: 1,
-    libraryDir: LIBRARY_ROOT,
+    libraryDir: LIBRARY_HOME,
+    capturesDirectory: '',
     libraryItems: [],
     libraryIndex: 0,
     libraryScroll: 0,
@@ -1162,14 +1164,20 @@ function drawChain() {
 }
 
 function libraryLeaf(path) {
+    if (path === LIBRARY_HOME) return 'SOURCES';
+    if (path === state.capturesDirectory) return 'THRU RECORDINGS';
+    if (path === LIBRARY_ROOT) return 'MOVE SAMPLES';
     const parts = String(path || '').split('/');
     return parts[parts.length - 1] || 'Samples';
 }
 
 function drawLibrary() {
     clear_screen();
-    print(1, 0, ('L' + state.libraryLane + ' SAMPLE ' + libraryLeaf(
-        state.libraryDir)).slice(0, 21), 1);
+    const leaf = libraryLeaf(state.libraryDir);
+    const heading = leaf === 'THRU RECORDINGS'
+        ? 'L' + state.libraryLane + ' THRU RECORDINGS'
+        : 'L' + state.libraryLane + ' SAMPLE ' + leaf;
+    print(1, 0, heading.slice(0, 21), 1);
     drawRect(0, 8, 128, 1, 1);
     if (state.libraryItems.length === 0) {
         print(2, 23, 'NO WAV FILES', 1);
@@ -1227,6 +1235,22 @@ function pathIsDirectory(path) {
 }
 
 function scanLibrary(path) {
+    if (path === LIBRARY_HOME) {
+        const items = [{
+            name: 'Move Samples', directory: true, path: LIBRARY_ROOT,
+        }];
+        if (state.capturesDirectory) {
+            items.push({
+                name: 'Thru Recordings', directory: true,
+                path: state.capturesDirectory,
+            });
+        }
+        state.libraryDir = path;
+        state.libraryItems = items;
+        state.libraryIndex = 0;
+        state.libraryScroll = 0;
+        return;
+    }
     let names = [];
     try {
         const result = os.readdir(path);
@@ -1235,17 +1259,21 @@ function scanLibrary(path) {
     } catch (error) {}
     if (!Array.isArray(names)) names = [];
     const items = [];
-    if (path !== LIBRARY_ROOT) items.push({ name: '..', directory: true });
+    if (path !== LIBRARY_ROOT && path !== state.capturesDirectory) {
+        items.push({ name: '..', directory: true, path: LIBRARY_HOME });
+    }
     for (const name of names) {
         if (!name || name[0] === '.') continue;
         const fullPath = path + '/' + name;
         const directory = pathIsDirectory(fullPath);
         if (!directory && !String(name).toLowerCase().endsWith('.wav')) continue;
-        items.push({ name: String(name), directory });
+        items.push({ name: String(name), directory, path: fullPath });
     }
     const parent = items.length > 0 && items[0].name === '..' ? items.shift() : null;
     items.sort((a, b) => Number(b.directory) - Number(a.directory)
-        || a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+        || (path === state.capturesDirectory
+            ? b.name.toLowerCase().localeCompare(a.name.toLowerCase())
+            : a.name.toLowerCase().localeCompare(b.name.toLowerCase())));
     if (parent) items.unshift(parent);
     state.libraryDir = path;
     state.libraryItems = items;
@@ -1258,7 +1286,9 @@ function openLibrary(lane) {
     state.libraryLane = clamp(lane | 0, 1, 4);
     state.lane = state.libraryLane;
     setParamBlocking('record_lane', state.lane);
-    scanLibrary(LIBRARY_ROOT);
+    state.capturesDirectory = String(getParam(
+        'captures_directory', state.capturesDirectory) || '');
+    scanLibrary(LIBRARY_HOME);
     state.view = 'library';
     previewLibraryItem();
     rebuildLedQueue();
@@ -1282,14 +1312,19 @@ function previewLibraryItem() {
         setParam('preview_stop', 1);
         return;
     }
-    setParam('preview_file', state.libraryDir + '/' + item.name);
+    setParam('preview_file', item.path);
 }
 
 function libraryBack() {
-    if (state.libraryDir === LIBRARY_ROOT) {
+    if (state.libraryDir === LIBRARY_HOME) {
         setParam('preview_stop', 1);
         state.view = 'main';
         rebuildLedQueue();
+        return;
+    }
+    if (state.libraryDir === LIBRARY_ROOT
+        || state.libraryDir === state.capturesDirectory) {
+        scanLibrary(LIBRARY_HOME);
         return;
     }
     const slash = state.libraryDir.lastIndexOf('/');
@@ -1303,7 +1338,7 @@ function activateLibraryItem() {
         libraryBack();
         return;
     }
-    const path = state.libraryDir + '/' + item.name;
+    const path = item.path;
     if (item.directory) {
         scanLibrary(path);
         previewLibraryItem();

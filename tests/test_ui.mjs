@@ -32,10 +32,18 @@ globalThis.__os = {
         if (path === '/data/UserData/UserLibrary/Samples/Drums') {
             return [['Kick 01.wav'], 0];
         }
+        if (path === '/data/s3g-thru/captures') {
+            return [[
+                't0000000001-c01-l1-input.wav',
+                't0000000002-c01-l1-fade.wav',
+                'unfinished.wav.tmp',
+            ], 0];
+        }
         return [[], 0];
     },
     stat(path) {
-        return [{ mode: path.endsWith('/Drums') ? 0x4000 : 0x8000 }, 0];
+        return [{ mode: path.endsWith('/Drums')
+            || path === '/data/s3g-thru/captures' ? 0x4000 : 0x8000 }, 0];
     },
 };
 
@@ -66,6 +74,7 @@ const params = {
     chain_entries: ['1:0:2', '1:1:1', ...Array(14).fill('0:0:1')].join(','),
     lane_source: 'LIVE',
     lane_source_state: 'CAPTURE:LIVE', undo_available: '0',
+    captures_directory: '/data/s3g-thru/captures',
     last_error: '',
     waveforms: [flatWave, flatWave, flatWave, flatWave].join('|'),
 };
@@ -411,12 +420,25 @@ globalThis.onMidiMessageInternal([0xB0, 49, 127]);
 globalThis.onMidiMessageInternal([0xB0, 41, 127]);
 globalThis.onMidiMessageInternal([0xB0, 49, 0]);
 globalThis.onMidiMessageInternal([0xB0, 3, 127]);
+globalThis.onMidiMessageInternal([0xB0, 3, 127]);
 globalThis.onMidiMessageInternal([0xB0, 14, 1]);
 assert(paramWrites.some((write) => write[0] === 'preview_file'
     && write[1].endsWith('/Drums/Kick 01.wav')));
 globalThis.onMidiMessageInternal([0xB0, 3, 127]);
 assert.deepEqual(blockingWrites.pop(), ['load_lane_file',
     '3,/data/UserData/UserLibrary/Samples/Drums/Kick 01.wav']);
+
+/* The same browser exposes immutable Thru recordings, newest first. */
+globalThis.onMidiMessageInternal([0xB0, 49, 127]);
+globalThis.onMidiMessageInternal([0xB0, 41, 127]);
+globalThis.onMidiMessageInternal([0xB0, 49, 0]);
+globalThis.onMidiMessageInternal([0xB0, 14, 1]);
+globalThis.onMidiMessageInternal([0xB0, 3, 127]);
+assert(paramWrites.some((write) => write[0] === 'preview_file'
+    && write[1] === '/data/s3g-thru/captures/t0000000002-c01-l1-fade.wav'));
+globalThis.onMidiMessageInternal([0xB0, 3, 127]);
+assert.deepEqual(blockingWrites.pop(), ['load_lane_file',
+    '3,/data/s3g-thru/captures/t0000000002-c01-l1-fade.wav']);
 
 /* Cue pad mode uses Shift+pad to store the displayed playhead, a normal pad
    to jump, and Delete+pad to clear. */

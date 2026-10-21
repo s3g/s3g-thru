@@ -46,6 +46,10 @@ const library = {
     '/data/UserData/UserLibrary/Samples/Field Recordings': [
         'air-vent.wav', 'station.wav',
     ],
+    '/data/s3g-thru/captures': [
+        't0000000017-c01-l2-input.wav',
+        't0000000018-c01-l2-normalize.wav',
+    ],
 };
 
 globalThis.__os = {
@@ -156,6 +160,7 @@ const params = {
     ].join(','),
     lane_source: 'glass-loop.wav',
     lane_source_state: 'LIBRARY:glass-loop.wav',
+    captures_directory: '/data/s3g-thru/captures',
     undo_available: '1',
     performance_state: '724,0',
     last_error: '',

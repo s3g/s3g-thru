@@ -211,12 +211,14 @@ Choose Input or Resample with `REC SOURCE` on the Mix / Rec page. Hold **Shift**
 and press **Delete** to clear the selected lane. Monitor stays at zero by
 default and is also available on Mix / Rec.
 
-## Load a lane from Move's sample library
+## Load a lane from Move's samples or Thru Recordings
 
 Hold **Shift** and press **Track 1-4** to open the browser for that lane. It
-starts at `/data/UserData/UserLibrary/Samples`. Turn the main encoder (or use
-Up/Down) to select a folder or WAV, click the encoder to enter/load, and press
-Back to move up or leave the browser. Highlighting a WAV auditions it through
+opens a source choice: **Move Samples** enters
+`/data/UserData/UserLibrary/Samples`, while **Thru Recordings** lists the
+module's saved captures newest first. Turn the main encoder (or use Up/Down) to
+select a source, folder, or WAV, click the encoder to enter/load, and press Back
+to move up or leave the browser. Highlighting a WAV auditions it through
 Preview Level; clicking promotes that decoded preview into the selected lane.
 
 The selected lane may therefore contain either a clip-local stereo capture
@@ -229,8 +231,12 @@ Every clip lane has explicit ownership: `FILE`, `CAPTURE`, or `EMPTY`; the
 display additionally reports `LOADING` and `MISSING`. The first time a blank
 clip is selected it snapshots the four sources currently in use, after which
 its assignments are independent—there is no dynamic previous-clip lookup.
-Recording assigns a clip-local file under `captures/`; loading assigns a User
-Library path; and resetting creates intentional `EMPTY` lanes. Queued-clip
+Every completed input recording, resample, or committed sample edit gets a
+unique WAV under `captures/`. Recording changes the clip lane's active
+assignment but does not overwrite the prior WAV, so one-level **Shift + Back**
+can restore the preceding lane source and older recordings remain available in
+**Thru Recordings**. Loading assigns a file path and resetting creates
+intentional `EMPTY` lanes. Queued-clip
 sources are decoded into a second four-lane bank and swapped together at a clip
 boundary. If preparation is incomplete, the current clip plays for another
 cycle instead of mixing old and new lane sources.
@@ -240,8 +246,8 @@ editing actions: normalized Start/End trim, Trim Apply, Reverse, Normalize, and
 a short edge fade. Select the lane with a Track button, then turn the relevant
 Sample-page encoder in either direction. `TURN` is the ready state; a successful
 edit temporarily replaces the page title with `NORMALIZED L1`, `REVERSED L1`,
-`TRIMMED L1`, or `FADED L1`. Edits alternate between two clip-local capture files, so
-one-level Undo can return to the previous file or capture without that audio
+`TRIMMED L1`, or `FADED L1`. Each committed edit creates another uniquely named
+capture, so one-level Undo can return to the previous file without that audio
 having been overwritten.
 
 ## Saving and recall
@@ -256,6 +262,12 @@ numbers, the binary bank has a checksum, and each successful replacement keeps
 one `.bak` generation. On launch, Thru selects the newest matching JSON/binary
 generation across the current and backup files, so it does not combine two
 individually valid halves of interrupted saves.
+
+The capture archive is append-only during normal use: rerecording, editing,
+clearing a lane, or resetting a clip does not delete old WAVs. This makes takes
+recoverable and reusable, but disk use grows with recording. Export the set
+before manually removing files from the module data directory; a clip that
+still refers to a removed WAV will report `MISSING`.
 
 The take- and engine-aware binary bank is format 3. Format-1 and format-2 banks
 are imported with their original parameter identities intact; newly added

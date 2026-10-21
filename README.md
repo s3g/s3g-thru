@@ -20,7 +20,8 @@ It is intentionally a new instrument rather than a Sample Neon variant.
 - includes Motion with continuous, packet, motor, and bounded segment sounds;
   Lanes; Grains with energy sorting; transient-aware Cutups with non-repeating
   random cycles; direct Sample; pad-addressed Slices; per-voice Glitch repeat
-  buffers; and Long Grains with one to four sustained 250 ms–12 s layers;
+  buffers; and Weave, a long-grain approach with one to four sustained
+  250 ms–12 s layers;
 - adds a clip-local post-engine chain with tone, drive, bit/rate reduction,
   and stereo cross-feedback delay;
 - detects up to 64 transient regions per lane outside the audio callback and
@@ -466,7 +467,7 @@ unassigned knob position reserved for a future control.
 
 - Engine: algorithm, position, field, speed, stack start, scan rate, join,
   and level.
-- Stack Path, shared by Motion, Lanes, Grains, Glitch, and Long Grains: eight
+- Stack Path, shared by Motion, Lanes, Grains, Glitch, and Weave: eight
   stack paths including Random, Crossfade/Jump, shape, offset, skew, curve, and
   transition slew.
 - Motion Path: eight trajectories including Drunk, travel, and jitter. Motion
@@ -490,7 +491,7 @@ unassigned knob position reserved for a future control.
   fragment length, repeats, chance and override depth, plus a rotating
   distributed pulse cycle with seeded jump, pitch, reverse, decay, and
   temporary or latched live-history locking with Shift + Loop.
-- Long Grain/Long Motion: 250–12,000 ms duration with fine control below one
+- Weave/Weave Motion: 250–12,000 ms layer duration with fine control below one
   second, one to four bounded overlapping layers, Scan/Freeze/Cloud/Slice
   origins, Bell/Hann/Triangle/Plateau envelopes, independent Plateau edge time,
   stereo spread, reverse chance, position and pitch spray, duration and level
@@ -529,7 +530,7 @@ packet wraps, or path turns and can cut or layer up to four readers per voice.
 Only the pages needed by the selected sound appear.
 
 Note pitch follows the Sample-family semantics. Motion and Lanes notes retune
-their transport. Grains and Long Grains notes change source scan speed while
+their transport. Grains and Weave notes change source scan speed while
 their event Pitch controls stay independent. Grains Sorter divides Field into Regions, ranks those regions from
 quietest to loudest on the dominant lane, and blends toward that order with
 Process Amount. Cutups notes multiply the base Speed/pitch of each cut reader while

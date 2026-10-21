@@ -172,7 +172,7 @@ assert.deepEqual(globalThis.__testParameterPageSets[4][1],
 assert.deepEqual(globalThis.__testPlaybackPageTitles[6],
     ['STACK PATH', 'GLITCH CLOCK', 'GLITCH PATTERN']);
 assert.deepEqual(globalThis.__testPlaybackPageTitles[7],
-    ['STACK PATH', 'LONG GRAIN', 'LONG MOTION']);
+    ['STACK PATH', 'WEAVE', 'WEAVE MOTION']);
 assert(globalThis.__testLockableParams.includes('glitch_mix'));
 assert(globalThis.__testLockableParams.includes('effect_feedback'));
 assert(globalThis.__testLockableParams.includes('long_grain_length'));

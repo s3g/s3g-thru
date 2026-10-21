@@ -65,7 +65,7 @@ const setButtonLED = typeof moveInputFilter.setButtonLED === 'function'
 
 const WAVE_BINS = 112;
 const ALGORITHMS = ['MOTION', 'LANES', 'GRAINS', 'CUTUPS', 'SAMPLE', 'SLICES',
-    'GLITCH', 'LONG GRAINS'];
+    'GLITCH', 'WEAVE'];
 const LEDS_PER_TICK = 8;
 const GLITCH_LOCK_TAP_TICKS = 30;
 const VOICE_COLORS = [BrightRed, BrightOrange, BrightYellow, NeonGreen,
@@ -307,11 +307,11 @@ const PLAYBACK_PAGES = [
     ],
     [
         STACK_PATH_PAGE,
-        { title: 'LONG GRAIN', keys: ['long_grain_mode',
+        { title: 'WEAVE', keys: ['long_grain_mode',
             'long_grain_length', 'long_grain_layers', 'long_grain_pitch',
             'long_grain_shape', 'long_grain_edge', 'long_grain_spread',
             'long_grain_reverse'] },
-        { title: 'LONG MOTION', keys: ['long_grain_spray',
+        { title: 'WEAVE MOTION', keys: ['long_grain_spray',
             'long_grain_bias', 'long_grain_duration_variation',
             'long_grain_pitch_spray', 'long_grain_level_variation',
             'long_grain_phase', 'long_grain_advance'] },

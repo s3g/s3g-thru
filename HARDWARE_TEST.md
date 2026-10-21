@@ -103,7 +103,7 @@ working Schwung installation and do this pass with headphones first.
     Shift+Loop once to return to live history. Trigger a new note while latched
     and confirm it becomes active after filling its own short history rather
     than staying silent. Plain Loop must still hold/resume the stack scan.
-    In Long Grains, begin with 4000 ms, three layers, Plateau, and a 180 ms
+    In Weave, begin with 4000 ms, three layers, Plateau, and a 180 ms
     Edge. Confirm overlaps remain smooth, each layer can occupy a different
     stereo and stack position, Scan and Per Layer advance differ, and Length
     moves in fine steps near 250 ms but reaches 12 seconds without excessive
@@ -113,7 +113,7 @@ working Schwung installation and do this pass with headphones first.
 15. Press Menu. For each Algorithm, use Up/Down to visit Engine, only the shared
     and unique pages used by that engine, Mix / Rec, Effects, Sample Edit, Performance
     Loop, Overdub Takes, and Chain. Confirm Stack Path has the same seven knob
-    positions for Motion, Lanes, Grains, Glitch, and Long Grains, and Direct Play has the same three
+    positions for Motion, Lanes, Grains, Glitch, and Weave, and Direct Play has the same three
     positions for Sample and Slices. Confirm every parameter appears only once
     in an active page list, has a padded name with its value underneath, and
     has no miniature dial graphic or text overlap. Empty positions must show a

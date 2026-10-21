@@ -345,8 +345,8 @@ captureEnginePages(6, [
 ]);
 captureEnginePages(7, [
     {},
-    { filename: 'long-grain.svg', title: 'Long Grain parameter page' },
-    { filename: 'long-motion.svg', title: 'Long Motion parameter page' },
+    { filename: 'weave.svg', title: 'Weave parameter page' },
+    { filename: 'weave-motion.svg', title: 'Weave Motion parameter page' },
 ]);
 
 selectAlgorithm(1);

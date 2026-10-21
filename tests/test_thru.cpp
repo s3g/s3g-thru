@@ -192,7 +192,7 @@ void downgradeClipBankToV1(const std::string& path)
     copyBytes(228u); // generation/globals plus the 16-entry chain
     for (std::size_t clip = 0u; clip < 64u; ++clip) {
         copyBytes(4u + 68u * 4u); // occupied and version-1 base parameters
-        offset += 52u * 4u; // newer fidelity, Glitch/FX, and Long Grain parameters
+        offset += 52u * 4u; // newer fidelity, Glitch/FX, and Weave parameters
         copyBytes(4u * (4u + 768u + 64u) + 8u * 4u); // sources and cues
         copyBytes(32u); // recorded through capacity flags
         offset += 4u; // take count does not exist in format 1
@@ -250,7 +250,7 @@ void downgradeClipBankToV2(const std::string& path)
     copyBytes(228u); // generation/globals plus the 16-entry chain
     for (std::size_t clip = 0u; clip < 64u; ++clip) {
         copyBytes(4u + 68u * 4u); // occupied and format-2 base parameters
-        offset += 52u * 4u; // format-3/4 fidelity plus format-5 Long Grain parameters
+        offset += 52u * 4u; // format-3/4 fidelity plus format-5 Weave parameters
         copyBytes(4u * (4u + 768u + 64u) + 8u * 4u); // sources and cues
         copyBytes(32u + 4u); // capacities/flags and take count
         const std::uint32_t noteCount = littleU32(input, offset);
@@ -1022,9 +1022,9 @@ int main()
         render(api, instance, 40);
     }
 
-    /* Long Grains has its own macro-event controls, state keys, and bounded
+    /* Weave has its own long-grain controls, state keys, and bounded
        layer scheduler rather than stretching the short Grains engine. */
-    api->set_param(instance, "algorithm", "Long Grains");
+    api->set_param(instance, "algorithm", "Weave");
     api->set_param(instance, "long_grain_mode", "Cloud");
     api->set_param(instance, "long_grain_length", "12000");
     api->set_param(instance, "long_grain_layers", "4");

@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="768" height="384" viewBox="0 0 128 64" role="img" aria-labelledby="title desc">
-  <title id="title">Long Grain parameter page</title>
-  <desc id="desc">Long Grain parameter page shown as it appears on Ableton Move.</desc>
+  <title id="title">Weave parameter page</title>
+  <desc id="desc">Weave parameter page shown as it appears on Ableton Move.</desc>
   <rect width="128" height="64" fill="#050706"/>
   <g shape-rendering="crispEdges" font-family="DejaVu Sans Mono, IBM Plex Mono, monospace" font-size="6" font-style="normal" font-weight="400" text-rendering="geometricPrecision">
-    <text x="1" y="5.5" fill="#dce8e1">LONG GRAIN 3/10</text>
+    <text x="1" y="5.5" fill="#dce8e1">WEAVE 3/10</text>
     <rect x="0" y="8" width="128" height="1" fill="#dce8e1"/>
     <text x="3" y="18.5" fill="#dce8e1">MODE</text>
     <text x="3" y="29.5" fill="#dce8e1">SCAN</text>

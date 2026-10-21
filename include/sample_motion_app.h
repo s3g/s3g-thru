@@ -14,7 +14,7 @@ namespace s3g_daisy {
  * schedulers. This embedded version deliberately keeps each engine
  * allocation-free. It accepts storage from the platform so audio can live in
  * external SDRAM, then provides one bounded image with Motion, optionally
- * stretched Lanes, Grains, Long Grains, and Cutups renderers. No renderer
+ * stretched Lanes, Grains, Weave long-grain, and Cutups renderers. No renderer
  * allocates or performs file I/O in the audio callback.
  */
 class SampleMotionApp {

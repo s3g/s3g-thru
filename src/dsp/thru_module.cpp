@@ -103,6 +103,8 @@ enum class LaunchQuantize : std::uint8_t {
 enum class ClipPointType : std::uint8_t {
     parameter = 0u,
     pressure,
+    stackPosition,
+    stackHold,
 };
 
 struct ClipNote {
@@ -240,7 +242,12 @@ constexpr std::size_t kLegacyLockParameterCount = 68u;
 constexpr std::size_t kVersion3LockParameterCount = 81u;
 static_assert(kLockParameterCount == 105u,
               "clip point descriptors support up to 255 lock parameters");
-constexpr std::size_t kClipCurveLaneCount = kLockParameterCount + 32u;
+constexpr std::size_t kClipPressureLaneOffset = kLockParameterCount;
+constexpr std::size_t kClipStackPositionLaneOffset =
+    kClipPressureLaneOffset + 32u;
+constexpr std::size_t kClipStackHoldLane =
+    kClipStackPositionLaneOffset + 32u;
+constexpr std::size_t kClipCurveLaneCount = kClipStackHoldLane + 1u;
 struct ClipSlot {
     std::array<float, kLockParameterCount> baseValues {};
     std::array<std::array<char, kPersistencePathSize>, kLaneCount>
@@ -450,6 +457,7 @@ constexpr const char kChainParams[] = R"json([
 {"key":"lanes_mode","name":"Lanes Mode","short_name":"MODE","type":"enum","options":["Forward","Reverse","Ping Pong"],"default":0},
 {"key":"lane_path","name":"Stack Path","short_name":"PATH","type":"enum","options":["Down","Up","Triangle","Sine","Steps Down","Steps Up","Manual","Random"],"default":2},
 {"key":"stack_scan_paused","name":"Stack Scan","short_name":"SCAN","type":"enum","options":["Run","Hold"],"default":0,"live":true},
+{"key":"clip_stack_hold","name":"Recorded Stack Hold","type":"int","min":0,"max":1,"access":"read","live":true},
 {"key":"lane_blend","name":"Lane Transition","short_name":"BLEND","type":"enum","options":["Crossfade","Jump"],"default":0},
 {"key":"lane_path_shape","name":"Path Shape","short_name":"SHAPE","type":"enum","options":["Linear","Smooth","Exponential","Plateau"],"default":0},
 {"key":"lane_path_offset","name":"Path Offset","short_name":"OFFSET","type":"float","min":0,"max":1,"step":0.01,"default":0},
@@ -1174,6 +1182,7 @@ struct PlaybackVoice {
     std::array<std::uint32_t, kLaneCount> regionRevisions {};
     std::uint32_t age = 0u;
     float laneOffset = 0.0f;
+    float recordedStackPhase = 0.0f;
     float envelope = 0.0f;
     float target = 0.0f;
     float snapshotOutputGain = 1.0f;
@@ -1182,6 +1191,7 @@ struct PlaybackVoice {
     bool held = false;
     bool clipOwned = false;
     bool useSnapshot = false;
+    bool recordedStackPhaseValid = false;
 };
 
 struct ThruInstance {
@@ -2425,9 +2435,20 @@ struct ThruInstance {
                 ? parameter
                 : kClipCurveLaneCount;
         }
-        return point.sourcePad < 32u
-            ? kLockParameterCount + static_cast<std::size_t>(point.sourcePad)
-            : kClipCurveLaneCount;
+        if (point.type == ClipPointType::pressure) {
+            return point.sourcePad < 32u
+                ? kClipPressureLaneOffset
+                    + static_cast<std::size_t>(point.sourcePad)
+                : kClipCurveLaneCount;
+        }
+        if (point.type == ClipPointType::stackPosition) {
+            return point.sourcePad < 32u
+                ? kClipStackPositionLaneOffset
+                    + static_cast<std::size_t>(point.sourcePad)
+                : kClipCurveLaneCount;
+        }
+        return point.type == ClipPointType::stackHold
+            ? kClipStackHoldLane : kClipCurveLaneCount;
     }
 
     static std::uint8_t clipPointTake(const ClipPoint& point)
@@ -2520,9 +2541,16 @@ struct ThruInstance {
         const std::uint32_t time = clipCaptureTimeMs();
         const std::size_t curveLane = type == ClipPointType::parameter
             ? std::min(parameter, kLockParameterCount - 1u)
-            : (sourcePad >= 0 && sourcePad < 32
-                ? kLockParameterCount + static_cast<std::size_t>(sourcePad)
-                : kClipCurveLaneCount);
+            : (type == ClipPointType::pressure
+                && sourcePad >= 0 && sourcePad < 32
+                    ? kClipPressureLaneOffset
+                        + static_cast<std::size_t>(sourcePad)
+                : (type == ClipPointType::stackPosition
+                    && sourcePad >= 0 && sourcePad < 32
+                        ? kClipStackPositionLaneOffset
+                            + static_cast<std::size_t>(sourcePad)
+                    : (type == ClipPointType::stackHold
+                        ? kClipStackHoldLane : kClipCurveLaneCount)));
         if (curveLane >= kClipCurveLaneCount) return;
         const float use = static_cast<float>(clip->clipPointCount)
             / static_cast<float>(kClipPointCapacity);
@@ -2586,6 +2614,33 @@ struct ThruInstance {
                         static_cast<std::size_t>(parameter)));
     }
 
+    void captureClipStackPosition(const PlaybackVoice& voice)
+    {
+        if (voice.sourcePad < 0 || voice.sourcePad >= 32) return;
+        const float phase = voice.engine.normalizedLaneScanPhase(
+            voice.laneOffset);
+        captureClipPoint(ClipPointType::stackPosition, 0u,
+                         voice.sourcePad, phase);
+    }
+
+    void captureActiveStackPositions()
+    {
+        for (const auto& voice : voices) {
+            if (voice.active && voice.held) captureClipStackPosition(voice);
+        }
+    }
+
+    void setStackScanPaused(bool paused)
+    {
+        if (paused == stackScanPaused) return;
+        if (clipRecording) {
+            captureClipPoint(ClipPointType::stackHold, 0u, -1,
+                             paused ? 1.0f : 0.0f);
+            if (paused) captureActiveStackPositions();
+        }
+        stackScanPaused = paused;
+    }
+
     void noteOn(int note, int velocity, int sourcePad = -1)
     {
         note = clampValue(note, 0, 127);
@@ -2598,6 +2653,8 @@ struct ThruInstance {
         voice.variantLane = chooseVariationLane(velocity);
         voice.age = noteClock;
         voice.laneOffset = clampValue(controls.manualLane / 3.0f, 0.0f, 1.0f);
+        voice.recordedStackPhase = 0.0f;
+        voice.recordedStackPhaseValid = false;
         voice.target = 1.0f;
         voice.active = true;
         voice.held = true;
@@ -2607,6 +2664,7 @@ struct ThruInstance {
         performanceLane = voice.laneOffset * 3.0f;
         voice.engine.retrigger();
         captureClipNoteOn(note, velocity, sourcePad);
+        if (stackScanPaused) captureClipStackPosition(voice);
         updateActiveNote();
     }
 
@@ -2776,7 +2834,12 @@ struct ThruInstance {
             ? voice.sourcePad : std::max(0, voice.note - rootNote));
         effective.lanePhaseOffset = pressureMode != 0
             ? clampValue(voice.laneOffset, 0.0f, 1.0f) : 0.0f;
-        effective.laneScanPaused = stackScanPaused;
+        const bool recordedHold = voice.clipOwned
+            && clipControls.laneScanPaused;
+        effective.laneScanPaused = stackScanPaused || recordedHold;
+        effective.lanePhaseOverride = recordedHold
+            && voice.recordedStackPhaseValid;
+        effective.lanePhaseOverrideValue = voice.recordedStackPhase;
         effective.glitchBufferLocked = glitchBufferLocked;
         effective.mix = 1.0f;
         effective.recordInputGain = 1.0f;
@@ -2814,6 +2877,44 @@ struct ThruInstance {
         }
     }
 
+    static bool sampleClipCurve(const ClipSlot& clip, std::size_t lane,
+                                double position, bool interpolate,
+                                float& value)
+    {
+        if (lane >= kClipCurveLaneCount || clip.clipDurationMs == 0u) {
+            return false;
+        }
+        const std::size_t count = clip.clipPointCounts[lane];
+        if (count == 0u) return false;
+        const auto first = clip.clipPoints.begin() + clip.clipPointStarts[lane];
+        const auto last = first + count;
+        const auto next = std::upper_bound(first, last, position,
+            [](double time, const ClipPoint& point) {
+                return time < static_cast<double>(point.timeMs);
+            });
+        const bool hasPrevious = next != first;
+        const bool hasNext = next != last;
+        const ClipPoint& before = hasPrevious ? *(next - 1) : *(last - 1);
+        if (!interpolate || count == 1u) {
+            value = before.value;
+            return true;
+        }
+        const ClipPoint& after = hasNext ? *next : *first;
+        const double duration = static_cast<double>(clip.clipDurationMs);
+        double beforeTime = static_cast<double>(before.timeMs);
+        double afterTime = static_cast<double>(after.timeMs);
+        double phase = position;
+        if (!hasPrevious) beforeTime -= duration;
+        if (!hasNext) afterTime += duration;
+        if (phase < beforeTime) phase += duration;
+        const float mix = afterTime > beforeTime
+            ? static_cast<float>(clampValue(
+                (phase - beforeTime) / (afterTime - beforeTime), 0.0, 1.0))
+            : 0.0f;
+        value = before.value + (after.value - before.value) * mix;
+        return true;
+    }
+
     void triggerClipVoice(const ClipSlot& clip, std::size_t noteIndex)
     {
         if (noteIndex >= clip.clipNoteCount) return;
@@ -2827,6 +2928,24 @@ struct ThruInstance {
         voice.variantLane = chooseVariationLane(voice.velocity);
         voice.age = noteClock;
         voice.laneOffset = clampValue(clipControls.manualLane / 3.0f, 0.0f, 1.0f);
+        voice.recordedStackPhase = 0.0f;
+        voice.recordedStackPhaseValid = false;
+        if (voice.sourcePad >= 0 && voice.sourcePad < 32) {
+            float value = 0.0f;
+            if (sampleClipCurve(clip,
+                    kClipPressureLaneOffset
+                        + static_cast<std::size_t>(voice.sourcePad),
+                    event.startMs, true, value)) {
+                voice.laneOffset = clampValue(value, 0.0f, 1.0f);
+            }
+            if (sampleClipCurve(clip,
+                    kClipStackPositionLaneOffset
+                        + static_cast<std::size_t>(voice.sourcePad),
+                    event.startMs, false, value)) {
+                voice.recordedStackPhase = clampValue(value, 0.0f, 1.0f);
+                voice.recordedStackPhaseValid = true;
+            }
+        }
         voice.target = 1.0f;
         voice.active = true;
         voice.held = true;
@@ -2909,45 +3028,39 @@ struct ThruInstance {
     void applyClipCurves(const ClipSlot& clip, double position)
     {
         clipControls = controls;
+        clipControls.laneScanPaused = false;
         clipOutputGain = outputGain;
         if (clip.clipPointCount == 0u || clip.clipDurationMs == 0u) return;
-        const double duration = static_cast<double>(clip.clipDurationMs);
         for (std::size_t lane = 0u; lane < kClipCurveLaneCount; ++lane) {
-            const std::size_t count = clip.clipPointCounts[lane];
-            if (count == 0u) continue;
-            const auto first = clip.clipPoints.begin()
-                + clip.clipPointStarts[lane];
-            const auto last = first + count;
-            const auto next = std::upper_bound(first, last, position,
-                [](double time, const ClipPoint& point) {
-                    return time < static_cast<double>(point.timeMs);
-                });
-            const bool hasPrevious = next != first;
-            const bool hasNext = next != last;
-            const ClipPoint& before = hasPrevious ? *(next - 1) : *(last - 1);
-            const ClipPoint& after = hasNext ? *next : *first;
-            double beforeTime = static_cast<double>(before.timeMs);
-            double afterTime = static_cast<double>(after.timeMs);
-            double phase = position;
-            if (!hasPrevious) beforeTime -= duration;
-            if (!hasNext) afterTime += duration;
-            if (phase < beforeTime) phase += duration;
-            const float mix = afterTime > beforeTime
-                ? static_cast<float>(clampValue(
-                    (phase - beforeTime) / (afterTime - beforeTime), 0.0, 1.0))
-                : 0.0f;
-            const float value = before.value
-                + (after.value - before.value) * mix;
+            float value = 0.0f;
+            const bool interpolate = lane < kClipStackPositionLaneOffset;
+            if (!sampleClipCurve(clip, lane, position, interpolate, value)) {
+                continue;
+            }
             if (lane < kLockParameterCount) {
                 applyLockedValue(clipControls, clipOutputGain, lane, value);
-            } else {
-                const int pad = static_cast<int>(lane - kLockParameterCount);
+            } else if (lane < kClipStackPositionLaneOffset) {
+                const int pad = static_cast<int>(
+                    lane - kClipPressureLaneOffset);
                 for (auto& voice : voices) {
                     if (voice.active && voice.clipOwned
                         && voice.sourcePad == pad) {
                         voice.laneOffset = clampValue(value, 0.0f, 1.0f);
                     }
                 }
+            } else if (lane < kClipStackHoldLane) {
+                const int pad = static_cast<int>(
+                    lane - kClipStackPositionLaneOffset);
+                for (auto& voice : voices) {
+                    if (voice.active && voice.clipOwned
+                        && voice.sourcePad == pad) {
+                        voice.recordedStackPhase = clampValue(
+                            value, 0.0f, 1.0f);
+                        voice.recordedStackPhaseValid = true;
+                    }
+                }
+            } else {
+                clipControls.laneScanPaused = value >= 0.5f;
             }
         }
     }
@@ -3007,16 +3120,23 @@ struct ThruInstance {
         clipRecordStartSample = renderClockSamples.load(
             std::memory_order_relaxed);
         clipRecording = true;
+        if (clipReplacing || stackScanPaused) {
+            captureClipPoint(ClipPointType::stackHold, 0u, -1,
+                             stackScanPaused ? 1.0f : 0.0f);
+        }
         // A performance may already be underway when Record is pressed. Seed
         // those held free-play voices at the record origin/current overdub
         // phase so their later note-offs close valid captured notes.
         for (const auto& voice : voices) {
-            if (!voice.active || !voice.held || voice.clipOwned) continue;
-            captureClipNoteOn(voice.note, voice.velocity, voice.sourcePad);
-            if (voice.sourcePad >= 0 && voice.sourcePad < 32) {
-                captureClipPoint(ClipPointType::pressure, 0u,
-                                 voice.sourcePad, voice.laneOffset);
+            if (!voice.active || !voice.held) continue;
+            if (!voice.clipOwned) {
+                captureClipNoteOn(voice.note, voice.velocity, voice.sourcePad);
+                if (voice.sourcePad >= 0 && voice.sourcePad < 32) {
+                    captureClipPoint(ClipPointType::pressure, 0u,
+                                     voice.sourcePad, voice.laneOffset);
+                }
             }
+            if (stackScanPaused) captureClipStackPosition(voice);
         }
         clipFinishPending = false;
         clip->occupied = true;
@@ -5067,7 +5187,7 @@ struct ThruInstance {
                         && (version < 2u || readU32(file, take))
                         && parameter < kLockParameterCount
                         && type <= static_cast<std::uint32_t>(
-                            ClipPointType::pressure)
+                            ClipPointType::stackHold)
                         && take < std::max(1u, takeCount);
                     if (clip.clipDurationMs != 0u) {
                         point.timeMs %= clip.clipDurationMs;
@@ -5731,7 +5851,7 @@ void setParam(void* opaque, const char* key, const char* value)
     if (std::strcmp(key, "speed") == 0) { controls.speed = clampValue(parseFloat(value, controls.speed), 0.05f, 4.0f); return; }
     if (std::strcmp(key, "manual_lane") == 0) { controls.manualLane = clampValue(parseFloat(value, controls.manualLane + 1.0f) - 1.0f, 0.0f, 3.0f); return; }
     if (std::strcmp(key, "lane_cycles") == 0) { controls.laneCycles = clampValue(parseFloat(value, controls.laneCycles), 0.125f, 16.0f); return; }
-    if (std::strcmp(key, "stack_scan_paused") == 0) { instance->stackScanPaused = isTruthy(value); return; }
+    if (std::strcmp(key, "stack_scan_paused") == 0) { instance->setStackScanPaused(isTruthy(value)); return; }
     if (std::strcmp(key, "glitch_buffer_lock") == 0) { instance->glitchBufferLocked = isTruthy(value); return; }
     if (std::strcmp(key, "algorithm") == 0) { controls.algorithm = static_cast<Engine::PlaybackAlgorithm>(parseEnum(value, kAlgorithmNames, static_cast<int>(controls.algorithm))); return; }
     if (std::strcmp(key, "sample_mode") == 0) { controls.sampleMode = static_cast<Engine::SampleMode>(parseEnum(value, kSampleModeNames, static_cast<int>(controls.sampleMode))); return; }
@@ -6093,6 +6213,9 @@ int getParam(void* opaque, const char* key, char* buffer, int bufferLength)
     if (std::strcmp(key, "manual_lane") == 0) return std::snprintf(buffer, bufferLength, "%.4f", controls.manualLane + 1.0f);
     if (std::strcmp(key, "lane_cycles") == 0) return std::snprintf(buffer, bufferLength, "%.4f", controls.laneCycles);
     if (std::strcmp(key, "stack_scan_paused") == 0) return std::snprintf(buffer, bufferLength, "%d", instance->stackScanPaused ? 1 : 0);
+    if (std::strcmp(key, "clip_stack_hold") == 0) return std::snprintf(
+        buffer, bufferLength, "%d", instance->clipPlaying
+            && instance->clipControls.laneScanPaused ? 1 : 0);
     if (std::strcmp(key, "glitch_buffer_lock") == 0) return std::snprintf(buffer, bufferLength, "%d", instance->glitchBufferLocked ? 1 : 0);
     if (std::strcmp(key, "algorithm") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(controls.algorithm));
     if (std::strcmp(key, "sample_mode") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(controls.sampleMode));

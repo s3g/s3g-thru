@@ -824,6 +824,50 @@ int main()
     assert(get(api, instance, "playheads") == noPlayheads);
     render(api, instance, 160);
     assert(get(api, instance, "playheads") == noPlayheads);
+
+    /* Performance recording owns Stack Hold as data. If Record begins while
+       a pad is frozen between lanes, loop playback restores that voice's
+       exact stack phase after the physical hold is released. */
+    api->set_param(instance, "clip_select", "62");
+    waitForClip(api, instance, 62);
+    api->set_param(instance, "algorithm", "Lanes");
+    api->set_param(instance, "lane_path", "Down");
+    api->set_param(instance, "lane_cycles", "4");
+    midi(api, instance, 0x90, 68, 100, MOVE_MIDI_SOURCE_INTERNAL);
+    render(api, instance, 24);
+    api->set_param(instance, "stack_scan_paused", "1");
+    render(api, instance, 8);
+    const auto laneForPad = [&](int pad) {
+        const std::string pads = get(api, instance, "voice_pads");
+        const std::string lanes = get(api, instance, "voice_lanes");
+        for (int voice = 0; voice < 8; ++voice) {
+            if (stateField(pads, voice) == pad) {
+                return stateField(lanes, voice);
+            }
+        }
+        return -1;
+    };
+    const int recordedHeldLane = laneForPad(0);
+    assert(recordedHeldLane >= 0);
+    api->set_param(instance, "clip_record_mode", "Replace");
+    api->set_param(instance, "clip_record", "1");
+    render(api, instance, 40);
+    midi(api, instance, 0x80, 68, 0, MOVE_MIDI_SOURCE_INTERNAL);
+    render(api, instance, 4);
+    api->set_param(instance, "clip_record", "1");
+    assert(stateField(get(api, instance, "clip_state"), 6) >= 3);
+    api->set_param(instance, "stack_scan_paused", "0");
+    render(api, instance, 16);
+    assert(get(api, instance, "clip_stack_hold") == "1");
+    const int recalledHeldLane = laneForPad(0);
+    assert(recalledHeldLane >= 0);
+    assert(std::abs(recalledHeldLane - recordedHeldLane) <= 2);
+    render(api, instance, 12);
+    assert(std::abs(laneForPad(0) - recalledHeldLane) <= 1);
+    api->set_param(instance, "clip_playing", "0");
+    api->set_param(instance, "clip_select", "0");
+    waitForClip(api, instance, 0);
+    render(api, instance, 160);
     api->set_param(instance, "lane_cycles", "1");
 
     /* Overtake receives raw hardware pad IDs. Map the 8x4 surface to the
@@ -911,7 +955,7 @@ int main()
     const std::string capacity = get(api, instance, "clip_capacity_state");
     assert(stateField(capacity, 0) == 1024);
     assert(stateField(capacity, 1) == 1024);
-    assert(stateField(capacity, 2) == 1);
+    assert(stateField(capacity, 2) == 2);
     assert(stateField(capacity, 3) == 8192);
     assert(stateField(capacity, 4) == 1);
     api->set_param(instance, "clip_reset", "63");

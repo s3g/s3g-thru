@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Performance loops - s3g Thru manual</title>
-    <meta name="description" content="Capture notes, pressure, and knob gestures; overdub undoable takes; organize 64 clips; and build chains in s3g Thru.">
+    <meta name="description" content="Capture notes, pressure, stack holds, and knob gestures; overdub undoable takes; organize 64 clips; and build chains in s3g Thru.">
     <link rel="stylesheet" href="assets/styles.css">
   </head>
   <body>
@@ -17,7 +17,7 @@
       <main class="content" id="content">
         <p class="eyebrow">Data layer</p>
         <h1>Performance loops</h1>
-        <p class="lead">The recorder captures performance data—not a mixed audio bounce. Notes, hold time, pitch, the pad played, polyphonic pressure, and knob gestures remain editable through engine settings and can be replayed at other rates.</p>
+        <p class="lead">The recorder captures performance data—not a mixed audio bounce. Notes, hold time, pitch, the pad played, polyphonic pressure, stack position and Hold/Run changes, and knob gestures remain editable through engine settings and can be replayed at other rates.</p>
 
         <h2 id="record">Record a performance</h2>
 
@@ -29,13 +29,15 @@
         <ol>
           <li>Select a clip with one of the 16 Step keys. Use Left/Right for banks A–D.</li>
           <li>Choose <code>REPLACE</code> or <code>OVERDUB</code> on the Performance Loop page.</li>
-          <li>Press <kbd>Record</kbd>. Notes already held are written at the beginning—or at the current loop position during Overdub—so they are not lost.</li>
-          <li>Play pads, change pressure, and turn engine encoders. Parameter and per-pad pressure paths are captured continuously.</li>
+          <li>Press <kbd>Record</kbd>. Notes already held are written at the beginning—or at the current loop position during Overdub—so they are not lost. If <kbd>Loop</kbd> is already holding the stack scan, each active voice's exact lane or between-lane crossfade is captured too.</li>
+          <li>Play pads, change pressure, turn engine encoders, and press <kbd>Loop</kbd> to hold or resume stack motion. Parameter and per-pad pressure paths are captured continuously; stack position and Hold/Run are stored as stepped data.</li>
           <li>Press <kbd>Record</kbd> again. Replace closes at the exact duration and begins looping; Overdub merges the new pass without changing loop length.</li>
           <li>Press <kbd>Play</kbd> to stop or resume performance playback. Free play remains available and shares the eight-voice pool.</li>
         </ol>
 
-        <p>Recording is unquantized. Overlapping notes retain exact onset and duration, velocity, pitch, and which physical pad produced them. Gesture curves interpolate across the loop seam. Loop Rate scales note timing and gestures together from 0.25x to 4x.</p>
+        <p>Recording is unquantized. Overlapping notes retain exact onset and duration, velocity, pitch, and which physical pad produced them. Continuous gesture curves interpolate across the loop seam, while recorded stack positions and Hold/Run transitions remain exact. Loop Rate scales note timing and gestures together from 0.25x to 4x.</p>
+
+        <div class="callout"><p><strong>Recorded versus live Stack Hold:</strong> a yellow Loop key and <code>RECORDED STACK HOLD</code> footer mean the playing clip is holding its stored stack positions. A bright-white Loop key means the physical button is applying a live hold. The live button remains an override; releasing it returns the clip to its recorded Hold/Run state.</p></div>
 
         <h2 id="timing">Timing and launch</h2>
 

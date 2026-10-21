@@ -1,4 +1,4 @@
-# s3g Thru 0.23.0 overtake hardware acceptance
+# s3g Thru 0.24.0 overtake hardware acceptance
 
 Desktop tests prove the module ABI and DSP behavior; they do not prove the
 exact Move input, screen, pad, or realtime paths. Preserve the previous
@@ -16,7 +16,7 @@ working Schwung installation and do this pass with headphones first.
 
 1. Set Move's main volume low and disconnect speakers.
 2. Uninstall the earlier 0.1 sound-generator build if present, restart Move,
-   then install the 0.23.0 tarball through Schwung Manager.
+   then install the 0.24.0 tarball through Schwung Manager.
 3. Open the Overtake menu with Shift + volume touch + jog-click and select
    s3g Thru.
 4. Confirm Thru opens directly on a four-row waveform page without selecting a
@@ -122,6 +122,12 @@ working Schwung installation and do this pass with headphones first.
     the display, and the pads reproduce independent voice colors/playheads.
     Repeat once while holding a pad before pressing Record; confirm that note
     is present from the start of the captured performance and closes normally.
+    Let that voice move between lane rows, press Loop to hold its exact
+    crossfade, and start another Replace recording while Loop is already held.
+    Stop recording, release the physical Loop hold, and confirm the loop recalls
+    the same held marker and audible crossfade: the Loop key is yellow and the
+    footer reads `RECORDED STACK HOLD`. Record Hold and Run changes within a
+    second pass and confirm each voice resumes from its own captured path.
     Press Play twice and confirm stop/restart resets cleanly. Sweep Loop Rate
     from 0.25x to 4x and confirm note timing and gesture motion scale together.
     Record at one BPM, switch between Free and Beat Sync, then change BPM;

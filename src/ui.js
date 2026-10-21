@@ -1,4 +1,4 @@
-/* s3g Thru 0.23.0 — polyphonic sampler/performance-looper takeover for Move. */
+/* s3g Thru 0.24.0 — polyphonic sampler/performance-looper takeover for Move. */
 
 import * as moveConstants from '/data/UserData/schwung/shared/constants.mjs';
 import * as moveInputFilter from '/data/UserData/schwung/shared/input_filter.mjs';
@@ -437,6 +437,7 @@ const state = {
     clipRecording: false,
     clipPlaying: false,
     stackScanPaused: false,
+    recordedStackHold: false,
     glitchBufferLocked: false,
     glitchLockLatched: false,
     glitchLockMomentary: false,
@@ -821,7 +822,8 @@ function rebuildLedQueue() {
             : (state.clipPlaying ? NeonGreen : WhiteLedDim), 0);
     queueLed('cc', MoveLoop,
         state.glitchBufferLocked ? BrightOrange
-            : (state.stackScanPaused ? WhiteLedBright : WhiteLedDim), 0);
+            : (state.stackScanPaused ? WhiteLedBright
+                : (state.recordedStackHold ? BrightYellow : WhiteLedDim)), 0);
     for (let i = 0; i < MovePads.length; i++) {
         const note = MovePads[i];
         queueLed('note', note, padColor(i), 3);
@@ -991,8 +993,9 @@ function drawMain() {
             ? 'MISSING SHIFT+TRK FIX'
             : (state.scanning ? 'SCANNING WAVEFORM'
                 : (state.stackScanPaused ? 'STACK HOLD - LOOP RUN'
+                    : (state.recordedStackHold ? 'RECORDED STACK HOLD'
                     : (state.clipDuration > 0 ? clipStatus
-                    : state.laneSourceState + ' MENU')))));
+                    : state.laneSourceState + ' MENU'))))));
     print(1, 55, String(footer).slice(0, 21), 1);
 }
 
@@ -1655,6 +1658,7 @@ function pollDsp() {
         state.laneSourceState) || 'EMPTY:EMPTY');
     state.undoAvailable = getNumber('undo_available', 0) !== 0;
     state.stackScanPaused = getNumber('stack_scan_paused', 0) !== 0;
+    state.recordedStackHold = getNumber('clip_stack_hold', 0) !== 0;
     state.glitchBufferLocked = getNumber('glitch_buffer_lock', 0) !== 0;
     if (!state.glitchBufferLocked && !state.glitchLockMomentary) {
         state.glitchLockLatched = false;
@@ -1716,6 +1720,7 @@ globalThis.init = function() {
         || 'EMPTY:EMPTY');
     state.undoAvailable = getNumber('undo_available', 0) !== 0;
     state.stackScanPaused = getNumber('stack_scan_paused', 0) !== 0;
+    state.recordedStackHold = getNumber('clip_stack_hold', 0) !== 0;
     state.glitchBufferLocked = getNumber('glitch_buffer_lock', 0) !== 0;
     state.glitchLockLatched = state.glitchBufferLocked;
     state.padMode = clamp(Math.round(getNumber('pad_mode', 0)), 0, 3);

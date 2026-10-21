@@ -143,7 +143,10 @@ playback engine is included. Each screen cell is aligned with one of the eight
 physical dials and shows a padded parameter name with its value underneath—no
 small dial graphic. **Loop** holds every active voice at its current stack
 position, including an in-between lane crossfade; press it again to resume each
-voice's independent scan from that point. In Glitch, hold **Shift + Loop** for
+voice's independent scan from that point. During performance recording, Loop's
+Hold/Run changes and each held voice's exact stack position are stored in the
+clip. A recorded hold is recalled even after the physical Loop hold is released.
+In Glitch, hold **Shift + Loop** for
 a temporary repeat-history lock. Tap the chord twice quickly to latch it; press
 it once more to release. The Loop key is orange while histories are locked.
 **Shift + Back** restores the last destructive clip,
@@ -157,7 +160,9 @@ from the waveform page. Schwung's universal
 1. Press **Record** to start free-time performance capture in the active clip.
    Notes already held at that moment are included from the beginning of the
    recording (or from the current loop position when overdubbing).
-2. Play pads, vary their pressure, and turn engine dials.
+2. Play pads, vary their pressure, turn engine dials, and use **Loop** to capture
+   Stack Hold/Run gestures. Starting Record while Loop is already held stores
+   every active voice's current lane or between-lane crossfade.
 3. Press **Record** again. The exact-duration performance immediately loops.
 4. Press **Play** to stop or restart loop playback.
 
@@ -167,8 +172,9 @@ and sets Loop Rate from 0.25x to 4x. `FREE` retains the recorded wall-clock
 duration; `BEAT SYNC` scales it from the BPM captured with the clip to the
 current BPM. Launch can be immediate or wait for the next internal beat/bar.
 Turning a lockable engine parameter during recording writes a continuous
-gesture point; pressure is recorded separately for each pad/voice. The thin
-line below the waveforms shows loop position.
+gesture point; pressure and held stack position are recorded separately for
+each pad/voice. Loop Hold/Run is stored as stepped clip data. The thin line
+below the waveforms shows loop position.
 
 Replace establishes take 1 as the protected base performance. Every completed
 Overdub pass that contains a note or gesture becomes another clip-local take;
@@ -269,11 +275,11 @@ recoverable and reusable, but disk use grows with recording. Export the set
 before manually removing files from the module data directory; a clip that
 still refers to a removed WAV will report `MISSING`.
 
-The take- and engine-aware binary bank is format 3. Format-1 and format-2 banks
-are imported with their original parameter identities intact; newly added
-Motion controls receive safe defaults. A format-1 recorded performance becomes
-its protected base take. Subsequent saves write format 3 and preserve individual
-overdub membership and all 81 lockable engine controls.
+The take- and engine-aware binary bank is format 4. Format-1 through format-3
+banks are imported with their original parameter identities intact; newly added
+controls receive safe defaults. A format-1 recorded performance becomes its
+protected base take. Subsequent saves write format 4 and preserve individual
+overdub membership and all lockable engine controls.
 
 Use **Back** from the main waveform page for a normal save-and-exit. Autosave
 narrows the power-loss window, but power can still be removed before the next

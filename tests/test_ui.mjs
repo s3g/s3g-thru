@@ -50,7 +50,8 @@ globalThis.__os = {
 const flatWave = '77'.repeat(112);
 const params = {
     locus: '0.5', field: '1', speed: '1', manual_lane: '1',
-    lane_cycles: '1', stack_scan_paused: '0', algorithm: '0', join: '1', output_gain: '1',
+    lane_cycles: '1', stack_scan_paused: '0', clip_stack_hold: '0',
+    algorithm: '0', join: '1', output_gain: '1',
     glitch_buffer_lock: '0',
     record_lane: '1', pad_octave: '0', record_source: '0',
     record_gain: '1', monitor_level: '0', preview_level: '0.7',
@@ -134,6 +135,7 @@ globalThis.__testMotionPages = Array.from({ length: 8 }, (_, sound) =>
 globalThis.__testPlaybackPageTitles = PLAYBACK_PAGES.map((pages) =>
     pages.map((page) => page.title));
 globalThis.__testLockableParams = Array.from(LOCKABLE_PARAMS);
+globalThis.__testDrawMain = drawMain;
 `;
 await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
 
@@ -349,6 +351,17 @@ assert.deepEqual(buttonWrites.filter((write) => write[0] === 58).at(-1),
     [58, 127], 'Loop should light brightly while stack scanning is held');
 globalThis.onMidiMessageInternal([0xB0, 58, 127]);
 assert.deepEqual(blockingWrites.pop(), ['stack_scan_paused', '0']);
+
+/* A stack hold stored in performance data is visible even after the physical
+   Loop hold has returned to its live Run state. */
+params.clip_stack_hold = '1';
+const recordedHoldDrawStart = drawWrites.length;
+for (let tick = 0; tick < 90; tick++) globalThis.tick();
+globalThis.__testDrawMain();
+assert(drawWrites.slice(recordedHoldDrawStart).some((write) =>
+    write[0] === 'print' && String(write[3]).includes('RECORDED STACK HOLD')));
+params.clip_stack_hold = '0';
+for (let tick = 0; tick < 3; tick++) globalThis.tick();
 
 /* Shift+Loop temporarily freezes each Glitch voice's rolling history. A
    second quick tap latches the lock; one more chord releases it. Plain Loop

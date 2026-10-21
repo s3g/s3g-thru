@@ -299,6 +299,8 @@ public:
         float manualLane = 0.0f;
         float lanePhaseOffset = 0.0f;
         bool laneScanPaused = false;
+        bool lanePhaseOverride = false;
+        float lanePhaseOverrideValue = 0.0f;
         LaneBlendMode laneBlend = LaneBlendMode::crossfade;
         LanePathShape lanePathShape = LanePathShape::linear;
         float lanePathOffset = 0.0f;
@@ -1022,6 +1024,14 @@ public:
         return mask;
     }
     float normalizedLanePosition() const { return clamp01(lanePosition_ / 3.0f); }
+    float normalizedLaneScanPhase(float phaseOffset = 0.0f) const
+    {
+        float phase = laneScanPaused_ ? laneFrozenPhase_
+            : lanePhase_ + clamp01(phaseOffset);
+        while (phase >= 1.0f) phase -= 1.0f;
+        while (phase < 0.0f) phase += 1.0f;
+        return phase;
+    }
     float laneWeight(std::size_t lane) const
     {
         return lane < kStackLanes ? laneWeights_[lane] : 0.0f;
@@ -2149,7 +2159,12 @@ private:
             return;
         }
         const float phaseOffset = clamp(controls.lanePhaseOffset, 0.0f, 1.0f);
-        if (controls.laneScanPaused && !laneScanPaused_) {
+        if (controls.laneScanPaused && controls.lanePhaseOverride) {
+            laneFrozenPhase_ = clamp01(controls.lanePhaseOverrideValue);
+            lanePhase_ = laneFrozenPhase_ - phaseOffset;
+            while (lanePhase_ >= 1.0f) lanePhase_ -= 1.0f;
+            while (lanePhase_ < 0.0f) lanePhase_ += 1.0f;
+        } else if (controls.laneScanPaused && !laneScanPaused_) {
             laneFrozenPhase_ = lanePhase_ + phaseOffset;
             while (laneFrozenPhase_ >= 1.0f) laneFrozenPhase_ -= 1.0f;
             while (laneFrozenPhase_ < 0.0f) laneFrozenPhase_ += 1.0f;

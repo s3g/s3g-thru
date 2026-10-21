@@ -66,8 +66,8 @@ loop boundaries. Live knob motion and per-pad pressure are captured with the
 notes. Beat Sync follows Thru's internal BPM while preserving the captured
 microtiming; synchronization to Move's native transport remains a later
 milestone.
-Eight-voice realtime CPU behavior, particularly with the Grains and Long
-Grains engines, still needs acceptance on Move.
+Eight-voice realtime CPU behavior, particularly with the Grains and Weave
+engines, still needs acceptance on Move.
 
 ## Requirements
 
@@ -120,11 +120,36 @@ npm run docs:serve
    restart Move. Changing component type moves the same module ID to a different
    Schwung directory, so this one-time cleanup avoids two stale copies.
 3. Open `http://move.local:7700`.
-4. Choose **Modules -> Install Custom Module -> Upload tarball**.
-5. Upload `dist/s3g-thru-module.tar.gz`.
+4. Choose **Modules -> Install Custom Module -> GitHub URL**.
+5. Enter `https://github.com/s3g/s3g-thru` and install.
+
+Schwung reads `release.json` from the repository's `main` branch and downloads
+the matching tarball from GitHub Releases. To install a local development build
+instead, choose **Upload tarball** and upload `dist/s3g-thru-module.tar.gz`.
 
 Building this repository does not modify Move; uploading the package is a
 separate action.
+
+## Publish a release
+
+Keep `src/module.json`, `package.json`, `release.json`, and the release-notes
+filename on the same semantic version. Check them before publishing:
+
+```sh
+npm run release:check
+npm run build
+```
+
+Commit and push those files to `main`, then push the matching `v`-prefixed tag:
+
+```sh
+git tag v0.25.0
+git push origin v0.25.0
+```
+
+The Release workflow rebuilds and validates the AArch64 module, creates the
+GitHub Release, and uploads `s3g-thru-module.tar.gz` plus its SHA-256 checksum.
+The tag is rejected if it disagrees with the committed metadata.
 
 ## Open and play
 

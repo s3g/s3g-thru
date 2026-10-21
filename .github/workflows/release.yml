@@ -1,0 +1,48 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install AArch64 toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++-aarch64-linux-gnu file
+
+      - name: Verify tag and release metadata
+        run: node scripts/validate-release.mjs "$GITHUB_REF_NAME"
+
+      - name: Build and validate module
+        run: npm run build
+
+      - name: Prepare release files
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          cp "release-notes/RELEASE_NOTES_${VERSION}.md" "$RUNNER_TEMP/release-notes.md"
+          cd dist
+          sha256sum s3g-thru-module.tar.gz > s3g-thru-module.tar.gz.sha256
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: ${{ runner.temp }}/release-notes.md
+          files: |
+            dist/s3g-thru-module.tar.gz
+            dist/s3g-thru-module.tar.gz.sha256

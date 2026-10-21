@@ -7,6 +7,7 @@
   "scripts": {
     "test": "bash scripts/test-native.sh",
     "validate": "bash scripts/validate-native.sh",
+    "release:check": "node scripts/validate-release.mjs",
     "docs:render": "node scripts/render-doc-screens.mjs",
     "docs:check": "node scripts/render-doc-screens.mjs --check && node scripts/check-docs.mjs",
     "docs:serve": "python3 -m http.server 8080 --directory docs",

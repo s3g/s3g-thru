@@ -14,6 +14,8 @@
       .led{fill:#2b2b2a}
       .icon{fill:none;stroke:#242424;stroke-width:2;stroke-linecap:square;stroke-linejoin:miter}
       .thin{fill:none;stroke:#555;stroke-width:1.2;stroke-linecap:square;stroke-linejoin:miter}
+      .panelGlyph{fill:none;stroke:#242424;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+      .panelGlyphFill{fill:#242424;stroke:none}
       .leader{fill:none;stroke:#181818;stroke-width:1.5;stroke-linecap:square;stroke-linejoin:miter}
       .call{fill:#181818;stroke:#181818;stroke-width:1}
       .num{fill:#fff;font-family:Arial,Helvetica,sans-serif;font-size:18px;font-weight:700;text-anchor:middle;dominant-baseline:central}
@@ -36,7 +38,6 @@
   <text x="174" y="188" class="screenText">THRU LANES</text>
   <text x="174" y="207" class="screenText">PLAY A01 V3</text>
   <circle cx="214" cy="297" r="38" class="encoder"/>
-  <line x1="214" y1="297" x2="232" y2="279" class="icon"/>
 
   <!-- Back and Menu. -->
   <circle cx="188" cy="385" r="20" class="button"/>
@@ -59,7 +60,6 @@
   <!-- Built-in microphone and output-volume encoder. -->
   <circle cx="948" cy="183" r="2.5" class="led"/>
   <circle cx="1012" cy="188" r="23" class="encoder"/>
-  <text x="1012" y="192" class="tiny">VOL</text>
 
   <!-- Four vertical track buttons. -->
   <g>
@@ -96,14 +96,14 @@
     <path d="M947 264V260H951M959 260H963V264M963 272V276H959M951 276H947V272" class="icon"/>
     <circle cx="1011" cy="268" r="19" class="button"/><circle cx="1011" cy="268" r="4.5" class="led"/>
     <circle cx="955" cy="326" r="19" class="button"/>
-    <path d="M962 327C961 333 950 334 948 327C945 320 954 317 961 321M961 321V328H954" class="icon"/>
+    <path d="M949 329V324C949 321 951 320 954 320H960C963 320 964 322 964 325V328C964 331 962 332 959 332H956M956 328L952 332L956 336" class="icon"/>
     <circle cx="1011" cy="326" r="19" class="button"/><text x="1011" y="331" class="label" text-anchor="middle">M</text>
     <circle cx="955" cy="384" r="19" class="button"/>
     <path d="M948 377L962 391M962 377L948 391" class="icon"/>
     <circle cx="1011" cy="384" r="19" class="button"/>
     <rect x="1003" y="382" width="10" height="9" class="icon"/><path d="M1008 377H1018V386" class="icon"/>
     <circle cx="955" cy="442" r="19" class="button"/>
-    <path d="M962 448C963 438 959 434 949 436M949 436L953 432M949 436L954 439" class="icon"/>
+    <path d="M963 449V443C963 439 960 437 956 437H949M953 433L949 437L953 441" class="icon"/>
     <circle cx="1011" cy="442" r="19" class="shift"/>
     <circle cx="1004" cy="442" r="2" class="led"/><circle cx="1011" cy="442" r="2" class="led"/><circle cx="1018" cy="442" r="2" class="led"/>
   </g>
@@ -112,24 +112,52 @@
   <circle cx="188" cy="512" r="19" class="button"/><path d="M182 502L198 512L182 522Z" class="icon"/>
   <circle cx="241" cy="512" r="19" class="button"/><circle cx="241" cy="512" r="8" class="icon"/>
   <g>
-    <circle cx="333" cy="512" r="10" class="step"/><circle cx="333" cy="512" r="2.5" class="led"/>
+    <circle cx="333" cy="512" r="10" class="step"/><circle cx="333" cy="509" r="2.4" class="led"/><path d="M330 516H336" class="panelGlyph"/>
     <circle cx="371" cy="512" r="10" class="step"/><circle cx="371" cy="512" r="2.5" class="led"/>
     <circle cx="409" cy="512" r="10" class="step"/><circle cx="409" cy="512" r="2.5" class="led"/>
     <circle cx="447" cy="512" r="10" class="step"/><circle cx="447" cy="512" r="2.5" class="led"/>
-    <circle cx="485" cy="512" r="10" class="step"/><circle cx="485" cy="512" r="2.5" class="led"/>
+    <circle cx="485" cy="512" r="10" class="step"/><circle cx="485" cy="509" r="2.4" class="led"/><path d="M482 516H488" class="panelGlyph"/>
     <circle cx="523" cy="512" r="10" class="step"/><circle cx="523" cy="512" r="2.5" class="led"/>
     <circle cx="561" cy="512" r="10" class="step"/><circle cx="561" cy="512" r="2.5" class="led"/>
     <circle cx="599" cy="512" r="10" class="step"/><circle cx="599" cy="512" r="2.5" class="led"/>
-    <circle cx="637" cy="512" r="10" class="step"/><circle cx="637" cy="512" r="2.5" class="led"/>
+    <circle cx="637" cy="512" r="10" class="step"/><circle cx="637" cy="509" r="2.4" class="led"/><path d="M634 516H640" class="panelGlyph"/>
     <circle cx="675" cy="512" r="10" class="step"/><circle cx="675" cy="512" r="2.5" class="led"/>
     <circle cx="713" cy="512" r="10" class="step"/><circle cx="713" cy="512" r="2.5" class="led"/>
     <circle cx="751" cy="512" r="10" class="step"/><circle cx="751" cy="512" r="2.5" class="led"/>
-    <circle cx="789" cy="512" r="10" class="step"/><circle cx="789" cy="512" r="2.5" class="led"/>
+    <circle cx="789" cy="512" r="10" class="step"/><circle cx="789" cy="509" r="2.4" class="led"/><path d="M786 516H792" class="panelGlyph"/>
     <circle cx="827" cy="512" r="10" class="step"/><circle cx="827" cy="512" r="2.5" class="led"/>
     <circle cx="865" cy="512" r="10" class="step"/><circle cx="865" cy="512" r="2.5" class="led"/>
     <circle cx="903" cy="512" r="10" class="step"/><circle cx="903" cy="512" r="2.5" class="led"/>
   </g>
-  <path d="M333 532V539M371 532L367 539H375ZM407 536H411M443 536H451M483 532V539H488M519 536H527M559 533C564 530 566 538 561 539M595 533H603M635 532V539M673 532V539M709 533H717M747 533H755M787 532V539M823 533H831M863 532V539M901 532V539" class="thin"/>
+  <!-- Printed Shift functions, traced from the Move panel. Positions 4, 12,
+       13, and 16 are intentionally blank. -->
+  <g class="panelGlyph">
+    <!-- Set Overview: page. -->
+    <path d="M329 531H335L338 534V542H329ZM335 531V534H338"/>
+    <!-- Setup: hex nut. -->
+    <path d="M371 530L376 533V539L371 542L366 539V533Z"/><circle cx="371" cy="536" r="1.6"/>
+    <!-- Workflow Settings: three connected nodes. -->
+    <path d="M409 532V537C409 539 407 540 405 540H403M409 537C409 539 411 540 413 540H415"/>
+    <circle cx="409" cy="531" r="1.7"/><circle cx="402" cy="540" r="1.7"/><circle cx="416" cy="540" r="1.7"/>
+    <!-- Tempo: clock. -->
+    <circle cx="485" cy="536" r="5.5"/><path d="M485 532V536H489"/>
+    <!-- Metronome. -->
+    <circle cx="520" cy="536" r="2.7"/><circle cx="527" cy="536" r="2.7" class="panelGlyphFill"/>
+    <!-- Groove. -->
+    <path d="M555 533C558 530 560 530 563 533C566 536 568 536 571 533M555 539C558 536 560 536 563 539C566 542 568 542 571 539"/>
+    <!-- Layout. -->
+    <rect x="593" y="531" width="12" height="10"/><path d="M593 536H605M599 536V541"/>
+    <!-- Keys & Scales. -->
+    <path d="M643 531H638V539"/><circle cx="636" cy="540" r="2.3"/>
+    <!-- Full Velocity. -->
+    <path d="M672 533H682M677 537H682M677 541H682"/><circle cx="670" cy="533" r="2.5" class="panelGlyphFill"/>
+    <!-- Arp / Repeat. -->
+    <circle cx="709" cy="536" r="3.3"/><path d="M715 533C717 535 717 537 715 539M719 532C722 535 722 537 719 540"/>
+    <!-- Double Loop. -->
+    <path d="M823 534V531H833V538H830M820 537V534H830V541H826"/><path d="M826 538L822 541L826 544Z" class="panelGlyphFill"/>
+    <!-- Quantize. -->
+    <path d="M861 530V542"/><rect x="866" y="532" width="5" height="3"/><rect x="866" y="538" width="7" height="3"/>
+  </g>
 
   <!-- Loop navigation / octave controls. -->
   <circle cx="945" cy="512" r="17" class="button"/><path d="M950 504L942 512L950 520" class="icon"/>
@@ -143,7 +171,7 @@
   <path d="M176 297H112" class="leader"/><circle cx="95" cy="297" r="17" class="call"/><text x="95" y="297" class="num">3</text>
   <path d="M276 268H260V235H112" class="leader"/><circle cx="95" cy="235" r="17" class="call"/><text x="95" y="235" class="num">4</text>
   <path d="M916 244H1075V225H1093" class="leader"/><circle cx="1110" cy="225" r="17" class="call"/><text x="1110" y="225" class="num">5</text>
-  <path d="M637 522V608" class="leader"/><circle cx="637" cy="625" r="17" class="call"/><text x="637" y="625" class="num">6</text>
+  <path d="M627 512H618V608" class="leader"/><circle cx="618" cy="625" r="17" class="call"/><text x="618" y="625" class="num">6</text>
   <path d="M241 531V608" class="leader"/><circle cx="241" cy="625" r="17" class="call"/><text x="241" y="625" class="num">7</text>
   <path d="M955 307V300H1075V310H1093" class="leader"/><circle cx="1110" cy="310" r="17" class="call"/><text x="1110" y="310" class="num">8</text>
   <path d="M168 385H112" class="leader"/><circle cx="95" cy="385" r="17" class="call"/><text x="95" y="385" class="num">9</text>

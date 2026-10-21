@@ -75,14 +75,26 @@
         </table>
 
         <h2 id="packets">Packets and Motor</h2>
+        <h3>Packets page</h3>
         <table class="readout-table parameter-table">
-          <thead><tr><th>Display</th><th>Range</th><th>Detail</th></tr></thead>
+          <thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>Detail</th></tr></thead>
           <tbody>
-            <tr><td>RATE</td><td>0.25–20 Hz</td><td>Independent inner packet clock. Jitter varies its timing after each completed packet.</td></tr>
-            <tr><td>DUTY</td><td>2–98%</td><td>Portion of each packet cycle occupied by the Hann-shaped pulse.</td></tr>
-            <tr><td>MRAT</td><td>0.05–20 Hz</td><td>Motor only: independent outer envelope clock.</td></tr>
-            <tr><td>MSYM</td><td>5–95%</td><td>Moves the outer envelope peak between its rise and fall.</td></tr>
-            <tr><td>MSHP</td><td>Linear / Rounded / Pulse / Exponential / Plateau</td><td>Shapes the outer Motor envelope.</td></tr>
+            <tr><td>1</td><td>RATE</td><td>0.25–20 Hz</td><td>Independent inner packet clock. Jitter varies its timing after each completed packet.</td></tr>
+            <tr><td>2</td><td>DUTY</td><td>2–98%</td><td>Portion of each packet cycle occupied by the Hann-shaped pulse.</td></tr>
+            <tr><td>3–8</td><td>Reserved</td><td>—</td><td>Inactive positions available for future Packets controls.</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Motor page</h3>
+        <table class="readout-table parameter-table">
+          <thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>Detail</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>RATE</td><td>0.25–20 Hz</td><td>Independent inner packet clock. Jitter varies its timing after each completed packet.</td></tr>
+            <tr><td>2</td><td>DUTY</td><td>2–98%</td><td>Portion of each packet cycle occupied by the Hann-shaped pulse.</td></tr>
+            <tr><td>3</td><td>MRAT</td><td>0.05–20 Hz</td><td>Independent outer Motor envelope clock.</td></tr>
+            <tr><td>4</td><td>MSYM</td><td>5–95%</td><td>Moves the outer envelope peak between its rise and fall.</td></tr>
+            <tr><td>5</td><td>MSHP</td><td>Linear / Rounded / Pulse / Exponential / Plateau</td><td>Shapes the outer Motor envelope.</td></tr>
+            <tr><td>6–8</td><td>Reserved</td><td>—</td><td>Inactive positions available for future Motor controls.</td></tr>
           </tbody>
         </table>
 
@@ -97,20 +109,30 @@
             <tr><td>Doublets</td><td>Repeats a center for the selected repeat count before advancing it by Event Step.</td></tr>
           </tbody>
         </table>
+        <h3>Event Clock page</h3>
         <table class="readout-table parameter-table">
-          <thead><tr><th>Page</th><th>Display</th><th>Range</th><th>Detail</th></tr></thead>
+          <thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>Detail</th></tr></thead>
           <tbody>
-            <tr><td>Event Clock</td><td>TRIG</td><td>Clock / Packet / Turn</td><td>Starts events from the event clock, packet-clock wrap, or a trajectory turn/wrap.</td></tr>
-            <tr><td>Event Clock</td><td>ERAT</td><td>0.25–80 Hz</td><td>Base event rate when Trigger is Clock.</td></tr>
-            <tr><td>Event Clock</td><td>REPT</td><td>1–16</td><td>Length of each model's repeat cycle.</td></tr>
-            <tr><td>Event Clock</td><td>ESTP</td><td>0.00–1.00</td><td>Source-distance step for Iterate and Doublets.</td></tr>
-            <tr><td>Event Shape</td><td>OVLP</td><td>Cut / Layer</td><td>Cut replaces the prior segment; Layer permits overlap.</td></tr>
-            <tr><td>Event Shape</td><td>LAYR</td><td>1–4</td><td>Maximum simultaneous segment readers per playback voice. Lower values reduce CPU use.</td></tr>
-            <tr><td>Event Shape</td><td>PITC</td><td>0–12 st</td><td>Random pitch scatter inside ± the selected range.</td></tr>
-            <tr><td>Event Shape</td><td>LEVL</td><td>0.00–1.00</td><td>Random attenuation, or repeat decay for Bounce.</td></tr>
-            <tr><td>Event Shape</td><td>CURV</td><td>−1.00–1.00</td><td>Accelerates or decelerates Clock intervals across the repeat cycle.</td></tr>
-            <tr><td>Event Shape</td><td>MSYM / MSHP</td><td>5–95% / 5 shapes</td><td>Peak position and contour of every segment envelope.</td></tr>
-            <tr><td>Event Shape</td><td>DUTY</td><td>2–98%</td><td>Minimum Bounce width and Pulser duration proportion.</td></tr>
+            <tr><td>1</td><td>TRIG</td><td>Clock / Packet / Turn</td><td>Starts events from the event clock, packet-clock wrap, or a trajectory turn/wrap.</td></tr>
+            <tr><td>2</td><td>ERAT</td><td>0.25–80 Hz</td><td>Base event rate when Trigger is Clock.</td></tr>
+            <tr><td>3</td><td>REPT</td><td>1–16</td><td>Length of each model's repeat cycle.</td></tr>
+            <tr><td>4</td><td>ESTP</td><td>0.00–1.00</td><td>Source-distance step for Iterate and Doublets.</td></tr>
+            <tr><td>5–8</td><td>Reserved</td><td>—</td><td>Inactive positions available for future Event Clock controls.</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Event Shape page</h3>
+        <table class="readout-table parameter-table">
+          <thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>Detail</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>OVLP</td><td>Cut / Layer</td><td>Cut replaces the prior segment; Layer permits overlap.</td></tr>
+            <tr><td>2</td><td>LAYR</td><td>1–4</td><td>Maximum simultaneous segment readers per playback voice. Lower values reduce CPU use.</td></tr>
+            <tr><td>3</td><td>PITC</td><td>0–12 st</td><td>Random pitch scatter inside ± the selected range.</td></tr>
+            <tr><td>4</td><td>LEVL</td><td>0.00–1.00</td><td>Random attenuation, or repeat decay for Bounce.</td></tr>
+            <tr><td>5</td><td>CURV</td><td>−1.00–1.00</td><td>Accelerates or decelerates Clock intervals across the repeat cycle.</td></tr>
+            <tr><td>6</td><td>MSYM</td><td>5–95%</td><td>Moves the peak of every segment envelope between its rise and fall.</td></tr>
+            <tr><td>7</td><td>MSHP</td><td>Linear / Rounded / Pulse / Exponential / Plateau</td><td>Sets the contour of every segment envelope.</td></tr>
+            <tr><td>8</td><td>DUTY</td><td>2–98%</td><td>Minimum Bounce width and Pulser duration proportion.</td></tr>
           </tbody>
         </table>
 

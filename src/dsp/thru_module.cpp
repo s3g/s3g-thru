@@ -2311,17 +2311,13 @@ struct ThruInstance {
                       "%.*s",
                       static_cast<int>(laneSourceLabels[lane].size() - 1u),
                       sampleLoadedName.data());
-        std::snprintf(currentLaneSourcePaths[lane].data(),
-                      currentLaneSourcePaths[lane].size(), "%s",
-                      sampleRequestPath.data());
+        currentLaneSourcePaths[lane] = sampleRequestPath;
         const int owner = clampValue(sampleRequestClip, 0,
                                      static_cast<int>(kClipSlotCount) - 1);
         if (!sampleRequestFromClip) {
             ClipSlot& clip = clipSlots[static_cast<std::size_t>(owner)];
             clip.laneSourceKinds[lane] = LaneSourceKind::file;
-            std::snprintf(clip.laneSourcePaths[lane].data(),
-                          clip.laneSourcePaths[lane].size(), "%s",
-                          sampleRequestPath.data());
+            clip.laneSourcePaths[lane] = sampleRequestPath;
             std::snprintf(clip.laneSourceLabels[lane].data(),
                           clip.laneSourceLabels[lane].size(), "%.*s",
                           static_cast<int>(clip.laneSourceLabels[lane].size() - 1u),
@@ -2333,9 +2329,7 @@ struct ThruInstance {
             const ClipSlot& clip = clipSlots[static_cast<std::size_t>(owner)];
             currentLaneSourceKinds[lane] = clip.laneSourceKinds[lane];
             if (clip.laneSourceLabels[lane][0] != '\0') {
-                std::snprintf(laneSourceLabels[lane].data(),
-                              laneSourceLabels[lane].size(), "%s",
-                              clip.laneSourceLabels[lane].data());
+                laneSourceLabels[lane] = clip.laneSourceLabels[lane];
             }
         }
         sampleLoadState.store(static_cast<int>(SampleLoadState::complete),
@@ -4375,16 +4369,12 @@ struct ThruInstance {
                     setError("A unique recording archive path could not be created");
                     return;
                 }
-                std::snprintf(currentLaneSourcePaths[lane].data(),
-                              currentLaneSourcePaths[lane].size(), "%s",
-                              clip.laneSourcePaths[lane].data());
+                currentLaneSourcePaths[lane] = clip.laneSourcePaths[lane];
                 clip.laneSourceKinds[lane] = LaneSourceKind::capture;
                 std::snprintf(clip.laneSourceLabels[lane].data(),
                               clip.laneSourceLabels[lane].size(), "TAKE %010llu",
                               static_cast<unsigned long long>(captureId));
-                std::snprintf(laneSourceLabels[lane].data(),
-                              laneSourceLabels[lane].size(), "%s",
-                              clip.laneSourceLabels[lane].data());
+                laneSourceLabels[lane] = clip.laneSourceLabels[lane];
                 clip.occupied = true;
                 pendingCaptureClips[lane] = activeClip;
                 pendingCaptureSaveMask |= 1u << lane;
@@ -5505,9 +5495,7 @@ struct ThruInstance {
             currentLaneSourceKinds[lane] = LaneSourceKind::capture;
             std::snprintf(currentLaneSourcePaths[lane].data(),
                           currentLaneSourcePaths[lane].size(), "%s", path.data());
-            std::snprintf(laneSourceLabels[lane].data(),
-                          laneSourceLabels[lane].size(), "%s",
-                          clip.laneSourceLabels[lane].data());
+            laneSourceLabels[lane] = clip.laneSourceLabels[lane];
         }
         return true;
     }
@@ -5641,13 +5629,9 @@ struct ThruInstance {
         for (std::size_t lane = 0u; lane < kLaneCount; ++lane) {
             if (!engine.laneLoaded(lane)
                 || clip.laneSourcePaths[lane][0] == '\0') continue;
-            std::snprintf(currentLaneSourcePaths[lane].data(),
-                          currentLaneSourcePaths[lane].size(), "%s",
-                          clip.laneSourcePaths[lane].data());
+            currentLaneSourcePaths[lane] = clip.laneSourcePaths[lane];
             if (clip.laneSourceLabels[lane][0] != '\0') {
-                std::snprintf(laneSourceLabels[lane].data(),
-                              laneSourceLabels[lane].size(), "%s",
-                              clip.laneSourceLabels[lane].data());
+                laneSourceLabels[lane] = clip.laneSourceLabels[lane];
             }
         }
         queueClipSources(activeClip);

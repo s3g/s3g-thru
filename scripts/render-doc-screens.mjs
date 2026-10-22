@@ -143,6 +143,7 @@ const params = {
     effect_feedback: '48', effect_width: '100', effect_mix: '28',
     lane_1_gain: '1', lane_2_gain: '1', lane_3_gain: '1', lane_4_gain: '1',
     pressure_mode: '1', root_note: '60', record_lane: '2', pad_octave: '0',
+    hold_release_ms: '0', shift_held: '0',
     record_source: '0', record_gain: '1', monitor_level: '0', preview_level: '0.7',
     clip_rate: '1', clip_record_mode: '1', clip_timing: '1', launch_quantize: '1',
     tempo_bpm: '120', tempo_swing: '54', chain_enabled: '1', chain_slot: '2',

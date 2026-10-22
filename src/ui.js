@@ -211,6 +211,7 @@ const PARAMS = {
     launch_quantize: { key: 'launch_quantize', label: 'LAUNCH', min: 0, max: 2, step: 1, value: 0, integer: true, labels: ['OFF', 'BEAT', 'BAR'] },
     tempo_bpm: { key: 'tempo_bpm', label: 'TEMPO', min: 40, max: 240, step: 1, value: 120, integer: true },
     tempo_swing: { key: 'tempo_swing', label: 'SWING', min: 50, max: 75, step: 1, value: 50, integer: true },
+    hold_release_ms: { key: 'hold_release_ms', label: 'HOLD OFF', min: 0, max: 60000, step: 50, value: 0, integer: true },
     chain_enabled: { key: 'chain_enabled', label: 'CHAIN', min: 0, max: 1, step: 1, value: 0, integer: true, labels: ['OFF', 'ON'] },
     chain_slot: { key: 'chain_slot', label: 'CHAIN SLOT', min: 1, max: 16, step: 1, value: 1, integer: true },
     chain_clip: { key: 'chain_clip', label: 'CLIP', min: 1, max: 64, step: 1, value: 1, integer: true },
@@ -248,7 +249,7 @@ const STACK_PATH_PAGE = { title: 'STACK PATH', keys: ['lane_path',
     'lane_blend', 'lane_path_shape', 'lane_path_offset', 'lane_path_skew',
     'lane_path_curve', 'lane_slew'] };
 const DIRECT_PLAY_PAGE = { title: 'DIRECT PLAY', keys: ['sample_mode',
-    'lane_variation', 'pad_mode'] };
+    'lane_variation', 'pad_mode', 'root_note'] };
 const MOTION_SOUND_PAGE = { title: 'MOTION SOUND', keys: ['motion_sound'] };
 const PACKETS_PAGE = { title: 'PACKETS', keys: ['motion_rate',
     'packet_duty'] };
@@ -337,7 +338,7 @@ const SAMPLE_PAGE = { title: 'SAMPLE EDIT', keys: ['sample_trim_start',
     'sample_normalize', 'sample_fade'] };
 const LOOP_PAGE = { title: 'PERFORMANCE LOOP', keys: ['clip_rate',
     'clip_timing', 'launch_quantize', 'tempo_bpm', 'clip_record_mode',
-    'tempo_swing', 'pressure_mode', 'root_note'] };
+    'tempo_swing', 'pressure_mode', 'hold_release_ms'] };
 const TAKE_PAGE = { title: 'OVERDUB TAKES', keys: [null, 'clip_take_undo'] };
 const CHAIN_PAGE = { title: 'CHAIN', keys: ['chain_enabled', 'chain_slot',
     'chain_clip', 'chain_repeats', 'chain_clear'] };
@@ -415,7 +416,8 @@ const SHORT_LABELS = {
     pressure_mode: 'PRES', root_note: 'ROOT', record_gain: 'REC',
     record_source: 'SRC', monitor_level: 'MON', clip_rate: 'RATE',
     clip_record_mode: 'MODE', clip_timing: 'TIME', launch_quantize: 'LNCH',
-    tempo_bpm: 'BPM', tempo_swing: 'SWNG', chain_enabled: 'CHN',
+    tempo_bpm: 'BPM', tempo_swing: 'SWNG', hold_release_ms: 'HOLD',
+    chain_enabled: 'CHN',
     chain_slot: 'SLOT', chain_clip: 'CLIP', chain_repeats: 'REPT',
     chain_clear: 'CLR',
     sample_trim_start: 'STRT', sample_trim_end: 'END',
@@ -570,6 +572,29 @@ function longGrainLengthAt(index) {
     if (detent <= 75) return 250 + detent * 10;
     if (detent <= 135) return 1000 + (detent - 75) * 50;
     return 4000 + (detent - 135) * 100;
+}
+
+function holdReleaseAt(index) {
+    const detent = clamp(Math.round(index), 0, 67);
+    if (detent === 0) return 0;
+    if (detent <= 20) return detent * 50;
+    if (detent <= 36) return 1000 + (detent - 20) * 250;
+    if (detent <= 61) return 5000 + (detent - 36) * 1000;
+    return 30000 + (detent - 61) * 5000;
+}
+
+function holdReleaseIndex(value) {
+    const target = clamp(value, 0, 60000);
+    let nearest = 0;
+    let distance = Math.abs(target - holdReleaseAt(0));
+    for (let index = 1; index <= 67; index++) {
+        const candidate = Math.abs(target - holdReleaseAt(index));
+        if (candidate < distance) {
+            nearest = index;
+            distance = candidate;
+        }
+    }
+    return nearest;
 }
 
 function decodeDelta(value) {
@@ -1083,6 +1108,12 @@ function noteName(value) {
 
 function formatControlValue(control) {
     if (!control) return '';
+    if (control.key === 'hold_release_ms') {
+        if (control.value <= 0) return 'MANUAL';
+        if (control.value < 1000) return Math.round(control.value) + ' ms';
+        return (control.value / 1000).toFixed(
+            control.value % 1000 === 0 ? 0 : 2) + ' s';
+    }
     if (control.note) return noteName(control.value);
     if (Array.isArray(control.labels)) {
         return control.labels[clamp(Math.round(control.value), 0,
@@ -1095,6 +1126,13 @@ function formatControlValue(control) {
 
 function compactControlValue(control) {
     if (!control) return '';
+    if (control.key === 'hold_release_ms') {
+        if (control.value <= 0) return 'MAN';
+        if (control.value < 1000) return String(Math.round(control.value));
+        const seconds = control.value / 1000;
+        return (Number.isInteger(seconds) ? seconds.toFixed(0)
+            : seconds.toFixed(seconds < 10 ? 2 : 1)).slice(0, 3) + 's';
+    }
     if (control.note) return noteName(control.value).slice(0, 4);
     if (Array.isArray(control.labels)) {
         const value = control.labels[clamp(Math.round(control.value), 0,
@@ -1164,7 +1202,7 @@ function drawHelp() {
     print(1, 13, 'REC        data loop', 1);
     print(1, 23, 'SHIFT+REC  audio lane', 1);
     print(1, 33, 'STEPS      clip slots', 1);
-    print(1, 43, 'LEFT/RIGHT clip bank', 1);
+    print(1, 43, 'SHIFT+PAD  note hold', 1);
     print(1, 55, 'SH+LOOP glitch lock', 1);
 }
 
@@ -1657,9 +1695,15 @@ function adjustControl(index, delta) {
         applyMomentaryControl(control);
         return;
     }
-    let value = control.key === 'long_grain_length'
-        ? longGrainLengthAt(longGrainLengthIndex(control.value) + delta)
-        : clamp(control.value + delta * control.step, control.min, control.max);
+    let value;
+    if (control.key === 'long_grain_length') {
+        value = longGrainLengthAt(longGrainLengthIndex(control.value) + delta);
+    } else if (control.key === 'hold_release_ms') {
+        value = holdReleaseAt(holdReleaseIndex(control.value) + delta);
+    } else {
+        value = clamp(control.value + delta * control.step,
+            control.min, control.max);
+    }
     if (control.integer) value = Math.round(value);
     control.value = value;
     if (control.key === 'algorithm') {
@@ -1749,6 +1793,7 @@ globalThis.init = function() {
     state.ledPending.clear();
     state.ledSent.clear();
     state.ledOrder = 0;
+    setParam('shift_held', 0);
     for (const key of Object.keys(PARAMS)) {
         const control = PARAMS[key];
         control.value = clamp(getNumber(control.key, control.value),
@@ -1843,6 +1888,7 @@ globalThis.onMidiMessageInternal = function(data) {
                     rebuildLedQueue();
                 } else {
                     sendLedNow('note', number, Cyan);
+                    if (state.shiftHeld) showMessage('PAD HOLD TOGGLE');
                 }
             } else {
                 state.activePads.delete(number);
@@ -1861,6 +1907,7 @@ globalThis.onMidiMessageInternal = function(data) {
     if (status !== 0xB0) return;
     if (number === MoveShift) {
         state.shiftHeld = value > 0;
+        setParam('shift_held', state.shiftHeld ? 1 : 0);
         if (!state.shiftHeld && state.glitchLockMomentary
             && !state.glitchLockLatched) {
             state.glitchLockMomentary = false;
@@ -2050,6 +2097,7 @@ globalThis.onUnload = function() {
     if (state.recording) setParamBlocking('record_gate', 0);
     if (state.clipRecording) setParamBlocking('clip_record', 1);
     setParamBlocking('all_notes_off', 1);
+    setParam('shift_held', 0);
     setParamBlocking('glitch_buffer_lock', 0);
     setButtonLED(MoveRecord, Black);
     if (MoveRecordAlt !== MoveRecord) setButtonLED(MoveRecordAlt, Black);

@@ -20,7 +20,7 @@
         <p class="lead">The same control can change meaning by view, but recording gestures remain deliberately distinct: Record captures performance data; Shift+Record captures stereo audio.</p>
 
         <figure>
-          <div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/help.svg" aria-label="Open the on-device Help figure"><img src="assets/screens/help.svg" alt="Compact Help screen showing record, audio record, clip, bank, stack hold, and parameter gestures"></button></div>
+          <div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/help.svg" aria-label="Open the on-device Help figure"><img src="assets/screens/help.svg" alt="Compact Help screen showing data record, audio record, clip, note hold, and Glitch lock gestures"></button></div>
           <figcaption>Shift+Menu opens this compact reminder. The title also shows maximum audio render time in microseconds and the number of deadline overruns since launch.</figcaption>
         </figure>
 
@@ -31,6 +31,7 @@
           <tbody>
             <tr><td>Pads</td><td>Play the current Keys, Slices, Cues, or Rolls layout with up to eight voices.</td></tr>
             <tr><td>Pad pressure</td><td>Move that voice's continuous stack offset when Pressure is Offset.</td></tr>
+            <tr><td>Shift + pad</td><td>Latch that pad's note; repeat to release it. In Cues, stores the displayed playhead instead.</td></tr>
             <tr><td>Knobs 1–8</td><td>Edit the eight controls shown on the waveform or active parameter page.</td></tr>
             <tr><td>Track 1–4</td><td>Select the lane used by audio record, load, clear, and sample edit.</td></tr>
             <tr><td>Main encoder turn</td><td>Select the previous/next lane.</td></tr>
@@ -60,7 +61,7 @@
             <tr><td>Delete + Record</td><td>Remove the newest Overdub take; the protected base remains.</td></tr>
             <tr><td>Shift + Step</td><td>Copy the current clip to the destination Step slot.</td></tr>
             <tr><td>Delete + Step</td><td>Reset the destination clip and its four source assignments.</td></tr>
-            <tr><td>Shift + pad in Cues</td><td>Store the displayed playhead in cue 1–8.</td></tr>
+            <tr><td>Shift + pad in Cues</td><td>Store the displayed playhead in cue 1–8 rather than toggling note hold.</td></tr>
             <tr><td>Delete + pad in Cues</td><td>Clear cue 1–8.</td></tr>
           </tbody>
         </table>
@@ -82,7 +83,7 @@
         <table class="readout-table">
           <thead><tr><th>Surface</th><th>State</th></tr></thead>
           <tbody>
-            <tr><td>Pads</td><td>Active voices use stable red, orange, yellow, green, azure, blue-violet, purple, and magenta slot colors; released pads turn off.</td></tr>
+            <tr><td>Pads</td><td>Active voices use stable red, orange, yellow, green, azure, blue-violet, purple, and magenta slot colors. Momentary notes turn off on release; latched notes remain lit until toggle-off or Hold Off expires.</td></tr>
             <tr><td>Steps</td><td>White occupied; orange active/stopped; green active/playing; red recording; blue-violet queued.</td></tr>
             <tr><td>Record</td><td>Red during performance-data capture; orange during audio-lane capture; dim while idle.</td></tr>
             <tr><td>Play</td><td>Green while a performance loop runs; blue-violet while launch is queued.</td></tr>

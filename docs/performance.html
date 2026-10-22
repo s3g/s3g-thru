@@ -35,8 +35,8 @@
         <h2 id="record">Record a performance</h2>
 
         <figure>
-          <div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/performance-page.svg" aria-label="Open the Performance Loop page figure"><img src="assets/screens/performance-page.svg" alt="Performance Loop parameter page with rate, timing, launch, tempo, record mode, swing, pressure, and root controls"></button></div>
-          <figcaption>The Performance Loop page sets time behavior and recording mode. Turning engine knobs during recording writes their motion into the clip.</figcaption>
+          <div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/performance-page.svg" aria-label="Open the Performance Loop page figure"><img src="assets/screens/performance-page.svg" alt="Performance Loop parameter page with rate, timing, launch, tempo, record mode, swing, pressure, and pad hold release controls"></button></div>
+          <figcaption>The Performance Loop page sets time behavior, recording mode, pressure response, and optional automatic release for latched pads.</figcaption>
         </figure>
 
         <ol>
@@ -52,16 +52,25 @@
 
         <div class="callout"><p><strong>Recorded versus live Stack Hold:</strong> a yellow Loop key and <code>RECORDED STACK HOLD</code> footer mean the playing clip is holding its stored stack positions. A bright-white Loop key means the physical button is applying a live hold. The live button remains an override; releasing it returns the clip to its recorded Hold/Run state.</p></div>
 
+        <h2 id="note-hold">Hold individual notes</h2>
+
+        <p>Hold <kbd>Shift</kbd> and press a pad to latch that pad's note. Release both controls and the voice continues; its stable voice color remains on the pad. Use <kbd>Shift</kbd> + the same pad again to release it. Each pad is independent, up to the shared eight-voice limit. In Cues mode, Shift+pad keeps its cue-store function instead.</p>
+
+        <p><code>HOLD OFF</code> on knob 8 of Performance Loop is global. <code>MAN</code> is the default and leaves every latch active until it is toggled off. Choose 50 ms–60 s to auto-release latched notes. Changing the value reschedules all currently latched pads from that moment; returning to Manual cancels their pending automatic release. Each newly latched pad receives the current delay. Latched note-on and note-off times are captured normally by performance recording.</p>
+
         <h2 id="timing">Timing and launch</h2>
 
-        <table class="readout-table">
-          <thead><tr><th>Control</th><th>Behavior</th></tr></thead>
+        <table class="readout-table parameter-table">
+          <thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>What it controls</th></tr></thead>
           <tbody>
-            <tr><td>Timing · Free</td><td>Retains the recorded wall-clock duration. BPM does not resize the clip.</td></tr>
-            <tr><td>Timing · Beat Sync</td><td>Stores the captured beat length and scales playback to Thru's Tempo setting.</td></tr>
-            <tr><td>Launch · Off</td><td>Starts the requested clip as soon as its source bank is ready.</td></tr>
-            <tr><td>Launch · Beat / Bar</td><td>Queues the clip until the next beat or bar according to Thru's Tempo setting.</td></tr>
-            <tr><td>Swing</td><td>Applies 50–75% swing to tempo-clocked Cutups/Rolls timing.</td></tr>
+            <tr><td>1</td><td>RATE</td><td>0.25–4.00x</td><td>Scales note and gesture playback together.</td></tr>
+            <tr><td>2</td><td>TIME</td><td>Free / Beat Sync</td><td>Retains wall-clock duration, or stores beat length and follows Thru's Tempo.</td></tr>
+            <tr><td>3</td><td>LNCH</td><td>Off / Beat / Bar</td><td>Starts a selected clip immediately, or queues it to the next beat or bar.</td></tr>
+            <tr><td>4</td><td>BPM</td><td>40–240 BPM</td><td>Sets the internal tempo for Beat Sync, launch quantization, and tempo-clocked engines.</td></tr>
+            <tr><td>5</td><td>MODE</td><td>Replace / Overdub</td><td>Creates a new base performance or adds an undoable take.</td></tr>
+            <tr><td>6</td><td>SWNG</td><td>50–75%</td><td>Applies swing to tempo-clocked Cutups and Rolls timing.</td></tr>
+            <tr><td>7</td><td>PRES</td><td>Off / Offset</td><td>Enables or disables per-pad pressure movement through the stack.</td></tr>
+            <tr><td>8</td><td>HOLD</td><td>Manual / 50 ms–60 s</td><td>Keeps Shift+pad latches active until toggled, or schedules their release with one global delay.</td></tr>
           </tbody>
         </table>
 
@@ -126,7 +135,7 @@
 
       <aside class="toc" aria-label="Page navigation">
         <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
-        <div class="toc-section"><h2>On this page</h2><a href="#data-flow">Data flow</a><a href="#record">Record</a><a href="#timing">Timing</a><a href="#takes">Overdub takes</a><a href="#clips">Clip banks</a><a href="#chain">Chain</a><a href="#capacity">Capacity</a></div>
+        <div class="toc-section"><h2>On this page</h2><a href="#data-flow">Data flow</a><a href="#record">Record</a><a href="#note-hold">Note hold</a><a href="#timing">Timing</a><a href="#takes">Overdub takes</a><a href="#clips">Clip banks</a><a href="#chain">Chain</a><a href="#capacity">Capacity</a></div>
       </aside>
     </div>
     <footer class="manual-footer">Performance clips store data and source assignments; they do not duplicate the mixed audio output.</footer>

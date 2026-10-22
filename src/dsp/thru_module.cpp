@@ -441,6 +441,8 @@ constexpr const char kChainParams[] = R"json([
 {"key":"join","name":"Join","short_name":"JOIN","type":"float","min":0,"max":1,"step":0.01,"default":1},
 {"key":"output_gain","name":"Level","short_name":"LEVEL","type":"float","min":0,"max":2,"step":0.01,"default":1},
 {"key":"pressure_mode","name":"Pressure","short_name":"PRESS","type":"enum","options":["Off","Offset"],"default":1},
+{"key":"hold_release_ms","name":"Pad Hold Auto Release","short_name":"HOLD OFF","type":"int","min":0,"max":60000,"default":0,"unit":"ms"},
+{"key":"shift_held","name":"Shift Held","type":"int","min":0,"max":1,"access":"write"},
 {"key":"root_note","name":"Root Note","short_name":"ROOT","type":"note","mode":"multi","min_note":24,"max_note":96,"default":60},
 {"key":"record_lane","name":"Record Lane","short_name":"LANE","type":"int","min":1,"max":4,"default":1},
 {"key":"record_source","name":"Record Source","short_name":"SOURCE","type":"enum","options":["Input","Resample"],"default":0},
@@ -634,12 +636,12 @@ constexpr const char kUiHierarchy[] = R"json({
 "grains":{"name":"Grains","knobs":["locus","field","speed","join","grain_mode","grain_size","grain_density","grain_pitch"],"params":[{"key":"locus"},{"key":"field"},{"key":"speed"},{"key":"join"},{"key":"grain_mode"},{"key":"grain_size"},{"key":"grain_density"},{"key":"grain_pitch"},{"key":"grain_window"},{"key":"grain_spread"},{"key":"lane_path"},{"key":"lane_cycles"},{"key":"manual_lane"}]},
 "long_grains":{"name":"Weave","knobs":["long_grain_mode","long_grain_length","long_grain_layers","long_grain_pitch","long_grain_shape","long_grain_edge","long_grain_spread","long_grain_reverse"],"params":[{"key":"long_grain_mode"},{"key":"long_grain_length"},{"key":"long_grain_layers"},{"key":"long_grain_pitch"},{"key":"long_grain_shape"},{"key":"long_grain_edge"},{"key":"long_grain_spread"},{"key":"long_grain_reverse"},{"key":"long_grain_spray"},{"key":"long_grain_bias"},{"key":"long_grain_duration_variation"},{"key":"long_grain_pitch_spray"},{"key":"long_grain_level_variation"},{"key":"long_grain_phase"},{"key":"long_grain_advance"},{"key":"lane_path"},{"key":"lane_cycles"},{"key":"manual_lane"}]},
 "cutups":{"name":"Cutups","knobs":["locus","field","speed","join","cutups_mode","lane_path","lane_cycles","manual_lane"],"params":[{"key":"locus"},{"key":"field"},{"key":"speed"},{"key":"join"},{"key":"cutups_mode"},{"key":"lane_path"},{"key":"lane_cycles"},{"key":"manual_lane"}]},
-"sample":{"name":"Sample","knobs":["sample_mode","locus","field","speed","manual_lane","lane_variation","pad_mode","output_gain"],"params":[{"key":"sample_mode"},{"key":"locus"},{"key":"field"},{"key":"speed"},{"key":"manual_lane"},{"key":"lane_variation"},{"key":"pad_mode"},{"key":"output_gain"}]},
-"slices":{"name":"Slices","knobs":["sample_mode","slice_region_mode","slice_regions","speed","manual_lane","lane_variation","pad_mode","output_gain"],"params":[{"key":"sample_mode"},{"key":"slice_region_mode"},{"key":"slice_regions"},{"key":"speed"},{"key":"manual_lane"},{"key":"lane_variation"},{"key":"pad_mode"},{"key":"output_gain"}]},
+"sample":{"name":"Sample","knobs":["sample_mode","locus","field","speed","manual_lane","lane_variation","pad_mode","output_gain"],"params":[{"key":"sample_mode"},{"key":"locus"},{"key":"field"},{"key":"speed"},{"key":"manual_lane"},{"key":"lane_variation"},{"key":"pad_mode"},{"key":"root_note"},{"key":"output_gain"}]},
+"slices":{"name":"Slices","knobs":["sample_mode","slice_region_mode","slice_regions","speed","manual_lane","lane_variation","pad_mode","output_gain"],"params":[{"key":"sample_mode"},{"key":"slice_region_mode"},{"key":"slice_regions"},{"key":"speed"},{"key":"manual_lane"},{"key":"lane_variation"},{"key":"pad_mode"},{"key":"root_note"},{"key":"output_gain"}]},
 "glitch":{"name":"Glitch","knobs":["glitch_mode","glitch_clock","glitch_division","glitch_slice","glitch_steps","glitch_pulses","glitch_jump","glitch_mix"],"params":[{"key":"glitch_mode"},{"key":"glitch_clock"},{"key":"glitch_division"},{"key":"glitch_rate"},{"key":"glitch_slice"},{"key":"glitch_repeats"},{"key":"glitch_chance"},{"key":"glitch_mix"},{"key":"glitch_steps"},{"key":"glitch_pulses"},{"key":"glitch_rotate"},{"key":"glitch_jump"},{"key":"glitch_pitch"},{"key":"glitch_reverse"},{"key":"glitch_decay"},{"key":"glitch_seed"}]},
 "effects":{"name":"Effects","knobs":["effect_tone","effect_drive","effect_bits","effect_rate","effect_delay","effect_feedback","effect_width","effect_mix"],"params":[{"key":"effect_tone"},{"key":"effect_drive"},{"key":"effect_bits"},{"key":"effect_rate"},{"key":"effect_delay"},{"key":"effect_feedback"},{"key":"effect_width"},{"key":"effect_mix"}]},
 "lane_mix":{"name":"Lane Mix","knobs":["lane_1_gain","lane_2_gain","lane_3_gain","lane_4_gain","lanes_stretch","stretch_ratio","pressure_mode","output_gain"],"params":[{"key":"lane_1_gain"},{"key":"lane_2_gain"},{"key":"lane_3_gain"},{"key":"lane_4_gain"},{"key":"lanes_stretch"},{"key":"stretch_ratio"},{"key":"pressure_mode"},{"key":"output_gain"}]},
-"performance_loop":{"name":"Performance Loop","knobs":["clip_rate","clip_record_mode","tempo_bpm","tempo_swing","chain_enabled","chain_slot","chain_clip","chain_repeats"],"params":[{"key":"clip_rate"},{"key":"clip_record_mode"},{"key":"tempo_bpm"},{"key":"tempo_swing"},{"key":"chain_enabled"},{"key":"chain_slot"},{"key":"chain_clip"},{"key":"chain_repeats"},{"key":"chain_clear"}]}
+"performance_loop":{"name":"Performance Loop","knobs":["clip_rate","clip_timing","launch_quantize","tempo_bpm","clip_record_mode","tempo_swing","pressure_mode","hold_release_ms"],"params":[{"key":"clip_rate"},{"key":"clip_timing"},{"key":"launch_quantize"},{"key":"tempo_bpm"},{"key":"clip_record_mode"},{"key":"tempo_swing"},{"key":"pressure_mode"},{"key":"hold_release_ms"}]}
 }
 })json";
 
@@ -1295,11 +1297,16 @@ struct ThruInstance {
     std::size_t effectRateCountdown = 0u;
 
     std::array<int, 32u> padMappedNotes {};
+    std::array<int, 32u> latchedPadNotes {};
+    std::array<std::uint64_t, 32u> latchedPadDeadlines {};
+    std::array<bool, 32u> ignorePadRelease {};
     std::uint32_t noteClock = 0u;
     int activeNote = -1;
     int rootNote = 60;
     int padOctave = 0;
     int pressureMode = 1;
+    int holdReleaseMs = 0;
+    bool shiftHeld = false;
     PadMode padMode = PadMode::keys;
     LaneVariation laneVariation = LaneVariation::manual;
     std::uint32_t variationCounter = 0u;
@@ -1484,6 +1491,9 @@ struct ThruInstance {
             std::snprintf(label.data(), label.size(), "EMPTY");
         }
         padMappedNotes.fill(-1);
+        latchedPadNotes.fill(-1);
+        latchedPadDeadlines.fill(0u);
+        ignorePadRelease.fill(false);
         clipOpenNoteIndices.fill(-1);
         clipLastPressureTimes.fill(0xffffffffu);
         clipLastPressureValues.fill(-1.0f);
@@ -2360,6 +2370,9 @@ struct ThruInstance {
             }
         }
         padMappedNotes.fill(-1);
+        latchedPadNotes.fill(-1);
+        latchedPadDeadlines.fill(0u);
+        ignorePadRelease.fill(false);
         activeNote = -1;
         for (auto& voice : voices) {
             voice.held = false;
@@ -2377,6 +2390,20 @@ struct ThruInstance {
                 activeNote = voice.note;
                 newestAge = voice.age;
             }
+        }
+    }
+
+    void clearPadMappingForVoice(const PlaybackVoice& voice)
+    {
+        if (voice.sourcePad < 0
+            || voice.sourcePad >= static_cast<int>(padMappedNotes.size())) {
+            return;
+        }
+        const std::size_t pad = static_cast<std::size_t>(voice.sourcePad);
+        if (padMappedNotes[pad] == voice.note) padMappedNotes[pad] = -1;
+        if (latchedPadNotes[pad] == voice.note) {
+            latchedPadNotes[pad] = -1;
+            latchedPadDeadlines[pad] = 0u;
         }
     }
 
@@ -2772,6 +2799,10 @@ struct ThruInstance {
         velocity = clampValue(velocity, 1, 127);
         ++noteClock;
         PlaybackVoice& voice = allocateVoice(note, sourcePad);
+        if (voice.active && !voice.clipOwned
+            && (voice.note != note || voice.sourcePad != sourcePad)) {
+            clearPadMappingForVoice(voice);
+        }
         voice.note = note;
         voice.sourcePad = sourcePad;
         voice.velocity = velocity;
@@ -2852,16 +2883,87 @@ struct ThruInstance {
             + row * kPadRowInterval + column, 0, 127);
     }
 
+    std::uint64_t holdReleaseSamples() const
+    {
+        if (holdReleaseMs <= 0) return 0u;
+        return std::max<std::uint64_t>(1u, static_cast<std::uint64_t>(
+            std::llround(static_cast<double>(holdReleaseMs)
+                * static_cast<double>(sampleRate) / 1000.0)));
+    }
+
+    void armPadHoldDeadline(std::size_t pad, std::uint64_t now)
+    {
+        const std::uint64_t delay = holdReleaseSamples();
+        latchedPadDeadlines[pad] = delay == 0u ? 0u : now + delay;
+    }
+
+    void releaseLatchedPad(std::size_t pad, bool ignorePhysicalRelease)
+    {
+        const int note = latchedPadNotes[pad];
+        if (note < 0) return;
+        latchedPadNotes[pad] = -1;
+        latchedPadDeadlines[pad] = 0u;
+        padMappedNotes[pad] = -1;
+        if (ignorePhysicalRelease) ignorePadRelease[pad] = true;
+        noteOff(note, static_cast<int>(pad));
+    }
+
+    void setHoldReleaseMs(int milliseconds)
+    {
+        holdReleaseMs = clampValue(milliseconds, 0, 60000);
+        const std::uint64_t now = renderClockSamples.load(
+            std::memory_order_relaxed);
+        for (std::size_t pad = 0u; pad < latchedPadNotes.size(); ++pad) {
+            if (latchedPadNotes[pad] >= 0) armPadHoldDeadline(pad, now);
+            else latchedPadDeadlines[pad] = 0u;
+        }
+    }
+
+    void servicePadHoldDeadlines()
+    {
+        const std::uint64_t now = renderClockSamples.load(
+            std::memory_order_relaxed);
+        for (std::size_t pad = 0u; pad < latchedPadNotes.size(); ++pad) {
+            const std::uint64_t deadline = latchedPadDeadlines[pad];
+            if (latchedPadNotes[pad] >= 0 && deadline != 0u
+                && now >= deadline) {
+                releaseLatchedPad(pad, true);
+            }
+        }
+    }
+
     void padNoteOn(int hardwareNote, int velocity)
     {
         const int index = hardwareNote - kFirstPadNote;
         if (index < 0 || index >= static_cast<int>(padMappedNotes.size())) return;
+        const std::size_t pad = static_cast<std::size_t>(index);
         if (padMode == PadMode::cues) {
-            padMappedNotes[static_cast<std::size_t>(index)] = -1;
+            padMappedNotes[pad] = -1;
+            return;
+        }
+        ignorePadRelease[pad] = false;
+        if (shiftHeld) {
+            ignorePadRelease[pad] = true;
+            if (latchedPadNotes[pad] >= 0) {
+                releaseLatchedPad(pad, true);
+                return;
+            }
+            const int mappedNote = padToMidiNote(hardwareNote);
+            padMappedNotes[pad] = mappedNote;
+            latchedPadNotes[pad] = mappedNote;
+            armPadHoldDeadline(pad, renderClockSamples.load(
+                std::memory_order_relaxed));
+            noteOn(mappedNote, velocity, index);
+            return;
+        }
+        if (latchedPadNotes[pad] >= 0) {
+            const int mappedNote = latchedPadNotes[pad];
+            padMappedNotes[pad] = mappedNote;
+            noteOn(mappedNote, velocity, index);
             return;
         }
         const int mappedNote = padToMidiNote(hardwareNote);
-        padMappedNotes[static_cast<std::size_t>(index)] = mappedNote;
+        padMappedNotes[pad] = mappedNote;
         noteOn(mappedNote, velocity, index);
         if (padMode == PadMode::rolls) {
             if (PlaybackVoice* voice = findVoiceForNote(mappedNote, index)) {
@@ -2882,13 +2984,19 @@ struct ThruInstance {
     {
         const int index = hardwareNote - kFirstPadNote;
         if (index < 0 || index >= static_cast<int>(padMappedNotes.size())) return;
+        const std::size_t pad = static_cast<std::size_t>(index);
+        if (ignorePadRelease[pad]) {
+            ignorePadRelease[pad] = false;
+            return;
+        }
         if (padMode == PadMode::cues) {
             noteOff(rootNote, index % static_cast<int>(kCueCount));
             return;
         }
-        int mappedNote = padMappedNotes[static_cast<std::size_t>(index)];
+        if (latchedPadNotes[pad] >= 0) return;
+        int mappedNote = padMappedNotes[pad];
         if (mappedNote < 0) mappedNote = padToMidiNote(hardwareNote);
-        padMappedNotes[static_cast<std::size_t>(index)] = -1;
+        padMappedNotes[pad] = -1;
         noteOff(mappedNote, index);
     }
 
@@ -3052,6 +3160,7 @@ struct ThruInstance {
         const ClipNote& event = clip.clipNotes[noteIndex];
         ++noteClock;
         PlaybackVoice& voice = allocateClipVoice();
+        if (voice.active && !voice.clipOwned) clearPadMappingForVoice(voice);
         voice.note = event.note;
         voice.sourcePad = event.sourcePad < 32u
             ? static_cast<int>(event.sourcePad) : -1;
@@ -4743,6 +4852,7 @@ struct ThruInstance {
                 voiceMix[1u][frame] = 0.0f;
             }
 
+            servicePadHoldDeadlines();
             serviceClipBeforeBlock();
             serviceVoiceLaneSync();
             for (auto& voice : voices) {
@@ -4887,7 +4997,8 @@ struct ThruInstance {
             "{\"version\":7,\"locus\":%.5f,\"field\":%.5f,\"speed\":%.5f,"
             "\"manual_lane\":%.5f,\"lane_cycles\":%.5f,\"algorithm\":%d,"
             "\"join\":%.5f,\"output_gain\":%.5f,\"record_gain\":%.5f,"
-            "\"pressure_mode\":%d,\"root_note\":%d,\"pad_octave\":%d,"
+            "\"pressure_mode\":%d,\"hold_release_ms\":%d,"
+            "\"root_note\":%d,\"pad_octave\":%d,"
             "\"record_lane\":%u,\"record_source\":%d,\"motion_mode\":%d,"
             "\"motion_sound\":%d,\"motion_rate\":%.5f,"
             "\"motion_rate_basis\":%d,\"motion_path_rate\":%.5f,"
@@ -4953,7 +5064,8 @@ struct ThruInstance {
             controls.locus, controls.field, controls.speed,
             controls.manualLane + 1.0f, controls.laneCycles,
             static_cast<int>(controls.algorithm), controls.join,
-            outputGain, recordGain, pressureMode, rootNote, padOctave,
+            outputGain, recordGain, pressureMode, holdReleaseMs,
+            rootNote, padOctave,
             static_cast<unsigned>(selectedLane + 1u), recordSource,
             static_cast<int>(controls.motion), static_cast<int>(controls.motionSound),
             controls.motionSoundRateHz,
@@ -5805,6 +5917,10 @@ struct ThruInstance {
         if (jsonNumber(json, "output_gain", value)) outputGain = clampValue(value, 0.0f, 2.0f);
         if (jsonNumber(json, "record_gain", value)) recordGain = clampValue(value, 0.0f, 4.0f);
         if (jsonNumber(json, "pressure_mode", value)) pressureMode = clampValue(static_cast<int>(value), 0, 1);
+        if (jsonNumber(json, "hold_release_ms", value)) {
+            setHoldReleaseMs(clampValue(static_cast<int>(std::lround(value)),
+                                        0, 60000));
+        }
         if (jsonNumber(json, "root_note", value)) rootNote = clampValue(static_cast<int>(value), 24, 96);
         if (jsonNumber(json, "pad_octave", value)) padOctave = clampValue(static_cast<int>(value), -3, 3);
         if (jsonNumber(json, "record_lane", value) && !engine.recording()) selectedLane = static_cast<std::size_t>(clampValue(static_cast<int>(value), 1, 4) - 1);
@@ -5981,6 +6097,10 @@ void onMidi(void* opaque, const uint8_t* message, int length, int source)
         int sourcePad = -1;
         if (source == MOVE_MIDI_SOURCE_INTERNAL && hardwarePad) {
             const int index = note - kFirstPadNote;
+            if (value == 0
+                && instance->latchedPadNotes[static_cast<std::size_t>(index)] >= 0) {
+                return;
+            }
             pressureNote = instance->padMappedNotes[static_cast<std::size_t>(index)];
             sourcePad = index;
         }
@@ -6000,6 +6120,7 @@ void setParam(void* opaque, const char* key, const char* value)
     if (std::strcmp(key, "maintenance") != 0
         && std::strcmp(key, "performance_reset") != 0
         && std::strcmp(key, "all_notes_off") != 0
+        && std::strcmp(key, "shift_held") != 0
         && std::strcmp(key, "stack_scan_paused") != 0
         && std::strcmp(key, "glitch_buffer_lock") != 0
         && std::strcmp(key, "state") != 0) {
@@ -6033,6 +6154,8 @@ void setParam(void* opaque, const char* key, const char* value)
     if (std::strcmp(key, "join") == 0) { controls.join = clampValue(parseFloat(value, controls.join), 0.0f, 1.0f); return; }
     if (std::strcmp(key, "output_gain") == 0) { instance->outputGain = clampValue(parseFloat(value, instance->outputGain), 0.0f, 2.0f); return; }
     if (std::strcmp(key, "pressure_mode") == 0) { instance->pressureMode = parseEnum(value, kPressureModeNames, instance->pressureMode); return; }
+    if (std::strcmp(key, "hold_release_ms") == 0) { instance->setHoldReleaseMs(parseInteger(value, instance->holdReleaseMs)); return; }
+    if (std::strcmp(key, "shift_held") == 0) { instance->shiftHeld = isTruthy(value); return; }
     if (std::strcmp(key, "root_note") == 0) { instance->rootNote = clampValue(parseInteger(value, instance->rootNote), 24, 96); return; }
     if (std::strcmp(key, "pad_octave") == 0) { instance->padOctave = clampValue(parseInteger(value, instance->padOctave), -3, 3); return; }
     if (std::strcmp(key, "performance_lane") == 0) { instance->setPerformanceLane(parseFloat(value, instance->performanceLane + 1.0f) - 1.0f); return; }
@@ -6410,6 +6533,8 @@ int getParam(void* opaque, const char* key, char* buffer, int bufferLength)
     if (std::strcmp(key, "join") == 0) return std::snprintf(buffer, bufferLength, "%.4f", controls.join);
     if (std::strcmp(key, "output_gain") == 0) return std::snprintf(buffer, bufferLength, "%.4f", instance->outputGain);
     if (std::strcmp(key, "pressure_mode") == 0) return std::snprintf(buffer, bufferLength, "%d", instance->pressureMode);
+    if (std::strcmp(key, "hold_release_ms") == 0) return std::snprintf(buffer, bufferLength, "%d", instance->holdReleaseMs);
+    if (std::strcmp(key, "shift_held") == 0) return std::snprintf(buffer, bufferLength, "%d", instance->shiftHeld ? 1 : 0);
     if (std::strcmp(key, "root_note") == 0) return std::snprintf(buffer, bufferLength, "%d", instance->rootNote);
     if (std::strcmp(key, "pad_octave") == 0) return std::snprintf(buffer, bufferLength, "%d", instance->padOctave);
     if (std::strcmp(key, "performance_lane") == 0) return std::snprintf(buffer, bufferLength, "%.4f", instance->performanceLane + 1.0f);

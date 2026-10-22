@@ -337,6 +337,12 @@ int main()
        Internal Move CCs remain reserved for the takeover surface. */
     const std::string defaultState = get(api, instance, "state");
     const std::string initialLocus = get(api, instance, "locus");
+    api->set_param(instance, "hold_release_ms", "1250");
+    const std::string holdState = get(api, instance, "state");
+    api->set_param(instance, "hold_release_ms", "0");
+    api->set_param(instance, "state", holdState.c_str());
+    assert(get(api, instance, "hold_release_ms") == "1250");
+    api->set_param(instance, "state", defaultState.c_str());
     api->set_param(instance, "state", "{\"version\":4,\"locus\":0}");
     assert(get(api, instance, "locus") == initialLocus);
     std::array<char, 16> removedParam {};
@@ -931,6 +937,58 @@ int main()
     assert(get(api, instance, "active_note") == "53");
     midi(api, instance, 0x80, 73, 0, MOVE_MIDI_SOURCE_INTERNAL);
     assert(get(api, instance, "active_note") == "-1");
+
+    /* Shift+pad latches each hardware pad independently. Releasing the pad
+       does not end its voice; a second Shift+pad gesture does. HOLD OFF at
+       zero is manual, while a nonzero global delay schedules every existing
+       latch and applies to new ones. */
+    api->set_param(instance, "shift_held", "1");
+    midi(api, instance, 0x90, 68, 100, MOVE_MIDI_SOURCE_INTERNAL);
+    api->set_param(instance, "shift_held", "0");
+    midi(api, instance, 0x80, 68, 0, MOVE_MIDI_SOURCE_INTERNAL);
+    assert(get(api, instance, "active_note") == "48");
+    api->set_param(instance, "shift_held", "1");
+    midi(api, instance, 0x90, 69, 100, MOVE_MIDI_SOURCE_INTERNAL);
+    api->set_param(instance, "shift_held", "0");
+    midi(api, instance, 0x80, 69, 0, MOVE_MIDI_SOURCE_INTERNAL);
+    assert(get(api, instance, "active_note") == "49");
+    api->set_param(instance, "shift_held", "1");
+    midi(api, instance, 0x90, 69, 100, MOVE_MIDI_SOURCE_INTERNAL);
+    api->set_param(instance, "shift_held", "0");
+    midi(api, instance, 0x80, 69, 0, MOVE_MIDI_SOURCE_INTERNAL);
+    assert(get(api, instance, "active_note") == "48");
+    assert(get(api, instance, "hold_release_ms") == "0");
+    render(api, instance, 8);
+    assert(get(api, instance, "active_note") == "48");
+    api->set_param(instance, "hold_release_ms", "10");
+    render(api, instance, 5);
+    assert(get(api, instance, "active_note") == "-1");
+    api->set_param(instance, "all_notes_off", "1");
+    render(api, instance, 160);
+    api->set_param(instance, "hold_release_ms", "0");
+
+    /* The ninth latch steals the oldest of the eight voices and must also
+       clear that pad's latch/LED ownership. */
+    api->set_param(instance, "shift_held", "1");
+    for (int pad = 0; pad < 9; ++pad) {
+        midi(api, instance, 0x90, static_cast<std::uint8_t>(68 + pad), 100,
+             MOVE_MIDI_SOURCE_INTERNAL);
+        midi(api, instance, 0x80, static_cast<std::uint8_t>(68 + pad), 0,
+             MOVE_MIDI_SOURCE_INTERNAL);
+    }
+    api->set_param(instance, "shift_held", "0");
+    const std::string stolenLatchPads = get(api, instance, "voice_pads");
+    bool stillHasOldestPad = false;
+    bool hasNewestPad = false;
+    for (int voice = 0; voice < 8; ++voice) {
+        stillHasOldestPad = stillHasOldestPad
+            || stateField(stolenLatchPads, voice) == 0;
+        hasNewestPad = hasNewestPad || stateField(stolenLatchPads, voice) == 8;
+    }
+    assert(!stillHasOldestPad && hasNewestPad);
+    api->set_param(instance, "all_notes_off", "1");
+    render(api, instance, 160);
+
     api->set_param(instance, "performance_lane", "2.5");
     assert(get(api, instance, "performance_lane") == "2.5000");
 

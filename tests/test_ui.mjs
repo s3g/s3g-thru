@@ -55,6 +55,7 @@ const params = {
     glitch_buffer_lock: '0',
     record_lane: '1', pad_octave: '0', record_source: '0',
     record_gain: '1', monitor_level: '0', preview_level: '0.7',
+    hold_release_ms: '0', shift_held: '0',
     clip_rate: '1', clip_record_mode: '0', clip_timing: '0',
     launch_quantize: '0', grain_quality: '1',
     clip_state: '0,0,0,250,4000,3,10,1000,0,0,12000,8000',
@@ -138,6 +139,8 @@ globalThis.__testLockableParams = Array.from(LOCKABLE_PARAMS);
 globalThis.__testDrawMain = drawMain;
 globalThis.__testLongGrainLengthIndex = longGrainLengthIndex;
 globalThis.__testLongGrainLengthAt = longGrainLengthAt;
+globalThis.__testHoldReleaseIndex = holdReleaseIndex;
+globalThis.__testHoldReleaseAt = holdReleaseAt;
 `;
 await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
 
@@ -183,6 +186,15 @@ assert.equal(globalThis.__testLongGrainLengthAt(215), 12000);
 for (const length of [250, 500, 1000, 2000, 4000, 8000, 12000]) {
     assert.equal(globalThis.__testLongGrainLengthAt(
         globalThis.__testLongGrainLengthIndex(length)), length);
+}
+assert.equal(globalThis.__testHoldReleaseAt(0), 0);
+assert.equal(globalThis.__testHoldReleaseAt(20), 1000);
+assert.equal(globalThis.__testHoldReleaseAt(36), 5000);
+assert.equal(globalThis.__testHoldReleaseAt(61), 30000);
+assert.equal(globalThis.__testHoldReleaseAt(67), 60000);
+for (const delay of [0, 50, 500, 1000, 2500, 5000, 15000, 30000, 60000]) {
+    assert.equal(globalThis.__testHoldReleaseAt(
+        globalThis.__testHoldReleaseIndex(delay)), delay);
 }
 
 globalThis.init();
@@ -243,6 +255,7 @@ assert.deepEqual(paramWrites.slice(-2), [
 globalThis.onMidiMessageInternal([0xB0, 86, 127]);
 assert.deepEqual(blockingWrites.pop(), ['clip_record', '1']);
 globalThis.onMidiMessageInternal([0xB0, 49, 127]);
+assert.deepEqual(paramWrites.at(-1), ['shift_held', '1']);
 globalThis.onMidiMessageInternal([0xB0, 86, 127]);
 assert.deepEqual(blockingWrites.pop(), ['record_gate', '1']);
 globalThis.onMidiMessageInternal([0xB0, 86, 127]);
@@ -251,6 +264,7 @@ assert.deepEqual(blockingWrites.slice(-2), [
     ['maintenance', '1'],
 ]);
 globalThis.onMidiMessageInternal([0xB0, 49, 0]);
+assert.deepEqual(paramWrites.at(-1), ['shift_held', '0']);
 
 /* Delete+Record removes only the most recent overdub take. */
 params.clip_take_state = '3,1,0';

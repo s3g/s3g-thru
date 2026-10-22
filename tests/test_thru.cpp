@@ -65,6 +65,28 @@ int peak()
     return result;
 }
 
+int stereoDifferencePeak()
+{
+    int result = 0;
+    for (int frame = 0; frame < kFrames; ++frame) {
+        result = std::max(result, std::abs(
+            static_cast<int>(output[frame * 2])
+            - static_cast<int>(output[frame * 2 + 1])));
+    }
+    return result;
+}
+
+int renderStereoDifference(
+    plugin_api_v2_t* api, void* instance, int blocks)
+{
+    int result = 0;
+    for (int block = 0; block < blocks; ++block) {
+        render(api, instance, 1);
+        result = std::max(result, stereoDifferencePeak());
+    }
+    return result;
+}
+
 int stateField(const std::string& state, int index)
 {
     int current = 0;
@@ -176,7 +198,7 @@ void downgradeClipBankToV1(const std::string& path)
     assert(std::fclose(file) == 0);
     assert(input.size() >= 240u);
     assert(std::memcmp(input.data(), "S3GTHR3", 7u) == 0);
-    assert(littleU32(input, 8u) == 5u);
+    assert(littleU32(input, 8u) == 8u);
 
     std::vector<std::uint8_t> output;
     output.reserve(input.size());
@@ -192,7 +214,7 @@ void downgradeClipBankToV1(const std::string& path)
     copyBytes(228u); // generation/globals plus the 16-entry chain
     for (std::size_t clip = 0u; clip < 64u; ++clip) {
         copyBytes(4u + 68u * 4u); // occupied and version-1 base parameters
-        offset += 52u * 4u; // newer fidelity, Glitch/FX, and Weave parameters
+        offset += 64u * 4u; // newer fidelity, Glitch/FX, Weave, ADSR, rotary
         copyBytes(4u * (4u + 768u + 64u) + 8u * 4u); // sources and cues
         copyBytes(32u); // recorded through capacity flags
         offset += 4u; // take count does not exist in format 1
@@ -234,7 +256,7 @@ void downgradeClipBankToV2(const std::string& path)
     assert(std::fclose(file) == 0);
     assert(input.size() >= 240u);
     assert(std::memcmp(input.data(), "S3GTHR3", 7u) == 0);
-    assert(littleU32(input, 8u) == 5u);
+    assert(littleU32(input, 8u) == 8u);
 
     std::vector<std::uint8_t> output;
     output.reserve(input.size());
@@ -250,7 +272,7 @@ void downgradeClipBankToV2(const std::string& path)
     copyBytes(228u); // generation/globals plus the 16-entry chain
     for (std::size_t clip = 0u; clip < 64u; ++clip) {
         copyBytes(4u + 68u * 4u); // occupied and format-2 base parameters
-        offset += 52u * 4u; // format-3/4 fidelity plus format-5 Weave parameters
+        offset += 64u * 4u; // format-3/4 fidelity plus Weave, ADSR, rotary
         copyBytes(4u * (4u + 768u + 64u) + 8u * 4u); // sources and cues
         copyBytes(32u + 4u); // capacities/flags and take count
         const std::uint32_t noteCount = littleU32(input, offset);
@@ -342,6 +364,20 @@ int main()
     api->set_param(instance, "hold_release_ms", "0");
     api->set_param(instance, "state", holdState.c_str());
     assert(get(api, instance, "hold_release_ms") == "1250");
+    api->set_param(instance, "amp_attack", "150");
+    api->set_param(instance, "amp_decay", "400");
+    api->set_param(instance, "amp_sustain", "37");
+    api->set_param(instance, "amp_release", "750");
+    const std::string envelopeState = get(api, instance, "state");
+    api->set_param(instance, "amp_attack", "0");
+    api->set_param(instance, "amp_decay", "0");
+    api->set_param(instance, "amp_sustain", "100");
+    api->set_param(instance, "amp_release", "0");
+    api->set_param(instance, "state", envelopeState.c_str());
+    assert(get(api, instance, "amp_attack") == "150.00");
+    assert(get(api, instance, "amp_decay") == "400.00");
+    assert(get(api, instance, "amp_sustain") == "37.00");
+    assert(get(api, instance, "amp_release") == "750.00");
     api->set_param(instance, "state", defaultState.c_str());
     api->set_param(instance, "state", "{\"version\":4,\"locus\":0}");
     assert(get(api, instance, "locus") == initialLocus);
@@ -423,6 +459,7 @@ int main()
     api->set_param(instance, "clip_playing", "0");
     api->set_param(instance, "state", defaultState.c_str());
     api->set_param(instance, "monitor_level", "0");
+    assert(get(api, instance, "preview_level") == "0.7000");
 
     /* Input monitoring is genuinely off by default. */
     fillInput(12000);
@@ -522,8 +559,12 @@ int main()
         previewState = stateField(get(api, instance, "sample_load_state"), 0);
     }
     assert(previewState == 8);
-    render(api, instance, 4);
-    assert(peak() > 0);
+    int previewPeak = 0;
+    for (int block = 0; block < 4; ++block) {
+        render(api, instance, 1);
+        previewPeak = std::max(previewPeak, peak());
+    }
+    assert(previewPeak > 0);
     const std::string loadCommand = "2," + librarySample;
     api->set_param(instance, "load_lane_file", loadCommand.c_str());
     int loadState = 0;
@@ -563,6 +604,8 @@ int main()
     midi(api, instance, 0xA0, 73, 32, MOVE_MIDI_SOURCE_INTERNAL);
     api->set_param(instance, "field", "0.25");
     api->set_param(instance, "clip_automation", "field");
+    api->set_param(instance, "amp_attack", "8");
+    api->set_param(instance, "clip_automation", "amp_attack");
     render(api, instance, 40);
     midi(api, instance, 0x90, 76, 96, MOVE_MIDI_SOURCE_INTERNAL);
     render(api, instance, 80);
@@ -575,7 +618,7 @@ int main()
     assert(stateField(clipState, 1) == 1);
     assert(stateField(clipState, 4) >= 150);
     assert(stateField(clipState, 5) == 2);
-    assert(stateField(clipState, 6) >= 2);
+    assert(stateField(clipState, 6) >= 3);
     assert(stateField(clipState, 10) == 12000);
     assert(stateField(clipState, 11) > 0);
     assert(stateField(get(api, instance, "clip_take_state"), 0) == 1);
@@ -841,7 +884,6 @@ int main()
         }
         return -1;
     };
-
     /* A live Stack Hold belongs to the key, not the release-tail voice.
        Releasing and retriggering the same pad while held restores its exact
        frozen crossfade; Run clears that retained position. */
@@ -938,6 +980,116 @@ int main()
     midi(api, instance, 0x80, 73, 0, MOVE_MIDI_SOURCE_INTERNAL);
     assert(get(api, instance, "active_note") == "-1");
 
+    /* Named scales fold Keys mode to scale degrees while preserving the
+       legacy chromatic grid as the default. Root is both the scale tonic and
+       the sample's unison note; external MIDI remains unquantized. */
+    assert(get(api, instance, "scale") == "0");
+    api->set_param(instance, "scale", "Major");
+    assert(get(api, instance, "scale") == "1");
+    midi(api, instance, 0x90, 68, 100, MOVE_MIDI_SOURCE_INTERNAL);
+    assert(get(api, instance, "active_note") == "48");
+    midi(api, instance, 0x80, 68, 0, MOVE_MIDI_SOURCE_INTERNAL);
+    midi(api, instance, 0x90, 69, 100, MOVE_MIDI_SOURCE_INTERNAL);
+    assert(get(api, instance, "active_note") == "50");
+    midi(api, instance, 0x80, 69, 0, MOVE_MIDI_SOURCE_INTERNAL);
+    midi(api, instance, 0x90, 75, 100, MOVE_MIDI_SOURCE_INTERNAL);
+    assert(get(api, instance, "active_note") == "60");
+    midi(api, instance, 0x80, 75, 0, MOVE_MIDI_SOURCE_INTERNAL);
+    midi(api, instance, 0x90, 76, 100, MOVE_MIDI_SOURCE_INTERNAL);
+    assert(get(api, instance, "active_note") == "53");
+    midi(api, instance, 0x80, 76, 0, MOVE_MIDI_SOURCE_INTERNAL);
+    api->set_param(instance, "scale", "Hungarian Minor");
+    assert(get(api, instance, "scale") == "24");
+    midi(api, instance, 0x90, 70, 100, MOVE_MIDI_SOURCE_INTERNAL);
+    assert(get(api, instance, "active_note") == "51");
+    midi(api, instance, 0x80, 70, 0, MOVE_MIDI_SOURCE_INTERNAL);
+    api->set_param(instance, "scale", "Major Pentatonic");
+    midi(api, instance, 0x90, 99, 100, MOVE_MIDI_SOURCE_INTERNAL);
+    assert(get(api, instance, "active_note") == "86");
+    midi(api, instance, 0x80, 99, 0, MOVE_MIDI_SOURCE_INTERNAL);
+    midi(api, instance, 0x90, 61, 100, MOVE_MIDI_SOURCE_EXTERNAL);
+    assert(get(api, instance, "active_note") == "61");
+    midi(api, instance, 0x80, 61, 0, MOVE_MIDI_SOURCE_EXTERNAL);
+    api->set_param(instance, "scale", "Chromatic");
+
+    /* Rolls capture the combined stereo history of every active playhead
+       into one division-sized fragment. The grouped Roll does not steal any
+       source voice, remains audible after those source notes end, and uses
+       the normal Shift+pad latch path. */
+    api->set_param(instance, "algorithm", "Sample");
+    api->set_param(instance, "sample_mode", "Loop");
+    api->set_param(instance, "locus", "0.4");
+    api->set_param(instance, "field", "0.2");
+    api->set_param(instance, "speed", "0.05");
+    api->set_param(instance, "tempo_bpm", "240");
+    api->set_param(instance, "cut_time_variation", "1");
+    api->set_param(instance, "cut_reverse", "100");
+    api->set_param(instance, "cut_pitch_variation", "24");
+    api->set_param(instance, "pad_mode", "Rolls");
+    midi(api, instance, 0x90, 60, 100, MOVE_MIDI_SOURCE_EXTERNAL);
+    midi(api, instance, 0x90, 67, 100, MOVE_MIDI_SOURCE_EXTERNAL);
+    render(api, instance, 20);
+    const std::string sourcePlayheads = get(api, instance, "playheads");
+    int sourcePlayheadCount = 0;
+    for (int voice = 0; voice < 8; ++voice) {
+        if (stateField(sourcePlayheads, voice) >= 0) ++sourcePlayheadCount;
+    }
+    assert(sourcePlayheadCount == 2);
+    api->set_param(instance, "shift_held", "1");
+    midi(api, instance, 0x90, 73, 100, MOVE_MIDI_SOURCE_INTERNAL);
+    api->set_param(instance, "shift_held", "0");
+    midi(api, instance, 0x80, 73, 0, MOVE_MIDI_SOURCE_INTERNAL);
+    const std::string groupedRoll = get(api, instance, "roll_state");
+    assert(stateField(groupedRoll, 0) == 1);
+    assert(stateField(groupedRoll, 1) == 2);
+    assert(stateField(groupedRoll, 2) > 0);
+    assert(stateField(get(api, instance, "roll_pads"), 0) == 5);
+    const std::string playheadsDuringRoll = get(api, instance, "playheads");
+    int playheadsDuringRollCount = 0;
+    for (int voice = 0; voice < 8; ++voice) {
+        if (stateField(playheadsDuringRoll, voice) >= 0) {
+            ++playheadsDuringRollCount;
+        }
+    }
+    assert(playheadsDuringRollCount == 2);
+    midi(api, instance, 0x80, 60, 0, MOVE_MIDI_SOURCE_EXTERNAL);
+    midi(api, instance, 0x80, 67, 0, MOVE_MIDI_SOURCE_EXTERNAL);
+    render(api, instance, 200);
+    assert(peak() > 0);
+    assert(stateField(get(api, instance, "roll_state"), 0) == 1);
+    assert(get(api, instance, "active_note") == "60");
+    api->set_param(instance, "shift_held", "1");
+    midi(api, instance, 0x90, 73, 100, MOVE_MIDI_SOURCE_INTERNAL);
+    api->set_param(instance, "shift_held", "0");
+    midi(api, instance, 0x80, 73, 0, MOVE_MIDI_SOURCE_INTERNAL);
+    assert(stateField(get(api, instance, "roll_state"), 0) == 0);
+    assert(get(api, instance, "active_note") == "-1");
+
+    /* Performance capture stores the Roll anchor and lane blend alongside
+       the note, so loop playback and persistence can reconstruct the same
+       stutter rather than a plain Root note. */
+    api->set_param(instance, "clip_select", "60");
+    waitForClip(api, instance, 60);
+    api->set_param(instance, "clip_record_mode", "Replace");
+    api->set_param(instance, "clip_record", "1");
+    midi(api, instance, 0x90, 74, 100, MOVE_MIDI_SOURCE_INTERNAL);
+    render(api, instance, 20);
+    midi(api, instance, 0x80, 74, 0, MOVE_MIDI_SOURCE_INTERNAL);
+    render(api, instance, 40);
+    api->set_param(instance, "clip_record", "1");
+    const std::string rollClipState = get(api, instance, "clip_state");
+    assert(stateField(rollClipState, 5) == 1);
+    assert(stateField(rollClipState, 6) >= 3);
+    api->set_param(instance, "clip_playing", "0");
+    api->set_param(instance, "clip_select", "0");
+    waitForClip(api, instance, 0);
+    api->set_param(instance, "pad_mode", "Keys");
+    api->set_param(instance, "algorithm", "Lanes");
+    api->set_param(instance, "locus", "0.5");
+    api->set_param(instance, "field", "1");
+    api->set_param(instance, "speed", "1");
+    api->set_param(instance, "tempo_bpm", "120");
+
     /* Shift+pad latches each hardware pad independently. Releasing the pad
        does not end its voice; a second Shift+pad gesture does. HOLD OFF at
        zero is manual, while a nonzero global delay schedules every existing
@@ -946,6 +1098,32 @@ int main()
     midi(api, instance, 0x90, 68, 100, MOVE_MIDI_SOURCE_INTERNAL);
     api->set_param(instance, "shift_held", "0");
     midi(api, instance, 0x80, 68, 0, MOVE_MIDI_SOURCE_INTERNAL);
+    assert(get(api, instance, "active_note") == "48");
+    const std::string latchPads = get(api, instance, "voice_pads");
+    const std::string latchNotes = get(api, instance, "voice_notes");
+    bool foundLatchOwner = false;
+    for (int voice = 0; voice < 8; ++voice) {
+        if (stateField(latchPads, voice) != 0) continue;
+        assert(stateField(latchNotes, voice) == 48);
+        foundLatchOwner = true;
+    }
+    assert(foundLatchOwner);
+    api->set_param(instance, "pad_octave", "1");
+    assert(get(api, instance, "active_note") == "48");
+    api->set_param(instance, "shift_held", "1");
+    midi(api, instance, 0x90, 68, 100, MOVE_MIDI_SOURCE_INTERNAL);
+    api->set_param(instance, "shift_held", "0");
+    midi(api, instance, 0x80, 68, 0, MOVE_MIDI_SOURCE_INTERNAL);
+    assert(get(api, instance, "active_note") == "-1");
+    api->set_param(instance, "pad_octave", "0");
+    api->set_param(instance, "shift_held", "1");
+    midi(api, instance, 0x90, 68, 100, MOVE_MIDI_SOURCE_INTERNAL);
+    api->set_param(instance, "shift_held", "0");
+    midi(api, instance, 0x80, 68, 0, MOVE_MIDI_SOURCE_INTERNAL);
+    assert(get(api, instance, "active_note") == "48");
+    api->set_param(instance, "pad_mode", "Rolls");
+    assert(get(api, instance, "active_note") == "48");
+    api->set_param(instance, "pad_mode", "Keys");
     assert(get(api, instance, "active_note") == "48");
     api->set_param(instance, "shift_held", "1");
     midi(api, instance, 0x90, 69, 100, MOVE_MIDI_SOURCE_INTERNAL);
@@ -1011,6 +1189,58 @@ int main()
     assert(peak() > 8000);
     midi(api, instance, 0x80, 60, 0);
     render(api, instance, 160);
+
+    /* Every source voice has an independent ADSR after its playback engine.
+       Time controls remain precise at the short end, sustain is a true held
+       level, and release keeps a voice audible after note-off. Velocity is
+       deliberately absent from this gain stage. */
+    api->set_param(instance, "algorithm", "Sample");
+    api->set_param(instance, "sample_mode", "Loop");
+    api->set_param(instance, "locus", "0.4");
+    api->set_param(instance, "field", "0.2");
+    api->set_param(instance, "speed", "0.05");
+    api->set_param(instance, "amp_attack", "0");
+    api->set_param(instance, "amp_decay", "0");
+    api->set_param(instance, "amp_sustain", "100");
+    api->set_param(instance, "amp_release", "0");
+    midi(api, instance, 0x90, 60, 100);
+    render(api, instance, 8);
+    const int fullEnvelopePeak = peak();
+    assert(fullEnvelopePeak > 8000);
+    midi(api, instance, 0x80, 60, 0);
+    render(api, instance, 2);
+
+    api->set_param(instance, "amp_attack", "1000");
+    midi(api, instance, 0x90, 60, 100);
+    render(api, instance, 1);
+    const int attackStartPeak = peak();
+    assert(attackStartPeak > 0 && attackStartPeak < fullEnvelopePeak / 4);
+    render(api, instance, 400);
+    assert(peak() > fullEnvelopePeak * 3 / 4);
+    midi(api, instance, 0x80, 60, 0);
+    render(api, instance, 2);
+
+    api->set_param(instance, "amp_attack", "0");
+    api->set_param(instance, "amp_decay", "200");
+    api->set_param(instance, "amp_sustain", "25");
+    midi(api, instance, 0x90, 60, 100);
+    render(api, instance, 1);
+    const int decayStartPeak = peak();
+    render(api, instance, 100);
+    const int sustainPeak = peak();
+    assert(decayStartPeak > sustainPeak * 2);
+    assert(sustainPeak > fullEnvelopePeak / 6
+        && sustainPeak < fullEnvelopePeak / 3);
+    api->set_param(instance, "amp_release", "250");
+    midi(api, instance, 0x80, 60, 0);
+    render(api, instance, 1);
+    assert(peak() > 0);
+    render(api, instance, 100);
+    assert(peak() == 0);
+    api->set_param(instance, "amp_attack", "3");
+    api->set_param(instance, "amp_decay", "0");
+    api->set_param(instance, "amp_sustain", "100");
+    api->set_param(instance, "amp_release", "25");
 
     /* Library-lane assignments belong to clip slots. Clip 3 recalls its
        source, while A01's explicit EMPTY ownership remains silent. */
@@ -1110,7 +1340,7 @@ int main()
     midi(api, instance, 0x80, 64, 0);
     render(api, instance, 40);
     const std::string longGrainState = get(api, instance, "state");
-    assert(longGrainState.find("\"version\":7") != std::string::npos);
+    assert(longGrainState.find("\"version\":9") != std::string::npos);
     assert(longGrainState.find("\"long_grain_length\":12000.00000")
         != std::string::npos);
 
@@ -1150,6 +1380,49 @@ int main()
     midi(api, instance, 0x80, 60, 0);
     render(api, instance, 40);
     api->set_param(instance, "effect_drive", "0");
+
+    /* Cross-pan preserves the original stereo image at -100, reaches an
+       exact mono sum at zero, and feeds the rotary speaker after that field
+       transform. Rotary adds independent horn/drum Doppler and level motion. */
+    api->set_param(instance, "effect_cross_pan", "-100");
+    midi(api, instance, 0x90, 60, 100);
+    render(api, instance, 8);
+    assert(stereoDifferencePeak() > 0);
+    midi(api, instance, 0x80, 60, 0);
+    render(api, instance, 40);
+    api->set_param(instance, "effect_cross_pan", "0");
+    midi(api, instance, 0x90, 60, 100);
+    render(api, instance, 8);
+    assert(stereoDifferencePeak() <= 1);
+    midi(api, instance, 0x80, 60, 0);
+    render(api, instance, 40);
+    api->set_param(instance, "effect_cross_pan", "-100");
+    api->set_param(instance, "effect_rotary_rate", "0");
+    assert(get(api, instance, "effect_rotary_rate") == "0.00");
+    api->set_param(instance, "effect_rotary_rate", "6.0");
+    api->set_param(instance, "effect_rotary_depth", "100");
+    api->set_param(instance, "effect_rotary_mix", "100");
+    midi(api, instance, 0x90, 60, 100);
+    const int rotaryDifference = renderStereoDifference(api, instance, 20);
+    if (rotaryDifference <= 4) {
+        std::fprintf(stderr, "Rotary stereo difference: %d, peak: %d\n",
+                     rotaryDifference, peak());
+    }
+    assert(rotaryDifference > 4);
+    midi(api, instance, 0x80, 60, 0);
+    render(api, instance, 40);
+    api->set_param(instance, "effect_cross_pan", "0");
+    api->set_param(instance, "effect_rotary_spread", "0");
+    midi(api, instance, 0x90, 60, 100);
+    render(api, instance, 20);
+    assert(stereoDifferencePeak() <= 1);
+    midi(api, instance, 0x80, 60, 0);
+    render(api, instance, 40);
+    api->set_param(instance, "effect_cross_pan", "-100");
+    api->set_param(instance, "effect_rotary_rate", "0.8");
+    api->set_param(instance, "effect_rotary_depth", "70");
+    api->set_param(instance, "effect_rotary_mix", "0");
+    api->set_param(instance, "effect_rotary_spread", "100");
 
     api->set_param(instance, "algorithm", "Slices");
     api->set_param(instance, "slice_region_mode", "Transients");
@@ -1278,6 +1551,7 @@ int main()
     api->set_param(instance, "lane_2_gain", "0.375");
     api->set_param(instance, "record_gain", "1.75");
     api->set_param(instance, "pad_octave", "2");
+    api->set_param(instance, "scale", "Lydian Dominant");
     api->set_param(instance, "glitch_mode", "Scatter");
     api->set_param(instance, "glitch_steps", "13");
     api->set_param(instance, "glitch_pulses", "7");
@@ -1285,10 +1559,19 @@ int main()
     api->set_param(instance, "effect_drive", "0.23");
     api->set_param(instance, "effect_delay", "375");
     api->set_param(instance, "effect_mix", "28");
+    api->set_param(instance, "effect_cross_pan", "25");
+    api->set_param(instance, "effect_rotary_rate", "3.2");
+    api->set_param(instance, "effect_rotary_depth", "76");
+    api->set_param(instance, "effect_rotary_mix", "41");
+    api->set_param(instance, "effect_rotary_ramp", "2250");
+    api->set_param(instance, "effect_rotary_balance", "-35");
+    api->set_param(instance, "effect_rotary_crossover", "1250");
+    api->set_param(instance, "effect_rotary_spread", "64");
     api->set_param(instance, "algorithm", "Motion");
     api->set_param(instance, "cue_store", "2,0.625");
     const std::string state = get(api, instance, "state");
-    assert(state.find("\"version\":7") != std::string::npos);
+    assert(state.find("\"version\":9") != std::string::npos);
+    assert(state.find("\"scale\":20") != std::string::npos);
     assert(state.find("\"clip_record_mode\":1") != std::string::npos);
     assert(state.find("\"monitor_level\"") == std::string::npos);
     api->set_param(instance, "motion_mode", "Forward");
@@ -1303,6 +1586,14 @@ int main()
     api->set_param(instance, "glitch_steps", "8");
     api->set_param(instance, "effect_drive", "0");
     api->set_param(instance, "effect_mix", "0");
+    api->set_param(instance, "effect_cross_pan", "-100");
+    api->set_param(instance, "effect_rotary_rate", "0.8");
+    api->set_param(instance, "effect_rotary_depth", "70");
+    api->set_param(instance, "effect_rotary_mix", "0");
+    api->set_param(instance, "effect_rotary_ramp", "350");
+    api->set_param(instance, "effect_rotary_balance", "0");
+    api->set_param(instance, "effect_rotary_crossover", "800");
+    api->set_param(instance, "effect_rotary_spread", "100");
     api->set_param(instance, "state", state.c_str());
     assert(get(api, instance, "motion_mode") == "5");
     assert(get(api, instance, "motion_sound") == "5");
@@ -1323,10 +1614,23 @@ int main()
     assert(get(api, instance, "effect_drive") == "0.2300");
     assert(get(api, instance, "effect_delay") == "375.00");
     assert(get(api, instance, "effect_mix") == "28.00");
+    assert(get(api, instance, "effect_cross_pan") == "25.00");
+    assert(get(api, instance, "effect_rotary_rate") == "3.20");
+    assert(get(api, instance, "effect_rotary_depth") == "76.00");
+    assert(get(api, instance, "effect_rotary_mix") == "41.00");
+    assert(get(api, instance, "effect_rotary_ramp") == "2250.00");
+    assert(get(api, instance, "effect_rotary_balance") == "-35.00");
+    assert(get(api, instance, "effect_rotary_crossover") == "1250.00");
+    assert(get(api, instance, "effect_rotary_spread") == "64.00");
     assert(get(api, instance, "long_grain_length") == "12000.00");
     assert(get(api, instance, "long_grain_layers") == "4");
     assert(get(api, instance, "long_grain_advance") == "1");
+    assert(get(api, instance, "amp_attack") == "3.00");
+    assert(get(api, instance, "amp_decay") == "0.00");
+    assert(get(api, instance, "amp_sustain") == "100.00");
+    assert(get(api, instance, "amp_release") == "25.00");
     assert(get(api, instance, "pad_octave") == "2");
+    assert(get(api, instance, "scale") == "20");
     assert(get(api, instance, "grain_quality") == "1");
     assert(stateField(get(api, instance, "cue_state"), 2) == 625);
     assert(get(api, instance, "chain_entries").rfind("1:1:2,1:2:1", 0u) == 0u);
@@ -1352,7 +1656,7 @@ int main()
         == sizeof(clipMagic));
     assert(std::memcmp(clipMagic, "S3GTHR3", 7u) == 0);
     assert(std::fread(&clipVersion, sizeof(clipVersion), 1u, clipFile) == 1u);
-    assert(clipVersion == 5u);
+    assert(clipVersion == 8u);
     std::fclose(stateFile);
     std::fclose(laneFile);
     std::fclose(clipFile);
@@ -1371,10 +1675,19 @@ int main()
     assert(get(api, instance, "lane_2_gain") == "0.3750");
     assert(get(api, instance, "record_gain") == "1.7500");
     assert(get(api, instance, "pad_octave") == "2");
+    assert(get(api, instance, "scale") == "20");
     assert(get(api, instance, "glitch_mode") == "2");
     assert(get(api, instance, "glitch_steps") == "13");
     assert(get(api, instance, "effect_drive") == "0.2300");
     assert(get(api, instance, "effect_mix") == "28.00");
+    assert(get(api, instance, "effect_cross_pan") == "25.00");
+    assert(get(api, instance, "effect_rotary_rate") == "3.20");
+    assert(get(api, instance, "effect_rotary_depth") == "76.00");
+    assert(get(api, instance, "effect_rotary_mix") == "41.00");
+    assert(get(api, instance, "effect_rotary_ramp") == "2250.00");
+    assert(get(api, instance, "effect_rotary_balance") == "-35.00");
+    assert(get(api, instance, "effect_rotary_crossover") == "1250.00");
+    assert(get(api, instance, "effect_rotary_spread") == "64.00");
     assert(get(api, instance, "long_grain_length") == "12000.00");
     assert(get(api, instance, "long_grain_layers") == "4");
     assert(get(api, instance, "long_grain_advance") == "1");
@@ -1410,11 +1723,15 @@ int main()
     api->set_param(instance, "performance_lane", "1");
     api->set_param(instance, "motion_sound", "Continuous");
     api->set_param(instance, "motion_rate_basis", "Normal");
+    api->set_param(instance, "effect_cross_pan", "-100");
+    api->set_param(instance, "effect_rotary_mix", "0");
     midi(api, instance, 0x90, 60, 100);
     render(api, instance, 12);
     assert(peak() > 8000);
     assert(static_cast<int>(output[0]) * static_cast<int>(output[1]) < 0);
     midi(api, instance, 0x80, 60, 0);
+    api->set_param(instance, "effect_cross_pan", "25");
+    api->set_param(instance, "effect_rotary_mix", "41");
     api->set_param(instance, "motion_sound", "Iterate");
     api->set_param(instance, "motion_rate_basis", "Hertz");
     api->set_param(instance, "record_gain", "2.5");
@@ -1469,7 +1786,7 @@ int main()
     api->destroy_instance(instance);
 
     /* A 0.18 format-1 bank imports all existing events as its protected base
-       take, then upgrades to format 3 on the next successful save. */
+       take, then upgrades to the current format on the next successful save. */
     downgradeClipBankToV1(clipPath);
     instance = api->create_instance(persistenceDir.c_str(), nullptr);
     assert(instance != nullptr);
@@ -1483,7 +1800,7 @@ int main()
     assert(std::fread(clipMagic, 1u, sizeof(clipMagic), clipFile)
         == sizeof(clipMagic));
     assert(std::fread(&clipVersion, sizeof(clipVersion), 1u, clipFile) == 1u);
-    assert(clipVersion == 5u);
+    assert(clipVersion == 8u);
     assert(std::fclose(clipFile) == 0);
 
     std::remove(statePath.c_str());

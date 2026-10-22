@@ -64,7 +64,7 @@
   <text x="962" y="155" class="title">EFFECTS</text>
   <text x="962" y="180" class="sub">tone · drive</text>
   <text x="962" y="201" class="sub">bits · rate · delay</text>
-  <text x="962" y="222" class="sub">final level</text>
+  <text x="962" y="222" class="sub">cross-pan · rotary</text>
 
   <rect x="1074" y="126" width="84" height="122" class="box"/>
   <text x="1116" y="168" class="title">OUT</text>

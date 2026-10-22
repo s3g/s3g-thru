@@ -18,9 +18,10 @@
         <div class="callout"><p><strong>Good for:</strong> conventional sample playback, pitched chords, sustained loops, reverse one-shots, velocity-addressed lane layers, cue points, and tempo-synced rolls.</p></div>
 
         <h2 id="page">Page and navigation</h2>
-        <p>Set Algorithm to Sample. Up opens the shared Direct Play page used by both Sample and Slices.</p>
-        <div class="screen-gallery single">
-          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/direct-play.svg" aria-label="Open Direct Play"><img src="assets/screens/direct-play.svg" alt="Direct Play page with four controls and four reserved positions"></button></div><figcaption>Direct Play keeps direction, lane variation, pad layout, and the Slices/Rolls root note together. Source window, pitch, Stack Start, and Level remain on Engine.</figcaption></figure>
+        <p>Set Algorithm to Sample. Up opens the shared <a href="engines.html#pads-scale">Pads &amp; Scale</a> and <a href="engines.html#amp-envelope">Amp Envelope</a> pages, then Direct Play.</p>
+        <div class="screen-gallery">
+          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/pads-scale.svg" aria-label="Open Pads and Scale"><img src="assets/screens/pads-scale.svg" alt="Shared Pads and Scale parameter page"></button></div><figcaption>Pads &amp; Scale selects the performance layout, tuning root, and optional folded scale.</figcaption></figure>
+          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/direct-play.svg" aria-label="Open Direct Play"><img src="assets/screens/direct-play.svg" alt="Direct Play page with two controls and six reserved positions"></button></div><figcaption>Direct Play keeps direction and discrete lane variation together. Source window, pitch, Stack Start, and Level remain on Engine.</figcaption></figure>
         </div>
 
         <p>The controls common to every playback engine are documented in the <a href="engines.html#shared">shared Engine page table</a>. The sections below cover Sample-specific controls.</p>
@@ -31,9 +32,7 @@
           <tbody>
             <tr><td>1</td><td>PLAY</td><td>Forward / Reverse / Loop / Ping Pong</td><td>Chooses the read direction and whether playback stops or repeats at the Position/Field boundaries.</td></tr>
             <tr><td>2</td><td>VARI</td><td>Manual / Cycle / Random / No Repeat / Velocity</td><td>Chooses how a lane is assigned when each new voice starts. The lane remains fixed for that voice.</td></tr>
-            <tr><td>3</td><td>PADS</td><td>Keys / Slices / Cues / Rolls</td><td>Changes what the 32 pads address. See the complete behavior table below.</td></tr>
-            <tr><td>4</td><td>ROOT</td><td>C1–C7</td><td>Sets the common pitch used by Slices and Rolls. Keys keeps its isomorphic note grid.</td></tr>
-            <tr><td>5–8</td><td>Reserved</td><td>—</td><td>Inactive positions available for future direct-play controls.</td></tr>
+            <tr><td>3–8</td><td>Reserved</td><td>—</td><td>Inactive positions available for future direct-play controls.</td></tr>
           </tbody>
         </table>
 
@@ -60,16 +59,8 @@
           </tbody>
         </table>
 
-        <h3 id="pad-modes">Pad Mode choices</h3>
-        <table class="readout-table">
-          <thead><tr><th>Pad mode</th><th>What the 32 pads do</th></tr></thead>
-          <tbody>
-            <tr><td>Keys</td><td>Play an isomorphic pitched layout around Root. Every voice reads the whole current window.</td></tr>
-            <tr><td>Slices</td><td>All pads play Root pitch. In Sample, the whole window still plays; choose the Slices engine when each pad should address a region.</td></tr>
-            <tr><td>Cues</td><td>Recall stored cue positions. Shift + a cue pad stores the current position; Delete + the pad clears it.</td></tr>
-            <tr><td>Rolls</td><td>Each held pad starts a temporary tempo-clocked Cutups voice at a pad-specific division.</td></tr>
-          </tbody>
-        </table>
+        <h3 id="pad-modes">Pad layouts</h3>
+        <p>See the shared <a href="engines.html#pads-scale">Pads &amp; Scale reference</a> for every layout and scale. Sample reads the whole current window in Keys and Slices layouts; choose the Slices engine when each pad should address a different region.</p>
 
         <div class="callout"><p><strong>Lane selection is not lane scanning:</strong> Variation chooses one lane for a voice at note-on. Pressure can still offset engines that scan the stack, but it does not crossfade an active direct Sample voice to another lane.</p></div>
 

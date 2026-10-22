@@ -45,7 +45,7 @@
             <tr><td>1</td><td>ALG</td><td>8 choices</td><td>Algorithm selects Motion, Lanes, Grains, Cutups, Sample, Slices, Glitch, or Weave. Up/Down then shows the pages for that engine.</td></tr>
             <tr><td>2</td><td>POS</td><td>0.00–1.00</td><td>Position centers the active source window. Near either end, the window is clamped so it never extends beyond the sample.</td></tr>
             <tr><td>3</td><td>FLD</td><td>0.02–1.00</td><td>Field sets the active window width as a fraction of the sample. The waveform uses a short top tick for Position and a short bottom tick for Field.</td></tr>
-            <tr><td>4</td><td>SPD</td><td>0.05–4.00×</td><td>Speed sets base source transport. Pad pitch multiplies it around Root; Grains, Weave, and Cutups apply that relationship differently, as described in their guides.</td></tr>
+            <tr><td>4</td><td>SPD</td><td>0.05–4.00×</td><td>Speed sets base source transport. In Grains and Weave it moves grain origins independently of keyboard pitch; the other engines combine it with note pitch as described in their guides.</td></tr>
             <tr><td>5</td><td>STAK</td><td>1.00–4.00</td><td>Stack Start sets an exact lane/crossfade for Manual stack motion, or the starting phase of a moving stack path. Sample and Slices round it to a discrete loaded lane.</td></tr>
             <tr><td>6</td><td>RATE</td><td>0.125–16 Hz</td><td>Scan Rate sets cycles per second for moving stack paths. <kbd>Loop</kbd> freezes the audible phase. Sample, Slices, and Cutups do not use continuous stack scanning.</td></tr>
             <tr><td>7</td><td>JOIN</td><td>0.00–1.00</td><td>Join scales seam smoothing for continuous/event readers. Motion also uses it as articulation depth. Cutups has a separate Cut Join for event-to-event fades.</td></tr>
@@ -54,6 +54,79 @@
         </table>
 
         <div class="callout"><p><strong>One control, one location:</strong> a parameter appears on only one parameter page. Shared pages retain the same knob positions wherever they appear. A small hollow box marks an unassigned encoder position reserved for a future control; turning that encoder does nothing.</p></div>
+
+        <h2 id="pads-scale">Shared Pads &amp; Scale page</h2>
+
+        <p>This page follows Engine for every playback algorithm. It chooses what the 32 pads do and, in Keys mode, whether they use the original chromatic layout or a folded scale layout.</p>
+
+        <figure>
+          <div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/pads-scale.svg" aria-label="Open the shared Pads and Scale page figure"><img src="assets/screens/pads-scale.svg" alt="Shared Pads and Scale page with Pad Mode, Root, Scale, Hold Off, and four reserved encoder positions"></button></div>
+          <figcaption>Named scales illuminate the playable grid dark neutral grey and mark every tonic pad full white. Active voices use their voice-slot colors; a latch turns to the matching dim color when its stored pitch is outside the current pad mapping.</figcaption>
+        </figure>
+
+        <table class="readout-table parameter-table">
+          <thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>What it controls</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>PADS</td><td>Keys / Slices / Cues / Rolls</td><td>Chooses how the 32 pads address pitches, regions, stored positions, or clocked rolls.</td></tr>
+            <tr><td>2</td><td>ROOT</td><td>C1–C7</td><td>Sets sample unison and the tonic of a named scale. Slices play this pitch; Rolls retain the pitches already present in their grouped capture. In a named Keys scale, the bottom-left pad begins one octave below Root before octave transposition.</td></tr>
+            <tr><td>3</td><td>SCAL</td><td>Chromatic + 24 scales</td><td>Chromatic preserves the original semitone grid. A named scale removes out-of-scale pitches and maps adjacent columns to consecutive scale degrees.</td></tr>
+            <tr><td>4</td><td>HOLD</td><td>Manual / 50 ms–60 s</td><td>Keeps Shift+pad latches active until toggled, or schedules their release with one global delay.</td></tr>
+            <tr><td>5–8</td><td>Reserved</td><td>—</td><td>Inactive positions available for future pad-layout controls.</td></tr>
+          </tbody>
+        </table>
+
+        <p>Named scales retain an overlapping isomorphic shape: each row begins three scale degrees above the row below. Up/Down moves the complete layout by octaves. Scale affects the Move pads only; external MIDI and notes already stored in a performance clip are not quantized or rewritten.</p>
+
+        <h2 id="amp-envelope">Shared Amp Envelope page</h2>
+
+        <p>Amp Envelope follows Pads &amp; Scale for every playback algorithm. It shapes the amplitude of each of the eight source voices independently after that voice's playback engine. Pad velocity does not change amplitude.</p>
+
+        <figure>
+          <div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/amp-envelope.svg" aria-label="Open the shared Amp Envelope page figure"><img src="assets/screens/amp-envelope.svg" alt="Breakpoint Amp Envelope page showing attack, decay, sustain, gate boundary, and release"></button></div>
+          <figcaption>The solid breakpoint curve shows attack, decay, and the held sustain level. The dotted vertical line marks note-off; the final slope is release.</figcaption>
+        </figure>
+
+        <table class="readout-table parameter-table">
+          <thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>What it controls</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>ATK</td><td>0 ms–10 s</td><td>Attack time from silence or the current retrigger level to full amplitude.</td></tr>
+            <tr><td>2</td><td>DEC</td><td>0 ms–10 s</td><td>Decay time from the attack peak to Sustain.</td></tr>
+            <tr><td>3</td><td>SUS</td><td>0–100%</td><td>Sustain level held while the pad, latch, or recorded note remains on.</td></tr>
+            <tr><td>4</td><td>REL</td><td>0 ms–20 s</td><td>Release time from the current level to silence after note-off.</td></tr>
+            <tr><td>5–8</td><td>Reserved</td><td>—</td><td>Inactive positions available for future envelope controls.</td></tr>
+          </tbody>
+        </table>
+
+        <p>The time knobs use close-spaced millisecond values near zero and progressively wider steps for long fades. The default 3 ms attack, 0 ms decay, 100% sustain, and 25 ms release preserves the earlier immediate pad response while suppressing clicks. Envelope gestures recorded into a performance clip replay with that clip. Rolls use a captured, already-enveloped stereo fragment and retain their separate short edge crossfade; the Amp Envelope is not applied a second time.</p>
+
+        <h3>Pad mode behavior</h3>
+        <table class="readout-table">
+          <thead><tr><th>Mode</th><th>What the pads do</th><th>Hold behavior</th></tr></thead>
+          <tbody>
+            <tr><td>Keys</td><td>Play the chromatic or selected-scale pitch layout. With the Slices engine, pad identity also selects a region.</td><td>Momentary; Shift + pad latches the voice.</td></tr>
+            <tr><td>Slices</td><td>Select regions by pad identity at Root pitch. Use with the Slices engine for one-region-per-pad playback.</td><td>Momentary; Shift + pad latches the region.</td></tr>
+            <tr><td>Cues</td><td>Pads 1–8 recall stored playhead positions. Shift + pad stores the displayed playhead; Delete + pad clears it.</td><td>A cue starts a Root voice when no performance voice is active, or moves the active voices.</td></tr>
+            <tr><td>Rolls</td><td>Pad-down captures the combined stereo history of every active playhead, then stutters that fragment at 1/4, 1/8, 1/8T, 1/16, 1/16T, or 1/32. The six-division order repeats across the grid.</td><td>Momentary; Shift + pad latches the grouped roll. Each simultaneous roll retains its own capture.</td></tr>
+          </tbody>
+        </table>
+        <p>For a hands-on grouped roll, latch a chord in Keys, change <code>PADS</code> to Rolls, and press a division pad. The latched source voices remain active through the mode change and become the roll's combined capture.</p>
+        <p>Roll fragment length follows its division and the BPM at capture. The original playheads continue advancing silently while a roll is active, so releasing it returns to the live performance rather than a frozen source position. A 3 ms internal crossfade suppresses boundary clicks, and grouped rolls do not consume or steal any of the eight source voices. Performance recording stores the pad gesture and division; on replay, that event captures the active playhead group at the recorded moment.</p>
+
+        <h3>Scale choices</h3>
+        <p>The names and pitch sets follow Ableton's current 12-tone <a href="https://www.ableton.com/en/push/manual/#playing-in-other-keys" target="_blank" rel="noopener noreferrer">Live and Push scale menu</a>.</p>
+        <table class="readout-table">
+          <thead><tr><th>Scale</th><th>Scale</th><th>Scale</th></tr></thead>
+          <tbody>
+            <tr><td>Major</td><td>Minor</td><td>Dorian</td></tr>
+            <tr><td>Mixolydian</td><td>Lydian</td><td>Phrygian</td></tr>
+            <tr><td>Locrian</td><td>Whole Tone</td><td>Half-whole Dim.</td></tr>
+            <tr><td>Whole-half Dim.</td><td>Minor Blues</td><td>Minor Pentatonic</td></tr>
+            <tr><td>Major Pentatonic</td><td>Harmonic Minor</td><td>Harmonic Major</td></tr>
+            <tr><td>Dorian #4</td><td>Phrygian Dominant</td><td>Melodic Minor</td></tr>
+            <tr><td>Lydian Augmented</td><td>Lydian Dominant</td><td>Super Locrian</td></tr>
+            <tr><td>8-Tone Spanish</td><td>Bhairav</td><td>Hungarian Minor</td></tr>
+          </tbody>
+        </table>
 
         <h2 id="stack-path">Shared Stack Path page</h2>
 
@@ -80,11 +153,11 @@
 
         <h2 id="direct-play">Shared Direct Play page</h2>
 
-        <p>Sample and Slices use this same page for playback direction, lane selection, and pad behavior. Position, Field, Speed, Stack Start, and Level remain on Engine.</p>
+        <p>Sample and Slices use this same page for playback direction and discrete lane selection. Pad behavior is on the shared Pads &amp; Scale page. Position, Field, Speed, Stack Start, and Level remain on Engine.</p>
 
         <figure>
-          <div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/direct-play.svg" aria-label="Open the shared Direct Play page figure"><img src="assets/screens/direct-play.svg" alt="Shared Direct Play page with four controls and four reserved encoder positions"></button></div>
-          <figcaption>The first four encoders are assigned; the four hollow boxes are reserved.</figcaption>
+          <div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/direct-play.svg" aria-label="Open the shared Direct Play page figure"><img src="assets/screens/direct-play.svg" alt="Shared Direct Play page with two controls and six reserved encoder positions"></button></div>
+          <figcaption>The first two encoders are assigned; the six hollow boxes are reserved.</figcaption>
         </figure>
 
         <table class="readout-table parameter-table">
@@ -92,9 +165,7 @@
           <tbody>
             <tr><td>1</td><td>PLAY</td><td>Forward / Reverse / Loop / Ping Pong</td><td>Chooses direction and whether the window or slice stops or repeats.</td></tr>
             <tr><td>2</td><td>VARI</td><td>Manual / Cycle / Random / No Repeat / Velocity</td><td>Selects a discrete lane whenever a voice begins.</td></tr>
-            <tr><td>3</td><td>PADS</td><td>Keys / Slices / Cues / Rolls</td><td>Chooses how the 32 pads address pitch, regions, cues, or rolls.</td></tr>
-            <tr><td>4</td><td>ROOT</td><td>C1–C7</td><td>Sets the common pitch used by Slices and Rolls pad layouts.</td></tr>
-            <tr><td>5–8</td><td>Reserved</td><td>—</td><td>Inactive positions available for future direct-play controls.</td></tr>
+            <tr><td>3–8</td><td>Reserved</td><td>—</td><td>Inactive positions available for future direct-play controls.</td></tr>
           </tbody>
         </table>
 
@@ -129,7 +200,7 @@
       <aside class="toc" aria-label="Page navigation">
         <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
         <div class="toc-section"><h2>Engine guides</h2><a href="engine-motion.html">Motion</a><a href="engine-lanes.html">Lanes</a><a href="engine-grains.html">Grains</a><a href="engine-cutups.html">Cutups</a><a href="engine-sample.html">Sample</a><a href="engine-slices.html">Slices</a><a href="engine-glitch.html">Glitch</a><a href="engine-weave.html">Weave</a></div>
-        <div class="toc-section"><h2>On this page</h2><a href="#choose">Choose</a><a href="#shared">Engine page</a><a href="#stack-path">Stack Path</a><a href="#direct-play">Direct Play</a><a href="#compare">Compare</a><a href="#voices">Shared behavior</a></div>
+        <div class="toc-section"><h2>On this page</h2><a href="#choose">Choose</a><a href="#shared">Engine page</a><a href="#pads-scale">Pads &amp; Scale</a><a href="#amp-envelope">Amp Envelope</a><a href="#stack-path">Stack Path</a><a href="#direct-play">Direct Play</a><a href="#compare">Compare</a><a href="#voices">Shared behavior</a></div>
       </aside>
     </div>
     <footer class="manual-footer">All engines share the same four clip-local lane sources and eight-voice pool.</footer>

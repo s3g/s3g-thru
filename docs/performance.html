@@ -35,8 +35,8 @@
         <h2 id="record">Record a performance</h2>
 
         <figure>
-          <div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/performance-page.svg" aria-label="Open the Performance Loop page figure"><img src="assets/screens/performance-page.svg" alt="Performance Loop parameter page with rate, timing, launch, tempo, record mode, swing, pressure, and pad hold release controls"></button></div>
-          <figcaption>The Performance Loop page sets time behavior, recording mode, pressure response, and optional automatic release for latched pads.</figcaption>
+          <div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/performance-page.svg" aria-label="Open the Performance Loop page figure"><img src="assets/screens/performance-page.svg" alt="Performance Loop parameter page with rate, timing, launch, tempo, record mode, swing, pressure, and one reserved encoder position"></button></div>
+          <figcaption>The Performance Loop page sets time behavior, recording mode, and pressure response.</figcaption>
         </figure>
 
         <ol>
@@ -54,9 +54,9 @@
 
         <h2 id="note-hold">Hold individual notes</h2>
 
-        <p>Hold <kbd>Shift</kbd> and press a pad to latch that pad's note. Release both controls and the voice continues; its stable voice color remains on the pad. Use <kbd>Shift</kbd> + the same pad again to release it. Each pad is independent, up to the shared eight-voice limit. In Cues mode, Shift+pad keeps its cue-store function instead.</p>
+        <p>Hold <kbd>Shift</kbd> and press a pad to latch that pad's note. Release both controls and the voice continues; its stable voice color remains on the pad. Use <kbd>Shift</kbd> + the same physical pad again to release it. Changing keyboard octave or Pad Mode does not release or remap an existing latch; this lets a latched Keys chord remain active when you enter Rolls. When an octave, Root, or Scale change makes that pad represent another pitch, the latch keeps the same dimmed voice color as an ownership marker. Return to its original mapping and it brightens again. Each pad is independent, up to the shared eight-voice limit. In Rolls mode the same gesture latches a grouped stereo roll without consuming a source voice; in Cues mode, Shift+pad keeps its cue-store function instead.</p>
 
-        <p><code>HOLD OFF</code> on knob 8 of Performance Loop is global. <code>MAN</code> is the default and leaves every latch active until it is toggled off. Choose 50 ms–60 s to auto-release latched notes. Changing the value reschedules all currently latched pads from that moment; returning to Manual cancels their pending automatic release. Each newly latched pad receives the current delay. Latched note-on and note-off times are captured normally by performance recording.</p>
+        <p><code>HOLD OFF</code> on knob 4 of Pads &amp; Scale is global. <code>MAN</code> is the default and leaves every latch active until it is toggled off. Choose 50 ms–60 s to auto-release latched notes. Changing the value reschedules all currently latched pads from that moment; returning to Manual cancels their pending automatic release. Each newly latched pad receives the current delay. Latched note-on and note-off times are captured normally by performance recording.</p>
 
         <h2 id="timing">Timing and launch</h2>
 
@@ -68,9 +68,9 @@
             <tr><td>3</td><td>LNCH</td><td>Off / Beat / Bar</td><td>Starts a selected clip immediately, or queues it to the next beat or bar.</td></tr>
             <tr><td>4</td><td>BPM</td><td>40–240 BPM</td><td>Sets the internal tempo for Beat Sync, launch quantization, and tempo-clocked engines.</td></tr>
             <tr><td>5</td><td>MODE</td><td>Replace / Overdub</td><td>Creates a new base performance or adds an undoable take.</td></tr>
-            <tr><td>6</td><td>SWNG</td><td>50–75%</td><td>Applies swing to tempo-clocked Cutups and Rolls timing.</td></tr>
+            <tr><td>6</td><td>SWNG</td><td>50–75%</td><td>Applies swing to tempo-clocked Cutups.</td></tr>
             <tr><td>7</td><td>PRES</td><td>Off / Offset</td><td>Enables or disables per-pad pressure movement through the stack.</td></tr>
-            <tr><td>8</td><td>HOLD</td><td>Manual / 50 ms–60 s</td><td>Keeps Shift+pad latches active until toggled, or schedules their release with one global delay.</td></tr>
+            <tr><td>8</td><td>Reserved</td><td>—</td><td>Inactive and available for a future Performance Loop control.</td></tr>
           </tbody>
         </table>
 

@@ -14,11 +14,11 @@
       <main class="content" id="content">
         <p class="eyebrow">Playback engine 3 of 8</p>
         <h1>Grains</h1>
-        <p class="lead">Grains launches overlapping, windowed readers from a moving, frozen, random, or sliced source position. It can also reorder equal source regions from quietest to loudest. Note pitch moves the source trajectory; Grain Pitch transposes the grains themselves.</p>
+        <p class="lead">Grains launches overlapping, windowed readers from a moving, frozen, random, or sliced source position. It can also reorder equal source regions from quietest to loudest. Keyboard notes transpose the grains while Speed moves the source trajectory independently.</p>
         <div class="callout"><p><strong>Good for:</strong> freezes, clouds, independent time/pitch motion, stereo spray, regular or scattered textures, rhythmic doublets, stutters, shrinking grain trains, and energy-ordered phrases.</p></div>
 
         <h2 id="pages">Pages and navigation</h2>
-        <p>Set Algorithm to Grains. Up opens the shared <a href="engines.html#stack-path">Stack Path</a> page, then Grains Main, Grains Cloud, and Grains Process.</p>
+        <p>Set Algorithm to Grains. Up first opens the shared <a href="engines.html#pads-scale">Pads &amp; Scale</a> and <a href="engines.html#amp-envelope">Amp Envelope</a> pages, followed by <a href="engines.html#stack-path">Stack Path</a>, Grains Main, Grains Cloud, and Grains Process.</p>
         <div class="screen-gallery">
           <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/stack-path.svg" aria-label="Open Stack Path"><img src="assets/screens/stack-path.svg" alt="Shared Stack Path parameter page"></button></div><figcaption>Stack Path shapes the moving lane blend captured by each new grain.</figcaption></figure>
           <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/grains-main.svg" aria-label="Open Grains Main"><img src="assets/screens/grains-main.svg" alt="Grains Main parameter page with two reserved positions"></button></div><figcaption>Main defines grain source mode, size, density, pitch, window, and spread.</figcaption></figure>
@@ -35,7 +35,7 @@
             <tr><td>1</td><td>MODE</td><td>Scan / Freeze / Cloud / Slice</td><td><strong>Scan</strong> follows source phase; <strong>Freeze</strong> starts at Field center; <strong>Cloud</strong> chooses a random point in Field; <strong>Slice</strong> starts at the center of an equal region selected by source phase.</td></tr>
             <tr><td>2</td><td>SIZE</td><td>8–1000 ms</td><td>Nominal grain duration before Size Variation or Shrink processing.</td></tr>
             <tr><td>3</td><td>DENS</td><td>1–96 Hz</td><td>Requested grain launches per second. Large grains or a lower Quality setting can reduce the density that is heard.</td></tr>
-            <tr><td>4</td><td>PIT</td><td>0.25–4.00×</td><td>Playback ratio inside each grain. This is independent of the note-controlled source scan Speed.</td></tr>
+            <tr><td>4</td><td>PIT</td><td>0.25–4.00×</td><td>Base playback ratio inside each grain. Every played note multiplies this value relative to Root, while Speed controls only source-origin movement.</td></tr>
             <tr><td>5</td><td>WIN</td><td>6 choices</td><td>Envelope table: Parzen, Sine, Hann, Triangle, Gaussian, or Bell. Sharper shapes expose more grain rhythm; rounder shapes overlap more smoothly.</td></tr>
             <tr><td>6</td><td>SPRD</td><td>0.00–1.00</td><td>Random constant-power stereo pan range. 0 centers every grain; 1 uses the full left/right field.</td></tr>
             <tr><td>7–8</td><td>Reserved</td><td>—</td><td>Inactive positions available for future Grains Main controls. Position and Field remain on Engine.</td></tr>
@@ -81,7 +81,7 @@
         <div class="toc-section"><h2>On this page</h2><a href="#pages">Pages</a><a href="engines.html#shared">Shared Engine table</a><a href="engines.html#stack-path">Stack Path</a><a href="#main">Grains Main</a><a href="#cloud">Grains Cloud</a><a href="#process">Grains Process</a></div>
       </aside>
     </div>
-    <footer class="manual-footer">Grains: source advance and grain pitch are independent.</footer>
+    <footer class="manual-footer">Grains: keyboard pitch and source advance are independent.</footer>
     <script src="assets/lightbox.js"></script>
   </body>
 </html>

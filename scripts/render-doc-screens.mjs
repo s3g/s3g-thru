@@ -132,7 +132,7 @@ const params = {
     long_grain_pitch_spray: '5', long_grain_level_variation: '0.18',
     long_grain_phase: '0.4', long_grain_advance: '1',
     cutups_mode: '5', sample_mode: '2', slice_region_mode: '1',
-    slice_regions: '16', pad_mode: '0', lane_variation: '0',
+    slice_regions: '16', pad_mode: '0', scale: '1', lane_variation: '0',
     glitch_mode: '4', glitch_clock: '1', glitch_division: '3',
     glitch_rate: '8', glitch_slice: '32', glitch_repeats: '4',
     glitch_chance: '100', glitch_mix: '100', glitch_steps: '11',
@@ -141,9 +141,14 @@ const params = {
     glitch_seed: '23', effect_tone: '-0.18', effect_drive: '0.22',
     effect_bits: '0.16', effect_rate: '2', effect_delay: '375',
     effect_feedback: '48', effect_width: '100', effect_mix: '28',
+    effect_cross_pan: '-100', effect_rotary_rate: '0.8',
+    effect_rotary_depth: '70', effect_rotary_mix: '35',
+    effect_rotary_ramp: '350', effect_rotary_balance: '0',
+    effect_rotary_crossover: '800', effect_rotary_spread: '100',
     lane_1_gain: '1', lane_2_gain: '1', lane_3_gain: '1', lane_4_gain: '1',
     pressure_mode: '1', root_note: '60', record_lane: '2', pad_octave: '0',
     hold_release_ms: '0', shift_held: '0',
+    amp_attack: '20', amp_decay: '300', amp_sustain: '62', amp_release: '750',
     record_source: '0', record_gain: '1', monitor_level: '0', preview_level: '0.7',
     clip_rate: '1', clip_record_mode: '1', clip_timing: '1', launch_quantize: '1',
     tempo_bpm: '120', tempo_swing: '54', chain_enabled: '1', chain_slot: '2',
@@ -155,6 +160,9 @@ const params = {
     playheads: '190,510,790,-1,-1,-1,-1,-1',
     voice_lanes: '160,530,810,-1,-1,-1,-1,-1',
     voice_pads: '2,11,25,-1,-1,-1,-1,-1',
+    voice_notes: '50,58,73,-1,-1,-1,-1,-1',
+    roll_pads: '-1,-1,-1,-1,-1,-1,-1,-1',
+    roll_notes: '-1,-1,-1,-1,-1,-1,-1,-1',
     clip_bank_state: '0,-1,37,0',
     sample_load_state: '0,2,0,',
     region_state: '5,0,180,410,680,1000',
@@ -278,11 +286,13 @@ function selectAlgorithm(algorithm) {
 
 function captureEnginePages(algorithm, pages) {
     selectAlgorithm(algorithm);
+    moveSettingsPage(1); // Shared Pads & Scale page.
+    moveSettingsPage(1); // Shared Amp Envelope page.
     for (const page of pages) {
         moveSettingsPage(1);
         if (page.filename) capture(page.filename, page.title);
     }
-    moveSettingsPage(-pages.length);
+    moveSettingsPage(-(pages.length + 2));
 }
 
 globalThis.init();
@@ -294,13 +304,19 @@ tick(3);
 cc(50);
 tick();
 capture('engine-page.svg', 'Engine parameter page');
+moveSettingsPage(1);
+capture('pads-scale.svg', 'Shared Pads and Scale parameter page');
+moveSettingsPage(1);
+capture('amp-envelope.svg', 'Shared breakpoint amplitude envelope page');
+moveSettingsPage(-1);
+moveSettingsPage(-1);
 
 captureEnginePages(0, [
     { filename: 'stack-path.svg', title: 'Shared Stack Path parameter page' },
     { filename: 'motion-path.svg', title: 'Motion Path parameter page' },
     { filename: 'motion-sound.svg', title: 'Motion Sound parameter page' },
 ]);
-moveSettingsPage(3);
+moveSettingsPage(5);
 cc(71, 1);
 tick();
 moveSettingsPage(1);
@@ -317,7 +333,7 @@ moveSettingsPage(1);
 capture('motion-event-clock.svg', 'Motion Event Clock parameter page');
 moveSettingsPage(1);
 capture('motion-event-shape.svg', 'Motion Event Shape parameter page');
-moveSettingsPage(-5);
+moveSettingsPage(-7);
 captureEnginePages(1, [
     {},
     { filename: 'lanes-play.svg', title: 'Lanes Play parameter page' },
@@ -351,8 +367,10 @@ captureEnginePages(7, [
 ]);
 
 selectAlgorithm(1);
-moveSettingsPage(4);
+moveSettingsPage(6);
 capture('effects.svg', 'Effects parameter page');
+moveSettingsPage(1);
+capture('effects-stereo-rotary.svg', 'Stereo and Rotary effects parameter page');
 moveSettingsPage(2);
 capture('performance-page.svg', 'Performance Loop parameter page');
 

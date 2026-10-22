@@ -56,6 +56,7 @@ const params = {
     record_lane: '1', pad_octave: '0', record_source: '0',
     record_gain: '1', monitor_level: '0', preview_level: '0.7',
     hold_release_ms: '0', shift_held: '0',
+    amp_attack: '3', amp_decay: '0', amp_sustain: '100', amp_release: '25',
     clip_rate: '1', clip_record_mode: '0', clip_timing: '0',
     launch_quantize: '0', grain_quality: '1',
     clip_state: '0,0,0,250,4000,3,10,1000,0,0,12000,8000',
@@ -65,12 +66,15 @@ const params = {
     playheads: '100,700,-1,-1,-1,-1,-1,-1',
     voice_lanes: '333,800,-1,-1,-1,-1,-1,-1',
     voice_pads: '-1,-1,-1,-1,-1,-1,-1,-1',
+    voice_notes: '-1,-1,-1,-1,-1,-1,-1,-1',
+    roll_pads: '-1,-1,-1,-1,-1,-1,-1,-1',
+    roll_notes: '-1,-1,-1,-1,-1,-1,-1,-1',
     tempo_bpm: '120', tempo_swing: '50',
     chain_enabled: '0', chain_slot: '1',
     chain_clip: '1', chain_repeats: '1',
     clip_bank_state: '0,-1,1,0',
     sample_load_state: '0,1,0,',
-    region_state: '2,0,500,1000', pad_mode: '0',
+    region_state: '2,0,500,1000', pad_mode: '0', scale: '0', root_note: '60',
     cue_state: '-1,-1,-1,-1,-1,-1,-1,-1',
     clip_prepare_state: '0,-1', chain_state: '0,0,0,0,-1',
     chain_entries: ['1:0:2', '1:1:1', ...Array(14).fill('0:0:1')].join(','),
@@ -127,8 +131,9 @@ source = source.replace(
     'const os = globalThis.__os;');
 source += `
 globalThis.__testParameterPageSets = PLAYBACK_PAGES.map((enginePages) =>
-    [ENGINE_PAGE, ...enginePages, MIX_REC_PAGE, EFFECTS_PAGE, SAMPLE_PAGE, LOOP_PAGE,
-        TAKE_PAGE, CHAIN_PAGE].map((page) => page.keys));
+    [ENGINE_PAGE, PADS_SCALE_PAGE, AMP_ENVELOPE_PAGE, ...enginePages,
+        MIX_REC_PAGE, EFFECTS_PAGE, STEREO_ROTARY_PAGE, SAMPLE_PAGE,
+        LOOP_PAGE, TAKE_PAGE, CHAIN_PAGE].map((page) => page.keys));
 globalThis.__testMotionPages = Array.from({ length: 8 }, (_, sound) =>
     playbackPagesForAlgorithm(0, sound).map((page) => ({
         title: page.title, keys: page.keys,
@@ -141,6 +146,14 @@ globalThis.__testLongGrainLengthIndex = longGrainLengthIndex;
 globalThis.__testLongGrainLengthAt = longGrainLengthAt;
 globalThis.__testHoldReleaseIndex = holdReleaseIndex;
 globalThis.__testHoldReleaseAt = holdReleaseAt;
+globalThis.__testEnvelopeTimeIndex = envelopeTimeIndex;
+globalThis.__testEnvelopeTimeAt = envelopeTimeAt;
+globalThis.__testRotaryRampIndex = rotaryRampIndex;
+globalThis.__testRotaryRampAt = rotaryRampAt;
+globalThis.__testRotaryCrossoverIndex = rotaryCrossoverIndex;
+globalThis.__testRotaryCrossoverAt = rotaryCrossoverAt;
+globalThis.__testPadMidiNote = padMidiNote;
+globalThis.__testStereoRotaryPage = STEREO_ROTARY_PAGE.keys;
 `;
 await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
 
@@ -167,18 +180,35 @@ for (let sound = 3; sound < 8; sound++) {
         .map((page) => page.title), ['EVENT CLOCK', 'EVENT SHAPE']);
 }
 assert.deepEqual(globalThis.__testParameterPageSets[0][1],
-    globalThis.__testParameterPageSets[1][1]);
-assert.deepEqual(globalThis.__testParameterPageSets[1][1],
-    globalThis.__testParameterPageSets[2][1]);
-assert.deepEqual(globalThis.__testParameterPageSets[4][1],
-    globalThis.__testParameterPageSets[5][1]);
+    ['pad_mode', 'root_note', 'scale', 'hold_release_ms']);
+assert.deepEqual(globalThis.__testParameterPageSets[0][2],
+    ['amp_attack', 'amp_decay', 'amp_sustain', 'amp_release']);
+assert.deepEqual(globalThis.__testParameterPageSets[0][3],
+    globalThis.__testParameterPageSets[1][3]);
+assert.deepEqual(globalThis.__testParameterPageSets[1][3],
+    globalThis.__testParameterPageSets[2][3]);
+assert.deepEqual(globalThis.__testParameterPageSets[4][3],
+    globalThis.__testParameterPageSets[5][3]);
 assert.deepEqual(globalThis.__testPlaybackPageTitles[6],
     ['STACK PATH', 'GLITCH CLOCK', 'GLITCH PATTERN']);
 assert.deepEqual(globalThis.__testPlaybackPageTitles[7],
     ['STACK PATH', 'WEAVE', 'WEAVE MOTION']);
 assert(globalThis.__testLockableParams.includes('glitch_mix'));
 assert(globalThis.__testLockableParams.includes('effect_feedback'));
+assert(globalThis.__testLockableParams.includes('effect_cross_pan'));
+assert(globalThis.__testLockableParams.includes('effect_rotary_mix'));
+assert(globalThis.__testLockableParams.includes('effect_rotary_ramp'));
+assert(globalThis.__testLockableParams.includes('effect_rotary_balance'));
+assert(globalThis.__testLockableParams.includes('effect_rotary_crossover'));
+assert(globalThis.__testLockableParams.includes('effect_rotary_spread'));
+assert.deepEqual(globalThis.__testStereoRotaryPage, [
+    'effect_cross_pan', 'effect_rotary_rate', 'effect_rotary_depth',
+    'effect_rotary_spread', 'effect_rotary_ramp', 'effect_rotary_balance',
+    'effect_rotary_crossover', 'effect_rotary_mix',
+]);
 assert(globalThis.__testLockableParams.includes('long_grain_length'));
+assert(globalThis.__testLockableParams.includes('amp_attack'));
+assert(globalThis.__testLockableParams.includes('amp_release'));
 assert.equal(globalThis.__testLongGrainLengthAt(0), 250);
 assert.equal(globalThis.__testLongGrainLengthAt(75), 1000);
 assert.equal(globalThis.__testLongGrainLengthAt(135), 4000);
@@ -196,7 +226,35 @@ for (const delay of [0, 50, 500, 1000, 2500, 5000, 15000, 30000, 60000]) {
     assert.equal(globalThis.__testHoldReleaseAt(
         globalThis.__testHoldReleaseIndex(delay)), delay);
 }
+for (const time of [0, 1, 3, 10, 50, 100, 500, 1000, 4000, 10000]) {
+    assert.equal(globalThis.__testEnvelopeTimeAt(
+        globalThis.__testEnvelopeTimeIndex(time, 10000), 10000), time);
+}
+assert.equal(globalThis.__testEnvelopeTimeAt(29, 20000), 20000);
+for (const time of [50, 100, 350, 500, 1000, 2000, 4000, 8000]) {
+    assert.equal(globalThis.__testRotaryRampAt(
+        globalThis.__testRotaryRampIndex(time)), time);
+}
+for (const frequency of [250, 400, 500, 800, 1000, 1250, 2000]) {
+    assert.equal(globalThis.__testRotaryCrossoverAt(
+        globalThis.__testRotaryCrossoverIndex(frequency)), frequency);
+}
 
+/* A recalled named scale must color the RGB pad grid during initialization,
+   before any note input or periodic LED-queue drain. RGB light grey/white are
+   deliberately used instead of WhiteLedDim, whose numeric value is blue in
+   the RGB palette. */
+params.scale = '1';
+globalThis.init();
+assert.deepEqual(padWrites.filter((write) => write[0] === 68).at(-1),
+    [68, 120], 'the recalled tonic should light white immediately');
+assert.deepEqual(padWrites.filter((write) => write[0] === 69).at(-1),
+    [69, 123], 'other recalled scale notes should light dark neutral grey');
+assert.equal(padWrites.filter((write) => write[0] >= 68
+    && write[0] < 100).slice(-32).length, 32,
+    'initialization should prime all 32 pad LEDs');
+
+params.scale = '0';
 globalThis.init();
 const waveformReadsAfterInit = waveformReads;
 assert(drawWrites.length > 100, 'waveform page should draw');
@@ -232,12 +290,14 @@ assert(drawWrites.some((write) => write[0] === 'rect'
    same pitch can therefore show two independently identifiable playheads. */
 params.voice_pads = '-1,-1,-1,-1,-1,-1,-1,-1';
 params.voice_pads = '5,8,-1,-1,-1,-1,-1,-1';
+params.voice_notes = '53,53,-1,-1,-1,-1,-1,-1';
 for (let tick = 0; tick < 6; tick++) globalThis.tick();
 assert.equal(waveformReads, waveformReadsAfterInit + 2,
     'each DSP poll should advance or publish waveform analysis');
 assert(padWrites.some((write) => write[0] === 73 && write[1] === 1));
 assert(padWrites.some((write) => write[0] === 76 && write[1] === 3));
 params.voice_pads = '-1,-1,-1,-1,-1,-1,-1,-1';
+params.voice_notes = '-1,-1,-1,-1,-1,-1,-1,-1';
 for (let tick = 0; tick < 3; tick++) globalThis.tick();
 
 globalThis.onMidiMessageInternal([0xB0, 42, 127]);
@@ -294,10 +354,24 @@ assert.deepEqual(blockingWrites.pop(), ['clip_select', '16']);
 globalThis.onMidiMessageInternal([0xB0, 62, 127]);
 
 globalThis.onMidiMessageInternal([0xB0, 55, 127]);
-assert.deepEqual(blockingWrites.slice(-2), [
-    ['all_notes_off', '1'],
-    ['pad_octave', '1'],
-]);
+assert.deepEqual(blockingWrites.at(-1), ['pad_octave', '1']);
+assert.notDeepEqual(blockingWrites.at(-2), ['all_notes_off', '1']);
+
+/* A held voice keeps physical-pad ownership across octave changes. Its exact
+   voice color is dimmed while the pad maps elsewhere, then restored when the
+   original octave returns. */
+params.voice_pads = '0,-1,-1,-1,-1,-1,-1,-1';
+params.voice_notes = '48,-1,-1,-1,-1,-1,-1,-1';
+for (let tick = 0; tick < 3; tick++) globalThis.tick();
+assert.deepEqual(padWrites.filter((write) => write[0] === 68).at(-1), [68, 65]);
+globalThis.onMidiMessageInternal([0xB0, 54, 127]);
+globalThis.tick();
+assert.deepEqual(padWrites.filter((write) => write[0] === 68).at(-1), [68, 1]);
+globalThis.onMidiMessageInternal([0xB0, 55, 127]);
+globalThis.tick();
+params.voice_pads = '-1,-1,-1,-1,-1,-1,-1,-1';
+params.voice_notes = '-1,-1,-1,-1,-1,-1,-1,-1';
+for (let tick = 0; tick < 3; tick++) globalThis.tick();
 
 globalThis.onMidiMessageInternal([0x90, 68, 100]);
 globalThis.onMidiMessageInternal([0xA0, 68, 64]);
@@ -323,13 +397,52 @@ assert(!drawWrites.slice(settingsDrawStart).some((write) => write[0] === 'rect'
 globalThis.onMidiMessageInternal([0xB0, 71, 1]);
 assert.deepEqual(blockingWrites.pop(), ['algorithm', '1']);
 
+/* Pads and Scale is shared by every engine. Named scales fold the grid to
+   consecutive scale degrees with overlapping rows; Chromatic is unchanged. */
+globalThis.onMidiMessageInternal([0xB0, 55, 127]);
+const scalePageDrawStart = drawWrites.length;
+globalThis.tick();
+const scaleHeader = drawWrites.slice(scalePageDrawStart).find((write) =>
+    write[0] === 'print' && write[2] === 0);
+assert(String(scaleHeader?.[3]).includes('PADS & SCALE 2/12'));
+globalThis.onMidiMessageInternal([0xB0, 73, 1]);
+assert.deepEqual(paramWrites.at(-1), ['scale', '1']);
+assert.equal(globalThis.__testPadMidiNote(0), 60);
+assert.equal(globalThis.__testPadMidiNote(1), 62);
+assert.equal(globalThis.__testPadMidiNote(7), 72);
+assert.equal(globalThis.__testPadMidiNote(8), 65);
+
+/* The shared amp envelope is a breakpoint editor rather than eight generic
+   cells. The first four encoders edit ADSR and draw its gate boundary. */
+globalThis.onMidiMessageInternal([0xB0, 55, 127]);
+const envelopePageDrawStart = drawWrites.length;
+globalThis.tick();
+const envelopeWrites = drawWrites.slice(envelopePageDrawStart);
+assert(envelopeWrites.some((write) => write[0] === 'print'
+    && String(write[3]).includes('AMP ENVELOPE 3/12')));
+for (const label of ['ATK', 'DEC', 'SUS', 'REL']) {
+    assert(envelopeWrites.some((write) => write[0] === 'print'
+        && write[3] === label));
+}
+assert(envelopeWrites.filter((write) => write[0] === 'rect'
+    && write[3] === 1 && write[4] === 1).length > 30,
+    'breakpoint envelope should draw connected curve pixels');
+for (const x of [14, 46, 78, 110]) {
+    assert(envelopeWrites.some((write) => write[0] === 'rect'
+        && write[1] === x && write[2] === 57 && write[3] === 4
+        && write[4] === 4 && write[5] === 1),
+    'knobs 5-8 should remain visibly reserved');
+}
+globalThis.onMidiMessageInternal([0xB0, 71, 1]);
+assert.deepEqual(paramWrites.at(-1), ['amp_attack', '5']);
+
 /* Only pages belonging to the chosen playback engine are exposed. */
 globalThis.onMidiMessageInternal([0xB0, 55, 127]);
 const lanesPageDrawStart = drawWrites.length;
 globalThis.tick();
 const lanesHeader = drawWrites.slice(lanesPageDrawStart).find((write) =>
     write[0] === 'print' && write[2] === 0);
-assert(String(lanesHeader?.[3]).includes('STACK PATH 2/9'));
+assert(String(lanesHeader?.[3]).includes('STACK PATH 4/12'));
 assert(!drawWrites.slice(lanesPageDrawStart).some((write) =>
     write[0] === 'print' && String(write[3]).includes('GRAIN')));
 const lanesPageWrites = drawWrites.slice(lanesPageDrawStart);
@@ -347,7 +460,7 @@ assert.equal(paramWrites.length, writesBeforeReservedTurn,
 
 /* The take page displays the layer count and provides the same action as
    Delete+Record. The following Chain page retains its explicit slot clear. */
-for (let page = 0; page < 6; page++) {
+for (let page = 0; page < 7; page++) {
     globalThis.onMidiMessageInternal([0xB0, 55, 127]);
 }
 const takePageDrawStart = drawWrites.length;
@@ -497,6 +610,16 @@ globalThis.onMidiMessageInternal([0x90, 68, 100]);
 assert.deepEqual(blockingWrites.at(-1), ['cue_clear', '0']);
 globalThis.onMidiMessageInternal([0x80, 68, 0]);
 globalThis.onMidiMessageInternal([0xB0, 119, 0]);
+
+/* Roll pads report their repeating six-division layout on press. */
+params.pad_mode = '3';
+globalThis.tick(); globalThis.tick(); globalThis.tick();
+const rollDrawStart = drawWrites.length;
+globalThis.onMidiMessageInternal([0x90, 73, 100]);
+globalThis.tick();
+assert(drawWrites.slice(rollDrawStart).some((write) =>
+    write[0] === 'print' && String(write[3]).includes('ROLL 1/32')));
+globalThis.onMidiMessageInternal([0x80, 73, 0]);
 params.pad_mode = '0';
 
 /* Shift+Menu is help. Back returns to the waveform before a second Back

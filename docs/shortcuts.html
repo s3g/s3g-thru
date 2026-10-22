@@ -29,13 +29,13 @@
         <table class="readout-table">
           <thead><tr><th>Control</th><th>Action</th></tr></thead>
           <tbody>
-            <tr><td>Pads</td><td>Play the current Keys, Slices, Cues, or Rolls layout with up to eight voices.</td></tr>
+            <tr><td>Pads</td><td>Play the current Keys, Slices, Cues, or Rolls layout. Keys and Slices use up to eight source voices; Rolls capture and stutter the combined stereo history of all active playheads at a pad-specific division without stealing those voices.</td></tr>
             <tr><td>Pad pressure</td><td>Move that voice's continuous stack offset when Pressure is Offset.</td></tr>
-            <tr><td>Shift + pad</td><td>Latch that pad's note; repeat to release it. In Cues, stores the displayed playhead instead.</td></tr>
+            <tr><td>Shift + pad</td><td>Latch that pad's note or captured roll; repeat to release it. In Cues, stores the displayed playhead instead.</td></tr>
             <tr><td>Knobs 1–8</td><td>Edit the eight controls shown on the waveform or active parameter page.</td></tr>
             <tr><td>Track 1–4</td><td>Select the lane used by audio record, load, clear, and sample edit.</td></tr>
             <tr><td>Main encoder turn</td><td>Select the previous/next lane.</td></tr>
-            <tr><td>Up / Down</td><td>Transpose the pad grid by octave on the waveform page.</td></tr>
+            <tr><td>Up / Down</td><td>Transpose the chromatic or folded-scale pad grid by octave on the waveform page.</td></tr>
             <tr><td>Left / Right</td><td>Select performance-clip bank A–D.</td></tr>
             <tr><td>Step 1–16</td><td>Select or queue that clip in the current bank.</td></tr>
             <tr><td>Record or main click</td><td>Start/stop performance-data recording.</td></tr>
@@ -83,7 +83,7 @@
         <table class="readout-table">
           <thead><tr><th>Surface</th><th>State</th></tr></thead>
           <tbody>
-            <tr><td>Pads</td><td>Active voices use stable red, orange, yellow, green, azure, blue-violet, purple, and magenta slot colors. Momentary notes turn off on release; latched notes remain lit until toggle-off or Hold Off expires.</td></tr>
+            <tr><td>Pads</td><td>In a named Keys scale, playable pads are dark neutral grey and tonic pads are full white; the recalled map appears as soon as takeover opens. Active voices replace those colors with stable red, orange, yellow, green, azure, blue-violet, purple, and magenta slot colors. Momentary notes turn off on release. Latched notes remain lit until toggle-off or Hold Off expires; their voice color dims outside the stored pitch's pad mapping and brightens when that mapping returns.</td></tr>
             <tr><td>Steps</td><td>White occupied; orange active/stopped; green active/playing; red recording; blue-violet queued.</td></tr>
             <tr><td>Record</td><td>Red during performance-data capture; orange during audio-lane capture; dim while idle.</td></tr>
             <tr><td>Play</td><td>Green while a performance loop runs; blue-violet while launch is queued.</td></tr>

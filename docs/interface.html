@@ -96,6 +96,11 @@
         <p>Use <kbd>Up</kbd>/<kbd>Down</kbd> while parameters are open to move through pages. Each parameter has one location: shared controls stay on the same shared page, while engine-only controls appear on separate contextual pages. Mix/Rec, Sample Edit, Performance Loop, Overdub Takes, and Chain remain available.</p>
 
         <figure>
+          <div class="doc-graphic move-screen"><img src="assets/screens/amp-envelope.svg" alt="Amp Envelope breakpoint editor with attack, decay, sustain, and release values"></div>
+          <figcaption>Amp Envelope is a graphical exception to the cell layout. Knobs 1–4 move Attack, Decay, Sustain, and Release while the breakpoint curve redraws; knobs 5–8 are reserved.</figcaption>
+        </figure>
+
+        <figure>
           <div class="doc-graphic doc-screenshot move-screen">
             <button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/stack-path.svg" aria-label="Open the shared Stack Path page figure">
               <img src="assets/screens/stack-path.svg" alt="Stack Path page with seven controls and a small reserved box at knob 8">
@@ -134,7 +139,7 @@
 
         <h2 id="leds">LED language</h2>
 
-        <p>Active pads use stable voice-slot colors: red, orange, yellow, green, azure, blue-violet, purple, and magenta. A momentary pad turns off after release; a Shift+pad latch remains lit until toggle-off or its Hold Off timer expires. Step keys use this clip language:</p>
+        <p>In a named Keys scale, playable pads are dark neutral grey and tonic pads are full white. The strong brightness contrast makes tonics easy to read while keeping the scale map separate from the eight voice-slot colors: red, orange, yellow, green, azure, blue-violet, purple, and magenta. The complete recalled scale map appears when takeover opens. A momentary pad turns off after release. A Shift+pad latch remains lit until toggle-off or its Hold Off timer expires; after an octave, Root, or Scale change, its color dims when the stored pitch no longer matches that pad and brightens again when the original mapping returns. Step keys use this clip language:</p>
 
         <ul>
           <li><span class="status-key status-white"></span>White: occupied clip.</li>

@@ -278,6 +278,13 @@ public:
         float speed = 1.0f;
         float mix = 1.0f;
         float join = 1.0f;
+        // Shared note-amplitude envelope. This lives with the controls so
+        // performance clips can snapshot and automate it like other shared
+        // playback parameters; the sample engines do not apply it directly.
+        float ampAttackMs = 3.0f;
+        float ampDecayMs = 0.0f;
+        float ampSustain = 1.0f;
+        float ampReleaseMs = 25.0f;
         PlaybackAlgorithm algorithm = PlaybackAlgorithm::motion;
         MotionMode motion = MotionMode::forward;
         MotionSound motionSound = MotionSound::continuous;
@@ -324,6 +331,8 @@ public:
         float grainDensityHz = 24.0f;
         float grainVoiceLimit = 8.0f;
         float grainPitch = 1.0f;
+        // Per-voice keyboard ratio. Granular source advance remains on speed.
+        float notePitch = 1.0f;
         GrainWindow grainWindow = GrainWindow::bell;
         float grainStereoSpread = 0.0f;
         float grainSpray = 0.0f;
@@ -402,6 +411,16 @@ public:
         float effectFeedback = 0.35f;
         float effectWidth = 1.0f;
         float effectMix = 0.0f;
+        // Post-delay stereo field and rotary-speaker controls. Cross-pan uses
+        // -1 for the original image, 0 for a mono sum, and +1 for swapped L/R.
+        float effectCrossPan = -1.0f;
+        float effectRotaryRateHz = 0.8f;
+        float effectRotaryDepth = 0.7f;
+        float effectRotaryMix = 0.0f;
+        float effectRotaryRampMs = 350.0f;
+        float effectRotaryBalance = 0.0f;
+        float effectRotaryCrossoverHz = 800.0f;
+        float effectRotarySpread = 1.0f;
         float recordInputGain = 1.0f;
     };
 
@@ -3364,6 +3383,7 @@ private:
         const float randomSemitones = (randomUnit() * 2.0f - 1.0f)
             * pitchSpray;
         float eventPitch = grainPitch_
+            * clamp(controls.notePitch, 0.001f, 512.0f)
             * std::pow(2.0f, randomSemitones / 12.0f);
         if (randomUnit() < clamp01(controls.grainReverseChance)) {
             eventPitch = -eventPitch;
@@ -3590,6 +3610,7 @@ private:
         const float randomSemitones = (randomUnit() * 2.0f - 1.0f)
             * clamp(controls.longGrainPitchSpray, 0.0f, 24.0f);
         float eventPitch = longGrainPitch_
+            * clamp(controls.notePitch, 0.001f, 512.0f)
             * std::pow(2.0f, randomSemitones / 12.0f);
         if (randomUnit() < clamp01(controls.longGrainReverseChance)) {
             eventPitch = -eventPitch;

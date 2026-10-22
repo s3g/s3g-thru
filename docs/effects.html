@@ -14,13 +14,19 @@
       <main class="content" id="content">
         <p class="eyebrow">Post-engine sound</p>
         <h1>Effects</h1>
-        <p class="lead">Every playback engine feeds one compact stereo chain: tone shaping, drive, bit and rate reduction, then a cross-feedback delay. The page is available after Mix / Rec for every engine, and all eight values belong to the current clip.</p>
+        <p class="lead">Every playback engine feeds one clip-local stereo chain: tone shaping, drive, bit and rate reduction, cross-feedback delay, stereo cross-pan, then a rotary-speaker stage. Two shared pages follow Mix / Rec for every engine.</p>
 
-        <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/effects.svg" aria-label="Open Effects page"><img src="assets/screens/effects.svg" alt="Effects parameter page"></button></div><figcaption>At the defaults the chain is transparent. Input Monitor stays dry, which prevents the delay from becoming a microphone monitoring loop.</figcaption></figure>
+        <div class="panel-gallery">
+          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/effects.svg" aria-label="Open Effects page"><img src="assets/screens/effects.svg" alt="Effects parameter page"></button></div><figcaption>Effects holds tone, reduction, and delay.</figcaption></figure>
+          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/effects-stereo-rotary.svg" aria-label="Open Stereo and Rotary page"><img src="assets/screens/effects-stereo-rotary.svg" alt="Stereo and Rotary effects parameter page"></button></div><figcaption>Stereo / Rotary follows Effects. The factory Mix is 0%; this example raises it to show a usable slow setting.</figcaption></figure>
+        </div>
+
+        <p>Input Monitor stays dry, which prevents the effects from becoming a microphone monitoring loop. Browser Preview and Resample use the complete processed chain.</p>
 
         <h2 id="controls">Effects — every parameter</h2>
+        <h3>Effects</h3>
         <table class="readout-table parameter-table">
-          <thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>Detail</th></tr></thead>
+          <thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>What it controls</th></tr></thead>
           <tbody>
             <tr><td>1</td><td>TONE</td><td>−1.00–1.00</td><td>Darkens toward −1 with a low-pass contour; brightens toward +1 by progressively removing low frequencies. Zero is bypass.</td></tr>
             <tr><td>2</td><td>DRIV</td><td>0.00–1.00</td><td>Adds level-dependent soft saturation. It is placed before reduction and delay.</td></tr>
@@ -33,7 +39,25 @@
           </tbody>
         </table>
 
+        <h3>Stereo / Rotary</h3>
+        <table class="readout-table parameter-table">
+          <thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>What it controls</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>X-PN</td><td>−100–100</td><td>Cross-pans the complete stereo image. <code>NORM</code> at −100 preserves left and right, <code>MONO</code> at 0 sends their averaged sum to both outputs, and <code>SWAP</code> at +100 exchanges left and right. Intermediate values progressively collapse or reopen the field.</td></tr>
+            <tr><td>2</td><td>RATE</td><td>0.00–8.00 Hz</td><td>Sets the high-horn target speed; the low drum runs slightly slower. At 0.00, both rotors brake to a stop at their current angles rather than resetting their phase.</td></tr>
+            <tr><td>3</td><td>DPTH</td><td>0–100%</td><td>Controls stereo level motion and Doppler pitch depth for the independently moving high horn and low drum.</td></tr>
+            <tr><td>4</td><td>SPRD</td><td>0–100%</td><td>Controls only the width of the rotary wet signal. Zero folds the cabinet to mono while retaining its movement; 100% preserves the full modeled stereo field.</td></tr>
+            <tr><td>5</td><td>RAMP</td><td>50 ms–8.00 s</td><td>Sets rotor acceleration and braking inertia. The high horn responds first and the heavier low drum follows more slowly. Encoder spacing is finer below 500 ms and progressively broader for long ramps.</td></tr>
+            <tr><td>6</td><td>BAL</td><td>DRUM–EVEN–HORN</td><td>Balances the low drum against the high horn. The end positions isolate one rotor; <code>EVEN</code> keeps both bands at equal nominal gain.</td></tr>
+            <tr><td>7</td><td>XOVR</td><td>250–2000 Hz</td><td>Sets the crossover between the drum and horn. Lower values give more of the sound to the horn; higher values give more to the drum. Encoder steps are deliberately finer in the lower range.</td></tr>
+            <tr><td>8</td><td>MIX</td><td>0–100%</td><td>Blends the rotary cabinet with the cross-panned signal. Zero bypasses the rotary stage; 100% is the rotating cabinet alone. Its lower-right position matches MIX on the main Effects page.</td></tr>
+          </tbody>
+        </table>
+
+        <p>The rotary stage splits the signal into a low drum and high horn, moves them at related but different rates, and combines stereo amplitude movement with short modulated delays. The high horn accelerates faster than the heavier drum. A reduced amount of the original side signal is retained so unusually wide or phase-opposed stereo material does not disappear. X-PAN is before Rotary, while SPRD acts on the rotary wet signal only, so <code>MONO</code> can deliberately give the speaker a centered source that the cabinet spreads into motion.</p>
+
         <h2 id="starts">Good starting points</h2>
+        <h3>Core effects starting points</h3>
         <table class="readout-table">
           <thead><tr><th>Starting point</th><th>TONE</th><th>DRIV</th><th>BITS</th><th>RATE</th><th>DLY</th><th>FDBK</th><th>WDTH</th><th>MIX</th></tr></thead>
           <tbody>
@@ -44,10 +68,23 @@
           </tbody>
         </table>
 
+        <h3>Stereo / rotary starting points</h3>
+        <table class="readout-table">
+          <thead><tr><th>Starting point</th><th>X-PN</th><th>RATE</th><th>DPTH</th><th>MIX</th><th>RAMP</th><th>BAL</th><th>XOVR</th><th>SPRD</th></tr></thead>
+          <tbody>
+            <tr><td>Original field</td><td>NORM</td><td>0.80 Hz</td><td>70%</td><td>0%</td><td>350 ms</td><td>EVEN</td><td>800 Hz</td><td>100%</td></tr>
+            <tr><td>Centered source</td><td>MONO</td><td>0.80 Hz</td><td>70%</td><td>0%</td><td>350 ms</td><td>EVEN</td><td>800 Hz</td><td>100%</td></tr>
+            <tr><td>Slow cabinet</td><td>NORM</td><td>0.80 Hz</td><td>65%</td><td>35%</td><td>900 ms</td><td>DRUM 15%</td><td>700 Hz</td><td>85%</td></tr>
+            <tr><td>Fast cabinet</td><td>NORM</td><td>6.20 Hz</td><td>85%</td><td>55%</td><td>250 ms</td><td>HORN 20%</td><td>950 Hz</td><td>100%</td></tr>
+            <tr><td>Stopped cabinet</td><td>MONO</td><td>0.00 Hz</td><td>75%</td><td>55%</td><td>2.00 s</td><td>EVEN</td><td>800 Hz</td><td>100%</td></tr>
+            <tr><td>Narrow reversed field</td><td>SWAP</td><td>2.40 Hz</td><td>75%</td><td>45%</td><td>500 ms</td><td>EVEN</td><td>800 Hz</td><td>35%</td></tr>
+          </tbody>
+        </table>
+
         <div class="callout"><p><strong>Resampling:</strong> Resample records the processed instrument output, including this chain. Input recording captures the selected Move input instead. Browser Preview also passes through the effects, while Monitor remains dry.</p></div>
 
         <h2 id="locks">Performance-loop motion</h2>
-        <p>Every Effects control can be recorded as a continuous performance-loop gesture. Begin Replace or Overdub recording, then turn an Effects encoder. Undo Take removes the newest layer of effect motion together with the other notes and gestures in that take.</p>
+        <p>Every control on both effects pages can be recorded as a continuous performance-loop gesture. Begin Replace or Overdub recording, then turn an encoder. Undo Take removes the newest layer of effect motion together with the other notes and gestures in that take.</p>
 
         <nav class="page-nav" aria-label="Page navigation"><a class="page-nav-link" href="engine-weave.html"><span>Previous</span>Weave</a><a class="page-nav-link next" href="performance.html"><span>Next</span>Performance Loops</a></nav>
       </main>
@@ -56,7 +93,7 @@
         <div class="toc-section"><h2>On this page</h2><a href="#controls">Controls</a><a href="#starts">Starting points</a><a href="#locks">Performance motion</a></div>
       </aside>
     </div>
-    <footer class="manual-footer">Effects are clip-local, lockable, and shared by all eight voices.</footer>
+    <footer class="manual-footer">Both effects pages are clip-local, lockable, and shared by all eight voices.</footer>
     <script src="assets/lightbox.js"></script>
   </body>
 </html>

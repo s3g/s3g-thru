@@ -1,4 +1,4 @@
-/* s3g Thru 0.25.1 — polyphonic sampler/performance-looper takeover for Move. */
+/* s3g Thru 0.26.0 — polyphonic sampler/performance-looper takeover for Move. */
 
 import * as moveConstants from '/data/UserData/schwung/shared/constants.mjs';
 import * as moveInputFilter from '/data/UserData/schwung/shared/input_filter.mjs';
@@ -34,6 +34,7 @@ const MoveTracks = [
 ];
 
 const Black = constant('Black', 0);
+const ScaleNoteGrey = constant('DarkGrey3', 123);
 const White = constant('White', 120);
 const Cyan = constant('Cyan', 14);
 const BrightRed = constant('BrightRed', 1);
@@ -44,6 +45,14 @@ const AzureBlue = constant('AzureBlue', 16);
 const BlueViolet = constant('BlueViolet', 18);
 const Purple = constant('Purple', 22);
 const LightMagenta = constant('LightMagenta', 26);
+const DeepRed = constant('DeepRed', 65);
+const BurntSienna = constant('BurntSienna', 69);
+const DarkYellowOlive = constant('DarkYellowOlive', 79);
+const DarkGrass = constant('DarkGrass', 85);
+const DarkAzure = constant('DarkAzure', 95);
+const DarkBlueViolet = constant('DarkBlueViolet', 99);
+const DarkPurple = constant('DarkPurple', 107);
+const DarkLightMagenta = constant('DarkLightMagenta', 115);
 const WhiteLedDim = constant('WhiteLedDim', 8);
 const WhiteLedBright = constant('WhiteLedBright', 127);
 
@@ -66,10 +75,42 @@ const setButtonLED = typeof moveInputFilter.setButtonLED === 'function'
 const WAVE_BINS = 112;
 const ALGORITHMS = ['MOTION', 'LANES', 'GRAINS', 'CUTUPS', 'SAMPLE', 'SLICES',
     'GLITCH', 'WEAVE'];
+const ROLL_DIVISIONS = ['1/4', '1/8', '1/8T', '1/16', '1/16T', '1/32'];
+const SCALE_LABELS = [
+    'CHROMATIC', 'MAJOR', 'MINOR', 'DORIAN', 'MIXOLYDIAN', 'LYDIAN',
+    'PHRYGIAN', 'LOCRIAN', 'WHOLE TONE', 'HALF-WHOLE DIM',
+    'WHOLE-HALF DIM', 'MINOR BLUES', 'MINOR PENTATONIC',
+    'MAJOR PENTATONIC', 'HARMONIC MINOR', 'HARMONIC MAJOR', 'DORIAN #4',
+    'PHRYGIAN DOMINANT', 'MELODIC MINOR', 'LYDIAN AUGMENTED',
+    'LYDIAN DOMINANT', 'SUPER LOCRIAN', '8-TONE SPANISH', 'BHAIRAV',
+    'HUNGARIAN MINOR',
+];
+const SCALE_ABBREVIATIONS = [
+    'CHR', 'MAJ', 'MIN', 'DOR', 'MIX', 'LYD', 'PHR', 'LOC', 'WT', 'H-WD',
+    'W-HD', 'MBLU', 'MPEN', 'JPEN', 'HMIN', 'HMAJ', 'DOR#', 'PDOM', 'MMIN',
+    'LYD+', 'LYDD', 'SLOC', '8SPA', 'BHAI', 'HUNG',
+];
+const SCALE_INTERVALS = [
+    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+    [0, 2, 4, 5, 7, 9, 11], [0, 2, 3, 5, 7, 8, 10],
+    [0, 2, 3, 5, 7, 9, 10], [0, 2, 4, 5, 7, 9, 10],
+    [0, 2, 4, 6, 7, 9, 11], [0, 1, 3, 5, 7, 8, 10],
+    [0, 1, 3, 5, 6, 8, 10], [0, 2, 4, 6, 8, 10],
+    [0, 1, 3, 4, 6, 7, 9, 10], [0, 2, 3, 5, 6, 8, 9, 11],
+    [0, 3, 5, 6, 7, 10], [0, 3, 5, 7, 10], [0, 2, 4, 7, 9],
+    [0, 2, 3, 5, 7, 8, 11], [0, 2, 4, 5, 7, 8, 11],
+    [0, 2, 3, 6, 7, 9, 10], [0, 1, 4, 5, 7, 8, 10],
+    [0, 2, 3, 5, 7, 9, 11], [0, 2, 4, 6, 8, 9, 11],
+    [0, 2, 4, 6, 7, 9, 10], [0, 1, 3, 4, 6, 8, 10],
+    [0, 1, 3, 4, 5, 6, 8, 10], [0, 1, 4, 5, 7, 8, 11],
+    [0, 2, 3, 6, 7, 8, 11],
+];
 const LEDS_PER_TICK = 8;
 const GLITCH_LOCK_TAP_TICKS = 30;
 const VOICE_COLORS = [BrightRed, BrightOrange, BrightYellow, NeonGreen,
     AzureBlue, BlueViolet, Purple, LightMagenta];
+const VOICE_DIM_COLORS = [DeepRed, BurntSienna, DarkYellowOlive, DarkGrass,
+    DarkAzure, DarkBlueViolet, DarkPurple, DarkLightMagenta];
 const LIBRARY_ROOT = '/data/UserData/UserLibrary/Samples';
 const LIBRARY_HOME = '@s3g-thru-sources';
 const BANK_NAMES = ['A', 'B', 'C', 'D'];
@@ -83,6 +124,10 @@ const PARAMS = {
     algorithm: { key: 'algorithm', label: 'ALGORITHM', min: 0, max: 7, step: 1, value: 0, integer: true, labels: ALGORITHMS },
     join: { key: 'join', label: 'JOIN', min: 0, max: 1, step: 0.01, value: 1 },
     output_gain: { key: 'output_gain', label: 'LEVEL', min: 0, max: 2, step: 0.02, value: 1 },
+    amp_attack: { key: 'amp_attack', label: 'ATTACK', min: 0, max: 10000, step: 1, value: 3, integer: true },
+    amp_decay: { key: 'amp_decay', label: 'DECAY', min: 0, max: 10000, step: 1, value: 0, integer: true },
+    amp_sustain: { key: 'amp_sustain', label: 'SUSTAIN', min: 0, max: 100, step: 1, value: 100, integer: true },
+    amp_release: { key: 'amp_release', label: 'RELEASE', min: 0, max: 20000, step: 1, value: 25, integer: true },
     motion_mode: { key: 'motion_mode', label: 'MODE', min: 0, max: 7, step: 1, value: 0, integer: true, labels: ['FWD', 'REV', 'HOVER', 'ROUND', 'LOOP', 'MIRROR', 'ZIGZAG', 'DRUNK'] },
     motion_sound: { key: 'motion_sound', label: 'SOUND', min: 0, max: 7, step: 1, value: 0, integer: true, labels: ['CONT', 'PACKETS', 'MOTOR', 'BOUNCE', 'FREEZE', 'ITERATE', 'PULSER', 'DOUBLETS'] },
     motion_rate: { key: 'motion_rate', label: 'PACKET RATE', min: 0.25, max: 20, step: 0.25, value: 4 },
@@ -192,6 +237,14 @@ const PARAMS = {
     effect_feedback: { key: 'effect_feedback', label: 'FEEDBACK %', min: 0, max: 90, step: 1, value: 35, integer: true },
     effect_width: { key: 'effect_width', label: 'WIDTH %', min: 0, max: 100, step: 1, value: 100, integer: true },
     effect_mix: { key: 'effect_mix', label: 'DELAY MIX %', min: 0, max: 100, step: 1, value: 0, integer: true },
+    effect_cross_pan: { key: 'effect_cross_pan', label: 'STEREO CROSS PAN', min: -100, max: 100, step: 1, value: -100, integer: true },
+    effect_rotary_rate: { key: 'effect_rotary_rate', label: 'ROTARY RATE', min: 0, max: 8, step: 0.1, value: 0.8 },
+    effect_rotary_depth: { key: 'effect_rotary_depth', label: 'ROTARY DEPTH %', min: 0, max: 100, step: 1, value: 70, integer: true },
+    effect_rotary_mix: { key: 'effect_rotary_mix', label: 'ROTARY MIX %', min: 0, max: 100, step: 1, value: 0, integer: true },
+    effect_rotary_ramp: { key: 'effect_rotary_ramp', label: 'ROTARY RAMP', min: 50, max: 8000, step: 10, value: 350, integer: true },
+    effect_rotary_balance: { key: 'effect_rotary_balance', label: 'ROTOR BALANCE', min: -100, max: 100, step: 1, value: 0, integer: true },
+    effect_rotary_crossover: { key: 'effect_rotary_crossover', label: 'ROTARY CROSSOVER', min: 250, max: 2000, step: 10, value: 800, integer: true },
+    effect_rotary_spread: { key: 'effect_rotary_spread', label: 'ROTARY SPREAD %', min: 0, max: 100, step: 1, value: 100, integer: true },
     pad_mode: { key: 'pad_mode', label: 'PAD MODE', min: 0, max: 3, step: 1, value: 0, integer: true, labels: ['KEYS', 'SLICES', 'CUES', 'ROLLS'] },
     lane_variation: { key: 'lane_variation', label: 'VARIATION', min: 0, max: 4, step: 1, value: 0, integer: true, labels: ['MANUAL', 'CYCLE', 'RANDOM', 'NO REPEAT', 'VELOCITY'] },
     preview_level: { key: 'preview_level', label: 'PREVIEW LEVEL', min: 0, max: 1, step: 0.01, value: 0.7 },
@@ -201,6 +254,7 @@ const PARAMS = {
     lane_4_gain: { key: 'lane_4_gain', label: 'LANE 4', min: 0, max: 2, step: 0.02, value: 1 },
     pressure_mode: { key: 'pressure_mode', label: 'PRESSURE', min: 0, max: 1, step: 1, value: 1, integer: true, labels: ['OFF', 'OFFSET'] },
     root_note: { key: 'root_note', label: 'ROOT', min: 24, max: 96, step: 1, value: 60, integer: true, note: true },
+    scale: { key: 'scale', label: 'SCALE', min: 0, max: 24, step: 1, value: 0, integer: true, labels: SCALE_LABELS },
     record_gain: { key: 'record_gain', label: 'REC GAIN', min: 0, max: 4, step: 0.05, value: 1 },
     record_source: { key: 'record_source', label: 'REC SOURCE', min: 0, max: 1, step: 1, value: 0, integer: true, labels: ['INPUT', 'RESAMPLE'] },
     monitor_level: { key: 'monitor_level', label: 'MONITOR', min: 0, max: 1, step: 0.01, value: 0 },
@@ -249,7 +303,11 @@ const STACK_PATH_PAGE = { title: 'STACK PATH', keys: ['lane_path',
     'lane_blend', 'lane_path_shape', 'lane_path_offset', 'lane_path_skew',
     'lane_path_curve', 'lane_slew'] };
 const DIRECT_PLAY_PAGE = { title: 'DIRECT PLAY', keys: ['sample_mode',
-    'lane_variation', 'pad_mode', 'root_note'] };
+    'lane_variation'] };
+const PADS_SCALE_PAGE = { title: 'PADS & SCALE', keys: ['pad_mode',
+    'root_note', 'scale', 'hold_release_ms'] };
+const AMP_ENVELOPE_PAGE = { title: 'AMP ENVELOPE', breakpoint: true,
+    keys: ['amp_attack', 'amp_decay', 'amp_sustain', 'amp_release'] };
 const MOTION_SOUND_PAGE = { title: 'MOTION SOUND', keys: ['motion_sound'] };
 const PACKETS_PAGE = { title: 'PACKETS', keys: ['motion_rate',
     'packet_duty'] };
@@ -333,12 +391,16 @@ const MIX_REC_PAGE = { title: 'MIX / REC', keys: ['lane_1_gain', 'lane_2_gain',
 const EFFECTS_PAGE = { title: 'EFFECTS', keys: ['effect_tone', 'effect_drive',
     'effect_bits', 'effect_rate', 'effect_delay', 'effect_feedback',
     'effect_width', 'effect_mix'] };
+const STEREO_ROTARY_PAGE = { title: 'STEREO / ROTARY', keys: [
+    'effect_cross_pan', 'effect_rotary_rate', 'effect_rotary_depth',
+    'effect_rotary_spread', 'effect_rotary_ramp', 'effect_rotary_balance',
+    'effect_rotary_crossover', 'effect_rotary_mix'] };
 const SAMPLE_PAGE = { title: 'SAMPLE EDIT', keys: ['sample_trim_start',
     'sample_trim_end', 'sample_trim_apply', 'sample_reverse',
     'sample_normalize', 'sample_fade'] };
 const LOOP_PAGE = { title: 'PERFORMANCE LOOP', keys: ['clip_rate',
     'clip_timing', 'launch_quantize', 'tempo_bpm', 'clip_record_mode',
-    'tempo_swing', 'pressure_mode', 'hold_release_ms'] };
+    'tempo_swing', 'pressure_mode'] };
 const TAKE_PAGE = { title: 'OVERDUB TAKES', keys: [null, 'clip_take_undo'] };
 const CHAIN_PAGE = { title: 'CHAIN', keys: ['chain_enabled', 'chain_slot',
     'chain_clip', 'chain_repeats', 'chain_clear'] };
@@ -370,12 +432,17 @@ const LOCKABLE_KEYS = [
     'glitch_jump', 'glitch_pitch', 'glitch_reverse', 'glitch_decay',
     'glitch_seed', 'effect_tone', 'effect_drive', 'effect_bits',
     'effect_rate', 'effect_delay', 'effect_feedback', 'effect_width',
-    'effect_mix', 'long_grain_mode', 'long_grain_length',
+    'effect_mix', 'effect_cross_pan', 'effect_rotary_rate',
+    'effect_rotary_depth', 'effect_rotary_mix', 'effect_rotary_ramp',
+    'effect_rotary_balance', 'effect_rotary_crossover',
+    'effect_rotary_spread',
+    'long_grain_mode', 'long_grain_length',
     'long_grain_layers', 'long_grain_pitch', 'long_grain_shape',
     'long_grain_edge', 'long_grain_spread', 'long_grain_reverse',
     'long_grain_spray', 'long_grain_bias',
     'long_grain_duration_variation', 'long_grain_pitch_spray',
     'long_grain_level_variation', 'long_grain_phase', 'long_grain_advance',
+    'amp_attack', 'amp_decay', 'amp_sustain', 'amp_release',
 ];
 const LOCKABLE_PARAMS = new Set(LOCKABLE_KEYS);
 
@@ -413,7 +480,7 @@ const SHORT_LABELS = {
     slice_region_mode: 'SSRC', slice_regions: 'SLIC', pad_mode: 'PADS',
     lane_variation: 'VARI', preview_level: 'PREV',
     lane_2_gain: 'L2', lane_3_gain: 'L3', lane_4_gain: 'L4',
-    pressure_mode: 'PRES', root_note: 'ROOT', record_gain: 'REC',
+    pressure_mode: 'PRES', root_note: 'ROOT', scale: 'SCAL', record_gain: 'REC',
     record_source: 'SRC', monitor_level: 'MON', clip_rate: 'RATE',
     clip_record_mode: 'MODE', clip_timing: 'TIME', launch_quantize: 'LNCH',
     tempo_bpm: 'BPM', tempo_swing: 'SWNG', hold_release_ms: 'HOLD',
@@ -431,6 +498,10 @@ const SHORT_LABELS = {
     glitch_seed: 'SEED', effect_tone: 'TONE', effect_drive: 'DRIV',
     effect_bits: 'BITS', effect_rate: 'RATE', effect_delay: 'DLY',
     effect_feedback: 'FDBK', effect_width: 'WDTH', effect_mix: 'MIX',
+    effect_cross_pan: 'X-PN', effect_rotary_rate: 'RATE',
+    effect_rotary_depth: 'DPTH', effect_rotary_mix: 'MIX',
+    effect_rotary_ramp: 'RAMP', effect_rotary_balance: 'BAL',
+    effect_rotary_crossover: 'XOVR', effect_rotary_spread: 'SPRD',
     long_grain_mode: 'MODE', long_grain_length: 'LEN',
     long_grain_layers: 'LAYR', long_grain_pitch: 'PIT',
     long_grain_shape: 'SHAP', long_grain_edge: 'EDGE',
@@ -439,6 +510,8 @@ const SHORT_LABELS = {
     long_grain_duration_variation: 'DVAR', long_grain_pitch_spray: 'PSPR',
     long_grain_level_variation: 'LVAR', long_grain_phase: 'PHAS',
     long_grain_advance: 'ADVN',
+    amp_attack: 'ATK', amp_decay: 'DEC', amp_sustain: 'SUS',
+    amp_release: 'REL',
 };
 
 const state = {
@@ -454,6 +527,9 @@ const state = {
     playheads: Array(8).fill(-1),
     stackPositions: Array(8).fill(-1),
     voicePads: Array(8).fill(-1),
+    voiceNotes: Array(8).fill(-1),
+    rollPads: Array(8).fill(-1),
+    rollNotes: Array(8).fill(-1),
     voiceCount: 0,
     limited: false,
     tenths: 0,
@@ -533,6 +609,7 @@ const state = {
     sampleLoadName: '',
     regions: [],
     padMode: 0,
+    scale: 0,
     cues: Array(8).fill(-1),
 };
 
@@ -574,6 +651,34 @@ function longGrainLengthAt(index) {
     return 4000 + (detent - 135) * 100;
 }
 
+function rotaryRampAt(index) {
+    const detent = clamp(Math.round(index), 0, 99);
+    if (detent <= 45) return 50 + detent * 10;
+    if (detent <= 75) return 500 + (detent - 45) * 50;
+    return 2000 + (detent - 75) * 250;
+}
+
+function rotaryRampIndex(value) {
+    const target = clamp(value, 50, 8000);
+    if (target <= 500) return Math.round((target - 50) / 10);
+    if (target <= 2000) return 45 + Math.round((target - 500) / 50);
+    return 75 + Math.round((target - 2000) / 250);
+}
+
+function rotaryCrossoverAt(index) {
+    const detent = clamp(Math.round(index), 0, 65);
+    if (detent <= 25) return 250 + detent * 10;
+    if (detent <= 45) return 500 + (detent - 25) * 25;
+    return 1000 + (detent - 45) * 50;
+}
+
+function rotaryCrossoverIndex(value) {
+    const target = clamp(value, 250, 2000);
+    if (target <= 500) return Math.round((target - 250) / 10);
+    if (target <= 1000) return 25 + Math.round((target - 500) / 25);
+    return 45 + Math.round((target - 1000) / 50);
+}
+
 function holdReleaseAt(index) {
     const detent = clamp(Math.round(index), 0, 67);
     if (detent === 0) return 0;
@@ -595,6 +700,36 @@ function holdReleaseIndex(value) {
         }
     }
     return nearest;
+}
+
+const ENVELOPE_TIMES = [
+    0, 1, 2, 3, 5, 8, 10, 15, 20, 30, 40, 50, 75, 100, 150, 200,
+    300, 400, 500, 750, 1000, 1500, 2000, 3000, 4000, 6000, 8000,
+    10000, 15000, 20000,
+];
+
+function envelopeTimeIndex(value, maximum) {
+    const target = clamp(value, 0, maximum);
+    let nearest = 0;
+    let distance = Math.abs(target - ENVELOPE_TIMES[0]);
+    for (let index = 1; index < ENVELOPE_TIMES.length
+        && ENVELOPE_TIMES[index] <= maximum; index++) {
+        const candidate = Math.abs(target - ENVELOPE_TIMES[index]);
+        if (candidate < distance) {
+            nearest = index;
+            distance = candidate;
+        }
+    }
+    return nearest;
+}
+
+function envelopeTimeAt(index, maximum) {
+    let last = 0;
+    for (let candidate = 1; candidate < ENVELOPE_TIMES.length; candidate++) {
+        if (ENVELOPE_TIMES[candidate] > maximum) break;
+        last = candidate;
+    }
+    return ENVELOPE_TIMES[clamp(Math.round(index), 0, last)];
 }
 
 function decodeDelta(value) {
@@ -698,6 +833,39 @@ function parseVoicePads(text) {
             ? value | 0 : -1;
     });
     if (previous !== state.voicePads.join(',')) rebuildLedQueue();
+}
+
+function parseVoiceNotes(text) {
+    const values = String(text || '').split(',').map((item) => Number(item));
+    const previous = state.voiceNotes.join(',');
+    state.voiceNotes = Array.from({ length: 8 }, (_, index) => {
+        const value = values[index];
+        return Number.isFinite(value) && value >= 0 && value <= 127
+            ? value | 0 : -1;
+    });
+    if (previous !== state.voiceNotes.join(',')) rebuildLedQueue();
+}
+
+function parseRollPads(text) {
+    const values = String(text || '').split(',').map((item) => Number(item));
+    const previous = state.rollPads.join(',');
+    state.rollPads = Array.from({ length: 8 }, (_, index) => {
+        const value = values[index];
+        return Number.isFinite(value) && value >= 0 && value < 32
+            ? value | 0 : -1;
+    });
+    if (previous !== state.rollPads.join(',')) rebuildLedQueue();
+}
+
+function parseRollNotes(text) {
+    const values = String(text || '').split(',').map((item) => Number(item));
+    const previous = state.rollNotes.join(',');
+    state.rollNotes = Array.from({ length: 8 }, (_, index) => {
+        const value = values[index];
+        return Number.isFinite(value) && value >= 0 && value <= 127
+            ? value | 0 : -1;
+    });
+    if (previous !== state.rollNotes.join(',')) rebuildLedQueue();
 }
 
 function parseWaveforms(text) {
@@ -853,19 +1021,36 @@ function basePadColor() {
     if (state.padMode === 1) return AzureBlue;
     if (state.padMode === 2) return WhiteLedDim;
     if (state.padMode === 3) return Purple;
+    if (state.scale !== 0) return ScaleNoteGrey;
     return Black;
 }
 
 function padColor(index) {
+    for (let roll = 0; roll < state.rollPads.length; roll++) {
+        if (state.rollPads[roll] === index) {
+            return state.rollNotes[roll] >= 0
+                && state.rollNotes[roll] !== padMidiNote(index)
+                ? DarkLightMagenta : LightMagenta;
+        }
+    }
     for (let voice = 0; voice < state.voicePads.length; voice++) {
-        if (state.voicePads[voice] === index) return VOICE_COLORS[voice];
+        if (state.voicePads[voice] === index) {
+            return state.voiceNotes[voice] >= 0
+                && state.voiceNotes[voice] !== padMidiNote(index)
+                ? VOICE_DIM_COLORS[voice] : VOICE_COLORS[voice];
+        }
     }
     if (state.padMode === 2) {
         if (index >= 8) return Black;
         if (state.activePads.has(MovePads[index])) return Cyan;
         return state.cues[index] >= 0 ? BrightOrange : WhiteLedDim;
     }
-    return state.activePads.has(MovePads[index]) ? Cyan : basePadColor();
+    if (state.activePads.has(MovePads[index])) return Cyan;
+    if (state.padMode === 0 && state.scale !== 0
+        && (padMidiNote(index) - Math.round(PARAMS.root_note.value)) % 12 === 0) {
+        return White;
+    }
+    return basePadColor();
 }
 
 function ledKey(type, id) {
@@ -942,6 +1127,12 @@ function rebuildLedQueue() {
         queueLed('cc', MoveRecordAlt,
             state.clipRecording ? BrightRed
                 : (state.recording ? BrightOrange : WhiteLedDim), 1);
+    }
+}
+
+function primePadLeds() {
+    for (let index = 0; index < MovePads.length; index++) {
+        sendLedNow('note', MovePads[index], padColor(index));
     }
 }
 
@@ -1088,9 +1279,9 @@ function currentSettingsPage() {
 function parameterPages() {
     const enginePages = playbackPagesForAlgorithm(
         state.algorithm, Math.round(PARAMS.motion_sound.value));
-    return [ENGINE_PAGE, ...enginePages,
-        MIX_REC_PAGE, EFFECTS_PAGE, SAMPLE_PAGE, LOOP_PAGE, TAKE_PAGE,
-        CHAIN_PAGE];
+    return [ENGINE_PAGE, PADS_SCALE_PAGE, AMP_ENVELOPE_PAGE, ...enginePages,
+        MIX_REC_PAGE, EFFECTS_PAGE, STEREO_ROTARY_PAGE, SAMPLE_PAGE,
+        LOOP_PAGE, TAKE_PAGE, CHAIN_PAGE];
 }
 
 function activeControlKeys() {
@@ -1108,6 +1299,39 @@ function noteName(value) {
 
 function formatControlValue(control) {
     if (!control) return '';
+    if (control.key === 'effect_cross_pan') {
+        if (control.value <= -99.5) return 'NORMAL';
+        if (Math.abs(control.value) < 0.5) return 'MONO';
+        if (control.value >= 99.5) return 'SWAPPED';
+        return Math.round(control.value) + ' %';
+    }
+    if (control.key === 'effect_rotary_rate' && control.value < 0.05) {
+        return 'STOP';
+    }
+    if (control.key === 'effect_rotary_ramp') {
+        if (control.value < 1000) return Math.round(control.value) + ' ms';
+        return (control.value / 1000).toFixed(
+            control.value % 1000 === 0 ? 0 : 2) + ' s';
+    }
+    if (control.key === 'effect_rotary_balance') {
+        if (control.value <= -99.5) return 'DRUM';
+        if (Math.abs(control.value) < 0.5) return 'EVEN';
+        if (control.value >= 99.5) return 'HORN';
+        return (control.value > 0 ? 'HORN ' : 'DRUM ')
+            + Math.abs(Math.round(control.value)) + ' %';
+    }
+    if (control.key === 'effect_rotary_crossover') {
+        return Math.round(control.value) + ' Hz';
+    }
+    if (control.key === 'amp_attack' || control.key === 'amp_decay'
+        || control.key === 'amp_release') {
+        if (control.value < 1000) return Math.round(control.value) + ' ms';
+        return (control.value / 1000).toFixed(
+            control.value % 1000 === 0 ? 0 : 2) + ' s';
+    }
+    if (control.key === 'amp_sustain') {
+        return Math.round(control.value) + ' %';
+    }
     if (control.key === 'hold_release_ms') {
         if (control.value <= 0) return 'MANUAL';
         if (control.value < 1000) return Math.round(control.value) + ' ms';
@@ -1126,6 +1350,43 @@ function formatControlValue(control) {
 
 function compactControlValue(control) {
     if (!control) return '';
+    if (control.key === 'effect_cross_pan') {
+        if (control.value <= -99.5) return 'NORM';
+        if (Math.abs(control.value) < 0.5) return 'MONO';
+        if (control.value >= 99.5) return 'SWAP';
+        return String(Math.round(control.value)).slice(0, 4);
+    }
+    if (control.key === 'effect_rotary_rate' && control.value < 0.05) {
+        return 'STOP';
+    }
+    if (control.key === 'effect_rotary_ramp') {
+        if (control.value < 1000) return String(Math.round(control.value));
+        const seconds = control.value / 1000;
+        return (Number.isInteger(seconds) ? seconds.toFixed(0)
+            : seconds.toFixed(1)).slice(0, 3) + 's';
+    }
+    if (control.key === 'effect_rotary_balance') {
+        if (control.value <= -99.5) return 'DRUM';
+        if (Math.abs(control.value) < 0.5) return 'EVEN';
+        if (control.value >= 99.5) return 'HORN';
+        return (control.value > 0 ? 'H' : 'D')
+            + Math.abs(Math.round(control.value));
+    }
+    if (control.key === 'effect_rotary_crossover') {
+        if (control.value < 1000) return String(Math.round(control.value));
+        return (control.value / 1000).toFixed(
+            control.value % 1000 === 0 ? 0 : 1) + 'k';
+    }
+    if (control.key === 'amp_attack' || control.key === 'amp_decay'
+        || control.key === 'amp_release') {
+        if (control.value < 1000) return String(Math.round(control.value));
+        const seconds = control.value / 1000;
+        return (Number.isInteger(seconds) ? seconds.toFixed(0)
+            : seconds.toFixed(seconds < 10 ? 1 : 0)).slice(0, 3) + 's';
+    }
+    if (control.key === 'amp_sustain') {
+        return Math.round(control.value) + '%';
+    }
     if (control.key === 'hold_release_ms') {
         if (control.value <= 0) return 'MAN';
         if (control.value < 1000) return String(Math.round(control.value));
@@ -1134,6 +1395,10 @@ function compactControlValue(control) {
             : seconds.toFixed(seconds < 10 ? 2 : 1)).slice(0, 3) + 's';
     }
     if (control.note) return noteName(control.value).slice(0, 4);
+    if (control.key === 'scale') {
+        return SCALE_ABBREVIATIONS[clamp(Math.round(control.value), 0,
+            SCALE_ABBREVIATIONS.length - 1)];
+    }
     if (Array.isArray(control.labels)) {
         const value = control.labels[clamp(Math.round(control.value), 0,
             control.labels.length - 1)] || '';
@@ -1169,6 +1434,79 @@ function drawReservedParameterCell(index) {
     drawRect(x + 1, y + 1, 2, 2, 0);
 }
 
+function drawPixelLine(x0, y0, x1, y1) {
+    let x = Math.round(x0);
+    let y = Math.round(y0);
+    const endX = Math.round(x1);
+    const endY = Math.round(y1);
+    const dx = Math.abs(endX - x);
+    const sx = x < endX ? 1 : -1;
+    const dy = -Math.abs(endY - y);
+    const sy = y < endY ? 1 : -1;
+    let error = dx + dy;
+    while (true) {
+        drawRect(x, y, 1, 1, 1);
+        if (x === endX && y === endY) break;
+        const twice = error * 2;
+        if (twice >= dy) {
+            error += dy;
+            x += sx;
+        }
+        if (twice <= dx) {
+            error += dx;
+            y += sy;
+        }
+    }
+}
+
+function envelopeSegmentWidth(value, maximum) {
+    return 7 + 20 * Math.log(1 + clamp(value, 0, maximum))
+        / Math.log(1 + maximum);
+}
+
+function drawAmpEnvelopePage() {
+    const attack = PARAMS.amp_attack.value;
+    const decay = PARAMS.amp_decay.value;
+    const sustain = clamp(PARAMS.amp_sustain.value / 100, 0, 1);
+    const release = PARAMS.amp_release.value;
+    const widths = [
+        envelopeSegmentWidth(attack, PARAMS.amp_attack.max),
+        envelopeSegmentWidth(decay, PARAMS.amp_decay.max),
+        22,
+        envelopeSegmentWidth(release, PARAMS.amp_release.max),
+    ];
+    const scale = 118 / widths.reduce((sum, width) => sum + width, 0);
+    const x0 = 4;
+    const xAttack = x0 + widths[0] * scale;
+    const xDecay = xAttack + widths[1] * scale;
+    const xGate = xDecay + widths[2] * scale;
+    const xRelease = 122;
+    const baseline = 30;
+    const peak = 11;
+    const sustainY = Math.round(baseline - sustain * (baseline - peak));
+    drawRect(x0, baseline, xRelease - x0 + 1, 1, 1);
+    drawPixelLine(x0, baseline, xAttack, peak);
+    drawPixelLine(xAttack, peak, xDecay, sustainY);
+    drawPixelLine(xDecay, sustainY, xGate, sustainY);
+    drawPixelLine(xGate, sustainY, xRelease, baseline);
+    for (let y = 10; y <= baseline; y += 3) drawRect(xGate, y, 1, 2, 1);
+    for (const point of [[xAttack, peak], [xDecay, sustainY],
+        [xGate, sustainY]]) {
+        drawRect(Math.round(point[0]) - 1, Math.round(point[1]) - 1, 3, 3, 1);
+    }
+    const controls = [PARAMS.amp_attack, PARAMS.amp_decay,
+        PARAMS.amp_sustain, PARAMS.amp_release];
+    for (let index = 0; index < controls.length; index++) {
+        const control = controls[index];
+        const x = index * 32 + 3;
+        print(x, 34, SHORT_LABELS[control.key], 1);
+        print(x, 45, compactControlValue(control), 1);
+        const reservedX = index * 32 + 14;
+        drawRect(reservedX, 57, 4, 4, 1);
+        drawRect(reservedX + 1, 58, 2, 2, 0);
+    }
+}
+
 function drawSettings() {
     clear_screen();
     const page = currentSettingsPage();
@@ -1184,6 +1522,10 @@ function drawSettings() {
         ? state.actionMessage : pageTitle;
     print(1, 0, title.slice(0, 21), 1);
     drawRect(0, 8, 128, 1, 1);
+    if (page.breakpoint) {
+        drawAmpEnvelopePage();
+        return;
+    }
     for (let index = 0; index < 8; index++) {
         const key = page.keys[index];
         if (!key) {
@@ -1608,14 +1950,20 @@ function padMidiNote(padIndex) {
     }
     const row = Math.floor(padIndex / 8);
     const column = padIndex % 8;
+    if (state.scale !== 0) {
+        const intervals = SCALE_INTERVALS[state.scale] || SCALE_INTERVALS[0];
+        const degree = row * 3 + column;
+        const octave = Math.floor(degree / intervals.length);
+        return clamp(Math.round(PARAMS.root_note.value) - 12
+            + state.octave * 12 + octave * 12
+            + intervals[degree % intervals.length], 0, 127);
+    }
     return clamp(48 + state.octave * 12 + row * 5 + column, 0, 127);
 }
 
 function adjustOctave(delta) {
     const next = clamp(state.octave + (delta > 0 ? 1 : -1), -3, 3);
     if (next === state.octave) return;
-    setParamBlocking('all_notes_off', 1);
-    state.activePads.clear();
     state.octave = next;
     setParamBlocking('pad_octave', state.octave);
     showMessage('OCTAVE ' + (state.octave >= 0 ? '+' : '') + state.octave);
@@ -1698,8 +2046,17 @@ function adjustControl(index, delta) {
     let value;
     if (control.key === 'long_grain_length') {
         value = longGrainLengthAt(longGrainLengthIndex(control.value) + delta);
+    } else if (control.key === 'effect_rotary_ramp') {
+        value = rotaryRampAt(rotaryRampIndex(control.value) + delta);
+    } else if (control.key === 'effect_rotary_crossover') {
+        value = rotaryCrossoverAt(
+            rotaryCrossoverIndex(control.value) + delta);
     } else if (control.key === 'hold_release_ms') {
         value = holdReleaseAt(holdReleaseIndex(control.value) + delta);
+    } else if (control.key === 'amp_attack'
+        || control.key === 'amp_decay' || control.key === 'amp_release') {
+        value = envelopeTimeAt(envelopeTimeIndex(
+            control.value, control.max) + delta, control.max);
     } else {
         value = clamp(control.value + delta * control.step,
             control.min, control.max);
@@ -1719,7 +2076,12 @@ function adjustControl(index, delta) {
         PARAMS.chain_repeats.value = clamp(getNumber('chain_repeats', 1), 1, 16);
     } else if (control.key === 'pad_mode') {
         state.padMode = clamp(Math.round(value), 0, 3);
+        rebuildLedQueue();
+    } else if (control.key === 'scale') {
+        state.scale = clamp(Math.round(value), 0, SCALE_LABELS.length - 1);
         state.activePads.clear();
+        rebuildLedQueue();
+    } else if (control.key === 'root_note') {
         rebuildLedQueue();
     } else if (control.key === 'record_source') {
         state.recordSource = clamp(Math.round(value), 0, 1);
@@ -1743,6 +2105,9 @@ function pollDsp() {
     parsePlayheads(getParam('playheads', ''));
     parseStackPositions(getParam('voice_lanes', ''));
     parseVoicePads(getParam('voice_pads', ''));
+    parseVoiceNotes(getParam('voice_notes', ''));
+    parseRollPads(getParam('roll_pads', ''));
+    parseRollNotes(getParam('roll_notes', ''));
     parseClipBankState(getParam('clip_bank_state', '0,-1,0,0'));
     parseClipState(getParam('clip_state', ''));
     parseClipTakeState(getParam('clip_take_state', '0,0,0'));
@@ -1750,7 +2115,21 @@ function pollDsp() {
     parseSampleLoadState(getParam('sample_load_state', '0,1,0,'));
     parseRegionState(getParam('region_state', '0'));
     parseCueState(getParam('cue_state', '-1,-1,-1,-1,-1,-1,-1,-1'));
-    state.padMode = clamp(Math.round(getNumber('pad_mode', state.padMode)), 0, 3);
+    const nextPadMode = clamp(Math.round(
+        getNumber('pad_mode', state.padMode)), 0, 3);
+    const nextScale = clamp(Math.round(
+        getNumber('scale', state.scale)), 0, SCALE_LABELS.length - 1);
+    const nextRoot = clamp(Math.round(
+        getNumber('root_note', PARAMS.root_note.value)), 24, 96);
+    if (nextPadMode !== state.padMode || nextScale !== state.scale
+        || nextRoot !== PARAMS.root_note.value) {
+        state.padMode = nextPadMode;
+        state.scale = nextScale;
+        PARAMS.scale.value = nextScale;
+        PARAMS.root_note.value = nextRoot;
+        state.activePads.clear();
+        rebuildLedQueue();
+    }
     parseClipPrepareState(getParam('clip_prepare_state', '0,-1'));
     parseChainState(getParam('chain_state', '0,0,0,0,-1'));
     parseChainEntries(getParam('chain_entries', ''));
@@ -1807,6 +2186,9 @@ globalThis.init = function() {
     parsePlayheads(getParam('playheads', ''));
     parseStackPositions(getParam('voice_lanes', ''));
     parseVoicePads(getParam('voice_pads', ''));
+    parseVoiceNotes(getParam('voice_notes', ''));
+    parseRollPads(getParam('roll_pads', ''));
+    parseRollNotes(getParam('roll_notes', ''));
     parseClipBankState(getParam('clip_bank_state', '0,-1,0,0'));
     parseClipState(getParam('clip_state', ''));
     parseClipTakeState(getParam('clip_take_state', '0,0,0'));
@@ -1826,6 +2208,8 @@ globalThis.init = function() {
     state.glitchBufferLocked = getNumber('glitch_buffer_lock', 0) !== 0;
     state.glitchLockLatched = state.glitchBufferLocked;
     state.padMode = clamp(Math.round(getNumber('pad_mode', 0)), 0, 3);
+    state.scale = clamp(Math.round(getNumber('scale', 0)),
+        0, SCALE_LABELS.length - 1);
     parseWaveforms(getParam('waveforms', ''));
     if (state.recalled) {
         state.message = 'RECALLED ' + state.mask.toString(2).replace(/0/g, '').length
@@ -1834,6 +2218,10 @@ globalThis.init = function() {
         state.message = 'EXIT SAVES BANK';
     }
     rebuildLedQueue();
+    // Scale and recalled voice ownership are meaningful as soon as takeover
+    // opens. Send the grid immediately rather than placing it behind the
+    // throttled button/step LED queue.
+    primePadLeds();
     draw();
 };
 
@@ -1888,7 +2276,13 @@ globalThis.onMidiMessageInternal = function(data) {
                     rebuildLedQueue();
                 } else {
                     sendLedNow('note', number, Cyan);
-                    if (state.shiftHeld) showMessage('PAD HOLD TOGGLE');
+                    if (state.padMode === 3) {
+                        showMessage('ROLL '
+                            + ROLL_DIVISIONS[pad % ROLL_DIVISIONS.length]
+                            + ' ALL' + (state.shiftHeld ? ' LATCH' : ''));
+                    } else if (state.shiftHeld) {
+                        showMessage('PAD HOLD TOGGLE');
+                    }
                 }
             } else {
                 state.activePads.delete(number);

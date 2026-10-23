@@ -128,7 +128,8 @@ void recordLane(plugin_api_v2_t* api, void* instance,
 }
 
 void writePcm16Wav(const std::string& path,
-                   std::uint32_t sampleRate = MOVE_SAMPLE_RATE)
+                   std::uint32_t sampleRate = MOVE_SAMPLE_RATE,
+                   bool cueCrossing = false)
 {
     constexpr std::uint32_t frames = 4096u;
     constexpr std::uint32_t dataBytes = frames * 2u * sizeof(std::int16_t);
@@ -158,6 +159,13 @@ void writePcm16Wav(const std::string& path,
     assert(std::fwrite("data", 1u, 4u, file) == 4u);
     u32(dataBytes);
     for (std::uint32_t frame = 0u; frame < frames; ++frame) {
+        if (cueCrossing) {
+            const std::int16_t sample = frame < 1200u ? 12000
+                : (frame == 1200u ? 0 : -12000);
+            u16(static_cast<std::uint16_t>(sample));
+            u16(static_cast<std::uint16_t>(sample));
+            continue;
+        }
         const bool burst = frame < 192u
             || (frame >= 1100u && frame < 1292u)
             || (frame >= 2200u && frame < 2392u)
@@ -1487,14 +1495,52 @@ int main()
     assert(peak() > 0);
     midi(api, instance, 0x80, 68, 0, MOVE_MIDI_SOURCE_INTERNAL);
 
+    /* New cue points snap to the safest stereo zero crossing within 10 ms.
+       Moving an already sounding voice uses a 5 ms down/up transition, so
+       even a DC-like section cannot click when its reader is repositioned. */
+    const std::string cueSample = libraryDir + "/Cue Crossing.wav";
+    writePcm16Wav(cueSample, MOVE_SAMPLE_RATE, true);
+    api->set_param(instance, "clip_playing", "0");
+    api->set_param(instance, "all_notes_off", "1");
+    render(api, instance, 40);
+    api->set_param(instance, "record_lane", "3");
+    const std::string cueLoadCommand = "3," + cueSample;
+    api->set_param(instance, "load_lane_file", cueLoadCommand.c_str());
+    int cueLoadState = 0;
+    for (int attempt = 0; attempt < 500
+         && cueLoadState != 6 && cueLoadState != 7; ++attempt) {
+        render(api, instance, 1);
+        usleep(1000);
+        cueLoadState = stateField(
+            get(api, instance, "sample_load_state"), 0);
+    }
+    assert(cueLoadState == 6);
+    api->set_param(instance, "algorithm", "Sample");
+    api->set_param(instance, "sample_mode", "Loop");
+    api->set_param(instance, "manual_lane", "3");
+    api->set_param(instance, "lane_variation", "Manual");
+    api->set_param(instance, "locus", "0.5");
+    api->set_param(instance, "field", "1");
+    api->set_param(instance, "speed", "1");
     api->set_param(instance, "pad_mode", "Cues");
     api->set_param(instance, "cue_store", "0,0.25");
-    assert(stateField(get(api, instance, "cue_state"), 0) == 250);
+    assert(stateField(get(api, instance, "cue_state"), 0) == 293);
+    midi(api, instance, 0x90, 60, 100);
+    render(api, instance, 40);
+    const int cuePreviousSample = output[(kFrames - 1) * 2];
+    assert(std::abs(cuePreviousSample) > 1000);
     api->set_param(instance, "cue_trigger", "0");
-    render(api, instance, 4);
+    render(api, instance, 1);
+    assert(std::abs(static_cast<int>(output[0]) - cuePreviousSample) < 1000);
+    render(api, instance, 12);
     assert(peak() > 0);
+    midi(api, instance, 0x80, 60, 0);
+    render(api, instance, 40);
     api->set_param(instance, "cue_clear", "0");
     assert(stateField(get(api, instance, "cue_state"), 0) == -1);
+    api->set_param(instance, "clear_lane", "Clear");
+    render(api, instance, 8);
+    api->set_param(instance, "record_lane", "1");
 
     /* Fidelity controls exercise the hardware-bounded implementations of the
        source-family paths, grain event processes, and lane/region Cutups. */
@@ -1865,6 +1911,7 @@ int main()
     }
     assert(std::remove(librarySample.c_str()) == 0);
     assert(std::remove(convertedLibrarySample.c_str()) == 0);
+    assert(std::remove(cueSample.c_str()) == 0);
     assert(std::remove(libraryDir.c_str()) == 0);
     const std::string capturesDir = persistenceDir + "/captures";
     for (const std::string& path : directoryFiles(capturesDir)) {

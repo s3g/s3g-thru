@@ -59,6 +59,7 @@ constexpr std::uint64_t kAnyPersistenceGeneration = ~std::uint64_t { 0u };
 constexpr const char* kSampleLibraryRoot = "/data/UserData/UserLibrary/Samples/";
 constexpr float kOutputCeiling = 0.8912509381337456f; // -1 dBFS
 constexpr float kNominalBusGain = 0.5011872336272722f; // -6 dB
+constexpr float kCueZeroCrossingWindowSeconds = 0.010f;
 
 using WaveBins = std::array<std::int8_t, kWaveBins>;
 
@@ -3886,13 +3887,102 @@ struct ThruInstance {
         }
     }
 
+    float snapCueToZeroCrossing(float position) const
+    {
+        const float requested = clampValue(position, 0.0f, 1.0f);
+        std::size_t lane = selectedLane;
+        if (!engine.laneLoaded(lane)) {
+            lane = kLaneCount;
+            for (std::size_t candidate = 0u; candidate < kLaneCount;
+                 ++candidate) {
+                if (engine.laneLoaded(candidate)) {
+                    lane = candidate;
+                    break;
+                }
+            }
+        }
+        if (lane >= kLaneCount) return requested;
+        const std::size_t frames = engine.laneFrames(lane);
+        const float* left = engine.laneData(lane, 0u);
+        const float* right = engine.laneData(lane, 1u);
+        if (!left || !right || frames < 2u) return requested;
+
+        const double target = std::min(
+            static_cast<double>(frames - 1u),
+            static_cast<double>(requested) * static_cast<double>(frames));
+        const std::size_t radius = std::max<std::size_t>(1u,
+            static_cast<std::size_t>(std::llround(
+                std::max(1.0f, engine.laneSampleRate(lane))
+                * kCueZeroCrossingWindowSeconds)));
+        const std::size_t center = static_cast<std::size_t>(
+            std::floor(target));
+        const std::size_t first = center > radius ? center - radius : 0u;
+        const std::size_t last = std::min(
+            frames - 1u, center + radius + 1u);
+
+        const auto sampleAt = [frames](const float* samples, double frame) {
+            frame = std::max(0.0, std::min(
+                frame, static_cast<double>(frames - 1u)));
+            const std::size_t a = static_cast<std::size_t>(frame);
+            const std::size_t b = std::min(a + 1u, frames - 1u);
+            const float mix = static_cast<float>(
+                frame - static_cast<double>(a));
+            return samples[a] + (samples[b] - samples[a]) * mix;
+        };
+        double bestFrame = target;
+        float bestMagnitude = std::max(
+            std::fabs(sampleAt(left, target)),
+            std::fabs(sampleAt(right, target)));
+        double bestDistance = 0.0;
+        const auto consider = [&](double frame) {
+            const float magnitude = std::max(
+                std::fabs(sampleAt(left, frame)),
+                std::fabs(sampleAt(right, frame)));
+            const double distance = std::fabs(frame - target);
+            if (magnitude < bestMagnitude - 1.0e-7f
+                || (std::fabs(magnitude - bestMagnitude) <= 1.0e-7f
+                    && distance < bestDistance)) {
+                bestFrame = frame;
+                bestMagnitude = magnitude;
+                bestDistance = distance;
+            }
+        };
+        const auto crossingFraction = [](float a, float b, float& fraction) {
+            if (a == 0.0f) {
+                fraction = 0.0f;
+                return true;
+            }
+            if (b == 0.0f) {
+                fraction = 1.0f;
+                return true;
+            }
+            if ((a < 0.0f) == (b < 0.0f)) return false;
+            fraction = std::fabs(a) / (std::fabs(a) + std::fabs(b));
+            return true;
+        };
+
+        for (std::size_t frame = first; frame <= last; ++frame) {
+            consider(static_cast<double>(frame));
+            if (frame == 0u) continue;
+            float fraction = 0.0f;
+            if (crossingFraction(left[frame - 1u], left[frame], fraction)) {
+                consider(static_cast<double>(frame - 1u) + fraction);
+            }
+            if (crossingFraction(right[frame - 1u], right[frame], fraction)) {
+                consider(static_cast<double>(frame - 1u) + fraction);
+            }
+        }
+        return clampValue(static_cast<float>(
+            bestFrame / static_cast<double>(frames)), 0.0f, 1.0f);
+    }
+
     void storeCue(int slot, float position)
     {
         if (activeClip < 0 || activeClip >= static_cast<int>(clipSlots.size())
             || slot < 0 || slot >= static_cast<int>(kCueCount)) return;
         pushClipUndo(activeClip);
         clipSlots[static_cast<std::size_t>(activeClip)].cues[
-            static_cast<std::size_t>(slot)] = clampValue(position, 0.0f, 1.0f);
+            static_cast<std::size_t>(slot)] = snapCueToZeroCrossing(position);
         clipSlots[static_cast<std::size_t>(activeClip)].occupied = true;
         markPersistentStateDirty();
     }

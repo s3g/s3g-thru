@@ -814,13 +814,40 @@ public:
     void seekNormalized(float position)
     {
         if (sourceFrames_ == 0u) return;
-        phase_ = currentAlgorithm_ == PlaybackAlgorithm::sample
-                && currentSampleMode_ == SampleMode::reverse
-            ? 1.0 - static_cast<double>(clamp01(position))
-            : static_cast<double>(clamp01(position));
-        resetEventReaders();
-        retriggerFadeRemaining_ = retriggerFadeFrames_;
-        sampleDone_ = false;
+        const double normalized = static_cast<double>(clamp01(position));
+        double target = normalized;
+        if (currentAlgorithm_ == PlaybackAlgorithm::sample
+            || currentAlgorithm_ == PlaybackAlgorithm::slices) {
+            if (currentSampleMode_ == SampleMode::reverse) {
+                target = 1.0 - normalized;
+            } else if (currentSampleMode_ == SampleMode::pingPong) {
+                // Choose the forward half of the triangle so a cue always
+                // lands on the requested source position.
+                target = normalized * 0.5;
+            }
+        }
+        const bool silentRetrigger = playing_
+            && retriggerFadeRemaining_ == retriggerFadeFrames_;
+        if (!playing_ || silentRetrigger) {
+            phase_ = target;
+            resetEventReaders();
+            retriggerTransitionRemaining_ = 0u;
+            seekPending_ = false;
+            retriggerFadeRemaining_ = retriggerFadeFrames_;
+            sampleDone_ = false;
+        } else {
+            pendingSeekPhase_ = target;
+            seekPending_ = true;
+            if (retriggerTransitionRemaining_ == 0u) {
+                retriggerTransitionRemaining_ = retriggerTransitionFrames_ * 2u;
+            } else if (retriggerTransitionRemaining_
+                       < retriggerTransitionFrames_) {
+                // A second cue during fade-in reverses the envelope from its
+                // current gain instead of jumping back to full level.
+                retriggerTransitionRemaining_ = retriggerTransitionFrames_ * 2u
+                    - retriggerTransitionRemaining_;
+            }
+        }
         playing_ = true;
     }
 
@@ -1622,7 +1649,14 @@ private:
             // Move every continuous or event reader only when the outgoing
             // signal has reached silence. The second half then reveals the
             // new loop start without interpolating from a held DC sample.
-            resetPlaybackForAlgorithm();
+            if (seekPending_) {
+                phase_ = pendingSeekPhase_;
+                resetEventReaders();
+                sampleDone_ = false;
+                seekPending_ = false;
+            } else {
+                resetPlaybackForAlgorithm();
+            }
         }
         if (retriggerTransitionRemaining_ > retriggerTransitionFrames_) {
             return smoothStep(static_cast<float>(
@@ -1655,6 +1689,8 @@ private:
         windowFadeRemaining_ = 0u;
         retriggerFadeRemaining_ = 0u;
         retriggerTransitionRemaining_ = 0u;
+        pendingSeekPhase_ = 0.0;
+        seekPending_ = false;
         windowInitialized_ = false;
         eventWindowInitialized_ = false;
         movingCenterInitialized_ = false;
@@ -4478,6 +4514,8 @@ private:
     std::size_t retriggerFadeRemaining_ = 0u;
     std::size_t retriggerTransitionFrames_ = 240u;
     std::size_t retriggerTransitionRemaining_ = 0u;
+    double pendingSeekPhase_ = 0.0;
+    bool seekPending_ = false;
     std::size_t algorithmFadeFrames_ = 480u;
     std::size_t algorithmFadeRemaining_ = 0u;
     std::size_t recordTransitionFrames_ = 240u;

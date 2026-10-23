@@ -3053,10 +3053,10 @@ struct ThruInstance {
         }
     }
 
-    PlaybackVoice* findVoiceForNote(int note, int sourcePad)
+    PlaybackVoice* findHeldVoiceForNote(int note, int sourcePad)
     {
         for (auto& voice : voices) {
-            if (voice.active && !voice.clipOwned && voice.note == note
+            if (voice.active && voice.held && !voice.clipOwned && voice.note == note
                 && voice.sourcePad == sourcePad) {
                 return &voice;
             }
@@ -3066,7 +3066,9 @@ struct ThruInstance {
 
     PlaybackVoice& allocateVoice(int note, int sourcePad)
     {
-        if (PlaybackVoice* existing = findVoiceForNote(note, sourcePad)) return *existing;
+        if (PlaybackVoice* existing = findHeldVoiceForNote(note, sourcePad)) {
+            return *existing;
+        }
         for (auto& voice : voices) {
             if (!voice.active) return voice;
         }
@@ -3464,6 +3466,7 @@ struct ThruInstance {
         velocity = clampValue(velocity, 1, 127);
         ++noteClock;
         PlaybackVoice& voice = allocateVoice(note, sourcePad);
+        const bool reusingActiveVoice = voice.active;
         if (voice.active && !voice.clipOwned
             && (voice.note != note || voice.sourcePad != sourcePad)) {
             clearPadMappingForVoice(voice);
@@ -3484,7 +3487,7 @@ struct ThruInstance {
         voice.clipNoteIndex = -1;
         beginVoiceAttack(voice);
         performanceLane = voice.laneOffset * 3.0f;
-        voice.engine.retrigger();
+        voice.engine.retrigger(reusingActiveVoice);
         if (stackScanPaused) restoreLiveStackPosition(voice);
         captureClipNoteOn(note, velocity, sourcePad);
         if (stackScanPaused) captureClipStackPosition(voice);
@@ -3495,7 +3498,7 @@ struct ThruInstance {
     {
         note = clampValue(note, 0, 127);
         for (auto& voice : voices) {
-            if (voice.active && !voice.clipOwned && voice.note == note
+            if (voice.active && voice.held && !voice.clipOwned && voice.note == note
                 && voice.sourcePad == sourcePad) {
                 voice.held = false;
                 beginVoiceRelease(voice);
@@ -4202,6 +4205,7 @@ struct ThruInstance {
         }
         ++noteClock;
         PlaybackVoice& voice = allocateClipVoice();
+        const bool reusingActiveVoice = voice.active;
         if (voice.active && !voice.clipOwned) clearPadMappingForVoice(voice);
         voice.note = event.note;
         voice.sourcePad = event.sourcePad < 32u
@@ -4235,7 +4239,7 @@ struct ThruInstance {
         voice.clipOwned = true;
         voice.clipNoteIndex = static_cast<int>(noteIndex);
         beginVoiceAttack(voice);
-        voice.engine.retrigger();
+        voice.engine.retrigger(reusingActiveVoice);
         if (stackScanPaused) restoreLiveStackPosition(voice);
     }
 

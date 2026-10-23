@@ -801,13 +801,29 @@ public:
         return playing_;
     }
 
-    void retrigger()
+    void retrigger(bool currentOutputAudible)
     {
         if (sourceFrames_ == 0u) {
             return;
         }
-        resetReader();
-        retriggerFadeRemaining_ = retriggerFadeFrames_;
+        const bool audiblePlayback = currentOutputAudible && playing_ && !sampleDone_
+            && retriggerFadeRemaining_ != retriggerFadeFrames_;
+        if (audiblePlayback) {
+            // A voice may have to be reused when all eight slots are busy.
+            // Reach silence before resetting its reader so a nonzero sample
+            // cannot jump directly to the start fade.
+            seekPending_ = false;
+            if (retriggerTransitionRemaining_ == 0u) {
+                retriggerTransitionRemaining_ = retriggerTransitionFrames_ * 2u;
+            } else if (retriggerTransitionRemaining_
+                       < retriggerTransitionFrames_) {
+                retriggerTransitionRemaining_ = retriggerTransitionFrames_ * 2u
+                    - retriggerTransitionRemaining_;
+            }
+        } else {
+            resetReader();
+            retriggerFadeRemaining_ = retriggerFadeFrames_;
+        }
         playing_ = true;
     }
 
@@ -1655,7 +1671,12 @@ private:
                 sampleDone_ = false;
                 seekPending_ = false;
             } else {
-                resetPlaybackForAlgorithm();
+                // A true note retrigger restarts every reader and stack phase,
+                // but resetReader() also clears this transition. Preserve its
+                // midpoint so the new start is faded back in.
+                const std::size_t transition = retriggerTransitionRemaining_;
+                resetReader();
+                retriggerTransitionRemaining_ = transition;
             }
         }
         if (retriggerTransitionRemaining_ > retriggerTransitionFrames_) {
@@ -4013,10 +4034,9 @@ private:
         }
         const double position = clamp(low + readPhase * width,
                                       low, std::max(low, high - 1.0));
-        ReadHead head;
-        head.a = position;
-        head.b = position;
-        head.position = position;
+        const double seam = controls.sampleMode == SampleMode::loop
+            ? joinFrames({ low, high }, controls.join) : 0.0;
+        const ReadHead head = makeEventReadHead(position, low, high, seam);
         displayPosition_ = position;
         for (std::size_t channel = 0u; channel < kChannels; ++channel) {
             if (sampleDone_) {
@@ -4029,8 +4049,16 @@ private:
             }
         }
         phase_ += increment;
-        if (controls.sampleMode == SampleMode::loop
-            || controls.sampleMode == SampleMode::pingPong) {
+        if (controls.sampleMode == SampleMode::loop) {
+            if (phase_ >= 1.0) {
+                // The incoming seam has already advanced from low to
+                // low+seam during the crossfade. Continue there after the
+                // first traversal instead of replaying that segment twice.
+                const double loopStart = seam / width;
+                const double cycle = std::max(1.0 / width, 1.0 - loopStart);
+                phase_ = loopStart + std::fmod(phase_ - 1.0, cycle);
+            }
+        } else if (controls.sampleMode == SampleMode::pingPong) {
             phase_ = wrapPhase(phase_);
         } else if (phase_ >= 1.0) {
             phase_ = 1.0;

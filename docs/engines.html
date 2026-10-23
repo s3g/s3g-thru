@@ -48,7 +48,7 @@
             <tr><td>4</td><td>SPD</td><td>0.05–4.00×</td><td>Speed sets base source transport. In Grains and Weave it moves grain origins independently of keyboard pitch; the other engines combine it with note pitch as described in their guides.</td></tr>
             <tr><td>5</td><td>STAK</td><td>1.00–4.00</td><td>Stack Start sets an exact lane/crossfade for Manual stack motion, or the starting phase of a moving stack path. Sample and Slices round it to a discrete loaded lane.</td></tr>
             <tr><td>6</td><td>RATE</td><td>0.125–16 Hz</td><td>Scan Rate sets cycles per second for moving stack paths. <kbd>Loop</kbd> freezes the audible phase. Sample, Slices, and Cutups do not use continuous stack scanning.</td></tr>
-            <tr><td>7</td><td>JOIN</td><td>0.00–1.00</td><td>Join scales seam smoothing for continuous/event readers. Motion also uses it as articulation depth. Cutups has a separate Cut Join for event-to-event fades.</td></tr>
+            <tr><td>7</td><td>JOIN</td><td>0.00–1.00</td><td>Join scales seam smoothing for continuous/event readers and the Sample engine's Loop boundary. Motion also uses it as articulation depth. Cutups has a separate Cut Join for event-to-event fades.</td></tr>
             <tr><td>8</td><td>LEVL</td><td>0.00–2.00</td><td>Level sets instrument output gain before the program compressor and safety limiter. At 1.00, the mastering stage supplies a full nominal output; values above 1.00 push it harder. Pad velocity never attenuates playback.</td></tr>
           </tbody>
         </table>
@@ -98,7 +98,7 @@
           </tbody>
         </table>
 
-        <p>The time knobs use close-spaced millisecond values near zero and progressively wider steps for long fades. The default 3 ms attack, 0 ms decay, 100% sustain, and 25 ms release preserves the earlier immediate pad response while suppressing clicks. Envelope gestures recorded into a performance clip replay with that clip. Rolls use a captured, already-enveloped stereo fragment and retain their separate short edge crossfade; the Amp Envelope is not applied a second time.</p>
+        <p>The time knobs use close-spaced millisecond values near zero and progressively wider steps for long fades. The default 3 ms attack, 0 ms decay, 100% sustain, and 25 ms release preserves the earlier immediate pad response while suppressing clicks. Replaying a note during a long release leaves its old tail on a separate voice when capacity permits; when all eight voices are occupied, the reused voice fades out before its reader restarts. Envelope gestures recorded into a performance clip replay with that clip. Rolls use a captured, already-enveloped stereo fragment and retain their separate short edge crossfade; the Amp Envelope is not applied a second time.</p>
 
         <h3>Pad mode behavior</h3>
         <table class="readout-table">

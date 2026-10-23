@@ -42,7 +42,7 @@
           <tbody>
             <tr><td>Forward</td><td>Reads once from the start to the end of the current window, then becomes silent.</td></tr>
             <tr><td>Reverse</td><td>Reads once from the end to the start of the current window, then becomes silent.</td></tr>
-            <tr><td>Loop</td><td>Repeats forward through the window for as long as the voice remains active.</td></tr>
+            <tr><td>Loop</td><td>Repeats forward through the window for as long as the voice remains active. JOIN crossfades the end back into the beginning; raise it when the two boundaries do not meet cleanly.</td></tr>
             <tr><td>Ping Pong</td><td>Alternates forward and backward at the same audible pitch as the other modes.</td></tr>
           </tbody>
         </table>
@@ -61,6 +61,8 @@
 
         <h3 id="pad-modes">Pad layouts</h3>
         <p>See the shared <a href="engines.html#pads-scale">Pads &amp; Scale reference</a> for every layout and scale. Sample reads the whole current window in Keys and Slices layouts; choose the Slices engine when each pad should address a different region.</p>
+
+        <p>With a long Amp Envelope release, replaying the same note starts a new voice while the old tail finishes whenever another voice slot is available. If all eight slots are occupied, the reused reader makes a short fade to silence before restarting. This prevents a same-note retrigger from cutting a nonzero sample directly to the new start.</p>
 
         <div class="callout"><p><strong>Lane selection is not lane scanning:</strong> Variation chooses one lane for a voice at note-on. Pressure can still offset engines that scan the stack, but it does not crossfade an active direct Sample voice to another lane.</p></div>
 

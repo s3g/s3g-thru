@@ -1557,6 +1557,100 @@ int main()
     assert(peak() > 0);
     midi(api, instance, 0x80, 60, 0);
     render(api, instance, 40);
+
+    /* Replaying the same note during a long release must not reclaim and
+       hard-reset its audible reader. The release tail remains on its own
+       voice while the new attack starts, so a DC-like source stays free of
+       the large single-sample discontinuity produced by the old reset. */
+    api->set_param(instance, "pad_mode", "Keys");
+    api->set_param(instance, "locus", "0.1");
+    api->set_param(instance, "field", "0.1");
+    api->set_param(instance, "speed", "0.05");
+    api->set_param(instance, "amp_attack", "0");
+    api->set_param(instance, "amp_decay", "0");
+    api->set_param(instance, "amp_sustain", "100");
+    api->set_param(instance, "amp_release", "1000");
+    midi(api, instance, 0x90, 60, 100);
+    render(api, instance, 16);
+    midi(api, instance, 0x80, 60, 0);
+    render(api, instance, 4);
+    int previousLeft = output[(kFrames - 1) * 2];
+    int previousRight = output[(kFrames - 1) * 2 + 1];
+    midi(api, instance, 0x90, 60, 100);
+    int sameNoteRetriggerStep = 0;
+    int sameNoteRetriggerBlock = -1;
+    int sameNoteRetriggerFrame = -1;
+    int sameNoteRetriggerBefore = 0;
+    int sameNoteRetriggerAfter = 0;
+    for (int block = 0; block < 8; ++block) {
+        render(api, instance, 1);
+        for (int frame = 0; frame < kFrames; ++frame) {
+            const int left = output[frame * 2];
+            const int right = output[frame * 2 + 1];
+            const int leftStep = std::abs(left - previousLeft);
+            const int rightStep = std::abs(right - previousRight);
+            if (leftStep > sameNoteRetriggerStep) {
+                sameNoteRetriggerStep = leftStep;
+                sameNoteRetriggerBlock = block;
+                sameNoteRetriggerFrame = frame;
+                sameNoteRetriggerBefore = previousLeft;
+                sameNoteRetriggerAfter = left;
+            }
+            if (rightStep > sameNoteRetriggerStep) {
+                sameNoteRetriggerStep = rightStep;
+                sameNoteRetriggerBlock = block;
+                sameNoteRetriggerFrame = frame;
+                sameNoteRetriggerBefore = previousRight;
+                sameNoteRetriggerAfter = right;
+            }
+            previousLeft = left;
+            previousRight = right;
+        }
+    }
+    if (sameNoteRetriggerStep >= 2000) {
+        std::fprintf(stderr,
+            "Same-note retrigger step: %d at %d:%d (%d -> %d)\n",
+            sameNoteRetriggerStep, sameNoteRetriggerBlock,
+            sameNoteRetriggerFrame, sameNoteRetriggerBefore,
+            sameNoteRetriggerAfter);
+    }
+    assert(sameNoteRetriggerStep < 2000);
+    midi(api, instance, 0x80, 60, 0);
+    render(api, instance, 400);
+
+    /* JOIN also owns the direct Sample Loop seam. The synthetic cue file has
+       opposite-polarity endpoints, so an unsmoothed wrap would create a step
+       close to twice the steady sample level. */
+    api->set_param(instance, "root_note", "60");
+    api->set_param(instance, "locus", "0.5");
+    api->set_param(instance, "field", "1");
+    api->set_param(instance, "speed", "1");
+    api->set_param(instance, "join", "1");
+    api->set_param(instance, "amp_release", "0");
+    midi(api, instance, 0x90, 60, 100);
+    render(api, instance, 4);
+    previousLeft = output[(kFrames - 1) * 2];
+    previousRight = output[(kFrames - 1) * 2 + 1];
+    int sampleLoopStep = 0;
+    for (int block = 0; block < 40; ++block) {
+        render(api, instance, 1);
+        for (int frame = 0; frame < kFrames; ++frame) {
+            const int left = output[frame * 2];
+            const int right = output[frame * 2 + 1];
+            sampleLoopStep = std::max(sampleLoopStep,
+                std::abs(left - previousLeft));
+            sampleLoopStep = std::max(sampleLoopStep,
+                std::abs(right - previousRight));
+            previousLeft = left;
+            previousRight = right;
+        }
+    }
+    assert(sampleLoopStep < 20000);
+    midi(api, instance, 0x80, 60, 0);
+    render(api, instance, 4);
+    api->set_param(instance, "amp_attack", "3");
+    api->set_param(instance, "amp_release", "25");
+
     api->set_param(instance, "cue_clear", "0");
     assert(stateField(get(api, instance, "cue_state"), 0) == -1);
     api->set_param(instance, "clear_lane", "Clear");

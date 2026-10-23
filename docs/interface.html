@@ -71,6 +71,26 @@
           </tbody>
         </table>
 
+        <h3>Waveform encoder layout</h3>
+
+        <p>The waveform page keeps one physical layout across every playback engine. Engine-specific controls never replace shared controls in this view.</p>
+
+        <table class="readout-table parameter-table">
+          <thead><tr><th>Knob</th><th>Display</th><th>What it controls</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>POS</td><td>Position within the source.</td></tr>
+            <tr><td>2</td><td>FLD</td><td>Width of the readable source field.</td></tr>
+            <tr><td>3</td><td>SPD</td><td>Source transport speed.</td></tr>
+            <tr><td>4</td><td>STAK</td><td>Manual lane or moving stack path's starting offset.</td></tr>
+            <tr><td>5</td><td>RATE</td><td>Stack-scan cycles per second.</td></tr>
+            <tr><td>6</td><td>JOIN</td><td>Seam and transition smoothing.</td></tr>
+            <tr><td>7</td><td>MODE</td><td>The selected engine's primary playback mode.</td></tr>
+            <tr><td>8</td><td>LEVL</td><td>Instrument level into the mastering stage.</td></tr>
+          </tbody>
+        </table>
+
+        <p>Glitch therefore uses <code>RATE</code> for the lane-stack scan beneath its history buffer and <code>JOIN</code> for that source's seams. Its Buffer and Override controls remain on Glitch Clock. Cutups, Sample, and Slices do not use continuous stack scanning; turning <code>RATE</code> while one of those engines is selected retains the shared value for the next engine that uses it.</p>
+
         <h2 id="parameters">Parameter pages</h2>
 
         <figure>

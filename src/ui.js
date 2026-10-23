@@ -284,24 +284,13 @@ const PARAMS = {
     sample_trim_apply: { key: 'sample_trim_apply', label: 'TRIM APPLY', min: 0, max: 1, step: 1, value: 0, integer: true, labels: ['TURN', 'APPLY'], momentary: true, result: 'TRIMMED' },
 };
 
-const MAIN_ENGINE_CONTROLS = [
-    ['locus', 'field', 'speed', 'manual_lane',
-        'lane_cycles', 'join', 'motion_mode', 'output_gain'],
-    ['locus', 'field', 'speed', 'manual_lane',
-        'lane_cycles', 'join', 'lanes_mode', 'output_gain'],
-    ['locus', 'field', 'speed', 'manual_lane',
-        'lane_cycles', 'join', 'grain_mode', 'output_gain'],
-    ['locus', 'field', 'speed', 'manual_lane',
-        'lane_cycles', 'join', 'cutups_mode', 'output_gain'],
-    ['locus', 'field', 'speed', 'manual_lane',
-        'sample_mode', 'lane_variation', 'pad_mode', 'output_gain'],
-    ['locus', 'field', 'speed', 'manual_lane',
-        'sample_mode', 'slice_region_mode', 'slice_regions', 'output_gain'],
-    ['locus', 'field', 'speed', 'manual_lane',
-        'glitch_mode', 'glitch_slice', 'glitch_mix', 'output_gain'],
-    ['locus', 'field', 'speed', 'manual_lane',
-        'lane_cycles', 'join', 'long_grain_mode', 'output_gain'],
-];
+const MAIN_ENGINE_MODES = ['motion_mode', 'lanes_mode', 'grain_mode',
+    'cutups_mode', 'sample_mode', 'sample_mode', 'glitch_mode',
+    'long_grain_mode'];
+const MAIN_ENGINE_CONTROLS = MAIN_ENGINE_MODES.map((mode) => [
+    'locus', 'field', 'speed', 'manual_lane',
+    'lane_cycles', 'join', mode, 'output_gain',
+]);
 const ENGINE_PAGE = { title: 'ENGINE', keys: ['algorithm', 'locus', 'field',
     'speed', 'manual_lane', 'lane_cycles', 'join', 'output_gain'] };
 const STACK_PATH_PAGE = { title: 'STACK PATH', keys: ['lane_path',

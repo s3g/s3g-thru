@@ -141,6 +141,7 @@ globalThis.__testMotionPages = Array.from({ length: 8 }, (_, sound) =>
     })));
 globalThis.__testPlaybackPageTitles = PLAYBACK_PAGES.map((pages) =>
     pages.map((page) => page.title));
+globalThis.__testMainEngineControls = MAIN_ENGINE_CONTROLS;
 globalThis.__testLockableParams = Array.from(LOCKABLE_PARAMS);
 globalThis.__testDrawMain = drawMain;
 globalThis.__testLongGrainLengthIndex = longGrainLengthIndex;
@@ -194,6 +195,15 @@ assert.deepEqual(globalThis.__testPlaybackPageTitles[6],
     ['STACK PATH', 'GLITCH CLOCK', 'GLITCH PATTERN']);
 assert.deepEqual(globalThis.__testPlaybackPageTitles[7],
     ['STACK PATH', 'WEAVE', 'WEAVE MOTION']);
+const waveformModeControls = ['motion_mode', 'lanes_mode', 'grain_mode',
+    'cutups_mode', 'sample_mode', 'sample_mode', 'glitch_mode',
+    'long_grain_mode'];
+for (let algorithm = 0; algorithm < 8; algorithm++) {
+    assert.deepEqual(globalThis.__testMainEngineControls[algorithm], [
+        'locus', 'field', 'speed', 'manual_lane', 'lane_cycles', 'join',
+        waveformModeControls[algorithm], 'output_gain',
+    ], 'the waveform encoder layout must stay stable across engines');
+}
 assert(globalThis.__testLockableParams.includes('glitch_mix'));
 assert(globalThis.__testLockableParams.includes('effect_feedback'));
 assert(globalThis.__testLockableParams.includes('effect_cross_pan'));

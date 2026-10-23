@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="520" viewBox="0 0 1200 520" role="img" aria-labelledby="title desc">
   <title id="title">s3g Thru audio signal flow</title>
-  <desc id="desc">Block diagram showing microphone or line input and sample files entering four clip-local lanes, the eight-voice playback engine, lane gains, effects, nominal bus headroom, a stereo-linked output limiter, monitoring, and the resample return.</desc>
+  <desc id="desc">Block diagram showing microphone or line input and sample files entering four clip-local lanes, the eight-voice playback engine, lane gains, effects, stereo-linked program compression, output limiting, monitoring, and the resample return.</desc>
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" markerWidth="8" markerHeight="8" refX="9" refY="5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0L10 5L0 10Z" fill="#202020"/></marker>
     <style>
@@ -69,7 +69,7 @@
 
   <rect x="1010" y="126" width="105" height="122" class="box"/>
   <text x="1062" y="155" class="title">SAFETY</text>
-  <text x="1062" y="180" class="sub">−6 dB wet bus</text>
+  <text x="1062" y="180" class="sub">program comp</text>
   <text x="1062" y="201" class="sub">lookahead limit</text>
   <text x="1062" y="222" class="sub">−1 dBFS ceiling</text>
 

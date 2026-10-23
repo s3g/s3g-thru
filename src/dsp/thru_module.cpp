@@ -58,7 +58,8 @@ constexpr std::size_t kLibraryCopyFrames = 4096u;
 constexpr std::uint64_t kAnyPersistenceGeneration = ~std::uint64_t { 0u };
 constexpr const char* kSampleLibraryRoot = "/data/UserData/UserLibrary/Samples/";
 constexpr float kOutputCeiling = 0.8912509381337456f; // -1 dBFS
-constexpr float kNominalBusGain = 0.5011872336272722f; // -6 dB
+constexpr float kProgramCompressorThreshold = 0.251188643150958f; // -12 dBFS
+constexpr float kProgramMakeupGain = 1.4125375446227544f; // +3 dB
 constexpr float kCueZeroCrossingWindowSeconds = 0.010f;
 
 using WaveBins = std::array<std::int8_t, kWaveBins>;
@@ -1509,6 +1510,9 @@ struct ThruInstance {
     std::array<std::uint32_t, 2u> ditherState {
         0x5333474cu, 0x54485255u
     };
+    float programEnvelope = 0.0f;
+    float programAttackCoefficient = 1.0f;
+    float programReleaseCoefficient = 1.0f;
     float polyphonyGain = 1.0f;
     float polyphonyAttackCoefficient = 1.0f;
     float polyphonyReleaseCoefficient = 1.0f;
@@ -1742,6 +1746,10 @@ struct ThruInstance {
             - std::exp(-1.0f / (sampleRate * 0.003f));
         limiterReleaseCoefficient = 1.0f
             - std::exp(-1.0f / (sampleRate * 0.080f));
+        programAttackCoefficient = 1.0f
+            - std::exp(-1.0f / (sampleRate * 0.010f));
+        programReleaseCoefficient = 1.0f
+            - std::exp(-1.0f / (sampleRate * 0.180f));
         polyphonyAttackCoefficient = 1.0f
             - std::exp(-1.0f / (sampleRate * 0.002f));
         polyphonyReleaseCoefficient = 1.0f
@@ -1857,6 +1865,31 @@ struct ThruInstance {
             right[read] * limiterGain, -kOutputCeiling, kOutputCeiling);
         limiterDelayWrite = (limiterDelayWrite + 1u) % limiterDelayCapacity;
 
+    }
+
+    void processProgramBus(float inputLeft,
+                           float inputRight,
+                           float& outputLeft,
+                           float& outputRight)
+    {
+        const float peak = std::max(
+            std::fabs(inputLeft), std::fabs(inputRight));
+        const float coefficient = peak > programEnvelope
+            ? programAttackCoefficient : programReleaseCoefficient;
+        programEnvelope += (peak - programEnvelope) * coefficient;
+        programEnvelope = std::max(0.0f, programEnvelope);
+
+        // A light stereo-linked 2:1 compressor replaces the former fixed
+        // -6 dB pad. Below the -12 dBFS threshold, +3 dB of makeup restores
+        // detail; above it, the square-root gain law raises density while
+        // leaving transient containment to the lookahead output limiter.
+        const float compressorGain = programEnvelope
+                > kProgramCompressorThreshold
+            ? std::sqrt(kProgramCompressorThreshold / programEnvelope)
+            : 1.0f;
+        const float gain = compressorGain * kProgramMakeupGain;
+        outputLeft = inputLeft * gain;
+        outputRight = inputRight * gain;
     }
 
     float readRotaryDelay(const float* buffer, float delayFrames) const
@@ -6051,9 +6084,14 @@ struct ThruInstance {
 
             float minimumLimiterGain = 1.0f;
             for (std::size_t frame = 0u; frame < count; ++frame) {
-                const float inputLeft = voiceMix[0u][frame] * kNominalBusGain
+                float programLeft = 0.0f;
+                float programRight = 0.0f;
+                processProgramBus(
+                    voiceMix[0u][frame], voiceMix[1u][frame],
+                    programLeft, programRight);
+                const float inputLeft = programLeft
                     + monitorInput[0u][frame] * monitorLevel;
-                const float inputRight = voiceMix[1u][frame] * kNominalBusGain
+                const float inputRight = programRight
                     + monitorInput[1u][frame] * monitorLevel;
                 float outputLeft = 0.0f;
                 float outputRight = 0.0f;

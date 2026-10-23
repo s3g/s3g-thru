@@ -100,9 +100,9 @@
 
         <h2 id="gain-staging">Gain staging and output safety</h2>
 
-        <p>At <code>LEVL 1.00</code>, the instrument path has 6 dB of nominal bus headroom. <code>LEVL 2.00</code> restores that 6 dB when a quieter source needs it. Polyphony Compensation is on by default and smoothly reduces the summed level as more independent voices or Rolls overlap; it does not change pad velocity behavior.</p>
+        <p>At <code>LEVL 1.00</code>, the instrument path reaches a full nominal output. A stereo-linked program compressor adds 3 dB of makeup below its −12 dBFS threshold, then applies a gentle 2:1 ratio above it. This raises quieter detail and controls sustained peaks without changing the stereo image. <code>LEVL</code> values above 1.00 push the program stage harder. Polyphony Compensation is on by default and smoothly controls summed energy as more independent voices or Rolls overlap; it does not change pad velocity behavior.</p>
 
-        <p>A stereo-linked lookahead limiter is the final safety stage. Its −1 dBFS ceiling catches occasional stack, effect, monitor, and polyphonic peaks without applying the former always-on high-level waveshaping. It is a guard, not a loudness effect: persistent reduction means Lane Gain, Level, effect Drive/feedback, Record Gain, or Input Monitor should be reduced.</p>
+        <p>A separate stereo-linked lookahead limiter remains the final safety stage. Its −1 dBFS ceiling catches transient stack, effect, monitor, and polyphonic peaks without flat-topping them. The program compressor supplies everyday density; persistent limiter reduction still means Lane Gain, Level, effect Drive/feedback, Record Gain, or Input Monitor should be reduced.</p>
 
         <p>Shift+Menu opens Help. <code>L0.0</code> in its title is current limiter reduction in decibels; a larger number means more attenuation. Imported WAV files at Move's sample rate are copied directly. Other sample rates use high-quality conversion, while transposed playback uses smoother interpolation to reduce rough high-frequency edges.</p>
 

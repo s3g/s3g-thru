@@ -539,9 +539,19 @@ int main()
     const int peakAfterNormalize = peak();
     midi(api, instance, 0x80, 60, 0);
     assert(peakBeforeNormalize > 0);
-    assert(peakAfterNormalize > peakBeforeNormalize * 2);
+    if (peakAfterNormalize <= peakBeforeNormalize) {
+        std::fprintf(stderr,
+            "Normalize did not raise mastered output: before=%d after=%d\n",
+            peakBeforeNormalize, peakAfterNormalize);
+    }
+    assert(peakAfterNormalize > peakBeforeNormalize);
+    assert(peakAfterNormalize
+        <= static_cast<int>(kOutputCeiling * 32767.0f) + 1);
     api->set_param(instance, "performance_reset", "1");
-    render(api, instance, 1);
+    // The mastering stage can legitimately engage the safety limiter on a
+    // freshly normalized transient. Let its release finish before checking
+    // the reset idle reading.
+    render(api, instance, 600);
     assert(std::strtof(get(api, instance, "limiter_state").c_str(), nullptr)
         < 0.01f);
     api->set_param(instance, "sample_fade", "1");
@@ -1208,12 +1218,14 @@ int main()
     assert(get(api, instance, "performance_lane") == "2.5000");
 
     /* Velocity chooses performance depth, never sample amplitude. With one
-       populated lane, low and high strikes must converge on the same level. */
+       populated lane, low and high strikes must converge on the same level.
+       Start both measurements from the program compressor's released state. */
+    render(api, instance, 600);
     midi(api, instance, 0x90, 60, 1);
     render(api, instance, 8);
     const int lowVelocityPeak = peak();
     midi(api, instance, 0x80, 60, 0);
-    render(api, instance, 40);
+    render(api, instance, 600);
     midi(api, instance, 0x90, 60, 127);
     render(api, instance, 8);
     const int highVelocityPeak = peak();
@@ -1328,8 +1340,8 @@ int main()
     render(api, instance, 2);
     assert(peak() == 0);
 
-    /* The final ceiling is stereo linked and catches full-scale monitoring
-       without waveshaping ordinary playback below the nominal -6 dB bus. */
+    /* The final ceiling is stereo linked and catches full-scale monitoring.
+       Dry monitoring bypasses both effects and program compression. */
     api->set_param(instance, "performance_reset", "1");
     fillInput(32767);
     api->set_param(instance, "monitor_level", "1");
@@ -1426,15 +1438,24 @@ int main()
     api->set_param(instance, "algorithm", "Sample");
     api->set_param(instance, "effect_mix", "0");
     api->set_param(instance, "effect_drive", "0");
+    render(api, instance, 600);
     midi(api, instance, 0x90, 60, 100);
     render(api, instance, 8);
     const int cleanPeak = peak();
+    const auto cleanOutput = output;
     midi(api, instance, 0x80, 60, 0);
-    render(api, instance, 40);
+    render(api, instance, 600);
     api->set_param(instance, "effect_drive", "1");
     midi(api, instance, 0x90, 60, 100);
     render(api, instance, 8);
-    assert(peak() > cleanPeak);
+    int driveDifference = 0;
+    for (std::size_t index = 0u; index < output.size(); ++index) {
+        driveDifference = std::max(driveDifference, std::abs(
+            static_cast<int>(output[index])
+            - static_cast<int>(cleanOutput[index])));
+    }
+    assert(cleanPeak > 0);
+    assert(driveDifference > 64);
     midi(api, instance, 0x80, 60, 0);
     render(api, instance, 40);
     api->set_param(instance, "effect_drive", "0");

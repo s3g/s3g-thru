@@ -111,7 +111,8 @@ const params = {
     locus: '0.42', field: '0.80', speed: '1.00', manual_lane: '1.60',
     lane_cycles: '0.50', stack_scan_paused: '0', clip_stack_hold: '0',
     algorithm: '1', join: '0.72',
-    output_gain: '1.00', motion_mode: '5', motion_sound: '0', motion_rate: '4',
+    output_gain: '1.00', polyphony_comp: '1', motion_mode: '5',
+    motion_sound: '0', motion_rate: '4',
     motion_rate_basis: '0', motion_path_rate: '1.25', motion_step: '0.08',
     motion_seed: '23', motion_travel: '0.8', motion_jitter: '0.25',
     packet_duty: '65', motor_rate: '1.5', motor_symmetry: '58', motor_shape: '1',
@@ -180,6 +181,7 @@ const params = {
     captures_directory: '/data/s3g-thru/captures',
     undo_available: '1',
     performance_state: '724,0',
+    limiter_state: '0.0,3.2',
     last_error: '',
     waveforms: [0, 1, 2, 3].map(waveform).join('|'),
 };

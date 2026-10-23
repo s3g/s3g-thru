@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="520" viewBox="0 0 1200 520" role="img" aria-labelledby="title desc">
   <title id="title">s3g Thru audio signal flow</title>
-  <desc id="desc">Block diagram showing microphone or line input and sample files entering four clip-local lanes, the eight-voice playback engine, lane gains, effects, level, stereo output, monitoring, and the resample return.</desc>
+  <desc id="desc">Block diagram showing microphone or line input and sample files entering four clip-local lanes, the eight-voice playback engine, lane gains, effects, nominal bus headroom, a stereo-linked output limiter, monitoring, and the resample return.</desc>
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" markerWidth="8" markerHeight="8" refX="9" refY="5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0L10 5L0 10Z" fill="#202020"/></marker>
     <style>
@@ -26,12 +26,13 @@
     <path d="M192 164H238" class="audio"/>
     <path d="M192 310H238" class="audio"/>
     <path d="M424 187H475" class="audio"/>
-    <path d="M665 187H713" class="audio"/>
-    <path d="M847 187H895" class="audio"/>
-    <path d="M1029 187H1074" class="audio"/>
+    <path d="M665 187H700" class="audio"/>
+    <path d="M820 187H850" class="audio"/>
+    <path d="M980 187H1010" class="audio"/>
+    <path d="M1115 187H1140" class="audio"/>
     <path d="M192 187H215V390H570V371" class="audio"/>
-    <path d="M665 333H1116V248" class="audio"/>
-    <path d="M962 248V272H450V350H424" class="return"/>
+    <path d="M665 333H1062V248" class="audio"/>
+    <path d="M915 248V272H450V350H424" class="return"/>
   </g>
 
   <rect x="42" y="126" width="150" height="76" class="box"/>
@@ -53,23 +54,29 @@
   <text x="570" y="161" class="title">PLAYBACK ENGINE</text>
   <text x="570" y="186" class="sub">Motion · Lanes · Grains</text>
   <text x="570" y="207" class="sub">Cutups · Sample · Slices</text>
-  <text x="570" y="228" class="sub">Glitch · up to 8 voices</text>
+  <text x="570" y="228" class="sub">Glitch · Weave · 8 voices</text>
 
-  <rect x="713" y="126" width="134" height="122" class="box"/>
-  <text x="780" y="161" class="title">LANE MIX</text>
-  <text x="780" y="185" class="sub">four gains</text>
-  <text x="780" y="207" class="sub">per-voice blend</text>
+  <rect x="700" y="126" width="120" height="122" class="box"/>
+  <text x="760" y="161" class="title">LANE MIX</text>
+  <text x="760" y="185" class="sub">four gains</text>
+  <text x="760" y="207" class="sub">poly balance</text>
 
-  <rect x="895" y="126" width="134" height="122" class="soft"/>
-  <text x="962" y="155" class="title">EFFECTS</text>
-  <text x="962" y="180" class="sub">tone · drive</text>
-  <text x="962" y="201" class="sub">bits · rate · delay</text>
-  <text x="962" y="222" class="sub">cross-pan · rotary</text>
+  <rect x="850" y="126" width="130" height="122" class="soft"/>
+  <text x="915" y="155" class="title">EFFECTS</text>
+  <text x="915" y="180" class="sub">tone · drive</text>
+  <text x="915" y="201" class="sub">bits · rate · delay</text>
+  <text x="915" y="222" class="sub">cross-pan · rotary</text>
 
-  <rect x="1074" y="126" width="84" height="122" class="box"/>
-  <text x="1116" y="168" class="title">OUT</text>
-  <text x="1116" y="192" class="sub">stereo</text>
-  <text x="1116" y="213" class="sub">Move</text>
+  <rect x="1010" y="126" width="105" height="122" class="box"/>
+  <text x="1062" y="155" class="title">SAFETY</text>
+  <text x="1062" y="180" class="sub">−6 dB wet bus</text>
+  <text x="1062" y="201" class="sub">lookahead limit</text>
+  <text x="1062" y="222" class="sub">−1 dBFS ceiling</text>
+
+  <rect x="1140" y="126" width="55" height="122" class="soft"/>
+  <text x="1167" y="168" class="title">OUT</text>
+  <text x="1167" y="192" class="sub">stereo</text>
+  <text x="1167" y="213" class="sub">Move</text>
 
   <rect x="475" y="295" width="190" height="76" class="box"/>
   <text x="570" y="325" class="title">INPUT MONITOR</text>

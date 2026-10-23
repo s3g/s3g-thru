@@ -57,6 +57,8 @@ constexpr std::size_t kWavIoFrames = 512u;
 constexpr std::size_t kLibraryCopyFrames = 4096u;
 constexpr std::uint64_t kAnyPersistenceGeneration = ~std::uint64_t { 0u };
 constexpr const char* kSampleLibraryRoot = "/data/UserData/UserLibrary/Samples/";
+constexpr float kOutputCeiling = 0.8912509381337456f; // -1 dBFS
+constexpr float kNominalBusGain = 0.5011872336272722f; // -6 dB
 
 using WaveBins = std::array<std::int8_t, kWaveBins>;
 
@@ -538,6 +540,7 @@ constexpr const char kChainParams[] = R"json([
 {"key":"algorithm","name":"Algorithm","short_name":"ALG","type":"enum","options":["Motion","Lanes","Grains","Cutups","Sample","Slices","Glitch","Weave"],"default":0},
 {"key":"join","name":"Join","short_name":"JOIN","type":"float","min":0,"max":1,"step":0.01,"default":1},
 {"key":"output_gain","name":"Level","short_name":"LEVEL","type":"float","min":0,"max":2,"step":0.01,"default":1},
+{"key":"polyphony_comp","name":"Polyphony Compensation","short_name":"POLY COMP","type":"enum","options":["Off","On"],"default":1},
 {"key":"amp_attack","name":"Amp Attack","short_name":"ATK","type":"float","min":0,"max":10000,"step":1,"default":3,"unit":"ms"},
 {"key":"amp_decay","name":"Amp Decay","short_name":"DEC","type":"float","min":0,"max":10000,"step":1,"default":0,"unit":"ms"},
 {"key":"amp_sustain","name":"Amp Sustain","short_name":"SUS","type":"float","min":0,"max":100,"step":1,"default":100,"unit":"%"},
@@ -729,6 +732,7 @@ constexpr const char kChainParams[] = R"json([
 {"key":"recording","name":"Recording","type":"int","min":0,"max":1,"access":"read","live":true},
 {"key":"ui_state","name":"UI State","type":"string","access":"read","live":true},
 {"key":"performance_state","name":"Realtime Performance","type":"string","access":"read","live":true},
+{"key":"limiter_state","name":"Output Limiter","type":"string","access":"read","live":true},
 {"key":"memory_state","name":"Sampler Memory","type":"string","access":"read"},
 {"key":"playheads","name":"Voice Playheads","type":"string","access":"read","live":true},
 {"key":"voice_lanes","name":"Voice Stack Positions","type":"string","access":"read","live":true},
@@ -746,7 +750,7 @@ constexpr const char kUiHierarchy[] = R"json({
 "levels":{
 "root":{"name":"s3g Thru","knobs":["algorithm","locus","field","speed","manual_lane","lane_cycles","join","output_gain"],"params":[{"level":"record","label":"Record"},{"level":"pads","label":"Pads & Scale"},{"level":"amp_envelope","label":"Amp Envelope"},{"level":"motion","label":"Motion"},{"level":"lanes","label":"Lanes"},{"level":"grains","label":"Grains"},{"level":"long_grains","label":"Weave"},{"level":"cutups","label":"Cutups"},{"level":"sample","label":"Sample"},{"level":"slices","label":"Slices"},{"level":"glitch","label":"Glitch"},{"level":"effects","label":"Effects"},{"level":"lane_mix","label":"Lane Mix"},{"level":"performance_loop","label":"Performance Loop"}]},
 "record":{"name":"Record","knobs":["record_lane","record_source","record_gain","monitor_level","pressure_mode","output_gain","clear_lane"],"params":[{"key":"record_lane"},{"key":"record_source"},{"key":"record_gain"},{"key":"monitor_level"},{"key":"pressure_mode"},{"key":"output_gain"},{"key":"clear_lane"}]},
-"pads":{"name":"Pads & Scale","knobs":["pad_mode","root_note","scale","hold_release_ms"],"params":[{"key":"pad_mode"},{"key":"root_note"},{"key":"scale"},{"key":"hold_release_ms"}]},
+"pads":{"name":"Pads & Scale","knobs":["pad_mode","root_note","scale","hold_release_ms","polyphony_comp"],"params":[{"key":"pad_mode"},{"key":"root_note"},{"key":"scale"},{"key":"hold_release_ms"},{"key":"polyphony_comp"}]},
 "amp_envelope":{"name":"Amp Envelope","knobs":["amp_attack","amp_decay","amp_sustain","amp_release"],"params":[{"key":"amp_attack"},{"key":"amp_decay"},{"key":"amp_sustain"},{"key":"amp_release"}]},
 "motion":{"name":"Motion","knobs":["locus","field","speed","join","motion_mode","motion_sound","motion_path_rate","output_gain"],"params":[{"key":"locus"},{"key":"field"},{"key":"speed"},{"key":"join"},{"key":"motion_mode"},{"key":"motion_sound"},{"key":"motion_rate_basis"},{"key":"motion_path_rate"},{"key":"motion_step"},{"key":"motion_seed"},{"key":"motion_rate"},{"key":"packet_duty"},{"key":"motor_rate"},{"key":"motor_symmetry"},{"key":"motor_shape"},{"key":"segment_trigger"},{"key":"segment_overlap"},{"key":"segment_layers"},{"key":"segment_rate"},{"key":"segment_repeats"},{"key":"segment_step"},{"key":"segment_pitch"},{"key":"segment_level"},{"key":"segment_curve"},{"key":"output_gain"}]},
 "lanes":{"name":"Lanes","knobs":["locus","field","speed","join","lanes_mode","lane_path","lane_cycles","manual_lane"],"params":[{"key":"locus"},{"key":"field"},{"key":"speed"},{"key":"join"},{"key":"lanes_mode"},{"key":"lane_path"},{"key":"lane_cycles"},{"key":"manual_lane"},{"key":"lanes_stretch"},{"key":"stretch_ratio"}]},
@@ -1383,10 +1387,23 @@ float softLimit(float sample)
     return std::copysign(shaped, sample);
 }
 
-int16_t toInt16(float sample)
+float ditherUniform(std::uint32_t& state)
 {
-    const float limited = softLimit(sample);
-    const float scaled = limited * 32767.0f;
+    state ^= state << 13u;
+    state ^= state >> 17u;
+    state ^= state << 5u;
+    return static_cast<float>(state >> 8u) * (1.0f / 16777216.0f);
+}
+
+int16_t toInt16(float sample, std::uint32_t& ditherState)
+{
+    const float bounded = clampValue(sample, -kOutputCeiling, kOutputCeiling);
+    float scaled = bounded * 32767.0f;
+    if (bounded != 0.0f) {
+        scaled += ditherUniform(ditherState) - ditherUniform(ditherState);
+    }
+    const float ceilingCounts = std::round(kOutputCeiling * 32767.0f);
+    scaled = clampValue(scaled, -ceilingCounts, ceilingCounts);
     return static_cast<int16_t>(clampValue(std::lrintf(scaled), -32768l, 32767l));
 }
 
@@ -1455,6 +1472,7 @@ struct ThruInstance {
     std::array<std::array<float, kBlockFrames>, kChannelCount> silentInput {};
     std::array<std::array<float, kBlockFrames>, 2u> monitorInput {};
     std::array<std::array<float, kBlockFrames>, 2u> voiceMix {};
+    std::array<float, kBlockFrames> voiceEnvelopePower {};
     std::array<const float*, kChannelCount> inputPointers {};
     std::array<const float*, kChannelCount> silentInputPointers {};
     std::array<float*, kChannelCount> outputPointers {};
@@ -1480,6 +1498,20 @@ struct ThruInstance {
     std::size_t rollHistoryWrite = 0u;
     std::size_t rollHistoryFrames = 0u;
     float rollFadeCoefficient = 1.0f;
+    std::unique_ptr<float[]> limiterDelayBuffer;
+    std::size_t limiterDelayCapacity = 0u;
+    std::size_t limiterLookaheadFrames = 0u;
+    std::size_t limiterDelayWrite = 0u;
+    std::size_t limiterHoldFrames = 0u;
+    float limiterGain = 1.0f;
+    float limiterReleaseCoefficient = 1.0f;
+    std::array<std::uint32_t, 2u> ditherState {
+        0x5333474cu, 0x54485255u
+    };
+    float polyphonyGain = 1.0f;
+    float polyphonyAttackCoefficient = 1.0f;
+    float polyphonyReleaseCoefficient = 1.0f;
+    bool polyphonyCompensation = true;
 
     std::array<int, 32u> padMappedNotes {};
     std::array<int, 32u> latchedPadNotes {};
@@ -1558,6 +1590,8 @@ struct ThruInstance {
     std::array<int, kLaneCount> pendingCaptureClips { -1, -1, -1, -1 };
     std::atomic<std::uint64_t> maximumRenderMicros { 0u };
     std::atomic<std::uint64_t> renderOverruns { 0u };
+    std::atomic<float> limiterReductionDb { 0.0f };
+    std::atomic<float> limiterMaximumReductionDb { 0.0f };
 
     std::unique_ptr<float[]> sampleStage;
     pthread_t sampleWorker {};
@@ -1660,8 +1694,14 @@ struct ThruInstance {
             sampleRate * kMaximumRollSeconds)) + kBlockFrames;
         rollStorage.reset(new (std::nothrow) float[
             (kRollCount + 1u) * 2u * rollCapacityFrames] {});
+        limiterLookaheadFrames = std::max<std::size_t>(1u,
+            static_cast<std::size_t>(std::lround(sampleRate * 0.0015f)));
+        limiterDelayCapacity = limiterLookaheadFrames + 1u;
+        limiterDelayBuffer.reset(new (std::nothrow)
+            float[limiterDelayCapacity * 2u] {});
         if (!storage || !preparedClipStorage || !sampleStage
-            || !effectDelayBuffer || !rotaryDelayBuffer || !rollStorage) {
+            || !effectDelayBuffer || !rotaryDelayBuffer || !rollStorage
+            || !limiterDelayBuffer) {
             setError("Unable to allocate active and prepared sample banks");
             return false;
         }
@@ -1699,6 +1739,12 @@ struct ThruInstance {
         clipOutputGain = outputGain;
         rollFadeCoefficient = 1.0f
             - std::exp(-1.0f / (sampleRate * 0.003f));
+        limiterReleaseCoefficient = 1.0f
+            - std::exp(-1.0f / (sampleRate * 0.080f));
+        polyphonyAttackCoefficient = 1.0f
+            - std::exp(-1.0f / (sampleRate * 0.002f));
+        polyphonyReleaseCoefficient = 1.0f
+            - std::exp(-1.0f / (sampleRate * 0.080f));
         for (std::size_t channel = 0u; channel < kChannelCount; ++channel) {
             inputPointers[channel] = input[channel].data();
             silentInputPointers[channel] = silentInput[channel].data();
@@ -1754,6 +1800,62 @@ struct ThruInstance {
     void setError(const char* message)
     {
         std::snprintf(lastError.data(), lastError.size(), "%s", message ? message : "");
+    }
+
+    void updateLimiterTelemetry(float minimumGain)
+    {
+        const float reductionDb = limiterGain < 0.999999f
+            ? -20.0f * std::log10(std::max(limiterGain, 1.0e-9f)) : 0.0f;
+        const float maximumReductionDb = minimumGain < 0.999999f
+            ? -20.0f * std::log10(std::max(minimumGain, 1.0e-9f)) : 0.0f;
+        limiterReductionDb.store(reductionDb, std::memory_order_relaxed);
+        float maximum = limiterMaximumReductionDb.load(
+            std::memory_order_relaxed);
+        while (maximumReductionDb > maximum
+               && !limiterMaximumReductionDb.compare_exchange_weak(
+                   maximum, maximumReductionDb, std::memory_order_relaxed,
+                   std::memory_order_relaxed)) {
+        }
+    }
+
+    void processOutputLimiter(float inputLeft,
+                              float inputRight,
+                              float& outputLeft,
+                              float& outputRight)
+    {
+        if (!limiterDelayBuffer || limiterDelayCapacity == 0u) {
+            outputLeft = clampValue(inputLeft, -kOutputCeiling, kOutputCeiling);
+            outputRight = clampValue(inputRight, -kOutputCeiling, kOutputCeiling);
+            return;
+        }
+        float* left = limiterDelayBuffer.get();
+        float* right = left + limiterDelayCapacity;
+        left[limiterDelayWrite] = std::isfinite(inputLeft) ? inputLeft : 0.0f;
+        right[limiterDelayWrite] = std::isfinite(inputRight) ? inputRight : 0.0f;
+
+        const float peak = std::max(
+            std::fabs(left[limiterDelayWrite]),
+            std::fabs(right[limiterDelayWrite]));
+        const float targetGain = peak > kOutputCeiling
+            ? kOutputCeiling / peak : 1.0f;
+        if (targetGain < 1.0f) {
+            limiterGain = std::min(limiterGain, targetGain);
+            limiterHoldFrames = limiterLookaheadFrames;
+        } else if (limiterHoldFrames != 0u) {
+            --limiterHoldFrames;
+        } else {
+            limiterGain += (1.0f - limiterGain)
+                * limiterReleaseCoefficient;
+        }
+
+        const std::size_t read = (limiterDelayWrite + limiterDelayCapacity
+            - limiterLookaheadFrames) % limiterDelayCapacity;
+        outputLeft = clampValue(
+            left[read] * limiterGain, -kOutputCeiling, kOutputCeiling);
+        outputRight = clampValue(
+            right[read] * limiterGain, -kOutputCeiling, kOutputCeiling);
+        limiterDelayWrite = (limiterDelayWrite + 1u) % limiterDelayCapacity;
+
     }
 
     float readRotaryDelay(const float* buffer, float delayFrames) const
@@ -2130,6 +2232,13 @@ struct ThruInstance {
         }
         float* left = destinationLeft;
         float* right = destinationRight;
+        const bool nativeRate = std::fabs(
+            static_cast<double>(sourceRate) - static_cast<double>(sampleRate))
+            < 0.5;
+        constexpr int sincTaps = 16;
+        constexpr int sincFirstTap = -7;
+        constexpr double pi = 3.14159265358979323846;
+        const double cutoff = ratio < 1.0 ? ratio * 0.94 : 1.0;
         for (std::size_t frame = 0u; frame < outputFrames; ++frame) {
             if ((frame & 4095u) == 0u
                 && sampleWorkerRunning.load(std::memory_order_relaxed) == 0) {
@@ -2137,20 +2246,58 @@ struct ThruInstance {
                 break;
             }
             const double sourcePosition = static_cast<double>(frame) / ratio;
-            const std::size_t first = std::min(sourceFrames - 1u,
-                static_cast<std::size_t>(sourcePosition));
-            const std::size_t second = std::min(sourceFrames - 1u, first + 1u);
-            const float mix = static_cast<float>(sourcePosition - first);
-            const float l1 = decodeWavSample(audio, first, 0, channels,
-                                             format, bits, blockAlign);
-            const float l2 = decodeWavSample(audio, second, 0, channels,
-                                             format, bits, blockAlign);
-            const float r1 = decodeWavSample(audio, first, 1, channels,
-                                             format, bits, blockAlign);
-            const float r2 = decodeWavSample(audio, second, 1, channels,
-                                             format, bits, blockAlign);
-            left[frame] = l1 + (l2 - l1) * mix;
-            right[frame] = r1 + (r2 - r1) * mix;
+            if (nativeRate) {
+                const std::size_t sourceFrame = std::min(
+                    sourceFrames - 1u, frame);
+                left[frame] = decodeWavSample(
+                    audio, sourceFrame, 0, channels, format, bits, blockAlign);
+                right[frame] = decodeWavSample(
+                    audio, sourceFrame, 1, channels, format, bits, blockAlign);
+                continue;
+            }
+
+            const std::int64_t centre = static_cast<std::int64_t>(
+                std::floor(sourcePosition));
+            double leftSum = 0.0;
+            double rightSum = 0.0;
+            double weightSum = 0.0;
+            for (int tap = 0; tap < sincTaps; ++tap) {
+                const std::int64_t sourceIndex = centre + sincFirstTap + tap;
+                if (sourceIndex < 0
+                    || sourceIndex >= static_cast<std::int64_t>(sourceFrames)) {
+                    continue;
+                }
+                const double distance = sourcePosition
+                    - static_cast<double>(sourceIndex);
+                if (std::fabs(distance) >= 8.0) continue;
+                const double sincArgument = pi * cutoff * distance;
+                const double sinc = std::fabs(sincArgument) < 1.0e-12
+                    ? 1.0 : std::sin(sincArgument) / sincArgument;
+                const double window = 0.5 + 0.5
+                    * std::cos(pi * distance / 8.0);
+                const double weight = cutoff * sinc * window;
+                const std::size_t sourceFrame = static_cast<std::size_t>(
+                    sourceIndex);
+                leftSum += static_cast<double>(decodeWavSample(
+                    audio, sourceFrame, 0, channels, format, bits,
+                    blockAlign)) * weight;
+                rightSum += static_cast<double>(decodeWavSample(
+                    audio, sourceFrame, 1, channels, format, bits,
+                    blockAlign)) * weight;
+                weightSum += weight;
+            }
+            if (std::fabs(weightSum) > 1.0e-12) {
+                left[frame] = static_cast<float>(leftSum / weightSum);
+                right[frame] = static_cast<float>(rightSum / weightSum);
+            } else {
+                const std::size_t sourceFrame = std::min(
+                    sourceFrames - 1u,
+                    static_cast<std::size_t>(std::llround(sourcePosition)));
+                left[frame] = decodeWavSample(
+                    audio, sourceFrame, 0, channels, format, bits, blockAlign);
+                right[frame] = decodeWavSample(
+                    audio, sourceFrame, 1, channels, format, bits, blockAlign);
+            }
         }
         munmap(mapping, mapSize);
         close(fd);
@@ -3627,12 +3774,14 @@ struct ThruInstance {
     {
         std::array<std::array<float, kBlockFrames>, 2u> rollMix {};
         std::array<float, kBlockFrames> rollGate {};
+        std::array<float, kBlockFrames> rollPower {};
         for (auto& roll : rolls) {
             if (!roll.active) continue;
             for (std::size_t frame = 0u; frame < frames; ++frame) {
                 roll.envelope += (roll.target - roll.envelope)
                     * rollFadeCoefficient;
                 rollGate[frame] = std::max(rollGate[frame], roll.envelope);
+                rollPower[frame] += roll.envelope * roll.envelope;
                 rollMix[0u][frame] += audioRollSample(roll, 0u)
                     * roll.envelope;
                 rollMix[1u][frame] += audioRollSample(roll, 1u)
@@ -3659,10 +3808,12 @@ struct ThruInstance {
         for (std::size_t frame = 0u; frame < frames; ++frame) {
             const float dry = 1.0f - clampValue(
                 rollGate[frame], 0.0f, 1.0f);
+            const float rollGain = rollPower[frame] > 1.0f
+                ? 1.0f / std::sqrt(rollPower[frame]) : 1.0f;
             voiceMix[0u][frame] = voiceMix[0u][frame] * dry
-                + rollMix[0u][frame];
+                + rollMix[0u][frame] * rollGain;
             voiceMix[1u][frame] = voiceMix[1u][frame] * dry
-                + rollMix[1u][frame];
+                + rollMix[1u][frame] * rollGain;
         }
     }
 
@@ -5521,7 +5672,7 @@ struct ThruInstance {
             }
         }
         if (peak > 0.000001f) {
-            const float scale = std::min(16.0f, 0.98f / peak);
+            const float scale = std::min(16.0f, kOutputCeiling / peak);
             for (std::size_t channel = 0u; channel < 2u; ++channel) {
                 float* data = engine.writableLane(selectedLane, channel);
                 for (std::size_t frame = 0u; frame < frames; ++frame) {
@@ -5706,6 +5857,7 @@ struct ThruInstance {
                 input[3u][frame] = 0.0f;
                 voiceMix[0u][frame] = 0.0f;
                 voiceMix[1u][frame] = 0.0f;
+                voiceEnvelopePower[frame] = 0.0f;
             }
 
             servicePadHoldDeadlines();
@@ -5733,6 +5885,7 @@ struct ThruInstance {
                         * envelope * voiceGain;
                     voiceMix[1u][frame] += voice.output[1u][frame]
                         * envelope * voiceGain;
+                    voiceEnvelopePower[frame] += envelope * envelope;
                 }
                 if (!voice.held
                     && voice.envelopeStage == AmpEnvelopeStage::idle) {
@@ -5746,6 +5899,18 @@ struct ThruInstance {
                     voice.clipNoteIndex = -1;
                     voice.engine.stopPlayback();
                 }
+            }
+
+            for (std::size_t frame = 0u; frame < count; ++frame) {
+                const float power = voiceEnvelopePower[frame];
+                const float target = polyphonyCompensation && power > 1.0f
+                    ? 1.0f / std::sqrt(power) : 1.0f;
+                const float coefficient = target < polyphonyGain
+                    ? polyphonyAttackCoefficient
+                    : polyphonyReleaseCoefficient;
+                polyphonyGain += (target - polyphonyGain) * coefficient;
+                voiceMix[0u][frame] *= polyphonyGain;
+                voiceMix[1u][frame] *= polyphonyGain;
             }
 
             // Keep the underlying playheads running while a Roll is heard.
@@ -5794,14 +5959,26 @@ struct ThruInstance {
             }
             serviceVoiceLaneSync();
 
+            float minimumLimiterGain = 1.0f;
             for (std::size_t frame = 0u; frame < count; ++frame) {
-                for (std::size_t channel = 0u; channel < 2u; ++channel) {
-                    const float wet = voiceMix[channel][frame];
-                    const float monitor = monitorInput[channel][frame] * monitorLevel;
-                    interleaved[(static_cast<std::size_t>(rendered) + frame) * 2u + channel]
-                        = toInt16(wet + monitor);
-                }
+                const float inputLeft = voiceMix[0u][frame] * kNominalBusGain
+                    + monitorInput[0u][frame] * monitorLevel;
+                const float inputRight = voiceMix[1u][frame] * kNominalBusGain
+                    + monitorInput[1u][frame] * monitorLevel;
+                float outputLeft = 0.0f;
+                float outputRight = 0.0f;
+                processOutputLimiter(
+                    inputLeft, inputRight, outputLeft, outputRight);
+                minimumLimiterGain = std::min(
+                    minimumLimiterGain, limiterGain);
+                const std::size_t outputFrame =
+                    (static_cast<std::size_t>(rendered) + frame) * 2u;
+                interleaved[outputFrame] = toInt16(
+                    outputLeft, ditherState[0u]);
+                interleaved[outputFrame + 1u] = toInt16(
+                    outputRight, ditherState[1u]);
             }
+            updateLimiterTelemetry(minimumLimiterGain);
             serviceClipAfterBlock(count);
             rendered += static_cast<int>(count);
         }
@@ -5858,7 +6035,8 @@ struct ThruInstance {
         return std::snprintf(buffer, static_cast<std::size_t>(bufferLength),
             "{\"version\":9,\"locus\":%.5f,\"field\":%.5f,\"speed\":%.5f,"
             "\"manual_lane\":%.5f,\"lane_cycles\":%.5f,\"algorithm\":%d,"
-            "\"join\":%.5f,\"output_gain\":%.5f,\"record_gain\":%.5f,"
+            "\"join\":%.5f,\"output_gain\":%.5f,\"polyphony_comp\":%d,"
+            "\"record_gain\":%.5f,"
             "\"amp_attack\":%.5f,\"amp_decay\":%.5f,"
             "\"amp_sustain\":%.5f,\"amp_release\":%.5f,"
             "\"pressure_mode\":%d,\"hold_release_ms\":%d,"
@@ -5932,7 +6110,8 @@ struct ThruInstance {
             controls.locus, controls.field, controls.speed,
             controls.manualLane + 1.0f, controls.laneCycles,
             static_cast<int>(controls.algorithm), controls.join,
-            outputGain, recordGain, controls.ampAttackMs,
+            outputGain, polyphonyCompensation ? 1 : 0, recordGain,
+            controls.ampAttackMs,
             controls.ampDecayMs, controls.ampSustain * 100.0f,
             controls.ampReleaseMs, pressureMode, holdReleaseMs,
             rootNote, padOctave, static_cast<int>(padScale),
@@ -6799,6 +6978,9 @@ struct ThruInstance {
         if (jsonNumber(json, "launch_quantize", value)) launchQuantize =
             static_cast<LaunchQuantize>(clampValue(static_cast<int>(value), 0, 2));
         if (jsonNumber(json, "output_gain", value)) outputGain = clampValue(value, 0.0f, 2.0f);
+        if (jsonNumber(json, "polyphony_comp", value)) {
+            polyphonyCompensation = value >= 0.5f;
+        }
         if (jsonNumber(json, "record_gain", value)) recordGain = clampValue(value, 0.0f, 4.0f);
         if (jsonNumber(json, "amp_attack", value)) controls.ampAttackMs = clampValue(value, 0.0f, 10000.0f);
         if (jsonNumber(json, "amp_decay", value)) controls.ampDecayMs = clampValue(value, 0.0f, 10000.0f);
@@ -7050,6 +7232,7 @@ void setParam(void* opaque, const char* key, const char* value)
     if (std::strcmp(key, "clip_automation") == 0) { char automationKey[32] {}; if (std::sscanf(value, "%31[^,]", automationKey) == 1) instance->captureClipParameter(lockParameterIndex(automationKey)); return; }
     if (std::strcmp(key, "join") == 0) { controls.join = clampValue(parseFloat(value, controls.join), 0.0f, 1.0f); return; }
     if (std::strcmp(key, "output_gain") == 0) { instance->outputGain = clampValue(parseFloat(value, instance->outputGain), 0.0f, 2.0f); return; }
+    if (std::strcmp(key, "polyphony_comp") == 0) { instance->polyphonyCompensation = isTruthy(value); return; }
     if (std::strcmp(key, "amp_attack") == 0) { controls.ampAttackMs = clampValue(parseFloat(value, controls.ampAttackMs), 0.0f, 10000.0f); return; }
     if (std::strcmp(key, "amp_decay") == 0) { controls.ampDecayMs = clampValue(parseFloat(value, controls.ampDecayMs), 0.0f, 10000.0f); return; }
     if (std::strcmp(key, "amp_sustain") == 0) { controls.ampSustain = clampValue(parseFloat(value, controls.ampSustain * 100.0f) / 100.0f, 0.0f, 1.0f); return; }
@@ -7078,7 +7261,7 @@ void setParam(void* opaque, const char* key, const char* value)
     if (std::strcmp(key, "tempo_swing") == 0) { instance->tempoSwing = clampValue(parseFloat(value, instance->tempoSwing * 100.0f) / 100.0f, 0.5f, 0.75f); return; }
     if (std::strcmp(key, "undo") == 0) { if (isTruthy(value)) instance->restoreUndo(); return; }
     if (std::strcmp(key, "maintenance") == 0) { if (isTruthy(value)) instance->serviceMaintenance(); return; }
-    if (std::strcmp(key, "performance_reset") == 0) { if (isTruthy(value)) { instance->maximumRenderMicros.store(0u, std::memory_order_relaxed); instance->renderOverruns.store(0u, std::memory_order_relaxed); } return; }
+    if (std::strcmp(key, "performance_reset") == 0) { if (isTruthy(value)) { instance->maximumRenderMicros.store(0u, std::memory_order_relaxed); instance->renderOverruns.store(0u, std::memory_order_relaxed); instance->limiterMaximumReductionDb.store(0.0f, std::memory_order_relaxed); } return; }
     if (std::strcmp(key, "chain_enabled") == 0) { instance->chainEnabled = isTruthy(value); instance->markPersistentStateDirty(); return; }
     if (std::strcmp(key, "chain_slot") == 0) { instance->chainEditSlot = clampValue(parseInteger(value, instance->chainEditSlot + 1) - 1, 0, static_cast<int>(kClipChainLength) - 1); return; }
     if (std::strcmp(key, "chain_clip") == 0) { const auto& entry = instance->clipChain[static_cast<std::size_t>(instance->chainEditSlot)]; instance->setChainEntry(instance->chainEditSlot, clampValue(parseInteger(value, static_cast<int>(entry.clip) + 1) - 1, 0, static_cast<int>(kClipSlotCount) - 1), entry.repeats); return; }
@@ -7350,6 +7533,10 @@ int getParam(void* opaque, const char* key, char* buffer, int bufferLength)
             std::memory_order_relaxed)),
         static_cast<unsigned long long>(instance->renderOverruns.load(
             std::memory_order_relaxed)));
+    if (std::strcmp(key, "limiter_state") == 0) return std::snprintf(
+        buffer, bufferLength, "%.2f,%.2f",
+        instance->limiterReductionDb.load(std::memory_order_relaxed),
+        instance->limiterMaximumReductionDb.load(std::memory_order_relaxed));
     if (std::strcmp(key, "memory_state") == 0) return std::snprintf(
         buffer, bufferLength, "%zu,%zu,%zu",
         instance->planeCapacityFrames * kChannelCount * sizeof(float),
@@ -7454,6 +7641,7 @@ int getParam(void* opaque, const char* key, char* buffer, int bufferLength)
     if (std::strcmp(key, "clip_capacity_state") == 0) { const ClipSlot* clip = instance->activeClipSlot(); return std::snprintf(buffer, bufferLength, "%u,%u,%u,%u,%d,%d", clip ? static_cast<unsigned>(clip->clipNoteCount) : 0u, static_cast<unsigned>(kClipNoteCapacity), clip ? static_cast<unsigned>(clip->clipPointCount) : 0u, static_cast<unsigned>(kClipPointCapacity), clip && clip->noteCapacityReached ? 1 : 0, clip && clip->pointCapacityReached ? 1 : 0); }
     if (std::strcmp(key, "join") == 0) return std::snprintf(buffer, bufferLength, "%.4f", controls.join);
     if (std::strcmp(key, "output_gain") == 0) return std::snprintf(buffer, bufferLength, "%.4f", instance->outputGain);
+    if (std::strcmp(key, "polyphony_comp") == 0) return std::snprintf(buffer, bufferLength, "%d", instance->polyphonyCompensation ? 1 : 0);
     if (std::strcmp(key, "amp_attack") == 0) return std::snprintf(buffer, bufferLength, "%.2f", controls.ampAttackMs);
     if (std::strcmp(key, "amp_decay") == 0) return std::snprintf(buffer, bufferLength, "%.2f", controls.ampDecayMs);
     if (std::strcmp(key, "amp_sustain") == 0) return std::snprintf(buffer, bufferLength, "%.2f", controls.ampSustain * 100.0f);

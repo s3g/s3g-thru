@@ -29,7 +29,7 @@
         <div class="flow-notes">
           <div><strong>Sources</strong><p>Each clip owns four assignments chosen from live recordings, resamples, library WAVs, archived Thru recordings, or Empty.</p></div>
           <div><strong>Playback</strong><p>The selected engine reads those lanes into as many as eight independent voices before lane gain and shared effects.</p></div>
-          <div><strong>Monitoring</strong><p>Input Monitor bypasses the sampler and effects. It is dry and defaults to zero to reduce feedback risk.</p></div>
+          <div><strong>Monitoring</strong><p>Input Monitor bypasses the sampler and effects, then joins the final safety limiter. It is dry and defaults to zero to reduce feedback risk.</p></div>
         </div>
 
         <h2 id="input">Set the input safely</h2>
@@ -38,7 +38,7 @@
           <li>Use Move's stock sampling controls to select microphone or line input and set the hardware input gain.</li>
           <li>Connect headphones before using the microphone near speakers.</li>
           <li>Open Thru's Mix / Rec page and leave <code>MON</code> at <code>0.00</code> unless you deliberately need direct monitoring.</li>
-          <li>Start with <code>REC GAIN</code> at <code>1.00</code>. The display reports <code>LIM</code> if the 0.95 capture safety ceiling reduces a stored peak.</li>
+          <li>Start with <code>REC GAIN</code> at <code>1.00</code>. The display reports <code>LIM</code> if the stereo-linked −1 dBFS capture limiter reduces the stored signal. Lower Record Gain if <code>LIM</code> appears frequently.</li>
         </ol>
 
         <div class="callout"><p><strong>Quiet playback is not corrected with Record Gain.</strong> Record Gain affects newly captured audio. Use Lane 1–4 gain and final Level for playback balance; Normalize is an explicit destructive sample edit.</p></div>
@@ -91,12 +91,20 @@
             <tr><td>Trim Start / End</td><td>Set normalized edit boundaries without changing audio yet.</td></tr>
             <tr><td>Trim Apply</td><td>Commit the selected range to a new clip-local capture.</td></tr>
             <tr><td>Reverse</td><td>Reverse the selected lane's stored audio.</td></tr>
-            <tr><td>Normalize</td><td>Scale the stored peak to the safe target. This changes playback level.</td></tr>
+            <tr><td>Normalize</td><td>Scale the stored peak to −1 dBFS. This changes playback level and leaves room for conversion and playback processing.</td></tr>
             <tr><td>Edge Fade</td><td>Apply short fades at both boundaries to reduce clicks.</td></tr>
           </tbody>
         </table>
 
         <p>Knobs 7–8 show reserved boxes because Record Gain is on Mix / Rec and Level is on Engine. The action controls show <code>TURN</code> until either encoder direction is moved. A successful action temporarily changes the title to <code>TRIMMED L1</code>, <code>REVERSED L1</code>, <code>NORMALIZED L1</code>, or <code>FADED L1</code>. Every committed edit writes a new archive WAV; <kbd>Shift</kbd> + <kbd>Back</kbd> restores the source from before the most recent edit.</p>
+
+        <h2 id="gain-staging">Gain staging and output safety</h2>
+
+        <p>At <code>LEVL 1.00</code>, the instrument path has 6 dB of nominal bus headroom. <code>LEVL 2.00</code> restores that 6 dB when a quieter source needs it. Polyphony Compensation is on by default and smoothly reduces the summed level as more independent voices or Rolls overlap; it does not change pad velocity behavior.</p>
+
+        <p>A stereo-linked lookahead limiter is the final safety stage. Its −1 dBFS ceiling catches occasional stack, effect, monitor, and polyphonic peaks without applying the former always-on high-level waveshaping. It is a guard, not a loudness effect: persistent reduction means Lane Gain, Level, effect Drive/feedback, Record Gain, or Input Monitor should be reduced.</p>
+
+        <p>Shift+Menu opens Help. <code>L0.0</code> in its title is current limiter reduction in decibels; a larger number means more attenuation. Imported WAV files at Move's sample rate are copied directly. Other sample rates use high-quality conversion, while transposed playback uses smoother interpolation to reduce rough high-frequency edges.</p>
 
         <h2 id="saving">Saving, recall, and backup</h2>
 
@@ -116,7 +124,7 @@
 
       <aside class="toc" aria-label="Page navigation">
         <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
-        <div class="toc-section"><h2>On this page</h2><a href="#signal-flow">Signal flow</a><a href="#input">Input safety</a><a href="#capture">Audio capture</a><a href="#library">Sample library</a><a href="#ownership">Clip ownership</a><a href="#editing">Sample edits</a><a href="#saving">Saving</a></div>
+        <div class="toc-section"><h2>On this page</h2><a href="#signal-flow">Signal flow</a><a href="#input">Input safety</a><a href="#capture">Audio capture</a><a href="#library">Sample library</a><a href="#ownership">Clip ownership</a><a href="#editing">Sample edits</a><a href="#gain-staging">Gain staging</a><a href="#saving">Saving</a></div>
       </aside>
     </div>
     <footer class="manual-footer">Use headphones for the first microphone and resampling tests.</footer>

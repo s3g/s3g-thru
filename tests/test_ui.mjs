@@ -51,7 +51,7 @@ const flatWave = '77'.repeat(112);
 const params = {
     locus: '0.5', field: '1', speed: '1', manual_lane: '1',
     lane_cycles: '1', stack_scan_paused: '0', clip_stack_hold: '0',
-    algorithm: '0', join: '1', output_gain: '1',
+    algorithm: '0', join: '1', output_gain: '1', polyphony_comp: '1',
     glitch_buffer_lock: '0',
     record_lane: '1', pad_octave: '0', record_source: '0',
     record_gain: '1', monitor_level: '0', preview_level: '0.7',
@@ -81,6 +81,7 @@ const params = {
     lane_source: 'LIVE',
     lane_source_state: 'CAPTURE:LIVE', undo_available: '0',
     captures_directory: '/data/s3g-thru/captures',
+    performance_state: '724,0', limiter_state: '1.5,3.2',
     last_error: '',
     waveforms: [flatWave, flatWave, flatWave, flatWave].join('|'),
 };
@@ -180,7 +181,7 @@ for (let sound = 3; sound < 8; sound++) {
         .map((page) => page.title), ['EVENT CLOCK', 'EVENT SHAPE']);
 }
 assert.deepEqual(globalThis.__testParameterPageSets[0][1],
-    ['pad_mode', 'root_note', 'scale', 'hold_release_ms']);
+    ['pad_mode', 'root_note', 'scale', 'hold_release_ms', 'polyphony_comp']);
 assert.deepEqual(globalThis.__testParameterPageSets[0][2],
     ['amp_attack', 'amp_decay', 'amp_sustain', 'amp_release']);
 assert.deepEqual(globalThis.__testParameterPageSets[0][3],
@@ -312,6 +313,25 @@ assert.deepEqual(paramWrites.slice(-2), [
     ['locus', '0.5100'],
     ['clip_automation', 'locus'],
 ]);
+/* Parameter encoders run at 50% response: four physical detents produce
+   two existing value steps without putting parameters between their grids. */
+globalThis.onMidiMessageInternal([0xB0, 71, 1]);
+globalThis.onMidiMessageInternal([0xB0, 71, 1]);
+globalThis.onMidiMessageInternal([0xB0, 71, 1]);
+assert.deepEqual(paramWrites.slice(-2), [
+    ['locus', '0.5200'],
+    ['clip_automation', 'locus'],
+]);
+globalThis.onMidiMessageInternal([0xB0, 71, 127]);
+globalThis.onMidiMessageInternal([0xB0, 71, 127]);
+globalThis.onMidiMessageInternal([0xB0, 71, 127]);
+globalThis.onMidiMessageInternal([0xB0, 71, 127]);
+assert.deepEqual(paramWrites.slice(-4), [
+    ['locus', '0.5100'],
+    ['clip_automation', 'locus'],
+    ['locus', '0.5000'],
+    ['clip_automation', 'locus'],
+]);
 globalThis.onMidiMessageInternal([0xB0, 86, 127]);
 assert.deepEqual(blockingWrites.pop(), ['clip_record', '1']);
 globalThis.onMidiMessageInternal([0xB0, 49, 127]);
@@ -405,6 +425,8 @@ globalThis.tick();
 const scaleHeader = drawWrites.slice(scalePageDrawStart).find((write) =>
     write[0] === 'print' && write[2] === 0);
 assert(String(scaleHeader?.[3]).includes('PADS & SCALE 2/12'));
+assert(drawWrites.slice(scalePageDrawStart).some((write) =>
+    write[0] === 'print' && String(write[3]).includes('POLY')));
 globalThis.onMidiMessageInternal([0xB0, 73, 1]);
 assert.deepEqual(paramWrites.at(-1), ['scale', '1']);
 assert.equal(globalThis.__testPadMidiNote(0), 60);
@@ -627,6 +649,10 @@ params.pad_mode = '0';
 globalThis.onMidiMessageInternal([0xB0, 49, 127]);
 globalThis.onMidiMessageInternal([0xB0, 50, 127]);
 globalThis.onMidiMessageInternal([0xB0, 49, 0]);
+const helpDrawStart = drawWrites.length;
+for (let tick = 0; tick < 60; tick++) globalThis.tick();
+assert(drawWrites.slice(helpDrawStart).some((write) =>
+    write[0] === 'print' && String(write[3]).includes('L1.5')));
 globalThis.onMidiMessageInternal([0xB0, 51, 127]);
 assert.equal(exitCount, 0, 'Back closes settings/help before exiting');
 globalThis.onMidiMessageInternal([0xB0, 51, 127]);

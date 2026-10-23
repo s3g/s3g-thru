@@ -17,6 +17,7 @@ namespace {
 
 constexpr int kFrames = MOVE_FRAMES_PER_BLOCK;
 constexpr int kInputOffset = 4096;
+constexpr float kOutputCeiling = 0.8912509381337456f;
 std::array<std::uint8_t, 8192> mappedMemory {};
 std::array<std::int16_t, kFrames * 2> output {};
 
@@ -126,7 +127,8 @@ void recordLane(plugin_api_v2_t* api, void* instance,
     render(api, instance, 6);
 }
 
-void writePcm16Wav(const std::string& path)
+void writePcm16Wav(const std::string& path,
+                   std::uint32_t sampleRate = MOVE_SAMPLE_RATE)
 {
     constexpr std::uint32_t frames = 4096u;
     constexpr std::uint32_t dataBytes = frames * 2u * sizeof(std::int16_t);
@@ -151,8 +153,8 @@ void writePcm16Wav(const std::string& path)
     assert(std::fwrite("RIFF", 1u, 4u, file) == 4u);
     u32(36u + dataBytes);
     assert(std::fwrite("WAVEfmt ", 1u, 8u, file) == 8u);
-    u32(16u); u16(1u); u16(2u); u32(MOVE_SAMPLE_RATE);
-    u32(MOVE_SAMPLE_RATE * 4u); u16(4u); u16(16u);
+    u32(16u); u16(1u); u16(2u); u32(sampleRate);
+    u32(sampleRate * 4u); u16(4u); u16(16u);
     assert(std::fwrite("data", 1u, 4u, file) == 4u);
     u32(dataBytes);
     for (std::uint32_t frame = 0u; frame < frames; ++frame) {
@@ -358,6 +360,15 @@ int main()
     /* Every engine/global control has a stable absolute external MIDI CC.
        Internal Move CCs remain reserved for the takeover surface. */
     const std::string defaultState = get(api, instance, "state");
+    assert(get(api, instance, "polyphony_comp") == "1");
+    api->set_param(instance, "polyphony_comp", "0");
+    const std::string uncompensatedState = get(api, instance, "state");
+    assert(uncompensatedState.find("\"polyphony_comp\":0")
+        != std::string::npos);
+    api->set_param(instance, "polyphony_comp", "1");
+    api->set_param(instance, "state", uncompensatedState.c_str());
+    assert(get(api, instance, "polyphony_comp") == "0");
+    api->set_param(instance, "state", defaultState.c_str());
     const std::string initialLocus = get(api, instance, "locus");
     api->set_param(instance, "hold_release_ms", "1250");
     const std::string holdState = get(api, instance, "state");
@@ -521,6 +532,10 @@ int main()
     midi(api, instance, 0x80, 60, 0);
     assert(peakBeforeNormalize > 0);
     assert(peakAfterNormalize > peakBeforeNormalize * 2);
+    api->set_param(instance, "performance_reset", "1");
+    render(api, instance, 1);
+    assert(std::strtof(get(api, instance, "limiter_state").c_str(), nullptr)
+        < 0.01f);
     api->set_param(instance, "sample_fade", "1");
     const std::string fadeCapture = get(api, instance, "lane_source_path");
     api->set_param(instance, "maintenance", "1");
@@ -548,8 +563,22 @@ int main()
     /* A lane can alternatively come from the on-device sample library. WAV
        parsing/resampling runs on a worker; render only performs bounded copies. */
     const std::string librarySample = libraryDir + "/Library Tone.wav";
+    const std::string convertedLibrarySample =
+        libraryDir + "/Library Tone 48k.wav";
     writePcm16Wav(librarySample);
+    writePcm16Wav(convertedLibrarySample, 48000u);
     api->set_param(instance, "record_lane", "2");
+    api->set_param(instance, "preview_file", convertedLibrarySample.c_str());
+    int convertedPreviewState = 0;
+    for (int attempt = 0; attempt < 500 && convertedPreviewState != 8
+         && convertedPreviewState != 7; ++attempt) {
+        render(api, instance, 1);
+        usleep(1000);
+        convertedPreviewState = stateField(
+            get(api, instance, "sample_load_state"), 0);
+    }
+    assert(convertedPreviewState == 8);
+    api->set_param(instance, "preview_stop", "1");
     api->set_param(instance, "preview_file", librarySample.c_str());
     int previewState = 0;
     for (int attempt = 0; attempt < 500 && previewState != 8
@@ -1224,7 +1253,9 @@ int main()
     api->set_param(instance, "amp_decay", "200");
     api->set_param(instance, "amp_sustain", "25");
     midi(api, instance, 0x90, 60, 100);
-    render(api, instance, 1);
+    // Allow the 1.5 ms output lookahead and the engine's retrigger fade to
+    // expose the full start level before measuring the decay.
+    render(api, instance, 2);
     const int decayStartPeak = peak();
     render(api, instance, 100);
     const int sustainPeak = peak();
@@ -1288,6 +1319,25 @@ int main()
     api->set_param(instance, "monitor_level", "0");
     render(api, instance, 2);
     assert(peak() == 0);
+
+    /* The final ceiling is stereo linked and catches full-scale monitoring
+       without waveshaping ordinary playback below the nominal -6 dB bus. */
+    api->set_param(instance, "performance_reset", "1");
+    fillInput(32767);
+    api->set_param(instance, "monitor_level", "1");
+    render(api, instance, 3);
+    assert(peak() <= static_cast<int>(kOutputCeiling * 32767.0f) + 1);
+    assert(std::strtof(get(api, instance, "limiter_state").c_str(), nullptr)
+        > 0.5f);
+    api->set_param(instance, "monitor_level", "0");
+    render(api, instance, 100);
+
+    /* Record gain uses a linked recovery envelope at the same -1 dBFS
+       ceiling and reports intervention instead of flat-topping each sample. */
+    api->set_param(instance, "record_gain", "4");
+    recordLane(api, instance, 3, 12000, 8);
+    assert(stateField(get(api, instance, "ui_state"), 11) == 1);
+    api->set_param(instance, "record_gain", "1");
 
     /* Replace another lane, then exercise every Sample Motion algorithm. */
     recordLane(api, instance, 4, 18000, 12);
@@ -1814,6 +1864,7 @@ int main()
         std::remove(path.c_str());
     }
     assert(std::remove(librarySample.c_str()) == 0);
+    assert(std::remove(convertedLibrarySample.c_str()) == 0);
     assert(std::remove(libraryDir.c_str()) == 0);
     const std::string capturesDir = persistenceDir + "/captures";
     for (const std::string& path : directoryFiles(capturesDir)) {

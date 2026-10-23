@@ -464,6 +464,8 @@ public:
             - std::exp(-1.0f / std::max(1.0f, outputSampleRate_ * 0.002f));
         recordMeterRelease_ = std::exp(
             -1.0f / std::max(1.0f, outputSampleRate_ * 0.250f));
+        recordLimiterRelease_ = 1.0f - std::exp(
+            -1.0f / std::max(1.0f, outputSampleRate_ * 0.080f));
         prepareGrainWindowTables();
         clear();
         prepared_ = true;
@@ -506,6 +508,7 @@ public:
         recordPeak_ = 0.0f;
         recordMeterPeak_ = 0.0f;
         lastRecordedPeak_ = 0.0f;
+        recordLimiterGain_ = 1.0f;
         recordLimited_ = false;
         lastRecordLimited_ = false;
         recordInputOffset_ = 0u;
@@ -662,6 +665,7 @@ public:
         lastRecordedLane_ = kNoLane;
         recordPeak_ = 0.0f;
         recordMeterPeak_ = 0.0f;
+        recordLimiterGain_ = 1.0f;
         recordLimited_ = false;
         recordInputOffset_ = inputOffset;
         recording_ = true;
@@ -735,6 +739,10 @@ public:
         recordInputOffset_ = 0u;
         recordWriteActive_ = true;
         recordTransitionRemaining_ = 0u;
+        recordPeak_ = 0.0f;
+        recordMeterPeak_ = 0.0f;
+        recordLimiterGain_ = 1.0f;
+        recordLimited_ = false;
         resetReader();
         playing_ = false;
         recording_ = true;
@@ -1511,13 +1519,19 @@ private:
                 right *= recordInputGain_;
                 const float storedPeak = std::max(
                     std::abs(left), std::abs(right));
-                constexpr float captureCeiling = 0.95f;
-                if (storedPeak > captureCeiling) {
-                    const float gain = captureCeiling / storedPeak;
-                    left *= gain;
-                    right *= gain;
+                constexpr float captureCeiling = 0.8912509381337456f;
+                const float targetGain = storedPeak > captureCeiling
+                    ? captureCeiling / storedPeak : 1.0f;
+                if (targetGain < 1.0f) {
+                    recordLimiterGain_ = std::min(
+                        recordLimiterGain_, targetGain);
                     recordLimited_ = true;
+                } else {
+                    recordLimiterGain_ += (1.0f - recordLimiterGain_)
+                        * recordLimiterRelease_;
                 }
+                left *= recordLimiterGain_;
+                right *= recordLimiterGain_;
                 writableLane(recordingLane_, 0u)[recordFrames_] = left;
                 writableLane(recordingLane_, 1u)[recordFrames_] = right;
             } else {
@@ -2035,20 +2049,36 @@ private:
         return result;
     }
 
+    static float interpolatedSample(const float* data,
+                                    std::size_t frames,
+                                    double position)
+    {
+        if (!data || frames == 0u) return 0.0f;
+        position = clamp(position, 0.0,
+            static_cast<double>(frames - 1u));
+        const std::size_t first = static_cast<std::size_t>(position);
+        const std::size_t previous = first == 0u ? 0u : first - 1u;
+        const std::size_t second = std::min(first + 1u, frames - 1u);
+        const std::size_t third = std::min(first + 2u, frames - 1u);
+        const float phase = static_cast<float>(
+            position - static_cast<double>(first));
+        const float y0 = data[previous];
+        const float y1 = data[first];
+        const float y2 = data[second];
+        const float y3 = data[third];
+        const float c1 = 0.5f * (y2 - y0);
+        const float c2 = y0 - 2.5f * y1 + 2.0f * y2 - 0.5f * y3;
+        const float c3 = 0.5f * (y3 - y0) + 1.5f * (y1 - y2);
+        const float value = ((c3 * phase + c2) * phase + c1) * phase + y1;
+        // Bound the Hermite curve to its adjacent samples. This preserves the
+        // smoother fractional read without creating new inter-sample peaks.
+        return clamp(value, std::min(y1, y2), std::max(y1, y2));
+    }
+
     float sampleAt(std::size_t sourceChannel, double position) const
     {
-        if (sourceFrames_ == 0u) {
-            return 0.0f;
-        }
-        position = clamp(position, 0.0,
-            static_cast<double>(sourceFrames_ - 1u));
-        const std::size_t first = static_cast<std::size_t>(position);
-        const std::size_t second = std::min(first + 1u, sourceFrames_ - 1u);
-        const float fraction = static_cast<float>(position
-            - static_cast<double>(first));
-        const float a = storage_[sourceChannel][first];
-        const float b = storage_[sourceChannel][second];
-        return a + (b - a) * fraction;
+        return interpolatedSample(
+            storage_[sourceChannel], sourceFrames_, position);
     }
 
     float readHead(std::size_t sourceChannel, const ReadHead& head) const
@@ -2073,14 +2103,8 @@ private:
         const double position = clamp(referencePosition
                 * lanePositionScales_[lane],
             0.0, static_cast<double>(laneFrames_[lane] - 1u));
-        const std::size_t first = static_cast<std::size_t>(position);
-        const std::size_t second = std::min(first + 1u, laneFrames_[lane] - 1u);
-        const float fraction = static_cast<float>(position
-            - static_cast<double>(first));
-        const float* data = laneData(lane, channel);
-        const float a = data[first];
-        const float b = data[second];
-        return a + (b - a) * fraction;
+        return interpolatedSample(
+            laneData(lane, channel), laneFrames_[lane], position);
     }
 
     float readLaneHead(std::size_t lane,
@@ -4321,6 +4345,8 @@ private:
     float recordMeterPeak_ = 0.0f;
     float lastRecordedPeak_ = 0.0f;
     float recordMeterRelease_ = 0.9999f;
+    float recordLimiterGain_ = 1.0f;
+    float recordLimiterRelease_ = 0.0001f;
     float recordInputGain_ = 1.0f;
     bool recordLimited_ = false;
     bool lastRecordLimited_ = false;

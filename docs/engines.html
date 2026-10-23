@@ -49,7 +49,7 @@
             <tr><td>5</td><td>STAK</td><td>1.00–4.00</td><td>Stack Start sets an exact lane/crossfade for Manual stack motion, or the starting phase of a moving stack path. Sample and Slices round it to a discrete loaded lane.</td></tr>
             <tr><td>6</td><td>RATE</td><td>0.125–16 Hz</td><td>Scan Rate sets cycles per second for moving stack paths. <kbd>Loop</kbd> freezes the audible phase. Sample, Slices, and Cutups do not use continuous stack scanning.</td></tr>
             <tr><td>7</td><td>JOIN</td><td>0.00–1.00</td><td>Join scales seam smoothing for continuous/event readers. Motion also uses it as articulation depth. Cutups has a separate Cut Join for event-to-event fades.</td></tr>
-            <tr><td>8</td><td>LEVL</td><td>0.00–2.00</td><td>Level sets final instrument output gain. Pad velocity never attenuates playback.</td></tr>
+            <tr><td>8</td><td>LEVL</td><td>0.00–2.00</td><td>Level sets instrument output gain before the safety limiter. At 1.00, the wet bus retains 6 dB of nominal headroom; 2.00 restores that gain. Pad velocity never attenuates playback.</td></tr>
           </tbody>
         </table>
 
@@ -60,7 +60,7 @@
         <p>This page follows Engine for every playback algorithm. It chooses what the 32 pads do and, in Keys mode, whether they use the original chromatic layout or a folded scale layout.</p>
 
         <figure>
-          <div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/pads-scale.svg" aria-label="Open the shared Pads and Scale page figure"><img src="assets/screens/pads-scale.svg" alt="Shared Pads and Scale page with Pad Mode, Root, Scale, Hold Off, and four reserved encoder positions"></button></div>
+          <div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/pads-scale.svg" aria-label="Open the shared Pads and Scale page figure"><img src="assets/screens/pads-scale.svg" alt="Shared Pads and Scale page with Pad Mode, Root, Scale, Hold Off, Poly Comp, and three reserved encoder positions"></button></div>
           <figcaption>Named scales illuminate the playable grid dark neutral grey and mark every tonic pad full white. Active voices use their voice-slot colors; a latch turns to the matching dim color when its stored pitch is outside the current pad mapping.</figcaption>
         </figure>
 
@@ -71,7 +71,8 @@
             <tr><td>2</td><td>ROOT</td><td>C1–C7</td><td>Sets sample unison and the tonic of a named scale. Slices play this pitch; Rolls retain the pitches already present in their grouped capture. In a named Keys scale, the bottom-left pad begins one octave below Root before octave transposition.</td></tr>
             <tr><td>3</td><td>SCAL</td><td>Chromatic + 24 scales</td><td>Chromatic preserves the original semitone grid. A named scale removes out-of-scale pitches and maps adjacent columns to consecutive scale degrees.</td></tr>
             <tr><td>4</td><td>HOLD</td><td>Manual / 50 ms–60 s</td><td>Keeps Shift+pad latches active until toggled, or schedules their release with one global delay.</td></tr>
-            <tr><td>5–8</td><td>Reserved</td><td>—</td><td>Inactive positions available for future pad-layout controls.</td></tr>
+            <tr><td>5</td><td>POLY</td><td>Off / On</td><td>Polyphony Compensation smoothly controls summed energy as simultaneous source voices and Rolls increase. One voice remains unchanged. Turn it off only when intentional additive buildup is part of the sound.</td></tr>
+            <tr><td>6–8</td><td>Reserved</td><td>—</td><td>Inactive positions available for future pad-layout controls.</td></tr>
           </tbody>
         </table>
 

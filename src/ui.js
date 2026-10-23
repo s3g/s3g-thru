@@ -107,6 +107,7 @@ const SCALE_INTERVALS = [
 ];
 const LEDS_PER_TICK = 8;
 const GLITCH_LOCK_TAP_TICKS = 30;
+const PARAMETER_ENCODER_RESPONSE = 0.5;
 const VOICE_COLORS = [BrightRed, BrightOrange, BrightYellow, NeonGreen,
     AzureBlue, BlueViolet, Purple, LightMagenta];
 const VOICE_DIM_COLORS = [DeepRed, BurntSienna, DarkYellowOlive, DarkGrass,
@@ -114,6 +115,9 @@ const VOICE_DIM_COLORS = [DeepRed, BurntSienna, DarkYellowOlive, DarkGrass,
 const LIBRARY_ROOT = '/data/UserData/UserLibrary/Samples';
 const LIBRARY_HOME = '@s3g-thru-sources';
 const BANK_NAMES = ['A', 'B', 'C', 'D'];
+const parameterEncoderMotion = Array.from({ length: 8 }, () => ({
+    key: '', remainder: 0,
+}));
 
 const PARAMS = {
     locus: { key: 'locus', label: 'POSITION', min: 0, max: 1, step: 0.01, value: 0.5 },
@@ -124,6 +128,7 @@ const PARAMS = {
     algorithm: { key: 'algorithm', label: 'ALGORITHM', min: 0, max: 7, step: 1, value: 0, integer: true, labels: ALGORITHMS },
     join: { key: 'join', label: 'JOIN', min: 0, max: 1, step: 0.01, value: 1 },
     output_gain: { key: 'output_gain', label: 'LEVEL', min: 0, max: 2, step: 0.02, value: 1 },
+    polyphony_comp: { key: 'polyphony_comp', label: 'POLY COMP', min: 0, max: 1, step: 1, value: 1, integer: true, labels: ['OFF', 'ON'] },
     amp_attack: { key: 'amp_attack', label: 'ATTACK', min: 0, max: 10000, step: 1, value: 3, integer: true },
     amp_decay: { key: 'amp_decay', label: 'DECAY', min: 0, max: 10000, step: 1, value: 0, integer: true },
     amp_sustain: { key: 'amp_sustain', label: 'SUSTAIN', min: 0, max: 100, step: 1, value: 100, integer: true },
@@ -305,7 +310,7 @@ const STACK_PATH_PAGE = { title: 'STACK PATH', keys: ['lane_path',
 const DIRECT_PLAY_PAGE = { title: 'DIRECT PLAY', keys: ['sample_mode',
     'lane_variation'] };
 const PADS_SCALE_PAGE = { title: 'PADS & SCALE', keys: ['pad_mode',
-    'root_note', 'scale', 'hold_release_ms'] };
+    'root_note', 'scale', 'hold_release_ms', 'polyphony_comp'] };
 const AMP_ENVELOPE_PAGE = { title: 'AMP ENVELOPE', breakpoint: true,
     keys: ['amp_attack', 'amp_decay', 'amp_sustain', 'amp_release'] };
 const MOTION_SOUND_PAGE = { title: 'MOTION SOUND', keys: ['motion_sound'] };
@@ -604,6 +609,8 @@ const state = {
     undoAvailable: false,
     maximumRenderMicros: 0,
     renderOverruns: 0,
+    limiterReductionDb: 0,
+    limiterMaximumReductionDb: 0,
     sampleLoadState: 0,
     sampleLoadProgress: 0,
     sampleLoadName: '',
@@ -736,6 +743,28 @@ function decodeDelta(value) {
     const v = value | 0;
     if (v === 0 || v === 64) return 0;
     return v < 64 ? v : v - 128;
+}
+
+function resetParameterEncoderMotion() {
+    for (const motion of parameterEncoderMotion) {
+        motion.key = '';
+        motion.remainder = 0;
+    }
+}
+
+function parameterEncoderDelta(index, key, delta) {
+    const motion = parameterEncoderMotion[index];
+    if (!motion || delta === 0) return 0;
+    if (motion.key !== key) {
+        motion.key = key;
+        motion.remainder = 0;
+    }
+    const scaled = motion.remainder + delta * PARAMETER_ENCODER_RESPONSE;
+    const magnitude = Math.floor(Math.abs(scaled) + 0.5);
+    const applied = scaled < 0 ? -magnitude : magnitude;
+    motion.remainder = scaled - applied;
+    if (Math.abs(motion.remainder) < 1e-9) motion.remainder = 0;
+    return applied;
 }
 
 function getParam(key, fallback) {
@@ -951,6 +980,7 @@ function parseClipBankState(text) {
     state.clipMaskHigh = high;
     if (active !== previousActive) {
         state.clipBank = Math.floor(active / 16);
+        resetParameterEncoderMotion();
         for (const key of Object.keys(PARAMS)) {
             const control = PARAMS[key];
             control.value = clamp(getNumber(control.key, control.value),
@@ -1539,8 +1569,9 @@ function drawSettings() {
 
 function drawHelp() {
     clear_screen();
-    print(1, 0, ('s3g THRU ' + state.maximumRenderMicros + 'us/'
-        + state.renderOverruns).slice(0, 21), 1);
+    print(1, 0, ('s3g THRU ' + state.maximumRenderMicros + 'u/'
+        + state.renderOverruns + ' L' + state.limiterReductionDb.toFixed(1))
+        .slice(0, 21), 1);
     print(1, 13, 'REC        data loop', 1);
     print(1, 23, 'SHIFT+REC  audio lane', 1);
     print(1, 33, 'STEPS      clip slots', 1);
@@ -2033,6 +2064,8 @@ function adjustControl(index, delta) {
     const control = PARAMS[keys[index]];
     if (!control || delta === 0) return;
     if (control.key === 'chain_clear') {
+        parameterEncoderMotion[index].key = control.key;
+        parameterEncoderMotion[index].remainder = 0;
         setParamBlocking('chain_clear', 1);
         PARAMS.chain_clip.value = 1;
         PARAMS.chain_repeats.value = 1;
@@ -2040,9 +2073,13 @@ function adjustControl(index, delta) {
         return;
     }
     if (control.momentary) {
+        parameterEncoderMotion[index].key = control.key;
+        parameterEncoderMotion[index].remainder = 0;
         applyMomentaryControl(control);
         return;
     }
+    delta = parameterEncoderDelta(index, control.key, delta);
+    if (delta === 0) return;
     let value;
     if (control.key === 'long_grain_length') {
         value = longGrainLengthAt(longGrainLengthIndex(control.value) + delta);
@@ -2150,6 +2187,12 @@ function pollDsp() {
             ? performance[0] | 0 : 0;
         state.renderOverruns = Number.isFinite(performance[1])
             ? performance[1] | 0 : 0;
+        const limiter = String(getParam('limiter_state', '0,0'))
+            .split(',').map((item) => Number(item));
+        state.limiterReductionDb = Number.isFinite(limiter[0])
+            ? Math.max(0, limiter[0]) : 0;
+        state.limiterMaximumReductionDb = Number.isFinite(limiter[1])
+            ? Math.max(0, limiter[1]) : 0;
     }
     parseWaveforms(getParam('waveforms', ''));
 }
@@ -2172,6 +2215,7 @@ globalThis.init = function() {
     state.ledPending.clear();
     state.ledSent.clear();
     state.ledOrder = 0;
+    resetParameterEncoderMotion();
     setParam('shift_held', 0);
     for (const key of Object.keys(PARAMS)) {
         const control = PARAMS[key];

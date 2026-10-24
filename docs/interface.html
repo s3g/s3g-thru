@@ -91,7 +91,7 @@
 
         <p>Glitch therefore uses <code>RATE</code> for the lane-stack scan beneath its history buffer and <code>JOIN</code> for that source's seams. Sample uses <code>JOIN</code> to crossfade its Loop boundary. Glitch's Buffer and Override controls remain on Glitch Clock. Cutups, Sample, and Slices do not use continuous stack scanning; turning <code>RATE</code> while one of those engines is selected retains the shared value for the next engine that uses it.</p>
 
-        <div class="callout"><p><strong>Live control safety:</strong> continuous controls glide to their new values, event controls are adopted by the next grain, cut, or cycle, and changes that replace a reader use a short transition. Bits, Rate reduction, and Glitch can still create deliberate digital edges. With <code>BITS 0.00</code>, <code>RATE 1</code>, and the Help-screen overrun count at zero, an isolated click is not expected.</p></div>
+        <div class="callout"><p><strong>Live control safety:</strong> continuous controls glide to their new values, event controls are adopted by the next grain, cut, or cycle, and changes that replace a reader use a short transition. Wavesets waits for a rendered zero crossing or low-level point and overlap-adds the old and new readers. Bits, Rate reduction, and Glitch can still create deliberate digital edges. With <code>BITS 0.00</code>, <code>RATE 1</code>, and the Help-screen overrun count at zero, an isolated click is not expected.</p></div>
 
         <h2 id="parameters">Parameter pages</h2>
 

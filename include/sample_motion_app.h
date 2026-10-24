@@ -542,13 +542,11 @@ public:
             - std::exp(-1.0f / std::max(1.0f, outputSampleRate_ * 0.002f));
         controlGainSlew_ = 1.0f
             - std::exp(-1.0f / std::max(1.0f, outputSampleRate_ * 0.003f));
-        // The desktop Wavesets engine reads Depth and Join continuously.
-        // A compact five-millisecond slew removes encoder zipper noise while
-        // remaining perceptually immediate and leaving the process itself
-        // unchanged.
-        wavesetControlSlew_ = 1.0f
-            - std::exp(-1.0f / std::max(1.0f, outputSampleRate_ * 0.005f));
-        wavesetControlTransitionFrames_ = std::max<std::size_t>(
+        // Wavesets adopts control changes only at a rendered zero/low-level
+        // point or, at the latest, its next measured cycle boundary. The
+        // outgoing and incoming readers then use a short constant-overlap-add
+        // transition instead of changing topology inside an audible cycle.
+        wavesetOverlapFrames_ = std::max<std::size_t>(
             32u, static_cast<std::size_t>(outputSampleRate_ * 0.005f));
         recordMeterRelease_ = std::exp(
             -1.0f / std::max(1.0f, outputSampleRate_ * 0.250f));
@@ -1107,9 +1105,11 @@ public:
                     renderLongGrainsFrame(preparedControls, wetOutput);
                     break;
                 case PlaybackAlgorithm::wavesets:
-                    // Wavesets has its own five-millisecond Depth/Join glide
-                    // and consumes discrete changes at cycle boundaries.
-                    preparedControls.join = targetJoin;
+                    // Wavesets owns a boundary-latched control snapshot. Do
+                    // not let the shared per-sample Join glide expose a new
+                    // target before its safe commit point.
+                    applyWavesetControlState(
+                        wavesetActiveControls_, preparedControls);
                     renderWavesetsFrame(preparedControls, wetOutput);
                     break;
             }
@@ -1296,6 +1296,21 @@ public:
         return waveset_.initialized && waveset_.fallback;
     }
 
+    bool wavesetControlChangePending() const
+    {
+        return wavesetControlsPending_ || wavesetCommitControlsNextFrame_;
+    }
+
+    float wavesetActiveProcessAmount() const
+    {
+        return wavesetActiveControls_.processAmount;
+    }
+
+    bool wavesetOverlapActive() const
+    {
+        return wavesetOverlapRemaining_ != 0u;
+    }
+
     float normalizedPosition() const
     {
         return sourceFrames_ == 0u
@@ -1427,7 +1442,7 @@ private:
         float peak = 0.0f;
     };
 
-    struct WavesetDiscreteControls {
+    struct WavesetControlState {
         std::size_t groupSize = 8u;
         std::size_t repeats = 2u;
         std::size_t stride = 1u;
@@ -1435,6 +1450,8 @@ private:
         WavesetDirection direction = WavesetDirection::forward;
         WavesetProcess process = WavesetProcess::repeat;
         WavesetDetail detail = WavesetDetail::raw;
+        float processAmount = 0.0f;
+        float join = 1.0f;
     };
 
     struct WavesetReader {
@@ -1590,8 +1607,22 @@ private:
         glitchTailAge_ = 0u;
         glitchControlInitialized_ = false;
         waveset_ = {};
-        wavesetControlTransitionFrom_ = {};
-        wavesetControlTransitionRemaining_ = 0u;
+        wavesetOverlapFrom_ = {};
+        wavesetBoundaryOverlapFrom_ = {};
+        wavesetActiveControls_ = {};
+        wavesetRequestedControls_ = {};
+        wavesetControlsInitialized_ = false;
+        wavesetControlsPending_ = false;
+        wavesetCommitControlsNextFrame_ = false;
+        wavesetBoundaryOverlapPending_ = false;
+        wavesetOverlapLength_ = 0u;
+        wavesetOverlapRemaining_ = 0u;
+        wavesetLastOutput_ = 0.0f;
+        wavesetLastStereo_[0u] = 0.0f;
+        wavesetLastStereo_[1u] = 0.0f;
+        wavesetOverlapAnchor_[0u] = 0.0f;
+        wavesetOverlapAnchor_[1u] = 0.0f;
+        wavesetLastOutputValid_ = false;
         for (auto& segment : motionSegments_) {
             segment = {};
         }
@@ -4693,10 +4724,10 @@ private:
         return selected;
     }
 
-    WavesetDiscreteControls wavesetDiscreteControls(
+    WavesetControlState wavesetControlState(
         const Controls& controls) const
     {
-        WavesetDiscreteControls result;
+        WavesetControlState result;
         result.groupSize = wavesetGroupSize(controls);
         result.repeats = static_cast<std::size_t>(clamp(
             std::round(controls.wavesetRepeats), 1.0f, 16.0f));
@@ -4706,7 +4737,37 @@ private:
         result.direction = controls.wavesetDirection;
         result.process = controls.wavesetProcess;
         result.detail = controls.wavesetDetail;
+        result.processAmount = clamp01(controls.wavesetProcessAmount);
+        result.join = clamp01(controls.join);
         return result;
+    }
+
+    static bool sameWavesetControlState(const WavesetControlState& first,
+                                        const WavesetControlState& second)
+    {
+        return first.groupSize == second.groupSize
+            && first.repeats == second.repeats
+            && first.stride == second.stride
+            && first.advance == second.advance
+            && first.direction == second.direction
+            && first.process == second.process
+            && first.detail == second.detail
+            && std::abs(first.processAmount - second.processAmount) < 1.0e-6f
+            && std::abs(first.join - second.join) < 1.0e-6f;
+    }
+
+    static void applyWavesetControlState(const WavesetControlState& state,
+                                         Controls& controls)
+    {
+        controls.wavesetGroup = static_cast<float>(state.groupSize);
+        controls.wavesetRepeats = static_cast<float>(state.repeats);
+        controls.wavesetStride = static_cast<float>(state.stride);
+        controls.wavesetAdvance = state.advance;
+        controls.wavesetDirection = state.direction;
+        controls.wavesetProcess = state.process;
+        controls.wavesetDetail = state.detail;
+        controls.wavesetProcessAmount = state.processAmount;
+        controls.join = state.join;
     }
 
     void prepareWavesetControlsBlock(const Controls& requested,
@@ -4714,22 +4775,24 @@ private:
                                      Controls& prepared)
     {
         (void)frames;
-        const WavesetDiscreteControls incoming
-            = wavesetDiscreteControls(requested);
-        // Discrete choices are consumed at cycle/group boundaries below.
-        // Do not add a second, time-based debounce: it made the audible state
-        // lag behind both the encoder and the desktop plug-in.
-        wavesetActiveControls_ = incoming;
-        prepared.wavesetGroup
-            = static_cast<float>(wavesetActiveControls_.groupSize);
-        prepared.wavesetRepeats
-            = static_cast<float>(wavesetActiveControls_.repeats);
-        prepared.wavesetStride
-            = static_cast<float>(wavesetActiveControls_.stride);
-        prepared.wavesetAdvance = wavesetActiveControls_.advance;
-        prepared.wavesetDirection = wavesetActiveControls_.direction;
-        prepared.wavesetProcess = wavesetActiveControls_.process;
-        prepared.wavesetDetail = wavesetActiveControls_.detail;
+        const WavesetControlState incoming = wavesetControlState(requested);
+        if (!wavesetControlsInitialized_ || !waveset_.initialized) {
+            wavesetActiveControls_ = incoming;
+            wavesetRequestedControls_ = incoming;
+            wavesetControlsInitialized_ = true;
+            wavesetControlsPending_ = false;
+            wavesetCommitControlsNextFrame_ = false;
+        } else {
+            wavesetRequestedControls_ = incoming;
+            wavesetControlsPending_ = !sameWavesetControlState(
+                wavesetActiveControls_, wavesetRequestedControls_);
+            if (!wavesetControlsPending_) {
+                wavesetCommitControlsNextFrame_ = false;
+            }
+        }
+        // The display follows the requested value immediately, but the audio
+        // renderer sees only this active snapshot until a safe commit point.
+        applyWavesetControlState(wavesetActiveControls_, prepared);
     }
 
     static constexpr std::size_t wavesetMinimumCycleFrames(
@@ -4922,7 +4985,7 @@ private:
     }
 
     bool buildWavesetGroup(const Controls& controls, const Window& window,
-                           double cursor)
+                           double cursor, bool replaceOnFailure = false)
     {
         const WavesetReader previous = waveset_;
         WavesetReader candidate = previous;
@@ -4977,7 +5040,8 @@ private:
         if (!nextWavesetCrossing(candidate.groupCursor, window,
                 candidate.lanes, candidate.referenceChannel,
                 candidate.detail, searchBudget, start)) {
-            if (previous.initialized && !previous.fallback) {
+            if (previous.initialized && !previous.fallback
+                && !replaceOnFailure) {
                 waveset_ = previous;
                 waveset_.cycleOffset = 0u;
                 waveset_.repeatIndex = 0u;
@@ -5019,7 +5083,16 @@ private:
                     start = wrappedStart;
                     end = wrappedEnd;
                 } else {
-                    if (previous.initialized && !previous.fallback) {
+                    if (index != 0u) {
+                        // A requested group can be larger than the number of
+                        // safe cycles remaining inside a short Field. Keep the
+                        // completed crossing-aligned units instead of retrying
+                        // the impossible full size forever.
+                        candidate.groupSize = index;
+                        break;
+                    }
+                    if (previous.initialized && !previous.fallback
+                        && !replaceOnFailure) {
                         waveset_ = previous;
                         waveset_.cycleOffset = 0u;
                         waveset_.repeatIndex = 0u;
@@ -5028,14 +5101,7 @@ private:
                                 outputSampleRate_ * 0.25f));
                         return false;
                     }
-                    if (index == 0u) {
-                        configureWavesetFallback(candidate, window);
-                    } else {
-                        // Reuse only completed safe cycles for an incomplete
-                        // initial group. Repetition is preferable to an
-                        // unmeasured final boundary.
-                        candidate.groupSize = index;
-                    }
+                    configureWavesetFallback(candidate, window);
                     break;
                 }
             }
@@ -5069,20 +5135,6 @@ private:
             candidate.adjacentUnitValid = true;
         }
         candidate.initialized = true;
-        if (previous.initialized
-            && wavesetControlTransitionRemaining_ == 0u
-            && (previous.requestedGroupSize != candidate.requestedGroupSize
-                || previous.repeats != candidate.repeats
-                || previous.stride != candidate.stride
-                || previous.advance != candidate.advance
-                || previous.direction != candidate.direction
-                || previous.process != candidate.process
-                || previous.detail != candidate.detail)) {
-            wavesetControlTransitionFrom_ = previous;
-            wavesetControlTransitionLength_ = wavesetControlTransitionFrames_;
-            wavesetControlTransitionRemaining_
-                = wavesetControlTransitionLength_;
-        }
         waveset_ = candidate;
         return true;
     }
@@ -5354,28 +5406,134 @@ private:
         }
     }
 
-    void applyWavesetControlTransition(float* stereo)
+    std::size_t wavesetOverlapLength(const WavesetReader& previous,
+                                     const WavesetReader& current) const
     {
-        if (wavesetControlTransitionRemaining_ == 0u
-            || !wavesetControlTransitionFrom_.initialized) return;
+        const double increment = std::max(
+            std::abs(wavesetPhaseIncrement(previous)),
+            std::abs(wavesetPhaseIncrement(current)));
+        if (!(increment > 1.0e-12)) return wavesetOverlapFrames_;
+        const std::size_t halfCycle = std::max<std::size_t>(
+            2u, static_cast<std::size_t>(std::ceil(0.5 / increment)));
+        return std::min(wavesetOverlapFrames_, halfCycle);
+    }
+
+    void beginWavesetOverlap(const WavesetReader& previous)
+    {
+        if (!previous.initialized || !waveset_.initialized) return;
+        wavesetOverlapFrom_ = previous;
+        wavesetOverlapAnchor_[0u] = wavesetLastStereo_[0u];
+        wavesetOverlapAnchor_[1u] = wavesetLastStereo_[1u];
+        wavesetOverlapLength_ = wavesetOverlapLength(
+            wavesetOverlapFrom_, waveset_);
+        wavesetOverlapRemaining_ = wavesetOverlapLength_;
+    }
+
+    void applyWavesetOverlap(float* stereo)
+    {
+        if (wavesetOverlapRemaining_ == 0u
+            || !wavesetOverlapFrom_.initialized) return;
         float prior[kLaneChannels] {};
-        renderWavesetStereo(wavesetControlTransitionFrom_, prior);
-        const float progress = wavesetControlTransitionLength_ > 1u
+        renderWavesetStereo(wavesetOverlapFrom_, prior);
+        const float progress = wavesetOverlapLength_ > 1u
             ? 1.0f
-                - static_cast<float>(wavesetControlTransitionRemaining_ - 1u)
-                    / static_cast<float>(wavesetControlTransitionLength_ - 1u)
+                - static_cast<float>(wavesetOverlapRemaining_ - 1u)
+                    / static_cast<float>(wavesetOverlapLength_ - 1u)
             : 1.0f;
-        const float currentGain = smoothStep(progress);
+        constexpr float pi = 3.14159265358979323846f;
+        // Complementary raised-cosine windows sum to one. This is a true
+        // constant-overlap-add transition: correlated cycles keep their level
+        // while unrelated cycle shapes exchange without a hard splice.
+        const float currentGain = 0.5f - 0.5f * std::cos(pi * progress);
+        const float previousGain = 1.0f - currentGain;
+        const std::size_t elapsed
+            = wavesetOverlapLength_ - wavesetOverlapRemaining_;
+        const float anchorProgress = smoothStep(std::min(
+            1.0f, static_cast<float>(elapsed) / 8.0f));
         for (std::size_t channel = 0u;
              channel < kLaneChannels; ++channel) {
-            stereo[channel] = prior[channel] * (1.0f - currentGain)
+            prior[channel] = wavesetOverlapAnchor_[channel]
+                + (prior[channel] - wavesetOverlapAnchor_[channel])
+                    * anchorProgress;
+            stereo[channel] = prior[channel] * previousGain
                 + stereo[channel] * currentGain;
         }
-        advanceWavesetTransitionReader(wavesetControlTransitionFrom_,
-            wavesetPhaseIncrement(wavesetControlTransitionFrom_));
-        if (--wavesetControlTransitionRemaining_ == 0u) {
-            wavesetControlTransitionFrom_ = {};
+        advanceWavesetTransitionReader(wavesetOverlapFrom_,
+            wavesetPhaseIncrement(wavesetOverlapFrom_));
+        if (--wavesetOverlapRemaining_ == 0u) {
+            wavesetOverlapFrom_ = {};
         }
+    }
+
+    bool wavesetSafeControlPoint(const float* stereo) const
+    {
+        const float reference = stereo[waveset_.referenceChannel
+            % kLaneChannels];
+        const bool zeroCrossing = wavesetLastOutputValid_
+            && ((wavesetLastOutput_ <= 0.0f && reference > 0.0f)
+                || (wavesetLastOutput_ >= 0.0f && reference < 0.0f));
+        const std::size_t index = orderedWavesetIndex(
+            waveset_, waveset_.cycleOffset);
+        const float relativeFloor = waveset_.units[index].peak * 0.01f;
+        const float threshold = std::max(0.0005f, relativeFloor);
+        const float stereoPeak = std::max(
+            std::abs(stereo[0u]), std::abs(stereo[1u]));
+        return zeroCrossing || stereoPeak <= threshold;
+    }
+
+    bool commitWavesetControls(const Controls& controls,
+                               const Window& window)
+    {
+        if (!wavesetControlsPending_ || !waveset_.initialized
+            || wavesetOverlapRemaining_ != 0u) return false;
+        const WavesetReader previous = waveset_;
+        const WavesetControlState next = wavesetRequestedControls_;
+        Controls adopted = controls;
+        applyWavesetControlState(next, adopted);
+        const bool rebuild = previous.requestedGroupSize != next.groupSize
+            || previous.detail != next.detail;
+        if (rebuild) {
+            const double cursor = wrapWavesetCursor(
+                displayPosition_, window);
+            const bool built = buildWavesetGroup(
+                adopted, window, cursor, true);
+            const bool acceptedFallback = waveset_.initialized
+                && waveset_.requestedGroupSize == next.groupSize
+                && waveset_.detail == next.detail;
+            if (!built && !acceptedFallback) {
+                waveset_ = previous;
+                wavesetCommitControlsNextFrame_ = false;
+                return false;
+            }
+        }
+        waveset_.requestedGroupSize = next.groupSize;
+        waveset_.repeats = next.repeats;
+        waveset_.stride = next.stride;
+        waveset_.advance = next.advance;
+        waveset_.direction = next.direction;
+        waveset_.process = next.process;
+        waveset_.detail = next.detail;
+        waveset_.processAmount = next.processAmount;
+        waveset_.join = next.join;
+        waveset_.processMultiple = 2u + static_cast<std::size_t>(
+            std::lround(next.processAmount * 6.0f));
+        waveset_.controlsInitialized = true;
+        wavesetActiveControls_ = next;
+        wavesetControlsPending_ = !sameWavesetControlState(
+            wavesetActiveControls_, wavesetRequestedControls_);
+        wavesetCommitControlsNextFrame_ = false;
+        beginWavesetOverlap(previous);
+        return true;
+    }
+
+    bool wavesetBoundaryNeedsOverlap() const
+    {
+        if (!waveset_.initialized || !wavesetLastOutputValid_) return false;
+        float incoming[kLaneChannels] {};
+        renderWavesetStereo(waveset_, incoming);
+        constexpr float threshold = 0.01f;
+        return std::abs(incoming[0u] - wavesetLastStereo_[0u]) > threshold
+            || std::abs(incoming[1u] - wavesetLastStereo_[1u]) > threshold;
     }
 
     void advanceWavesetGroup(const Controls& controls, const Window& window)
@@ -5443,27 +5601,12 @@ private:
 
     void latchWavesetCycleControls(const Controls& controls)
     {
-        const std::size_t processMultiple = 2u
-            + static_cast<std::size_t>(std::lround(
-                clamp01(waveset_.processAmount) * 6.0f));
-        const bool topologyChanged
-            = waveset_.direction != controls.wavesetDirection
-            || waveset_.process != controls.wavesetProcess
-            || ((controls.wavesetProcess == WavesetProcess::multiply
-                    || controls.wavesetProcess == WavesetProcess::harmonic)
-                && waveset_.processMultiple != processMultiple);
-        if (topologyChanged && wavesetControlTransitionRemaining_ != 0u) {
-            return;
-        }
-        if (topologyChanged) {
-            wavesetControlTransitionFrom_ = waveset_;
-            wavesetControlTransitionLength_ = wavesetControlTransitionFrames_;
-            wavesetControlTransitionRemaining_
-                = wavesetControlTransitionLength_;
-        }
         waveset_.direction = controls.wavesetDirection;
         waveset_.process = controls.wavesetProcess;
-        waveset_.processMultiple = processMultiple;
+        waveset_.processAmount = clamp01(controls.wavesetProcessAmount);
+        waveset_.join = clamp01(controls.join);
+        waveset_.processMultiple = 2u + static_cast<std::size_t>(std::lround(
+            waveset_.processAmount * 6.0f));
     }
 
     void renderWavesetsFrame(const Controls& controls, float* wet)
@@ -5471,10 +5614,22 @@ private:
         const Window window = smoothEventWindow(controls);
         fieldLow_ = window.low;
         fieldHigh_ = window.high;
+        if (wavesetBoundaryOverlapPending_
+            && wavesetOverlapRemaining_ == 0u) {
+            beginWavesetOverlap(wavesetBoundaryOverlapFrom_);
+            wavesetBoundaryOverlapFrom_ = {};
+            wavesetBoundaryOverlapPending_ = false;
+        }
+        if (wavesetCommitControlsNextFrame_
+            && wavesetOverlapRemaining_ == 0u) {
+            commitWavesetControls(controls, window);
+        }
+        Controls activeControls = controls;
+        applyWavesetControlState(wavesetActiveControls_, activeControls);
         if (waveset_.initialized
-            && (waveset_.detail != controls.wavesetDetail
+            && (waveset_.detail != activeControls.wavesetDetail
                 || waveset_.requestedGroupSize
-                    != wavesetGroupSize(controls))) {
+                    != wavesetGroupSize(activeControls))) {
             waveset_.analysisRetryFrames = 0u;
         }
         if (waveset_.analysisRetryFrames != 0u) {
@@ -5483,19 +5638,14 @@ private:
         if (!waveset_.initialized) {
             const double launch = window.low
                 + clamp(phase_, 0.0, 1.0) * (window.high - window.low);
-            buildWavesetGroup(controls, window, launch);
+            buildWavesetGroup(activeControls, window, launch);
         }
         if (!waveset_.controlsInitialized) {
-            waveset_.processAmount = clamp01(controls.wavesetProcessAmount);
-            waveset_.join = clamp01(controls.join);
+            waveset_.processAmount = clamp01(
+                activeControls.wavesetProcessAmount);
+            waveset_.join = clamp01(activeControls.join);
             waveset_.controlsInitialized = true;
-            latchWavesetCycleControls(controls);
-        } else {
-            waveset_.processAmount += wavesetControlSlew_
-                * (clamp01(controls.wavesetProcessAmount)
-                    - waveset_.processAmount);
-            waveset_.join += wavesetControlSlew_
-                * (clamp01(controls.join) - waveset_.join);
+            latchWavesetCycleControls(activeControls);
         }
         const std::size_t index = orderedWavesetIndex(
             waveset_, waveset_.cycleOffset);
@@ -5504,15 +5654,36 @@ private:
             * std::max(1.0, unit.end - unit.start);
         float stereo[kLaneChannels] {};
         renderWavesetStereo(waveset_, stereo);
-        applyWavesetControlTransition(stereo);
+        applyWavesetOverlap(stereo);
         for (std::size_t channel = 0u; channel < kChannels; ++channel) {
             wet[channel] = stereo[channel & 1u];
         }
 
+        if (wavesetControlsPending_ && !wavesetCommitControlsNextFrame_
+            && wavesetOverlapRemaining_ == 0u
+            && wavesetSafeControlPoint(stereo)) {
+            // Commit on the next sample so the outgoing reader starts the
+            // overlap at its natural next phase, not by repeating this one.
+            wavesetCommitControlsNextFrame_ = true;
+        }
+        wavesetLastOutput_ = stereo[waveset_.referenceChannel
+            % kLaneChannels];
+        wavesetLastStereo_[0u] = stereo[0u];
+        wavesetLastStereo_[1u] = stereo[1u];
+        wavesetLastOutputValid_ = true;
+
         waveset_.oscillatorPhase += wavesetPhaseIncrement(waveset_);
+        bool crossedCycleBoundary = false;
+        WavesetReader boundaryFrom;
+        if (waveset_.oscillatorPhase >= 1.0) {
+            boundaryFrom = waveset_;
+            boundaryFrom.oscillatorPhase -= std::floor(
+                boundaryFrom.oscillatorPhase);
+        }
         while (waveset_.oscillatorPhase >= 1.0) {
+            crossedCycleBoundary = true;
             waveset_.oscillatorPhase -= 1.0;
-            latchWavesetCycleControls(controls);
+            latchWavesetCycleControls(activeControls);
             std::size_t cycleAdvance = 1u;
             if (waveset_.process == WavesetProcess::telescope) {
                 cycleAdvance += static_cast<std::size_t>(std::lround(
@@ -5524,7 +5695,18 @@ private:
             waveset_.cycleOffset = 0u;
             if (++waveset_.repeatIndex < waveset_.repeats) continue;
             waveset_.repeatIndex = 0u;
-            advanceWavesetGroup(controls, window);
+            advanceWavesetGroup(activeControls, window);
+        }
+        if (crossedCycleBoundary && wavesetOverlapRemaining_ == 0u
+            && wavesetBoundaryNeedsOverlap()) {
+            wavesetBoundaryOverlapFrom_ = boundaryFrom;
+            wavesetBoundaryOverlapPending_ = true;
+        }
+        if (crossedCycleBoundary && wavesetControlsPending_
+            && wavesetOverlapRemaining_ == 0u) {
+            // A measured cycle boundary is the guaranteed fallback when a
+            // processed or DC-offset signal never enters the low-level gate.
+            wavesetCommitControlsNextFrame_ = true;
         }
     }
 
@@ -5928,8 +6110,18 @@ private:
     bool glitchTailActive_ = false;
     bool glitchControlInitialized_ = false;
     WavesetReader waveset_ {};
-    WavesetReader wavesetControlTransitionFrom_ {};
-    WavesetDiscreteControls wavesetActiveControls_ {};
+    WavesetReader wavesetOverlapFrom_ {};
+    WavesetReader wavesetBoundaryOverlapFrom_ {};
+    WavesetControlState wavesetActiveControls_ {};
+    WavesetControlState wavesetRequestedControls_ {};
+    bool wavesetControlsInitialized_ = false;
+    bool wavesetControlsPending_ = false;
+    bool wavesetCommitControlsNextFrame_ = false;
+    bool wavesetBoundaryOverlapPending_ = false;
+    float wavesetLastOutput_ = 0.0f;
+    float wavesetLastStereo_[kLaneChannels] {};
+    float wavesetOverlapAnchor_[kLaneChannels] {};
+    bool wavesetLastOutputValid_ = false;
     std::uint32_t randomState_ = 0x51f15e5du;
     float speed_ = 1.0f;
     float speedSlew_ = 1.0f;
@@ -5946,10 +6138,9 @@ private:
     float motionEnvelopeSlew_ = 1.0f;
     float controlGainSlew_ = 1.0f;
     float motionControlSlew_ = 1.0f;
-    float wavesetControlSlew_ = 1.0f;
-    std::size_t wavesetControlTransitionFrames_ = 144u;
-    std::size_t wavesetControlTransitionLength_ = 144u;
-    std::size_t wavesetControlTransitionRemaining_ = 0u;
+    std::size_t wavesetOverlapFrames_ = 144u;
+    std::size_t wavesetOverlapLength_ = 0u;
+    std::size_t wavesetOverlapRemaining_ = 0u;
     float wavesetAnalysisCoefficients_[kWavesetDetailCount] {
         1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
     };

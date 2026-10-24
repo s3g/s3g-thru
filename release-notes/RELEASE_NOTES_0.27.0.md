@@ -49,6 +49,11 @@ playback fuller, smoother, and more dependable across all nine engines.
 - Makes Motion Travel and Jitter continuous by keeping Zigzag's three temporal
   sections stable while their targets move. Seed changes now fade before the
   active path is re-hashed instead of moving its reader in one sample.
+- Queues Wavesets Group, Repeat, Stride, Advance, Order, Process, Depth,
+  Detail, and Join changes until the next rendered zero crossing or low-level
+  point, with the next measured cycle boundary as a guaranteed fallback.
+  A short raised-cosine constant-overlap-add window joins the old and new
+  readers, including filtered boundaries that remain nonzero in stereo.
 - Adds regression sweeps for shared Sample controls, Motion, Lanes, engine
   switching, Wavesets process/order combinations, effects, retriggering, and
   voice stealing. Intentional Bits, Rate-reduction, and Glitch edges remain

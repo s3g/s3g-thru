@@ -558,6 +558,54 @@ void testEngineClickMatrix()
     }
     {
         ClickFixture fixture;
+        fixture.loadSine(13.0f);
+        ClickEngine::Controls controls;
+        controls.algorithm = ClickEngine::PlaybackAlgorithm::wavesets;
+        controls.wavesetGroup = 4.0f;
+        controls.wavesetRepeats = 2.0f;
+        controls.wavesetProcess = ClickEngine::WavesetProcess::repeat;
+        controls.wavesetProcessAmount = 0.0f;
+        controls.wavesetDetail = ClickEngine::WavesetDetail::raw;
+        controls.join = 1.0f;
+        fixture.renderPeak(controls, 8);
+
+        controls.wavesetGroup = 16.0f;
+        controls.wavesetDirection = ClickEngine::WavesetDirection::reverse;
+        controls.wavesetProcess = ClickEngine::WavesetProcess::harmonic;
+        controls.wavesetProcessAmount = 1.0f;
+        controls.wavesetDetail = ClickEngine::WavesetDetail::hz4000;
+        controls.join = 0.0f;
+        fixture.engine.process(fixture.inputPointers.data(),
+            fixture.outputPointers.data(), 1u, controls);
+        assert(fixture.engine.wavesetControlChangePending());
+        assert(fixture.engine.wavesetActiveProcessAmount() == 0.0f);
+
+        float previous = fixture.output[0u][0u];
+        float maximumStep = 0.0f;
+        bool committed = false;
+        bool overlapObserved = false;
+        for (int frame = 0; frame < 4096; ++frame) {
+            fixture.engine.process(fixture.inputPointers.data(),
+                fixture.outputPointers.data(), 1u, controls);
+            const float sample = fixture.output[0u][0u];
+            assert(std::isfinite(sample));
+            maximumStep = std::max(maximumStep,
+                std::abs(sample - previous));
+            previous = sample;
+            if (fixture.engine.wavesetActiveProcessAmount() > 0.99f) {
+                committed = true;
+                overlapObserved = overlapObserved
+                    || fixture.engine.wavesetOverlapActive();
+            }
+        }
+        assert(committed);
+        assert(overlapObserved);
+        assert(!fixture.engine.wavesetControlChangePending());
+        requireSmooth("Wavesets safe-point control commit",
+            maximumStep, 0.30f);
+    }
+    {
+        ClickFixture fixture;
         fixture.loadSine(37.0f);
         ClickEngine::Controls controls;
         controls.algorithm = ClickEngine::PlaybackAlgorithm::wavesets;

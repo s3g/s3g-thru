@@ -571,6 +571,13 @@ public:
         // transition instead of changing topology inside an audible cycle.
         wavesetOverlapFrames_ = std::max<std::size_t>(
             32u, static_cast<std::size_t>(outputSampleRate_ * 0.005f));
+        // A half-cycle cap can collapse to two or three samples for short
+        // wavesets. That prevents a literal discontinuity without suppressing
+        // the audible impulse. Keep enough time for the raised-cosine window
+        // to act as a perceptual transition, even when it spans several very
+        // short source cycles.
+        wavesetMinimumOverlapFrames_ = std::max<std::size_t>(
+            16u, static_cast<std::size_t>(outputSampleRate_ * 0.00075f));
         recordMeterRelease_ = std::exp(
             -1.0f / std::max(1.0f, outputSampleRate_ * 0.250f));
         recordLimiterRelease_ = 1.0f - std::exp(
@@ -5623,7 +5630,10 @@ private:
         if (!(increment > 1.0e-12)) return wavesetOverlapFrames_;
         const std::size_t halfCycle = std::max<std::size_t>(
             2u, static_cast<std::size_t>(std::ceil(0.5 / increment)));
-        return std::min(wavesetOverlapFrames_, halfCycle);
+        const std::size_t cycleLimited = std::min(
+            wavesetOverlapFrames_, halfCycle);
+        return std::min(wavesetOverlapFrames_, std::max(
+            wavesetMinimumOverlapFrames_, cycleLimited));
     }
 
     void beginWavesetOverlap(const WavesetReader& previous)
@@ -5739,12 +5749,17 @@ private:
         if (!waveset_.initialized || !wavesetLastOutputValid_) return false;
         float incoming[kLaneChannels] {};
         renderWavesetStereo(waveset_, incoming);
-        constexpr float threshold = 0.01f;
-        return std::abs(incoming[0u] - wavesetLastStereo_[0u]) > threshold
-            || std::abs(incoming[1u] - wavesetLastStereo_[1u]) > threshold;
+        // A one-percent full-scale step is already an obvious click on sparse
+        // material. Only suppress transitions that are numerically identical;
+        // every newly measured source group is handled unconditionally below.
+        constexpr float numericalEpsilon = 1.0e-6f;
+        return std::abs(incoming[0u] - wavesetLastStereo_[0u])
+                > numericalEpsilon
+            || std::abs(incoming[1u] - wavesetLastStereo_[1u])
+                > numericalEpsilon;
     }
 
-    void advanceWavesetGroup(const Controls& controls, const Window& window)
+    bool advanceWavesetGroup(const Controls& controls, const Window& window)
     {
         double cursor = waveset_.groupCursor;
         if (controls.wavesetAdvance != WavesetAdvance::hold) {
@@ -5801,9 +5816,9 @@ private:
             }
             waveset_.cycleOffset = 0u;
             waveset_.repeatIndex = 0u;
-            return;
+            return false;
         }
-        buildWavesetGroup(controls, window,
+        return buildWavesetGroup(controls, window,
             wrapWavesetCursor(cursor, window));
     }
 
@@ -5822,8 +5837,10 @@ private:
         const Window window = smoothEventWindow(controls);
         fieldLow_ = window.low;
         fieldHigh_ = window.high;
-        if (wavesetBoundaryOverlapPending_
-            && wavesetOverlapRemaining_ == 0u) {
+        if (wavesetBoundaryOverlapPending_) {
+            // A very short REPT 1 group can end before the previous overlap.
+            // Restart from the outgoing current group and anchor it to the last
+            // audible composite sample instead of exposing the new group raw.
             beginWavesetOverlap(wavesetBoundaryOverlapFrom_);
             wavesetBoundaryOverlapFrom_ = {};
             wavesetBoundaryOverlapPending_ = false;
@@ -5882,6 +5899,7 @@ private:
 
         waveset_.oscillatorPhase += wavesetPhaseIncrement(waveset_);
         bool crossedCycleBoundary = false;
+        bool adoptedNewGroup = false;
         WavesetReader boundaryFrom;
         if (waveset_.oscillatorPhase >= 1.0) {
             boundaryFrom = waveset_;
@@ -5903,12 +5921,17 @@ private:
             waveset_.cycleOffset = 0u;
             if (++waveset_.repeatIndex < waveset_.repeats) continue;
             waveset_.repeatIndex = 0u;
-            advanceWavesetGroup(activeControls, window);
+            adoptedNewGroup = advanceWavesetGroup(activeControls, window)
+                || adoptedNewGroup;
         }
-        if (crossedCycleBoundary && wavesetOverlapRemaining_ == 0u
-            && wavesetBoundaryNeedsOverlap()) {
-            wavesetBoundaryOverlapFrom_ = boundaryFrom;
-            wavesetBoundaryOverlapPending_ = true;
+        if (crossedCycleBoundary) {
+            const bool needsBoundaryOverlap = adoptedNewGroup
+                || (wavesetOverlapRemaining_ == 0u
+                    && wavesetBoundaryNeedsOverlap());
+            if (needsBoundaryOverlap) {
+                wavesetBoundaryOverlapFrom_ = boundaryFrom;
+                wavesetBoundaryOverlapPending_ = true;
+            }
         }
         if (crossedCycleBoundary && wavesetControlsPending_
             && wavesetOverlapRemaining_ == 0u) {
@@ -6347,6 +6370,7 @@ private:
     float controlGainSlew_ = 1.0f;
     float motionControlSlew_ = 1.0f;
     std::size_t wavesetOverlapFrames_ = 144u;
+    std::size_t wavesetMinimumOverlapFrames_ = 32u;
     std::size_t wavesetOverlapLength_ = 0u;
     std::size_t wavesetOverlapRemaining_ = 0u;
     float wavesetAnalysisCoefficients_[kWavesetDetailCount] {

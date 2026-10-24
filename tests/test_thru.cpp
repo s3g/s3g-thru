@@ -98,6 +98,28 @@ struct ClickFixture {
         }
     }
 
+    void loadWavesetStack()
+    {
+        constexpr double pi = 3.14159265358979323846;
+        constexpr std::size_t laneFrames = capacity / 2u;
+        for (std::size_t laneIndex = 0u;
+             laneIndex < ClickEngine::kStackLanes; ++laneIndex) {
+            const double cycles = 13.0 + static_cast<double>(laneIndex) * 3.0;
+            for (std::size_t channel = 0u; channel < 2u; ++channel) {
+                float* lane = engine.writableLane(laneIndex, channel);
+                for (std::size_t frame = 0u; frame < laneFrames; ++frame) {
+                    const double phase = static_cast<double>(frame)
+                        / static_cast<double>(laneFrames) * cycles * 2.0 * pi;
+                    lane[frame] = 0.62f * static_cast<float>(std::sin(
+                        phase + static_cast<double>(laneIndex) * 0.11
+                            + static_cast<double>(channel) * 0.27));
+                }
+            }
+            assert(engine.adoptLane(laneIndex, laneFrames,
+                static_cast<float>(MOVE_SAMPLE_RATE)));
+        }
+    }
+
     void loadSine(float cycles = 24.0f)
     {
         constexpr double pi = 3.14159265358979323846;
@@ -555,6 +577,50 @@ void testEngineClickMatrix()
         controls.join = 0.0f;
         requireSmooth("Wavesets moving stack groups",
             fixture.renderMaximumStep(controls, 96), 0.19f);
+    }
+    {
+        // Hardware regression: STRETCH with REPT 1 adopts a fresh measured
+        // group at every group boundary. Even with Stack Hold engaged, every
+        // adoption must enter overlap-add; short groups may restart an active
+        // transition but must never expose the incoming reader directly.
+        ClickFixture fixture;
+        fixture.loadWavesetStack();
+        ClickEngine::Controls controls;
+        controls.algorithm = ClickEngine::PlaybackAlgorithm::wavesets;
+        controls.wavesetGroup = 8.0f;
+        controls.wavesetRepeats = 1.0f;
+        controls.wavesetAdvance = ClickEngine::WavesetAdvance::stretch;
+        controls.wavesetProcess = ClickEngine::WavesetProcess::repeat;
+        controls.wavesetProcessAmount = 0.0f;
+        controls.wavesetDetail = ClickEngine::WavesetDetail::raw;
+        controls.lanePath = ClickEngine::LanePath::manual;
+        controls.manualLane = 0.5f;
+        controls.laneScanPaused = true;
+        controls.lanePhaseOverride = true;
+        controls.lanePhaseOverrideValue = 0.0f;
+        controls.speed = 2.0f;
+        controls.join = 0.0f;
+        bool overlapObserved = false;
+        float maximumStep = 0.0f;
+        float previous = 0.0f;
+        bool havePrevious = false;
+        for (std::size_t frame = 0u; frame < 32768u; ++frame) {
+            fixture.engine.process(fixture.inputPointers.data(),
+                fixture.outputPointers.data(), 1u, controls);
+            overlapObserved = overlapObserved
+                || fixture.engine.wavesetOverlapActive();
+            const float sample = fixture.output[0u][0u];
+            assert(std::isfinite(sample));
+            if (havePrevious) {
+                maximumStep = std::max(
+                    maximumStep, std::abs(sample - previous));
+            }
+            previous = sample;
+            havePrevious = true;
+        }
+        assert(overlapObserved);
+        requireSmooth("Wavesets held-stack stretch handoff",
+            maximumStep, 0.06f);
     }
     {
         ClickFixture fixture;

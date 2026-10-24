@@ -798,6 +798,7 @@ constexpr const char kChainParams[] = R"json([
 {"key":"limiter_state","name":"Output Limiter","type":"string","access":"read","live":true},
 {"key":"memory_state","name":"Sampler Memory","type":"string","access":"read"},
 {"key":"playheads","name":"Voice Playheads","type":"string","access":"read","live":true},
+{"key":"waveset_state","name":"Waveset Display State","type":"string","access":"read","live":true},
 {"key":"voice_lanes","name":"Voice Stack Positions","type":"string","access":"read","live":true},
 {"key":"voice_pads","name":"Voice Source Pads","type":"string","access":"read","live":true},
 {"key":"voice_notes","name":"Voice Notes","type":"string","access":"read","live":true},
@@ -6152,6 +6153,48 @@ struct ThruInstance {
         return position;
     }
 
+    int formatWavesetState(char* buffer, int bufferLength) const
+    {
+        if (!buffer || bufferLength < 1) return -1;
+        const PlaybackVoice* focused = displayVoice();
+        int position = 0;
+        bool first = true;
+        for (std::size_t index = 0u; index < voices.size(); ++index) {
+            const auto& voice = voices[index];
+            if (!voice.active || !voice.held) continue;
+            const Engine::WavesetDisplayState state
+                = voice.engine.wavesetDisplayState();
+            if (!state.active) continue;
+            const auto encodedPosition = [](float value) {
+                return value < 0.0f ? -1 : static_cast<int>(std::lrintf(
+                    clampValue(value, 0.0f, 1.0f) * 1000.0f));
+            };
+            const unsigned flags = (state.orderPending ? 1u : 0u)
+                | (state.overlap ? 2u : 0u)
+                | (state.multipleSources ? 4u : 0u)
+                | (state.primaryReversed ? 8u : 0u)
+                | (&voice == focused ? 16u : 0u);
+            const int written = std::snprintf(buffer + position,
+                static_cast<std::size_t>(bufferLength - position),
+                "%s%zu,%zu,%zu,%zu,%zu,%u,%u,%u,%d,%d,%d,%d,%d,%u",
+                first ? "" : ";", index, state.groupSize,
+                state.cycleOffset, state.repeatIndex, state.repeats,
+                static_cast<unsigned>(state.direction),
+                static_cast<unsigned>(state.requestedDirection),
+                static_cast<unsigned>(state.process),
+                static_cast<int>(std::lrintf(state.oscillatorPhase * 1000.0f)),
+                encodedPosition(state.groupPosition),
+                encodedPosition(state.secondaryGroupPosition),
+                encodedPosition(state.sourcePosition),
+                encodedPosition(state.secondarySourcePosition), flags);
+            if (written < 0 || written >= bufferLength - position) return -1;
+            position += written;
+            first = false;
+        }
+        if (first) buffer[0] = '\0';
+        return position;
+    }
+
     int formatVoicePads(char* buffer, int bufferLength) const
     {
         if (!buffer || bufferLength < 1) return -1;
@@ -8662,6 +8705,9 @@ int getParam(void* opaque, const char* key, char* buffer, int bufferLength)
     if (std::strcmp(key, "cue_state") == 0) return instance->formatCueState(buffer, bufferLength);
     if (std::strcmp(key, "playheads") == 0) {
         return instance->formatVoicePositions(buffer, bufferLength, false);
+    }
+    if (std::strcmp(key, "waveset_state") == 0) {
+        return instance->formatWavesetState(buffer, bufferLength);
     }
     if (std::strcmp(key, "voice_lanes") == 0) {
         return instance->formatVoicePositions(buffer, bufferLength, true);

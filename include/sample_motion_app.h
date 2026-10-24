@@ -317,6 +317,29 @@ public:
 
     static constexpr std::size_t kWavesetDetailCount = 5u;
 
+    /** Snapshot used by compact hardware displays. Positions are normalized
+     *  either to the complete source or to the currently measured group.
+     *  A negative secondary position means that one cursor is sufficient. */
+    struct WavesetDisplayState {
+        bool active = false;
+        bool orderPending = false;
+        bool overlap = false;
+        bool multipleSources = false;
+        bool primaryReversed = false;
+        std::size_t groupSize = 1u;
+        std::size_t cycleOffset = 0u;
+        std::size_t repeatIndex = 0u;
+        std::size_t repeats = 1u;
+        WavesetDirection direction = WavesetDirection::forward;
+        WavesetDirection requestedDirection = WavesetDirection::forward;
+        WavesetProcess process = WavesetProcess::repeat;
+        float oscillatorPhase = 0.0f;
+        float groupPosition = -1.0f;
+        float secondaryGroupPosition = -1.0f;
+        float sourcePosition = -1.0f;
+        float secondarySourcePosition = -1.0f;
+    };
+
     struct Controls {
         float locus = 0.5f;
         float field = 1.0f;
@@ -1309,6 +1332,191 @@ public:
     bool wavesetOverlapActive() const
     {
         return wavesetOverlapRemaining_ != 0u;
+    }
+
+    WavesetDisplayState wavesetDisplayState() const
+    {
+        WavesetDisplayState state;
+        state.active = currentAlgorithm_ == PlaybackAlgorithm::wavesets
+            && waveset_.initialized && sourceFrames_ != 0u;
+        state.orderPending = wavesetControlsPending_
+            && wavesetActiveControls_.direction
+                != wavesetRequestedControls_.direction;
+        state.requestedDirection = wavesetRequestedControls_.direction;
+        if (!state.active) return state;
+
+        state.groupSize = std::max<std::size_t>(1u, waveset_.groupSize);
+        state.cycleOffset = waveset_.cycleOffset % state.groupSize;
+        state.repeatIndex = waveset_.repeatIndex;
+        state.repeats = std::max<std::size_t>(1u, waveset_.repeats);
+        state.direction = waveset_.direction;
+        state.process = waveset_.process;
+        state.oscillatorPhase = clamp01(static_cast<float>(
+            waveset_.oscillatorPhase));
+
+        const auto setPosition = [&](const WavesetReader& reader,
+                                     std::size_t index, double phase,
+                                     float& groupPosition,
+                                     float& sourcePosition) {
+            const std::size_t count = std::max<std::size_t>(
+                1u, reader.groupSize);
+            index %= count;
+            phase -= std::floor(phase);
+            const WavesetUnit& unit = reader.units[index];
+            groupPosition = clamp01(static_cast<float>(
+                (static_cast<double>(index) + phase)
+                    / static_cast<double>(count)));
+            sourcePosition = clamp01(static_cast<float>((unit.start
+                    + phase * std::max(1.0, unit.end - unit.start))
+                / static_cast<double>(sourceFrames_)));
+        };
+        const auto setExternalPosition = [&](const WavesetUnit& unit,
+                                             double phase,
+                                             float& groupPosition,
+                                             float& sourcePosition) {
+            phase -= std::floor(phase);
+            groupPosition = 1.0f;
+            sourcePosition = clamp01(static_cast<float>((unit.start
+                    + phase * std::max(1.0, unit.end - unit.start))
+                / static_cast<double>(sourceFrames_)));
+        };
+        const auto readerCursor = [&](const WavesetReader& reader,
+                                      float& groupPosition,
+                                      float& sourcePosition,
+                                      float& secondaryGroupPosition,
+                                      float& secondarySourcePosition,
+                                      bool& multipleSources,
+                                      bool& primaryReversed) {
+            const std::size_t count = std::max<std::size_t>(
+                1u, reader.groupSize);
+            const std::size_t rawIndex = orderedWavesetIndex(
+                reader, reader.cycleOffset);
+            const double rawPhase = reader.oscillatorPhase;
+            std::size_t processedIndex = rawIndex;
+            double processedPhase = rawPhase;
+            float processedWeight = 0.0f;
+            bool processedCursor = false;
+            const WavesetUnit* processedExternalUnit = nullptr;
+            const float amount = clamp01(reader.processAmount);
+            switch (reader.process) {
+                case WavesetProcess::replace:
+                    processedIndex = reader.strongestUnit % count;
+                    processedWeight = amount;
+                    processedCursor = true;
+                    break;
+                case WavesetProcess::interpolate: {
+                    const double morph = (static_cast<double>(
+                            reader.repeatIndex) + rawPhase)
+                        / static_cast<double>(std::max<std::size_t>(
+                            1u, reader.repeats));
+                    processedWeight = amount * clamp01(
+                        static_cast<float>(morph));
+                    // The final member can interpolate toward the measured
+                    // look-ahead cycle, which lives outside the visible rail.
+                    if (rawIndex + 1u < count) {
+                        processedIndex = rawIndex + 1u;
+                        processedCursor = true;
+                    } else if (reader.adjacentUnitValid) {
+                        processedExternalUnit = &reader.adjacentUnit;
+                        processedCursor = true;
+                    }
+                    break;
+                }
+                case WavesetProcess::multiply:
+                    processedPhase = rawPhase
+                        * static_cast<double>(reader.processMultiple);
+                    processedWeight = amount;
+                    processedCursor = true;
+                    break;
+                case WavesetProcess::fractal:
+                    processedPhase = rawPhase * 2.0;
+                    processedWeight = amount * 0.5f;
+                    processedCursor = true;
+                    multipleSources = amount > 0.001f;
+                    break;
+                case WavesetProcess::harmonic:
+                    processedPhase = rawPhase * static_cast<double>(
+                        std::max<std::size_t>(2u,
+                            reader.processMultiple));
+                    // The fundamental remains the strongest member of the
+                    // normalized additive result. Show a harmonic as the
+                    // secondary representative instead of promoting it.
+                    processedWeight = amount * 0.5f;
+                    processedCursor = true;
+                    multipleSources = amount > 0.001f;
+                    break;
+                case WavesetProcess::groupReverse: {
+                    const std::size_t reverse = count - 1u
+                        - (reader.cycleOffset % count);
+                    processedIndex = orderedWavesetIndex(reader, reverse);
+                    processedPhase = 1.0 - rawPhase;
+                    processedWeight = amount;
+                    processedCursor = true;
+                    break;
+                }
+                case WavesetProcess::cycleReverse:
+                    processedPhase = 1.0 - rawPhase;
+                    processedWeight = amount;
+                    processedCursor = true;
+                    break;
+                case WavesetProcess::average:
+                case WavesetProcess::telescope:
+                    multipleSources = amount > 0.001f;
+                    break;
+                case WavesetProcess::repeat:
+                case WavesetProcess::omit:
+                case WavesetProcess::envelope:
+                    break;
+            }
+
+            const bool processedDominant = processedCursor
+                && processedWeight > 0.5f;
+            const auto setProcessedPosition = [&](float& group,
+                                                  float& source) {
+                if (processedExternalUnit) {
+                    setExternalPosition(*processedExternalUnit,
+                        processedPhase, group, source);
+                } else {
+                    setPosition(reader, processedIndex, processedPhase,
+                        group, source);
+                }
+            };
+            if (processedDominant) {
+                setProcessedPosition(groupPosition, sourcePosition);
+            } else {
+                setPosition(reader, rawIndex, rawPhase,
+                    groupPosition, sourcePosition);
+            }
+            primaryReversed = processedDominant
+                && (reader.process == WavesetProcess::groupReverse
+                    || reader.process == WavesetProcess::cycleReverse);
+            if (processedCursor && processedWeight > 0.001f
+                && processedWeight < 0.999f) {
+                if (processedDominant) {
+                    setPosition(reader, rawIndex, rawPhase,
+                        secondaryGroupPosition, secondarySourcePosition);
+                } else {
+                    setProcessedPosition(secondaryGroupPosition,
+                        secondarySourcePosition);
+                }
+            }
+        };
+
+        readerCursor(waveset_, state.groupPosition, state.sourcePosition,
+            state.secondaryGroupPosition, state.secondarySourcePosition,
+            state.multipleSources, state.primaryReversed);
+        if (wavesetOverlapRemaining_ != 0u
+            && wavesetOverlapFrom_.initialized) {
+            state.overlap = true;
+            bool ignoredMultiple = false;
+            bool ignoredReverse = false;
+            float ignoredGroup = -1.0f;
+            float ignoredSource = -1.0f;
+            readerCursor(wavesetOverlapFrom_, state.secondaryGroupPosition,
+                state.secondarySourcePosition, ignoredGroup, ignoredSource,
+                ignoredMultiple, ignoredReverse);
+        }
+        return state;
     }
 
     float normalizedPosition() const

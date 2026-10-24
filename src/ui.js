@@ -568,6 +568,7 @@ const state = {
     fieldEnd: 1,
     weights: [0, 0, 0, 0],
     playheads: Array(8).fill(-1),
+    wavesetVoices: Array(8).fill(null),
     stackPositions: Array(8).fill(-1),
     voicePads: Array(8).fill(-1),
     voiceNotes: Array(8).fill(-1),
@@ -649,6 +650,7 @@ const state = {
     renderOverruns: 0,
     limiterReductionDb: 0,
     limiterMaximumReductionDb: 0,
+    helpPage: 0,
     sampleLoadState: 0,
     sampleLoadProgress: 0,
     sampleLoadName: '',
@@ -896,6 +898,54 @@ function parsePlayheads(text) {
         return Number.isFinite(value) && value >= 0
             ? clamp(value / 1000, 0, 1) : -1;
     });
+}
+
+function parseWavesetState(text) {
+    const voices = Array(8).fill(null);
+    for (const record of String(text || '').split(';')) {
+        if (!record) continue;
+        const values = record.split(',').map((item) => Number(item));
+        if (values.length < 14 || !values.every(Number.isFinite)) continue;
+        const slot = values[0] | 0;
+        if (slot < 0 || slot >= voices.length) continue;
+        const flags = values[13] | 0;
+        voices[slot] = {
+            slot,
+            groupSize: clamp(values[1] | 0, 1, 32),
+            cycleOffset: Math.max(0, values[2] | 0),
+            repeatIndex: Math.max(0, values[3] | 0),
+            repeats: clamp(values[4] | 0, 1, 16),
+            direction: clamp(values[5] | 0, 0, 3),
+            requestedDirection: clamp(values[6] | 0, 0, 3),
+            process: clamp(values[7] | 0, 0, 11),
+            phase: clamp(values[8] / 1000, 0, 1),
+            groupPosition: values[9] >= 0
+                ? clamp(values[9] / 1000, 0, 1) : -1,
+            secondaryGroupPosition: values[10] >= 0
+                ? clamp(values[10] / 1000, 0, 1) : -1,
+            sourcePosition: values[11] >= 0
+                ? clamp(values[11] / 1000, 0, 1) : -1,
+            secondarySourcePosition: values[12] >= 0
+                ? clamp(values[12] / 1000, 0, 1) : -1,
+            orderPending: (flags & 1) !== 0,
+            overlap: (flags & 2) !== 0,
+            multipleSources: (flags & 4) !== 0,
+            primaryReversed: (flags & 8) !== 0,
+            focused: (flags & 16) !== 0,
+        };
+    }
+    state.wavesetVoices = voices;
+    const focus = focusedWavesetVoice();
+    if (state.algorithm === 8 && focus && focus.sourcePosition >= 0) {
+        // Cue storage must follow the same primary source head the player sees,
+        // including Reverse processes and processed-source replacement.
+        state.position = focus.sourcePosition;
+    }
+}
+
+function focusedWavesetVoice() {
+    return state.wavesetVoices.find((voice) => voice && voice.focused)
+        || state.wavesetVoices.find((voice) => voice) || null;
 }
 
 function parseStackPositions(text) {
@@ -1252,6 +1302,63 @@ function drawStackMarker(x, y) {
     drawRect(centerX + 2, centerY - 1, 1, 3, 1);
 }
 
+function drawDashedPlayhead(x, top, height) {
+    for (let y = top; y < top + height; y += 4) {
+        drawRect(x, y, 1, Math.min(2, top + height - y), 1);
+    }
+}
+
+function drawWavesetRail(left, width) {
+    const focus = focusedWavesetVoice();
+    if (state.algorithm !== 8 || !focus) return null;
+    const group = focus.groupSize;
+    const y = 51;
+    drawRect(left, y, width, 1, 1);
+    for (let boundary = 0; boundary <= group; boundary++) {
+        const x = left + Math.round(boundary * (width - 1) / group);
+        drawRect(x, y - 1, 1, 3, 1);
+    }
+    if (focus.multipleSources) {
+        for (let slot = 0; slot < group; slot++) {
+            const x = left + Math.round((slot + 0.5) * (width - 1) / group);
+            drawRect(x, y + 2, 1, 1, 1);
+        }
+    }
+    for (const voice of state.wavesetVoices) {
+        if (!voice || voice.secondaryGroupPosition < 0) continue;
+        const x = clamp(left + Math.round(
+            voice.secondaryGroupPosition * (width - 1)),
+            left + 1, left + width - 2);
+        // Move's display is monochrome; a hollow cap is the dim/secondary
+        // visual language used for an alternate processed or outgoing reader.
+        drawRect(x - 1, y - 2, 3, 1, 1);
+        drawRect(x - 1, y + 2, 3, 1, 1);
+    }
+    for (const voice of state.wavesetVoices) {
+        if (!voice || voice.groupPosition < 0) continue;
+        const x = clamp(left + Math.round(voice.groupPosition * (width - 1)),
+            left + 1, left + width - 2);
+        if (voice.focused) {
+            drawRect(x - 1, y - 3, 3, 1, 1);
+            drawRect(x, y - 2, 1, 5, 1);
+        } else {
+            drawRect(x, y - 1, 1, 3, 1);
+        }
+    }
+    return focus;
+}
+
+function wavesetStatus(voice) {
+    if (!voice) return '';
+    const orders = ['>', '<', '<>', 'SH'];
+    const order = orders[voice.direction] || '?';
+    const pending = voice.orderPending ? '*' : '';
+    const overlap = voice.overlap ? '~' : '';
+    return 'WS ' + order + pending + overlap
+        + ' C' + (voice.cycleOffset + 1) + '/' + voice.groupSize
+        + ' R' + (voice.repeatIndex + 1) + '/' + voice.repeats;
+}
+
 function drawMain() {
     clear_screen();
     const algorithm = ALGORITHMS[state.algorithm] || ALGORITHMS[0];
@@ -1297,26 +1404,39 @@ function drawMain() {
         }
     }
 
+    const wavesetFocus = state.algorithm === 8 ? focusedWavesetVoice() : null;
+    const displayedPlayheads = wavesetFocus
+        ? state.wavesetVoices.map((voice) => voice
+            ? voice.sourcePosition : -1)
+        : state.playheads;
     if (state.mask !== 0) {
         const startX = left + Math.round(state.fieldStart * (width - 1));
         const endX = left + Math.round(state.fieldEnd * (width - 1));
         drawRect(startX, top, 1, 2, 1);
         drawRect(endX, top + 38, 1, 2, 1);
-        for (const playhead of state.playheads) {
+        if (wavesetFocus) {
+            for (const voice of state.wavesetVoices) {
+                if (!voice || voice.secondarySourcePosition < 0) continue;
+                const playX = left + Math.round(
+                    voice.secondarySourcePosition * (width - 1));
+                drawDashedPlayhead(playX, top, 40);
+            }
+        }
+        for (const playhead of displayedPlayheads) {
             if (playhead < 0) continue;
             const playX = left + Math.round(playhead * (width - 1));
             drawRect(playX, top, 1, 40, 1);
         }
-        for (let voice = 0; voice < state.playheads.length; voice++) {
-            const playhead = state.playheads[voice];
+        for (let voice = 0; voice < displayedPlayheads.length; voice++) {
+            const playhead = displayedPlayheads[voice];
             const stackPosition = state.stackPositions[voice];
             if (playhead < 0 || stackPosition < 0) continue;
             const playX = left + playhead * (width - 1);
             const stackY = top + 5 + stackPosition * rowHeight * 3;
             clearStackMarker(playX, stackY);
         }
-        for (let voice = 0; voice < state.playheads.length; voice++) {
-            const playhead = state.playheads[voice];
+        for (let voice = 0; voice < displayedPlayheads.length; voice++) {
+            const playhead = displayedPlayheads[voice];
             const stackPosition = state.stackPositions[voice];
             if (playhead < 0 || stackPosition < 0) continue;
             const playX = left + playhead * (width - 1);
@@ -1325,12 +1445,16 @@ function drawMain() {
         }
     }
 
+    const railFocus = drawWavesetRail(left, width);
     if (state.recording) {
-        drawRect(left, 51, Math.max(1, Math.round(width * state.meter)), 2, 1);
+        drawRect(left, railFocus ? 53 : 51,
+            Math.max(1, Math.round(width * state.meter)), railFocus ? 1 : 2, 1);
     }
     if (state.clipDuration > 0) {
-        drawRect(0, 53, 128, 1, 0);
-        drawRect(0, 53, Math.max(1, Math.round(128 * state.clipPosition)), 1, 1);
+        const clipY = railFocus ? 54 : 53;
+        drawRect(0, clipY, 128, 1, 0);
+        drawRect(0, clipY,
+            Math.max(1, Math.round(128 * state.clipPosition)), 1, 1);
     }
     const clipStatus = state.clipNoteFull || state.clipPointFull
         ? 'CLIP FULL N' + state.clipNoteCount + ' G' + state.clipPointCount
@@ -1349,8 +1473,9 @@ function drawMain() {
             : (state.scanning ? 'SCANNING WAVEFORM'
                 : (state.stackScanPaused ? 'STACK HOLD - LOOP RUN'
                     : (state.recordedStackHold ? 'RECORDED STACK HOLD'
+                    : (railFocus ? wavesetStatus(railFocus)
                     : (state.clipDuration > 0 ? clipStatus
-                    : state.laneSourceState + ' MENU'))))));
+                    : state.laneSourceState + ' MENU')))))));
     print(1, 55, String(footer).slice(0, 21), 1);
 }
 
@@ -1383,6 +1508,13 @@ function noteName(value) {
 
 function formatControlValue(control) {
     if (!control) return '';
+    if (control.key === 'waveset_direction') {
+        const value = control.labels[clamp(Math.round(control.value), 0,
+            control.labels.length - 1)] || '';
+        const pending = state.wavesetVoices.some((voice) =>
+            voice && voice.orderPending);
+        return value + (pending ? ' *' : '');
+    }
     if (control.key === 'effect_cross_pan') {
         if (control.value <= -99.5) return 'NORMAL';
         if (Math.abs(control.value) < 0.5) return 'MONO';
@@ -1448,6 +1580,13 @@ function formatControlValue(control) {
 
 function compactControlValue(control) {
     if (!control) return '';
+    if (control.key === 'waveset_direction') {
+        const labels = ['FWD', 'REV', 'PEN', 'SHF'];
+        const pending = state.wavesetVoices.some((voice) =>
+            voice && voice.orderPending);
+        return labels[clamp(Math.round(control.value), 0, 3)]
+            + (pending ? '*' : '');
+    }
     if (control.key === 'effect_cross_pan') {
         if (control.value <= -99.5) return 'NORM';
         if (Math.abs(control.value) < 0.5) return 'MONO';
@@ -1651,11 +1790,34 @@ function drawSettings() {
     }
 }
 
+function compactReportCount(value) {
+    const count = Math.max(0, Math.round(Number(value) || 0));
+    if (count < 1000000) return String(count);
+    if (count < 1000000000) return (count / 1000000).toFixed(1) + 'M';
+    return (count / 1000000000).toFixed(1) + 'G';
+}
+
+function helpReportRow(label, value) {
+    const name = String(label).slice(0, 15);
+    const available = Math.max(1, 21 - name.length);
+    return name + String(value).slice(-available).padStart(available, ' ');
+}
+
 function drawHelp() {
     clear_screen();
-    print(1, 0, ('s3g THRU ' + state.maximumRenderMicros + 'u/'
-        + state.renderOverruns + ' L' + state.limiterReductionDb.toFixed(1))
-        .slice(0, 21), 1);
+    if (state.helpPage === 0) {
+        print(1, 0, 'SYSTEM REPORT 1/2 <>', 1);
+        print(1, 13, helpReportRow('RENDER PEAK',
+            compactReportCount(state.maximumRenderMicros) + ' us'), 1);
+        print(1, 25, helpReportRow('DEADLINE MISSES',
+            compactReportCount(state.renderOverruns)), 1);
+        print(1, 37, helpReportRow('LIMIT CURRENT',
+            state.limiterReductionDb.toFixed(1) + ' dB'), 1);
+        print(1, 49, helpReportRow('LIMIT MAX',
+            state.limiterMaximumReductionDb.toFixed(1) + ' dB'), 1);
+        return;
+    }
+    print(1, 0, 'SHORTCUTS 2/2 <>', 1);
     print(1, 13, 'REC        data loop', 1);
     print(1, 23, 'SHIFT+REC  audio lane', 1);
     print(1, 33, 'STEPS      clip slots', 1);
@@ -2219,6 +2381,21 @@ function adjustControl(index, delta) {
     showMessage(control.label + ' ' + formatControlValue(control), 35);
 }
 
+function pollDiagnostics() {
+    const performance = String(getParam('performance_state', '0,0'))
+        .split(',').map((item) => Number(item));
+    state.maximumRenderMicros = Number.isFinite(performance[0])
+        ? Math.max(0, Math.round(performance[0])) : 0;
+    state.renderOverruns = Number.isFinite(performance[1])
+        ? Math.max(0, Math.round(performance[1])) : 0;
+    const limiter = String(getParam('limiter_state', '0,0'))
+        .split(',').map((item) => Number(item));
+    state.limiterReductionDb = Number.isFinite(limiter[0])
+        ? Math.max(0, limiter[0]) : 0;
+    state.limiterMaximumReductionDb = Number.isFinite(limiter[1])
+        ? Math.max(0, limiter[1]) : 0;
+}
+
 function pollDsp() {
     const algorithm = clamp(Math.round(getNumber('algorithm', state.algorithm)),
         0, ALGORITHMS.length - 1);
@@ -2229,6 +2406,7 @@ function pollDsp() {
     }
     parseUiState(getParam('ui_state', ''));
     parsePlayheads(getParam('playheads', ''));
+    parseWavesetState(getParam('waveset_state', ''));
     parseStackPositions(getParam('voice_lanes', ''));
     parseVoicePads(getParam('voice_pads', ''));
     parseVoiceNotes(getParam('voice_notes', ''));
@@ -2269,20 +2447,7 @@ function pollDsp() {
     if (!state.glitchBufferLocked && !state.glitchLockMomentary) {
         state.glitchLockLatched = false;
     }
-    if (state.ticks % 60 === 0) {
-        const performance = String(getParam('performance_state', '0,0'))
-            .split(',').map((item) => Number(item));
-        state.maximumRenderMicros = Number.isFinite(performance[0])
-            ? performance[0] | 0 : 0;
-        state.renderOverruns = Number.isFinite(performance[1])
-            ? performance[1] | 0 : 0;
-        const limiter = String(getParam('limiter_state', '0,0'))
-            .split(',').map((item) => Number(item));
-        state.limiterReductionDb = Number.isFinite(limiter[0])
-            ? Math.max(0, limiter[0]) : 0;
-        state.limiterMaximumReductionDb = Number.isFinite(limiter[1])
-            ? Math.max(0, limiter[1]) : 0;
-    }
+    if (state.ticks % 60 === 0) pollDiagnostics();
     parseWaveforms(getParam('waveforms', ''));
 }
 
@@ -2290,6 +2455,7 @@ globalThis.init = function() {
     state.ticks = 0;
     state.view = 'main';
     state.settingsPage = 0;
+    state.helpPage = 0;
     state.message = 'REC CAPTURES PERFORMANCE';
     state.messageTicks = 80;
     state.actionMessage = '';
@@ -2317,6 +2483,7 @@ globalThis.init = function() {
     state.recordSource = clamp(getNumber('record_source', 0) | 0, 0, 1);
     parseUiState(getParam('ui_state', ''));
     parsePlayheads(getParam('playheads', ''));
+    parseWavesetState(getParam('waveset_state', ''));
     parseStackPositions(getParam('voice_lanes', ''));
     parseVoicePads(getParam('voice_pads', ''));
     parseVoiceNotes(getParam('voice_notes', ''));
@@ -2329,6 +2496,7 @@ globalThis.init = function() {
     parseSampleLoadState(getParam('sample_load_state', '0,1,0,'));
     parseRegionState(getParam('region_state', '0'));
     parseCueState(getParam('cue_state', '-1,-1,-1,-1,-1,-1,-1,-1'));
+    pollDiagnostics();
     parseClipPrepareState(getParam('clip_prepare_state', '0,-1'));
     parseChainState(getParam('chain_state', '0,0,0,0,-1'));
     parseChainEntries(getParam('chain_entries', ''));
@@ -2541,12 +2709,18 @@ globalThis.onMidiMessageInternal = function(data) {
         return;
     }
     if ((number === MoveLeft || number === MoveRight) && value > 0
+        && state.view === 'help') {
+        state.helpPage = number === MoveRight ? 1 : 0;
+        return;
+    }
+    if ((number === MoveLeft || number === MoveRight) && value > 0
         && (state.view === 'main' || state.view === 'settings')) {
         adjustClipBank(number === MoveRight ? 1 : -1);
         return;
     }
     if (number === MoveUp && value > 0) {
-        if (state.view === 'chain') adjustChainRepeats(1);
+        if (state.view === 'help') state.helpPage = 0;
+        else if (state.view === 'chain') adjustChainRepeats(1);
         else if (state.shiftHeld
             && (state.view === 'main' || state.view === 'settings')) {
             adjustClipBank(1);
@@ -2557,7 +2731,8 @@ globalThis.onMidiMessageInternal = function(data) {
         return;
     }
     if (number === MoveDown && value > 0) {
-        if (state.view === 'chain') adjustChainRepeats(-1);
+        if (state.view === 'help') state.helpPage = 1;
+        else if (state.view === 'chain') adjustChainRepeats(-1);
         else if (state.shiftHeld
             && (state.view === 'main' || state.view === 'settings')) {
             adjustClipBank(-1);
@@ -2569,7 +2744,10 @@ globalThis.onMidiMessageInternal = function(data) {
     }
     if (number === MoveMainKnob) {
         const delta = decodeDelta(value);
-        if (state.view === 'library') moveLibrarySelection(delta);
+        if (state.view === 'help' && delta !== 0) {
+            state.helpPage = delta > 0 ? 1 : 0;
+        }
+        else if (state.view === 'library') moveLibrarySelection(delta);
         else if (state.view === 'chain') adjustChainClip(delta);
         else if (delta !== 0) selectLane(state.lane + (delta > 0 ? 1 : -1));
         return;
@@ -2599,7 +2777,15 @@ globalThis.onMidiMessageInternal = function(data) {
     }
     if (number === MoveMenu && value > 0) {
         if (state.shiftHeld) {
-            state.view = state.view === 'help' ? 'main' : 'help';
+            if (state.view === 'help') {
+                state.view = 'main';
+            } else {
+                pollDiagnostics();
+                state.helpPage = 0;
+                state.view = 'help';
+            }
+        } else if (state.view === 'help') {
+            state.view = 'main';
         } else {
             state.view = state.view === 'settings' ? 'main' : 'settings';
         }

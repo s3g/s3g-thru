@@ -579,6 +579,13 @@ void testEngineClickMatrix()
             fixture.outputPointers.data(), 1u, controls);
         assert(fixture.engine.wavesetControlChangePending());
         assert(fixture.engine.wavesetActiveProcessAmount() == 0.0f);
+        const auto queuedDisplay = fixture.engine.wavesetDisplayState();
+        assert(queuedDisplay.active);
+        assert(queuedDisplay.orderPending);
+        assert(queuedDisplay.direction
+            == ClickEngine::WavesetDirection::forward);
+        assert(queuedDisplay.requestedDirection
+            == ClickEngine::WavesetDirection::reverse);
 
         float previous = fixture.output[0u][0u];
         float maximumStep = 0.0f;
@@ -601,8 +608,36 @@ void testEngineClickMatrix()
         assert(committed);
         assert(overlapObserved);
         assert(!fixture.engine.wavesetControlChangePending());
+        const auto committedDisplay = fixture.engine.wavesetDisplayState();
+        assert(committedDisplay.active);
+        assert(!committedDisplay.orderPending);
+        assert(committedDisplay.direction
+            == ClickEngine::WavesetDirection::reverse);
+        assert(committedDisplay.groupPosition >= 0.0f
+            && committedDisplay.groupPosition <= 1.0f);
+        assert(committedDisplay.sourcePosition >= 0.0f
+            && committedDisplay.sourcePosition <= 1.0f);
         requireSmooth("Wavesets safe-point control commit",
             maximumStep, 0.30f);
+    }
+    {
+        ClickFixture fixture;
+        fixture.loadSine(29.0f);
+        ClickEngine::Controls controls;
+        controls.algorithm = ClickEngine::PlaybackAlgorithm::wavesets;
+        controls.wavesetGroup = 8.0f;
+        controls.wavesetProcess
+            = ClickEngine::WavesetProcess::cycleReverse;
+        controls.wavesetProcessAmount = 1.0f;
+        controls.join = 1.0f;
+        fixture.renderPeak(controls, 8);
+        const auto display = fixture.engine.wavesetDisplayState();
+        assert(display.active);
+        assert(display.primaryReversed);
+        assert(display.secondaryGroupPosition < 0.0f
+            || display.secondaryGroupPosition <= 1.0f);
+        assert(display.secondarySourcePosition < 0.0f
+            || display.secondarySourcePosition <= 1.0f);
     }
     {
         ClickFixture fixture;
@@ -1246,6 +1281,7 @@ int main()
     assert(get(api, instance, "polyphony") == "8");
     constexpr const char* noPlayheads = "-1,-1,-1,-1,-1,-1,-1,-1";
     assert(get(api, instance, "playheads") == noPlayheads);
+    assert(get(api, instance, "waveset_state").empty());
 
     /* Every engine/global control has a stable absolute external MIDI CC.
        Internal Move CCs remain reserved for the takeover surface. */
@@ -2342,6 +2378,20 @@ int main()
     midi(api, instance, 0x90, 67, 100);
     render(api, instance, 48);
     assert(peak() > 0);
+    const std::string wavesetDisplay = get(api, instance, "waveset_state");
+    assert(!wavesetDisplay.empty());
+    assert(stateField(wavesetDisplay, 1) >= 1);
+    assert(stateField(wavesetDisplay, 1) <= 16);
+    assert(stateField(wavesetDisplay, 4) >= 1);
+    assert(stateField(wavesetDisplay, 5) >= 0);
+    assert(stateField(wavesetDisplay, 5) < 4);
+    assert(stateField(wavesetDisplay, 7) >= 0);
+    assert(stateField(wavesetDisplay, 7) < 12);
+    assert(stateField(wavesetDisplay, 9) >= 0);
+    assert(stateField(wavesetDisplay, 9) <= 1000);
+    assert(stateField(wavesetDisplay, 11) >= 0);
+    assert(stateField(wavesetDisplay, 11) <= 1000);
+    assert((stateField(wavesetDisplay, 13) & 16) != 0);
     midi(api, instance, 0x80, 67, 0);
     render(api, instance, 40);
     api->set_param(instance, "performance_reset", "1");

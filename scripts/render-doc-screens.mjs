@@ -165,6 +165,7 @@ const params = {
     clip_capacity_state: '6,1024,128,8192,0,0',
     ui_state: '2,15,0,0,420,100,900,180,520,240,60,0,45,0,1,0,3',
     playheads: '190,510,790,-1,-1,-1,-1,-1',
+    waveset_state: '',
     voice_lanes: '160,530,810,-1,-1,-1,-1,-1',
     voice_pads: '2,11,25,-1,-1,-1,-1,-1',
     voice_notes: '50,58,73,-1,-1,-1,-1,-1',
@@ -329,6 +330,18 @@ globalThis.init();
 tick(82);
 capture('waveform.svg', 'Waveform page with three polyphonic playheads');
 
+params.algorithm = '8';
+params.waveset_state = [
+    '0,8,5,0,2,1,1,0,620,297,-1,310,-1,0',
+    '1,8,3,1,2,1,1,10,350,581,693,690,510,30',
+].join(';');
+tick(3);
+capture('wavesets-waveform.svg',
+    'Wavesets waveform page with ordered cycle rail and source cursors');
+params.algorithm = '1';
+params.waveset_state = '';
+tick(3);
+
 params.clip_state = '0,0,1,420,6800,6,128,1000,0,1,12000,13600';
 tick(3);
 cc(50);
@@ -442,7 +455,10 @@ cc(49);
 cc(50);
 cc(49, 0);
 tick();
-capture('help.svg', 'On-device shortcut help');
+capture('help.svg', 'On-device system performance report');
+cc(63);
+tick();
+capture('help-shortcuts.svg', 'On-device shortcut help');
 
 if (checkOnly && mismatches !== 0) process.exit(1);
 if (checkOnly) console.log('s3g Thru documentation screens: current');

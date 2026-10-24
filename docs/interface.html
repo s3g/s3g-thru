@@ -19,7 +19,7 @@
       <main class="content" id="content">
         <p class="eyebrow">Screen guide</p>
         <h1>Interface tour</h1>
-        <p class="lead">The waveform page is for playing and seeing motion. Parameter pages assign the eight encoders to the names and values shown on screen. Dedicated overview screens provide access to clips, chains, samples, and Help.</p>
+        <p class="lead">The waveform page is for playing and seeing motion. Parameter pages assign the eight encoders to the names and values shown on screen. Dedicated overview screens provide access to clips, chains, samples, the System Report, and shortcuts.</p>
 
         <h2 id="hardware">Move panel layout</h2>
 
@@ -29,7 +29,7 @@
         </figure>
 
         <ol class="panel-callout-list">
-          <li><strong>Display.</strong> Shows waveforms, playheads, stack markers, parameter pages, clips, chains, the browser, and Help.</li>
+          <li><strong>Display.</strong> Shows waveforms, playheads, stack markers, parameter pages, clips, chains, the browser, the System Report, and shortcuts.</li>
           <li><strong>Encoders 1–8.</strong> Control the eight parameter cells currently shown. Their response is slowed by 50% for precise adjustment; one-shot actions still respond to the first turn. Reserved cells deliberately do nothing.</li>
           <li><strong>Main wheel.</strong> Selects lanes or browser entries. Its click toggles performance recording from Main and confirms browser choices.</li>
           <li><strong>Track 1–4.</strong> Selects the lane used for capture and editing. Shift+Track opens its source browser.</li>
@@ -38,11 +38,11 @@
           <li><strong>Play.</strong> Stops or resumes performance-loop playback. Shift+Play cycles Main → Clip Overview → Chain → Main.</li>
           <li><strong>Record.</strong> Starts or stops performance-data capture. Shift+Record records stereo audio into the selected lane; Delete+Record removes the newest overdub take.</li>
           <li><strong>Loop.</strong> Holds or resumes stack scanning. Shift+Loop controls Glitch Buffer Lock.</li>
-          <li><strong>Back and Menu.</strong> Menu toggles the waveform and parameter pages; Shift+Menu opens Help. Back closes a secondary view or saves and exits from Main. Shift+Back performs the one-level safety undo.</li>
+          <li><strong>Back and Menu.</strong> Menu toggles the waveform and parameter pages; Shift+Menu opens System Report / Shortcuts. Back closes a secondary view or saves and exits from Main. Shift+Back performs the one-level safety undo.</li>
           <li><strong>Left / Right arrows.</strong> Select performance-clip bank A–D from the waveform and parameter pages.</li>
           <li><strong>+ / − keys (Up / Down).</strong> Transpose the pad grid by octave on the waveform page, move through parameter pages, set Chain repeats, or browse lists according to the current view.</li>
           <li><strong>Delete.</strong> Delete+Step resets a clip or removes a Chain entry; Delete+Record removes the newest overdub take; Delete+pad clears a cue. Shift+Delete clears the selected audio lane.</li>
-          <li><strong>Shift.</strong> Accesses audio recording, lane-source browsing, Help, clip copy and move, Glitch Buffer Lock, and the safety-undo combinations documented in <a href="shortcuts.html">Shortcut Reference</a>.</li>
+          <li><strong>Shift.</strong> Accesses audio recording, lane-source browsing, System Report / Shortcuts, clip copy and move, Glitch Buffer Lock, and the safety-undo combinations documented in <a href="shortcuts.html">Shortcut Reference</a>.</li>
         </ol>
 
         <h2 id="waveform">Waveform page</h2>
@@ -91,7 +91,7 @@
 
         <p>Glitch therefore uses <code>RATE</code> for the lane-stack scan beneath its history buffer and <code>JOIN</code> for that source's seams. Sample uses <code>JOIN</code> to crossfade its Loop boundary. Glitch's Buffer and Override controls remain on Glitch Clock. Cutups, Sample, and Slices do not use continuous stack scanning; turning <code>RATE</code> while one of those engines is selected retains the shared value for the next engine that uses it.</p>
 
-        <div class="callout"><p><strong>Live control safety:</strong> continuous controls glide to their new values, event controls are adopted by the next grain, cut, or cycle, and changes that replace a reader use a short transition. Wavesets waits for a rendered zero crossing or low-level point and overlap-adds the old and new readers. Bits, Rate reduction, and Glitch can still create deliberate digital edges. With <code>BITS 0.00</code>, <code>RATE 1</code>, and the Help-screen overrun count at zero, an isolated click is not expected.</p></div>
+        <div class="callout"><p><strong>Live control safety:</strong> continuous controls glide to their new values, event controls are adopted by the next grain, cut, or cycle, and changes that replace a reader use a short transition. Wavesets waits for a rendered zero crossing or low-level point and overlap-adds the old and new readers. Bits, Rate reduction, and Glitch can still create deliberate digital edges. With <code>BITS 0.00</code>, <code>RATE 1</code>, and System Report's Deadline Misses count at zero, an isolated click is not expected.</p></div>
 
         <h2 id="parameters">Parameter pages</h2>
 
@@ -143,7 +143,8 @@
           <figure><div class="doc-graphic move-screen"><img src="assets/screens/clips.svg" alt="Performance clip bank screen"></div><figcaption><strong>Clip overview.</strong> Shift+Play opens the active 16-slot bank. A marker distinguishes current, queued, occupied, and empty slots.</figcaption></figure>
           <figure><div class="doc-graphic move-screen"><img src="assets/screens/chain.svg" alt="Performance clip chain screen"></div><figcaption><strong>Chain editor.</strong> A 16-entry list gives each clip a repeat count and shows the selected/current entry.</figcaption></figure>
           <figure><div class="doc-graphic move-screen"><img src="assets/screens/library.svg" alt="Sample source browser screen"></div><figcaption><strong>Sample browser.</strong> Shift+Track opens Move Samples and Thru Recordings for that lane. The main encoder browses and clicks to enter or load.</figcaption></figure>
-          <figure><div class="doc-graphic move-screen"><img src="assets/screens/help.svg" alt="On-device help screen"></div><figcaption><strong>Help.</strong> Shift+Menu shows the core gestures. The title reports peak render time, audio overruns, and current limiter reduction as <code>L0.0</code> in decibels.</figcaption></figure>
+          <figure><div class="doc-graphic move-screen"><img src="assets/screens/help.svg" alt="On-device system report"></div><figcaption><strong>System Report.</strong> Shift+Menu opens readable, separately aligned render-time, deadline-miss, and limiter reports. See <a href="shortcuts.html#report">Reading the System Report</a>.</figcaption></figure>
+          <figure><div class="doc-graphic move-screen"><img src="assets/screens/help-shortcuts.svg" alt="On-device shortcut reminder"></div><figcaption><strong>Shortcuts.</strong> Left/Right, Up/Down, or the main encoder moves from report page 1 to the compact gesture reminder on page 2.</figcaption></figure>
         </div>
 
         <h2 id="navigation">View navigation</h2>
@@ -152,7 +153,7 @@
           <thead><tr><th>Gesture</th><th>From</th><th>Result</th></tr></thead>
           <tbody>
             <tr><td><kbd>Menu</kbd></td><td>Main or Parameters</td><td>Toggle waveform and parameter pages.</td></tr>
-            <tr><td><kbd>Shift</kbd> + <kbd>Menu</kbd></td><td>Most views</td><td>Toggle compact Help.</td></tr>
+            <tr><td><kbd>Shift</kbd> + <kbd>Menu</kbd></td><td>Most views</td><td>Open or close System Report / Shortcuts. Left/Right, Up/Down, or the main encoder changes its page.</td></tr>
             <tr><td><kbd>Shift</kbd> + <kbd>Play</kbd></td><td>Main / Clips / Chain</td><td>Cycle Main → Clips → Chain → Main.</td></tr>
             <tr><td><kbd>Shift</kbd> + <kbd>Track 1–4</kbd></td><td>Main or Parameters</td><td>Open Move Samples and Thru Recordings for that lane.</td></tr>
             <tr><td><kbd>Back</kbd></td><td>Secondary view</td><td>Return toward the waveform page. From Main, save and exit.</td></tr>
@@ -184,7 +185,7 @@
         <div class="toc-section"><h2>On this page</h2><a href="#hardware">Panel layout</a><a href="#waveform">Waveform</a><a href="#parameters">Parameters</a><a href="#secondary">Secondary screens</a><a href="#navigation">Navigation</a><a href="#leds">LED language</a></div>
       </aside>
     </div>
-    <footer class="manual-footer">Use Shift+Menu on Move whenever you need the compact control reminder.</footer>
+    <footer class="manual-footer">Use Shift+Menu on Move for the system report and compact control reminder.</footer>
     <script src="assets/lightbox.js"></script>
   </body>
 </html>

@@ -64,6 +64,7 @@ const params = {
     clip_capacity_state: '3,1024,10,8192,0,0',
     ui_state: '1,1,0,0,250,100,900,1000,0,0,0,0,20,0,1,1,2',
     playheads: '100,700,-1,-1,-1,-1,-1,-1',
+    waveset_state: '',
     voice_lanes: '333,800,-1,-1,-1,-1,-1,-1',
     voice_pads: '-1,-1,-1,-1,-1,-1,-1,-1',
     voice_notes: '-1,-1,-1,-1,-1,-1,-1,-1',
@@ -333,6 +334,40 @@ assert(padWrites.some((write) => write[0] === 73 && write[1] === 1));
 assert(padWrites.some((write) => write[0] === 76 && write[1] === 3));
 params.voice_pads = '-1,-1,-1,-1,-1,-1,-1,-1';
 params.voice_notes = '-1,-1,-1,-1,-1,-1,-1,-1';
+for (let tick = 0; tick < 3; tick++) globalThis.tick();
+
+/* Wavesets replaces the ambiguous generic cursor with source-accurate heads
+   and a group-local order rail. The newest voice reports active cycle/repeat
+   state, a pending Order change, and the outgoing overlap reader. */
+params.algorithm = '8';
+params.waveset_state = '0,8,1,0,2,1,2,10,250,656,188,760,230,31';
+for (let tick = 0; tick < 90; tick++) globalThis.tick();
+const wavesetDrawStart = drawWrites.length;
+globalThis.__testDrawMain();
+const wavesetWrites = drawWrites.slice(wavesetDrawStart);
+assert(wavesetWrites.some((write) => write[0] === 'print'
+    && String(write[3]).includes('WS <*~ C2/8 R1/2')),
+    'Wavesets footer should identify active order, pending state, cycle, and repeat');
+assert(wavesetWrites.some((write) => write[0] === 'rect'
+    && write[1] === 100 && write[2] === 10 && write[4] === 40),
+    'Wavesets primary cursor should follow the audible processed source');
+assert(wavesetWrites.some((write) => write[0] === 'rect'
+    && write[1] === 40 && write[2] === 10 && write[4] === 2),
+    'Wavesets secondary source should use a sparse cursor');
+assert(wavesetWrites.some((write) => write[0] === 'rect'
+    && write[2] === 51 && write[3] === 114 && write[4] === 1),
+    'Wavesets should draw a group-local cycle rail');
+params.pad_mode = '2';
+for (let tick = 0; tick < 3; tick++) globalThis.tick();
+globalThis.onMidiMessageInternal([0xB0, 49, 127]);
+globalThis.onMidiMessageInternal([0x90, 68, 100]);
+assert.deepEqual(blockingWrites.at(-1), ['cue_store', '0,0.7600'],
+    'cue storage should follow the source-accurate Wavesets cursor');
+globalThis.onMidiMessageInternal([0x80, 68, 0]);
+globalThis.onMidiMessageInternal([0xB0, 49, 0]);
+params.pad_mode = '0';
+params.algorithm = '0';
+params.waveset_state = '';
 for (let tick = 0; tick < 3; tick++) globalThis.tick();
 
 globalThis.onMidiMessageInternal([0xB0, 42, 127]);
@@ -683,10 +718,24 @@ params.pad_mode = '0';
 globalThis.onMidiMessageInternal([0xB0, 49, 127]);
 globalThis.onMidiMessageInternal([0xB0, 50, 127]);
 globalThis.onMidiMessageInternal([0xB0, 49, 0]);
+params.performance_state = '12345678,987654321';
+params.limiter_state = '12.3,45.6';
 const helpDrawStart = drawWrites.length;
 for (let tick = 0; tick < 60; tick++) globalThis.tick();
-assert(drawWrites.slice(helpDrawStart).some((write) =>
-    write[0] === 'print' && String(write[3]).includes('L1.5')));
+const reportWrites = drawWrites.slice(helpDrawStart).filter((write) =>
+    write[0] === 'print');
+assert(reportWrites.some((write) => String(write[3]).includes('SYSTEM REPORT')));
+assert(reportWrites.some((write) => String(write[3]).includes('12.3M us')));
+assert(reportWrites.some((write) => String(write[3]).includes('987.7M')));
+assert(reportWrites.some((write) => String(write[3]).includes('12.3 dB')));
+assert(reportWrites.some((write) => String(write[3]).includes('45.6 dB')));
+assert(reportWrites.every((write) => String(write[3]).length <= 21),
+    'diagnostic report rows must fit the Move display');
+globalThis.onMidiMessageInternal([0xB0, 63, 127]);
+const shortcutDrawStart = drawWrites.length;
+globalThis.tick();
+assert(drawWrites.slice(shortcutDrawStart).some((write) =>
+    write[0] === 'print' && String(write[3]).includes('SHORTCUTS 2/2')));
 globalThis.onMidiMessageInternal([0xB0, 51, 127]);
 assert.equal(exitCount, 0, 'Back closes settings/help before exiting');
 globalThis.onMidiMessageInternal([0xB0, 51, 127]);

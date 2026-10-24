@@ -16,6 +16,10 @@ playback fuller, smoother, and more dependable across all nine engines.
 - Keeps every note's group, pitch, order, and lane-stack path independent.
   Quiet lead-ins and difficult source material now fall back to a temporary
   audible cycle while bounded analysis continues through the active field.
+- Adds a Wavesets-specific group rail and source-accurate cursor telemetry.
+  Reverse, Pendulum, and Shuffle are visible as slot movement; backward
+  processes, multi-source processes, pending Order changes, and overlap-add
+  transitions no longer masquerade as one generic forward cursor.
 
 ## Tape effect
 
@@ -68,6 +72,10 @@ playback fuller, smoother, and more dependable across all nine engines.
 - Updates the illustrated manual for all nine engines, the Tape signal path,
   gain staging, waveform controls, page numbering, and click-safe behavior.
   Wavesets has its own complete parameter and process reference.
+- Replaces the crowded Shift+Menu title report with two readable pages. The
+  System Report gives render peak, deadline misses, current limiter reduction,
+  and maximum limiter reduction separate rows; the second page retains the
+  shortcut reminder. Left/Right, Up/Down, or the main encoder changes page.
 
 ## Compatibility and installation
 

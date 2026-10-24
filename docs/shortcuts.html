@@ -19,10 +19,23 @@
         <h1>Shortcut reference</h1>
         <p class="lead">The same control can change meaning by view, but recording gestures remain deliberately distinct: Record captures performance data; Shift+Record captures stereo audio.</p>
 
-        <figure>
-          <div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/help.svg" aria-label="Open the on-device Help figure"><img src="assets/screens/help.svg" alt="Compact Help screen showing data record, audio record, clip, note hold, and Glitch lock gestures"></button></div>
-          <figcaption>Shift+Menu opens this compact reminder. The title also shows maximum audio render time in microseconds, deadline overruns since launch, and current output-limiter reduction as <code>L0.0</code> in decibels.</figcaption>
-        </figure>
+        <div class="screen-gallery">
+          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/help.svg" aria-label="Open the on-device system report"><img src="assets/screens/help.svg" alt="System report with render peak, deadline misses, current limiting, and maximum limiting"></button></div><figcaption><kbd>Shift</kbd> + <kbd>Menu</kbd> opens the System Report first. Each value has its own right-aligned field, so a growing counter cannot overwrite another report.</figcaption></figure>
+          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/help-shortcuts.svg" aria-label="Open the on-device shortcut page"><img src="assets/screens/help-shortcuts.svg" alt="Compact shortcut reminder for recording, clips, note hold, and Glitch lock"></button></div><figcaption>Use Left/Right, Up/Down, or the main encoder to move between System Report 1/2 and Shortcuts 2/2. Back, Menu, or Shift+Menu closes the view.</figcaption></figure>
+        </div>
+
+        <h2 id="report">Reading the System Report</h2>
+
+        <table class="readout-table">
+          <thead><tr><th>Display</th><th>What it reports</th><th>How to read it</th></tr></thead>
+          <tbody>
+            <tr><td>RENDER PEAK</td><td>Longest audio-block render time since takeover started, in microseconds.</td><td>Lower is safer. It must remain below the audio deadline; <code>DEADLINE MISSES</code> is the definitive indication that the deadline was exceeded.</td></tr>
+            <tr><td>DEADLINE MISSES</td><td>Number of audio blocks that did not finish before their deadline since takeover started.</td><td><code>0</code> is healthy. If the number increases while clicks or gaps occur, reduce costly grain/event settings or active polyphony and test again.</td></tr>
+            <tr><td>LIMIT CURRENT</td><td>Gain reduction being applied by the final stereo safety limiter, in decibels.</td><td><code>0.0 dB</code> means no current limiting. Brief low values on peaks are normal; a sustained or large value means the summed level should be reduced.</td></tr>
+            <tr><td>LIMIT MAX</td><td>Largest limiter reduction observed since takeover started.</td><td>Use it as peak history. A large maximum with a near-zero current value describes an earlier transient, not continuous limiting.</td></tr>
+          </tbody>
+        </table>
+        <p>Large counts are shortened with <code>M</code> or <code>G</code> suffixes so every value remains visible. The report is diagnostic history for the current takeover session; opening or closing it does not reset the counters.</p>
 
         <h2 id="global">Global and waveform controls</h2>
 
@@ -44,7 +57,7 @@
             <tr><td>Loop</td><td>Hold/resume every voice's lane-stack scan at its exact crossfade. A released pad recalls its frozen position when retriggered until Run resumes. During performance recording, Hold/Run and each active voice's position are written into the clip. Sample playheads continue. When Tape <code>INRT</code> is above OFF, the tape wet path also slows to rest and accelerates on release.</td></tr>
             <tr><td>Shift + Loop</td><td>In Glitch, hold for temporary Buffer Lock; tap twice quickly to latch; press once while latched to return to live history.</td></tr>
             <tr><td>Menu</td><td>Toggle waveform and parameter pages.</td></tr>
-            <tr><td>Shift + Menu</td><td>Toggle Help.</td></tr>
+            <tr><td>Shift + Menu</td><td>Open or close the two-page System Report / Shortcuts view.</td></tr>
             <tr><td>Shift + Play</td><td>Cycle Main → Clip Overview → Chain → Main.</td></tr>
             <tr><td>Back</td><td>Close a secondary view; from Main, save and exit Overtake.</td></tr>
           </tbody>
@@ -75,6 +88,7 @@
             <tr><td>Clip Overview</td><td>Track 1–4 changes bank; Steps address clips; Shift+Step copies; Delete+Step resets.</td></tr>
             <tr><td>Chain</td><td>Step selects entry; main turn chooses clip; Up/Down sets repeats; main click toggles Chain; Shift+click inserts active clip; Delete+Step removes; Shift+Step moves.</td></tr>
             <tr><td>Sample Library</td><td>Main turn or Up/Down browses; main click enters/loads; Back goes up or closes.</td></tr>
+            <tr><td>System Report / Shortcuts</td><td>Left/Right, Up/Down, or main turn selects page 1 or 2; Back, Menu, or Shift+Menu closes the view.</td></tr>
           </tbody>
         </table>
 

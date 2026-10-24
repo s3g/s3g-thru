@@ -1,4 +1,4 @@
-/* s3g Thru 0.26.0 — polyphonic sampler/performance-looper takeover for Move. */
+/* s3g Thru 0.27.0 — polyphonic sampler/performance-looper takeover for Move. */
 
 import * as moveConstants from '/data/UserData/schwung/shared/constants.mjs';
 import * as moveInputFilter from '/data/UserData/schwung/shared/input_filter.mjs';
@@ -74,7 +74,7 @@ const setButtonLED = typeof moveInputFilter.setButtonLED === 'function'
 
 const WAVE_BINS = 112;
 const ALGORITHMS = ['MOTION', 'LANES', 'GRAINS', 'CUTUPS', 'SAMPLE', 'SLICES',
-    'GLITCH', 'WEAVE'];
+    'GLITCH', 'WEAVE', 'WAVESETS'];
 const ROLL_DIVISIONS = ['1/4', '1/8', '1/8T', '1/16', '1/16T', '1/32'];
 const SCALE_LABELS = [
     'CHROMATIC', 'MAJOR', 'MINOR', 'DORIAN', 'MIXOLYDIAN', 'LYDIAN',
@@ -125,7 +125,7 @@ const PARAMS = {
     speed: { key: 'speed', label: 'SPEED', min: 0.05, max: 4, step: 0.02, value: 1 },
     manual_lane: { key: 'manual_lane', label: 'STACK START', min: 1, max: 4, step: 0.04, value: 1 },
     lane_cycles: { key: 'lane_cycles', label: 'SCAN RATE', min: 0.125, max: 16, step: 0.125, value: 1 },
-    algorithm: { key: 'algorithm', label: 'ALGORITHM', min: 0, max: 7, step: 1, value: 0, integer: true, labels: ALGORITHMS },
+    algorithm: { key: 'algorithm', label: 'ALGORITHM', min: 0, max: 8, step: 1, value: 0, integer: true, labels: ALGORITHMS },
     join: { key: 'join', label: 'JOIN', min: 0, max: 1, step: 0.01, value: 1 },
     output_gain: { key: 'output_gain', label: 'LEVEL', min: 0, max: 2, step: 0.02, value: 1 },
     polyphony_comp: { key: 'polyphony_comp', label: 'POLY COMP', min: 0, max: 1, step: 1, value: 1, integer: true, labels: ['OFF', 'ON'] },
@@ -234,6 +234,14 @@ const PARAMS = {
     glitch_reverse: { key: 'glitch_reverse', label: 'REVERSE %', min: 0, max: 100, step: 1, value: 25, integer: true },
     glitch_decay: { key: 'glitch_decay', label: 'DECAY %', min: 0, max: 100, step: 1, value: 90, integer: true },
     glitch_seed: { key: 'glitch_seed', label: 'SEED', min: 1, max: 9999, step: 1, value: 1, integer: true },
+    waveset_group: { key: 'waveset_group', label: 'GROUP', min: 0, max: 5, step: 1, value: 3, integer: true, labels: ['1 CYCLE', '2 CYCLES', '4 CYCLES', '8 CYCLES', '16 CYCLES', '32 CYCLES'] },
+    waveset_repeats: { key: 'waveset_repeats', label: 'REPEATS', min: 1, max: 16, step: 1, value: 2, integer: true },
+    waveset_stride: { key: 'waveset_stride', label: 'STRIDE', min: 1, max: 16, step: 1, value: 1, integer: true },
+    waveset_advance: { key: 'waveset_advance', label: 'ADVANCE', min: 0, max: 2, step: 1, value: 0, integer: true, labels: ['STRETCH', 'PRESERVE', 'HOLD'] },
+    waveset_direction: { key: 'waveset_direction', label: 'ORDER', min: 0, max: 3, step: 1, value: 0, integer: true, labels: ['FORWARD', 'REVERSE', 'PENDULUM', 'SHUFFLE'] },
+    waveset_process: { key: 'waveset_process', label: 'PROCESS', min: 0, max: 11, step: 1, value: 0, integer: true, labels: ['REPEAT', 'OMIT', 'REPLACE', 'ENVELOPE', 'MULTIPLY', 'AVERAGE', 'INTERPOLATE', 'FRACTAL', 'HARMONIC', 'GROUP REV', 'CYCLE REV', 'TELESCOPE'] },
+    waveset_amount: { key: 'waveset_amount', label: 'DEPTH %', min: 0, max: 100, step: 1, value: 0, integer: true },
+    waveset_detail: { key: 'waveset_detail', label: 'DETAIL', min: 0, max: 4, step: 1, value: 0, integer: true, labels: ['RAW', '8 KHZ', '4 KHZ', '1 KHZ', '250 HZ'] },
     effect_tone: { key: 'effect_tone', label: 'TONE', min: -1, max: 1, step: 0.01, value: 0 },
     effect_drive: { key: 'effect_drive', label: 'DRIVE', min: 0, max: 1, step: 0.01, value: 0 },
     effect_bits: { key: 'effect_bits', label: 'BITS', min: 0, max: 1, step: 0.01, value: 0 },
@@ -250,6 +258,18 @@ const PARAMS = {
     effect_rotary_balance: { key: 'effect_rotary_balance', label: 'ROTOR BALANCE', min: -100, max: 100, step: 1, value: 0, integer: true },
     effect_rotary_crossover: { key: 'effect_rotary_crossover', label: 'ROTARY CROSSOVER', min: 250, max: 2000, step: 10, value: 800, integer: true },
     effect_rotary_spread: { key: 'effect_rotary_spread', label: 'ROTARY SPREAD %', min: 0, max: 100, step: 1, value: 100, integer: true },
+    effect_tape_format: { key: 'effect_tape_format', label: 'TAPE FORMAT', min: 0, max: 4, step: 1, value: 0, integer: true, labels: ['2"', '1"', '1/2"', '1/4"', '1/8"'] },
+    effect_tape_drive: { key: 'effect_tape_drive', label: 'TAPE RECORD LEVEL %', min: 0, max: 100, step: 1, value: 10, integer: true },
+    effect_tape_wow_rate: { key: 'effect_tape_wow_rate', label: 'WOW RATE', min: 0.05, max: 3, step: 0.01, value: 0.18 },
+    effect_tape_wow_depth: { key: 'effect_tape_wow_depth', label: 'WOW %', min: 0, max: 100, step: 1, value: 4, integer: true },
+    effect_tape_flutter_rate: { key: 'effect_tape_flutter_rate', label: 'FLUTTER RATE', min: 3, max: 18, step: 0.1, value: 7 },
+    effect_tape_flutter_depth: { key: 'effect_tape_flutter_depth', label: 'FLUTTER %', min: 0, max: 100, step: 1, value: 3, integer: true },
+    effect_tape_hiss: { key: 'effect_tape_hiss', label: 'HISS DBFS', min: -84, max: -54, step: 1, value: -72, integer: true },
+    effect_tape_mix: { key: 'effect_tape_mix', label: 'TAPE MIX %', min: 0, max: 100, step: 1, value: 0, integer: true },
+    effect_tape_age: { key: 'effect_tape_age', label: 'TAPE AGE %', min: 0, max: 100, step: 1, value: 0, integer: true },
+    effect_tape_crinkle: { key: 'effect_tape_crinkle', label: 'TAPE CRINKLE %', min: 0, max: 100, step: 1, value: 0, integer: true },
+    effect_tape_mechanics: { key: 'effect_tape_mechanics', label: 'TAPE MECHANICS %', min: 0, max: 100, step: 1, value: 5, integer: true },
+    effect_tape_inertia: { key: 'effect_tape_inertia', label: 'TRANSPORT INERTIA', min: 0, max: 100, step: 1, value: 0, integer: true },
     pad_mode: { key: 'pad_mode', label: 'PAD MODE', min: 0, max: 3, step: 1, value: 0, integer: true, labels: ['KEYS', 'SLICES', 'CUES', 'ROLLS'] },
     lane_variation: { key: 'lane_variation', label: 'VARIATION', min: 0, max: 4, step: 1, value: 0, integer: true, labels: ['MANUAL', 'CYCLE', 'RANDOM', 'NO REPEAT', 'VELOCITY'] },
     preview_level: { key: 'preview_level', label: 'PREVIEW LEVEL', min: 0, max: 1, step: 0.01, value: 0.7 },
@@ -286,7 +306,7 @@ const PARAMS = {
 
 const MAIN_ENGINE_MODES = ['motion_mode', 'lanes_mode', 'grain_mode',
     'cutups_mode', 'sample_mode', 'sample_mode', 'glitch_mode',
-    'long_grain_mode'];
+    'long_grain_mode', 'waveset_direction'];
 const MAIN_ENGINE_CONTROLS = MAIN_ENGINE_MODES.map((mode) => [
     'locus', 'field', 'speed', 'manual_lane',
     'lane_cycles', 'join', mode, 'output_gain',
@@ -369,6 +389,12 @@ const PLAYBACK_PAGES = [
             'long_grain_pitch_spray', 'long_grain_level_variation',
             'long_grain_phase', 'long_grain_advance'] },
     ],
+    [
+        STACK_PATH_PAGE,
+        { title: 'WAVESETS', keys: ['waveset_group', 'waveset_repeats',
+            'waveset_stride', 'waveset_advance', 'waveset_direction',
+            'waveset_process', 'waveset_amount', 'waveset_detail'] },
+    ],
 ];
 
 function playbackPagesForAlgorithm(algorithm, motionSound) {
@@ -389,10 +415,16 @@ const STEREO_ROTARY_PAGE = { title: 'STEREO / ROTARY', keys: [
     'effect_cross_pan', 'effect_rotary_rate', 'effect_rotary_depth',
     'effect_rotary_spread', 'effect_rotary_ramp', 'effect_rotary_balance',
     'effect_rotary_crossover', 'effect_rotary_mix'] };
+const TAPE_PAGE = { title: 'TAPE', keys: [
+    'effect_tape_format', 'effect_tape_drive', 'effect_tape_age',
+    'effect_tape_crinkle', 'effect_tape_mechanics',
+    'effect_tape_inertia', 'effect_tape_hiss', 'effect_tape_mix'] };
 const SAMPLE_PAGE = { title: 'SAMPLE EDIT', keys: ['sample_trim_start',
     'sample_trim_end', 'sample_trim_apply', 'sample_reverse',
     'sample_normalize', 'sample_fade'] };
-const LOOP_PAGE = { title: 'PERFORMANCE LOOP', keys: ['clip_rate',
+// Keep the full current/total page count visible in Move's 21-character
+// title row. The manual continues to use the unabbreviated page name.
+const LOOP_PAGE = { title: 'PERF LOOP', keys: ['clip_rate',
     'clip_timing', 'launch_quantize', 'tempo_bpm', 'clip_record_mode',
     'tempo_swing', 'pressure_mode'] };
 const TAKE_PAGE = { title: 'OVERDUB TAKES', keys: [null, 'clip_take_undo'] };
@@ -429,7 +461,11 @@ const LOCKABLE_KEYS = [
     'effect_mix', 'effect_cross_pan', 'effect_rotary_rate',
     'effect_rotary_depth', 'effect_rotary_mix', 'effect_rotary_ramp',
     'effect_rotary_balance', 'effect_rotary_crossover',
-    'effect_rotary_spread',
+    'effect_rotary_spread', 'effect_tape_format', 'effect_tape_drive',
+    'effect_tape_wow_rate', 'effect_tape_wow_depth',
+    'effect_tape_flutter_rate', 'effect_tape_flutter_depth',
+    'effect_tape_hiss', 'effect_tape_mix', 'effect_tape_age',
+    'effect_tape_crinkle', 'effect_tape_mechanics', 'effect_tape_inertia',
     'long_grain_mode', 'long_grain_length',
     'long_grain_layers', 'long_grain_pitch', 'long_grain_shape',
     'long_grain_edge', 'long_grain_spread', 'long_grain_reverse',
@@ -437,6 +473,9 @@ const LOCKABLE_KEYS = [
     'long_grain_duration_variation', 'long_grain_pitch_spray',
     'long_grain_level_variation', 'long_grain_phase', 'long_grain_advance',
     'amp_attack', 'amp_decay', 'amp_sustain', 'amp_release',
+    'waveset_group', 'waveset_repeats', 'waveset_stride',
+    'waveset_advance', 'waveset_direction', 'waveset_process',
+    'waveset_amount', 'waveset_detail',
 ];
 const LOCKABLE_PARAMS = new Set(LOCKABLE_KEYS);
 
@@ -496,6 +535,12 @@ const SHORT_LABELS = {
     effect_rotary_depth: 'DPTH', effect_rotary_mix: 'MIX',
     effect_rotary_ramp: 'RAMP', effect_rotary_balance: 'BAL',
     effect_rotary_crossover: 'XOVR', effect_rotary_spread: 'SPRD',
+    effect_tape_format: 'FMT', effect_tape_drive: 'REC',
+    effect_tape_wow_rate: 'W.RT', effect_tape_wow_depth: 'WOW',
+    effect_tape_flutter_rate: 'F.RT', effect_tape_flutter_depth: 'FLUT',
+    effect_tape_hiss: 'HISS', effect_tape_mix: 'MIX',
+    effect_tape_age: 'AGE', effect_tape_crinkle: 'CRNK',
+    effect_tape_mechanics: 'MECH', effect_tape_inertia: 'INRT',
     long_grain_mode: 'MODE', long_grain_length: 'LEN',
     long_grain_layers: 'LAYR', long_grain_pitch: 'PIT',
     long_grain_shape: 'SHAP', long_grain_edge: 'EDGE',
@@ -504,6 +549,10 @@ const SHORT_LABELS = {
     long_grain_duration_variation: 'DVAR', long_grain_pitch_spray: 'PSPR',
     long_grain_level_variation: 'LVAR', long_grain_phase: 'PHAS',
     long_grain_advance: 'ADVN',
+    waveset_group: 'GRUP', waveset_repeats: 'REPT',
+    waveset_stride: 'STRD', waveset_advance: 'ADVN',
+    waveset_direction: 'ORDR', waveset_process: 'PROC',
+    waveset_amount: 'DPTH', waveset_detail: 'DTAL',
     amp_attack: 'ATK', amp_decay: 'DEC', amp_sustain: 'SUS',
     amp_release: 'REL',
 };
@@ -673,6 +722,22 @@ function rotaryCrossoverIndex(value) {
     if (target <= 500) return Math.round((target - 250) / 10);
     if (target <= 1000) return 25 + Math.round((target - 500) / 25);
     return 45 + Math.round((target - 1000) / 50);
+}
+
+function tapeInertiaSeconds(value) {
+    const amount = clamp(value, 0, 100);
+    return amount <= 0 ? 0 : 0.05 * Math.pow(80, amount / 100);
+}
+
+function logarithmicControlIndex(control) {
+    const value = clamp(control.value, control.min, control.max);
+    return Math.round(Math.log(value / control.min)
+        / Math.log(control.max / control.min) * 96);
+}
+
+function logarithmicControlAt(control, index) {
+    const detent = clamp(Math.round(index), 0, 96);
+    return control.min * Math.pow(control.max / control.min, detent / 96);
 }
 
 function holdReleaseAt(index) {
@@ -1299,7 +1364,7 @@ function parameterPages() {
     const enginePages = playbackPagesForAlgorithm(
         state.algorithm, Math.round(PARAMS.motion_sound.value));
     return [ENGINE_PAGE, PADS_SCALE_PAGE, AMP_ENVELOPE_PAGE, ...enginePages,
-        MIX_REC_PAGE, EFFECTS_PAGE, STEREO_ROTARY_PAGE, SAMPLE_PAGE,
+        MIX_REC_PAGE, EFFECTS_PAGE, STEREO_ROTARY_PAGE, TAPE_PAGE, SAMPLE_PAGE,
         LOOP_PAGE, TAKE_PAGE, CHAIN_PAGE];
 }
 
@@ -1341,6 +1406,20 @@ function formatControlValue(control) {
     }
     if (control.key === 'effect_rotary_crossover') {
         return Math.round(control.value) + ' Hz';
+    }
+    if (control.key === 'effect_tape_wow_rate'
+        || control.key === 'effect_tape_flutter_rate') {
+        return control.value.toFixed(control.value < 1 ? 2 : 1) + ' Hz';
+    }
+    if (control.key === 'effect_tape_hiss') {
+        if (control.value <= control.min + 0.5) return 'OFF';
+        return Math.round(control.value) + ' dBFS';
+    }
+    if (control.key === 'effect_tape_inertia') {
+        const seconds = tapeInertiaSeconds(control.value);
+        if (seconds <= 0) return 'OFF';
+        if (seconds < 1) return Math.round(seconds * 1000) + ' ms';
+        return seconds.toFixed(seconds < 2 ? 2 : 1) + ' s';
     }
     if (control.key === 'amp_attack' || control.key === 'amp_decay'
         || control.key === 'amp_release') {
@@ -1395,6 +1474,22 @@ function compactControlValue(control) {
         if (control.value < 1000) return String(Math.round(control.value));
         return (control.value / 1000).toFixed(
             control.value % 1000 === 0 ? 0 : 1) + 'k';
+    }
+    if (control.key === 'effect_tape_wow_rate'
+        || control.key === 'effect_tape_flutter_rate') {
+        return control.value.toFixed(control.value < 1 ? 2 : 1);
+    }
+    if (control.key === 'effect_tape_hiss') {
+        if (control.value <= control.min + 0.5) return 'OFF';
+        return String(Math.round(control.value));
+    }
+    if (control.key === 'effect_tape_inertia') {
+        const seconds = tapeInertiaSeconds(control.value);
+        if (seconds <= 0) return 'OFF';
+        if (seconds < 1) {
+            return String(Math.round(seconds * 1000)).slice(0, 3) + 'm';
+        }
+        return seconds.toFixed(seconds < 2 ? 1 : 0) + 's';
     }
     if (control.key === 'amp_attack' || control.key === 'amp_decay'
         || control.key === 'amp_release') {
@@ -1919,7 +2014,7 @@ function selectClipSlot(step) {
 }
 
 function selectAlgorithm(index) {
-    state.algorithm = clamp(index | 0, 0, 7);
+    state.algorithm = clamp(index | 0, 0, ALGORITHMS.length - 1);
     PARAMS.algorithm.value = state.algorithm;
     setParamBlocking('algorithm', state.algorithm);
     if (state.clipRecording) setParam('clip_automation', 'algorithm');
@@ -2077,6 +2172,10 @@ function adjustControl(index, delta) {
     } else if (control.key === 'effect_rotary_crossover') {
         value = rotaryCrossoverAt(
             rotaryCrossoverIndex(control.value) + delta);
+    } else if (control.key === 'effect_tape_wow_rate'
+        || control.key === 'effect_tape_flutter_rate') {
+        value = logarithmicControlAt(control,
+            logarithmicControlIndex(control) + delta);
     } else if (control.key === 'hold_release_ms') {
         value = holdReleaseAt(holdReleaseIndex(control.value) + delta);
     } else if (control.key === 'amp_attack'
@@ -2121,7 +2220,8 @@ function adjustControl(index, delta) {
 }
 
 function pollDsp() {
-    const algorithm = clamp(Math.round(getNumber('algorithm', state.algorithm)), 0, 7);
+    const algorithm = clamp(Math.round(getNumber('algorithm', state.algorithm)),
+        0, ALGORITHMS.length - 1);
     if (algorithm !== state.algorithm) {
         state.algorithm = algorithm;
         PARAMS.algorithm.value = algorithm;

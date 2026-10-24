@@ -133,8 +133,8 @@ source = source.replace(
 source += `
 globalThis.__testParameterPageSets = PLAYBACK_PAGES.map((enginePages) =>
     [ENGINE_PAGE, PADS_SCALE_PAGE, AMP_ENVELOPE_PAGE, ...enginePages,
-        MIX_REC_PAGE, EFFECTS_PAGE, STEREO_ROTARY_PAGE, SAMPLE_PAGE,
-        LOOP_PAGE, TAKE_PAGE, CHAIN_PAGE].map((page) => page.keys));
+        MIX_REC_PAGE, EFFECTS_PAGE, STEREO_ROTARY_PAGE, TAPE_PAGE,
+        SAMPLE_PAGE, LOOP_PAGE, TAKE_PAGE, CHAIN_PAGE].map((page) => page.keys));
 globalThis.__testMotionPages = Array.from({ length: 8 }, (_, sound) =>
     playbackPagesForAlgorithm(0, sound).map((page) => ({
         title: page.title, keys: page.keys,
@@ -154,8 +154,11 @@ globalThis.__testRotaryRampIndex = rotaryRampIndex;
 globalThis.__testRotaryRampAt = rotaryRampAt;
 globalThis.__testRotaryCrossoverIndex = rotaryCrossoverIndex;
 globalThis.__testRotaryCrossoverAt = rotaryCrossoverAt;
+globalThis.__testFormatControlValue = formatControlValue;
+globalThis.__testCompactControlValue = compactControlValue;
 globalThis.__testPadMidiNote = padMidiNote;
 globalThis.__testStereoRotaryPage = STEREO_ROTARY_PAGE.keys;
+globalThis.__testTapePage = TAPE_PAGE.keys;
 `;
 await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
 
@@ -195,10 +198,12 @@ assert.deepEqual(globalThis.__testPlaybackPageTitles[6],
     ['STACK PATH', 'GLITCH CLOCK', 'GLITCH PATTERN']);
 assert.deepEqual(globalThis.__testPlaybackPageTitles[7],
     ['STACK PATH', 'WEAVE', 'WEAVE MOTION']);
+assert.deepEqual(globalThis.__testPlaybackPageTitles[8],
+    ['STACK PATH', 'WAVESETS']);
 const waveformModeControls = ['motion_mode', 'lanes_mode', 'grain_mode',
     'cutups_mode', 'sample_mode', 'sample_mode', 'glitch_mode',
-    'long_grain_mode'];
-for (let algorithm = 0; algorithm < 8; algorithm++) {
+    'long_grain_mode', 'waveset_direction'];
+for (let algorithm = 0; algorithm < 9; algorithm++) {
     assert.deepEqual(globalThis.__testMainEngineControls[algorithm], [
         'locus', 'field', 'speed', 'manual_lane', 'lane_cycles', 'join',
         waveformModeControls[algorithm], 'output_gain',
@@ -217,7 +222,26 @@ assert.deepEqual(globalThis.__testStereoRotaryPage, [
     'effect_rotary_spread', 'effect_rotary_ramp', 'effect_rotary_balance',
     'effect_rotary_crossover', 'effect_rotary_mix',
 ]);
+assert.deepEqual(globalThis.__testTapePage, [
+    'effect_tape_format', 'effect_tape_drive', 'effect_tape_age',
+    'effect_tape_crinkle', 'effect_tape_mechanics',
+    'effect_tape_inertia', 'effect_tape_hiss', 'effect_tape_mix',
+]);
+for (const key of globalThis.__testTapePage) {
+    assert(globalThis.__testLockableParams.includes(key));
+}
+assert.equal(globalThis.__testFormatControlValue({
+    key: 'effect_tape_hiss', min: -84, value: -84,
+}), 'OFF');
+assert.equal(globalThis.__testCompactControlValue({
+    key: 'effect_tape_inertia', value: 32,
+}), '203m');
 assert(globalThis.__testLockableParams.includes('long_grain_length'));
+for (const key of ['waveset_group', 'waveset_repeats', 'waveset_stride',
+    'waveset_advance', 'waveset_direction', 'waveset_process',
+    'waveset_amount', 'waveset_detail']) {
+    assert(globalThis.__testLockableParams.includes(key));
+}
 assert(globalThis.__testLockableParams.includes('amp_attack'));
 assert(globalThis.__testLockableParams.includes('amp_release'));
 assert.equal(globalThis.__testLongGrainLengthAt(0), 250);
@@ -434,7 +458,7 @@ const scalePageDrawStart = drawWrites.length;
 globalThis.tick();
 const scaleHeader = drawWrites.slice(scalePageDrawStart).find((write) =>
     write[0] === 'print' && write[2] === 0);
-assert(String(scaleHeader?.[3]).includes('PADS & SCALE 2/12'));
+assert(String(scaleHeader?.[3]).includes('PADS & SCALE 2/13'));
 assert(drawWrites.slice(scalePageDrawStart).some((write) =>
     write[0] === 'print' && String(write[3]).includes('POLY')));
 globalThis.onMidiMessageInternal([0xB0, 73, 1]);
@@ -451,7 +475,7 @@ const envelopePageDrawStart = drawWrites.length;
 globalThis.tick();
 const envelopeWrites = drawWrites.slice(envelopePageDrawStart);
 assert(envelopeWrites.some((write) => write[0] === 'print'
-    && String(write[3]).includes('AMP ENVELOPE 3/12')));
+    && String(write[3]).includes('AMP ENVELOPE 3/13')));
 for (const label of ['ATK', 'DEC', 'SUS', 'REL']) {
     assert(envelopeWrites.some((write) => write[0] === 'print'
         && write[3] === label));
@@ -474,7 +498,7 @@ const lanesPageDrawStart = drawWrites.length;
 globalThis.tick();
 const lanesHeader = drawWrites.slice(lanesPageDrawStart).find((write) =>
     write[0] === 'print' && write[2] === 0);
-assert(String(lanesHeader?.[3]).includes('STACK PATH 4/12'));
+assert(String(lanesHeader?.[3]).includes('STACK PATH 4/13'));
 assert(!drawWrites.slice(lanesPageDrawStart).some((write) =>
     write[0] === 'print' && String(write[3]).includes('GRAIN')));
 const lanesPageWrites = drawWrites.slice(lanesPageDrawStart);
@@ -492,7 +516,7 @@ assert.equal(paramWrites.length, writesBeforeReservedTurn,
 
 /* The take page displays the layer count and provides the same action as
    Delete+Record. The following Chain page retains its explicit slot clear. */
-for (let page = 0; page < 7; page++) {
+    for (let page = 0; page < 8; page++) {
     globalThis.onMidiMessageInternal([0xB0, 55, 127]);
 }
 const takePageDrawStart = drawWrites.length;

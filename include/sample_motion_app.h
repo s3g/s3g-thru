@@ -14,8 +14,8 @@ namespace s3g_daisy {
  * schedulers. This embedded version deliberately keeps each engine
  * allocation-free. It accepts storage from the platform so audio can live in
  * external SDRAM, then provides one bounded image with Motion, optionally
- * stretched Lanes, Grains, Weave long-grain, and Cutups renderers. No renderer
- * allocates or performs file I/O in the audio callback.
+ * stretched Lanes, Grains, Weave long-grain, Cutups, and Wavesets renderers.
+ * No renderer allocates or performs file I/O in the audio callback.
  */
 class SampleMotionApp {
 public:
@@ -36,9 +36,10 @@ public:
         slices,
         glitch,
         longGrains,
+        wavesets,
     };
 
-    static constexpr std::size_t kPlaybackAlgorithmCount = 8u;
+    static constexpr std::size_t kPlaybackAlgorithmCount = 9u;
 
     enum class SampleMode : std::uint8_t {
         forward,
@@ -272,6 +273,50 @@ public:
 
     static constexpr std::size_t kGlitchModeCount = 5u;
 
+    enum class WavesetAdvance : std::uint8_t {
+        stretch,
+        preserve,
+        hold,
+    };
+
+    static constexpr std::size_t kWavesetAdvanceCount = 3u;
+
+    enum class WavesetDirection : std::uint8_t {
+        forward,
+        reverse,
+        pendulum,
+        shuffle,
+    };
+
+    static constexpr std::size_t kWavesetDirectionCount = 4u;
+
+    enum class WavesetProcess : std::uint8_t {
+        repeat,
+        omit,
+        replace,
+        envelope,
+        multiply,
+        average,
+        interpolate,
+        fractal,
+        harmonic,
+        groupReverse,
+        cycleReverse,
+        telescope,
+    };
+
+    static constexpr std::size_t kWavesetProcessCount = 12u;
+
+    enum class WavesetDetail : std::uint8_t {
+        raw,
+        hz8000,
+        hz4000,
+        hz1000,
+        hz250,
+    };
+
+    static constexpr std::size_t kWavesetDetailCount = 5u;
+
     struct Controls {
         float locus = 0.5f;
         float field = 1.0f;
@@ -403,6 +448,14 @@ public:
         float glitchDecay = 0.9f;
         float glitchSeed = 1.0f;
         bool glitchBufferLocked = false;
+        float wavesetGroup = 8.0f;
+        float wavesetRepeats = 2.0f;
+        float wavesetStride = 1.0f;
+        WavesetAdvance wavesetAdvance = WavesetAdvance::stretch;
+        WavesetDirection wavesetDirection = WavesetDirection::forward;
+        WavesetProcess wavesetProcess = WavesetProcess::repeat;
+        float wavesetProcessAmount = 0.0f;
+        WavesetDetail wavesetDetail = WavesetDetail::raw;
         float effectTone = 0.0f;
         float effectDrive = 0.0f;
         float effectBits = 0.0f;
@@ -421,6 +474,22 @@ public:
         float effectRotaryBalance = 0.0f;
         float effectRotaryCrossoverHz = 800.0f;
         float effectRotarySpread = 1.0f;
+        // Shared post-engine tape stage. Format runs from two-inch mastering
+        // tape (0) through compact-cassette-width tape (4). The legacy
+        // detailed wow/flutter values remain serialized for compatibility;
+        // the Move surface uses the four musical condition/mechanics macros.
+        int effectTapeFormat = 0;
+        float effectTapeDrive = 0.10f;
+        float effectTapeWowRateHz = 0.18f;
+        float effectTapeWowDepth = 0.04f;
+        float effectTapeFlutterRateHz = 7.0f;
+        float effectTapeFlutterDepth = 0.03f;
+        float effectTapeHissDb = -72.0f;
+        float effectTapeMix = 0.0f;
+        float effectTapeAge = 0.0f;
+        float effectTapeCrinkle = 0.0f;
+        float effectTapeMechanics = 0.05f;
+        float effectTapeInertia = 0.0f;
         float recordInputGain = 1.0f;
     };
 
@@ -450,24 +519,44 @@ public:
             16u, static_cast<std::size_t>(outputSampleRate_ * 0.003f));
         retriggerTransitionFrames_ = std::max<std::size_t>(
             32u, static_cast<std::size_t>(outputSampleRate_ * 0.005f));
+        safetyFadeFrames_ = std::max<std::size_t>(
+            16u, static_cast<std::size_t>(outputSampleRate_ * 0.003f));
+        readerTransitionFrames_ = std::max<std::size_t>(
+            32u, static_cast<std::size_t>(outputSampleRate_ * 0.005f));
         algorithmFadeFrames_ = std::max<std::size_t>(
             32u, static_cast<std::size_t>(outputSampleRate_ * 0.010f));
         recordTransitionFrames_ = std::max<std::size_t>(
             32u, static_cast<std::size_t>(outputSampleRate_ * 0.005f));
         speedSlew_ = 1.0f
             - std::exp(-1.0f / std::max(1.0f, outputSampleRate_ * 0.020f));
+        joinSlew_ = 1.0f
+            - std::exp(-1.0f / std::max(1.0f, outputSampleRate_ * 0.010f));
+        motionControlSlew_ = 1.0f
+            - std::exp(-1.0f / std::max(1.0f, outputSampleRate_ * 0.020f));
+        stretchRatioSlew_ = motionControlSlew_;
         laneSlew_ = 1.0f
             - std::exp(-1.0f / std::max(1.0f, outputSampleRate_ * 0.020f));
         eventWindowSlew_ = 1.0f
             - std::exp(-1.0f / std::max(1.0f, outputSampleRate_ * 0.040f));
         motionEnvelopeSlew_ = 1.0f
             - std::exp(-1.0f / std::max(1.0f, outputSampleRate_ * 0.002f));
+        controlGainSlew_ = 1.0f
+            - std::exp(-1.0f / std::max(1.0f, outputSampleRate_ * 0.003f));
+        // The desktop Wavesets engine reads Depth and Join continuously.
+        // A compact five-millisecond slew removes encoder zipper noise while
+        // remaining perceptually immediate and leaving the process itself
+        // unchanged.
+        wavesetControlSlew_ = 1.0f
+            - std::exp(-1.0f / std::max(1.0f, outputSampleRate_ * 0.005f));
+        wavesetControlTransitionFrames_ = std::max<std::size_t>(
+            32u, static_cast<std::size_t>(outputSampleRate_ * 0.005f));
         recordMeterRelease_ = std::exp(
             -1.0f / std::max(1.0f, outputSampleRate_ * 0.250f));
         recordLimiterRelease_ = 1.0f - std::exp(
             -1.0f / std::max(1.0f, outputSampleRate_ * 0.080f));
         prepareGrainWindowTables();
         clear();
+        prepareWavesetAnalysisFilters();
         prepared_ = true;
         return true;
     }
@@ -533,12 +622,19 @@ public:
             lanePositionScales_[lane] = 0.0;
             laneWeights_[lane] = 0.0f;
             laneWeightTargets_[lane] = 0.0f;
+            activeControlsLaneGains_[lane] = 1.0f;
+            targetControlsLaneGains_[lane] = 1.0f;
             laneRegionCounts_[lane] = 0u;
             laneRegionBoundaries_[lane][0u] = 0.0f;
             laneRegionBoundaries_[lane][1u] = 1.0f;
         }
         phase_ = 0.0;
         speed_ = 1.0f;
+        join_ = 1.0f;
+        joinInitialized_ = false;
+        stretchRatio_ = 1.0f;
+        stretchRatioTarget_ = 1.0f;
+        stretchRatioInitialized_ = false;
         displayPosition_ = 0.0;
         fieldLow_ = 0.0;
         fieldHigh_ = 0.0;
@@ -550,6 +646,11 @@ public:
         toMode_ = MotionMode::forward;
         requestedMode_ = MotionMode::forward;
         currentMotionSound_ = MotionSound::continuous;
+        pendingMotionSound_ = MotionSound::continuous;
+        motionSoundTransitionRemaining_ = 0u;
+        sampleConfigInitialized_ = false;
+        sampleConfigPending_ = false;
+        sampleTransitionRemaining_ = 0u;
         currentAlgorithm_ = PlaybackAlgorithm::motion;
         pendingAlgorithm_ = PlaybackAlgorithm::motion;
         algorithmFadeRemaining_ = 0u;
@@ -581,6 +682,7 @@ public:
         sourceFrames_ = frames;
         sourceChannels_ = channels;
         sourceSampleRate_ = sourceSampleRate;
+        prepareWavesetAnalysisFilters();
         stackMode_ = false;
         for (std::size_t lane = 0u; lane < kStackLanes; ++lane) {
             laneFrames_[lane] = 0u;
@@ -623,6 +725,7 @@ public:
         sourceFrames_ = laneFrames_[referenceLane_];
         sourceChannels_ = kLaneChannels;
         sourceSampleRate_ = laneSampleRates_[referenceLane_];
+        prepareWavesetAnalysisFilters();
         updateLanePositionScales();
         recordFrames_ = 0u;
         recordChannels_ = 0u;
@@ -773,6 +876,7 @@ public:
             sourceFrames_ = laneFrames_[referenceLane_];
             sourceChannels_ = kLaneChannels;
             sourceSampleRate_ = laneSampleRates_[referenceLane_];
+            prepareWavesetAnalysisFilters();
             stackMode_ = true;
             lastRecordedLane_ = lane;
             lastRecordedPeak_ = recordPeak_;
@@ -791,6 +895,7 @@ public:
         sourceFrames_ = recordFrames_;
         sourceChannels_ = recordChannels_;
         sourceSampleRate_ = outputSampleRate_;
+        prepareWavesetAnalysisFilters();
         stackMode_ = false;
         lastRecordedLane_ = kNoLane;
         recordChannels_ = 0u;
@@ -885,19 +990,32 @@ public:
 
         const float dryWet = clamp01(controls.mix);
         const float targetSpeed = clamp(controls.speed, 0.05f, 4.0f);
-        const float join = clamp01(controls.join);
+        const float targetJoin = clamp01(controls.join);
+        if (!joinInitialized_) {
+            join_ = targetJoin;
+            joinInitialized_ = true;
+        }
+        stretchRatioTarget_ = clamp(
+            controls.lanesStretchRatio, 0.25f, 4.0f);
+        if (!stretchRatioInitialized_) {
+            stretchRatio_ = stretchRatioTarget_;
+            stretchRatioInitialized_ = true;
+        }
         recordInputGain_ = clamp(controls.recordInputGain, 0.0f, 1.0f);
         const float requestedLaneSlewMs = clamp(
             controls.laneSlewMs, 0.0f, 500.0f);
         if (std::abs(requestedLaneSlewMs - lastLaneSlewMs_) > 1.0e-3f) {
-            const float laneSlewSeconds = requestedLaneSlewMs * 0.001f;
-            laneSlew_ = laneSlewSeconds <= 0.0f ? 1.0f
-                : 1.0f - std::exp(-1.0f / std::max(
-                    1.0f, outputSampleRate_ * laneSlewSeconds));
+            // "0 ms" remains immediate to the player, but a 5 ms internal
+            // floor prevents contrasting lanes from creating a short digital
+            // edge when a path or live parameter changes abruptly.
+            const float laneSlewSeconds = std::max(
+                0.005f, requestedLaneSlewMs * 0.001f);
+            laneSlew_ = 1.0f - std::exp(-1.0f / std::max(
+                1.0f, outputSampleRate_ * laneSlewSeconds));
             lastLaneSlewMs_ = requestedLaneSlewMs;
         }
         for (std::size_t lane = 0u; lane < kStackLanes; ++lane) {
-            activeControlsLaneGains_[lane]
+            targetControlsLaneGains_[lane]
                 = clamp(controls.laneGains[lane], 0.0f, 4.0f);
         }
         requestAlgorithm(controls.algorithm);
@@ -908,9 +1026,15 @@ public:
         prepareMotionSoundBlock(preparedControls);
         prepareGrainControls(controls);
         prepareLongGrainControls(controls);
+        prepareWavesetControlsBlock(controls, frames, preparedControls);
 
         std::size_t laneControlCountdown = 0u;
         for (std::size_t frame = 0u; frame < frames; ++frame) {
+            for (std::size_t lane = 0u; lane < kStackLanes; ++lane) {
+                activeControlsLaneGains_[lane] += controlGainSlew_
+                    * (targetControlsLaneGains_[lane]
+                        - activeControlsLaneGains_[lane]);
+            }
             const float recordGain = recordTransitionGain();
             if (recording_ && recordWriteActive_
                 && recordInputOffset_ != kResampleInputOffset) {
@@ -944,35 +1068,49 @@ public:
                 advanceLaneWeights();
             }
             speed_ += (targetSpeed - speed_) * speedSlew_;
+            join_ += (targetJoin - join_) * joinSlew_;
+            stretchRatio_ += (stretchRatioTarget_ - stretchRatio_)
+                * stretchRatioSlew_;
+            advanceMotionControlSmoothing();
+            preparedControls.join = join_;
             const float algorithmGain = algorithmTransitionGain();
             const float retriggerGain = retriggerTransitionGain();
+            const float motionSoundGain = motionSoundTransitionGain(controls);
+            const float motionSeedGain = motionSeedTransitionGain();
+            const float sampleTransition = sampleTransitionGain();
             float wetOutput[kChannels] {};
             switch (currentAlgorithm_) {
                 case PlaybackAlgorithm::motion:
                     renderContinuousFrame(
-                        controls, join, false, false, wetOutput);
+                        controls, join_, false, false, wetOutput);
                     break;
                 case PlaybackAlgorithm::lanes:
                     renderContinuousFrame(
-                        controls, join, true, controls.lanesStretch, wetOutput);
+                        controls, join_, true, controls.lanesStretch, wetOutput);
                     break;
                 case PlaybackAlgorithm::grains:
-                    renderGrainsFrame(controls, wetOutput);
+                    renderGrainsFrame(preparedControls, wetOutput);
                     break;
                 case PlaybackAlgorithm::cutups:
-                    renderCutupsFrame(controls, wetOutput);
+                    renderCutupsFrame(preparedControls, wetOutput);
                     break;
                 case PlaybackAlgorithm::sample:
-                    renderSampleFrame(controls, false, wetOutput);
+                    renderSampleFrame(preparedControls, false, wetOutput);
                     break;
                 case PlaybackAlgorithm::slices:
-                    renderSampleFrame(controls, true, wetOutput);
+                    renderSampleFrame(preparedControls, true, wetOutput);
                     break;
                 case PlaybackAlgorithm::glitch:
-                    renderGlitchFrame(controls, join, wetOutput);
+                    renderGlitchFrame(controls, join_, wetOutput);
                     break;
                 case PlaybackAlgorithm::longGrains:
-                    renderLongGrainsFrame(controls, wetOutput);
+                    renderLongGrainsFrame(preparedControls, wetOutput);
+                    break;
+                case PlaybackAlgorithm::wavesets:
+                    // Wavesets has its own five-millisecond Depth/Join glide
+                    // and consumes discrete changes at cycle boundaries.
+                    preparedControls.join = targetJoin;
+                    renderWavesetsFrame(preparedControls, wetOutput);
                     break;
             }
             advanceLaneClock();
@@ -981,7 +1119,8 @@ public:
             }
 
             for (std::size_t channel = 0u; channel < kChannels; ++channel) {
-                float wet = wetOutput[channel] * algorithmGain * retriggerGain;
+                float wet = wetOutput[channel] * algorithmGain * retriggerGain
+                    * motionSoundGain * motionSeedGain * sampleTransition;
                 if (retriggerFadeRemaining_ != 0u) {
                     const float retriggerMix = smoothStep(1.0f
                         - static_cast<float>(retriggerFadeRemaining_)
@@ -998,6 +1137,9 @@ public:
             }
             advanceAlgorithmTransition();
             advanceRetriggerTransition();
+            advanceMotionSoundTransition();
+            advanceMotionSeedTransition();
+            advanceSampleTransition();
             advanceRecordTransition();
             if (retriggerFadeRemaining_ != 0u) {
                 --retriggerFadeRemaining_;
@@ -1149,6 +1291,11 @@ public:
 
     float effectiveGrainDensityHz() const { return grainDensityHz_; }
 
+    bool wavesetFallbackActive() const
+    {
+        return waveset_.initialized && waveset_.fallback;
+    }
+
     float normalizedPosition() const
     {
         return sourceFrames_ == 0u
@@ -1253,7 +1400,9 @@ private:
 
     struct MotionSegment {
         bool active = false;
+        bool retiring = false;
         std::uint32_t age = 0u;
+        std::size_t retirementAge = 0u;
         double phase = 0.0;
         double low = 0.0;
         double high = 1.0;
@@ -1263,10 +1412,67 @@ private:
         bool forward = true;
     };
 
+    struct SampleReaderConfig {
+        SampleMode mode = SampleMode::forward;
+        RegionMode regionMode = RegionMode::transients;
+        std::size_t regionCount = 16u;
+        std::size_t slice = 0u;
+        std::size_t lane = kNoLane;
+        bool sliced = false;
+    };
+
+    struct WavesetUnit {
+        double start = 0.0;
+        double end = 1.0;
+        float peak = 0.0f;
+    };
+
+    struct WavesetDiscreteControls {
+        std::size_t groupSize = 8u;
+        std::size_t repeats = 2u;
+        std::size_t stride = 1u;
+        WavesetAdvance advance = WavesetAdvance::stretch;
+        WavesetDirection direction = WavesetDirection::forward;
+        WavesetProcess process = WavesetProcess::repeat;
+        WavesetDetail detail = WavesetDetail::raw;
+    };
+
+    struct WavesetReader {
+        bool initialized = false;
+        bool fallback = false;
+        bool controlsInitialized = false;
+        bool pendulumForward = true;
+        std::size_t groupSize = 1u;
+        std::size_t requestedGroupSize = 1u;
+        std::size_t cycleOffset = 0u;
+        std::size_t repeatIndex = 0u;
+        std::size_t repeats = 2u;
+        std::size_t stride = 1u;
+        std::size_t processMultiple = 2u;
+        std::size_t referenceChannel = 0u;
+        std::size_t strongestUnit = 0u;
+        std::size_t analysisRetryFrames = 0u;
+        double oscillatorPhase = 0.0;
+        double groupCursor = 0.0;
+        std::uint32_t randomState = 0x6d2b79f5u;
+        float processAmount = 0.0f;
+        float join = 1.0f;
+        WavesetAdvance advance = WavesetAdvance::stretch;
+        WavesetDirection direction = WavesetDirection::forward;
+        WavesetProcess process = WavesetProcess::repeat;
+        WavesetDetail detail = WavesetDetail::raw;
+        LaneBlend lanes {};
+        WavesetUnit units[32u] {};
+        WavesetUnit adjacentUnit {};
+        bool adjacentUnitValid = false;
+    };
+
     static constexpr std::size_t kGrainVoiceCount = 16u;
     static constexpr std::size_t kLongGrainVoiceCount = 4u;
     static constexpr std::size_t kCutRegionCount = 64u;
     static constexpr std::size_t kMotionSegmentLayerCount = 4u;
+    static constexpr std::size_t kMotionSegmentSlotCount
+        = kMotionSegmentLayerCount * 2u;
 
     static float clamp(float value, float minimum, float maximum)
     {
@@ -1380,6 +1586,12 @@ private:
         glitchReadPhase_ = 0.0;
         glitchReadIncrement_ = 1.0;
         glitchActive_ = false;
+        glitchTailActive_ = false;
+        glitchTailAge_ = 0u;
+        glitchControlInitialized_ = false;
+        waveset_ = {};
+        wavesetControlTransitionFrom_ = {};
+        wavesetControlTransitionRemaining_ = 0u;
         for (auto& segment : motionSegments_) {
             segment = {};
         }
@@ -1394,17 +1606,35 @@ private:
         motionPathForward_ = true;
         motionRandomCycle_ = 0u;
         sampleDone_ = false;
+        sampleConfigInitialized_ = false;
+        sampleConfigPending_ = false;
+        sampleTransitionRemaining_ = 0u;
         randomState_ = 0x51f15e5du;
         currentMotionSound_ = MotionSound::continuous;
+        pendingMotionSound_ = MotionSound::continuous;
+        motionSoundChangePending_ = false;
+        motionSoundTransitionRemaining_ = 0u;
         motionInnerPhase_ = 0.0;
         motionOuterPhase_ = 0.5;
         motionSoundPhaseIncrement_ = 0.0f;
+        motionSoundPhaseIncrementTarget_ = 0.0f;
         motionMotorPhaseIncrement_ = 0.0f;
+        motionMotorPhaseIncrementTarget_ = 0.0f;
         motionPacketDuty_ = 0.65f;
+        motionPacketDutyTarget_ = 0.65f;
         motionMotorSymmetry_ = 0.5f;
+        motionMotorSymmetryTarget_ = 0.5f;
+        motionTravel_ = 1.0f;
+        motionTravelTarget_ = 1.0f;
+        motionJitter_ = 0.0f;
+        motionJitterTarget_ = 0.0f;
         motionMotorShape_ = MotorShape::rounded;
         motionInnerRateScale_ = 1.0f;
         motionSeed_ = 1u;
+        pendingMotionSeed_ = 1u;
+        motionSeedPending_ = false;
+        motionSeedTransitionRemaining_ = 0u;
+        motionControlsInitialized_ = false;
         motionEnvelope_ = 1.0f;
     }
 
@@ -1440,6 +1670,7 @@ private:
             playing_ = false;
         }
         sourceChannels_ = kLaneChannels;
+        prepareWavesetAnalysisFilters();
         updateLanePositionScales();
         laneWeightsInitialized_ = false;
         windowInitialized_ = false;
@@ -1476,6 +1707,7 @@ private:
         }
         sourceChannels_ = kLaneChannels;
         stackMode_ = true;
+        prepareWavesetAnalysisFilters();
         updateLanePositionScales();
         laneWeightsInitialized_ = false;
         windowInitialized_ = false;
@@ -1884,12 +2116,17 @@ private:
     double joinFrames(const Window& window, float join) const
     {
         const double width = std::max(1.0, window.high - window.low);
-        if (join <= 0.0f || width < 8.0) {
+        if (width < 8.0) {
             return 0.0;
         }
-        return std::max(0.0, std::min(width * 0.08,
-            static_cast<double>(sourceSampleRate_) * 0.020))
-            * static_cast<double>(join);
+        const double maximum = std::max(0.0, std::min(width * 0.08,
+            static_cast<double>(sourceSampleRate_) * 0.020));
+        const double safety = std::min(maximum,
+            static_cast<double>(safetyFadeFrames_)
+                * static_cast<double>(sourceSampleRate_)
+                / static_cast<double>(outputSampleRate_));
+        return std::max(safety,
+            maximum * static_cast<double>(clamp01(join)));
     }
 
     double pathFrames(const Window& window, MotionMode mode, float join) const
@@ -1912,25 +2149,11 @@ private:
         }
         if (mode == MotionMode::zigzag) {
             if (motionTravel_ <= 1.0e-6f) return true;
-            const std::uint32_t cycleSeed = motionSeed_
-                + motionRandomCycle_ * 0x9e3779b9u;
-            const double reach = 0.5 * static_cast<double>(motionTravel_);
-            const double highTarget = 0.5 + reach * (1.0
-                - static_cast<double>(motionJitter_) * 0.8
-                    * hashUnit(cycleSeed + 0x7f4a7c15u));
-            const double lowTarget = 0.5 - reach * (1.0
-                - static_cast<double>(motionJitter_) * 0.8
-                    * hashUnit(cycleSeed + 0x94d049bbu));
-            const double firstDistance = std::max(0.001, highTarget);
-            const double secondDistance = std::max(0.001,
-                highTarget - lowTarget);
-            const double thirdDistance = std::max(0.001, 1.0 - lowTarget);
-            const double totalDistance
-                = firstDistance + secondDistance + thirdDistance;
-            const double firstBoundary = firstDistance / totalDistance;
-            const double secondBoundary
-                = (firstDistance + secondDistance) / totalDistance;
-            return phase < firstBoundary || phase >= secondBoundary;
+            // Fixed temporal thirds keep direction stable while Travel and
+            // Jitter move the targets. Distance-derived boundaries crossed
+            // the current phase during a live edit and could jump between
+            // path segments even though the controls themselves were slewed.
+            return phase < (1.0 / 3.0) || phase >= (2.0 / 3.0);
         }
         if (mode == MotionMode::drunk) {
             if (motionTravel_ <= 1.0e-6f) return true;
@@ -1949,6 +2172,39 @@ private:
             return to >= from;
         }
         return true;
+    }
+
+    double zigzagPosition(const Window& window,
+                          double phase,
+                          std::uint32_t cycle) const
+    {
+        const std::uint32_t cycleSeed = motionSeed_
+            + cycle * 0x9e3779b9u;
+        const double reach = 0.5 * static_cast<double>(motionTravel_);
+        const double highTarget = 0.5 + reach * (1.0
+            - static_cast<double>(motionJitter_) * 0.8
+                * hashUnit(cycleSeed + 0x7f4a7c15u));
+        const double lowTarget = 0.5 - reach * (1.0
+            - static_cast<double>(motionJitter_) * 0.8
+                * hashUnit(cycleSeed + 0x94d049bbu));
+        constexpr double firstBoundary = 1.0 / 3.0;
+        constexpr double secondBoundary = 2.0 / 3.0;
+        double from = 0.0;
+        double to = highTarget;
+        double local = phase / firstBoundary;
+        if (phase >= secondBoundary) {
+            from = lowTarget;
+            to = 1.0;
+            local = (phase - secondBoundary) / (1.0 - secondBoundary);
+        } else if (phase >= firstBoundary) {
+            from = highTarget;
+            to = lowTarget;
+            local = (phase - firstBoundary)
+                / (secondBoundary - firstBoundary);
+        }
+        const double shaped = from + (to - from)
+            * static_cast<double>(smoothStep(static_cast<float>(local)));
+        return window.low + shaped * std::max(1.0, window.high - window.low);
     }
 
     ReadHead makeReadHead(const Window& window,
@@ -2017,42 +2273,24 @@ private:
             return result;
         }
         if (mode == MotionMode::zigzag) {
-            const std::uint32_t cycleSeed = motionSeed_
-                + motionRandomCycle_ * 0x9e3779b9u;
-            const double reach = 0.5 * static_cast<double>(motionTravel_);
-            const double highTarget = 0.5 + reach * (1.0
-                - static_cast<double>(motionJitter_) * 0.8
-                    * hashUnit(cycleSeed + 0x7f4a7c15u));
-            const double lowTarget = 0.5 - reach * (1.0
-                - static_cast<double>(motionJitter_) * 0.8
-                    * hashUnit(cycleSeed + 0x94d049bbu));
-            const double firstDistance = std::max(0.001, highTarget);
-            const double secondDistance = std::max(0.001,
-                highTarget - lowTarget);
-            const double thirdDistance = std::max(0.001, 1.0 - lowTarget);
-            const double totalDistance
-                = firstDistance + secondDistance + thirdDistance;
-            const double firstBoundary = firstDistance / totalDistance;
-            const double secondBoundary
-                = (firstDistance + secondDistance) / totalDistance;
-            double from = 0.0;
-            double to = highTarget;
-            double local = phase / firstBoundary;
-            if (phase >= secondBoundary) {
-                from = lowTarget;
-                to = 1.0;
-                local = (phase - secondBoundary) / (1.0 - secondBoundary);
-            } else if (phase >= firstBoundary) {
-                from = highTarget;
-                to = lowTarget;
-                local = (phase - firstBoundary)
-                    / (secondBoundary - firstBoundary);
-            }
-            const double eased = static_cast<double>(smoothStep(
-                static_cast<float>(local)));
-            result.a = window.low + (from + (to - from) * eased) * width;
+            result.a = zigzagPosition(window, phase, motionRandomCycle_);
             result.b = result.a;
             result.position = result.a;
+            const double transition = clamp(
+                std::max(joinFrames(window, join) / width,
+                    std::abs(lastMotionPhaseIncrement_)
+                        * static_cast<double>(safetyFadeFrames_)),
+                1.0 / width, 0.45);
+            if (phase >= 1.0 - transition) {
+                const double local = clamp(
+                    (phase - (1.0 - transition)) / transition,
+                    0.0, 1.0);
+                result.b = zigzagPosition(
+                    window, local * transition, motionRandomCycle_ + 1u);
+                result.mix = smoothStep(static_cast<float>(local));
+                result.position = result.a
+                    + (result.b - result.a) * result.mix;
+            }
             return result;
         }
         if (mode == MotionMode::drunk) {
@@ -2424,6 +2662,7 @@ private:
     }
 
     ReadHead makeEventReadHead(double position,
+                               double increment,
                                double low,
                                double high,
                                double seam) const
@@ -2435,9 +2674,19 @@ private:
         head.low = low;
         head.high = high;
         seam = clamp(seam, 0.0, std::max(0.0, (high - low) * 0.5));
-        if (!(seam > 0.0) || position < high - seam) {
+        if (!(seam > 0.0)) {
             return head;
         }
+        if (increment < 0.0) {
+            if (position > low + seam) return head;
+            const double local = clamp(
+                (low + seam - position) / seam, 0.0, 1.0);
+            head.b = high - local * seam;
+            head.mix = smoothStep(static_cast<float>(local));
+            head.position = head.a + (head.b - head.a) * head.mix;
+            return head;
+        }
+        if (position < high - seam) return head;
         const double local = clamp(
             (position - (high - seam)) / seam, 0.0, 1.0);
         head.b = low + local * seam;
@@ -2622,13 +2871,10 @@ private:
             + (granular[1u] - direct[1u]) * stretchMix_;
     }
 
-    void prepareMotionSound(const Controls& controls)
+    void activateMotionSound(MotionSound sound, const Controls& controls)
     {
-        if (currentMotionSound_ == controls.motionSound) {
-            return;
-        }
-        currentMotionSound_ = controls.motionSound;
-        motionInnerPhase_ = controls.motionSound == MotionSound::continuous
+        currentMotionSound_ = sound;
+        motionInnerPhase_ = sound == MotionSound::continuous
             ? 0.0 : clamp(controls.packetDuty, 0.02f, 0.98f) * 0.5f;
         motionOuterPhase_ = clamp(controls.motorSymmetry, 0.05f, 0.95f);
         motionEnvelope_ = 1.0f;
@@ -2643,28 +2889,145 @@ private:
         motionTurnEvent_ = false;
     }
 
+    void prepareMotionSound(const Controls& controls)
+    {
+        if (currentMotionSound_ == controls.motionSound
+            && !motionSoundChangePending_) return;
+        pendingMotionSound_ = controls.motionSound;
+        motionSoundChangePending_ = true;
+        if (currentAlgorithm_ != PlaybackAlgorithm::motion || !playing_) {
+            activateMotionSound(pendingMotionSound_, controls);
+            motionSoundChangePending_ = false;
+            motionSoundTransitionRemaining_ = 0u;
+        } else if (motionSoundTransitionRemaining_ == 0u) {
+            motionSoundTransitionRemaining_ = readerTransitionFrames_ * 2u;
+        }
+    }
+
+    float motionSoundTransitionGain(const Controls& controls)
+    {
+        if (motionSoundTransitionRemaining_ == 0u) return 1.0f;
+        if (motionSoundTransitionRemaining_ == readerTransitionFrames_) {
+            activateMotionSound(pendingMotionSound_, controls);
+            motionSoundChangePending_ = false;
+        }
+        if (motionSoundTransitionRemaining_ > readerTransitionFrames_) {
+            return smoothStep(static_cast<float>(
+                motionSoundTransitionRemaining_ - readerTransitionFrames_)
+                / static_cast<float>(readerTransitionFrames_));
+        }
+        return smoothStep(1.0f
+            - static_cast<float>(motionSoundTransitionRemaining_)
+                / static_cast<float>(readerTransitionFrames_));
+    }
+
+    void advanceMotionSoundTransition()
+    {
+        if (motionSoundTransitionRemaining_ != 0u) {
+            --motionSoundTransitionRemaining_;
+        }
+    }
+
     void prepareMotionSoundBlock(const Controls& controls)
     {
         prepareMotionSound(controls);
-        motionSoundPhaseIncrement_ = clamp(
+        const bool initializeMotionControls = !motionControlsInitialized_;
+        motionSoundPhaseIncrementTarget_ = clamp(
             controls.motionSoundRateHz, 0.25f, 32.0f)
             / outputSampleRate_;
-        motionMotorPhaseIncrement_ = clamp(
+        motionMotorPhaseIncrementTarget_ = clamp(
             controls.motorRateHz, 0.05f, 20.0f) / outputSampleRate_;
-        motionPacketDuty_ = clamp(controls.packetDuty, 0.02f, 0.98f);
-        motionMotorSymmetry_ = clamp(
+        motionPacketDutyTarget_ = clamp(
+            controls.packetDuty, 0.02f, 0.98f);
+        motionMotorSymmetryTarget_ = clamp(
             controls.motorSymmetry, 0.05f, 0.95f);
         motionMotorShape_ = controls.motorShape;
-        motionTravel_ = clamp01(controls.motionTravel);
-        motionJitter_ = clamp01(controls.motionJitter);
+        motionTravelTarget_ = clamp01(controls.motionTravel);
+        motionJitterTarget_ = clamp01(controls.motionJitter);
+        if (initializeMotionControls) {
+            motionSoundPhaseIncrement_ = motionSoundPhaseIncrementTarget_;
+            motionMotorPhaseIncrement_ = motionMotorPhaseIncrementTarget_;
+            motionPacketDuty_ = motionPacketDutyTarget_;
+            motionMotorSymmetry_ = motionMotorSymmetryTarget_;
+            motionTravel_ = motionTravelTarget_;
+            motionJitter_ = motionJitterTarget_;
+            motionControlsInitialized_ = true;
+        }
         const std::uint32_t requestedSeed = std::max<std::uint32_t>(1u,
             static_cast<std::uint32_t>(std::lround(clamp(
                 controls.motionSeed, 1.0f, 9999.0f))));
-        if (motionSeed_ != requestedSeed) {
-            motionSeed_ = requestedSeed;
-            motionRandomCycle_ = 0u;
-            randomState_ = 0x51f15e5du ^ (motionSeed_ * 0x9e3779b9u);
-            if (randomState_ == 0u) randomState_ = 0x6d2b79f5u;
+        if (motionSeed_ != requestedSeed
+            || motionSeedTransitionRemaining_ != 0u) {
+            // Coalesce rapid encoder motion. Re-hashing the current
+            // Zigzag/Drunk segment in place would jump its read position, so
+            // an active Motion reader reaches silence before adopting it.
+            pendingMotionSeed_ = requestedSeed;
+            motionSeedPending_ = pendingMotionSeed_ != motionSeed_;
+            if (initializeMotionControls
+                || currentAlgorithm_ != PlaybackAlgorithm::motion) {
+                applyPendingMotionSeed();
+            } else if (motionSeedTransitionRemaining_ == 0u) {
+                motionSeedTransitionRemaining_ = readerTransitionFrames_ * 2u;
+            }
+        }
+    }
+
+    void advanceMotionControlSmoothing()
+    {
+        motionSoundPhaseIncrement_ += motionControlSlew_
+            * (motionSoundPhaseIncrementTarget_
+                - motionSoundPhaseIncrement_);
+        motionMotorPhaseIncrement_ += motionControlSlew_
+            * (motionMotorPhaseIncrementTarget_
+                - motionMotorPhaseIncrement_);
+        motionPacketDuty_ += motionControlSlew_
+            * (motionPacketDutyTarget_ - motionPacketDuty_);
+        motionMotorSymmetry_ += motionControlSlew_
+            * (motionMotorSymmetryTarget_ - motionMotorSymmetry_);
+        motionTravel_ += motionControlSlew_
+            * (motionTravelTarget_ - motionTravel_);
+        motionJitter_ += motionControlSlew_
+            * (motionJitterTarget_ - motionJitter_);
+    }
+
+    void applyPendingMotionSeed()
+    {
+        if (!motionSeedPending_) return;
+        motionSeed_ = pendingMotionSeed_;
+        motionRandomCycle_ = 0u;
+        randomState_ = 0x51f15e5du ^ (motionSeed_ * 0x9e3779b9u);
+        if (randomState_ == 0u) randomState_ = 0x6d2b79f5u;
+        motionSeedPending_ = false;
+    }
+
+    float motionSeedTransitionGain()
+    {
+        if (motionSeedTransitionRemaining_ == 0u) return 1.0f;
+        if (motionSeedTransitionRemaining_ == readerTransitionFrames_) {
+            applyPendingMotionSeed();
+        }
+        if (motionSeedTransitionRemaining_ > readerTransitionFrames_) {
+            return smoothStep(static_cast<float>(
+                motionSeedTransitionRemaining_ - readerTransitionFrames_)
+                / static_cast<float>(readerTransitionFrames_));
+        }
+        return smoothStep(1.0f
+            - static_cast<float>(motionSeedTransitionRemaining_)
+                / static_cast<float>(readerTransitionFrames_));
+    }
+
+    void advanceMotionSeedTransition()
+    {
+        if (motionSeedTransitionRemaining_ != 0u) {
+            --motionSeedTransitionRemaining_;
+            if (motionSeedTransitionRemaining_ == 0u
+                && motionSeedPending_ && pendingMotionSeed_ != motionSeed_) {
+                // A newer seed can arrive after the midpoint. Finish the
+                // current fade-up, then honor the queued target without
+                // restarting or reversing the transition midway through.
+                motionSeedTransitionRemaining_
+                    = readerTransitionFrames_ * 2u;
+            }
         }
     }
 
@@ -2685,7 +3048,11 @@ private:
         level = clamp01(level);
         switch (motionMotorShape_) {
             case MotorShape::rounded: return smoothStep(level);
-            case MotorShape::pulse: return level > 0.5f ? 1.0f : 0.0f;
+            case MotorShape::pulse:
+                // Keep the square-like articulation, but round its threshold
+                // over a narrow band so a segment never changes gain in one
+                // sample.
+                return smoothStep((level - 0.44f) / 0.12f);
             case MotorShape::exponential: return level * level;
             case MotorShape::plateau: return std::min(1.0f, level * 3.0f);
             case MotorShape::triangle: return level;
@@ -2766,19 +3133,40 @@ private:
         const std::size_t limit = static_cast<std::size_t>(clamp(
             std::round(controls.segmentLayerLimit), 1.0f,
             static_cast<float>(kMotionSegmentLayerCount)));
-        for (std::size_t index = limit;
-             index < kMotionSegmentLayerCount; ++index) {
-            motionSegments_[index] = {};
-        }
+        const auto retire = [](MotionSegment& segment) {
+            if (segment.active && !segment.retiring) {
+                segment.retiring = true;
+                segment.retirementAge = 0u;
+            }
+        };
         if (controls.segmentOverlap == SegmentOverlap::cut) {
-            for (auto& segment : motionSegments_) segment = {};
-            return &motionSegments_[0u];
+            for (auto& segment : motionSegments_) retire(segment);
+        } else {
+            std::size_t sounding = 0u;
+            for (const auto& segment : motionSegments_) {
+                if (segment.active && !segment.retiring) ++sounding;
+            }
+            while (sounding >= limit) {
+                MotionSegment* oldest = nullptr;
+                for (auto& segment : motionSegments_) {
+                    if (!segment.active || segment.retiring) continue;
+                    if (!oldest || segment.age < oldest->age) {
+                        oldest = &segment;
+                    }
+                }
+                if (!oldest) break;
+                retire(*oldest);
+                --sounding;
+            }
         }
-        for (std::size_t index = 0u; index < limit; ++index) {
-            if (!motionSegments_[index].active) return &motionSegments_[index];
+        for (auto& segment : motionSegments_) {
+            if (!segment.active) return &segment;
         }
+        // Eight slots cover four sounding layers plus their 3 ms retirement
+        // tails. At extreme trigger rates, recycle the tail nearest silence.
         MotionSegment* oldest = &motionSegments_[0u];
-        for (std::size_t index = 1u; index < limit; ++index) {
+        for (std::size_t index = 1u;
+             index < kMotionSegmentSlotCount; ++index) {
             if (motionSegments_[index].age < oldest->age) {
                 oldest = &motionSegments_[index];
             }
@@ -2946,7 +3334,21 @@ private:
                 static_cast<float>(segment.phase));
             const float envelope = 1.0f
                 + (shape - 1.0f) * clamp01(join);
-            const float gain = segment.gain * envelope;
+            const float safetyPhase = clamp(
+                static_cast<float>(segment.increment)
+                    * static_cast<float>(safetyFadeFrames_),
+                1.0e-6f, 0.5f);
+            const float edge = std::min(
+                static_cast<float>(segment.phase),
+                static_cast<float>(1.0 - segment.phase));
+            float retirement = 1.0f;
+            if (segment.retiring) {
+                retirement = 1.0f - smoothStep(static_cast<float>(
+                    segment.retirementAge) / static_cast<float>(
+                        std::max<std::size_t>(1u, safetyFadeFrames_)));
+            }
+            const float gain = segment.gain * envelope
+                * smoothStep(edge / safetyPhase) * retirement;
             for (std::size_t channel = 0u;
                  channel < kLaneChannels; ++channel) {
                 const float sample = stackMode_
@@ -2957,7 +3359,12 @@ private:
             gainSum += gain;
             if (!newest || segment.age > newest->age) newest = &segment;
             segment.phase += segment.increment;
-            if (segment.phase >= 1.0) segment.active = false;
+            if (segment.retiring
+                && ++segment.retirementAge >= safetyFadeFrames_) {
+                segment.active = false;
+            } else if (segment.phase >= 1.0) {
+                segment.active = false;
+            }
         }
         if (gainSum > 1.0f) {
             stereo[0u] /= gainSum;
@@ -3033,7 +3440,7 @@ private:
 
         if (lanesAlgorithm) {
             const float stretchTarget = stretch
-                    && std::abs(controls.lanesStretchRatio - 1.0f) > 1.0e-4f
+                    && std::abs(stretchRatio_ - 1.0f) > 1.0e-4f
                 ? 1.0f : 0.0f;
             stretchMix_ += laneSlew_ * (stretchTarget - stretchMix_);
         }
@@ -3047,7 +3454,7 @@ private:
             if (renderStretch) {
                 readStretchedAtPhaseStereo(firstReadWindow, firstReadMode,
                     readPhase, readJoin,
-                    controls.lanesStretchRatio,
+                    stretchRatio_,
                     firstStretchGain, secondStretchGain, oldStereo);
             } else {
                 readAtPhaseStereo(
@@ -3058,7 +3465,7 @@ private:
             if (windowFadeRemaining_ != 0u) {
                 if (renderStretch) {
                     readStretchedAtPhaseStereo(secondReadWindow, secondReadMode,
-                        readPhase, readJoin, controls.lanesStretchRatio,
+                        readPhase, readJoin, stretchRatio_,
                         firstStretchGain, secondStretchGain,
                         newStereo);
                 } else {
@@ -3078,7 +3485,7 @@ private:
                 const float oldWet = renderStretch
                     ? readStretchedAtPhase(channel, firstReadWindow,
                         firstReadMode, readPhase, readJoin,
-                        controls.lanesStretchRatio,
+                        stretchRatio_,
                         firstStretchGain, secondStretchGain)
                     : readAtPhase(
                         channel, firstReadWindow, firstReadMode,
@@ -3088,7 +3495,7 @@ private:
                     : renderStretch
                         ? readStretchedAtPhase(channel, secondReadWindow,
                             secondReadMode, readPhase, readJoin,
-                            controls.lanesStretchRatio,
+                            stretchRatio_,
                             firstStretchGain, secondStretchGain)
                         : readAtPhase(
                             channel, secondReadWindow, secondReadMode,
@@ -3146,8 +3553,7 @@ private:
                 && controls.motionRateBasis == MotionRateBasis::hertz
             ? hertzIncrement : normalIncrement;
         const double requestedStretch = lanesAlgorithm
-            ? static_cast<double>(clamp(
-                controls.lanesStretchRatio, 0.25f, 4.0f))
+            ? static_cast<double>(stretchRatio_)
             : 1.0;
         const double stretchedIncrement = pitchIncrement / requestedStretch;
         const double phaseIncrement = pitchIncrement
@@ -3155,6 +3561,7 @@ private:
                 * static_cast<double>(stretchMix_);
         const double directedIncrement = motorReverse
             ? -phaseIncrement : phaseIncrement;
+        lastMotionPhaseIncrement_ = directedIncrement;
         const double previousPhase = phase_;
         const bool previousDirection = motionTrajectoryForward(
             mode, previousPhase);
@@ -3169,7 +3576,19 @@ private:
 
         bool wrapped = false;
         while (phase_ >= 1.0) {
-            phase_ -= 1.0;
+            if (!lanesAlgorithm && mode == MotionMode::zigzag) {
+                const double width = std::max(
+                    1.0, secondReadWindow.high - secondReadWindow.low);
+                const double transition = clamp(
+                    std::max(joinFrames(secondReadWindow, readJoin) / width,
+                        std::abs(lastMotionPhaseIncrement_)
+                            * static_cast<double>(safetyFadeFrames_)),
+                    1.0 / width, 0.45);
+                const double cycle = std::max(1.0e-9, 1.0 - transition);
+                phase_ = transition + std::fmod(phase_ - 1.0, cycle);
+            } else {
+                phase_ -= 1.0;
+            }
             wrapped = true;
         }
         while (phase_ < 0.0) {
@@ -3247,9 +3666,11 @@ private:
             grainWindowTables_[static_cast<std::size_t>(
                 GrainWindow::triangle)][index] = triangle;
             const float gaussian = (phase - 0.5f) / 0.18f;
+            const float gaussianEdge = smoothStep(std::min(
+                1.0f, std::min(phase, 1.0f - phase) / 0.05f));
             grainWindowTables_[static_cast<std::size_t>(
                 GrainWindow::gaussian)][index]
-                = std::exp(-0.5f * gaussian * gaussian);
+                = std::exp(-0.5f * gaussian * gaussian) * gaussianEdge;
             grainWindowTables_[static_cast<std::size_t>(
                 GrainWindow::bell)][index] = smoothBell(phase);
         }
@@ -3542,7 +3963,8 @@ private:
             }
             const float gain = grain.gain * grainEnvelope(grain);
             const ReadHead head = makeEventReadHead(
-                grain.position, grain.low, grain.high, grain.seam);
+                grain.position, grain.increment,
+                grain.low, grain.high, grain.seam);
             for (std::size_t channel = 0u;
                  channel < kLaneChannels;
                  ++channel) {
@@ -3747,7 +4169,8 @@ private:
             if (!grain.active) continue;
             const float gain = grain.gain * longGrainEnvelope(grain);
             const ReadHead head = makeEventReadHead(
-                grain.position, grain.low, grain.high, grain.seam);
+                grain.position, grain.increment,
+                grain.low, grain.high, grain.seam);
             for (std::size_t channel = 0u;
                  channel < kLaneChannels;
                  ++channel) {
@@ -3890,10 +4313,12 @@ private:
                   const Window& window,
                   std::size_t intervalFrames)
     {
+        const std::size_t requestedJoin = static_cast<std::size_t>(
+            outputSampleRate_
+            * clamp(controls.cutJoinMs, 0.0f, 100.0f) * 0.001f);
         const std::size_t join = std::max<std::size_t>(1u,
             std::min<std::size_t>(
-                static_cast<std::size_t>(outputSampleRate_
-                    * clamp(controls.cutJoinMs, 0.0f, 100.0f) * 0.001f),
+                std::max(safetyFadeFrames_, requestedJoin),
                 intervalFrames / 2u));
         if (cutCurrent_.active) {
             cutTail_ = cutCurrent_;
@@ -3980,31 +4405,99 @@ private:
         return kNoLane;
     }
 
-    void renderSampleFrame(const Controls& controls, bool sliced, float* wet)
+    static bool sameSampleConfig(const SampleReaderConfig& a,
+                                 const SampleReaderConfig& b)
     {
-        if (currentSampleMode_ != controls.sampleMode) {
+        return a.mode == b.mode && a.regionMode == b.regionMode
+            && a.regionCount == b.regionCount && a.slice == b.slice
+            && a.lane == b.lane && a.sliced == b.sliced;
+    }
+
+    SampleReaderConfig requestedSampleConfig(
+        const Controls& controls, bool sliced) const
+    {
+        SampleReaderConfig config;
+        config.mode = controls.sampleMode;
+        config.regionMode = controls.sampleRegionMode;
+        config.regionCount = static_cast<std::size_t>(clamp(
+            std::round(controls.sampleRegionCount), 1.0f,
+            static_cast<float>(kRegionCount)));
+        config.slice = static_cast<std::size_t>(std::max(
+            0.0f, std::floor(controls.sampleSlice)));
+        config.lane = requestedSampleLane(controls);
+        config.sliced = sliced;
+        return config;
+    }
+
+    void prepareSampleConfig(const Controls& controls, bool sliced)
+    {
+        const SampleReaderConfig requested
+            = requestedSampleConfig(controls, sliced);
+        if (!sampleConfigInitialized_) {
+            currentSampleConfig_ = requested;
+            pendingSampleConfig_ = requested;
+            currentSampleMode_ = requested.mode;
+            sampleConfigInitialized_ = true;
+            return;
+        }
+        if (sameSampleConfig(requested, currentSampleConfig_)
+            && !sampleConfigPending_) return;
+        pendingSampleConfig_ = requested;
+        sampleConfigPending_ = !sameSampleConfig(
+            pendingSampleConfig_, currentSampleConfig_);
+        if (!sampleConfigPending_) {
+            sampleTransitionRemaining_ = 0u;
+        } else if (sampleTransitionRemaining_ == 0u) {
+            sampleTransitionRemaining_ = readerTransitionFrames_ * 2u;
+        }
+    }
+
+    float sampleTransitionGain()
+    {
+        if (sampleTransitionRemaining_ == 0u) return 1.0f;
+        if (sampleTransitionRemaining_ == readerTransitionFrames_) {
+            currentSampleConfig_ = pendingSampleConfig_;
+            currentSampleMode_ = currentSampleConfig_.mode;
             phase_ = 0.0;
             sampleDone_ = false;
+            sampleConfigPending_ = false;
         }
-        currentSampleMode_ = controls.sampleMode;
+        if (sampleTransitionRemaining_ > readerTransitionFrames_) {
+            return smoothStep(static_cast<float>(
+                sampleTransitionRemaining_ - readerTransitionFrames_)
+                / static_cast<float>(readerTransitionFrames_));
+        }
+        return smoothStep(1.0f
+            - static_cast<float>(sampleTransitionRemaining_)
+                / static_cast<float>(readerTransitionFrames_));
+    }
+
+    void advanceSampleTransition()
+    {
+        if (sampleTransitionRemaining_ != 0u) {
+            --sampleTransitionRemaining_;
+        }
+    }
+
+    void renderSampleFrame(const Controls& controls, bool sliced, float* wet)
+    {
+        prepareSampleConfig(controls, sliced);
+        const SampleReaderConfig& config = currentSampleConfig_;
         const Window window = smoothEventWindow(controls);
         fieldLow_ = window.low;
         fieldHigh_ = window.high;
-        const std::size_t lane = requestedSampleLane(controls);
+        const std::size_t lane = config.lane;
         const double fieldWidth = std::max(1.0, window.high - window.low);
         double low = window.low;
         double high = window.high;
-        if (sliced) {
+        if (config.sliced) {
             const bool transientRegions = lane < kStackLanes
-                && controls.sampleRegionMode == RegionMode::transients
+                && config.regionMode == RegionMode::transients
                 && laneRegionCounts_[lane] != 0u;
             const std::size_t regions = transientRegions
                 ? laneRegionCounts_[lane]
-                : static_cast<std::size_t>(clamp(
-                    controls.sampleRegionCount, 1.0f,
-                    static_cast<float>(kRegionCount)));
-            const std::size_t region = static_cast<std::size_t>(std::max(
-                0.0f, std::floor(controls.sampleSlice))) % regions;
+                : config.regionCount;
+            const std::size_t region = config.slice % regions;
             const double start = transientRegions
                 ? static_cast<double>(laneRegionBoundaries_[lane][region])
                 : static_cast<double>(region) / static_cast<double>(regions);
@@ -4025,19 +4518,31 @@ private:
         // A ping-pong cycle contains both a forward and reverse traversal.
         // Halving its phase rate keeps the audible pitch equal to the other
         // sample modes instead of making both legs run at double speed.
-        if (controls.sampleMode == SampleMode::pingPong) increment *= 0.5;
+        if (config.mode == SampleMode::pingPong) increment *= 0.5;
         double readPhase = phase_;
-        if (controls.sampleMode == SampleMode::reverse) {
+        if (config.mode == SampleMode::reverse) {
             readPhase = 1.0 - phase_;
-        } else if (controls.sampleMode == SampleMode::pingPong) {
+        } else if (config.mode == SampleMode::pingPong) {
             readPhase = phase_ < 0.5 ? phase_ * 2.0 : 2.0 - phase_ * 2.0;
         }
         const double position = clamp(low + readPhase * width,
                                       low, std::max(low, high - 1.0));
-        const double seam = controls.sampleMode == SampleMode::loop
+        const double seam = config.mode == SampleMode::loop
             ? joinFrames({ low, high }, controls.join) : 0.0;
-        const ReadHead head = makeEventReadHead(position, low, high, seam);
+        const ReadHead head = makeEventReadHead(
+            position, increment, low, high, seam);
         displayPosition_ = position;
+        float completionGain = 1.0f;
+        if ((config.mode == SampleMode::forward
+                || config.mode == SampleMode::reverse)
+            && !sampleDone_) {
+            const double outputFramesRemaining = increment > 0.0
+                ? std::max(0.0, 1.0 - phase_) / increment : 0.0;
+            completionGain = smoothStep(static_cast<float>(clamp(
+                outputFramesRemaining
+                    / static_cast<double>(safetyFadeFrames_),
+                0.0, 1.0)));
+        }
         for (std::size_t channel = 0u; channel < kChannels; ++channel) {
             if (sampleDone_) {
                 wet[channel] = 0.0f;
@@ -4047,9 +4552,10 @@ private:
             } else {
                 wet[channel] = readHead(mapSourceChannel(channel), head);
             }
+            wet[channel] *= completionGain;
         }
         phase_ += increment;
-        if (controls.sampleMode == SampleMode::loop) {
+        if (config.mode == SampleMode::loop) {
             if (phase_ >= 1.0) {
                 // The incoming seam has already advanced from low to
                 // low+seam during the crossfade. Continue there after the
@@ -4058,7 +4564,7 @@ private:
                 const double cycle = std::max(1.0 / width, 1.0 - loopStart);
                 phase_ = loopStart + std::fmod(phase_ - 1.0, cycle);
             }
-        } else if (controls.sampleMode == SampleMode::pingPong) {
+        } else if (config.mode == SampleMode::pingPong) {
             phase_ = wrapPhase(phase_);
         } else if (phase_ >= 1.0) {
             phase_ = 1.0;
@@ -4072,7 +4578,8 @@ private:
             return 0.0f;
         }
         const ReadHead head = makeEventReadHead(
-            reader.position, reader.low, reader.high, reader.seam);
+            reader.position, reader.increment,
+            reader.low, reader.high, reader.seam);
         const float sample = stackMode_ && reader.lane < kStackLanes
             ? readLaneHead(reader.lane, channel, head)
             : readHead(mapSourceChannel(channel), head);
@@ -4172,6 +4679,855 @@ private:
         advanceCutReader(cutCurrent_);
     }
 
+    std::size_t wavesetGroupSize(const Controls& controls) const
+    {
+        const std::size_t requested = static_cast<std::size_t>(clamp(
+            std::round(controls.wavesetGroup), 1.0f, 32.0f));
+        constexpr std::size_t choices[6u] { 1u, 2u, 4u, 8u, 16u, 32u };
+        std::size_t selected = choices[0u];
+        for (const std::size_t choice : choices) {
+            if (std::abs(static_cast<int>(choice) - static_cast<int>(requested))
+                < std::abs(static_cast<int>(selected)
+                    - static_cast<int>(requested))) selected = choice;
+        }
+        return selected;
+    }
+
+    WavesetDiscreteControls wavesetDiscreteControls(
+        const Controls& controls) const
+    {
+        WavesetDiscreteControls result;
+        result.groupSize = wavesetGroupSize(controls);
+        result.repeats = static_cast<std::size_t>(clamp(
+            std::round(controls.wavesetRepeats), 1.0f, 16.0f));
+        result.stride = static_cast<std::size_t>(clamp(
+            std::round(controls.wavesetStride), 1.0f, 16.0f));
+        result.advance = controls.wavesetAdvance;
+        result.direction = controls.wavesetDirection;
+        result.process = controls.wavesetProcess;
+        result.detail = controls.wavesetDetail;
+        return result;
+    }
+
+    void prepareWavesetControlsBlock(const Controls& requested,
+                                     std::size_t frames,
+                                     Controls& prepared)
+    {
+        (void)frames;
+        const WavesetDiscreteControls incoming
+            = wavesetDiscreteControls(requested);
+        // Discrete choices are consumed at cycle/group boundaries below.
+        // Do not add a second, time-based debounce: it made the audible state
+        // lag behind both the encoder and the desktop plug-in.
+        wavesetActiveControls_ = incoming;
+        prepared.wavesetGroup
+            = static_cast<float>(wavesetActiveControls_.groupSize);
+        prepared.wavesetRepeats
+            = static_cast<float>(wavesetActiveControls_.repeats);
+        prepared.wavesetStride
+            = static_cast<float>(wavesetActiveControls_.stride);
+        prepared.wavesetAdvance = wavesetActiveControls_.advance;
+        prepared.wavesetDirection = wavesetActiveControls_.direction;
+        prepared.wavesetProcess = wavesetActiveControls_.process;
+        prepared.wavesetDetail = wavesetActiveControls_.detail;
+    }
+
+    static constexpr std::size_t wavesetMinimumCycleFrames(
+        WavesetDetail)
+    {
+        return 4u;
+    }
+
+    void prepareWavesetAnalysisFilters()
+    {
+        constexpr float cutoffs[kWavesetDetailCount] {
+            0.0f, 8000.0f, 4000.0f, 1000.0f, 250.0f,
+        };
+        const float rate = std::max(1.0f, sourceSampleRate_);
+        for (std::size_t index = 0u;
+             index < kWavesetDetailCount; ++index) {
+            const float cutoff = cutoffs[index];
+            wavesetAnalysisCoefficients_[index] = cutoff > 0.0f
+                ? 1.0f - std::exp(-2.0f * 3.14159265358979323846f
+                    * cutoff / rate)
+                : 1.0f;
+            wavesetAnalysisWarmupFrames_[index] = cutoff > 0.0f
+                ? std::min<std::size_t>(256u, static_cast<std::size_t>(
+                    std::ceil(rate / cutoff * 4.0f)))
+                : 0u;
+        }
+    }
+
+    float wavesetChannelSample(std::size_t channel, double position,
+                               const LaneBlend& lanes) const
+    {
+        const auto linearRead = [](const float* data, std::size_t frames,
+                                   double at) {
+            if (!data || frames == 0u) return 0.0f;
+            at = clamp(at, 0.0, static_cast<double>(frames - 1u));
+            const std::size_t first = static_cast<std::size_t>(at);
+            const std::size_t next = std::min(first + 1u, frames - 1u);
+            const float fraction = static_cast<float>(at - first);
+            return data[first] + (data[next] - data[first]) * fraction;
+        };
+        if (!stackMode_) {
+            return linearRead(storage_[mapSourceChannel(channel)],
+                sourceFrames_, position);
+        }
+        const auto laneRead = [&](std::size_t lane) {
+            if (lane >= kStackLanes || laneFrames_[lane] == 0u
+                || sourceFrames_ == 0u) return 0.0f;
+            const double at = clamp(position * lanePositionScales_[lane],
+                0.0, static_cast<double>(laneFrames_[lane] - 1u));
+            return linearRead(laneData(lane, channel), laneFrames_[lane], at)
+                * activeControlsLaneGains_[lane];
+        };
+        const std::size_t first = std::min(lanes.first, kStackLanes - 1u);
+        const std::size_t second = std::min(lanes.second, kStackLanes - 1u);
+        const float a = laneRead(first);
+        if (first == second || lanes.secondGain <= 0.0f) return a;
+        return a * lanes.firstGain + laneRead(second) * lanes.secondGain;
+    }
+
+    std::size_t wavesetReferenceChannel(double cursor, const Window& window,
+                                        const LaneBlend& lanes) const
+    {
+        (void)cursor;
+        (void)window;
+        (void)lanes;
+        // True-channel playback in the desktop engine uses channel 0 as its
+        // phase reference. A level-dependent channel choice made group timing
+        // change unpredictably while the stack moved.
+        return 0u;
+    }
+
+    bool findNextWavesetCrossing(double from, double high,
+                                 const LaneBlend& lanes,
+                                 std::size_t referenceChannel,
+                                 WavesetDetail detail,
+                                 std::size_t& searchBudget,
+                                 double& crossing) const
+    {
+        if (!(high > from + 1.0) || searchBudget == 0u) return false;
+        constexpr std::size_t kMaximumSearchFrames = 4096u;
+        const std::size_t target = static_cast<std::size_t>(std::max(
+            1.0, std::ceil(from)));
+        const std::size_t detailIndex = std::min<std::size_t>(
+            static_cast<std::size_t>(detail), kWavesetDetailCount - 1u);
+        const float coefficient = wavesetAnalysisCoefficients_[detailIndex];
+        const std::size_t warmup
+            = wavesetAnalysisWarmupFrames_[detailIndex];
+        std::size_t frame = target > warmup ? target - warmup : 1u;
+        const std::size_t end = std::min<std::size_t>(
+            static_cast<std::size_t>(std::floor(high)),
+            target + kMaximumSearchFrames);
+        float filtered = wavesetChannelSample(referenceChannel,
+            static_cast<double>(frame - 1u), lanes);
+        float previous = filtered;
+        for (; frame <= end && searchBudget != 0u;
+             ++frame, --searchBudget) {
+            const float raw = wavesetChannelSample(referenceChannel,
+                static_cast<double>(frame), lanes);
+            filtered += coefficient * (raw - filtered);
+            if (frame >= target && previous <= 0.0f && filtered > 0.0f) {
+                const float denominator = filtered - previous;
+                const float fraction = std::abs(denominator) > 1.0e-12f
+                    ? clamp(-previous / denominator, 0.0f, 1.0f) : 0.0f;
+                const double candidateCrossing
+                    = static_cast<double>(frame - 1u)
+                    + fraction;
+                if (candidateCrossing > from + 1.0e-6) {
+                    crossing = candidateCrossing;
+                    return true;
+                }
+            }
+            previous = filtered;
+        }
+        return false;
+    }
+
+    double wrapWavesetCursor(double cursor, const Window& window) const
+    {
+        const double width = std::max(1.0, window.high - window.low);
+        while (cursor >= window.high) cursor -= width;
+        while (cursor < window.low) cursor += width;
+        return cursor;
+    }
+
+    bool nextWavesetCrossing(double from, const Window& window,
+                             const LaneBlend& lanes,
+                             std::size_t referenceChannel,
+                             WavesetDetail detail,
+                             std::size_t& searchBudget,
+                             double& crossing) const
+    {
+        from = wrapWavesetCursor(from, window);
+        if (findNextWavesetCrossing(from, window.high, lanes,
+                referenceChannel, detail, searchBudget, crossing)) {
+            return true;
+        }
+        return findNextWavesetCrossing(window.low, from, lanes,
+            referenceChannel, detail, searchBudget, crossing);
+    }
+
+    float wavesetPeak(const WavesetUnit& unit,
+                      const LaneBlend& lanes,
+                      std::size_t referenceChannel) const
+    {
+        const double length = std::max(1.0, unit.end - unit.start);
+        const std::size_t probes = std::min<std::size_t>(
+            16u, std::max<std::size_t>(4u,
+                static_cast<std::size_t>(std::ceil(length))));
+        float peak = 0.0f;
+        for (std::size_t probe = 0u; probe < probes; ++probe) {
+            const double phase = static_cast<double>(probe)
+                / static_cast<double>(probes - 1u);
+            peak = std::max(peak, std::abs(wavesetChannelSample(
+                referenceChannel, unit.start + phase * length, lanes)));
+        }
+        return peak;
+    }
+
+    double wavesetFallbackLength(const Window& window) const
+    {
+        return std::min(
+            std::max(32.0, static_cast<double>(sourceSampleRate_) * 0.020),
+            std::max(1.0, window.high - window.low));
+    }
+
+    void configureWavesetFallback(WavesetReader& reader,
+                                  const Window& window) const
+    {
+        const double length = wavesetFallbackLength(window);
+        WavesetUnit fallback;
+        fallback.start = wrapWavesetCursor(reader.groupCursor, window);
+        fallback.end = std::min(window.high, fallback.start + length);
+        if (!(fallback.end > fallback.start + 1.0)) {
+            fallback.start = window.low;
+            fallback.end = std::min(window.high, window.low + length);
+        }
+        if (!(fallback.end > fallback.start)) {
+            fallback.end = fallback.start + 1.0;
+        }
+        fallback.peak = wavesetPeak(fallback, reader.lanes,
+            reader.referenceChannel);
+        reader.units[0u] = fallback;
+        reader.groupCursor = fallback.start;
+        reader.groupSize = 1u;
+        reader.fallback = true;
+        reader.initialized = true;
+        reader.adjacentUnitValid = false;
+        reader.analysisRetryFrames = std::max<std::size_t>(
+            1u, static_cast<std::size_t>(outputSampleRate_ * 0.10f));
+    }
+
+    bool buildWavesetGroup(const Controls& controls, const Window& window,
+                           double cursor)
+    {
+        const WavesetReader previous = waveset_;
+        WavesetReader candidate = previous;
+        candidate.lanes = stackMode_
+            ? makeLaneBlend(lanePhase_, controls) : LaneBlend {};
+        candidate.requestedGroupSize = wavesetGroupSize(controls);
+        candidate.groupSize = candidate.requestedGroupSize;
+        candidate.cycleOffset = 0u;
+        candidate.repeatIndex = 0u;
+        // Moving to another source group must retain the fractional phase
+        // left after the completed cycle. The desktop voice does this; zeroing
+        // it here shortened every group by up to one output sample and caused
+        // an audible impulse at ordinary group advances.
+        candidate.oscillatorPhase = previous.initialized
+            ? previous.oscillatorPhase : 0.0;
+        candidate.groupCursor = wrapWavesetCursor(cursor, window);
+        candidate.repeats = static_cast<std::size_t>(clamp(
+            std::round(controls.wavesetRepeats), 1.0f, 16.0f));
+        candidate.stride = static_cast<std::size_t>(clamp(
+            std::round(controls.wavesetStride), 1.0f, 16.0f));
+        candidate.advance = controls.wavesetAdvance;
+        candidate.direction = controls.wavesetDirection;
+        candidate.process = controls.wavesetProcess;
+        candidate.detail = controls.wavesetDetail;
+        if (previous.initialized) {
+            if (candidate.direction == WavesetDirection::pendulum) {
+                candidate.pendulumForward = !previous.pendulumForward;
+            }
+            candidate.randomState
+                = previous.randomState * 1664525u + 1013904223u;
+        }
+        if (!candidate.controlsInitialized) {
+            candidate.processAmount = clamp01(controls.wavesetProcessAmount);
+            candidate.join = clamp01(controls.join);
+            candidate.controlsInitialized = true;
+        }
+        candidate.processMultiple = 2u + static_cast<std::size_t>(
+            std::lround(candidate.processAmount * 6.0f));
+        candidate.referenceChannel = wavesetReferenceChannel(
+            candidate.groupCursor, window, candidate.lanes);
+        candidate.strongestUnit = 0u;
+        candidate.analysisRetryFrames = 0u;
+        candidate.fallback = false;
+        candidate.adjacentUnitValid = false;
+        const std::size_t minimum
+            = wavesetMinimumCycleFrames(candidate.detail);
+        // This is a total group budget, not a per-crossing budget. It keeps
+        // silence, DC, and very low material from multiplying the worst-case
+        // callback cost by group size and polyphony.
+        std::size_t searchBudget = 8192u;
+        double start = 0.0;
+        if (!nextWavesetCrossing(candidate.groupCursor, window,
+                candidate.lanes, candidate.referenceChannel,
+                candidate.detail, searchBudget, start)) {
+            if (previous.initialized && !previous.fallback) {
+                waveset_ = previous;
+                waveset_.cycleOffset = 0u;
+                waveset_.repeatIndex = 0u;
+                waveset_.analysisRetryFrames = std::max<std::size_t>(
+                    1u, static_cast<std::size_t>(outputSampleRate_ * 0.25f));
+                return false;
+            }
+            // Keep normal playback available while bounded analysis advances
+            // past a quiet lead-in or unusually long cycle. This temporary
+            // 20 ms unit is endpoint-corrected during rendering and moves
+            // through the Field instead of pinning the reader at its start.
+            configureWavesetFallback(candidate, window);
+            waveset_ = candidate;
+            return false;
+        }
+        for (std::size_t index = 0u; index < candidate.groupSize; ++index) {
+            double end = 0.0;
+            const bool found = nextWavesetCrossing(
+                start + static_cast<double>(minimum), window,
+                candidate.lanes, candidate.referenceChannel,
+                candidate.detail, searchBudget, end);
+            if (!found || end <= start) {
+                // Never create a cycle through the field wrap. Restart at the
+                // first crossing after the low boundary. If analysis runs out
+                // of safe crossings or its real-time budget, retain the prior
+                // valid group rather than manufacturing a discontinuous cut.
+                double wrappedStart = 0.0;
+                double wrappedEnd = 0.0;
+                const bool wrapped = findNextWavesetCrossing(
+                    window.low, window.high, candidate.lanes,
+                    candidate.referenceChannel, candidate.detail,
+                    searchBudget, wrappedStart)
+                    && findNextWavesetCrossing(
+                        wrappedStart + static_cast<double>(minimum),
+                        window.high, candidate.lanes,
+                        candidate.referenceChannel, candidate.detail,
+                        searchBudget, wrappedEnd);
+                if (wrapped) {
+                    start = wrappedStart;
+                    end = wrappedEnd;
+                } else {
+                    if (previous.initialized && !previous.fallback) {
+                        waveset_ = previous;
+                        waveset_.cycleOffset = 0u;
+                        waveset_.repeatIndex = 0u;
+                        waveset_.analysisRetryFrames = std::max<std::size_t>(
+                            1u, static_cast<std::size_t>(
+                                outputSampleRate_ * 0.25f));
+                        return false;
+                    }
+                    if (index == 0u) {
+                        configureWavesetFallback(candidate, window);
+                    } else {
+                        // Reuse only completed safe cycles for an incomplete
+                        // initial group. Repetition is preferable to an
+                        // unmeasured final boundary.
+                        candidate.groupSize = index;
+                    }
+                    break;
+                }
+            }
+            WavesetUnit& unit = candidate.units[index];
+            unit.start = start;
+            unit.end = std::max(start + 1.0, end);
+            unit.peak = wavesetPeak(unit, candidate.lanes,
+                candidate.referenceChannel);
+            if (unit.peak > candidate.units[candidate.strongestUnit].peak) {
+                candidate.strongestUnit = index;
+            }
+            start = unit.end;
+        }
+        if (candidate.groupSize == 0u) {
+            waveset_ = previous;
+            return false;
+        }
+        // Interpolate targets the adjacent source cycle, not the next cycle
+        // in the selected order. Retain one look-ahead unit for the final
+        // member of the group.
+        double adjacentEnd = 0.0;
+        if (nextWavesetCrossing(start + static_cast<double>(minimum), window,
+                candidate.lanes, candidate.referenceChannel,
+                candidate.detail, searchBudget, adjacentEnd)
+            && adjacentEnd > start) {
+            candidate.adjacentUnit.start = start;
+            candidate.adjacentUnit.end = adjacentEnd;
+            candidate.adjacentUnit.peak = wavesetPeak(
+                candidate.adjacentUnit, candidate.lanes,
+                candidate.referenceChannel);
+            candidate.adjacentUnitValid = true;
+        }
+        candidate.initialized = true;
+        if (previous.initialized
+            && wavesetControlTransitionRemaining_ == 0u
+            && (previous.requestedGroupSize != candidate.requestedGroupSize
+                || previous.repeats != candidate.repeats
+                || previous.stride != candidate.stride
+                || previous.advance != candidate.advance
+                || previous.direction != candidate.direction
+                || previous.process != candidate.process
+                || previous.detail != candidate.detail)) {
+            wavesetControlTransitionFrom_ = previous;
+            wavesetControlTransitionLength_ = wavesetControlTransitionFrames_;
+            wavesetControlTransitionRemaining_
+                = wavesetControlTransitionLength_;
+        }
+        waveset_ = candidate;
+        return true;
+    }
+
+    std::size_t orderedWavesetIndex(const WavesetReader& reader,
+                                    std::size_t offset) const
+    {
+        const std::size_t count = std::max<std::size_t>(
+            1u, reader.groupSize);
+        offset %= count;
+        switch (reader.direction) {
+            case WavesetDirection::reverse:
+                return count - 1u - offset;
+            case WavesetDirection::pendulum:
+                return reader.pendulumForward ? offset
+                    : count - 1u - offset;
+            case WavesetDirection::shuffle: {
+                std::uint32_t mixed = reader.randomState
+                    ^ (static_cast<std::uint32_t>(offset) * 0x9e3779b9u
+                        + 0x7f4a7c15u);
+                mixed ^= mixed >> 16u;
+                return static_cast<std::size_t>(mixed) % count;
+            }
+            case WavesetDirection::forward:
+                return offset;
+        }
+        return offset;
+    }
+
+    float wavesetUnitSample(const WavesetReader& reader,
+                            std::size_t channel,
+                            const WavesetUnit& unit,
+                            double phase, float join) const
+    {
+        phase -= std::floor(phase);
+        const double length = std::max(1.0, unit.end - unit.start);
+        const double position = unit.start + phase * length;
+        const auto read = [&](double at) {
+            return wavesetChannelSample(channel, at, reader.lanes);
+        };
+        const float raw = read(position);
+        const float start = read(unit.start);
+        const float end = read(unit.end);
+        const float boundary = start + (end - start)
+            * static_cast<float>(phase);
+        return raw - boundary * clamp01(join);
+    }
+
+    float wavesetAverageSample(const WavesetReader& reader,
+                               std::size_t channel, double phase,
+                               float join) const
+    {
+        const std::size_t count = reader.groupSize;
+        float sum = 0.0f;
+        for (std::size_t index = 0u; index < count; ++index) {
+            sum += wavesetUnitSample(reader, channel,
+                reader.units[orderedWavesetIndex(reader, index)],
+                phase, join);
+        }
+        return sum / static_cast<float>(std::max<std::size_t>(1u, count));
+    }
+
+    const WavesetUnit& adjacentWavesetUnit(const WavesetReader& reader,
+                                           std::size_t sourceIndex) const
+    {
+        if (sourceIndex + 1u < reader.groupSize) {
+            return reader.units[sourceIndex + 1u];
+        }
+        return reader.adjacentUnitValid
+            ? reader.adjacentUnit : reader.units[0u];
+    }
+
+    float renderWavesetSample(const WavesetReader& reader,
+                              std::size_t channel, float join,
+                              std::size_t cycleOffset,
+                              std::size_t repeatIndex,
+                              double oscillatorPhase) const
+    {
+        const std::size_t index = orderedWavesetIndex(
+            reader, cycleOffset);
+        const WavesetUnit& unit = reader.units[index];
+        const float raw = wavesetUnitSample(reader, channel, unit,
+            oscillatorPhase, join);
+        const float amount = clamp01(reader.processAmount);
+        const auto blend = [raw, amount](float processed) {
+            return raw + (processed - raw) * amount;
+        };
+        switch (reader.process) {
+            case WavesetProcess::omit: {
+                std::uint32_t hash = static_cast<std::uint32_t>(
+                    std::max(0.0, std::floor(reader.groupCursor)))
+                    * 747796405u + 2891336453u;
+                hash = ((hash >> ((hash >> 28u) + 4u)) ^ hash)
+                    * 277803737u;
+                hash = (hash >> 22u) ^ hash;
+                const float choice = static_cast<float>(hash & 0xffffu)
+                    / 65535.0f;
+                return choice < amount
+                    ? raw * (1.0f - amount) : raw;
+            }
+            case WavesetProcess::replace: {
+                return blend(wavesetUnitSample(reader, channel,
+                    reader.units[reader.strongestUnit],
+                    oscillatorPhase,
+                    join));
+            }
+            case WavesetProcess::envelope: {
+                constexpr double pi = 3.14159265358979323846;
+                const float envelope = static_cast<float>(std::sin(
+                    pi * oscillatorPhase));
+                return blend(raw * envelope * envelope);
+            }
+            case WavesetProcess::multiply: {
+                return blend(wavesetUnitSample(reader, channel, unit,
+                    oscillatorPhase
+                        * static_cast<double>(reader.processMultiple), join));
+            }
+            case WavesetProcess::average:
+                return blend(wavesetAverageSample(reader, channel,
+                    oscillatorPhase, join));
+            case WavesetProcess::interpolate: {
+                const WavesetUnit& targetUnit
+                    = adjacentWavesetUnit(reader, index);
+                const float target = wavesetUnitSample(reader, channel,
+                    targetUnit, oscillatorPhase, join);
+                const float morph = clamp01(static_cast<float>(
+                    (static_cast<double>(repeatIndex)
+                        + oscillatorPhase)
+                    / static_cast<double>(std::max<std::size_t>(1u,
+                        reader.repeats))));
+                return blend(raw + (target - raw) * morph);
+            }
+            case WavesetProcess::fractal: {
+                float sum = raw;
+                float normalization = 1.0f;
+                for (std::size_t level = 1u; level <= 4u; ++level) {
+                    const std::size_t multiple = 1u << level;
+                    const float weight = 1.0f
+                        / static_cast<float>(multiple);
+                    sum += wavesetUnitSample(reader, channel, unit,
+                        oscillatorPhase
+                            * static_cast<double>(multiple), join)
+                        * weight;
+                    normalization += weight;
+                }
+                return blend(sum / normalization);
+            }
+            case WavesetProcess::harmonic: {
+                const std::size_t highest = reader.processMultiple;
+                float sum = raw;
+                float normalization = 1.0f;
+                for (std::size_t harmonic = 2u;
+                     harmonic <= highest; ++harmonic) {
+                    const float weight = 1.0f
+                        / static_cast<float>(harmonic);
+                    sum += wavesetUnitSample(reader, channel, unit,
+                        oscillatorPhase
+                            * static_cast<double>(harmonic), join) * weight;
+                    normalization += weight;
+                }
+                return blend(sum / normalization);
+            }
+            case WavesetProcess::groupReverse: {
+                const std::size_t reverse = reader.groupSize - 1u
+                    - (cycleOffset % reader.groupSize);
+                return blend(wavesetUnitSample(reader, channel,
+                    reader.units[orderedWavesetIndex(reader, reverse)],
+                    1.0 - oscillatorPhase, join));
+            }
+            case WavesetProcess::cycleReverse:
+                return blend(wavesetUnitSample(reader, channel, unit,
+                    1.0 - oscillatorPhase, join));
+            case WavesetProcess::telescope: {
+                double sum = 0.0;
+                for (std::size_t offset = 0u;
+                     offset < reader.groupSize; ++offset) {
+                    sum += wavesetUnitSample(reader, channel,
+                        reader.units[orderedWavesetIndex(reader, offset)],
+                        oscillatorPhase, join);
+                }
+                return blend(static_cast<float>(std::tanh(sum
+                    / std::sqrt(static_cast<double>(
+                        std::max<std::size_t>(1u, reader.groupSize))))));
+            }
+            case WavesetProcess::repeat:
+                return raw;
+        }
+        return raw;
+    }
+
+    double wavesetPhaseIncrement(const WavesetReader& reader) const
+    {
+        const std::size_t index = orderedWavesetIndex(
+            reader, reader.cycleOffset);
+        double length = std::max(1.0,
+            reader.units[index].end - reader.units[index].start);
+        const double amount = static_cast<double>(clamp01(
+            reader.processAmount));
+        if (reader.process == WavesetProcess::interpolate) {
+            const double morph = (static_cast<double>(reader.repeatIndex)
+                    + reader.oscillatorPhase)
+                / static_cast<double>(std::max<std::size_t>(
+                    1u, reader.repeats));
+            const WavesetUnit& target = adjacentWavesetUnit(reader, index);
+            const double targetLength = std::max(
+                1.0, target.end - target.start);
+            length += (targetLength - length)
+                * clamp(morph * amount, 0.0, 1.0);
+        } else if (reader.process == WavesetProcess::groupReverse) {
+            const std::size_t reverse = reader.groupSize - 1u
+                - (reader.cycleOffset % reader.groupSize);
+            const WavesetUnit& target
+                = reader.units[orderedWavesetIndex(reader, reverse)];
+            const double targetLength = std::max(
+                1.0, target.end - target.start);
+            length += (targetLength - length) * amount;
+        } else if (reader.process == WavesetProcess::telescope) {
+            double longest = length;
+            for (std::size_t offset = 0u;
+                 offset < reader.groupSize; ++offset) {
+                const WavesetUnit& candidate
+                    = reader.units[orderedWavesetIndex(reader, offset)];
+                longest = std::max(longest,
+                    candidate.end - candidate.start);
+            }
+            length += (longest - length) * amount;
+        }
+        return static_cast<double>(sourceSampleRate_)
+            / static_cast<double>(outputSampleRate_)
+            * static_cast<double>(speed_) / length;
+    }
+
+    void renderWavesetStereo(const WavesetReader& reader,
+                             float* stereo) const
+    {
+        if (reader.fallback) {
+            for (std::size_t channel = 0u;
+                 channel < kLaneChannels; ++channel) {
+                stereo[channel] = wavesetUnitSample(reader, channel,
+                    reader.units[0u], reader.oscillatorPhase, 1.0f);
+            }
+            return;
+        }
+        for (std::size_t channel = 0u;
+             channel < kLaneChannels; ++channel) {
+            stereo[channel] = renderWavesetSample(
+                reader, channel, reader.join, reader.cycleOffset,
+                reader.repeatIndex, reader.oscillatorPhase);
+        }
+    }
+
+    static void advanceWavesetTransitionReader(WavesetReader& reader,
+                                                double increment)
+    {
+        reader.oscillatorPhase += increment;
+        while (reader.oscillatorPhase >= 1.0) {
+            reader.oscillatorPhase -= 1.0;
+            std::size_t cycleAdvance = 1u;
+            if (reader.process == WavesetProcess::telescope) {
+                cycleAdvance += static_cast<std::size_t>(std::lround(
+                    clamp01(reader.processAmount)
+                        * static_cast<float>(reader.groupSize - 1u)));
+            }
+            reader.cycleOffset += cycleAdvance;
+            if (reader.cycleOffset < reader.groupSize) continue;
+            reader.cycleOffset = 0u;
+            if (++reader.repeatIndex < reader.repeats) continue;
+            reader.repeatIndex = 0u;
+        }
+    }
+
+    void applyWavesetControlTransition(float* stereo)
+    {
+        if (wavesetControlTransitionRemaining_ == 0u
+            || !wavesetControlTransitionFrom_.initialized) return;
+        float prior[kLaneChannels] {};
+        renderWavesetStereo(wavesetControlTransitionFrom_, prior);
+        const float progress = wavesetControlTransitionLength_ > 1u
+            ? 1.0f
+                - static_cast<float>(wavesetControlTransitionRemaining_ - 1u)
+                    / static_cast<float>(wavesetControlTransitionLength_ - 1u)
+            : 1.0f;
+        const float currentGain = smoothStep(progress);
+        for (std::size_t channel = 0u;
+             channel < kLaneChannels; ++channel) {
+            stereo[channel] = prior[channel] * (1.0f - currentGain)
+                + stereo[channel] * currentGain;
+        }
+        advanceWavesetTransitionReader(wavesetControlTransitionFrom_,
+            wavesetPhaseIncrement(wavesetControlTransitionFrom_));
+        if (--wavesetControlTransitionRemaining_ == 0u) {
+            wavesetControlTransitionFrom_ = {};
+        }
+    }
+
+    void advanceWavesetGroup(const Controls& controls, const Window& window)
+    {
+        double cursor = waveset_.groupCursor;
+        if (controls.wavesetAdvance != WavesetAdvance::hold) {
+            double span = waveset_.units[waveset_.groupSize - 1u].end
+                - waveset_.units[0u].start;
+            if (!(span > 0.0)) span = 1.0;
+            const double stride = static_cast<double>(clamp(
+                std::round(controls.wavesetStride), 1.0f, 16.0f));
+            const double repeatScale = controls.wavesetAdvance
+                    == WavesetAdvance::preserve
+                ? static_cast<double>(waveset_.repeats)
+                : 1.0;
+            cursor = waveset_.units[0u].start
+                + span * stride * repeatScale;
+        }
+        const bool reusableHold = controls.wavesetAdvance
+                == WavesetAdvance::hold
+            && waveset_.requestedGroupSize == wavesetGroupSize(controls)
+            && waveset_.detail == controls.wavesetDetail;
+        if (reusableHold || waveset_.analysisRetryFrames != 0u) {
+            // Hold repeats a measured group in place. During a bounded retry,
+            // a temporary fallback still follows source progression so a
+            // quiet lead-in cannot pin both playback and its cursor.
+            if (waveset_.direction == WavesetDirection::pendulum) {
+                waveset_.pendulumForward = !waveset_.pendulumForward;
+            }
+            waveset_.randomState
+                = waveset_.randomState * 1664525u + 1013904223u;
+            const LaneBlend lanes = stackMode_
+                ? makeLaneBlend(lanePhase_, controls) : LaneBlend {};
+            waveset_.lanes = lanes;
+            waveset_.referenceChannel = wavesetReferenceChannel(
+                waveset_.groupCursor, window, waveset_.lanes);
+            if (waveset_.fallback && !reusableHold) {
+                const std::size_t retry = waveset_.analysisRetryFrames;
+                waveset_.groupCursor = wrapWavesetCursor(cursor, window);
+                configureWavesetFallback(waveset_, window);
+                waveset_.analysisRetryFrames = retry;
+            }
+            waveset_.strongestUnit = 0u;
+            for (std::size_t index = 0u;
+                 index < waveset_.groupSize; ++index) {
+                waveset_.units[index].peak = wavesetPeak(
+                    waveset_.units[index], waveset_.lanes,
+                    waveset_.referenceChannel);
+                if (waveset_.units[index].peak
+                    > waveset_.units[waveset_.strongestUnit].peak) {
+                    waveset_.strongestUnit = index;
+                }
+            }
+            if (reusableHold) {
+                waveset_.repeats = static_cast<std::size_t>(clamp(
+                    std::round(controls.wavesetRepeats), 1.0f, 16.0f));
+            }
+            waveset_.cycleOffset = 0u;
+            waveset_.repeatIndex = 0u;
+            return;
+        }
+        buildWavesetGroup(controls, window,
+            wrapWavesetCursor(cursor, window));
+    }
+
+    void latchWavesetCycleControls(const Controls& controls)
+    {
+        const std::size_t processMultiple = 2u
+            + static_cast<std::size_t>(std::lround(
+                clamp01(waveset_.processAmount) * 6.0f));
+        const bool topologyChanged
+            = waveset_.direction != controls.wavesetDirection
+            || waveset_.process != controls.wavesetProcess
+            || ((controls.wavesetProcess == WavesetProcess::multiply
+                    || controls.wavesetProcess == WavesetProcess::harmonic)
+                && waveset_.processMultiple != processMultiple);
+        if (topologyChanged && wavesetControlTransitionRemaining_ != 0u) {
+            return;
+        }
+        if (topologyChanged) {
+            wavesetControlTransitionFrom_ = waveset_;
+            wavesetControlTransitionLength_ = wavesetControlTransitionFrames_;
+            wavesetControlTransitionRemaining_
+                = wavesetControlTransitionLength_;
+        }
+        waveset_.direction = controls.wavesetDirection;
+        waveset_.process = controls.wavesetProcess;
+        waveset_.processMultiple = processMultiple;
+    }
+
+    void renderWavesetsFrame(const Controls& controls, float* wet)
+    {
+        const Window window = smoothEventWindow(controls);
+        fieldLow_ = window.low;
+        fieldHigh_ = window.high;
+        if (waveset_.initialized
+            && (waveset_.detail != controls.wavesetDetail
+                || waveset_.requestedGroupSize
+                    != wavesetGroupSize(controls))) {
+            waveset_.analysisRetryFrames = 0u;
+        }
+        if (waveset_.analysisRetryFrames != 0u) {
+            --waveset_.analysisRetryFrames;
+        }
+        if (!waveset_.initialized) {
+            const double launch = window.low
+                + clamp(phase_, 0.0, 1.0) * (window.high - window.low);
+            buildWavesetGroup(controls, window, launch);
+        }
+        if (!waveset_.controlsInitialized) {
+            waveset_.processAmount = clamp01(controls.wavesetProcessAmount);
+            waveset_.join = clamp01(controls.join);
+            waveset_.controlsInitialized = true;
+            latchWavesetCycleControls(controls);
+        } else {
+            waveset_.processAmount += wavesetControlSlew_
+                * (clamp01(controls.wavesetProcessAmount)
+                    - waveset_.processAmount);
+            waveset_.join += wavesetControlSlew_
+                * (clamp01(controls.join) - waveset_.join);
+        }
+        const std::size_t index = orderedWavesetIndex(
+            waveset_, waveset_.cycleOffset);
+        const WavesetUnit& unit = waveset_.units[index];
+        displayPosition_ = unit.start + waveset_.oscillatorPhase
+            * std::max(1.0, unit.end - unit.start);
+        float stereo[kLaneChannels] {};
+        renderWavesetStereo(waveset_, stereo);
+        applyWavesetControlTransition(stereo);
+        for (std::size_t channel = 0u; channel < kChannels; ++channel) {
+            wet[channel] = stereo[channel & 1u];
+        }
+
+        waveset_.oscillatorPhase += wavesetPhaseIncrement(waveset_);
+        while (waveset_.oscillatorPhase >= 1.0) {
+            waveset_.oscillatorPhase -= 1.0;
+            latchWavesetCycleControls(controls);
+            std::size_t cycleAdvance = 1u;
+            if (waveset_.process == WavesetProcess::telescope) {
+                cycleAdvance += static_cast<std::size_t>(std::lround(
+                    clamp01(waveset_.processAmount)
+                        * static_cast<float>(waveset_.groupSize - 1u)));
+            }
+            waveset_.cycleOffset += cycleAdvance;
+            if (waveset_.cycleOffset < waveset_.groupSize) continue;
+            waveset_.cycleOffset = 0u;
+            if (++waveset_.repeatIndex < waveset_.repeats) continue;
+            waveset_.repeatIndex = 0u;
+            advanceWavesetGroup(controls, window);
+        }
+    }
+
     static std::size_t wrapGlitchIndex(std::size_t index)
     {
         return index & (kGlitchBufferFrames - 1u);
@@ -4211,6 +5567,20 @@ private:
         return (rotated * pulses) % steps < pulses;
     }
 
+    void retireGlitch()
+    {
+        if (!glitchActive_ || glitchSliceFrames_ == 0u) return;
+        glitchTailReadStart_ = glitchReadStart_;
+        glitchTailSliceFrames_ = glitchSliceFrames_;
+        glitchTailRepeatIndex_ = glitchRepeatIndex_;
+        glitchTailReadPhase_ = glitchReadPhase_;
+        glitchTailReadIncrement_ = glitchReadIncrement_;
+        glitchTailMix_ = glitchMix_;
+        glitchTailDecay_ = glitchDecay_;
+        glitchTailAge_ = 0u;
+        glitchTailActive_ = true;
+    }
+
     void beginGlitch(const Controls& controls, std::size_t intervalFrames)
     {
         if (glitchHistoryFrames_ < 16u) return;
@@ -4218,6 +5588,7 @@ private:
             && glitchHistoryFrames_ < kGlitchBufferFrames) {
             return;
         }
+        retireGlitch();
         const std::size_t requested = static_cast<std::size_t>(
             outputSampleRate_ * clamp(
                 controls.glitchSliceMs, 2.0f, 160.0f) * 0.001f);
@@ -4271,6 +5642,42 @@ private:
         glitchActive_ = true;
     }
 
+    void renderGlitchReader(std::size_t readStart,
+                            std::size_t sliceFrames,
+                            double readPhase,
+                            double readIncrement,
+                            std::size_t repeatIndex,
+                            float mix,
+                            float decayControl,
+                            const float* dry,
+                            float* stereo) const
+    {
+        stereo[0u] = dry[0u];
+        stereo[1u] = dry[1u];
+        if (sliceFrames == 0u) return;
+        const double wrappedPhase = readPhase < 0.0
+            ? readPhase + static_cast<double>(sliceFrames) : readPhase;
+        const std::size_t offset = std::min<std::size_t>(
+            static_cast<std::size_t>(wrappedPhase), sliceFrames - 1u);
+        const std::size_t read = wrapGlitchIndex(readStart + offset);
+        const float decay = std::pow(clamp01(decayControl),
+            static_cast<float>(repeatIndex));
+        const std::size_t fadeFrames = std::min<std::size_t>(
+            std::max<std::size_t>(1u, sliceFrames / 8u),
+            static_cast<std::size_t>(outputSampleRate_ * 0.004f));
+        const std::size_t age = readIncrement >= 0.0
+            ? offset : sliceFrames - 1u - offset;
+        const float edge = std::min(1.0f,
+            static_cast<float>(std::min(age, sliceFrames - 1u - age))
+                / static_cast<float>(fadeFrames));
+        const float amount = clamp01(mix) * smoothStep(edge);
+        for (std::size_t channel = 0u; channel < kLaneChannels; ++channel) {
+            const float repeated = glitchBuffer_[channel][read] * decay;
+            stereo[channel] = dry[channel]
+                + (repeated - dry[channel]) * amount;
+        }
+    }
+
     void renderGlitchFrame(const Controls& controls, float join, float* wet)
     {
         Controls source = controls;
@@ -4278,6 +5685,16 @@ private:
         source.motionSound = MotionSound::continuous;
         float dry[kChannels] {};
         renderContinuousFrame(source, join, false, false, dry);
+        if (!glitchControlInitialized_) {
+            glitchMix_ = clamp01(controls.glitchMix);
+            glitchDecay_ = clamp01(controls.glitchDecay);
+            glitchControlInitialized_ = true;
+        } else {
+            glitchMix_ += controlGainSlew_
+                * (clamp01(controls.glitchMix) - glitchMix_);
+            glitchDecay_ += controlGainSlew_
+                * (clamp01(controls.glitchDecay) - glitchDecay_);
+        }
 
         // A newly started voice always fills one complete short history before
         // honoring a global lock. This keeps notes triggered while locked from
@@ -4306,6 +5723,7 @@ private:
             if (hit && chance <= clamp01(controls.glitchChance)) {
                 beginGlitch(controls, intervalFrames);
             } else if (controls.glitchMode == GlitchMode::stutter) {
+                retireGlitch();
                 glitchActive_ = false;
             }
             glitchStep_ = (glitchStep_ + 1u) % steps;
@@ -4316,33 +5734,9 @@ private:
 
         float stereo[kLaneChannels] { dry[0u], dry[1u] };
         if (glitchActive_ && glitchSliceFrames_ != 0u) {
-            const double wrappedPhase = glitchReadPhase_ < 0.0
-                ? glitchReadPhase_ + static_cast<double>(glitchSliceFrames_)
-                : glitchReadPhase_;
-            const std::size_t offset = std::min<std::size_t>(
-                static_cast<std::size_t>(wrappedPhase),
-                glitchSliceFrames_ - 1u);
-            const std::size_t read = wrapGlitchIndex(
-                glitchReadStart_ + offset);
-            const float mix = clamp01(controls.glitchMix);
-            const float decay = std::pow(clamp01(controls.glitchDecay),
-                static_cast<float>(glitchRepeatIndex_));
-            const std::size_t fadeFrames = std::min<std::size_t>(
-                std::max<std::size_t>(1u, glitchSliceFrames_ / 8u),
-                static_cast<std::size_t>(outputSampleRate_ * 0.004f));
-            const std::size_t age = glitchReadIncrement_ >= 0.0
-                ? offset : glitchSliceFrames_ - 1u - offset;
-            const float edge = std::min(1.0f,
-                static_cast<float>(std::min(age,
-                    glitchSliceFrames_ - 1u - age))
-                    / static_cast<float>(fadeFrames));
-            const float amount = mix * smoothStep(edge);
-            for (std::size_t channel = 0u; channel < kLaneChannels; ++channel) {
-                const float repeated = glitchBuffer_[channel][read]
-                    * decay;
-                stereo[channel] = dry[channel]
-                    + (repeated - dry[channel]) * amount;
-            }
+            renderGlitchReader(glitchReadStart_, glitchSliceFrames_,
+                glitchReadPhase_, glitchReadIncrement_, glitchRepeatIndex_,
+                glitchMix_, glitchDecay_, dry, stereo);
             glitchReadPhase_ += glitchReadIncrement_;
             bool wrapped = false;
             if (glitchReadPhase_ >= static_cast<double>(glitchSliceFrames_)) {
@@ -4364,6 +5758,33 @@ private:
                 if (glitchRepeatIndex_ >= glitchRepeatLimit_) {
                     glitchActive_ = false;
                 }
+            }
+        }
+        if (glitchTailActive_ && glitchTailSliceFrames_ != 0u) {
+            float tail[kLaneChannels] {};
+            renderGlitchReader(glitchTailReadStart_, glitchTailSliceFrames_,
+                glitchTailReadPhase_, glitchTailReadIncrement_,
+                glitchTailRepeatIndex_, glitchTailMix_, glitchTailDecay_,
+                dry, tail);
+            const float transition = smoothStep(static_cast<float>(
+                glitchTailAge_) / static_cast<float>(
+                    std::max<std::size_t>(1u, safetyFadeFrames_)));
+            stereo[0u] = tail[0u] + (stereo[0u] - tail[0u]) * transition;
+            stereo[1u] = tail[1u] + (stereo[1u] - tail[1u]) * transition;
+            glitchTailReadPhase_ += glitchTailReadIncrement_;
+            while (glitchTailReadPhase_
+                    >= static_cast<double>(glitchTailSliceFrames_)) {
+                glitchTailReadPhase_
+                    -= static_cast<double>(glitchTailSliceFrames_);
+                ++glitchTailRepeatIndex_;
+            }
+            while (glitchTailReadPhase_ < 0.0) {
+                glitchTailReadPhase_
+                    += static_cast<double>(glitchTailSliceFrames_);
+                ++glitchTailRepeatIndex_;
+            }
+            if (++glitchTailAge_ >= safetyFadeFrames_) {
+                glitchTailActive_ = false;
             }
         }
         for (std::size_t channel = 0u; channel < kChannels; ++channel) {
@@ -4429,6 +5850,9 @@ private:
     float activeControlsLaneGains_[kStackLanes] {
         1.0f, 1.0f, 1.0f, 1.0f,
     };
+    float targetControlsLaneGains_[kStackLanes] {
+        1.0f, 1.0f, 1.0f, 1.0f,
+    };
     double phase_ = 0.0;
     float lanePhase_ = 0.0f;
     float lanePhaseIncrement_ = 0.0f;
@@ -4491,31 +5915,74 @@ private:
     double glitchReadPhase_ = 0.0;
     double glitchReadIncrement_ = 1.0;
     bool glitchActive_ = false;
+    std::size_t glitchTailReadStart_ = 0u;
+    std::size_t glitchTailSliceFrames_ = 0u;
+    std::size_t glitchTailRepeatIndex_ = 0u;
+    std::size_t glitchTailAge_ = 0u;
+    double glitchTailReadPhase_ = 0.0;
+    double glitchTailReadIncrement_ = 1.0;
+    float glitchTailMix_ = 1.0f;
+    float glitchTailDecay_ = 0.9f;
+    float glitchMix_ = 1.0f;
+    float glitchDecay_ = 0.9f;
+    bool glitchTailActive_ = false;
+    bool glitchControlInitialized_ = false;
+    WavesetReader waveset_ {};
+    WavesetReader wavesetControlTransitionFrom_ {};
+    WavesetDiscreteControls wavesetActiveControls_ {};
     std::uint32_t randomState_ = 0x51f15e5du;
     float speed_ = 1.0f;
     float speedSlew_ = 1.0f;
+    float join_ = 1.0f;
+    float joinSlew_ = 1.0f;
+    bool joinInitialized_ = false;
+    float stretchRatio_ = 1.0f;
+    float stretchRatioTarget_ = 1.0f;
+    float stretchRatioSlew_ = 1.0f;
+    bool stretchRatioInitialized_ = false;
     float laneSlew_ = 1.0f;
     float lastLaneSlewMs_ = -1.0f;
     float eventWindowSlew_ = 1.0f;
     float motionEnvelopeSlew_ = 1.0f;
+    float controlGainSlew_ = 1.0f;
+    float motionControlSlew_ = 1.0f;
+    float wavesetControlSlew_ = 1.0f;
+    std::size_t wavesetControlTransitionFrames_ = 144u;
+    std::size_t wavesetControlTransitionLength_ = 144u;
+    std::size_t wavesetControlTransitionRemaining_ = 0u;
+    float wavesetAnalysisCoefficients_[kWavesetDetailCount] {
+        1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
+    };
+    std::size_t wavesetAnalysisWarmupFrames_[kWavesetDetailCount] {};
     float motionInnerPhase_ = 0.0f;
     float motionOuterPhase_ = 0.5f;
     float motionSoundPhaseIncrement_ = 0.0f;
+    float motionSoundPhaseIncrementTarget_ = 0.0f;
     float motionMotorPhaseIncrement_ = 0.0f;
+    float motionMotorPhaseIncrementTarget_ = 0.0f;
     float motionPacketDuty_ = 0.65f;
+    float motionPacketDutyTarget_ = 0.65f;
     float motionMotorSymmetry_ = 0.5f;
+    float motionMotorSymmetryTarget_ = 0.5f;
     float motionTravel_ = 1.0f;
+    float motionTravelTarget_ = 1.0f;
     float motionJitter_ = 0.0f;
+    float motionJitterTarget_ = 0.0f;
     MotorShape motionMotorShape_ = MotorShape::rounded;
     float motionEnvelope_ = 1.0f;
+    double lastMotionPhaseIncrement_ = 0.0;
     float motionInnerRateScale_ = 1.0f;
-    MotionSegment motionSegments_[kMotionSegmentLayerCount] {};
+    MotionSegment motionSegments_[kMotionSegmentSlotCount] {};
     std::uint32_t motionSegmentAge_ = 0u;
     double motionEventPhase_ = 0.0;
     std::size_t motionEventRepeatIndex_ = 0u;
     double motionEventBasePosition_ = 0.5;
     float motionEventRateScale_ = 1.0f;
     std::uint32_t motionSeed_ = 1u;
+    std::uint32_t pendingMotionSeed_ = 1u;
+    bool motionSeedPending_ = false;
+    std::size_t motionSeedTransitionRemaining_ = 0u;
+    bool motionControlsInitialized_ = false;
     std::uint32_t motionRandomCycle_ = 0u;
     bool motionEventStarted_ = false;
     bool motionPacketEvent_ = false;
@@ -4533,7 +6000,13 @@ private:
     MotionMode toMode_ = MotionMode::forward;
     MotionMode requestedMode_ = MotionMode::forward;
     MotionSound currentMotionSound_ = MotionSound::continuous;
+    MotionSound pendingMotionSound_ = MotionSound::continuous;
+    bool motionSoundChangePending_ = false;
     SampleMode currentSampleMode_ = SampleMode::forward;
+    SampleReaderConfig currentSampleConfig_ {};
+    SampleReaderConfig pendingSampleConfig_ {};
+    bool sampleConfigInitialized_ = false;
+    bool sampleConfigPending_ = false;
     PlaybackAlgorithm currentAlgorithm_ = PlaybackAlgorithm::motion;
     PlaybackAlgorithm pendingAlgorithm_ = PlaybackAlgorithm::motion;
     std::size_t windowFadeFrames_ = 1440u;
@@ -4542,6 +6015,10 @@ private:
     std::size_t retriggerFadeRemaining_ = 0u;
     std::size_t retriggerTransitionFrames_ = 240u;
     std::size_t retriggerTransitionRemaining_ = 0u;
+    std::size_t safetyFadeFrames_ = 144u;
+    std::size_t readerTransitionFrames_ = 240u;
+    std::size_t motionSoundTransitionRemaining_ = 0u;
+    std::size_t sampleTransitionRemaining_ = 0u;
     double pendingSeekPhase_ = 0.0;
     bool seekPending_ = false;
     std::size_t algorithmFadeFrames_ = 480u;

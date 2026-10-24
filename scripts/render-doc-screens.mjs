@@ -146,6 +146,12 @@ const params = {
     effect_rotary_depth: '70', effect_rotary_mix: '35',
     effect_rotary_ramp: '350', effect_rotary_balance: '0',
     effect_rotary_crossover: '800', effect_rotary_spread: '100',
+    effect_tape_format: '0', effect_tape_drive: '10',
+    effect_tape_wow_rate: '0.18', effect_tape_wow_depth: '4',
+    effect_tape_flutter_rate: '7', effect_tape_flutter_depth: '3',
+    effect_tape_hiss: '-72', effect_tape_mix: '30',
+    effect_tape_age: '18', effect_tape_crinkle: '8',
+    effect_tape_mechanics: '14', effect_tape_inertia: '32',
     lane_1_gain: '1', lane_2_gain: '1', lane_3_gain: '1', lane_4_gain: '1',
     pressure_mode: '1', root_note: '60', record_lane: '2', pad_octave: '0',
     hold_release_ms: '0', shift_held: '0',
@@ -244,7 +250,16 @@ ${elements}
 }
 
 let mismatches = 0;
-function capture(filename, title) {
+function capture(filename, title, expectedHeading = '') {
+    if (expectedHeading) {
+        const heading = frame.find((item) => item.type === 'text'
+            && item.x === 1 && item.y === 0)?.value || '';
+        if (heading !== expectedHeading
+            && !heading.startsWith(expectedHeading + ' ')) {
+            throw new Error(`Expected ${expectedHeading} while rendering `
+                + `${filename}, found ${heading || 'no page heading'}`);
+        }
+    }
     const target = path.join(outputDirectory, filename);
     const contents = svgFor(title);
     if (checkOnly) {
@@ -273,17 +288,28 @@ function moveSettingsPage(delta) {
     tick();
 }
 
-let selectedAlgorithm = Number(params.algorithm);
 function selectAlgorithm(algorithm) {
-    while (selectedAlgorithm < algorithm) {
-        cc(71, 1);
-        selectedAlgorithm++;
+    const target = Math.max(0, Math.min(8, algorithm | 0));
+    for (let guard = 0; guard < 64
+        && Number(params.algorithm) !== target; guard++) {
+        cc(71, Number(params.algorithm) < target ? 1 : 127);
+        tick();
     }
-    while (selectedAlgorithm > algorithm) {
-        cc(71, 127);
-        selectedAlgorithm--;
+    if (Number(params.algorithm) !== target) {
+        throw new Error(`Could not select algorithm ${target}`);
     }
-    tick();
+}
+
+function selectCurrentIntegerParam(key, target, control = 71) {
+    const wanted = target | 0;
+    for (let guard = 0; guard < 128
+        && Math.round(Number(params[key])) !== wanted; guard++) {
+        cc(control, Number(params[key]) < wanted ? 1 : 127);
+        tick();
+    }
+    if (Math.round(Number(params[key])) !== wanted) {
+        throw new Error(`Could not set ${key} to ${wanted}`);
+    }
 }
 
 function captureEnginePages(algorithm, pages) {
@@ -292,7 +318,9 @@ function captureEnginePages(algorithm, pages) {
     moveSettingsPage(1); // Shared Amp Envelope page.
     for (const page of pages) {
         moveSettingsPage(1);
-        if (page.filename) capture(page.filename, page.title);
+        if (page.filename) {
+            capture(page.filename, page.title, page.heading);
+        }
     }
     moveSettingsPage(-(pages.length + 2));
 }
@@ -305,76 +333,84 @@ params.clip_state = '0,0,1,420,6800,6,128,1000,0,1,12000,13600';
 tick(3);
 cc(50);
 tick();
-capture('engine-page.svg', 'Engine parameter page');
+capture('engine-page.svg', 'Engine parameter page', 'ENGINE');
 moveSettingsPage(1);
-capture('pads-scale.svg', 'Shared Pads and Scale parameter page');
+capture('pads-scale.svg', 'Shared Pads and Scale parameter page',
+    'PADS & SCALE');
 moveSettingsPage(1);
-capture('amp-envelope.svg', 'Shared breakpoint amplitude envelope page');
+capture('amp-envelope.svg', 'Shared breakpoint amplitude envelope page',
+    'AMP ENVELOPE');
 moveSettingsPage(-1);
 moveSettingsPage(-1);
 
 captureEnginePages(0, [
-    { filename: 'stack-path.svg', title: 'Shared Stack Path parameter page' },
-    { filename: 'motion-path.svg', title: 'Motion Path parameter page' },
-    { filename: 'motion-sound.svg', title: 'Motion Sound parameter page' },
+    { filename: 'stack-path.svg', title: 'Shared Stack Path parameter page', heading: 'STACK PATH' },
+    { filename: 'motion-path.svg', title: 'Motion Path parameter page', heading: 'MOTION PATH' },
+    { filename: 'motion-sound.svg', title: 'Motion Sound parameter page', heading: 'MOTION SOUND' },
 ]);
 moveSettingsPage(5);
-cc(71, 1);
-tick();
+selectCurrentIntegerParam('motion_sound', 1);
 moveSettingsPage(1);
-capture('motion-packets.svg', 'Motion Packets parameter page');
+capture('motion-packets.svg', 'Motion Packets parameter page', 'PACKETS');
 moveSettingsPage(-1);
-cc(71, 1);
-tick();
+selectCurrentIntegerParam('motion_sound', 2);
 moveSettingsPage(1);
-capture('motion-motor.svg', 'Motion Motor parameter page');
+capture('motion-motor.svg', 'Motion Motor parameter page', 'MOTOR');
 moveSettingsPage(-1);
-cc(71, 1);
-tick();
+selectCurrentIntegerParam('motion_sound', 3);
 moveSettingsPage(1);
-capture('motion-event-clock.svg', 'Motion Event Clock parameter page');
+capture('motion-event-clock.svg', 'Motion Event Clock parameter page',
+    'EVENT CLOCK');
 moveSettingsPage(1);
-capture('motion-event-shape.svg', 'Motion Event Shape parameter page');
+capture('motion-event-shape.svg', 'Motion Event Shape parameter page',
+    'EVENT SHAPE');
 moveSettingsPage(-7);
 captureEnginePages(1, [
     {},
-    { filename: 'lanes-play.svg', title: 'Lanes Play parameter page' },
+    { filename: 'lanes-play.svg', title: 'Lanes Play parameter page', heading: 'LANES PLAY' },
 ]);
 captureEnginePages(2, [
     {},
-    { filename: 'grains-main.svg', title: 'Grains Main parameter page' },
-    { filename: 'grains-cloud.svg', title: 'Grains Cloud parameter page' },
-    { filename: 'grains-process.svg', title: 'Grains Process parameter page' },
+    { filename: 'grains-main.svg', title: 'Grains Main parameter page', heading: 'GRAINS MAIN' },
+    { filename: 'grains-cloud.svg', title: 'Grains Cloud parameter page', heading: 'GRAINS CLOUD' },
+    { filename: 'grains-process.svg', title: 'Grains Process parameter page', heading: 'GRAINS PROCESS' },
 ]);
 captureEnginePages(3, [
-    { filename: 'cutups-clock.svg', title: 'Cutups Clock parameter page' },
-    { filename: 'cutups-path.svg', title: 'Cutups Path parameter page' },
+    { filename: 'cutups-clock.svg', title: 'Cutups Clock parameter page', heading: 'CUTUPS CLOCK' },
+    { filename: 'cutups-path.svg', title: 'Cutups Path parameter page', heading: 'CUTUPS PATH' },
 ]);
 captureEnginePages(4, [
-    { filename: 'direct-play.svg', title: 'Shared Direct Play parameter page' },
+    { filename: 'direct-play.svg', title: 'Shared Direct Play parameter page', heading: 'DIRECT PLAY' },
 ]);
 captureEnginePages(5, [
     {},
-    { filename: 'slice-source.svg', title: 'Slice Source parameter page' },
+    { filename: 'slice-source.svg', title: 'Slice Source parameter page', heading: 'SLICE SOURCE' },
 ]);
 captureEnginePages(6, [
     {},
-    { filename: 'glitch-clock.svg', title: 'Glitch Clock parameter page' },
-    { filename: 'glitch-pattern.svg', title: 'Glitch Pattern parameter page' },
+    { filename: 'glitch-clock.svg', title: 'Glitch Clock parameter page', heading: 'GLITCH CLOCK' },
+    { filename: 'glitch-pattern.svg', title: 'Glitch Pattern parameter page', heading: 'GLITCH PATTERN' },
 ]);
 captureEnginePages(7, [
     {},
-    { filename: 'weave.svg', title: 'Weave parameter page' },
-    { filename: 'weave-motion.svg', title: 'Weave Motion parameter page' },
+    { filename: 'weave.svg', title: 'Weave parameter page', heading: 'WEAVE' },
+    { filename: 'weave-motion.svg', title: 'Weave Motion parameter page', heading: 'WEAVE MOTION' },
+]);
+captureEnginePages(8, [
+    {},
+    { filename: 'wavesets.svg', title: 'Wavesets parameter page', heading: 'WAVESETS' },
 ]);
 
 selectAlgorithm(1);
 moveSettingsPage(6);
-capture('effects.svg', 'Effects parameter page');
+capture('effects.svg', 'Effects parameter page', 'EFFECTS');
 moveSettingsPage(1);
-capture('effects-stereo-rotary.svg', 'Stereo and Rotary effects parameter page');
+capture('effects-stereo-rotary.svg', 'Stereo and Rotary effects parameter page',
+    'STEREO / ROTARY');
+moveSettingsPage(1);
+capture('effects-tape.svg', 'Tape effects parameter page', 'TAPE');
 moveSettingsPage(2);
-capture('performance-page.svg', 'Performance Loop parameter page');
+capture('performance-page.svg', 'Performance Loop parameter page', 'PERF LOOP');
 
 cc(51);
 tick();

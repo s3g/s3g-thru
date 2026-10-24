@@ -91,6 +91,8 @@
 
         <p>Glitch therefore uses <code>RATE</code> for the lane-stack scan beneath its history buffer and <code>JOIN</code> for that source's seams. Sample uses <code>JOIN</code> to crossfade its Loop boundary. Glitch's Buffer and Override controls remain on Glitch Clock. Cutups, Sample, and Slices do not use continuous stack scanning; turning <code>RATE</code> while one of those engines is selected retains the shared value for the next engine that uses it.</p>
 
+        <div class="callout"><p><strong>Live control safety:</strong> continuous controls glide to their new values, event controls are adopted by the next grain, cut, or cycle, and changes that replace a reader use a short transition. Bits, Rate reduction, and Glitch can still create deliberate digital edges. With <code>BITS 0.00</code>, <code>RATE 1</code>, and the Help-screen overrun count at zero, an isolated click is not expected.</p></div>
+
         <h2 id="parameters">Parameter pages</h2>
 
         <figure>
@@ -103,7 +105,7 @@
         </figure>
 
         <div class="control-map">
-          <div><span class="control-number">Knob 1</span><strong>ALG</strong><p>Choose Motion, Lanes, Grains, Cutups, Sample, Slices, or Glitch.</p></div>
+          <div><span class="control-number">Knob 1</span><strong>ALG</strong><p>Choose Motion, Lanes, Grains, Cutups, Sample, Slices, Glitch, Weave, or Wavesets.</p></div>
           <div><span class="control-number">Knob 2</span><strong>POS</strong><p>Center the readable source field.</p></div>
           <div><span class="control-number">Knob 3</span><strong>FLD</strong><p>Set the width around Position.</p></div>
           <div><span class="control-number">Knob 4</span><strong>SPD</strong><p>Set source transport speed.</p></div>
@@ -113,7 +115,7 @@
           <div><span class="control-number">Knob 8</span><strong>LEVL</strong><p>Set final playback gain.</p></div>
         </div>
 
-        <p>Use <kbd>Up</kbd>/<kbd>Down</kbd> while parameters are open to move through pages. Each parameter has one location: shared controls stay on the same shared page, while engine-only controls appear on separate contextual pages. Mix/Rec, Sample Edit, Performance Loop, Overdub Takes, and Chain remain available.</p>
+        <p>Use <kbd>Up</kbd>/<kbd>Down</kbd> while parameters are open to move through pages. Each parameter has one location: shared controls stay on the same shared page, while engine-only controls appear on separate contextual pages. The title fraction is current page / total pages, so its denominator changes with the selected engine. Mix / Rec, Effects, Stereo / Rotary, Tape, Sample Edit, Performance Loop, Overdub Takes, and Chain follow every engine's contextual pages.</p>
 
         <figure>
           <div class="doc-graphic move-screen"><img src="assets/screens/amp-envelope.svg" alt="Amp Envelope breakpoint editor with attack, decay, sustain, and release values"></div>
@@ -126,13 +128,13 @@
               <img src="assets/screens/stack-path.svg" alt="Stack Path page with seven controls and a small reserved box at knob 8">
             </button>
           </div>
-          <figcaption>Stack Path appears unchanged for Motion, Lanes, Grains, Glitch, and Weave. The small hollow box at knob 8 marks an inactive position reserved for a future parameter.</figcaption>
+          <figcaption>Stack Path appears unchanged for Motion, Lanes, Grains, Glitch, Weave, and Wavesets. The small hollow box at knob 8 marks an inactive position reserved for a future parameter.</figcaption>
         </figure>
 
         <div class="callout"><p><strong>Reserved positions:</strong> an unlabelled hollow box means that encoder has no assignment on this page. Turning it has no effect.</p></div>
 
         <div class="callout">
-          <p><strong>Stack Start versus Scan Rate:</strong> Stack Start is the exact crossfade position only when Path is Manual. On moving paths it seeds each new voice's phase; Scan Rate then advances from there. Press <kbd>Loop</kbd> to freeze every voice at its exact audible blend—even between lanes. A released pad returns to that same blend if pressed again while Hold remains active. Press Loop again to clear those retained positions and resume. Performance recording stores these Hold/Run changes and the exact positions of held voices. In Glitch, <kbd>Shift</kbd> + <kbd>Loop</kbd> instead freezes the recent repeat histories while Stack Path can continue.</p>
+          <p><strong>Stack Start versus Scan Rate:</strong> Stack Start is the exact crossfade position only when Path is Manual. On moving paths it seeds each new voice's phase; Scan Rate then advances from there. Press <kbd>Loop</kbd> to freeze every voice at its exact audible blend—even between lanes. A released pad returns to that same blend if pressed again while Hold remains active. Press Loop again to clear those retained positions and resume. Performance recording stores these Hold/Run changes and the exact positions of held voices. Tape <code>INRT</code> can add a wet-path mechanical stop/start to the same gesture. In Glitch, <kbd>Shift</kbd> + <kbd>Loop</kbd> instead freezes the recent repeat histories while Stack Path can continue.</p>
         </div>
 
         <h2 id="secondary">Secondary screens</h2>

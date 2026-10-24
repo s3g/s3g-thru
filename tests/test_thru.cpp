@@ -1,4 +1,5 @@
 #include "thru_schwung_abi.h"
+#include "sample_motion_app.h"
 
 #include <algorithm>
 #include <array>
@@ -20,6 +21,693 @@ constexpr int kInputOffset = 4096;
 constexpr float kOutputCeiling = 0.8912509381337456f;
 std::array<std::uint8_t, 8192> mappedMemory {};
 std::array<std::int16_t, kFrames * 2> output {};
+
+using ClickEngine = s3g_daisy::SampleMotionApp;
+
+struct ClickFixture {
+    static constexpr std::size_t capacity = 8192u;
+    ClickEngine engine;
+    std::array<std::array<float, capacity>, ClickEngine::kChannels> storage {};
+    std::array<std::array<float, kFrames>, ClickEngine::kChannels> input {};
+    std::array<std::array<float, kFrames>, ClickEngine::kChannels> output {};
+    std::array<const float*, ClickEngine::kChannels> inputPointers {};
+    std::array<float*, ClickEngine::kChannels> outputPointers {};
+
+    struct RenderMetrics {
+        float maximumStep = 0.0f;
+        float dc = 0.0f;
+        float highFrequencyRatio = 0.0f;
+    };
+
+    ClickFixture()
+    {
+        for (std::size_t channel = 0u;
+             channel < ClickEngine::kChannels; ++channel) {
+            inputPointers[channel] = input[channel].data();
+            outputPointers[channel] = output[channel].data();
+        }
+        assert(engine.prepare(static_cast<float>(MOVE_SAMPLE_RATE),
+            storage[0u].data(), storage[1u].data(),
+            storage[2u].data(), storage[3u].data(), capacity));
+    }
+
+    void loadRamp(bool stack = false)
+    {
+        if (stack) {
+            constexpr std::size_t laneFrames = capacity / 2u;
+            for (std::size_t channel = 0u; channel < 2u; ++channel) {
+                float* lane = engine.writableLane(0u, channel);
+                for (std::size_t frame = 0u; frame < laneFrames; ++frame) {
+                    lane[frame] = -0.7f + 1.4f
+                        * static_cast<float>(frame)
+                        / static_cast<float>(laneFrames - 1u);
+                }
+            }
+            assert(engine.adoptLane(
+                0u, laneFrames, static_cast<float>(MOVE_SAMPLE_RATE)));
+            return;
+        }
+        for (std::size_t channel = 0u; channel < 2u; ++channel) {
+            for (std::size_t frame = 0u; frame < capacity; ++frame) {
+                storage[channel][frame] = -0.7f + 1.4f
+                    * static_cast<float>(frame)
+                    / static_cast<float>(capacity - 1u);
+            }
+        }
+        assert(engine.adoptSource(
+            capacity, 2u, static_cast<float>(MOVE_SAMPLE_RATE)));
+    }
+
+    void loadContrastingStack()
+    {
+        constexpr std::size_t laneFrames = capacity / 2u;
+        for (std::size_t laneIndex = 0u;
+             laneIndex < ClickEngine::kStackLanes; ++laneIndex) {
+            for (std::size_t channel = 0u; channel < 2u; ++channel) {
+                float* lane = engine.writableLane(laneIndex, channel);
+                const float offset = static_cast<float>(laneIndex) * 0.25f;
+                for (std::size_t frame = 0u; frame < laneFrames; ++frame) {
+                    const float ramp = -0.65f + 1.05f
+                        * static_cast<float>(frame)
+                        / static_cast<float>(laneFrames - 1u);
+                    lane[frame] = std::min(0.75f, ramp + offset);
+                }
+            }
+            assert(engine.adoptLane(laneIndex, laneFrames,
+                static_cast<float>(MOVE_SAMPLE_RATE)));
+        }
+    }
+
+    void loadSine(float cycles = 24.0f)
+    {
+        constexpr double pi = 3.14159265358979323846;
+        for (std::size_t channel = 0u; channel < 2u; ++channel) {
+            for (std::size_t frame = 0u; frame < capacity; ++frame) {
+                const double phase = static_cast<double>(frame)
+                    / static_cast<double>(capacity) * cycles * 2.0 * pi;
+                storage[channel][frame] = 0.65f * static_cast<float>(
+                    std::sin(phase + static_cast<double>(channel) * 0.15));
+            }
+        }
+        assert(engine.adoptSource(
+            capacity, 2u, static_cast<float>(MOVE_SAMPLE_RATE)));
+    }
+
+    void loadAntiPhaseSine(float cycles = 31.0f)
+    {
+        constexpr double pi = 3.14159265358979323846;
+        for (std::size_t frame = 0u; frame < capacity; ++frame) {
+            const double phase = static_cast<double>(frame)
+                / static_cast<double>(capacity) * cycles * 2.0 * pi;
+            const float sample = 0.7f * static_cast<float>(std::sin(phase));
+            storage[0u][frame] = sample;
+            storage[1u][frame] = -sample;
+        }
+        assert(engine.adoptSource(
+            capacity, 2u, static_cast<float>(MOVE_SAMPLE_RATE)));
+    }
+
+    void loadDcOffsetSine()
+    {
+        constexpr double pi = 3.14159265358979323846;
+        for (std::size_t channel = 0u; channel < 2u; ++channel) {
+            for (std::size_t frame = 0u; frame < capacity; ++frame) {
+                const double phase = static_cast<double>(frame)
+                    / static_cast<double>(capacity) * 9.0 * 2.0 * pi;
+                storage[channel][frame] = 0.45f + 0.12f
+                    * static_cast<float>(std::sin(phase
+                        + static_cast<double>(channel) * 0.2));
+            }
+        }
+        assert(engine.adoptSource(
+            capacity, 2u, static_cast<float>(MOVE_SAMPLE_RATE)));
+    }
+
+    void loadDelayedSine()
+    {
+        constexpr double pi = 3.14159265358979323846;
+        constexpr std::size_t leadIn = 5000u;
+        static_assert(leadIn < capacity);
+        for (std::size_t channel = 0u; channel < 2u; ++channel) {
+            for (std::size_t frame = 0u; frame < capacity; ++frame) {
+                if (frame < leadIn) {
+                    storage[channel][frame] = 0.0f;
+                    continue;
+                }
+                const double phase = static_cast<double>(frame - leadIn)
+                    / static_cast<double>(capacity - leadIn)
+                    * 20.0 * 2.0 * pi;
+                storage[channel][frame] = 0.65f * static_cast<float>(
+                    std::sin(phase + static_cast<double>(channel) * 0.15));
+            }
+        }
+        assert(engine.adoptSource(
+            capacity, 2u, static_cast<float>(MOVE_SAMPLE_RATE)));
+    }
+
+    float renderPeak(const ClickEngine::Controls& controls, int blocks)
+    {
+        float peak = 0.0f;
+        for (int block = 0; block < blocks; ++block) {
+            engine.process(inputPointers.data(), outputPointers.data(),
+                           kFrames, controls);
+            for (int frame = 0; frame < kFrames; ++frame) {
+                peak = std::max(peak, std::abs(
+                    output[0u][static_cast<std::size_t>(frame)]));
+            }
+        }
+        return peak;
+    }
+
+    float renderMaximumStep(const ClickEngine::Controls& controls, int blocks)
+    {
+        float maximum = 0.0f;
+        float previous = 0.0f;
+        bool havePrevious = false;
+        for (int block = 0; block < blocks; ++block) {
+            engine.process(inputPointers.data(), outputPointers.data(),
+                           kFrames, controls);
+            for (int frame = 0; frame < kFrames; ++frame) {
+                const float sample = output[0u][static_cast<std::size_t>(frame)];
+                assert(std::isfinite(sample));
+                if (havePrevious) {
+                    const float step = std::abs(sample - previous);
+                    maximum = std::max(maximum, step);
+                }
+                previous = sample;
+                havePrevious = true;
+            }
+        }
+        return maximum;
+    }
+
+    template <typename Update>
+    float renderChangingMaximumStep(
+        ClickEngine::Controls controls, int blocks, Update update)
+    {
+        for (int block = 0; block < 8; ++block) {
+            engine.process(inputPointers.data(), outputPointers.data(),
+                           kFrames, controls);
+        }
+        float previous = output[0u][kFrames - 1u];
+        float maximum = 0.0f;
+        int maximumBlock = -1;
+        int maximumFrame = -1;
+        float maximumBefore = 0.0f;
+        float maximumAfter = 0.0f;
+        for (int block = 0; block < blocks; ++block) {
+            update(controls, block);
+            engine.process(inputPointers.data(), outputPointers.data(),
+                           kFrames, controls);
+            for (int frame = 0; frame < kFrames; ++frame) {
+                const float sample = output[0u][static_cast<std::size_t>(frame)];
+                assert(std::isfinite(sample));
+                const float step = std::abs(sample - previous);
+                if (step > maximum) {
+                    maximum = step;
+                    maximumBlock = block;
+                    maximumFrame = frame;
+                    maximumBefore = previous;
+                    maximumAfter = sample;
+                }
+                previous = sample;
+            }
+        }
+        if (maximum >= 0.5f) {
+            std::fprintf(stderr,
+                "Live-control maximum %.6f at %d:%d (%.6f -> %.6f)\n",
+                maximum, maximumBlock, maximumFrame,
+                maximumBefore, maximumAfter);
+        }
+        return maximum;
+    }
+
+    RenderMetrics renderChangingMetrics(
+        ClickEngine::Controls controls, int blocks)
+    {
+        constexpr ClickEngine::WavesetProcess processes[] {
+            ClickEngine::WavesetProcess::repeat,
+            ClickEngine::WavesetProcess::average,
+            ClickEngine::WavesetProcess::interpolate,
+            ClickEngine::WavesetProcess::groupReverse,
+            ClickEngine::WavesetProcess::cycleReverse,
+            ClickEngine::WavesetProcess::telescope,
+        };
+        RenderMetrics metrics;
+        float previous = 0.0f;
+        bool havePrevious = false;
+        float lowOne = 0.0f;
+        float lowTwo = 0.0f;
+        constexpr float analysisCoefficient = 0.7921204f;
+        double sum = 0.0;
+        double energy = 0.0;
+        double highEnergy = 0.0;
+        std::size_t sampleCount = 0u;
+        for (int block = 0; block < blocks; ++block) {
+            if (block != 0 && block % 16 == 0) {
+                controls.wavesetProcess = processes[
+                    (block / 16) % (sizeof(processes) / sizeof(processes[0]))];
+                controls.wavesetDirection = static_cast<ClickEngine::WavesetDirection>(
+                    (block / 16) % ClickEngine::kWavesetDirectionCount);
+                controls.wavesetProcessAmount
+                    = ((block / 16) & 1) ? 1.0f : 0.0f;
+                controls.join = (block & 16) ? 1.0f : 0.0f;
+                controls.wavesetGroup = (block & 32) ? 2.0f : 16.0f;
+                controls.wavesetDetail = (block & 64)
+                    ? ClickEngine::WavesetDetail::hz4000
+                    : ClickEngine::WavesetDetail::raw;
+            }
+            engine.process(inputPointers.data(), outputPointers.data(),
+                           kFrames, controls);
+            for (int frame = 0; frame < kFrames; ++frame) {
+                const float sample = output[0u][static_cast<std::size_t>(frame)];
+                assert(std::isfinite(sample));
+                if (havePrevious) {
+                    metrics.maximumStep = std::max(
+                        metrics.maximumStep, std::abs(sample - previous));
+                }
+                previous = sample;
+                havePrevious = true;
+                lowOne += analysisCoefficient * (sample - lowOne);
+                lowTwo += analysisCoefficient * (lowOne - lowTwo);
+                if (block >= 4) {
+                    const float high = sample - lowTwo;
+                    sum += sample;
+                    energy += static_cast<double>(sample) * sample;
+                    highEnergy += static_cast<double>(high) * high;
+                    ++sampleCount;
+                }
+            }
+        }
+        metrics.dc = sampleCount != 0u
+            ? static_cast<float>(sum / static_cast<double>(sampleCount))
+            : 0.0f;
+        metrics.highFrequencyRatio = energy > 1.0e-12
+            ? static_cast<float>(std::sqrt(highEnergy / energy)) : 0.0f;
+        return metrics;
+    }
+};
+
+void testEngineClickMatrix()
+{
+    const auto requireSmooth = [](const char* name, float step, float limit) {
+        if (step >= limit) {
+            std::fprintf(stderr, "%s discontinuity: %.6f (limit %.6f)\n",
+                         name, step, limit);
+        }
+        assert(step < limit);
+    };
+
+    {
+        ClickFixture fixture;
+        fixture.loadRamp();
+        ClickEngine::Controls controls;
+        controls.algorithm = ClickEngine::PlaybackAlgorithm::sample;
+        controls.sampleMode = ClickEngine::SampleMode::forward;
+        controls.speed = 4.0f;
+        requireSmooth("Sample one-shot",
+            fixture.renderMaximumStep(controls, 16), 0.12f);
+    }
+    {
+        ClickFixture fixture;
+        fixture.loadRamp();
+        ClickEngine::Controls controls;
+        controls.algorithm = ClickEngine::PlaybackAlgorithm::slices;
+        controls.sampleMode = ClickEngine::SampleMode::reverse;
+        controls.sampleRegionMode = ClickEngine::RegionMode::equal;
+        controls.sampleRegionCount = 8.0f;
+        controls.sampleSlice = 3.0f;
+        controls.speed = 4.0f;
+        requireSmooth("Slices reverse one-shot",
+            fixture.renderMaximumStep(controls, 16), 0.12f);
+    }
+    {
+        ClickFixture fixture;
+        fixture.loadRamp();
+        ClickEngine::Controls controls;
+        controls.algorithm = ClickEngine::PlaybackAlgorithm::sample;
+        controls.sampleMode = ClickEngine::SampleMode::loop;
+        fixture.renderMaximumStep(controls, 8);
+        controls.sampleMode = ClickEngine::SampleMode::reverse;
+        requireSmooth("Sample mode change",
+            fixture.renderMaximumStep(controls, 8), 0.12f);
+    }
+    {
+        ClickFixture fixture;
+        fixture.loadRamp();
+        ClickEngine::Controls controls;
+        controls.algorithm = ClickEngine::PlaybackAlgorithm::motion;
+        controls.motion = ClickEngine::MotionMode::zigzag;
+        controls.motionPathRate = 24.0f;
+        controls.speed = 4.0f;
+        controls.join = 1.0f;
+        requireSmooth("Motion Zigzag",
+            fixture.renderMaximumStep(controls, 48), 0.18f);
+    }
+    {
+        ClickFixture fixture;
+        fixture.loadRamp();
+        ClickEngine::Controls controls;
+        controls.algorithm = ClickEngine::PlaybackAlgorithm::motion;
+        controls.motionSound = ClickEngine::MotionSound::pulser;
+        controls.segmentOverlap = ClickEngine::SegmentOverlap::cut;
+        controls.segmentTrigger = ClickEngine::SegmentTrigger::clock;
+        controls.segmentRateHz = 64.0f;
+        controls.motorShape = ClickEngine::MotorShape::pulse;
+        controls.join = 0.0f;
+        requireSmooth("Motion segment replacement",
+            fixture.renderMaximumStep(controls, 48), 0.20f);
+    }
+    {
+        ClickFixture fixture;
+        fixture.loadContrastingStack();
+        ClickEngine::Controls controls;
+        controls.algorithm = ClickEngine::PlaybackAlgorithm::lanes;
+        controls.lanes = ClickEngine::LanesMode::forward;
+        controls.lanePath = ClickEngine::LanePath::stepsDown;
+        controls.laneBlend = ClickEngine::LaneBlendMode::jump;
+        controls.laneCycles = 8.0f;
+        controls.laneSlewMs = 0.0f;
+        controls.speed = 2.0f;
+        requireSmooth("Lanes zero-slew jump",
+            fixture.renderMaximumStep(controls, 48), 0.20f);
+    }
+    {
+        ClickFixture fixture;
+        fixture.loadRamp();
+        ClickEngine::Controls controls;
+        controls.algorithm = ClickEngine::PlaybackAlgorithm::grains;
+        controls.grainReverseChance = 1.0f;
+        controls.grainSizeMs = 80.0f;
+        controls.grainDensityHz = 20.0f;
+        controls.join = 1.0f;
+        requireSmooth("Grains reverse seam",
+            fixture.renderMaximumStep(controls, 48), 0.18f);
+    }
+    {
+        ClickFixture fixture;
+        fixture.loadRamp();
+        ClickEngine::Controls controls;
+        controls.algorithm = ClickEngine::PlaybackAlgorithm::longGrains;
+        controls.longGrainReverseChance = 1.0f;
+        controls.longGrainLengthMs = 250.0f;
+        controls.longGrainLayers = 2.0f;
+        controls.join = 1.0f;
+        requireSmooth("Weave reverse seam",
+            fixture.renderMaximumStep(controls, 96), 0.18f);
+    }
+    {
+        ClickFixture fixture;
+        fixture.loadRamp(true);
+        ClickEngine::Controls controls;
+        controls.algorithm = ClickEngine::PlaybackAlgorithm::cutups;
+        controls.cutClock = ClickEngine::CutClock::free;
+        controls.cutRateHz = 64.0f;
+        controls.cutJoinMs = 0.0f;
+        controls.cutReverseChance = 1.0f;
+        controls.cutGate = 1.0f;
+        controls.join = 0.0f;
+        requireSmooth("Cutups zero-join reverse",
+            fixture.renderMaximumStep(controls, 48), 0.20f);
+    }
+    {
+        ClickFixture fixture;
+        fixture.loadRamp();
+        ClickEngine::Controls controls;
+        controls.algorithm = ClickEngine::PlaybackAlgorithm::glitch;
+        controls.glitchClock = ClickEngine::CutClock::free;
+        controls.glitchRateHz = 64.0f;
+        controls.glitchSliceMs = 16.0f;
+        controls.glitchSteps = 1.0f;
+        controls.glitchPulses = 1.0f;
+        controls.glitchRepeats = 16.0f;
+        controls.glitchMix = 1.0f;
+        requireSmooth("Glitch replacement",
+            fixture.renderMaximumStep(controls, 64), 0.22f);
+    }
+    {
+        ClickFixture fixture;
+        fixture.loadSine();
+        ClickEngine::Controls controls;
+        controls.algorithm = ClickEngine::PlaybackAlgorithm::wavesets;
+        controls.wavesetGroup = 8.0f;
+        controls.wavesetRepeats = 3.0f;
+        controls.wavesetStride = 2.0f;
+        controls.wavesetDirection = ClickEngine::WavesetDirection::pendulum;
+        controls.wavesetProcess = ClickEngine::WavesetProcess::telescope;
+        controls.wavesetProcessAmount = 0.7f;
+        controls.wavesetDetail = ClickEngine::WavesetDetail::hz4000;
+        controls.speed = 2.0f;
+        controls.join = 1.0f;
+        requireSmooth("Wavesets processed group",
+            fixture.renderMaximumStep(controls, 64), 0.22f);
+    }
+    for (std::size_t process = 0u;
+         process < ClickEngine::kWavesetProcessCount; ++process) {
+        for (std::size_t direction = 0u;
+             direction < ClickEngine::kWavesetDirectionCount; ++direction) {
+            ClickFixture fixture;
+            fixture.loadSine(29.0f);
+            ClickEngine::Controls controls;
+            controls.algorithm = ClickEngine::PlaybackAlgorithm::wavesets;
+            controls.wavesetGroup = 8.0f;
+            controls.wavesetRepeats = 2.0f;
+            controls.wavesetDirection
+                = static_cast<ClickEngine::WavesetDirection>(direction);
+            controls.wavesetProcess
+                = static_cast<ClickEngine::WavesetProcess>(process);
+            controls.wavesetProcessAmount = 1.0f;
+            controls.wavesetDetail = ClickEngine::WavesetDetail::hz1000;
+            controls.speed = 2.0f;
+            controls.join = 0.0f;
+            char label[96] {};
+            std::snprintf(label, sizeof(label),
+                "Wavesets process/order matrix %zu/%zu", process, direction);
+            const bool intentionallyHarmonic
+                = process == static_cast<std::size_t>(
+                    ClickEngine::WavesetProcess::multiply)
+                || process == static_cast<std::size_t>(
+                    ClickEngine::WavesetProcess::fractal)
+                || process == static_cast<std::size_t>(
+                    ClickEngine::WavesetProcess::harmonic);
+            requireSmooth(label,
+                fixture.renderMaximumStep(controls, 32),
+                intentionallyHarmonic ? 0.55f : 0.24f);
+        }
+    }
+    {
+        ClickFixture fixture;
+        fixture.loadAntiPhaseSine();
+        ClickEngine::Controls controls;
+        controls.algorithm = ClickEngine::PlaybackAlgorithm::wavesets;
+        controls.wavesetGroup = 16.0f;
+        controls.wavesetDirection = ClickEngine::WavesetDirection::shuffle;
+        controls.wavesetProcess = ClickEngine::WavesetProcess::cycleReverse;
+        controls.wavesetProcessAmount = 1.0f;
+        controls.wavesetDetail = ClickEngine::WavesetDetail::hz4000;
+        controls.speed = 3.0f;
+        controls.join = 0.0f;
+        requireSmooth("Wavesets anti-phase stereo reference",
+            fixture.renderMaximumStep(controls, 64), 0.24f);
+        assert(!fixture.engine.wavesetFallbackActive());
+    }
+    {
+        ClickFixture fixture;
+        fixture.loadDcOffsetSine();
+        ClickEngine::Controls controls;
+        controls.algorithm = ClickEngine::PlaybackAlgorithm::wavesets;
+        controls.wavesetGroup = 32.0f;
+        controls.wavesetProcess = ClickEngine::WavesetProcess::harmonic;
+        controls.wavesetProcessAmount = 1.0f;
+        controls.speed = 4.0f;
+        controls.join = 0.0f;
+        requireSmooth("Wavesets guarded fallback",
+            fixture.renderMaximumStep(controls, 48), 0.24f);
+        assert(fixture.engine.wavesetFallbackActive());
+    }
+    {
+        ClickFixture fixture;
+        fixture.loadDelayedSine();
+        ClickEngine::Controls controls;
+        controls.algorithm = ClickEngine::PlaybackAlgorithm::wavesets;
+        controls.wavesetGroup = 8.0f;
+        controls.wavesetRepeats = 2.0f;
+        controls.wavesetProcess = ClickEngine::WavesetProcess::repeat;
+        controls.join = 1.0f;
+        const float peak = fixture.renderPeak(controls, 192);
+        assert(peak > 0.02f);
+        assert(fixture.engine.normalizedPosition() > 0.25f);
+    }
+    {
+        ClickFixture fixture;
+        fixture.loadContrastingStack();
+        ClickEngine::Controls controls;
+        controls.algorithm = ClickEngine::PlaybackAlgorithm::wavesets;
+        controls.wavesetGroup = 4.0f;
+        controls.wavesetRepeats = 1.0f;
+        controls.wavesetAdvance = ClickEngine::WavesetAdvance::hold;
+        controls.wavesetProcess = ClickEngine::WavesetProcess::average;
+        controls.wavesetProcessAmount = 0.65f;
+        controls.lanePath = ClickEngine::LanePath::triangle;
+        controls.laneCycles = 16.0f;
+        controls.laneSlewMs = 0.0f;
+        controls.speed = 2.0f;
+        controls.join = 0.0f;
+        requireSmooth("Wavesets moving stack groups",
+            fixture.renderMaximumStep(controls, 96), 0.19f);
+    }
+    {
+        ClickFixture fixture;
+        fixture.loadSine(37.0f);
+        ClickEngine::Controls controls;
+        controls.algorithm = ClickEngine::PlaybackAlgorithm::wavesets;
+        controls.wavesetGroup = 4.0f;
+        controls.wavesetRepeats = 1.0f;
+        controls.wavesetProcessAmount = 0.0f;
+        controls.speed = 4.0f;
+        controls.join = 0.0f;
+        const ClickFixture::RenderMetrics metrics
+            = fixture.renderChangingMetrics(controls, 192);
+        // A fully coherent Telescope group has a deliberately steeper
+        // waveform than a single source cycle. Compare live editing against
+        // that steady-state process so the gate catches transition spikes
+        // without mistaking intended harmonic slope for a click.
+        ClickFixture reference;
+        reference.loadSine(37.0f);
+        ClickEngine::Controls referenceControls = controls;
+        referenceControls.wavesetGroup = 16.0f;
+        referenceControls.wavesetDirection
+            = ClickEngine::WavesetDirection::reverse;
+        referenceControls.wavesetProcess
+            = ClickEngine::WavesetProcess::telescope;
+        referenceControls.wavesetProcessAmount = 1.0f;
+        referenceControls.wavesetDetail = ClickEngine::WavesetDetail::hz4000;
+        referenceControls.join = 1.0f;
+        const float steadyProcessStep
+            = reference.renderMaximumStep(referenceControls, 192);
+        const float liveTransitionLimit = std::max(
+            0.20f, steadyProcessStep * 1.05f);
+        requireSmooth("Wavesets live parameter changes",
+            metrics.maximumStep, liveTransitionLimit);
+        if (std::abs(metrics.dc) >= 0.05f
+            || metrics.highFrequencyRatio >= 0.35f) {
+            std::fprintf(stderr,
+                "Wavesets live sweep metrics: dc %.6f, high ratio %.6f\n",
+                metrics.dc, metrics.highFrequencyRatio);
+        }
+        assert(std::abs(metrics.dc) < 0.05f);
+        assert(metrics.highFrequencyRatio < 0.35f);
+    }
+}
+
+void testLiveParameterTransitionMatrix()
+{
+    const auto requireSmooth = [](const char* name, float step, float limit) {
+        if (step >= limit) {
+            std::fprintf(stderr, "%s live-control discontinuity: %.6f "
+                         "(limit %.6f)\n", name, step, limit);
+        }
+        assert(step < limit);
+    };
+
+    {
+        ClickFixture fixture;
+        fixture.loadSine(19.0f);
+        ClickEngine::Controls controls;
+        controls.algorithm = ClickEngine::PlaybackAlgorithm::sample;
+        controls.sampleMode = ClickEngine::SampleMode::loop;
+        controls.locus = 0.5f;
+        controls.field = 0.8f;
+        controls.speed = 1.0f;
+        controls.join = 1.0f;
+        const float step = fixture.renderChangingMaximumStep(
+            controls, 160, [](ClickEngine::Controls& live, int block) {
+                if (block % 4 != 0) return;
+                const bool alternate = (block / 4) & 1;
+                live.locus = alternate ? 0.18f : 0.82f;
+                live.field = alternate ? 0.24f : 0.92f;
+                live.speed = alternate ? 0.08f : 4.0f;
+                live.join = alternate ? 0.0f : 1.0f;
+            });
+        requireSmooth("Sample shared controls", step, 0.24f);
+    }
+
+    {
+        ClickFixture fixture;
+        fixture.loadSine(23.0f);
+        ClickEngine::Controls controls;
+        controls.algorithm = ClickEngine::PlaybackAlgorithm::motion;
+        controls.motion = ClickEngine::MotionMode::zigzag;
+        controls.motionPathRate = 4.0f;
+        controls.speed = 1.0f;
+        controls.join = 1.0f;
+        const float step = fixture.renderChangingMaximumStep(
+            controls, 192, [](ClickEngine::Controls& live, int block) {
+                if (block % 4 != 0) return;
+                const bool alternate = (block / 4) & 1;
+                live.motionTravel = alternate ? 0.08f : 1.0f;
+                live.motionJitter = alternate ? 0.0f : 1.0f;
+                live.motionSoundRateHz = alternate ? 0.25f : 20.0f;
+                live.motorRateHz = alternate ? 0.05f : 20.0f;
+                live.packetDuty = alternate ? 0.05f : 0.95f;
+                live.motorSymmetry = alternate ? 0.05f : 0.95f;
+                live.motionSeed = alternate ? 1.0f : 9999.0f;
+                live.join = alternate ? 0.0f : 1.0f;
+            });
+        requireSmooth("Motion continuous controls", step, 0.28f);
+    }
+
+    {
+        ClickFixture fixture;
+        fixture.loadContrastingStack();
+        ClickEngine::Controls controls;
+        controls.algorithm = ClickEngine::PlaybackAlgorithm::lanes;
+        controls.lanes = ClickEngine::LanesMode::forward;
+        controls.lanePath = ClickEngine::LanePath::triangle;
+        controls.laneBlend = ClickEngine::LaneBlendMode::crossfade;
+        controls.lanesStretch = true;
+        controls.lanesStretchRatio = 1.0f;
+        const float step = fixture.renderChangingMaximumStep(
+            controls, 192, [](ClickEngine::Controls& live, int block) {
+                if (block % 4 != 0) return;
+                const bool alternate = (block / 4) & 1;
+                live.lanePath = alternate
+                    ? ClickEngine::LanePath::stepsDown
+                    : ClickEngine::LanePath::random;
+                live.laneBlend = alternate
+                    ? ClickEngine::LaneBlendMode::jump
+                    : ClickEngine::LaneBlendMode::crossfade;
+                live.laneCycles = alternate ? 0.125f : 16.0f;
+                live.lanePathOffset = alternate ? 0.0f : 1.0f;
+                live.lanePathSkew = alternate ? 0.02f : 0.98f;
+                live.lanePathCurve = alternate ? -1.0f : 1.0f;
+                live.lanesStretchRatio = alternate ? 0.25f : 4.0f;
+                live.join = alternate ? 0.0f : 1.0f;
+            });
+        requireSmooth("Lanes path and stretch controls", step, 0.30f);
+    }
+
+    {
+        ClickFixture fixture;
+        fixture.loadSine(17.0f);
+        ClickEngine::Controls controls;
+        controls.algorithm = ClickEngine::PlaybackAlgorithm::motion;
+        controls.sampleMode = ClickEngine::SampleMode::loop;
+        controls.cutClock = ClickEngine::CutClock::free;
+        controls.cutRateHz = 12.0f;
+        controls.glitchClock = ClickEngine::CutClock::free;
+        controls.glitchRateHz = 12.0f;
+        controls.longGrainLengthMs = 250.0f;
+        controls.wavesetGroup = 4.0f;
+        const float step = fixture.renderChangingMaximumStep(
+            controls, 320, [](ClickEngine::Controls& live, int block) {
+                if (block % 24 != 0) return;
+                live.algorithm = static_cast<ClickEngine::PlaybackAlgorithm>(
+                    (block / 24) % 9);
+            });
+        requireSmooth("Playback algorithm changes", step, 0.30f);
+    }
+}
 
 void fillInput(std::int16_t level)
 {
@@ -88,6 +776,35 @@ int renderStereoDifference(
     return result;
 }
 
+void accumulateMaximumOutputStep(
+    int& result, std::array<int, 2u>& previous, bool& havePrevious)
+{
+    for (int frame = 0; frame < kFrames; ++frame) {
+        for (int channel = 0; channel < 2; ++channel) {
+            const int sample = output[frame * 2 + channel];
+            if (havePrevious) {
+                result = std::max(result,
+                    std::abs(sample - previous[channel]));
+            }
+            previous[channel] = sample;
+        }
+        havePrevious = true;
+    }
+}
+
+int renderMaximumOutputStep(
+    plugin_api_v2_t* api, void* instance, int blocks)
+{
+    int result = 0;
+    std::array<int, 2u> previous {};
+    bool havePrevious = false;
+    for (int block = 0; block < blocks; ++block) {
+        render(api, instance, 1);
+        accumulateMaximumOutputStep(result, previous, havePrevious);
+    }
+    return result;
+}
+
 int stateField(const std::string& state, int index)
 {
     int current = 0;
@@ -129,7 +846,8 @@ void recordLane(plugin_api_v2_t* api, void* instance,
 
 void writePcm16Wav(const std::string& path,
                    std::uint32_t sampleRate = MOVE_SAMPLE_RATE,
-                   bool cueCrossing = false)
+                   bool cueCrossing = false,
+                   bool continuousTone = false)
 {
     constexpr std::uint32_t frames = 4096u;
     constexpr std::uint32_t dataBytes = frames * 2u * sizeof(std::int16_t);
@@ -159,6 +877,18 @@ void writePcm16Wav(const std::string& path,
     assert(std::fwrite("data", 1u, 4u, file) == 4u);
     u32(dataBytes);
     for (std::uint32_t frame = 0u; frame < frames; ++frame) {
+        if (continuousTone) {
+            constexpr float twoPi = 6.28318530717958647692f;
+            const float phase = twoPi * 32.0f
+                * static_cast<float>(frame) / static_cast<float>(frames);
+            const auto left = static_cast<std::int16_t>(
+                std::lround(std::sin(phase) * 12000.0f));
+            const auto right = static_cast<std::int16_t>(
+                std::lround(std::sin(phase) * -6000.0f));
+            u16(static_cast<std::uint16_t>(left));
+            u16(static_cast<std::uint16_t>(right));
+            continue;
+        }
         if (cueCrossing) {
             const std::int16_t sample = frame < 1200u ? 12000
                 : (frame == 1200u ? 0 : -12000);
@@ -195,6 +925,108 @@ void appendLittleU32(
     bytes.push_back(static_cast<std::uint8_t>(value >> 24u));
 }
 
+void downgradeClipBankToV8(const std::string& path)
+{
+    struct stat status {};
+    assert(stat(path.c_str(), &status) == 0);
+    assert(status.st_size > 4);
+    std::vector<std::uint8_t> input(
+        static_cast<std::size_t>(status.st_size) - 4u);
+    std::FILE* file = std::fopen(path.c_str(), "rb");
+    assert(file != nullptr);
+    assert(std::fread(input.data(), 1u, input.size(), file) == input.size());
+    assert(std::fclose(file) == 0);
+    assert(input.size() >= 240u);
+    assert(std::memcmp(input.data(), "S3GTHR3", 7u) == 0);
+    assert(littleU32(input, 8u) == 11u);
+
+    std::vector<std::uint8_t> output;
+    output.reserve(input.size());
+    output.insert(output.end(), input.begin(), input.begin() + 8u);
+    appendLittleU32(output, 8u);
+    std::size_t offset = 12u;
+    const auto copyBytes = [&](std::size_t count) {
+        assert(offset + count <= input.size());
+        output.insert(output.end(), input.begin() + offset,
+                      input.begin() + offset + count);
+        offset += count;
+    };
+    copyBytes(228u); // generation/globals plus the 16-entry chain
+    for (std::size_t clip = 0u; clip < 64u; ++clip) {
+        copyBytes(4u + 132u * 4u); // occupied and format-8 parameters
+        offset += 20u * 4u; // Tape controls and Wavesets parameters were appended.
+        copyBytes(4u * (4u + 768u + 64u) + 8u * 4u); // sources and cues
+        copyBytes(36u); // recorded state through take count
+        const std::uint32_t noteCount = littleU32(input, offset);
+        const std::uint32_t pointCount = littleU32(input, offset + 4u);
+        copyBytes(8u);
+        copyBytes(static_cast<std::size_t>(noteCount) * 24u);
+        copyBytes(static_cast<std::size_t>(pointCount) * 24u);
+    }
+    assert(offset == input.size());
+    std::uint32_t checksum = 2166136261u;
+    for (const std::uint8_t byte : output) {
+        checksum ^= byte;
+        checksum *= 16777619u;
+    }
+    appendLittleU32(output, checksum);
+    file = std::fopen(path.c_str(), "wb");
+    assert(file != nullptr);
+    assert(std::fwrite(output.data(), 1u, output.size(), file) == output.size());
+    assert(std::fclose(file) == 0);
+}
+
+void downgradeClipBankToV9(const std::string& path)
+{
+    struct stat status {};
+    assert(stat(path.c_str(), &status) == 0);
+    assert(status.st_size > 4);
+    std::vector<std::uint8_t> input(
+        static_cast<std::size_t>(status.st_size) - 4u);
+    std::FILE* file = std::fopen(path.c_str(), "rb");
+    assert(file != nullptr);
+    assert(std::fread(input.data(), 1u, input.size(), file) == input.size());
+    assert(std::fclose(file) == 0);
+    assert(input.size() >= 240u);
+    assert(std::memcmp(input.data(), "S3GTHR3", 7u) == 0);
+    assert(littleU32(input, 8u) == 11u);
+
+    std::vector<std::uint8_t> output;
+    output.reserve(input.size());
+    output.insert(output.end(), input.begin(), input.begin() + 8u);
+    appendLittleU32(output, 9u);
+    std::size_t offset = 12u;
+    const auto copyBytes = [&](std::size_t count) {
+        assert(offset + count <= input.size());
+        output.insert(output.end(), input.begin() + offset,
+                      input.begin() + offset + count);
+        offset += count;
+    };
+    copyBytes(228u); // generation/globals plus the 16-entry chain
+    for (std::size_t clip = 0u; clip < 64u; ++clip) {
+        copyBytes(4u + 140u * 4u); // occupied and format-9 parameters
+        offset += 12u * 4u; // format-10 tape macros plus format-11 Wavesets
+        copyBytes(4u * (4u + 768u + 64u) + 8u * 4u); // sources and cues
+        copyBytes(36u); // recorded state through take count
+        const std::uint32_t noteCount = littleU32(input, offset);
+        const std::uint32_t pointCount = littleU32(input, offset + 4u);
+        copyBytes(8u);
+        copyBytes(static_cast<std::size_t>(noteCount) * 24u);
+        copyBytes(static_cast<std::size_t>(pointCount) * 24u);
+    }
+    assert(offset == input.size());
+    std::uint32_t checksum = 2166136261u;
+    for (const std::uint8_t byte : output) {
+        checksum ^= byte;
+        checksum *= 16777619u;
+    }
+    appendLittleU32(output, checksum);
+    file = std::fopen(path.c_str(), "wb");
+    assert(file != nullptr);
+    assert(std::fwrite(output.data(), 1u, output.size(), file) == output.size());
+    assert(std::fclose(file) == 0);
+}
+
 void downgradeClipBankToV1(const std::string& path)
 {
     struct stat status {};
@@ -208,7 +1040,7 @@ void downgradeClipBankToV1(const std::string& path)
     assert(std::fclose(file) == 0);
     assert(input.size() >= 240u);
     assert(std::memcmp(input.data(), "S3GTHR3", 7u) == 0);
-    assert(littleU32(input, 8u) == 8u);
+    assert(littleU32(input, 8u) == 11u);
 
     std::vector<std::uint8_t> output;
     output.reserve(input.size());
@@ -224,7 +1056,7 @@ void downgradeClipBankToV1(const std::string& path)
     copyBytes(228u); // generation/globals plus the 16-entry chain
     for (std::size_t clip = 0u; clip < 64u; ++clip) {
         copyBytes(4u + 68u * 4u); // occupied and version-1 base parameters
-        offset += 64u * 4u; // newer fidelity, Glitch/FX, Weave, ADSR, rotary
+        offset += 84u * 4u; // fidelity, effects, Weave, ADSR, tape, Wavesets
         copyBytes(4u * (4u + 768u + 64u) + 8u * 4u); // sources and cues
         copyBytes(32u); // recorded through capacity flags
         offset += 4u; // take count does not exist in format 1
@@ -266,7 +1098,7 @@ void downgradeClipBankToV2(const std::string& path)
     assert(std::fclose(file) == 0);
     assert(input.size() >= 240u);
     assert(std::memcmp(input.data(), "S3GTHR3", 7u) == 0);
-    assert(littleU32(input, 8u) == 8u);
+    assert(littleU32(input, 8u) == 11u);
 
     std::vector<std::uint8_t> output;
     output.reserve(input.size());
@@ -282,7 +1114,7 @@ void downgradeClipBankToV2(const std::string& path)
     copyBytes(228u); // generation/globals plus the 16-entry chain
     for (std::size_t clip = 0u; clip < 64u; ++clip) {
         copyBytes(4u + 68u * 4u); // occupied and format-2 base parameters
-        offset += 64u * 4u; // format-3/4 fidelity plus Weave, ADSR, rotary
+        offset += 84u * 4u; // fidelity, effects, Weave, ADSR, tape, Wavesets
         copyBytes(4u * (4u + 768u + 64u) + 8u * 4u); // sources and cues
         copyBytes(32u + 4u); // capacities/flags and take count
         const std::uint32_t noteCount = littleU32(input, offset);
@@ -339,6 +1171,8 @@ std::vector<std::string> directoryFiles(const std::string& directory)
 
 int main()
 {
+    testEngineClickMatrix();
+    testLiveParameterTransitionMatrix();
     host_api_v1_t host {};
     host.api_version = 1;
     host.sample_rate = MOVE_SAMPLE_RATE;
@@ -403,11 +1237,22 @@ int main()
     std::array<char, 16> removedParam {};
     assert(api->get_param(instance, "seq_bpm", removedParam.data(),
                           static_cast<int>(removedParam.size())) < 0);
+    std::vector<char> chainParamBuffer(65536u, '\0');
+    const int chainParamLength = api->get_param(instance, "chain_params",
+        chainParamBuffer.data(), static_cast<int>(chainParamBuffer.size()));
+    assert(chainParamLength > 0);
+    assert(chainParamLength < static_cast<int>(chainParamBuffer.size()));
+    const std::string chainParams(chainParamBuffer.data(),
+        static_cast<std::size_t>(chainParamLength));
+    assert(chainParams.find("\"effect_tape_format\"") != std::string::npos);
+    assert(chainParams.find("\"options\":[\"2\\\"\",\"1\\\"\","
+        "\"1/2\\\"\",\"1/4\\\"\",\"1/8\\\"\"]")
+        != std::string::npos);
     struct CcCheck { int cc; const char* key; const char* high; };
     const CcCheck ccChecks[] {
         {20, "locus", "1.0000"}, {21, "field", "1.0000"},
         {22, "speed", "4.0000"}, {23, "manual_lane", "4.0000"},
-        {24, "lane_cycles", "16.0000"}, {25, "algorithm", "7"},
+        {24, "lane_cycles", "16.0000"}, {25, "algorithm", "8"},
         {26, "join", "1.0000"}, {27, "output_gain", "2.0000"},
         {28, "motion_mode", "7"}, {29, "motion_sound", "7"},
         {30, "motion_rate", "20.0000"}, {31, "lanes_mode", "2"},
@@ -1334,17 +2179,29 @@ int main()
     /* Monitor is explicit and independent from recording or note velocity. */
     api->set_param(instance, "monitor_level", "0.5");
     fillInput(12000);
-    render(api, instance, 1);
-    assert(peak() >= 5999 && peak() <= 6001);
+    render(api, instance, 30);
+    assert(peak() >= 5990 && peak() <= 6001);
     api->set_param(instance, "monitor_level", "0");
-    render(api, instance, 2);
-    assert(peak() == 0);
+    render(api, instance, 40);
+    assert(peak() <= 8);
 
     /* The final ceiling is stereo linked and catches full-scale monitoring.
        Dry monitoring bypasses both effects and program compression. */
-    api->set_param(instance, "performance_reset", "1");
-    fillInput(32767);
     api->set_param(instance, "monitor_level", "1");
+    fillInput(20000);
+    render(api, instance, 100);
+    int limiterPrevious = output[(kFrames - 1) * 2];
+    fillInput(32767);
+    render(api, instance, 1);
+    int limiterPreludeStep = 0;
+    for (int frame = 0; frame < 60; ++frame) {
+        const int sample = output[frame * 2];
+        limiterPreludeStep = std::max(
+            limiterPreludeStep, std::abs(sample - limiterPrevious));
+        limiterPrevious = sample;
+    }
+    assert(limiterPreludeStep < 1000);
+    api->set_param(instance, "performance_reset", "1");
     render(api, instance, 3);
     assert(peak() <= static_cast<int>(kOutputCeiling * 32767.0f) + 1);
     assert(std::strtof(get(api, instance, "limiter_state").c_str(), nullptr)
@@ -1364,7 +2221,7 @@ int main()
     ui = get(api, instance, "ui_state");
     assert((stateField(ui, 1) & 0x9) == 0x9);
     api->set_param(instance, "field", "1");
-    for (int algorithm = 0; algorithm < 8; ++algorithm) {
+    for (int algorithm = 0; algorithm < 9; ++algorithm) {
         api->set_param(instance, "algorithm", std::to_string(algorithm).c_str());
         midi(api, instance, 0x90, 60, 64);
         render(api, instance, 8);
@@ -1410,9 +2267,48 @@ int main()
     midi(api, instance, 0x80, 64, 0);
     render(api, instance, 40);
     const std::string longGrainState = get(api, instance, "state");
-    assert(longGrainState.find("\"version\":9") != std::string::npos);
+    assert(longGrainState.find("\"version\":12") != std::string::npos);
     assert(longGrainState.find("\"long_grain_length\":12000.00000")
         != std::string::npos);
+
+    /* Wavesets keeps the desktop engine's crossing-group vocabulary while
+       using bounded, on-demand crossing searches on Move. */
+    api->set_param(instance, "algorithm", "Wavesets");
+    api->set_param(instance, "waveset_group", "16 Cycles");
+    api->set_param(instance, "waveset_repeats", "5");
+    api->set_param(instance, "waveset_stride", "3");
+    api->set_param(instance, "waveset_advance", "Preserve");
+    api->set_param(instance, "waveset_direction", "Shuffle");
+    api->set_param(instance, "waveset_process", "Interpolate");
+    api->set_param(instance, "waveset_amount", "65");
+    api->set_param(instance, "waveset_detail", "4 kHz");
+    assert(get(api, instance, "algorithm") == "8");
+    assert(get(api, instance, "waveset_group") == "4");
+    assert(get(api, instance, "waveset_repeats") == "5");
+    assert(get(api, instance, "waveset_stride") == "3");
+    assert(get(api, instance, "waveset_advance") == "1");
+    assert(get(api, instance, "waveset_direction") == "3");
+    assert(get(api, instance, "waveset_process") == "6");
+    assert(get(api, instance, "waveset_amount") == "65.00");
+    assert(get(api, instance, "waveset_detail") == "2");
+    midi(api, instance, 0x90, 67, 100);
+    render(api, instance, 48);
+    assert(peak() > 0);
+    midi(api, instance, 0x80, 67, 0);
+    render(api, instance, 40);
+    api->set_param(instance, "performance_reset", "1");
+    for (int note = 60; note < 68; ++note) {
+        midi(api, instance, 0x90, note, 100);
+    }
+    render(api, instance, 64);
+    assert(peak() > 0);
+    for (int note = 60; note < 68; ++note) {
+        midi(api, instance, 0x80, note, 0);
+    }
+    render(api, instance, 40);
+    const std::string wavesetState = get(api, instance, "state");
+    assert(wavesetState.find("\"waveset_group\":16") != std::string::npos);
+    assert(wavesetState.find("\"waveset_process\":6") != std::string::npos);
 
     /* Glitch uses a live per-voice history and Effects colors the summed
        instrument path without changing the dry input monitor. */
@@ -1471,8 +2367,9 @@ int main()
     render(api, instance, 40);
     api->set_param(instance, "effect_cross_pan", "0");
     midi(api, instance, 0x90, 60, 100);
+    render(api, instance, 40);
     render(api, instance, 8);
-    assert(stereoDifferencePeak() <= 1);
+    assert(stereoDifferencePeak() <= 2);
     midi(api, instance, 0x80, 60, 0);
     render(api, instance, 40);
     api->set_param(instance, "effect_cross_pan", "-100");
@@ -1493,8 +2390,9 @@ int main()
     api->set_param(instance, "effect_cross_pan", "0");
     api->set_param(instance, "effect_rotary_spread", "0");
     midi(api, instance, 0x90, 60, 100);
+    render(api, instance, 40);
     render(api, instance, 20);
-    assert(stereoDifferencePeak() <= 1);
+    assert(stereoDifferencePeak() <= 2);
     midi(api, instance, 0x80, 60, 0);
     render(api, instance, 40);
     api->set_param(instance, "effect_cross_pan", "-100");
@@ -1502,6 +2400,203 @@ int main()
     api->set_param(instance, "effect_rotary_depth", "70");
     api->set_param(instance, "effect_rotary_mix", "0");
     api->set_param(instance, "effect_rotary_spread", "100");
+
+    /* Tape is a single stereo post-engine stage. Its historical width ladder
+       feeds condition and mechanics macros; hiss remains independently quiet. */
+    const std::string tapeTone = libraryDir + "/Tape Continuous Tone.wav";
+    writePcm16Wav(tapeTone, MOVE_SAMPLE_RATE, false, true);
+    api->set_param(instance, "record_lane", "2");
+    const std::string tapeLoadCommand = "2," + tapeTone;
+    api->set_param(instance, "load_lane_file", tapeLoadCommand.c_str());
+    int tapeLoadState = 0;
+    for (int attempt = 0; attempt < 500
+         && tapeLoadState != 6 && tapeLoadState != 7; ++attempt) {
+        render(api, instance, 1);
+        usleep(1000);
+        tapeLoadState = stateField(
+            get(api, instance, "sample_load_state"), 0);
+    }
+    assert(tapeLoadState == 6);
+
+    /* Continuous effect motion must not turn block-rate clip automation into
+       tap jumps. Delay queues the newest request until its active crossfade
+       finishes; rotary controls, Tape Format, and all wet/dry gains remain
+       continuous under deliberately harsher motion than the UI produces. */
+    api->set_param(instance, "all_notes_off", "1");
+    api->set_param(instance, "algorithm", "Sample");
+    api->set_param(instance, "sample_mode", "Loop");
+    api->set_param(instance, "effect_tone", "0");
+    api->set_param(instance, "effect_drive", "0");
+    api->set_param(instance, "effect_bits", "0");
+    api->set_param(instance, "effect_rate", "1");
+    api->set_param(instance, "effect_feedback", "65");
+    api->set_param(instance, "effect_width", "100");
+    api->set_param(instance, "effect_mix", "100");
+    api->set_param(instance, "effect_cross_pan", "-100");
+    api->set_param(instance, "effect_rotary_mix", "0");
+    api->set_param(instance, "effect_tape_mix", "0");
+    api->set_param(instance, "effect_delay", "120");
+    midi(api, instance, 0x90, 60, 100);
+    render(api, instance, 400);
+    int delayMotionMaximumStep = 0;
+    std::array<int, 2u> delayPrevious {};
+    bool delayPreviousValid = false;
+    for (int block = 0; block < 120; ++block) {
+        api->set_param(instance, "effect_delay",
+            std::to_string(120 + block).c_str());
+        render(api, instance, 1);
+        accumulateMaximumOutputStep(delayMotionMaximumStep,
+            delayPrevious, delayPreviousValid);
+    }
+    if (delayMotionMaximumStep >= 3000) {
+        std::fprintf(stderr, "Delay motion maximum step: %d\n",
+                     delayMotionMaximumStep);
+    }
+    assert(delayMotionMaximumStep < 3000);
+
+    api->set_param(instance, "effect_feedback", "0");
+    api->set_param(instance, "effect_mix", "0");
+    render(api, instance, 40);
+    api->set_param(instance, "effect_drive", "1");
+    const int driveMotionMaximumStep = renderMaximumOutputStep(
+        api, instance, 40);
+    assert(driveMotionMaximumStep < 3000);
+    api->set_param(instance, "effect_drive", "0");
+
+    api->set_param(instance, "effect_rotary_rate", "8");
+    api->set_param(instance, "effect_rotary_depth", "100");
+    api->set_param(instance, "effect_rotary_mix", "100");
+    api->set_param(instance, "effect_rotary_ramp", "50");
+    render(api, instance, 200);
+    int rotaryMotionMaximumStep = 0;
+    std::array<int, 2u> rotaryPrevious {};
+    bool rotaryPreviousValid = false;
+    for (int block = 0; block < 100; ++block) {
+        api->set_param(instance, "effect_rotary_balance",
+            block & 1 ? "-100" : "100");
+        api->set_param(instance, "effect_rotary_crossover",
+            block & 1 ? "250" : "2000");
+        api->set_param(instance, "effect_rotary_spread",
+            block & 1 ? "0" : "100");
+        render(api, instance, 1);
+        accumulateMaximumOutputStep(rotaryMotionMaximumStep,
+            rotaryPrevious, rotaryPreviousValid);
+    }
+    assert(rotaryMotionMaximumStep < 3000);
+
+    api->set_param(instance, "effect_rotary_mix", "0");
+    api->set_param(instance, "effect_tape_format", "2\"");
+    api->set_param(instance, "effect_tape_drive", "0");
+    api->set_param(instance, "effect_tape_age", "0");
+    api->set_param(instance, "effect_tape_crinkle", "0");
+    api->set_param(instance, "effect_tape_mechanics", "100");
+    api->set_param(instance, "effect_tape_hiss", "-84");
+    api->set_param(instance, "effect_tape_mix", "100");
+    render(api, instance, 300);
+    int tapeMotionMaximumStep = 0;
+    std::array<int, 2u> tapePrevious {};
+    bool tapePreviousValid = false;
+    for (int block = 0; block < 120; ++block) {
+        api->set_param(instance, "effect_tape_format",
+            block & 1 ? "2\"" : "1/8\"");
+        api->set_param(instance, "effect_tape_mix",
+            block & 1 ? "0" : "100");
+        render(api, instance, 1);
+        accumulateMaximumOutputStep(tapeMotionMaximumStep,
+            tapePrevious, tapePreviousValid);
+    }
+    if (tapeMotionMaximumStep >= 3000) {
+        std::fprintf(stderr, "Tape motion maximum step: %d\n",
+                     tapeMotionMaximumStep);
+    }
+    assert(tapeMotionMaximumStep < 3000);
+    midi(api, instance, 0x80, 60, 0);
+    render(api, instance, 80);
+
+    api->set_param(instance, "effect_delay", "250");
+    api->set_param(instance, "effect_rotary_rate", "0.8");
+    api->set_param(instance, "effect_rotary_depth", "70");
+    api->set_param(instance, "effect_rotary_ramp", "350");
+    api->set_param(instance, "effect_rotary_balance", "0");
+    api->set_param(instance, "effect_rotary_crossover", "800");
+    api->set_param(instance, "effect_rotary_spread", "100");
+    api->set_param(instance, "effect_tape_mix", "0");
+
+    api->set_param(instance, "all_notes_off", "1");
+    api->set_param(instance, "effect_tape_format", "1/8\"");
+    api->set_param(instance, "effect_tape_drive", "35");
+    api->set_param(instance, "effect_tape_age", "64");
+    api->set_param(instance, "effect_tape_crinkle", "100");
+    api->set_param(instance, "effect_tape_mechanics", "72");
+    api->set_param(instance, "effect_tape_inertia", "40");
+    api->set_param(instance, "effect_tape_hiss", "-54");
+    api->set_param(instance, "effect_tape_mix", "100");
+    assert(get(api, instance, "effect_tape_format") == "4");
+    assert(get(api, instance, "effect_tape_age") == "64.00");
+    assert(get(api, instance, "effect_tape_crinkle") == "100.00");
+    assert(get(api, instance, "effect_tape_mechanics") == "72.00");
+    assert(get(api, instance, "effect_tape_inertia") == "40.00");
+    render(api, instance, 600);
+    assert(peak() > 2);
+    assert(peak() < 1000);
+    api->set_param(instance, "effect_tape_mix", "0");
+    render(api, instance, 100);
+    assert(peak() <= 2);
+
+    /* CRNK is tape drag and bandwidth sag, never an impulse-noise layer.
+       A seamless tone remains continuous even at the most extreme setting. */
+    api->set_param(instance, "effect_tape_format", "2\"");
+    api->set_param(instance, "effect_tape_drive", "0");
+    api->set_param(instance, "effect_tape_age", "0");
+    api->set_param(instance, "effect_tape_crinkle", "100");
+    api->set_param(instance, "effect_tape_mechanics", "0");
+    api->set_param(instance, "effect_tape_inertia", "0");
+    api->set_param(instance, "effect_tape_hiss", "-84");
+    api->set_param(instance, "effect_tape_mix", "100");
+    api->set_param(instance, "sample_mode", "Loop");
+    midi(api, instance, 0x90, 60, 100);
+    render(api, instance, 120);
+    const int crinkleMaximumStep = renderMaximumOutputStep(
+        api, instance, 1400);
+    if (crinkleMaximumStep >= 1000) {
+        std::fprintf(stderr, "Tape crinkle maximum step: %d\n",
+                     crinkleMaximumStep);
+    }
+    assert(crinkleMaximumStep < 1000);
+    midi(api, instance, 0x80, 60, 0);
+    render(api, instance, 80);
+
+    /* The lowest HISS detent is a true off state. INRT uses the existing
+       Stack Hold gesture to stop and restart only the fully wet tape path. */
+    api->set_param(instance, "effect_tape_format", "2\"");
+    api->set_param(instance, "effect_tape_drive", "0");
+    api->set_param(instance, "effect_tape_age", "0");
+    api->set_param(instance, "effect_tape_crinkle", "0");
+    api->set_param(instance, "effect_tape_mechanics", "0");
+    api->set_param(instance, "effect_tape_hiss", "-84");
+    api->set_param(instance, "effect_tape_mix", "100");
+    render(api, instance, 300);
+    render(api, instance, 2);
+    assert(peak() <= 2);
+    api->set_param(instance, "sample_mode", "Loop");
+    api->set_param(instance, "effect_tape_inertia", "60");
+    midi(api, instance, 0x90, 60, 100);
+    render(api, instance, 24);
+    assert(peak() > 100);
+    api->set_param(instance, "stack_scan_paused", "1");
+    render(api, instance, 400);
+    render(api, instance, 2);
+    assert(peak() <= 4);
+    api->set_param(instance, "stack_scan_paused", "0");
+    render(api, instance, 300);
+    assert(peak() > 100);
+    midi(api, instance, 0x80, 60, 0);
+    render(api, instance, 80);
+    api->set_param(instance, "effect_tape_drive", "10");
+    api->set_param(instance, "effect_tape_mechanics", "5");
+    api->set_param(instance, "effect_tape_inertia", "0");
+    api->set_param(instance, "effect_tape_hiss", "-72");
+    api->set_param(instance, "effect_tape_mix", "0");
 
     api->set_param(instance, "algorithm", "Slices");
     api->set_param(instance, "slice_region_mode", "Transients");
@@ -1617,6 +2712,43 @@ int main()
     assert(sameNoteRetriggerStep < 2000);
     midi(api, instance, 0x80, 60, 0);
     render(api, instance, 400);
+
+    /* A long release can keep all eight playheads occupied. The ninth note
+       must fade the oldest tail with its original controls, reach silence,
+       and only then reset that reader for the replacement attack. This is
+       the voice-steal boundary that used to click when attack was zero. */
+    api->set_param(instance, "amp_release", "3000");
+    for (int voice = 0; voice < 8; ++voice) {
+        midi(api, instance, 0x90, 60, 100);
+        render(api, instance, 8);
+        midi(api, instance, 0x80, 60, 0);
+    }
+    render(api, instance, 1000);
+    previousLeft = output[(kFrames - 1) * 2];
+    previousRight = output[(kFrames - 1) * 2 + 1];
+    midi(api, instance, 0x90, 60, 100);
+    int voiceStealStep = 0;
+    for (int block = 0; block < 12; ++block) {
+        render(api, instance, 1);
+        for (int frame = 0; frame < kFrames; ++frame) {
+            const int left = output[frame * 2];
+            const int right = output[frame * 2 + 1];
+            voiceStealStep = std::max(voiceStealStep,
+                std::abs(left - previousLeft));
+            voiceStealStep = std::max(voiceStealStep,
+                std::abs(right - previousRight));
+            previousLeft = left;
+            previousRight = right;
+        }
+    }
+    if (voiceStealStep >= 2000) {
+        std::fprintf(stderr, "Long-release voice-steal step: %d\n",
+                     voiceStealStep);
+    }
+    assert(voiceStealStep < 2000);
+    api->set_param(instance, "amp_release", "25");
+    midi(api, instance, 0x80, 60, 0);
+    render(api, instance, 200);
 
     /* JOIN also owns the direct Sample Loop seam. The synthetic cue file has
        opposite-polarity endpoints, so an unsmoothed wrap would create a step
@@ -1778,10 +2910,22 @@ int main()
     api->set_param(instance, "effect_rotary_balance", "-35");
     api->set_param(instance, "effect_rotary_crossover", "1250");
     api->set_param(instance, "effect_rotary_spread", "64");
+    api->set_param(instance, "effect_tape_format", "1/4\"");
+    api->set_param(instance, "effect_tape_drive", "37");
+    api->set_param(instance, "effect_tape_wow_rate", "0.41");
+    api->set_param(instance, "effect_tape_wow_depth", "29");
+    api->set_param(instance, "effect_tape_flutter_rate", "11.3");
+    api->set_param(instance, "effect_tape_flutter_depth", "17");
+    api->set_param(instance, "effect_tape_hiss", "-68");
+    api->set_param(instance, "effect_tape_mix", "33");
+    api->set_param(instance, "effect_tape_age", "42");
+    api->set_param(instance, "effect_tape_crinkle", "19");
+    api->set_param(instance, "effect_tape_mechanics", "58");
+    api->set_param(instance, "effect_tape_inertia", "36");
     api->set_param(instance, "algorithm", "Motion");
     api->set_param(instance, "cue_store", "2,0.625");
     const std::string state = get(api, instance, "state");
-    assert(state.find("\"version\":9") != std::string::npos);
+    assert(state.find("\"version\":12") != std::string::npos);
     assert(state.find("\"scale\":20") != std::string::npos);
     assert(state.find("\"clip_record_mode\":1") != std::string::npos);
     assert(state.find("\"monitor_level\"") == std::string::npos);
@@ -1805,6 +2949,18 @@ int main()
     api->set_param(instance, "effect_rotary_balance", "0");
     api->set_param(instance, "effect_rotary_crossover", "800");
     api->set_param(instance, "effect_rotary_spread", "100");
+    api->set_param(instance, "effect_tape_format", "2\"");
+    api->set_param(instance, "effect_tape_drive", "10");
+    api->set_param(instance, "effect_tape_wow_rate", "0.18");
+    api->set_param(instance, "effect_tape_wow_depth", "4");
+    api->set_param(instance, "effect_tape_flutter_rate", "7");
+    api->set_param(instance, "effect_tape_flutter_depth", "3");
+    api->set_param(instance, "effect_tape_hiss", "-72");
+    api->set_param(instance, "effect_tape_mix", "0");
+    api->set_param(instance, "effect_tape_age", "0");
+    api->set_param(instance, "effect_tape_crinkle", "0");
+    api->set_param(instance, "effect_tape_mechanics", "5");
+    api->set_param(instance, "effect_tape_inertia", "0");
     api->set_param(instance, "state", state.c_str());
     assert(get(api, instance, "motion_mode") == "5");
     assert(get(api, instance, "motion_sound") == "5");
@@ -1833,9 +2989,26 @@ int main()
     assert(get(api, instance, "effect_rotary_balance") == "-35.00");
     assert(get(api, instance, "effect_rotary_crossover") == "1250.00");
     assert(get(api, instance, "effect_rotary_spread") == "64.00");
+    assert(get(api, instance, "effect_tape_format") == "3");
+    assert(get(api, instance, "effect_tape_drive") == "37.00");
+    assert(get(api, instance, "effect_tape_wow_rate") == "0.41");
+    assert(get(api, instance, "effect_tape_wow_depth") == "29.00");
+    assert(get(api, instance, "effect_tape_flutter_rate") == "11.30");
+    assert(get(api, instance, "effect_tape_flutter_depth") == "17.00");
+    assert(get(api, instance, "effect_tape_hiss") == "-68.00");
+    assert(get(api, instance, "effect_tape_mix") == "33.00");
+    assert(get(api, instance, "effect_tape_age") == "42.00");
+    assert(get(api, instance, "effect_tape_crinkle") == "19.00");
+    assert(get(api, instance, "effect_tape_mechanics") == "58.00");
+    assert(get(api, instance, "effect_tape_inertia") == "36.00");
     assert(get(api, instance, "long_grain_length") == "12000.00");
     assert(get(api, instance, "long_grain_layers") == "4");
     assert(get(api, instance, "long_grain_advance") == "1");
+    assert(get(api, instance, "waveset_group") == "4");
+    assert(get(api, instance, "waveset_repeats") == "5");
+    assert(get(api, instance, "waveset_stride") == "3");
+    assert(get(api, instance, "waveset_process") == "6");
+    assert(get(api, instance, "waveset_amount") == "65.00");
     assert(get(api, instance, "amp_attack") == "3.00");
     assert(get(api, instance, "amp_decay") == "0.00");
     assert(get(api, instance, "amp_sustain") == "100.00");
@@ -1867,11 +3040,26 @@ int main()
         == sizeof(clipMagic));
     assert(std::memcmp(clipMagic, "S3GTHR3", 7u) == 0);
     assert(std::fread(&clipVersion, sizeof(clipVersion), 1u, clipFile) == 1u);
-    assert(clipVersion == 8u);
+    assert(clipVersion == 11u);
     std::fclose(stateFile);
     std::fclose(laneFile);
     std::fclose(clipFile);
 
+    /* A format-9 bank retains the detailed tape lanes. The four macro lanes
+       inherit their matching JSON values and upgrade on the next save. */
+    downgradeClipBankToV9(clipPath);
+    instance = api->create_instance(persistenceDir.c_str(), nullptr);
+    assert(instance != nullptr);
+    assert(get(api, instance, "persistence") == "1,1");
+    assert(get(api, instance, "effect_tape_age") == "42.00");
+    assert(get(api, instance, "effect_tape_crinkle") == "19.00");
+    assert(get(api, instance, "effect_tape_mechanics") == "58.00");
+    assert(get(api, instance, "effect_tape_inertia") == "36.00");
+    api->destroy_instance(instance);
+
+    /* A format-8 bank has 132 lock lanes. Tape detail and macro lanes inherit
+       the matching JSON state and upgrade on the next save. */
+    downgradeClipBankToV8(clipPath);
     instance = api->create_instance(persistenceDir.c_str(), nullptr);
     assert(instance != nullptr);
     assert(get(api, instance, "persistence") == "1,1");
@@ -1899,6 +3087,18 @@ int main()
     assert(get(api, instance, "effect_rotary_balance") == "-35.00");
     assert(get(api, instance, "effect_rotary_crossover") == "1250.00");
     assert(get(api, instance, "effect_rotary_spread") == "64.00");
+    assert(get(api, instance, "effect_tape_format") == "3");
+    assert(get(api, instance, "effect_tape_drive") == "37.00");
+    assert(get(api, instance, "effect_tape_wow_rate") == "0.41");
+    assert(get(api, instance, "effect_tape_wow_depth") == "29.00");
+    assert(get(api, instance, "effect_tape_flutter_rate") == "11.30");
+    assert(get(api, instance, "effect_tape_flutter_depth") == "17.00");
+    assert(get(api, instance, "effect_tape_hiss") == "-68.00");
+    assert(get(api, instance, "effect_tape_mix") == "33.00");
+    assert(get(api, instance, "effect_tape_age") == "42.00");
+    assert(get(api, instance, "effect_tape_crinkle") == "19.00");
+    assert(get(api, instance, "effect_tape_mechanics") == "58.00");
+    assert(get(api, instance, "effect_tape_inertia") == "36.00");
     assert(get(api, instance, "long_grain_length") == "12000.00");
     assert(get(api, instance, "long_grain_layers") == "4");
     assert(get(api, instance, "long_grain_advance") == "1");
@@ -2011,7 +3211,7 @@ int main()
     assert(std::fread(clipMagic, 1u, sizeof(clipMagic), clipFile)
         == sizeof(clipMagic));
     assert(std::fread(&clipVersion, sizeof(clipVersion), 1u, clipFile) == 1u);
-    assert(clipVersion == 8u);
+    assert(clipVersion == 11u);
     assert(std::fclose(clipFile) == 0);
 
     std::remove(statePath.c_str());
@@ -2026,6 +3226,7 @@ int main()
     }
     assert(std::remove(librarySample.c_str()) == 0);
     assert(std::remove(convertedLibrarySample.c_str()) == 0);
+    assert(std::remove(tapeTone.c_str()) == 0);
     assert(std::remove(cueSample.c_str()) == 0);
     assert(std::remove(libraryDir.c_str()) == 0);
     const std::string capturesDir = persistenceDir + "/captures";

@@ -51,10 +51,10 @@
   <rect x="267" y="309" width="128" height="34" class="box"/><text x="331" y="331" class="small">LANE 4 · STEREO</text>
 
   <rect x="475" y="126" width="190" height="122" class="soft"/>
-  <text x="570" y="161" class="title">PLAYBACK ENGINE</text>
+  <text x="570" y="161" class="title">PLAYBACK · 8 VOICES</text>
   <text x="570" y="186" class="sub">Motion · Lanes · Grains</text>
   <text x="570" y="207" class="sub">Cutups · Sample · Slices</text>
-  <text x="570" y="228" class="sub">Glitch · Weave · 8 voices</text>
+  <text x="570" y="228" class="sub">Glitch · Weave · Wavesets</text>
 
   <rect x="700" y="126" width="120" height="122" class="box"/>
   <text x="760" y="161" class="title">LANE MIX</text>
@@ -65,7 +65,7 @@
   <text x="915" y="155" class="title">EFFECTS</text>
   <text x="915" y="180" class="sub">tone · drive</text>
   <text x="915" y="201" class="sub">bits · rate · delay</text>
-  <text x="915" y="222" class="sub">cross-pan · rotary</text>
+  <text x="915" y="222" class="sub">pan · rotary · tape</text>
 
   <rect x="1010" y="126" width="105" height="122" class="box"/>
   <text x="1062" y="155" class="title">SAFETY</text>

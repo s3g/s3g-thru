@@ -12,7 +12,7 @@
 
     <div class="page-shell">
       <main class="content" id="content">
-        <p class="eyebrow">Playback engine 2 of 8</p>
+        <p class="eyebrow">Playback engine 2 of 9</p>
         <h1>Lanes</h1>
         <p class="lead">Lanes separates motion through time from motion through the four-source stack. Each voice reads Forward, Reverse, or Ping Pong while its own shaped stack path chooses a lane or crossfade.</p>
         <div class="callout"><p><strong>Good for:</strong> treating four variations as a single evolving instrument, pressure-directed morphs, stepped lane sequences, smooth cyclic crossfades, and pitch-preserving duration changes.</p></div>
@@ -27,7 +27,7 @@
         <p>The controls common to every playback engine are documented in the <a href="engines.html#shared">shared Engine page table</a>. The sections below cover Lanes-specific controls.</p>
 
         <h2 id="path">Stack Path — every parameter</h2>
-        <p>This shared page is identical for Motion, Lanes, Grains, Glitch, and Weave.</p>
+        <p>This shared page is identical for Motion, Lanes, Grains, Glitch, Weave, and Wavesets.</p>
         <table class="readout-table parameter-table">
           <thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>Detail</th></tr></thead>
           <tbody>
@@ -37,7 +37,7 @@
             <tr><td>4</td><td>OFST</td><td>0.00–1.00</td><td>Rotates the whole stack path and wraps at 1.00, shifting every breakpoint without changing speed.</td></tr>
             <tr><td>5</td><td>SKEW</td><td>0.02–0.98</td><td>Moves the halfway point in time. Below 0.50 reaches the path midpoint early; above 0.50 reaches it late.</td></tr>
             <tr><td>6</td><td>CURV</td><td>−1.00–1.00</td><td>Bends travel toward a faster start or a faster finish.</td></tr>
-            <tr><td>7</td><td>SLEW</td><td>0–500 ms</td><td>Softens Jump, stepped paths, and live path changes. 0 is immediate.</td></tr>
+            <tr><td>7</td><td>SLEW</td><td>0–500 ms</td><td>Softens Jump, stepped paths, and live path changes. Zero feels immediate but retains a 5 ms safety transition.</td></tr>
             <tr><td>8</td><td>Reserved</td><td>—</td><td>Inactive and available for a future Stack Path control.</td></tr>
           </tbody>
         </table>
@@ -75,7 +75,7 @@
 
       <aside class="toc" aria-label="Page navigation">
         <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
-        <div class="toc-section"><h2>Engine guides</h2><a href="engine-motion.html">Motion</a><a href="engine-lanes.html">Lanes</a><a href="engine-grains.html">Grains</a><a href="engine-cutups.html">Cutups</a><a href="engine-sample.html">Sample</a><a href="engine-slices.html">Slices</a><a href="engine-glitch.html">Glitch</a><a href="engine-weave.html">Weave</a></div>
+        <div class="toc-section"><h2>Engine guides</h2><a href="engine-motion.html">Motion</a><a href="engine-lanes.html">Lanes</a><a href="engine-grains.html">Grains</a><a href="engine-cutups.html">Cutups</a><a href="engine-sample.html">Sample</a><a href="engine-slices.html">Slices</a><a href="engine-glitch.html">Glitch</a><a href="engine-weave.html">Weave</a><a href="engine-wavesets.html">Wavesets</a></div>
         <div class="toc-section"><h2>On this page</h2><a href="#pages">Pages</a><a href="engines.html#shared">Shared Engine table</a><a href="#path">Stack Path</a><a href="#paths">Path choices</a><a href="#play">Lanes Play</a></div>
       </aside>
     </div>

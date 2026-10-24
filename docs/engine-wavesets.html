@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Wavesets engine - s3g Thru manual</title>
+    <meta name="description" content="Complete parameter reference for the s3g Thru Wavesets playback engine.">
+    <link rel="stylesheet" href="assets/styles.css">
+  </head>
+  <body>
+    <header class="site-header"><a class="brand" href="index.html">s3g Thru <span>manual</span></a><nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav></header>
+
+    <div class="page-shell">
+      <main class="content" id="content">
+        <p class="eyebrow">Playback engine 9 of 9</p>
+        <h1>Wavesets</h1>
+        <p class="lead">Wavesets divides a recording at rising zero crossings and plays those measured cycles in small groups. Repetition turns a fragment of recorded sound into a stable pitched tone; stride, order, source advance, and real-time processes can then pull that tone back toward the changing source.</p>
+        <div class="callout"><p><strong>Good for:</strong> extracting playable pitches from speech or noise, microscopic rhythmic loops, animated drones, crossing-level rearrangement, and transformations that retain the timing and contour of the recording.</p></div>
+
+        <h2 id="pages">Pages and navigation</h2>
+        <p>Set Algorithm to Wavesets. Up opens the shared <a href="engines.html#pads-scale">Pads &amp; Scale</a> and <a href="engines.html#amp-envelope">Amp Envelope</a> pages, followed by <a href="engines.html#stack-path">Stack Path</a> and Wavesets.</p>
+        <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/wavesets.svg" aria-label="Open Wavesets"><img src="assets/screens/wavesets.svg" alt="Wavesets parameter page"></button></div><figcaption>One page sets the group structure, source progression, cycle order, transformation, and crossing detail.</figcaption></figure>
+
+        <p>The controls common to every playback engine are documented in the <a href="engines.html#shared">shared Engine page table</a>. On the waveform page, <code>SPD</code> combines with pad pitch: higher notes traverse each measured cycle faster. Position and Field choose the source area in which groups are found, while Join increases endpoint correction across each complete cycle. At Join 0 the recorded cycle is unchanged; at Join 100% a straight endpoint line is removed so both ends meet at zero.</p>
+
+        <h2 id="parameters">Wavesets — every parameter</h2>
+        <table class="readout-table parameter-table">
+          <thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>What it controls</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>GRUP</td><td>1 / 2 / 4 / 8 / 16 / 32 cycles</td><td>Number of consecutive crossing-to-crossing cycles in one group. Small groups make a focused oscillator-like tone; larger groups retain more of the source phrase and rhythm.</td></tr>
+            <tr><td>2</td><td>REPT</td><td>1–16</td><td>Number of complete passes through the group before a new source group is selected.</td></tr>
+            <tr><td>3</td><td>STRD</td><td>1–16</td><td>Distance between successive source groups, measured in group spans. Higher values skip farther through the active Field.</td></tr>
+            <tr><td>4</td><td>ADVN</td><td>Stretch / Preserve / Hold</td><td><strong>Stretch</strong> slows source progression as Repeat rises. <strong>Preserve</strong> skips proportionally farther so the source timeline keeps moving. <strong>Hold</strong> retains the same measured group while stack motion can continue changing its lane blend.</td></tr>
+            <tr><td>5</td><td>ORDR</td><td>Forward / Reverse / Pendulum / Shuffle</td><td>Changes cycle order inside the group. Pendulum alternates direction on each new group; Shuffle uses a repeatable shuffled order.</td></tr>
+            <tr><td>6</td><td>PROC</td><td>12 processes</td><td>Selects the real-time operation described below. Repeat is unprocessed grouped playback.</td></tr>
+            <tr><td>7</td><td>DPTH</td><td>0–100%</td><td>Blends from the original cycle to the selected process. Omit also uses Depth as its probability and attenuation.</td></tr>
+            <tr><td>8</td><td>DTAL</td><td>Raw / 8 kHz / 4 kHz / 1 kHz / 250 Hz</td><td>Sets the low-pass frequency used only for crossing analysis. Lower settings ignore fine high-frequency crossings and favor broader, steadier waveform cycles; playback still reads the original recording.</td></tr>
+          </tbody>
+        </table>
+
+        <h2 id="processes">Process choices</h2>
+        <table class="readout-table">
+          <thead><tr><th>Process</th><th>What it does</th></tr></thead>
+          <tbody>
+            <tr><td>Repeat</td><td>Plays the measured cycles without an additional transformation.</td></tr>
+            <tr><td>Omit</td><td>Removes selected cycles with a repeatable probability set by Depth.</td></tr>
+            <tr><td>Replace</td><td>Moves each cycle toward the strongest cycle in the current group.</td></tr>
+            <tr><td>Envelope</td><td>Applies a rounded rise and fall inside every cycle.</td></tr>
+            <tr><td>Multiply</td><td>Folds each cycle through progressively higher integer phase multiples.</td></tr>
+            <tr><td>Average</td><td>Aligns and averages every cycle in the group.</td></tr>
+            <tr><td>Interpolate</td><td>Morphs the current cycle toward the next source cycle across the repeats.</td></tr>
+            <tr><td>Fractal</td><td>Adds successively smaller power-of-two copies inside the cycle.</td></tr>
+            <tr><td>Harmonic</td><td>Adds integer-ratio copies; Depth increases the highest included harmonic.</td></tr>
+            <tr><td>Group Reverse</td><td>Reverses both cycle order and the samples inside each selected cycle.</td></tr>
+            <tr><td>Cycle Reverse</td><td>Reverses the samples inside each cycle without reversing group order.</td></tr>
+            <tr><td>Telescope</td><td>Coherently sums the aligned group, compresses the result, and skips progressively farther through the group as Depth rises.</td></tr>
+          </tbody>
+        </table>
+
+        <h2 id="safety">Cycle safety</h2>
+        <p>The engine follows the s3g-dsp Wavesets definition: cycles begin at rising zero crossings, crossing analysis can use the selected Detail filter, and crossings closer than four source frames are ignored. The left channel is the stable timing reference for stereo playback, so group timing does not change when the relative channel level changes. Playback itself uses the unfiltered recording and linear interpolation.</p>
+        <p>Process and Order changes take effect at a measured cycle boundary. A 5 ms transition tail is used only for a categorical control change; ordinary group progression is not crossfaded, normalized, windowed, or low-pass filtered. Depth and Join use a short 5 ms glide to prevent encoder zipper noise. Fractional oscillator phase is retained when the source advances, so a new group does not lose part of a sample period.</p>
+        <p>If the first bounded search cannot yet reach a complete crossing pair, Wavesets temporarily repeats an endpoint-corrected 20 ms unit while continuing to move through the active Field. Analysis retries from the new position, so a quiet lead-in cannot mute the engine or pin its cursor at the beginning. Crossing searches retain a fixed work limit and retry interval so silence and strongly DC-offset material cannot monopolize the audio callback.</p>
+
+        <h2 id="stack">Stack and polyphony</h2>
+        <p>Every note owns its own crossing group, pitch, repeat counter, order state, and stack path. The current lane blend is captured when a new group begins, so moving between lanes changes the material without cutting through the middle of a measured cycle. Plain <kbd>Loop</kbd> freezes each voice at its current stack position; Hold on the Wavesets page freezes source-group progression instead. The two holds can be used independently.</p>
+
+        <h2 id="starts">Starting points</h2>
+        <table class="readout-table">
+          <thead><tr><th>Result</th><th>Settings to try</th></tr></thead>
+          <tbody>
+            <tr><td>Playable source tone</td><td>8 cycles, 4 repeats, Stride 1, Stretch, Forward, Repeat, Raw detail.</td></tr>
+            <tr><td>Slow spectral drift</td><td>16 cycles, 8 repeats, Stride 2, Stretch, Pendulum, Interpolate at 55%, 4 kHz detail.</td></tr>
+            <tr><td>Held stack oscillator</td><td>4 cycles, 8 repeats, Hold, Shuffle, Average at 70%; use a slow Stack Path so each rebuilt group captures a new lane blend.</td></tr>
+            <tr><td>Bright recursive edge</td><td>2 cycles, 3 repeats, Stride 3, Preserve, Fractal or Harmonic at 35–60%, 8 kHz detail.</td></tr>
+          </tbody>
+        </table>
+
+        <nav class="page-nav" aria-label="Engine navigation"><a class="page-nav-link" href="engine-weave.html"><span>Previous engine</span>Weave</a><a class="page-nav-link next" href="effects.html"><span>Next</span>Effects</a></nav>
+      </main>
+      <aside class="toc" aria-label="Page navigation">
+        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
+        <div class="toc-section"><h2>Engine guides</h2><a href="engine-motion.html">Motion</a><a href="engine-lanes.html">Lanes</a><a href="engine-grains.html">Grains</a><a href="engine-cutups.html">Cutups</a><a href="engine-sample.html">Sample</a><a href="engine-slices.html">Slices</a><a href="engine-glitch.html">Glitch</a><a href="engine-weave.html">Weave</a><a href="engine-wavesets.html">Wavesets</a></div>
+        <div class="toc-section"><h2>On this page</h2><a href="#pages">Pages</a><a href="engines.html#shared">Shared Engine table</a><a href="engines.html#stack-path">Stack Path</a><a href="#parameters">Parameters</a><a href="#processes">Processes</a><a href="#stack">Stack and polyphony</a><a href="#starts">Starting points</a></div>
+      </aside>
+    </div>
+    <footer class="manual-footer">Wavesets: crossing-cycle groups turned into a polyphonic sample instrument.</footer>
+    <script src="assets/lightbox.js"></script>
+  </body>
+</html>

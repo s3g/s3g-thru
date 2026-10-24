@@ -4,18 +4,18 @@
   <desc id="desc">Motion Motor parameter page shown as it appears on Ableton Move.</desc>
   <rect width="128" height="64" fill="#050706"/>
   <g shape-rendering="crispEdges" font-family="DejaVu Sans Mono, IBM Plex Mono, monospace" font-size="6" font-style="normal" font-weight="400" text-rendering="geometricPrecision">
-    <text x="1" y="5.5" fill="#dce8e1">PACKETS 7/14</text>
+    <text x="1" y="5.5" fill="#dce8e1">MOTOR 7/15</text>
     <rect x="0" y="8" width="128" height="1" fill="#dce8e1"/>
     <text x="3" y="18.5" fill="#dce8e1">RATE</text>
     <text x="3" y="29.5" fill="#dce8e1">4.00</text>
     <text x="35" y="18.5" fill="#dce8e1">DUTY</text>
     <text x="35" y="29.5" fill="#dce8e1">65</text>
-    <rect x="78" y="20" width="4" height="4" fill="#dce8e1"/>
-    <rect x="79" y="21" width="2" height="2" fill="#050706"/>
-    <rect x="110" y="20" width="4" height="4" fill="#dce8e1"/>
-    <rect x="111" y="21" width="2" height="2" fill="#050706"/>
-    <rect x="14" y="46" width="4" height="4" fill="#dce8e1"/>
-    <rect x="15" y="47" width="2" height="2" fill="#050706"/>
+    <text x="67" y="18.5" fill="#dce8e1">MRAT</text>
+    <text x="67" y="29.5" fill="#dce8e1">1.50</text>
+    <text x="99" y="18.5" fill="#dce8e1">MSYM</text>
+    <text x="99" y="29.5" fill="#dce8e1">58</text>
+    <text x="3" y="44.5" fill="#dce8e1">MSHP</text>
+    <text x="3" y="55.5" fill="#dce8e1">ROUN</text>
     <rect x="46" y="46" width="4" height="4" fill="#dce8e1"/>
     <rect x="47" y="47" width="2" height="2" fill="#050706"/>
     <rect x="78" y="46" width="4" height="4" fill="#dce8e1"/>

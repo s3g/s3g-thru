@@ -15,7 +15,7 @@
 
     <div class="page-shell">
       <main class="content" id="content">
-        <p class="eyebrow">Playback engine 1 of 8</p>
+        <p class="eyebrow">Playback engine 1 of 9</p>
         <h1>Motion</h1>
         <p class="lead">Motion moves a read head through the Position/Field window. Continuous, Packets, and Motor articulate that trajectory; five segment sounds turn it into a bounded event instrument.</p>
 
@@ -40,12 +40,12 @@
           <thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>Detail</th></tr></thead>
           <tbody>
             <tr><td>1</td><td>MODE</td><td>8 choices</td><td>Selects Forward, Reverse, Hover, Round Trip, Moving Loop, Mirror, Zigzag, or Drunk. See the mode table below.</td></tr>
-            <tr><td>2</td><td>TRVL</td><td>0.00–1.00</td><td>Sets the excursion of Zigzag and Drunk targets. 0 stays centered; 1 uses the full available range.</td></tr>
+            <tr><td>2</td><td>TRVL</td><td>0.00–1.00</td><td>Sets the excursion of Zigzag and Drunk targets. 0 stays centered; 1 uses the full available range. Live moves glide to the new path.</td></tr>
             <tr><td>3</td><td>JITR</td><td>0.00–1.00</td><td>Varies evolving target timing and distance. It also varies packet and event clocks while retaining a repeatable seeded character.</td></tr>
             <tr><td>4</td><td>BAS</td><td>Normal / Hertz</td><td>Normal derives trajectory rate from source playback speed. Hertz makes Path Rate cycles per second.</td></tr>
             <tr><td>5</td><td>PATH</td><td>0.01–80</td><td>Trajectory multiplier in Normal mode or cycles per second in Hertz mode. Pad pitch still multiplies the per-voice rate.</td></tr>
             <tr><td>6</td><td>STEP</td><td>0.00–1.00</td><td>Distance the Moving Loop window advances after each cycle, as a fraction of the full source.</td></tr>
-            <tr><td>7</td><td>SEED</td><td>1–9999</td><td>Selects the repeatable evolving Zigzag/Drunk path and their timing variations.</td></tr>
+            <tr><td>7</td><td>SEED</td><td>1–9999</td><td>Selects the repeatable evolving Zigzag/Drunk path and their timing variations. An active reader briefly fades before adopting a new Seed so the path cannot jump audibly.</td></tr>
             <tr><td>8</td><td>Reserved</td><td>—</td><td>Inactive and available for a future Motion Path control.</td></tr>
           </tbody>
         </table>
@@ -60,7 +60,7 @@
             <tr><td>Round Trip</td><td>A nearly constant-speed forward/backward traversal with short eased reversals.</td></tr>
             <tr><td>Moving Loop</td><td>Runs a forward loop, then advances the whole Field window after each completed cycle.</td></tr>
             <tr><td>Mirror</td><td>Uses the Round Trip trajectory and reverses signal polarity on the return half, with Join smoothing around polarity boundaries.</td></tr>
-            <tr><td>Zigzag</td><td>Alternates forward/backward targets whose reach evolves from Seed, Travel, and Jitter, then continues with a new cycle.</td></tr>
+            <tr><td>Zigzag</td><td>Moves through three stable time sections—forward, backward, forward—whose targets evolve from Seed, Travel, and Jitter, then continues with a new cycle. Stable section boundaries keep live Travel and Jitter edits continuous.</td></tr>
             <tr><td>Drunk</td><td>Interpolates through an evolving seeded chain of random targets. The end of one cycle becomes the start of the next.</td></tr>
           </tbody>
         </table>
@@ -143,7 +143,7 @@
 
       <aside class="toc" aria-label="Page navigation">
         <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
-        <div class="toc-section"><h2>Engine guides</h2><a href="engine-motion.html">Motion</a><a href="engine-lanes.html">Lanes</a><a href="engine-grains.html">Grains</a><a href="engine-cutups.html">Cutups</a><a href="engine-sample.html">Sample</a><a href="engine-slices.html">Slices</a><a href="engine-glitch.html">Glitch</a><a href="engine-weave.html">Weave</a></div>
+        <div class="toc-section"><h2>Engine guides</h2><a href="engine-motion.html">Motion</a><a href="engine-lanes.html">Lanes</a><a href="engine-grains.html">Grains</a><a href="engine-cutups.html">Cutups</a><a href="engine-sample.html">Sample</a><a href="engine-slices.html">Slices</a><a href="engine-glitch.html">Glitch</a><a href="engine-weave.html">Weave</a><a href="engine-wavesets.html">Wavesets</a></div>
         <div class="toc-section"><h2>On this page</h2><a href="#pages">Pages</a><a href="engines.html#shared">Shared Engine table</a><a href="#path">Motion Path</a><a href="#modes">Modes</a><a href="#sound">Motion Sound</a><a href="#packets">Packets / Motor</a><a href="#events">Segment sounds</a></div>
       </aside>
     </div>

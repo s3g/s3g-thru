@@ -1,5 +1,7 @@
 #pragma once
 
+#include "thru_waveset_map.h"
+
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
@@ -597,11 +599,8 @@ public:
         // transition instead of changing topology inside an audible cycle.
         wavesetOverlapFrames_ = std::max<std::size_t>(
             32u, static_cast<std::size_t>(outputSampleRate_ * 0.005f));
-        // A half-cycle cap can collapse to two or three samples for short
-        // wavesets. That prevents a literal discontinuity without suppressing
-        // the audible impulse. Keep enough time for the raised-cosine window
-        // to act as a perceptual transition, even when it spans several very
-        // short source cycles.
+        // Real endpoint discontinuities receive a bounded residual correction.
+        // Its duration never collapses to a two-sample impulse at high pitch.
         wavesetMinimumOverlapFrames_ = std::max<std::size_t>(
             16u, static_cast<std::size_t>(outputSampleRate_ * 0.00075f));
         recordMeterRelease_ = std::exp(
@@ -610,7 +609,6 @@ public:
             -1.0f / std::max(1.0f, outputSampleRate_ * 0.080f));
         prepareGrainWindowTables();
         clear();
-        prepareWavesetAnalysisFilters();
         prepared_ = true;
         return true;
     }
@@ -641,6 +639,7 @@ public:
 
     void clear()
     {
+        for (auto& bank : wavesetBanks_) bank = nullptr;
         sourceFrames_ = 0u;
         sourceChannels_ = 0u;
         sourceSampleRate_ = outputSampleRate_;
@@ -733,10 +732,10 @@ public:
             return false;
         }
 
+        wavesetBanks_[0u] = nullptr;
         sourceFrames_ = frames;
         sourceChannels_ = channels;
         sourceSampleRate_ = sourceSampleRate;
-        prepareWavesetAnalysisFilters();
         stackMode_ = false;
         for (std::size_t lane = 0u; lane < kStackLanes; ++lane) {
             laneFrames_[lane] = 0u;
@@ -769,6 +768,7 @@ public:
             }
             referenceLane_ = lane;
         }
+        wavesetBanks_[lane] = nullptr;
         stackMode_ = true;
         laneFrames_[lane] = frames;
         laneSampleRates_[lane] = sourceSampleRate;
@@ -779,7 +779,6 @@ public:
         sourceFrames_ = laneFrames_[referenceLane_];
         sourceChannels_ = kLaneChannels;
         sourceSampleRate_ = laneSampleRates_[referenceLane_];
-        prepareWavesetAnalysisFilters();
         updateLanePositionScales();
         recordFrames_ = 0u;
         recordChannels_ = 0u;
@@ -930,8 +929,7 @@ public:
             sourceFrames_ = laneFrames_[referenceLane_];
             sourceChannels_ = kLaneChannels;
             sourceSampleRate_ = laneSampleRates_[referenceLane_];
-            prepareWavesetAnalysisFilters();
-            stackMode_ = true;
+                stackMode_ = true;
             lastRecordedLane_ = lane;
             lastRecordedPeak_ = recordPeak_;
             lastRecordLimited_ = recordLimited_;
@@ -949,7 +947,6 @@ public:
         sourceFrames_ = recordFrames_;
         sourceChannels_ = recordChannels_;
         sourceSampleRate_ = outputSampleRate_;
-        prepareWavesetAnalysisFilters();
         stackMode_ = false;
         lastRecordedLane_ = kNoLane;
         recordChannels_ = 0u;
@@ -1164,8 +1161,6 @@ public:
                     // Wavesets owns a boundary-latched control snapshot. Do
                     // not let the shared per-sample Join glide expose a new
                     // target before its safe commit point.
-                    applyWavesetControlState(
-                        wavesetActiveControls_, preparedControls);
                     renderWavesetsFrame(preparedControls, wetOutput);
                     break;
             }
@@ -1201,6 +1196,7 @@ public:
                 --retriggerFadeRemaining_;
             }
         }
+        if (currentAlgorithm_ == PlaybackAlgorithm::wavesets) refreshWavesetTelemetry();
     }
 
     float* writableChannel(std::size_t channel)
@@ -1345,6 +1341,26 @@ public:
         return active;
     }
 
+    void setPreparedWavesetBank(std::size_t lane, const ThruWavesetBank* bank)
+    {
+        if (lane < kStackLanes) wavesetBanks_[lane] = bank;
+    }
+    std::uint64_t wavesetGroupBuildCount() const { return wavesetGroupBuilds_; }
+    std::uint64_t wavesetOverlapStartCount() const { return wavesetOverlapStarts_; }
+    std::uint64_t wavesetSeamCorrectionCount() const { return wavesetSeamCorrections_; }
+    std::size_t wavesetLaneBaseUnit(std::size_t lane) const
+    {
+        return lane < kStackLanes ? wavesetLanes_[lane].current.baseUnit : 0u;
+    }
+    float wavesetLanePosition(std::size_t lane) const
+    {
+        if (lane >= kStackLanes) return -1.0f;
+        const auto& reader = wavesetLanes_[lane].current;
+        if (!reader.initialized || reader.sourceFrames == 0u) return -1.0f;
+        const auto& unit = reader.units[orderedWavesetIndex(reader, reader.cycleOffset)];
+        return static_cast<float>((unit.start + reader.oscillatorPhase
+            * (unit.end - unit.start)) / reader.sourceFrames);
+    }
     float effectiveGrainDensityHz() const { return grainDensityHz_; }
 
     bool wavesetFallbackActive() const
@@ -1354,7 +1370,7 @@ public:
 
     bool wavesetControlChangePending() const
     {
-        return wavesetControlsPending_ || wavesetCommitControlsNextFrame_;
+        return wavesetControlsPending_;
     }
 
     float wavesetActiveProcessAmount() const
@@ -1364,7 +1380,9 @@ public:
 
     bool wavesetOverlapActive() const
     {
-        return wavesetOverlapRemaining_ != 0u;
+        for (const auto& lane : wavesetLanes_)
+            if (lane.overlapRemaining != 0u) return true;
+        return false;
     }
 
     WavesetDisplayState wavesetDisplayState() const
@@ -1401,9 +1419,9 @@ public:
                     / static_cast<double>(count)));
             sourcePosition = clamp01(static_cast<float>((unit.start
                     + phase * std::max(1.0, unit.end - unit.start))
-                / static_cast<double>(sourceFrames_)));
+                / static_cast<double>(std::max<std::size_t>(1u, reader.sourceFrames))));
         };
-        const auto setExternalPosition = [&](const WavesetUnit& unit,
+        const auto setExternalPosition = [&](const WavesetReader& reader, const WavesetUnit& unit,
                                              double phase,
                                              float& groupPosition,
                                              float& sourcePosition) {
@@ -1411,7 +1429,7 @@ public:
             groupPosition = 1.0f;
             sourcePosition = clamp01(static_cast<float>((unit.start
                     + phase * std::max(1.0, unit.end - unit.start))
-                / static_cast<double>(sourceFrames_)));
+                / static_cast<double>(std::max<std::size_t>(1u, reader.sourceFrames))));
         };
         const auto readerCursor = [&](const WavesetReader& reader,
                                       float& groupPosition,
@@ -1503,7 +1521,7 @@ public:
             const auto setProcessedPosition = [&](float& group,
                                                   float& source) {
                 if (processedExternalUnit) {
-                    setExternalPosition(*processedExternalUnit,
+                    setExternalPosition(reader, *processedExternalUnit,
                         processedPhase, group, source);
                 } else {
                     setPosition(reader, processedIndex, processedPhase,
@@ -1534,6 +1552,28 @@ public:
         readerCursor(waveset_, state.groupPosition, state.sourcePosition,
             state.secondaryGroupPosition, state.secondarySourcePosition,
             state.multipleSources, state.primaryReversed);
+        if (stackMode_) {
+            std::size_t neighbor = kStackLanes;
+            float loudest = 0.001f;
+            for (std::size_t lane = 0u; lane < kStackLanes; ++lane) {
+                const float gain = laneWeights_[lane] * activeControlsLaneGains_[lane];
+                if (lane != wavesetDisplayLane_ && gain > loudest
+                    && laneFrames_[lane] != 0u && wavesetLanes_[lane].current.initialized) {
+                    loudest = gain;
+                    neighbor = lane;
+                }
+            }
+            if (neighbor != kStackLanes) {
+                state.multipleSources = true;
+                if (state.secondarySourcePosition < 0.0f) {
+                    float ignoredGroup = -1.0f, ignoredSource = -1.0f;
+                    bool ignoredMultiple = false, ignoredReverse = false;
+                    readerCursor(wavesetLanes_[neighbor].current,
+                        state.secondaryGroupPosition, state.secondarySourcePosition,
+                        ignoredGroup, ignoredSource, ignoredMultiple, ignoredReverse);
+                }
+            }
+        }
         if (wavesetOverlapRemaining_ != 0u
             && wavesetOverlapFrom_.initialized) {
             state.overlap = true;
@@ -1677,6 +1717,8 @@ private:
         double start = 0.0;
         double end = 1.0;
         float peak = 0.0f;
+        float startLevel[2u] {};
+        float endLevel[2u] {};
     };
 
     struct WavesetControlState {
@@ -1705,7 +1747,6 @@ private:
         std::size_t processMultiple = 2u;
         std::size_t referenceChannel = 0u;
         std::size_t strongestUnit = 0u;
-        std::size_t analysisRetryFrames = 0u;
         double oscillatorPhase = 0.0;
         double groupCursor = 0.0;
         std::uint32_t randomState = 0x6d2b79f5u;
@@ -1719,7 +1760,22 @@ private:
         WavesetUnit units[32u] {};
         WavesetUnit adjacentUnit {};
         bool adjacentUnitValid = false;
+        std::size_t sourceFrames = 0u;
+        float sampleRate = 44100.0f;
+        std::uint64_t mapRevision = 0u;
+        std::size_t baseUnit = 0u, lowUnit = 0u, highUnit = 0u;
+        double windowLow = -1.0, windowHigh = -1.0;
     };
+
+    struct WavesetLaneState {
+        WavesetReader current {}, tail {};
+        WavesetControlState active {};
+        std::size_t overlapRemaining = 0u, waitFrames = 0u;
+        std::size_t seamRemaining = 0u, seamLength = 0u;
+        float last[2u] {}, anchor[2u] {}, seam[2u] {};
+        bool atBoundary = false;
+    };
+    static constexpr std::size_t kNoWavesetUnit = static_cast<std::size_t>(-1);
 
     static constexpr std::size_t kGrainVoiceCount = 16u;
     static constexpr std::size_t kLongGrainVoiceCount = 4u;
@@ -1843,23 +1899,13 @@ private:
         glitchTailActive_ = false;
         glitchTailAge_ = 0u;
         glitchControlInitialized_ = false;
+        for (auto& state : wavesetLanes_) state = {};
+        wavesetDisplayLane_ = 0u;
         waveset_ = {};
         wavesetOverlapFrom_ = {};
-        wavesetBoundaryOverlapFrom_ = {};
         wavesetActiveControls_ = {};
-        wavesetRequestedControls_ = {};
-        wavesetControlsInitialized_ = false;
         wavesetControlsPending_ = false;
-        wavesetCommitControlsNextFrame_ = false;
-        wavesetBoundaryOverlapPending_ = false;
-        wavesetOverlapLength_ = 0u;
         wavesetOverlapRemaining_ = 0u;
-        wavesetLastOutput_ = 0.0f;
-        wavesetLastStereo_[0u] = 0.0f;
-        wavesetLastStereo_[1u] = 0.0f;
-        wavesetOverlapAnchor_[0u] = 0.0f;
-        wavesetOverlapAnchor_[1u] = 0.0f;
-        wavesetLastOutputValid_ = false;
         for (auto& segment : motionSegments_) {
             segment = {};
         }
@@ -1938,7 +1984,6 @@ private:
             playing_ = false;
         }
         sourceChannels_ = kLaneChannels;
-        prepareWavesetAnalysisFilters();
         updateLanePositionScales();
         laneWeightsInitialized_ = false;
         windowInitialized_ = false;
@@ -1975,7 +2020,6 @@ private:
         }
         sourceChannels_ = kLaneChannels;
         stackMode_ = true;
-        prepareWavesetAnalysisFilters();
         updateLanePositionScales();
         laneWeightsInitialized_ = false;
         windowInitialized_ = false;
@@ -4993,387 +5037,140 @@ private:
             && std::abs(first.join - second.join) < 1.0e-6f;
     }
 
-    static void applyWavesetControlState(const WavesetControlState& state,
-                                         Controls& controls)
-    {
-        controls.wavesetGroup = static_cast<float>(state.groupSize);
-        controls.wavesetRepeats = static_cast<float>(state.repeats);
-        controls.wavesetStride = static_cast<float>(state.stride);
-        controls.wavesetAdvance = state.advance;
-        controls.wavesetDirection = state.direction;
-        controls.wavesetProcess = state.process;
-        controls.wavesetDetail = state.detail;
-        controls.wavesetProcessAmount = state.processAmount;
-        controls.join = state.join;
-    }
-
     void prepareWavesetControlsBlock(const Controls& requested,
-                                     std::size_t frames,
-                                     Controls& prepared)
+                                     std::size_t, Controls&)
     {
-        (void)frames;
-        const WavesetControlState incoming = wavesetControlState(requested);
-        if (!wavesetControlsInitialized_ || !waveset_.initialized) {
-            wavesetActiveControls_ = incoming;
-            wavesetRequestedControls_ = incoming;
-            wavesetControlsInitialized_ = true;
-            wavesetControlsPending_ = false;
-            wavesetCommitControlsNextFrame_ = false;
-        } else {
-            wavesetRequestedControls_ = incoming;
-            wavesetControlsPending_ = !sameWavesetControlState(
-                wavesetActiveControls_, wavesetRequestedControls_);
-            if (!wavesetControlsPending_) {
-                wavesetCommitControlsNextFrame_ = false;
-            }
-        }
-        // The display follows the requested value immediately, but the audio
-        // renderer sees only this active snapshot until a safe commit point.
-        applyWavesetControlState(wavesetActiveControls_, prepared);
-    }
-
-    static constexpr std::size_t wavesetMinimumCycleFrames(
-        WavesetDetail)
-    {
-        return 4u;
-    }
-
-    void prepareWavesetAnalysisFilters()
-    {
-        constexpr float cutoffs[kWavesetDetailCount] {
-            0.0f, 8000.0f, 4000.0f, 1000.0f, 250.0f,
-        };
-        const float rate = std::max(1.0f, sourceSampleRate_);
-        for (std::size_t index = 0u;
-             index < kWavesetDetailCount; ++index) {
-            const float cutoff = cutoffs[index];
-            wavesetAnalysisCoefficients_[index] = cutoff > 0.0f
-                ? 1.0f - std::exp(-2.0f * 3.14159265358979323846f
-                    * cutoff / rate)
-                : 1.0f;
-            wavesetAnalysisWarmupFrames_[index] = cutoff > 0.0f
-                ? std::min<std::size_t>(256u, static_cast<std::size_t>(
-                    std::ceil(rate / cutoff * 4.0f)))
-                : 0u;
-        }
+        wavesetRequestedControls_ = wavesetControlState(requested);
+        wavesetBlockControls_ = requested;
     }
 
     float wavesetChannelSample(std::size_t channel, double position,
                                const LaneBlend& lanes) const
     {
-        const auto linearRead = [](const float* data, std::size_t frames,
-                                   double at) {
-            if (!data || frames == 0u) return 0.0f;
-            at = clamp(at, 0.0, static_cast<double>(frames - 1u));
-            const std::size_t first = static_cast<std::size_t>(at);
-            const std::size_t next = std::min(first + 1u, frames - 1u);
-            const float fraction = static_cast<float>(at - first);
-            return data[first] + (data[next] - data[first]) * fraction;
-        };
-        if (!stackMode_) {
-            return linearRead(storage_[mapSourceChannel(channel)],
-                sourceFrames_, position);
+        if (!stackMode_) return ThruWavesetBank::read(
+            storage_[mapSourceChannel(channel)], sourceFrames_, position);
+        const auto lane = std::min(lanes.first, kStackLanes - 1u);
+        return ThruWavesetBank::read(laneData(lane, channel),
+            laneFrames_[lane], position);
+    }
+
+    void cacheWavesetUnit(WavesetUnit& unit,
+                         const std::vector<ThruWavesetCrossing>& map,
+                         std::size_t index) const
+    {
+        unit.start = map[index].position;
+        unit.end = map[index + 1u].position;
+        unit.peak = map[index].peak;
+        for (std::size_t ch = 0u; ch < 2u; ++ch) {
+            unit.startLevel[ch] = map[index].level[ch];
+            unit.endLevel[ch] = map[index + 1u].level[ch];
         }
-        const auto laneRead = [&](std::size_t lane) {
-            if (lane >= kStackLanes || laneFrames_[lane] == 0u
-                || sourceFrames_ == 0u) return 0.0f;
-            const double at = clamp(position * lanePositionScales_[lane],
-                0.0, static_cast<double>(laneFrames_[lane] - 1u));
-            return linearRead(laneData(lane, channel), laneFrames_[lane], at)
-                * activeControlsLaneGains_[lane];
-        };
-        const std::size_t first = std::min(lanes.first, kStackLanes - 1u);
-        const std::size_t second = std::min(lanes.second, kStackLanes - 1u);
-        const float a = laneRead(first);
-        if (first == second || lanes.secondGain <= 0.0f) return a;
-        return a * lanes.firstGain + laneRead(second) * lanes.secondGain;
     }
 
-    std::size_t wavesetReferenceChannel(double cursor, const Window& window,
-                                        const LaneBlend& lanes) const
+    void buildPreparedWavesetGroup(WavesetReader& reader,
+        const WavesetControlState& control, const Window& window,
+        std::size_t lane, double cursor, std::size_t exactBase = kNoWavesetUnit)
     {
-        (void)cursor;
-        (void)window;
-        (void)lanes;
-        // True-channel playback in the desktop engine uses channel 0 as its
-        // phase reference. A level-dependent channel choice made group timing
-        // change unpredictably while the stack moved.
-        return 0u;
-    }
-
-    bool findNextWavesetCrossing(double from, double high,
-                                 const LaneBlend& lanes,
-                                 std::size_t referenceChannel,
-                                 WavesetDetail detail,
-                                 std::size_t& searchBudget,
-                                 double& crossing) const
-    {
-        if (!(high > from + 1.0) || searchBudget == 0u) return false;
-        constexpr std::size_t kMaximumSearchFrames = 4096u;
-        const std::size_t target = static_cast<std::size_t>(std::max(
-            1.0, std::ceil(from)));
-        const std::size_t detailIndex = std::min<std::size_t>(
-            static_cast<std::size_t>(detail), kWavesetDetailCount - 1u);
-        const float coefficient = wavesetAnalysisCoefficients_[detailIndex];
-        const std::size_t warmup
-            = wavesetAnalysisWarmupFrames_[detailIndex];
-        std::size_t frame = target > warmup ? target - warmup : 1u;
-        const std::size_t end = std::min<std::size_t>(
-            static_cast<std::size_t>(std::floor(high)),
-            target + kMaximumSearchFrames);
-        float filtered = wavesetChannelSample(referenceChannel,
-            static_cast<double>(frame - 1u), lanes);
-        float previous = filtered;
-        for (; frame <= end && searchBudget != 0u;
-             ++frame, --searchBudget) {
-            const float raw = wavesetChannelSample(referenceChannel,
-                static_cast<double>(frame), lanes);
-            filtered += coefficient * (raw - filtered);
-            if (frame >= target && previous <= 0.0f && filtered > 0.0f) {
-                const float denominator = filtered - previous;
-                const float fraction = std::abs(denominator) > 1.0e-12f
-                    ? clamp(-previous / denominator, 0.0f, 1.0f) : 0.0f;
-                const double candidateCrossing
-                    = static_cast<double>(frame - 1u)
-                    + fraction;
-                if (candidateCrossing > from + 1.0e-6) {
-                    crossing = candidateCrossing;
-                    return true;
-                }
+        ++wavesetGroupBuilds_;
+        const auto* bank = wavesetBanks_[lane];
+        const std::size_t frames = stackMode_ ? laneFrames_[lane] : sourceFrames_;
+        if (bank && bank->frames != frames) bank = nullptr;
+        const double scale = sourceFrames_ > 1u
+            ? static_cast<double>(frames - 1u) / (sourceFrames_ - 1u) : 1.0;
+        const double low = std::floor(window.low * scale);
+        const double high = std::max(low + 1.0, std::floor(window.high * scale));
+        const auto detail = std::min<std::size_t>(
+            static_cast<std::size_t>(control.detail), 4u);
+        const auto* map = bank ? &bank->crossings[detail] : nullptr;
+        const bool reusableBounds = reader.initialized && bank
+            && reader.mapRevision == bank->revision && reader.detail == control.detail
+            && reader.windowLow == low && reader.windowHigh == high;
+        std::size_t first = 0u, last = 0u;
+        if (map && map->size() > 1u) {
+            if (reusableBounds) {
+                first = reader.lowUnit;
+                last = reader.highUnit;
+            } else {
+                first = static_cast<std::size_t>(std::lower_bound(map->begin(),
+                    map->end(), low, [](const auto& crossing, double position) {
+                        return crossing.position < position;
+                    }) - map->begin());
+                const auto end = std::upper_bound(map->begin(), map->end(), high,
+                    [](double position, const auto& crossing) {
+                        return position < crossing.position;
+                    });
+                last = end == map->begin() ? 0u
+                    : static_cast<std::size_t>(end - map->begin() - 1u);
             }
-            previous = filtered;
         }
-        return false;
-    }
-
-    double wrapWavesetCursor(double cursor, const Window& window) const
-    {
-        const double width = std::max(1.0, window.high - window.low);
-        while (cursor >= window.high) cursor -= width;
-        while (cursor < window.low) cursor += width;
-        return cursor;
-    }
-
-    bool nextWavesetCrossing(double from, const Window& window,
-                             const LaneBlend& lanes,
-                             std::size_t referenceChannel,
-                             WavesetDetail detail,
-                             std::size_t& searchBudget,
-                             double& crossing) const
-    {
-        from = wrapWavesetCursor(from, window);
-        if (findNextWavesetCrossing(from, window.high, lanes,
-                referenceChannel, detail, searchBudget, crossing)) {
-            return true;
-        }
-        return findNextWavesetCrossing(window.low, from, lanes,
-            referenceChannel, detail, searchBudget, crossing);
-    }
-
-    float wavesetPeak(const WavesetUnit& unit,
-                      const LaneBlend& lanes,
-                      std::size_t referenceChannel) const
-    {
-        const double length = std::max(1.0, unit.end - unit.start);
-        const std::size_t probes = std::min<std::size_t>(
-            16u, std::max<std::size_t>(4u,
-                static_cast<std::size_t>(std::ceil(length))));
-        float peak = 0.0f;
-        for (std::size_t probe = 0u; probe < probes; ++probe) {
-            const double phase = static_cast<double>(probe)
-                / static_cast<double>(probes - 1u);
-            peak = std::max(peak, std::abs(wavesetChannelSample(
-                referenceChannel, unit.start + phase * length, lanes)));
-        }
-        return peak;
-    }
-
-    double wavesetFallbackLength(const Window& window) const
-    {
-        return std::min(
-            std::max(32.0, static_cast<double>(sourceSampleRate_) * 0.020),
-            std::max(1.0, window.high - window.low));
-    }
-
-    void configureWavesetFallback(WavesetReader& reader,
-                                  const Window& window) const
-    {
-        const double length = wavesetFallbackLength(window);
-        WavesetUnit fallback;
-        fallback.start = wrapWavesetCursor(reader.groupCursor, window);
-        fallback.end = std::min(window.high, fallback.start + length);
-        if (!(fallback.end > fallback.start + 1.0)) {
-            fallback.start = window.low;
-            fallback.end = std::min(window.high, window.low + length);
-        }
-        if (!(fallback.end > fallback.start)) {
-            fallback.end = fallback.start + 1.0;
-        }
-        fallback.peak = wavesetPeak(fallback, reader.lanes,
-            reader.referenceChannel);
-        reader.units[0u] = fallback;
-        reader.groupCursor = fallback.start;
-        reader.groupSize = 1u;
-        reader.fallback = true;
-        reader.initialized = true;
+        reader.sourceFrames = frames;
+        reader.sampleRate = stackMode_ ? laneSampleRates_[lane] : sourceSampleRate_;
+        reader.mapRevision = bank ? bank->revision : 0u;
+        reader.windowLow = low;
+        reader.windowHigh = high;
+        reader.lowUnit = first;
+        reader.highUnit = last;
+        reader.requestedGroupSize = control.groupSize;
+        reader.groupSize = control.groupSize;
+        reader.repeats = control.repeats;
+        reader.stride = control.stride;
+        reader.advance = control.advance;
+        reader.direction = control.direction;
+        reader.process = control.process;
+        reader.processAmount = control.processAmount;
+        reader.join = control.join;
+        reader.detail = control.detail;
+        reader.processMultiple = 2u + static_cast<std::size_t>(
+            std::lround(control.processAmount * 6.0f));
+        reader.lanes.first = lane;
+        reader.lanes.second = lane;
+        reader.referenceChannel = bank ? bank->referenceChannel : 0u;
+        reader.cycleOffset = reader.repeatIndex = reader.strongestUnit = 0u;
+        reader.controlsInitialized = reader.initialized = true;
         reader.adjacentUnitValid = false;
-        reader.analysisRetryFrames = std::max<std::size_t>(
-            1u, static_cast<std::size_t>(outputSampleRate_ * 0.10f));
-    }
-
-    bool buildWavesetGroup(const Controls& controls, const Window& window,
-                           double cursor, bool replaceOnFailure = false)
-    {
-        const WavesetReader previous = waveset_;
-        WavesetReader candidate = previous;
-        candidate.lanes = stackMode_
-            ? makeLaneBlend(lanePhase_, controls) : LaneBlend {};
-        candidate.requestedGroupSize = wavesetGroupSize(controls);
-        candidate.groupSize = candidate.requestedGroupSize;
-        candidate.cycleOffset = 0u;
-        candidate.repeatIndex = 0u;
-        // Moving to another source group must retain the fractional phase
-        // left after the completed cycle. The desktop voice does this; zeroing
-        // it here shortened every group by up to one output sample and caused
-        // an audible impulse at ordinary group advances.
-        candidate.oscillatorPhase = previous.initialized
-            ? previous.oscillatorPhase : 0.0;
-        candidate.groupCursor = wrapWavesetCursor(cursor, window);
-        candidate.repeats = static_cast<std::size_t>(clamp(
-            std::round(controls.wavesetRepeats), 1.0f, 16.0f));
-        candidate.stride = static_cast<std::size_t>(clamp(
-            std::round(controls.wavesetStride), 1.0f, 16.0f));
-        candidate.advance = controls.wavesetAdvance;
-        candidate.direction = controls.wavesetDirection;
-        candidate.process = controls.wavesetProcess;
-        candidate.detail = controls.wavesetDetail;
-        if (previous.initialized) {
-            if (candidate.direction == WavesetDirection::pendulum) {
-                candidate.pendulumForward = !previous.pendulumForward;
+        reader.fallback = !map || last <= first;
+        if (reader.fallback) {
+            reader.groupSize = 1u;
+            auto& unit = reader.units[0u];
+            const double span = std::min(high - low,
+                std::max(4.0, static_cast<double>(reader.sampleRate) * 0.020));
+            cursor = std::clamp(cursor, low, std::max(low, high - span));
+            unit.start = cursor;
+            unit.end = cursor + span;
+            unit.peak = 0.0f;
+            for (std::size_t ch = 0u; ch < 2u; ++ch) {
+                unit.startLevel[ch] = wavesetChannelSample(ch, unit.start, reader.lanes);
+                unit.endLevel[ch] = wavesetChannelSample(ch, unit.end, reader.lanes);
+                unit.peak = std::max(unit.peak, std::max(
+                    std::abs(unit.startLevel[ch]), std::abs(unit.endLevel[ch])));
             }
-            candidate.randomState
-                = previous.randomState * 1664525u + 1013904223u;
+            reader.groupCursor = unit.start;
+            return;
         }
-        if (!candidate.controlsInitialized) {
-            candidate.processAmount = clamp01(controls.wavesetProcessAmount);
-            candidate.join = clamp01(controls.join);
-            candidate.controlsInitialized = true;
+        const auto count = last - first;
+        reader.groupSize = std::min(control.groupSize, count);
+        std::size_t base;
+        if (exactBase != kNoWavesetUnit) {
+            base = first + (exactBase - std::min(exactBase, first)) % count;
+        } else {
+            base = static_cast<std::size_t>(std::lower_bound(
+                map->begin() + first, map->begin() + last, cursor,
+                [](const auto& crossing, double position) {
+                    return crossing.position < position - 1.0e-7;
+                }) - map->begin());
+            if (base >= last) base = first;
         }
-        candidate.processMultiple = 2u + static_cast<std::size_t>(
-            std::lround(candidate.processAmount * 6.0f));
-        candidate.referenceChannel = wavesetReferenceChannel(
-            candidate.groupCursor, window, candidate.lanes);
-        candidate.strongestUnit = 0u;
-        candidate.analysisRetryFrames = 0u;
-        candidate.fallback = false;
-        candidate.adjacentUnitValid = false;
-        const std::size_t minimum
-            = wavesetMinimumCycleFrames(candidate.detail);
-        // This is a total group budget, not a per-crossing budget. It keeps
-        // silence, DC, and very low material from multiplying the worst-case
-        // callback cost by group size and polyphony.
-        std::size_t searchBudget = 8192u;
-        double start = 0.0;
-        if (!nextWavesetCrossing(candidate.groupCursor, window,
-                candidate.lanes, candidate.referenceChannel,
-                candidate.detail, searchBudget, start)) {
-            if (previous.initialized && !previous.fallback
-                && !replaceOnFailure) {
-                waveset_ = previous;
-                waveset_.cycleOffset = 0u;
-                waveset_.repeatIndex = 0u;
-                waveset_.analysisRetryFrames = std::max<std::size_t>(
-                    1u, static_cast<std::size_t>(outputSampleRate_ * 0.25f));
-                return false;
-            }
-            // Keep normal playback available while bounded analysis advances
-            // past a quiet lead-in or unusually long cycle. This temporary
-            // 20 ms unit is endpoint-corrected during rendering and moves
-            // through the Field instead of pinning the reader at its start.
-            configureWavesetFallback(candidate, window);
-            waveset_ = candidate;
-            return false;
+        reader.baseUnit = base;
+        for (std::size_t offset = 0u; offset < reader.groupSize; ++offset) {
+            const auto index = first + (base - first + offset) % count;
+            cacheWavesetUnit(reader.units[offset], *map, index);
+            if (reader.units[offset].peak > reader.units[reader.strongestUnit].peak)
+                reader.strongestUnit = offset;
         }
-        for (std::size_t index = 0u; index < candidate.groupSize; ++index) {
-            double end = 0.0;
-            const bool found = nextWavesetCrossing(
-                start + static_cast<double>(minimum), window,
-                candidate.lanes, candidate.referenceChannel,
-                candidate.detail, searchBudget, end);
-            if (!found || end <= start) {
-                // Never create a cycle through the field wrap. Restart at the
-                // first crossing after the low boundary. If analysis runs out
-                // of safe crossings or its real-time budget, retain the prior
-                // valid group rather than manufacturing a discontinuous cut.
-                double wrappedStart = 0.0;
-                double wrappedEnd = 0.0;
-                const bool wrapped = findNextWavesetCrossing(
-                    window.low, window.high, candidate.lanes,
-                    candidate.referenceChannel, candidate.detail,
-                    searchBudget, wrappedStart)
-                    && findNextWavesetCrossing(
-                        wrappedStart + static_cast<double>(minimum),
-                        window.high, candidate.lanes,
-                        candidate.referenceChannel, candidate.detail,
-                        searchBudget, wrappedEnd);
-                if (wrapped) {
-                    start = wrappedStart;
-                    end = wrappedEnd;
-                } else {
-                    if (index != 0u) {
-                        // A requested group can be larger than the number of
-                        // safe cycles remaining inside a short Field. Keep the
-                        // completed crossing-aligned units instead of retrying
-                        // the impossible full size forever.
-                        candidate.groupSize = index;
-                        break;
-                    }
-                    if (previous.initialized && !previous.fallback
-                        && !replaceOnFailure) {
-                        waveset_ = previous;
-                        waveset_.cycleOffset = 0u;
-                        waveset_.repeatIndex = 0u;
-                        waveset_.analysisRetryFrames = std::max<std::size_t>(
-                            1u, static_cast<std::size_t>(
-                                outputSampleRate_ * 0.25f));
-                        return false;
-                    }
-                    configureWavesetFallback(candidate, window);
-                    break;
-                }
-            }
-            WavesetUnit& unit = candidate.units[index];
-            unit.start = start;
-            unit.end = std::max(start + 1.0, end);
-            unit.peak = wavesetPeak(unit, candidate.lanes,
-                candidate.referenceChannel);
-            if (unit.peak > candidate.units[candidate.strongestUnit].peak) {
-                candidate.strongestUnit = index;
-            }
-            start = unit.end;
-        }
-        if (candidate.groupSize == 0u) {
-            waveset_ = previous;
-            return false;
-        }
-        // Interpolate targets the adjacent source cycle, not the next cycle
-        // in the selected order. Retain one look-ahead unit for the final
-        // member of the group.
-        double adjacentEnd = 0.0;
-        if (nextWavesetCrossing(start + static_cast<double>(minimum), window,
-                candidate.lanes, candidate.referenceChannel,
-                candidate.detail, searchBudget, adjacentEnd)
-            && adjacentEnd > start) {
-            candidate.adjacentUnit.start = start;
-            candidate.adjacentUnit.end = adjacentEnd;
-            candidate.adjacentUnit.peak = wavesetPeak(
-                candidate.adjacentUnit, candidate.lanes,
-                candidate.referenceChannel);
-            candidate.adjacentUnitValid = true;
-        }
-        candidate.initialized = true;
-        waveset_ = candidate;
-        return true;
+        cacheWavesetUnit(reader.adjacentUnit, *map,
+            first + (base - first + reader.groupSize) % count);
+        reader.adjacentUnitValid = true;
+        reader.groupCursor = reader.units[0u].start;
     }
 
     std::size_t orderedWavesetIndex(const WavesetReader& reader,
@@ -5413,8 +5210,8 @@ private:
             return wavesetChannelSample(channel, at, reader.lanes);
         };
         const float raw = read(position);
-        const float start = read(unit.start);
-        const float end = read(unit.end);
+        const float start = unit.startLevel[channel & 1u];
+        const float end = unit.endLevel[channel & 1u];
         const float boundary = start + (end - start)
             * static_cast<float>(phase);
         return raw - boundary * clamp01(join);
@@ -5561,7 +5358,7 @@ private:
                 1.0, target.end - target.start);
             length += (targetLength - length) * amount;
         }
-        return static_cast<double>(sourceSampleRate_)
+        return static_cast<double>(reader.sampleRate)
             / static_cast<double>(outputSampleRate_)
             * static_cast<double>(speed_) / length;
     }
@@ -5585,331 +5382,215 @@ private:
         }
     }
 
-    static void advanceWavesetTransitionReader(WavesetReader& reader,
+    void advanceWavesetTransitionReader(WavesetReader& reader,
                                                 double increment)
     {
         reader.oscillatorPhase += increment;
-        while (reader.oscillatorPhase >= 1.0) {
-            reader.oscillatorPhase -= 1.0;
-            ++reader.cycleOffset;
-            if (reader.cycleOffset < reader.groupSize) continue;
-            reader.cycleOffset = 0u;
-            if (++reader.repeatIndex < reader.repeats) continue;
-            reader.repeatIndex = 0u;
-        }
-    }
-
-    std::size_t wavesetOverlapLength(const WavesetReader& previous,
-                                     const WavesetReader& current) const
-    {
-        const double increment = std::max(
-            std::abs(wavesetPhaseIncrement(previous)),
-            std::abs(wavesetPhaseIncrement(current)));
-        if (!(increment > 1.0e-12)) return wavesetOverlapFrames_;
-        const std::size_t halfCycle = std::max<std::size_t>(
-            2u, static_cast<std::size_t>(std::ceil(0.5 / increment)));
-        const std::size_t cycleLimited = std::min(
-            wavesetOverlapFrames_, halfCycle);
-        return std::min(wavesetOverlapFrames_, std::max(
-            wavesetMinimumOverlapFrames_, cycleLimited));
-    }
-
-    void beginWavesetOverlap(const WavesetReader& previous)
-    {
-        if (!previous.initialized || !waveset_.initialized) return;
-        wavesetOverlapFrom_ = previous;
-        wavesetOverlapAnchor_[0u] = wavesetLastStereo_[0u];
-        wavesetOverlapAnchor_[1u] = wavesetLastStereo_[1u];
-        wavesetOverlapLength_ = wavesetOverlapLength(
-            wavesetOverlapFrom_, waveset_);
-        wavesetOverlapRemaining_ = wavesetOverlapLength_;
-    }
-
-    void applyWavesetOverlap(float* stereo)
-    {
-        if (wavesetOverlapRemaining_ == 0u
-            || !wavesetOverlapFrom_.initialized) return;
-        float prior[kLaneChannels] {};
-        renderWavesetStereo(wavesetOverlapFrom_, prior);
-        const float progress = wavesetOverlapLength_ > 1u
-            ? 1.0f
-                - static_cast<float>(wavesetOverlapRemaining_ - 1u)
-                    / static_cast<float>(wavesetOverlapLength_ - 1u)
-            : 1.0f;
-        constexpr float pi = 3.14159265358979323846f;
-        // Complementary raised-cosine windows sum to one. This is a true
-        // constant-overlap-add transition: correlated cycles keep their level
-        // while unrelated cycle shapes exchange without a hard splice.
-        const float currentGain = 0.5f - 0.5f * std::cos(pi * progress);
-        const float previousGain = 1.0f - currentGain;
-        const std::size_t elapsed
-            = wavesetOverlapLength_ - wavesetOverlapRemaining_;
-        const float anchorProgress = smoothStep(std::min(
-            1.0f, static_cast<float>(elapsed) / 8.0f));
-        for (std::size_t channel = 0u;
-             channel < kLaneChannels; ++channel) {
-            prior[channel] = wavesetOverlapAnchor_[channel]
-                + (prior[channel] - wavesetOverlapAnchor_[channel])
-                    * anchorProgress;
-            stereo[channel] = prior[channel] * previousGain
-                + stereo[channel] * currentGain;
-        }
-        advanceWavesetTransitionReader(wavesetOverlapFrom_,
-            wavesetPhaseIncrement(wavesetOverlapFrom_));
-        if (--wavesetOverlapRemaining_ == 0u) {
-            wavesetOverlapFrom_ = {};
-        }
-    }
-
-    bool wavesetSafeControlPoint(const float* stereo) const
-    {
-        const float reference = stereo[waveset_.referenceChannel
-            % kLaneChannels];
-        const bool zeroCrossing = wavesetLastOutputValid_
-            && ((wavesetLastOutput_ <= 0.0f && reference > 0.0f)
-                || (wavesetLastOutput_ >= 0.0f && reference < 0.0f));
-        const std::size_t index = orderedWavesetIndex(
-            waveset_, waveset_.cycleOffset);
-        const float relativeFloor = waveset_.units[index].peak * 0.01f;
-        const float threshold = std::max(0.0005f, relativeFloor);
-        const float stereoPeak = std::max(
-            std::abs(stereo[0u]), std::abs(stereo[1u]));
-        return zeroCrossing || stereoPeak <= threshold;
-    }
-
-    bool commitWavesetControls(const Controls& controls,
-                               const Window& window)
-    {
-        if (!wavesetControlsPending_ || !waveset_.initialized
-            || wavesetOverlapRemaining_ != 0u) return false;
-        const WavesetReader previous = waveset_;
-        const WavesetControlState next = wavesetRequestedControls_;
-        Controls adopted = controls;
-        applyWavesetControlState(next, adopted);
-        const bool rebuild = previous.requestedGroupSize != next.groupSize
-            || previous.detail != next.detail;
-        if (rebuild) {
-            const double cursor = wrapWavesetCursor(
-                displayPosition_, window);
-            const bool built = buildWavesetGroup(
-                adopted, window, cursor, true);
-            const bool acceptedFallback = waveset_.initialized
-                && waveset_.requestedGroupSize == next.groupSize
-                && waveset_.detail == next.detail;
-            if (!built && !acceptedFallback) {
-                waveset_ = previous;
-                wavesetCommitControlsNextFrame_ = false;
-                return false;
+        while (reader.oscillatorPhase >= 1.0 - 1.0e-12) {
+            const double excessTime = std::max(0.0, reader.oscillatorPhase - 1.0)
+                / std::max(1.0e-12, increment);
+            if (++reader.cycleOffset >= reader.groupSize) {
+                reader.cycleOffset = 0u;
+                if (++reader.repeatIndex >= reader.repeats) reader.repeatIndex = 0u;
             }
+            reader.oscillatorPhase = 0.0;
+            increment = wavesetPhaseIncrement(reader);
+            reader.oscillatorPhase = excessTime * increment;
         }
-        waveset_.requestedGroupSize = next.groupSize;
-        waveset_.repeats = next.repeats;
-        waveset_.stride = next.stride;
-        waveset_.advance = next.advance;
-        waveset_.direction = next.direction;
-        waveset_.process = next.process;
-        waveset_.detail = next.detail;
-        waveset_.processAmount = next.processAmount;
-        waveset_.join = next.join;
-        waveset_.processMultiple = 2u + static_cast<std::size_t>(
-            std::lround(next.processAmount * 6.0f));
-        waveset_.controlsInitialized = true;
-        wavesetActiveControls_ = next;
-        wavesetControlsPending_ = !sameWavesetControlState(
-            wavesetActiveControls_, wavesetRequestedControls_);
-        wavesetCommitControlsNextFrame_ = false;
-        beginWavesetOverlap(previous);
-        return true;
     }
 
-    bool wavesetBoundaryNeedsOverlap() const
+    bool wavesetSafeControlPoint(const WavesetLaneState& state) const
     {
-        if (!waveset_.initialized || !wavesetLastOutputValid_) return false;
-        float incoming[kLaneChannels] {};
-        renderWavesetStereo(waveset_, incoming);
-        // A one-percent full-scale step is already an obvious click on sparse
-        // material. Only suppress transitions that are numerically identical;
-        // every newly measured source group is handled unconditionally below.
-        constexpr float numericalEpsilon = 1.0e-6f;
-        return std::abs(incoming[0u] - wavesetLastStereo_[0u])
-                > numericalEpsilon
-            || std::abs(incoming[1u] - wavesetLastStereo_[1u])
-                > numericalEpsilon;
+        return std::max(std::abs(state.last[0u]), std::abs(state.last[1u]))
+            <= 0.0005f;
     }
 
-    bool advanceWavesetGroup(const Controls& controls, const Window& window)
+    void beginWavesetOverlap(WavesetLaneState& state,
+                             const WavesetReader& previous)
     {
-        double cursor = waveset_.groupCursor;
-        if (controls.wavesetAdvance != WavesetAdvance::hold) {
-            double span = waveset_.units[waveset_.groupSize - 1u].end
-                - waveset_.units[0u].start;
-            if (!(span > 0.0)) span = 1.0;
-            const double stride = static_cast<double>(clamp(
-                std::round(controls.wavesetStride), 1.0f, 16.0f));
-            const double repeatScale = controls.wavesetAdvance
-                    == WavesetAdvance::preserve
-                ? static_cast<double>(waveset_.repeats)
-                : 1.0;
-            cursor = waveset_.units[0u].start
-                + span * stride * repeatScale;
+        if (!previous.initialized || state.overlapRemaining != 0u) return;
+        state.tail = previous;
+        state.overlapRemaining = wavesetOverlapFrames_;
+        float old[2u] {};
+        renderWavesetStereo(state.tail, old);
+        for (std::size_t ch = 0u; ch < 2u; ++ch)
+            state.anchor[ch] = state.last[ch] - old[ch];
+        ++wavesetOverlapStarts_;
+    }
+
+    void applyWavesetOverlap(WavesetLaneState& state, float* stereo)
+    {
+        if (state.overlapRemaining == 0u) return;
+        float old[2u] {};
+        renderWavesetStereo(state.tail, old);
+        const float progress = 1.0f
+            - static_cast<float>(state.overlapRemaining - 1u)
+                / static_cast<float>(wavesetOverlapFrames_ - 1u);
+        const float gain = 0.5f - 0.5f * std::cos(3.14159265358979323846f * progress);
+        const float anchorGain = 1.0f - smoothStep(std::min(1.0f,
+            static_cast<float>(wavesetOverlapFrames_ - state.overlapRemaining) / 32.0f));
+        for (std::size_t ch = 0u; ch < 2u; ++ch)
+            stereo[ch] = (old[ch] + state.anchor[ch] * anchorGain) * (1.0f - gain)
+                + stereo[ch] * gain;
+        advanceWavesetTransitionReader(state.tail, wavesetPhaseIncrement(state.tail));
+        if (--state.overlapRemaining == 0u) state.tail = {};
+    }
+
+    void advancePreparedWavesetGroup(WavesetLaneState& state,
+        const Window& window, std::size_t lane)
+    {
+        auto& reader = state.current;
+        if (reader.direction == WavesetDirection::pendulum)
+            reader.pendulumForward = !reader.pendulumForward;
+        reader.randomState = reader.randomState * 1664525u + 1013904223u;
+        if (reader.advance == WavesetAdvance::hold && !reader.fallback) return;
+        const std::size_t step = reader.groupSize * reader.stride
+            * (reader.advance == WavesetAdvance::preserve ? reader.repeats : 1u);
+        const std::size_t base = reader.fallback ? kNoWavesetUnit : reader.baseUnit + step;
+        double cursor = reader.fallback
+            ? reader.units[0u].end : reader.groupCursor;
+        if (cursor >= reader.windowHigh) cursor = reader.windowLow;
+        buildPreparedWavesetGroup(reader, state.active, window, lane, cursor, base);
+    }
+
+    // Endpoint differences measure an actual seam, unlike comparing adjacent
+    // output samples (which mistakes the natural waveform slope for a click).
+    // A short residual correction handles unavoidable discontinuous orders;
+    // contiguous unprocessed source cycles have no correction or dual read.
+    void correctWavesetBoundary(WavesetLaneState& state, const float* outgoing)
+    {
+        float incoming[2u] {};
+        auto& reader = state.current;
+        for (std::size_t ch = 0u; ch < 2u; ++ch) {
+            incoming[ch] = renderWavesetSample(reader, ch,
+                reader.fallback ? 1.0f : reader.join, reader.cycleOffset,
+                reader.repeatIndex, 0.0);
         }
-        const bool reusableHold = controls.wavesetAdvance
-                == WavesetAdvance::hold
-            && waveset_.requestedGroupSize == wavesetGroupSize(controls)
-            && waveset_.detail == controls.wavesetDetail;
-        if (reusableHold || waveset_.analysisRetryFrames != 0u) {
-            // Hold repeats a measured group in place. During a bounded retry,
-            // a temporary fallback still follows source progression so a
-            // quiet lead-in cannot pin both playback and its cursor.
-            if (waveset_.direction == WavesetDirection::pendulum) {
-                waveset_.pendulumForward = !waveset_.pendulumForward;
+        const float remaining = state.seamLength != 0u
+            ? smoothStep(static_cast<float>(state.seamRemaining) / state.seamLength) : 0.0f;
+        bool seam = false;
+        for (std::size_t ch = 0u; ch < 2u; ++ch) {
+            const float delta = outgoing[ch] - incoming[ch];
+            seam = seam || std::abs(delta) > 1.0e-5f;
+        }
+        if (!seam) return;
+        for (std::size_t ch = 0u; ch < 2u; ++ch)
+            state.seam[ch] = clamp(state.seam[ch] * remaining
+                + outgoing[ch] - incoming[ch], -2.0f, 2.0f);
+        state.seamLength = state.seamRemaining = wavesetMinimumOverlapFrames_;
+        ++wavesetSeamCorrections_;
+    }
+
+    void renderWavesetLane(WavesetLaneState& state, const Window& window,
+        std::size_t lane, float* stereo)
+    {
+        auto& reader = state.current;
+        const auto& requested = wavesetRequestedControls_;
+        const auto* bank = wavesetBanks_[lane];
+        const std::uint64_t revision = bank ? bank->revision : 0u;
+        const bool change = !sameWavesetControlState(state.active, requested)
+            || reader.mapRevision != revision;
+        if (!reader.initialized) {
+            state.active = requested;
+            const double scale = stackMode_ && sourceFrames_ > 1u
+                ? static_cast<double>(laneFrames_[lane] - 1u) / (sourceFrames_ - 1u) : 1.0;
+            const double launch = (window.low + clamp(phase_, 0.0, 1.0)
+                * (window.high - window.low)) * scale;
+            buildPreparedWavesetGroup(reader, requested, window, lane, launch);
+            state.waitFrames = 0u;
+        } else if (change) {
+            ++state.waitFrames;
+            const auto maximumWait = static_cast<std::size_t>(outputSampleRate_ * 0.020f);
+            if (state.overlapRemaining == 0u && (state.atBoundary
+                || wavesetSafeControlPoint(state) || state.waitFrames >= maximumWait)) {
+                const WavesetReader previous = reader;
+                const auto index = orderedWavesetIndex(reader, reader.cycleOffset);
+                const double cursor = reader.units[index].start;
+                state.active = requested;
+                buildPreparedWavesetGroup(reader, requested, window, lane, cursor);
+                state.seamRemaining = 0u;
+                beginWavesetOverlap(state, previous);
+                state.waitFrames = 0u;
             }
-            waveset_.randomState
-                = waveset_.randomState * 1664525u + 1013904223u;
-            const LaneBlend lanes = stackMode_
-                ? makeLaneBlend(lanePhase_, controls) : LaneBlend {};
-            waveset_.lanes = lanes;
-            waveset_.referenceChannel = wavesetReferenceChannel(
-                waveset_.groupCursor, window, waveset_.lanes);
-            if (waveset_.fallback && !reusableHold) {
-                const std::size_t retry = waveset_.analysisRetryFrames;
-                waveset_.groupCursor = wrapWavesetCursor(cursor, window);
-                configureWavesetFallback(waveset_, window);
-                waveset_.analysisRetryFrames = retry;
-            }
-            waveset_.strongestUnit = 0u;
-            for (std::size_t index = 0u;
-                 index < waveset_.groupSize; ++index) {
-                waveset_.units[index].peak = wavesetPeak(
-                    waveset_.units[index], waveset_.lanes,
-                    waveset_.referenceChannel);
-                if (waveset_.units[index].peak
-                    > waveset_.units[waveset_.strongestUnit].peak) {
-                    waveset_.strongestUnit = index;
+        } else state.waitFrames = 0u;
+        state.atBoundary = false;
+        renderWavesetStereo(reader, stereo);
+        if (state.seamRemaining != 0u) {
+            const float gain = smoothStep(static_cast<float>(state.seamRemaining)
+                / static_cast<float>(state.seamLength));
+            for (std::size_t ch = 0u; ch < 2u; ++ch) stereo[ch] += state.seam[ch] * gain;
+            --state.seamRemaining;
+        }
+        applyWavesetOverlap(state, stereo);
+        state.last[0u] = stereo[0u];
+        state.last[1u] = stereo[1u];
+
+        double increment = wavesetPhaseIncrement(reader);
+        reader.oscillatorPhase += increment;
+        while (reader.oscillatorPhase >= 1.0 - 1.0e-12) {
+            const double excessTime = std::max(0.0, reader.oscillatorPhase - 1.0)
+                / std::max(1.0e-12, increment);
+            float endpoint[2u] {};
+            for (std::size_t ch = 0u; ch < 2u; ++ch)
+                endpoint[ch] = renderWavesetSample(reader, ch,
+                    reader.fallback ? 1.0f : reader.join, reader.cycleOffset,
+                    reader.repeatIndex, 1.0 - 1.0e-10);
+            reader.oscillatorPhase = 0.0;
+            state.atBoundary = true;
+            if (++reader.cycleOffset >= reader.groupSize) {
+                reader.cycleOffset = 0u;
+                if (++reader.repeatIndex >= reader.repeats) {
+                    reader.repeatIndex = 0u;
+                    advancePreparedWavesetGroup(state, window, lane);
                 }
             }
-            if (reusableHold) {
-                waveset_.repeats = static_cast<std::size_t>(clamp(
-                    std::round(controls.wavesetRepeats), 1.0f, 16.0f));
-            }
-            waveset_.cycleOffset = 0u;
-            waveset_.repeatIndex = 0u;
-            return false;
+            correctWavesetBoundary(state, endpoint);
+            increment = wavesetPhaseIncrement(reader);
+            reader.oscillatorPhase = excessTime * increment;
         }
-        return buildWavesetGroup(controls, window,
-            wrapWavesetCursor(cursor, window));
     }
 
-    void latchWavesetCycleControls(const Controls& controls)
+    void renderWavesetsFrame(const Controls&, float* wet)
     {
-        waveset_.direction = controls.wavesetDirection;
-        waveset_.process = controls.wavesetProcess;
-        waveset_.processAmount = clamp01(controls.wavesetProcessAmount);
-        waveset_.join = clamp01(controls.join);
-        waveset_.processMultiple = 2u + static_cast<std::size_t>(std::lround(
-            waveset_.processAmount * 6.0f));
-    }
-
-    void renderWavesetsFrame(const Controls& controls, float* wet)
-    {
-        const Window window = smoothEventWindow(controls);
+        const Window window = smoothEventWindow(wavesetBlockControls_);
         fieldLow_ = window.low;
         fieldHigh_ = window.high;
-        if (wavesetBoundaryOverlapPending_) {
-            // A very short REPT 1 group can end before the previous overlap.
-            // Restart from the outgoing current group and anchor it to the last
-            // audible composite sample instead of exposing the new group raw.
-            beginWavesetOverlap(wavesetBoundaryOverlapFrom_);
-            wavesetBoundaryOverlapFrom_ = {};
-            wavesetBoundaryOverlapPending_ = false;
+        float mixed[2u] {};
+        float strongest = -1.0f;
+        const std::size_t count = stackMode_ ? kStackLanes : 1u;
+        for (std::size_t lane = 0u; lane < count; ++lane) {
+            const float weight = stackMode_ ? laneWeights_[lane] : 1.0f;
+            if ((stackMode_ && laneFrames_[lane] == 0u) || weight <= 1.0e-5f) continue;
+            float stereo[2u] {};
+            renderWavesetLane(wavesetLanes_[lane], window, lane, stereo);
+            const float gain = weight * (stackMode_ ? activeControlsLaneGains_[lane] : 1.0f);
+            mixed[0u] += stereo[0u] * gain;
+            mixed[1u] += stereo[1u] * gain;
+            if (gain > strongest) { strongest = gain; wavesetDisplayLane_ = lane; }
         }
-        if (wavesetCommitControlsNextFrame_
-            && wavesetOverlapRemaining_ == 0u) {
-            commitWavesetControls(controls, window);
+        for (std::size_t channel = 0u; channel < kChannels; ++channel)
+            wet[channel] = mixed[channel & 1u];
+        const auto& reader = wavesetLanes_[wavesetDisplayLane_].current;
+        if (reader.initialized && reader.sourceFrames != 0u) {
+            const auto& unit = reader.units[orderedWavesetIndex(reader, reader.cycleOffset)];
+            displayPosition_ = (unit.start + reader.oscillatorPhase * (unit.end - unit.start))
+                / static_cast<double>(reader.sourceFrames) * sourceFrames_;
         }
-        Controls activeControls = controls;
-        applyWavesetControlState(wavesetActiveControls_, activeControls);
-        if (waveset_.initialized
-            && (waveset_.detail != activeControls.wavesetDetail
-                || waveset_.requestedGroupSize
-                    != wavesetGroupSize(activeControls))) {
-            waveset_.analysisRetryFrames = 0u;
-        }
-        if (waveset_.analysisRetryFrames != 0u) {
-            --waveset_.analysisRetryFrames;
-        }
-        if (!waveset_.initialized) {
-            const double launch = window.low
-                + clamp(phase_, 0.0, 1.0) * (window.high - window.low);
-            buildWavesetGroup(activeControls, window, launch);
-        }
-        if (!waveset_.controlsInitialized) {
-            waveset_.processAmount = clamp01(
-                activeControls.wavesetProcessAmount);
-            waveset_.join = clamp01(activeControls.join);
-            waveset_.controlsInitialized = true;
-            latchWavesetCycleControls(activeControls);
-        }
-        const std::size_t index = orderedWavesetIndex(
-            waveset_, waveset_.cycleOffset);
-        const WavesetUnit& unit = waveset_.units[index];
-        displayPosition_ = unit.start + waveset_.oscillatorPhase
-            * std::max(1.0, unit.end - unit.start);
-        float stereo[kLaneChannels] {};
-        renderWavesetStereo(waveset_, stereo);
-        applyWavesetOverlap(stereo);
-        for (std::size_t channel = 0u; channel < kChannels; ++channel) {
-            wet[channel] = stereo[channel & 1u];
-        }
+    }
 
-        if (wavesetControlsPending_ && !wavesetCommitControlsNextFrame_
-            && wavesetOverlapRemaining_ == 0u
-            && wavesetSafeControlPoint(stereo)) {
-            // Commit on the next sample so the outgoing reader starts the
-            // overlap at its natural next phase, not by repeating this one.
-            wavesetCommitControlsNextFrame_ = true;
-        }
-        wavesetLastOutput_ = stereo[waveset_.referenceChannel
-            % kLaneChannels];
-        wavesetLastStereo_[0u] = stereo[0u];
-        wavesetLastStereo_[1u] = stereo[1u];
-        wavesetLastOutputValid_ = true;
-
-        waveset_.oscillatorPhase += wavesetPhaseIncrement(waveset_);
-        bool crossedCycleBoundary = false;
-        bool adoptedNewGroup = false;
-        WavesetReader boundaryFrom;
-        if (waveset_.oscillatorPhase >= 1.0) {
-            boundaryFrom = waveset_;
-            boundaryFrom.oscillatorPhase -= std::floor(
-                boundaryFrom.oscillatorPhase);
-        }
-        while (waveset_.oscillatorPhase >= 1.0) {
-            crossedCycleBoundary = true;
-            waveset_.oscillatorPhase -= 1.0;
-            latchWavesetCycleControls(activeControls);
-            ++waveset_.cycleOffset;
-            if (waveset_.cycleOffset < waveset_.groupSize) continue;
-            waveset_.cycleOffset = 0u;
-            if (++waveset_.repeatIndex < waveset_.repeats) continue;
-            waveset_.repeatIndex = 0u;
-            adoptedNewGroup = advanceWavesetGroup(activeControls, window)
-                || adoptedNewGroup;
-        }
-        if (crossedCycleBoundary) {
-            const bool needsBoundaryOverlap = adoptedNewGroup
-                || (wavesetOverlapRemaining_ == 0u
-                    && wavesetBoundaryNeedsOverlap());
-            if (needsBoundaryOverlap) {
-                wavesetBoundaryOverlapFrom_ = boundaryFrom;
-                wavesetBoundaryOverlapPending_ = true;
-            }
-        }
-        if (crossedCycleBoundary && wavesetControlsPending_
-            && wavesetOverlapRemaining_ == 0u) {
-            // A measured cycle boundary is the guaranteed fallback when a
-            // processed or DC-offset signal never enters the low-level gate.
-            wavesetCommitControlsNextFrame_ = true;
+    void refreshWavesetTelemetry()
+    {
+        const auto& state = wavesetLanes_[wavesetDisplayLane_];
+        waveset_ = state.current;
+        wavesetOverlapFrom_ = state.tail;
+        wavesetOverlapRemaining_ = state.overlapRemaining;
+        wavesetActiveControls_ = state.active;
+        wavesetControlsPending_ = false;
+        for (std::size_t lane = 0u; lane < (stackMode_ ? kStackLanes : 1u); ++lane) {
+            if (stackMode_ && (laneFrames_[lane] == 0u || laneWeights_[lane] <= 1.0e-5f)) continue;
+            if (wavesetLanes_[lane].current.initialized
+                && !sameWavesetControlState(wavesetLanes_[lane].active,
+                    wavesetRequestedControls_)) wavesetControlsPending_ = true;
         }
     }
 
@@ -6312,19 +5993,17 @@ private:
     float glitchDecay_ = 0.9f;
     bool glitchTailActive_ = false;
     bool glitchControlInitialized_ = false;
+    const ThruWavesetBank* wavesetBanks_[kStackLanes] {};
+    WavesetLaneState wavesetLanes_[kStackLanes] {};
+    Controls wavesetBlockControls_ {};
+    std::size_t wavesetDisplayLane_ = 0u;
+    std::uint64_t wavesetGroupBuilds_ = 0u, wavesetOverlapStarts_ = 0u;
+    std::uint64_t wavesetSeamCorrections_ = 0u;
     WavesetReader waveset_ {};
     WavesetReader wavesetOverlapFrom_ {};
-    WavesetReader wavesetBoundaryOverlapFrom_ {};
     WavesetControlState wavesetActiveControls_ {};
     WavesetControlState wavesetRequestedControls_ {};
-    bool wavesetControlsInitialized_ = false;
     bool wavesetControlsPending_ = false;
-    bool wavesetCommitControlsNextFrame_ = false;
-    bool wavesetBoundaryOverlapPending_ = false;
-    float wavesetLastOutput_ = 0.0f;
-    float wavesetLastStereo_[kLaneChannels] {};
-    float wavesetOverlapAnchor_[kLaneChannels] {};
-    bool wavesetLastOutputValid_ = false;
     std::uint32_t randomState_ = 0x51f15e5du;
     float speed_ = 1.0f;
     float speedSlew_ = 1.0f;
@@ -6343,12 +6022,7 @@ private:
     float motionControlSlew_ = 1.0f;
     std::size_t wavesetOverlapFrames_ = 144u;
     std::size_t wavesetMinimumOverlapFrames_ = 32u;
-    std::size_t wavesetOverlapLength_ = 0u;
     std::size_t wavesetOverlapRemaining_ = 0u;
-    float wavesetAnalysisCoefficients_[kWavesetDetailCount] {
-        1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
-    };
-    std::size_t wavesetAnalysisWarmupFrames_[kWavesetDetailCount] {};
     float motionInnerPhase_ = 0.0f;
     float motionOuterPhase_ = 0.5f;
     float motionSoundPhaseIncrement_ = 0.0f;

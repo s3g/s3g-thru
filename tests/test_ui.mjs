@@ -363,6 +363,14 @@ assert(wavesetWrites.some((write) => write[0] === 'rect'
 assert(wavesetWrites.some((write) => write[0] === 'rect'
     && write[2] === 51 && write[3] === 114 && write[4] === 1),
     'Wavesets should draw a group-local cycle rail');
+params.waveset_analysis_state = '1,2,3';
+for (let tick = 0; tick < 3; tick++) globalThis.tick();
+const preparingStart = drawWrites.length;
+globalThis.__testDrawMain();
+assert(drawWrites.slice(preparingStart).some((write) => write[0] === 'print'
+    && String(write[3]).includes('WS PREPARING')));
+params.waveset_analysis_state = '3,0,0';
+for (let tick = 0; tick < 3; tick++) globalThis.tick();
 params.pad_mode = '2';
 for (let tick = 0; tick < 3; tick++) globalThis.tick();
 globalThis.onMidiMessageInternal([0xB0, 49, 127]);

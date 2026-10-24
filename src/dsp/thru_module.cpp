@@ -1,4 +1,5 @@
 #include "sample_motion_app.h"
+#include "thru_waveset_worker.h"
 #include "thru_schwung_abi.h"
 
 #include <algorithm>
@@ -801,6 +802,7 @@ constexpr const char kChainParams[] = R"json([
 {"key":"memory_state","name":"Sampler Memory","type":"string","access":"read"},
 {"key":"playheads","name":"Voice Playheads","type":"string","access":"read","live":true},
 {"key":"waveset_state","name":"Waveset Display State","type":"string","access":"read","live":true},
+{"key":"waveset_analysis_state","name":"Waveset Analysis State","type":"string","access":"read","live":true},
 {"key":"voice_lanes","name":"Voice Stack Positions","type":"string","access":"read","live":true},
 {"key":"voice_pads","name":"Voice Source Pads","type":"string","access":"read","live":true},
 {"key":"voice_notes","name":"Voice Notes","type":"string","access":"read","live":true},
@@ -1601,6 +1603,10 @@ struct AudioRoll {
 
 struct ThruInstance {
     Engine engine;
+    s3g_daisy::ThruWavesetWorker wavesetWorker;
+    std::array<std::uint64_t, kLaneCount> wavesetSourceRevisions {1u,1u,1u,1u};
+    std::atomic<std::uint32_t> wavesetReadyMask {0u}, wavesetPendingMask {0u};
+    std::size_t wavesetNextLane = 0u;
     std::array<PlaybackVoice, kVoiceCount> voices {};
     Engine::Controls controls;
     std::unique_ptr<float[]> storage;
@@ -1871,7 +1877,7 @@ struct ThruInstance {
         pendingClipSourcePaths {};
     std::uint32_t pendingClipSourceMask = 0u;
 
-    ~ThruInstance() { stopSampleWorker(); }
+    ~ThruInstance() { stopSampleWorker(); wavesetWorker.stop(); }
 
     std::array<WaveBins, kLaneCount> waveMinimum {};
     std::array<WaveBins, kLaneCount> waveMaximum {};
@@ -2041,6 +2047,10 @@ struct ThruInstance {
                 }
             }
             voice.engine.stopPlayback();
+        }
+        if (!wavesetWorker.prepare(laneCapacityFrames)) {
+            setError("Unable to start Wavesets analysis worker");
+            return false;
         }
         sampleWorkerReady = startSampleWorker();
         if (!sampleWorkerReady && g_host && g_host->log) {
@@ -3210,6 +3220,7 @@ struct ThruInstance {
     void installRegionMap(std::size_t lane, const RegionMap& map)
     {
         if (lane >= kLaneCount) return;
+        ++wavesetSourceRevisions[lane];
         activeRegions[lane] = map;
         engine.setLaneRegions(lane, map.boundaries.data(),
                               std::max<std::size_t>(1u, map.count));
@@ -5828,6 +5839,7 @@ struct ThruInstance {
             || engine.recording()) return false;
         beginSourceTransitionTail();
         allNotesOff();
+        for (auto& revision : wavesetSourceRevisions) ++revision;
         storage.swap(preparedClipStorage);
         if (!engine.rebindStorage(storage.get() + planeCapacityFrames * 0u,
                                   storage.get() + planeCapacityFrames * 1u,
@@ -6504,6 +6516,64 @@ struct ThruInstance {
         }
     }
 
+    void serviceWavesetAnalysis()
+    {
+        const std::uint32_t available = engine.loadedLaneMask()
+            & ~recordingLaneMask & ~pendingClearMask;
+        using Worker = s3g_daisy::ThruWavesetWorker;
+        auto state = wavesetWorker.state();
+        if (state == Worker::complete) {
+            const auto lane = wavesetWorker.lane();
+            const bool current = (available & (1u << lane)) != 0u
+                && wavesetWorker.revision() == wavesetSourceRevisions[lane];
+            (void)wavesetWorker.accept(current);
+        }
+        // Only block-boundary publication changes pointers. Readers cache
+        // their measured group/endpoints; outgoing transitions own no map.
+        std::uint32_t readyMask = 0u;
+        for (std::size_t lane = 0u; lane < kLaneCount; ++lane) {
+            const auto* bank = wavesetWorker.bank(lane);
+            if ((available & (1u << lane)) == 0u || !bank
+                || bank->revision != wavesetSourceRevisions[lane]) bank = nullptr;
+            engine.setPreparedWavesetBank(lane, bank);
+            if (bank) readyMask |= 1u << lane;
+            for (auto& voice : voices) voice.engine.setPreparedWavesetBank(lane, bank);
+        }
+        wavesetReadyMask.store(readyMask, std::memory_order_release);
+        wavesetPendingMask.store(engine.loadedLaneMask() & ~readyMask,
+            std::memory_order_release);
+        if (state == Worker::complete) {
+            wavesetWorker.releaseResult();
+            state = Worker::idle;
+        }
+        if (state == Worker::copying) {
+            const auto lane = wavesetWorker.lane();
+            if ((available & (1u << lane)) == 0u
+                || wavesetWorker.revision() != wavesetSourceRevisions[lane]) {
+                wavesetWorker.cancelCopy();
+                state = Worker::idle;
+            }
+        }
+        if (state == Worker::idle) {
+            for (std::size_t offset = 0u; offset < kLaneCount; ++offset) {
+                const auto lane = (wavesetNextLane + offset) % kLaneCount;
+                const auto* bank = wavesetWorker.bank(lane);
+                if ((available & (1u << lane)) == 0u
+                    || (bank && bank->revision == wavesetSourceRevisions[lane])) continue;
+                wavesetWorker.begin(lane, wavesetSourceRevisions[lane],
+                    engine.laneFrames(lane), engine.laneSampleRate(lane));
+                wavesetNextLane = (lane + 1u) % kLaneCount;
+                break;
+            }
+        }
+        // 32 KiB maximum stereo copy at 44.1 kHz, independent of polyphony.
+        if (wavesetWorker.state() == Worker::copying) {
+            const auto lane = wavesetWorker.lane();
+            wavesetWorker.copy(engine.laneData(lane, 0u),
+                engine.laneData(lane, 1u), 4096u);
+        }
+    }
+
     void serviceVoiceLaneSync()
     {
         const std::uint32_t desiredMask = engine.loadedLaneMask()
@@ -6825,6 +6895,7 @@ struct ThruInstance {
     void clearWaveform(std::size_t lane)
     {
         if (lane >= kLaneCount) return;
+        ++wavesetSourceRevisions[lane];
         cancelWaveScan(lane);
         waveDirtyMask &= ~(1u << lane);
         waveMinimum[lane].fill(0);
@@ -6944,6 +7015,7 @@ struct ThruInstance {
             servicePadHoldDeadlines();
             serviceClipBeforeBlock();
             serviceVoiceLaneSync();
+            serviceWavesetAnalysis();
             // All voices and the post-engine chain consume one coherent
             // control snapshot for this audio block. Rapid UI/MIDI updates
             // become the next target instead of reaching different voices at
@@ -8713,6 +8785,12 @@ int getParam(void* opaque, const char* key, char* buffer, int bufferLength)
     if (std::strcmp(key, "cue_state") == 0) return instance->formatCueState(buffer, bufferLength);
     if (std::strcmp(key, "playheads") == 0) {
         return instance->formatVoicePositions(buffer, bufferLength, false);
+    }
+    if (std::strcmp(key, "waveset_analysis_state") == 0) {
+        return std::snprintf(buffer, bufferLength, "%u,%u,%d",
+            instance->wavesetReadyMask.load(std::memory_order_acquire),
+            instance->wavesetPendingMask.load(std::memory_order_acquire),
+            static_cast<int>(instance->wavesetWorker.state()));
     }
     if (std::strcmp(key, "waveset_state") == 0) {
         return instance->formatWavesetState(buffer, bufferLength);

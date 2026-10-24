@@ -1,5 +1,6 @@
 #include "thru_schwung_abi.h"
 #include "sample_motion_app.h"
+#include "thru_waveset_worker.h"
 
 #include <algorithm>
 #include <array>
@@ -27,6 +28,7 @@ using ClickEngine = s3g_daisy::SampleMotionApp;
 struct ClickFixture {
     static constexpr std::size_t capacity = 8192u;
     ClickEngine engine;
+    std::array<s3g_daisy::ThruWavesetBank, 4u> wavesetBanks;
     std::array<std::array<float, capacity>, ClickEngine::kChannels> storage {};
     std::array<std::array<float, kFrames>, ClickEngine::kChannels> input {};
     std::array<std::array<float, kFrames>, ClickEngine::kChannels> output {};
@@ -51,6 +53,19 @@ struct ClickFixture {
             storage[2u].data(), storage[3u].data(), capacity));
     }
 
+    void prepareWavesets()
+    {
+        for (std::size_t lane = 0u; lane < 4u; ++lane) {
+            if (engine.stackMode() && !engine.laneLoaded(lane)) continue;
+            if (!engine.stackMode() && lane != 0u) continue;
+            const auto frames = engine.stackMode() ? engine.laneFrames(lane) : capacity;
+            const float* left = engine.stackMode() ? engine.laneData(lane,0u) : storage[0u].data();
+            const float* right = engine.stackMode() ? engine.laneData(lane,1u) : storage[1u].data();
+            wavesetBanks[lane].analyze(left,right,frames,MOVE_SAMPLE_RATE);
+            engine.setPreparedWavesetBank(lane, &wavesetBanks[lane]);
+        }
+    }
+
     void loadRamp(bool stack = false)
     {
         if (stack) {
@@ -65,6 +80,7 @@ struct ClickFixture {
             }
             assert(engine.adoptLane(
                 0u, laneFrames, static_cast<float>(MOVE_SAMPLE_RATE)));
+            prepareWavesets();
             return;
         }
         for (std::size_t channel = 0u; channel < 2u; ++channel) {
@@ -76,6 +92,7 @@ struct ClickFixture {
         }
         assert(engine.adoptSource(
             capacity, 2u, static_cast<float>(MOVE_SAMPLE_RATE)));
+        prepareWavesets();
     }
 
     void loadContrastingStack()
@@ -96,6 +113,7 @@ struct ClickFixture {
             assert(engine.adoptLane(laneIndex, laneFrames,
                 static_cast<float>(MOVE_SAMPLE_RATE)));
         }
+        prepareWavesets();
     }
 
     void loadWavesetStack()
@@ -118,6 +136,7 @@ struct ClickFixture {
             assert(engine.adoptLane(laneIndex, laneFrames,
                 static_cast<float>(MOVE_SAMPLE_RATE)));
         }
+        prepareWavesets();
     }
 
     void loadSine(float cycles = 24.0f)
@@ -133,6 +152,7 @@ struct ClickFixture {
         }
         assert(engine.adoptSource(
             capacity, 2u, static_cast<float>(MOVE_SAMPLE_RATE)));
+        prepareWavesets();
     }
 
     void loadAntiPhaseSine(float cycles = 31.0f)
@@ -147,6 +167,7 @@ struct ClickFixture {
         }
         assert(engine.adoptSource(
             capacity, 2u, static_cast<float>(MOVE_SAMPLE_RATE)));
+        prepareWavesets();
     }
 
     void loadDcOffsetSine()
@@ -163,6 +184,7 @@ struct ClickFixture {
         }
         assert(engine.adoptSource(
             capacity, 2u, static_cast<float>(MOVE_SAMPLE_RATE)));
+        prepareWavesets();
     }
 
     void loadDelayedSine()
@@ -185,6 +207,7 @@ struct ClickFixture {
         }
         assert(engine.adoptSource(
             capacity, 2u, static_cast<float>(MOVE_SAMPLE_RATE)));
+        prepareWavesets();
     }
 
     float renderPeak(const ClickEngine::Controls& controls, int blocks)
@@ -329,6 +352,8 @@ struct ClickFixture {
         return metrics;
     }
 };
+
+#include "test_waveset_prepared.inc"
 
 void testEngineClickMatrix()
 {
@@ -576,9 +601,8 @@ void testEngineClickMatrix()
     }
     {
         // Hardware regression: STRETCH with REPT 1 adopts a fresh measured
-        // group at every group boundary. Even with Stack Hold engaged, every
-        // adoption must enter overlap-add; short groups may restart an active
-        // transition but must never expose the incoming reader directly.
+        // group at every group boundary. Contiguous cycles retain source time
+        // without starting a second reader or treating natural slope as a seam.
         ClickFixture fixture;
         fixture.loadWavesetStack();
         ClickEngine::Controls controls;
@@ -614,7 +638,8 @@ void testEngineClickMatrix()
             previous = sample;
             havePrevious = true;
         }
-        assert(overlapObserved);
+        assert(!overlapObserved);
+        assert(fixture.engine.wavesetOverlapStartCount() == 0u);
         requireSmooth("Wavesets held-stack stretch handoff",
             maximumStep, 0.06f);
     }
@@ -1330,6 +1355,10 @@ std::vector<std::string> directoryFiles(const std::string& directory)
 
 int main()
 {
+    testPreparedWavesetProgression();
+    testPreparedWavesetControlLatency();
+    testPreparedWavesetLaneReaders();
+    testWavesetSnapshotWorker();
     testEngineClickMatrix();
     testWavesetRetiredProcesses();
     testLiveParameterTransitionMatrix();
@@ -2463,8 +2492,16 @@ int main()
     assert(longGrainState.find("\"long_grain_length\":12000.00000")
         != std::string::npos);
 
-    /* Wavesets keeps the desktop engine's crossing-group vocabulary while
-       using bounded, on-demand crossing searches on Move. */
+    /* The background worker publishes every loaded lane once. The voices
+       consume prepared maps rather than performing on-demand searches. */
+    for (int attempt = 0; attempt < 1000
+         && stateField(get(api, instance, "waveset_analysis_state"), 1) != 0;
+         ++attempt) {
+        render(api, instance, 1);
+        usleep(1000);
+    }
+    assert(stateField(get(api, instance, "waveset_analysis_state"), 1) == 0);
+    assert(stateField(get(api, instance, "waveset_analysis_state"), 0) != 0);
     api->set_param(instance, "algorithm", "Wavesets");
     api->set_param(instance, "waveset_group", "16 Cycles");
     api->set_param(instance, "waveset_repeats", "5");

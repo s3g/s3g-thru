@@ -569,6 +569,7 @@ const state = {
     weights: [0, 0, 0, 0],
     playheads: Array(8).fill(-1),
     wavesetVoices: Array(8).fill(null),
+    wavesetAnalysisPending: 0,
     stackPositions: Array(8).fill(-1),
     voicePads: Array(8).fill(-1),
     voiceNotes: Array(8).fill(-1),
@@ -1349,6 +1350,7 @@ function drawWavesetRail(left, width) {
 }
 
 function wavesetStatus(voice) {
+    if (state.wavesetAnalysisPending) return 'WS PREPARING';
     if (!voice) return '';
     const orders = ['>', '<', '<>', 'SH'];
     const order = orders[voice.direction] || '?';
@@ -2407,6 +2409,8 @@ function pollDsp() {
     parseUiState(getParam('ui_state', ''));
     parsePlayheads(getParam('playheads', ''));
     parseWavesetState(getParam('waveset_state', ''));
+    state.wavesetAnalysisPending = Number(String(getParam(
+        'waveset_analysis_state', '0,0,0')).split(',')[1]) || 0;
     parseStackPositions(getParam('voice_lanes', ''));
     parseVoicePads(getParam('voice_pads', ''));
     parseVoiceNotes(getParam('voice_notes', ''));
@@ -2484,6 +2488,8 @@ globalThis.init = function() {
     parseUiState(getParam('ui_state', ''));
     parsePlayheads(getParam('playheads', ''));
     parseWavesetState(getParam('waveset_state', ''));
+    state.wavesetAnalysisPending = Number(String(getParam(
+        'waveset_analysis_state', '0,0,0')).split(',')[1]) || 0;
     parseStackPositions(getParam('voice_lanes', ''));
     parseVoicePads(getParam('voice_pads', ''));
     parseVoiceNotes(getParam('voice_notes', ''));

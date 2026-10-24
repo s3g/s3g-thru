@@ -427,7 +427,7 @@ public:
         float grainDensityHz = 24.0f;
         float grainVoiceLimit = 8.0f;
         float grainPitch = 1.0f;
-        // Per-voice keyboard ratio. Granular source advance remains on speed.
+        // Per-voice keyboard ratio, independent of the SPEED control range.
         float notePitch = 1.0f;
         GrainWindow grainWindow = GrainWindow::bell;
         float grainStereoSpread = 0.0f;
@@ -1408,11 +1408,11 @@ public:
         const auto setPosition = [&](const WavesetReader& reader,
                                      std::size_t index, double phase,
                                      float& groupPosition,
-                                     float& sourcePosition) {
+                                     float& sourcePosition, bool reverse = false) {
             const std::size_t count = std::max<std::size_t>(
                 1u, reader.groupSize);
             index %= count;
-            phase -= std::floor(phase);
+            phase = reverse ? clamp(phase, 0.0, 1.0) : phase - std::floor(phase);
             const WavesetUnit& unit = reader.units[index];
             groupPosition = clamp01(static_cast<float>(
                 (static_cast<double>(index) + phase)
@@ -1476,26 +1476,29 @@ public:
                 case WavesetProcess::multiply:
                     processedPhase = rawPhase
                         * static_cast<double>(reader.processMultiple);
-                    processedWeight = amount;
+                    processedWeight = amount * wavesetCopyWeight(reader, reader.processMultiple);
                     processedCursor = true;
                     break;
                 case WavesetProcess::fractal:
                     processedPhase = rawPhase * 2.0;
-                    processedWeight = amount * 0.5f;
+                    processedWeight = amount * 0.5f * wavesetCopyWeight(reader, 2u);
                     processedCursor = true;
-                    multipleSources = amount > 0.001f;
+                    multipleSources = processedWeight > 0.001f;
                     break;
-                case WavesetProcess::harmonic:
-                    processedPhase = rawPhase * static_cast<double>(
-                        std::max<std::size_t>(2u,
-                            reader.processMultiple));
+                case WavesetProcess::harmonic: {
+                    std::size_t representative = reader.processMultiple;
+                    while (representative > 2u
+                        && wavesetCopyWeight(reader, representative) <= 0.001f)
+                        --representative;
+                    processedPhase = rawPhase * static_cast<double>(representative);
                     // The fundamental remains the strongest member of the
                     // normalized additive result. Show a harmonic as the
                     // secondary representative instead of promoting it.
-                    processedWeight = amount * 0.5f;
+                    processedWeight = amount * 0.5f * wavesetCopyWeight(reader, representative);
                     processedCursor = true;
-                    multipleSources = amount > 0.001f;
+                    multipleSources = processedWeight > 0.001f;
                     break;
+                }
                 case WavesetProcess::groupReverse: {
                     const std::size_t reverse = count - 1u
                         - (reader.cycleOffset % count);
@@ -1525,7 +1528,8 @@ public:
                         processedPhase, group, source);
                 } else {
                     setPosition(reader, processedIndex, processedPhase,
-                        group, source);
+                        group, source, reader.process == WavesetProcess::groupReverse
+                            || reader.process == WavesetProcess::cycleReverse);
                 }
             };
             if (processedDominant) {
@@ -1765,14 +1769,22 @@ private:
         std::uint64_t mapRevision = 0u;
         std::size_t baseUnit = 0u, lowUnit = 0u, highUnit = 0u;
         double windowLow = -1.0, windowHigh = -1.0;
+        double phaseIncrement = 0.0;
+        double availableCycleSpan = 1.0;
+        float endpointJoinFloor = 0.0f;
+    };
+
+    struct WavesetSeam {
+        float offset[2u] {};
+        std::size_t remaining = 0u, length = 0u;
     };
 
     struct WavesetLaneState {
         WavesetReader current {}, tail {};
         WavesetControlState active {};
         std::size_t overlapRemaining = 0u, waitFrames = 0u;
-        std::size_t seamRemaining = 0u, seamLength = 0u;
-        float last[2u] {}, anchor[2u] {}, seam[2u] {};
+        WavesetSeam seam {}, tailSeam {};
+        float last[2u] {}, anchor[2u] {};
         bool atBoundary = false;
     };
     static constexpr std::size_t kNoWavesetUnit = static_cast<std::size_t>(-1);
@@ -1901,6 +1913,7 @@ private:
         glitchControlInitialized_ = false;
         for (auto& state : wavesetLanes_) state = {};
         wavesetDisplayLane_ = 0u;
+        wavesetPitchInitialized_ = false;
         waveset_ = {};
         wavesetOverlapFrom_ = {};
         wavesetActiveControls_ = {};
@@ -5103,6 +5116,8 @@ private:
                     : static_cast<std::size_t>(end - map->begin() - 1u);
             }
         }
+        reader.availableCycleSpan = map && last > first
+            ? (*map)[last].position - (*map)[first].position : high - low;
         reader.sourceFrames = frames;
         reader.sampleRate = stackMode_ ? laneSampleRates_[lane] : sourceSampleRate_;
         reader.mapRevision = bank ? bank->revision : 0u;
@@ -5145,6 +5160,7 @@ private:
                     std::abs(unit.startLevel[ch]), std::abs(unit.endLevel[ch])));
             }
             reader.groupCursor = unit.start;
+            updateWavesetRate(reader);
             return;
         }
         const auto count = last - first;
@@ -5171,6 +5187,7 @@ private:
             first + (base - first + reader.groupSize) % count);
         reader.adjacentUnitValid = true;
         reader.groupCursor = reader.units[0u].start;
+        updateWavesetRate(reader);
     }
 
     std::size_t orderedWavesetIndex(const WavesetReader& reader,
@@ -5201,9 +5218,11 @@ private:
     float wavesetUnitSample(const WavesetReader& reader,
                             std::size_t channel,
                             const WavesetUnit& unit,
-                            double phase, float join) const
+                            double phase, float join, bool periodic = true) const
     {
-        phase -= std::floor(phase);
+        // Reverse reads include the final endpoint. Periodic folding is only
+        // appropriate for repeated copies, never reverse phase 1.0.
+        phase = periodic ? phase - std::floor(phase) : clamp(phase, 0.0, 1.0);
         const double length = std::max(1.0, unit.end - unit.start);
         const double position = unit.start + phase * length;
         const auto read = [&](double at) {
@@ -5214,7 +5233,10 @@ private:
         const float end = unit.endLevel[channel & 1u];
         const float boundary = start + (end - start)
             * static_cast<float>(phase);
-        return raw - boundary * clamp01(join);
+        // If a cycle repeats before a seam correction could finish, match
+        // its endpoints locally. This prevents residual/DC accumulation
+        // instead of clipping an ever-growing correction accumulator.
+        return raw - boundary * std::max(clamp01(join), reader.endpointJoinFloor);
     }
 
     const WavesetUnit& adjacentWavesetUnit(const WavesetReader& reader,
@@ -5225,6 +5247,14 @@ private:
         }
         return reader.adjacentUnitValid
             ? reader.adjacentUnit : reader.units[0u];
+    }
+
+    static float wavesetCopyWeight(const WavesetReader& reader, std::size_t multiple)
+    {
+        // Taper ultrasonic added copies rather than folding them back into
+        // the audible band when keyboard notes rise. No extra readers.
+        const float rate = static_cast<float>(reader.phaseIncrement * multiple);
+        return smoothStep((0.48f - rate) / 0.13f);
     }
 
     float renderWavesetSample(const WavesetReader& reader,
@@ -5269,9 +5299,11 @@ private:
                 return blend(raw * envelope * envelope);
             }
             case WavesetProcess::multiply: {
-                return blend(wavesetUnitSample(reader, channel, unit,
-                    oscillatorPhase
-                        * static_cast<double>(reader.processMultiple), join));
+                const float weight = wavesetCopyWeight(reader, reader.processMultiple);
+                if (weight <= 0.0f) return raw;
+                const float processed = wavesetUnitSample(reader, channel, unit,
+                    oscillatorPhase * static_cast<double>(reader.processMultiple), 1.0f);
+                return raw + (processed - raw) * (amount * weight);
             }
             case WavesetProcess::interpolate: {
                 const WavesetUnit& targetUnit
@@ -5290,11 +5322,12 @@ private:
                 float normalization = 1.0f;
                 for (std::size_t level = 1u; level <= 4u; ++level) {
                     const std::size_t multiple = 1u << level;
-                    const float weight = 1.0f
+                    const float weight = wavesetCopyWeight(reader, multiple)
                         / static_cast<float>(multiple);
+                    if (weight <= 0.0f) continue;
                     sum += wavesetUnitSample(reader, channel, unit,
                         oscillatorPhase
-                            * static_cast<double>(multiple), join)
+                            * static_cast<double>(multiple), 1.0f)
                         * weight;
                     normalization += weight;
                 }
@@ -5306,11 +5339,12 @@ private:
                 float normalization = 1.0f;
                 for (std::size_t harmonic = 2u;
                      harmonic <= highest; ++harmonic) {
-                    const float weight = 1.0f
+                    const float weight = wavesetCopyWeight(reader, harmonic)
                         / static_cast<float>(harmonic);
+                    if (weight <= 0.0f) continue;
                     sum += wavesetUnitSample(reader, channel, unit,
                         oscillatorPhase
-                            * static_cast<double>(harmonic), join) * weight;
+                            * static_cast<double>(harmonic), 1.0f) * weight;
                     normalization += weight;
                 }
                 return blend(sum / normalization);
@@ -5320,11 +5354,11 @@ private:
                     - (cycleOffset % reader.groupSize);
                 return blend(wavesetUnitSample(reader, channel,
                     reader.units[orderedWavesetIndex(reader, reverse)],
-                    1.0 - oscillatorPhase, join));
+                    1.0 - oscillatorPhase, join, false));
             }
             case WavesetProcess::cycleReverse:
                 return blend(wavesetUnitSample(reader, channel, unit,
-                    1.0 - oscillatorPhase, join));
+                    1.0 - oscillatorPhase, join, false));
             case WavesetProcess::repeat:
                 return raw;
         }
@@ -5358,9 +5392,32 @@ private:
                 1.0, target.end - target.start);
             length += (targetLength - length) * amount;
         }
-        return static_cast<double>(reader.sampleRate)
+        const double requested = static_cast<double>(reader.sampleRate)
             / static_cast<double>(outputSampleRate_)
-            * static_cast<double>(speed_) / length;
+            * static_cast<double>(speed_) * wavesetNotePitch_ / length;
+        // A physical near-Nyquist ceiling also bounds cycle advancement to
+        // at most one boundary per output sample, even at extreme MIDI notes.
+        return std::min(0.45, requested);
+    }
+
+    double updateWavesetRate(WavesetReader& reader) const
+    {
+        reader.phaseIncrement = wavesetPhaseIncrement(reader);
+        // Contiguous cycles already meet. Preserve them unless the complete
+        // source window loops so quickly that its wrap correction would pile up.
+        const double sourceRate = static_cast<double>(reader.sampleRate)
+            / outputSampleRate_ * speed_ * wavesetNotePitch_;
+        const bool contiguous = reader.direction == WavesetDirection::forward
+            && (reader.process == WavesetProcess::repeat || reader.processAmount <= 0.0f)
+            && reader.repeats == 1u && reader.stride == 1u
+            && reader.advance != WavesetAdvance::hold
+            && reader.availableCycleSpan / std::max(1.0e-12, sourceRate)
+                >= 2.0 * wavesetMinimumOverlapFrames_;
+        const double duration = 1.0 / std::max(1.0e-12, reader.phaseIncrement);
+        reader.endpointJoinFloor = contiguous ? 0.0f : smoothStep(static_cast<float>(clamp(
+            (2.0 * wavesetMinimumOverlapFrames_ - duration)
+                / std::max(1.0, static_cast<double>(wavesetMinimumOverlapFrames_)), 0.0, 1.0)));
+        return reader.phaseIncrement;
     }
 
     void renderWavesetStereo(const WavesetReader& reader,
@@ -5383,18 +5440,24 @@ private:
     }
 
     void advanceWavesetTransitionReader(WavesetReader& reader,
-                                                double increment)
+                                        WavesetSeam& seam, double increment)
     {
         reader.oscillatorPhase += increment;
         while (reader.oscillatorPhase >= 1.0 - 1.0e-12) {
             const double excessTime = std::max(0.0, reader.oscillatorPhase - 1.0)
                 / std::max(1.0e-12, increment);
+            float endpoint[2u] {};
+            for (std::size_t ch = 0u; ch < 2u; ++ch)
+                endpoint[ch] = renderWavesetSample(reader, ch,
+                    reader.fallback ? 1.0f : reader.join, reader.cycleOffset,
+                    reader.repeatIndex, 1.0 - 1.0e-10);
             if (++reader.cycleOffset >= reader.groupSize) {
                 reader.cycleOffset = 0u;
                 if (++reader.repeatIndex >= reader.repeats) reader.repeatIndex = 0u;
             }
             reader.oscillatorPhase = 0.0;
-            increment = wavesetPhaseIncrement(reader);
+            increment = updateWavesetRate(reader);
+            correctWavesetBoundary(reader, seam, endpoint);
             reader.oscillatorPhase = excessTime * increment;
         }
     }
@@ -5410,19 +5473,39 @@ private:
     {
         if (!previous.initialized || state.overlapRemaining != 0u) return;
         state.tail = previous;
+        state.tailSeam = state.seam;
+        state.seam = {};
+        updateWavesetRate(state.tail);
         state.overlapRemaining = wavesetOverlapFrames_;
         float old[2u] {};
         renderWavesetStereo(state.tail, old);
         for (std::size_t ch = 0u; ch < 2u; ++ch)
-            state.anchor[ch] = state.last[ch] - old[ch];
+            state.anchor[ch] = state.last[ch] - old[ch]
+                - wavesetSeamValue(state.tailSeam, ch);
         ++wavesetOverlapStarts_;
+    }
+
+    static float wavesetSeamValue(const WavesetSeam& seam, std::size_t channel)
+    {
+        if (seam.remaining == 0u || seam.length == 0u) return 0.0f;
+        return seam.offset[channel] * smoothStep(static_cast<float>(seam.remaining)
+            / static_cast<float>(seam.length));
+    }
+
+    static void applyWavesetSeam(WavesetSeam& seam, float* stereo)
+    {
+        for (std::size_t ch = 0u; ch < 2u; ++ch)
+            stereo[ch] += wavesetSeamValue(seam, ch);
+        if (seam.remaining != 0u) --seam.remaining;
     }
 
     void applyWavesetOverlap(WavesetLaneState& state, float* stereo)
     {
         if (state.overlapRemaining == 0u) return;
+        updateWavesetRate(state.tail);
         float old[2u] {};
         renderWavesetStereo(state.tail, old);
+        applyWavesetSeam(state.tailSeam, old);
         const float progress = 1.0f
             - static_cast<float>(state.overlapRemaining - 1u)
                 / static_cast<float>(wavesetOverlapFrames_ - 1u);
@@ -5432,8 +5515,11 @@ private:
         for (std::size_t ch = 0u; ch < 2u; ++ch)
             stereo[ch] = (old[ch] + state.anchor[ch] * anchorGain) * (1.0f - gain)
                 + stereo[ch] * gain;
-        advanceWavesetTransitionReader(state.tail, wavesetPhaseIncrement(state.tail));
-        if (--state.overlapRemaining == 0u) state.tail = {};
+        advanceWavesetTransitionReader(state.tail, state.tailSeam, state.tail.phaseIncrement);
+        if (--state.overlapRemaining == 0u) {
+            state.tail = {};
+            state.tailSeam = {};
+        }
     }
 
     void advancePreparedWavesetGroup(WavesetLaneState& state,
@@ -5457,27 +5543,24 @@ private:
     // output samples (which mistakes the natural waveform slope for a click).
     // A short residual correction handles unavoidable discontinuous orders;
     // contiguous unprocessed source cycles have no correction or dual read.
-    void correctWavesetBoundary(WavesetLaneState& state, const float* outgoing)
+    void correctWavesetBoundary(const WavesetReader& reader, WavesetSeam& seam,
+                                 const float* outgoing)
     {
         float incoming[2u] {};
-        auto& reader = state.current;
         for (std::size_t ch = 0u; ch < 2u; ++ch) {
             incoming[ch] = renderWavesetSample(reader, ch,
                 reader.fallback ? 1.0f : reader.join, reader.cycleOffset,
                 reader.repeatIndex, 0.0);
         }
-        const float remaining = state.seamLength != 0u
-            ? smoothStep(static_cast<float>(state.seamRemaining) / state.seamLength) : 0.0f;
-        bool seam = false;
+        bool discontinuity = false;
         for (std::size_t ch = 0u; ch < 2u; ++ch) {
             const float delta = outgoing[ch] - incoming[ch];
-            seam = seam || std::abs(delta) > 1.0e-5f;
+            discontinuity = discontinuity || std::abs(delta) > 1.0e-5f;
         }
-        if (!seam) return;
+        if (!discontinuity) return;
         for (std::size_t ch = 0u; ch < 2u; ++ch)
-            state.seam[ch] = clamp(state.seam[ch] * remaining
-                + outgoing[ch] - incoming[ch], -2.0f, 2.0f);
-        state.seamLength = state.seamRemaining = wavesetMinimumOverlapFrames_;
+            seam.offset[ch] = wavesetSeamValue(seam, ch) + outgoing[ch] - incoming[ch];
+        seam.length = seam.remaining = wavesetMinimumOverlapFrames_;
         ++wavesetSeamCorrections_;
     }
 
@@ -5508,24 +5591,19 @@ private:
                 const double cursor = reader.units[index].start;
                 state.active = requested;
                 buildPreparedWavesetGroup(reader, requested, window, lane, cursor);
-                state.seamRemaining = 0u;
                 beginWavesetOverlap(state, previous);
                 state.waitFrames = 0u;
             }
         } else state.waitFrames = 0u;
         state.atBoundary = false;
+        updateWavesetRate(reader);
         renderWavesetStereo(reader, stereo);
-        if (state.seamRemaining != 0u) {
-            const float gain = smoothStep(static_cast<float>(state.seamRemaining)
-                / static_cast<float>(state.seamLength));
-            for (std::size_t ch = 0u; ch < 2u; ++ch) stereo[ch] += state.seam[ch] * gain;
-            --state.seamRemaining;
-        }
+        applyWavesetSeam(state.seam, stereo);
         applyWavesetOverlap(state, stereo);
         state.last[0u] = stereo[0u];
         state.last[1u] = stereo[1u];
 
-        double increment = wavesetPhaseIncrement(reader);
+        double increment = reader.phaseIncrement;
         reader.oscillatorPhase += increment;
         while (reader.oscillatorPhase >= 1.0 - 1.0e-12) {
             const double excessTime = std::max(0.0, reader.oscillatorPhase - 1.0)
@@ -5544,14 +5622,19 @@ private:
                     advancePreparedWavesetGroup(state, window, lane);
                 }
             }
-            correctWavesetBoundary(state, endpoint);
-            increment = wavesetPhaseIncrement(reader);
+            increment = updateWavesetRate(reader);
+            correctWavesetBoundary(reader, state.seam, endpoint);
             reader.oscillatorPhase = excessTime * increment;
         }
     }
 
     void renderWavesetsFrame(const Controls&, float* wet)
     {
+        const float notePitch = clamp(wavesetBlockControls_.notePitch, 0.001f, 512.0f);
+        if (!wavesetPitchInitialized_) {
+            wavesetNotePitch_ = notePitch;
+            wavesetPitchInitialized_ = true;
+        } else wavesetNotePitch_ += (notePitch - wavesetNotePitch_) * speedSlew_;
         const Window window = smoothEventWindow(wavesetBlockControls_);
         fieldLow_ = window.low;
         fieldHigh_ = window.high;
@@ -5996,6 +6079,8 @@ private:
     const ThruWavesetBank* wavesetBanks_[kStackLanes] {};
     WavesetLaneState wavesetLanes_[kStackLanes] {};
     Controls wavesetBlockControls_ {};
+    float wavesetNotePitch_ = 1.0f;
+    bool wavesetPitchInitialized_ = false;
     std::size_t wavesetDisplayLane_ = 0u;
     std::uint64_t wavesetGroupBuilds_ = 0u, wavesetOverlapStarts_ = 0u;
     std::uint64_t wavesetSeamCorrections_ = 0u;

@@ -3764,6 +3764,15 @@ struct ThruInstance {
                                 std::max(0.0f,
                                     envelopeControls.ampDecayMs)
                                 * sampleRate / 1000.0f));
+                        // A zero/very short decay must not drop from the
+                        // attack peak to Sustain in one sample. Keep a 1 ms
+                        // safety ramp only when there is a level difference.
+                        if (std::abs(1.0f - sustain) > 1.0e-6f) {
+                            voice.envelopeStageDuration = std::max(
+                                voice.envelopeStageDuration,
+                                static_cast<std::uint32_t>(std::max(1.0f,
+                                    sampleRate * 0.001f)));
+                        }
                         voice.envelopeDurationSet = true;
                     }
                     const std::uint32_t duration
@@ -4941,9 +4950,10 @@ struct ThruInstance {
             ? std::pow(2.0f, static_cast<float>(voice.note - rootNote) / 12.0f)
             : 1.0f;
         if (effective.algorithm == Engine::PlaybackAlgorithm::grains
-            || effective.algorithm == Engine::PlaybackAlgorithm::longGrains) {
-            // Granular note pitch transposes each event. SPEED remains an
-            // independent source-position scan rate in both engines.
+            || effective.algorithm == Engine::PlaybackAlgorithm::longGrains
+            || effective.algorithm == Engine::PlaybackAlgorithm::wavesets) {
+            // Keep keyboard transposition separate from SPEED's 4x control
+            // ceiling. Wavesets applies both in its bounded cycle clock.
             effective.notePitch = clampValue(noteRatio, 0.001f, 512.0f);
         } else if (effective.algorithm == Engine::PlaybackAlgorithm::cutups) {
             // Cut clock remains tempo/free-rate driven while the note retunes

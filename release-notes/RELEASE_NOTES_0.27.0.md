@@ -23,6 +23,10 @@ playback fuller, smoother, and more dependable across all nine engines.
   Prepared per-lane cycle maps are shared by all eight notes. Background
   analysis uses bounded source snapshots; the audio callback never scans for
   crossings. Quiet or unanalyzed material retains a temporary playable fragment.
+- Separates Wavesets keyboard pitch from the Speed control ceiling. Keys
+  transpose cycles across octaves even at Speed 4×; extremely high cycle rates
+  remain bounded below Nyquist. Near-ultrasonic added copies taper to reduce
+  foldback.
 - Adds a Wavesets-specific group rail and source-accurate cursor telemetry.
   Reverse, Pendulum, and Shuffle are visible as slot movement; backward
   processes, multi-source processes, pending Order changes, and overlap-add
@@ -68,6 +72,12 @@ playback fuller, smoother, and more dependable across all nine engines.
   different lengths. Natural contiguous playback no longer starts unnecessary
   overlap readers. Independent neighboring-lane readers crossfade their stereo
   outputs while retaining stable crossing maps and per-note stack paths.
+- Fixes reverse-cycle endpoint spikes and internal repeated-copy seams at low
+  Join. Outgoing parameter-transition readers keep their own stereo boundary
+  protection. Very short rearranged cycles automatically match endpoints to
+  prevent correction buildup; contiguous raw stereo playback stays intact.
+- Retains a 1 ms amplitude decay ramp when a zero/very short Decay would jump
+  directly from the attack peak to a lower Sustain level.
 - Adds regression sweeps for shared Sample controls, Motion, Lanes, engine
   switching, Wavesets process/order combinations, effects, retriggering, and
   voice stealing. Intentional Bits, Rate-reduction, and Glitch edges remain

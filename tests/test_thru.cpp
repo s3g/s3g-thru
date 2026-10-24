@@ -1351,11 +1351,78 @@ std::vector<std::string> directoryFiles(const std::string& directory)
     return files;
 }
 
+void testWavesetMidiPitch(plugin_api_v2_t* api)
+{
+    const std::string directory = "/tmp/s3g-thru-midi-pitch-"
+        + std::to_string(static_cast<long>(getpid()));
+    const std::string library = directory + "/library";
+    assert(mkdir(directory.c_str(), 0700) == 0);
+    assert(mkdir(library.c_str(), 0700) == 0);
+    const std::string path = library + "/tone.wav";
+    writePcm16Wav(path, MOVE_SAMPLE_RATE, false, true);
+    void* instance = api->create_instance(directory.c_str(), nullptr);
+    assert(instance);
+    api->set_param(instance, "algorithm", "Wavesets");
+    api->set_param(instance, "root_note", "60");
+    api->set_param(instance, "speed", "4");
+    api->set_param(instance, "lane_path", "Manual");
+    api->set_param(instance, "manual_lane", "1");
+    api->set_param(instance, "waveset_group", "1 Cycle");
+    api->set_param(instance, "waveset_repeats", "1");
+    api->set_param(instance, "waveset_advance", "Hold");
+    api->set_param(instance, "waveset_process", "Repeat");
+    const std::string command = "1," + path;
+    api->set_param(instance, "load_lane_file", command.c_str());
+    for (int attempt = 0; attempt < 1000; ++attempt) {
+        render(api, instance, 1);
+        usleep(1000);
+        if (stateField(get(api, instance, "sample_load_state"), 0) == 6
+            && stateField(get(api, instance, "waveset_analysis_state"), 1) == 0
+            && (stateField(get(api, instance, "waveset_analysis_state"), 0) & 1)) break;
+    }
+    if (!(stateField(get(api, instance, "waveset_analysis_state"), 0) & 1))
+        std::fprintf(stderr, "Pitch fixture load %s analysis %s error %s\n",
+            get(api, instance, "sample_load_state").c_str(),
+            get(api, instance, "waveset_analysis_state").c_str(),
+            get(api, instance, "last_error").c_str());
+    assert(stateField(get(api, instance, "waveset_analysis_state"), 0) & 1);
+    for (int note : {48, 60, 72, 84}) {
+        midi(api, instance, 0x90, note, 100, MOVE_MIDI_SOURCE_EXTERNAL);
+        render(api, instance, 160);
+        int previous = output[(kFrames - 1) * 2];
+        unsigned crossings = 0u;
+        for (int block = 0; block < 32; ++block) {
+            render(api, instance, 1);
+            for (int frame = 0; frame < kFrames; ++frame) {
+                const int value = output[frame * 2];
+                if (previous < 0 && value >= 0) ++crossings;
+                previous = value;
+            }
+        }
+        const float expected = 32.0f * kFrames / 128.0f * 4.0f
+            * std::pow(2.0f, (note - 60) / 12.0f);
+        assert(std::abs(static_cast<float>(crossings) - expected) <= 2.0f);
+        midi(api, instance, 0x80, note, 0, MOVE_MIDI_SOURCE_EXTERNAL);
+        render(api, instance, 80);
+    }
+    api->destroy_instance(instance);
+    for (const auto& folder : {library, directory + "/captures", directory}) {
+        for (const auto& file : directoryFiles(folder))
+            assert(std::remove(file.c_str()) == 0);
+        assert(std::remove(folder.c_str()) == 0);
+    }
+}
+
 } // namespace
 
 int main()
 {
     testPreparedWavesetProgression();
+    testWavesetStereoSeams();
+    testWavesetOutgoingSeams();
+    testWavesetShortCycleSafety();
+    testWavesetShortWindowSafety();
+    testWavesetKeyboardPitch();
     testPreparedWavesetControlLatency();
     testPreparedWavesetLaneReaders();
     testWavesetSnapshotWorker();
@@ -1373,6 +1440,7 @@ int main()
     assert(api != nullptr);
     assert(api->api_version == MOVE_PLUGIN_API_VERSION_2);
     assert(api->get_error != nullptr);
+    testWavesetMidiPitch(api);
     const std::string persistenceDir = "/tmp/s3g-thru-persistence-"
         + std::to_string(static_cast<long>(getpid()));
     assert(mkdir(persistenceDir.c_str(), 0700) == 0);
@@ -2354,8 +2422,27 @@ int main()
     assert(peak() > 0);
     render(api, instance, 100);
     assert(peak() == 0);
+    // Even with Decay 0, falling from the attack peak to a low Sustain
+    // must use a short ramp rather than an audible one-sample gain step.
     api->set_param(instance, "amp_attack", "3");
     api->set_param(instance, "amp_decay", "0");
+    api->set_param(instance, "amp_sustain", "20");
+    midi(api, instance, 0x90, 60, 100);
+    int envelopePrevious = 0, envelopeMaximumStep = 0, envelopePeak = 0;
+    for (int block = 0; block < 8; ++block) {
+        render(api, instance, 1);
+        for (int frame = 0; frame < kFrames; ++frame) {
+            const int sample = output[frame * 2];
+            envelopeMaximumStep = std::max(envelopeMaximumStep,
+                std::abs(sample - envelopePrevious));
+            envelopePeak = std::max(envelopePeak, std::abs(sample));
+            envelopePrevious = sample;
+        }
+    }
+    assert(envelopePeak > 1000);
+    assert(envelopeMaximumStep < envelopePeak / 8);
+    midi(api, instance, 0x80, 60, 0);
+    render(api, instance, 100);
     api->set_param(instance, "amp_sustain", "100");
     api->set_param(instance, "amp_release", "25");
 

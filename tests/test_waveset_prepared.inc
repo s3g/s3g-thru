@@ -1,3 +1,185 @@
+// Different channel periods expose seams hidden by mono zero crossings.
+void loadWavesetStereoSeamFixture(ClickFixture& fixture, unsigned period)
+{
+    for (std::size_t frame = 0u; frame < ClickFixture::capacity; ++frame) {
+        fixture.storage[0u][frame] = 0.6f * static_cast<float>(std::sin(
+            6.283185307179586 * (frame % period) / period));
+        fixture.storage[1u][frame] = 0.75f * static_cast<float>(std::cos(
+            6.283185307179586 * frame / (period * 4u)));
+    }
+    assert(fixture.engine.adoptSource(ClickFixture::capacity, 2u, MOVE_SAMPLE_RATE));
+    fixture.prepareWavesets();
+}
+
+void testWavesetStereoSeams()
+{
+    using Process = ClickEngine::WavesetProcess;
+    for (auto process : {Process::repeat, Process::omit, Process::replace,
+            Process::envelope, Process::multiply, Process::interpolate,
+            Process::fractal, Process::harmonic, Process::groupReverse,
+            Process::cycleReverse}) {
+        for (float join : {0.0f, 0.5f, 1.0f}) {
+            ClickFixture fixture;
+            loadWavesetStereoSeamFixture(fixture, 64u);
+            ClickEngine::Controls control;
+            control.algorithm = ClickEngine::PlaybackAlgorithm::wavesets;
+            control.wavesetGroup = control.wavesetRepeats = 1.0f;
+            control.wavesetAdvance = ClickEngine::WavesetAdvance::hold;
+            control.wavesetProcess = process;
+            control.wavesetProcessAmount = 1.0f;
+            control.join = join;
+            fixture.renderPeak(control, 64);
+            float previous = fixture.output[1u][kFrames - 1u];
+            float maximum = 0.0f;
+            for (unsigned frame = 0u; frame < 4096u; ++frame) {
+                fixture.engine.process(fixture.inputPointers.data(),
+                    fixture.outputPointers.data(), 1u, control);
+                const float value = fixture.output[1u][0u];
+                assert(std::isfinite(value));
+                maximum = std::max(maximum, std::abs(value - previous));
+                previous = value;
+            }
+            if (maximum >= 0.14f)
+                std::fprintf(stderr, "Stereo seam process %u Join %.1f step %.6f\n",
+                    static_cast<unsigned>(process), join, maximum);
+            assert(maximum < 0.14f);
+        }
+    }
+}
+
+void testWavesetOutgoingSeams()
+{
+    for (unsigned offset : {0u, 13u, 31u, 63u}) {
+        ClickFixture fixture;
+        loadWavesetStereoSeamFixture(fixture, 64u);
+        ClickEngine::Controls control;
+        control.algorithm = ClickEngine::PlaybackAlgorithm::wavesets;
+        control.wavesetGroup = control.wavesetRepeats = 1.0f;
+        control.wavesetAdvance = ClickEngine::WavesetAdvance::hold;
+        control.join = 0.0f;
+        fixture.renderPeak(control, 64);
+        for (unsigned frame = 0u; frame < offset; ++frame)
+            fixture.engine.process(fixture.inputPointers.data(),
+                fixture.outputPointers.data(), 1u, control);
+        float previous = offset ? fixture.output[1u][0u]
+            : fixture.output[1u][kFrames - 1u];
+        float maximum = 0.0f;
+        const auto starts = fixture.engine.wavesetOverlapStartCount();
+        for (unsigned frame = 0u; frame < 2400u; ++frame) {
+            // Both directions include the audible outgoing reader, including
+            // when it already owns a decaying boundary correction.
+            control.join = (frame / 400u) % 2u ? 0.0f : 1.0f;
+            fixture.engine.process(fixture.inputPointers.data(),
+                fixture.outputPointers.data(), 1u, control);
+            const float value = fixture.output[1u][0u];
+            maximum = std::max(maximum, std::abs(value - previous));
+            previous = value;
+        }
+        assert(fixture.engine.wavesetOverlapStartCount() == starts + 6u);
+        assert(maximum < 0.14f);
+    }
+}
+
+void testWavesetShortCycleSafety()
+{
+    ClickFixture fixture;
+    loadWavesetStereoSeamFixture(fixture, 16u);
+    ClickEngine::Controls control;
+    control.algorithm = ClickEngine::PlaybackAlgorithm::wavesets;
+    control.wavesetGroup = control.wavesetRepeats = 1.0f;
+    control.wavesetAdvance = ClickEngine::WavesetAdvance::hold;
+    control.speed = 4.0f;
+    control.join = 0.0f;
+    fixture.renderPeak(control, 128);
+    float leftPeak = 0.0f, rightPeak = 0.0f;
+    double rightSum = 0.0;
+    for (unsigned frame = 0u; frame < 4096u; ++frame) {
+        fixture.engine.process(fixture.inputPointers.data(),
+            fixture.outputPointers.data(), 1u, control);
+        leftPeak = std::max(leftPeak, std::abs(fixture.output[0u][0u]));
+        rightPeak = std::max(rightPeak, std::abs(fixture.output[1u][0u]));
+        rightSum += fixture.output[1u][0u];
+    }
+    assert(leftPeak > 0.3f);
+    assert(rightPeak < 0.4f);
+    assert(std::abs(rightSum / 4096.0) < 0.2);
+
+    // Contiguous raw playback must preserve even a slow right channel when
+    // a fast left channel supplies the crossing map. It needs no detrending.
+    control.speed = 1.0f;
+    control.wavesetGroup = 8.0f;
+    control.wavesetAdvance = ClickEngine::WavesetAdvance::stretch;
+    fixture.engine.retrigger(false);
+    double previous = 0.0;
+    for (unsigned frame = 0u; frame < 5000u; ++frame) {
+        fixture.engine.process(fixture.inputPointers.data(),
+            fixture.outputPointers.data(), 1u, control);
+        if (frame > 3500u) {
+            const float expected = s3g_daisy::ThruWavesetBank::read(
+                fixture.storage[1u].data(), ClickFixture::capacity, previous);
+            assert(std::abs(expected - fixture.output[1u][0u]) < 0.001f);
+        }
+        previous = fixture.engine.wavesetLanePosition(0u) * ClickFixture::capacity;
+    }
+}
+
+void testWavesetShortWindowSafety()
+{
+    // A tiny Field repeatedly wraps the complete source window, even with
+    // Forward/Repeat 1/Stride 1. It must not count as continuous source audio.
+    for (float span : {17.0f, 33.0f, 65.0f}) {
+        ClickFixture fixture;
+        loadWavesetStereoSeamFixture(fixture, 16u);
+        ClickEngine::Controls control;
+        control.algorithm = ClickEngine::PlaybackAlgorithm::wavesets;
+        control.wavesetGroup = control.wavesetRepeats = 1.0f;
+        control.wavesetAdvance = ClickEngine::WavesetAdvance::stretch;
+        control.speed = 4.0f;
+        control.join = 0.0f;
+        control.locus = 0.0f;
+        control.field = span / ClickFixture::capacity;
+        fixture.renderPeak(control, 160);
+        float peak = 0.0f;
+        double sum = 0.0;
+        for (unsigned frame = 0u; frame < 4096u; ++frame) {
+            fixture.engine.process(fixture.inputPointers.data(),
+                fixture.outputPointers.data(), 1u, control);
+            const float value = fixture.output[1u][0u];
+            assert(std::isfinite(value));
+            peak = std::max(peak, std::abs(value));
+            sum += value;
+        }
+        assert(peak < 0.4f);
+        assert(std::abs(sum / 4096.0) < 0.2);
+    }
+}
+
+void testWavesetKeyboardPitch()
+{
+    for (float pitch : {0.5f, 1.0f, 2.0f, 4.0f, 8.0f}) {
+        ClickFixture fixture;
+        loadWavesetStereoSeamFixture(fixture, 64u);
+        ClickEngine::Controls control;
+        control.algorithm = ClickEngine::PlaybackAlgorithm::wavesets;
+        control.wavesetGroup = control.wavesetRepeats = 1.0f;
+        control.wavesetAdvance = ClickEngine::WavesetAdvance::hold;
+        control.speed = 4.0f;
+        control.notePitch = pitch;
+        fixture.renderPeak(control, 160);
+        float previous = fixture.output[0u][kFrames - 1u];
+        unsigned crossings = 0u;
+        for (unsigned frame = 0u; frame < 4096u; ++frame) {
+            fixture.engine.process(fixture.inputPointers.data(),
+                fixture.outputPointers.data(), 1u, control);
+            const float value = fixture.output[0u][0u];
+            if (previous < 0.0f && value >= 0.0f) ++crossings;
+            previous = value;
+        }
+        const float expected = 4096.0f * std::min(0.45f, 4.0f * pitch / 64.0f);
+        assert(std::abs(static_cast<float>(crossings) - expected) <= 2.0f);
+    }
+}
+
 // Real-time architecture regressions, independent of subjective click limits.
 void testPreparedWavesetProgression()
 {

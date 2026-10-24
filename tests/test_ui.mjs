@@ -160,6 +160,7 @@ globalThis.__testCompactControlValue = compactControlValue;
 globalThis.__testPadMidiNote = padMidiNote;
 globalThis.__testStereoRotaryPage = STEREO_ROTARY_PAGE.keys;
 globalThis.__testTapePage = TAPE_PAGE.keys;
+globalThis.__testWavesetProcess = PARAMS.waveset_process;
 `;
 await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
 
@@ -238,6 +239,11 @@ assert.equal(globalThis.__testCompactControlValue({
     key: 'effect_tape_inertia', value: 32,
 }), '203m');
 assert(globalThis.__testLockableParams.includes('long_grain_length'));
+assert.deepEqual(globalThis.__testWavesetProcess.labels, [
+    'REPEAT', 'OMIT', 'REPLACE', 'ENVELOPE', 'MULTIPLY', 'INTERPOLATE',
+    'FRACTAL', 'HARMONIC', 'GROUP REV', 'CYCLE REV',
+]);
+assert.equal(globalThis.__testWavesetProcess.max, 9);
 for (const key of ['waveset_group', 'waveset_repeats', 'waveset_stride',
     'waveset_advance', 'waveset_direction', 'waveset_process',
     'waveset_amount', 'waveset_detail']) {

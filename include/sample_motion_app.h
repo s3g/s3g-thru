@@ -291,21 +291,47 @@ public:
     static constexpr std::size_t kWavesetDirectionCount = 4u;
 
     enum class WavesetProcess : std::uint8_t {
-        repeat,
-        omit,
-        replace,
-        envelope,
-        multiply,
-        average,
-        interpolate,
-        fractal,
-        harmonic,
-        groupReverse,
-        cycleReverse,
-        telescope,
+        repeat = 0u,
+        omit = 1u,
+        replace = 2u,
+        envelope = 3u,
+        multiply = 4u,
+        // IDs 5 (Average) and 11 (Telescope) are retired. Keep the surviving
+        // IDs stable in saved controls and recorded performance gestures.
+        interpolate = 6u,
+        fractal = 7u,
+        harmonic = 8u,
+        groupReverse = 9u,
+        cycleReverse = 10u,
     };
 
-    static constexpr std::size_t kWavesetProcessCount = 12u;
+    static constexpr std::size_t kWavesetProcessCount = 10u;
+    static constexpr WavesetProcess kWavesetProcesses[kWavesetProcessCount] {
+        WavesetProcess::repeat, WavesetProcess::omit,
+        WavesetProcess::replace, WavesetProcess::envelope,
+        WavesetProcess::multiply, WavesetProcess::interpolate,
+        WavesetProcess::fractal, WavesetProcess::harmonic,
+        WavesetProcess::groupReverse, WavesetProcess::cycleReverse,
+    };
+
+    static constexpr std::size_t wavesetProcessIndex(WavesetProcess process)
+    {
+        for (std::size_t index = 0u; index < kWavesetProcessCount; ++index) {
+            if (kWavesetProcesses[index] == process) return index;
+        }
+        return 0u;
+    }
+
+    static constexpr WavesetProcess wavesetProcessAt(std::size_t index)
+    {
+        return index < kWavesetProcessCount
+            ? kWavesetProcesses[index] : WavesetProcess::repeat;
+    }
+
+    static constexpr WavesetProcess sanitizeWavesetProcess(WavesetProcess process)
+    {
+        return wavesetProcessAt(wavesetProcessIndex(process));
+    }
 
     enum class WavesetDetail : std::uint8_t {
         raw,
@@ -1465,10 +1491,6 @@ public:
                     processedPhase = 1.0 - rawPhase;
                     processedWeight = amount;
                     processedCursor = true;
-                    break;
-                case WavesetProcess::average:
-                case WavesetProcess::telescope:
-                    multipleSources = amount > 0.001f;
                     break;
                 case WavesetProcess::repeat:
                 case WavesetProcess::omit:
@@ -4950,7 +4972,7 @@ private:
             std::round(controls.wavesetStride), 1.0f, 16.0f));
         result.advance = controls.wavesetAdvance;
         result.direction = controls.wavesetDirection;
-        result.process = controls.wavesetProcess;
+        result.process = sanitizeWavesetProcess(controls.wavesetProcess);
         result.detail = controls.wavesetDetail;
         result.processAmount = clamp01(controls.wavesetProcessAmount);
         result.join = clamp01(controls.join);
@@ -5398,20 +5420,6 @@ private:
         return raw - boundary * clamp01(join);
     }
 
-    float wavesetAverageSample(const WavesetReader& reader,
-                               std::size_t channel, double phase,
-                               float join) const
-    {
-        const std::size_t count = reader.groupSize;
-        float sum = 0.0f;
-        for (std::size_t index = 0u; index < count; ++index) {
-            sum += wavesetUnitSample(reader, channel,
-                reader.units[orderedWavesetIndex(reader, index)],
-                phase, join);
-        }
-        return sum / static_cast<float>(std::max<std::size_t>(1u, count));
-    }
-
     const WavesetUnit& adjacentWavesetUnit(const WavesetReader& reader,
                                            std::size_t sourceIndex) const
     {
@@ -5434,6 +5442,7 @@ private:
         const float raw = wavesetUnitSample(reader, channel, unit,
             oscillatorPhase, join);
         const float amount = clamp01(reader.processAmount);
+        if (amount <= 0.0f) return raw;
         const auto blend = [raw, amount](float processed) {
             return raw + (processed - raw) * amount;
         };
@@ -5467,9 +5476,6 @@ private:
                     oscillatorPhase
                         * static_cast<double>(reader.processMultiple), join));
             }
-            case WavesetProcess::average:
-                return blend(wavesetAverageSample(reader, channel,
-                    oscillatorPhase, join));
             case WavesetProcess::interpolate: {
                 const WavesetUnit& targetUnit
                     = adjacentWavesetUnit(reader, index);
@@ -5522,18 +5528,6 @@ private:
             case WavesetProcess::cycleReverse:
                 return blend(wavesetUnitSample(reader, channel, unit,
                     1.0 - oscillatorPhase, join));
-            case WavesetProcess::telescope: {
-                double sum = 0.0;
-                for (std::size_t offset = 0u;
-                     offset < reader.groupSize; ++offset) {
-                    sum += wavesetUnitSample(reader, channel,
-                        reader.units[orderedWavesetIndex(reader, offset)],
-                        oscillatorPhase, join);
-                }
-                return blend(static_cast<float>(std::tanh(sum
-                    / std::sqrt(static_cast<double>(
-                        std::max<std::size_t>(1u, reader.groupSize))))));
-            }
             case WavesetProcess::repeat:
                 return raw;
         }
@@ -5566,16 +5560,6 @@ private:
             const double targetLength = std::max(
                 1.0, target.end - target.start);
             length += (targetLength - length) * amount;
-        } else if (reader.process == WavesetProcess::telescope) {
-            double longest = length;
-            for (std::size_t offset = 0u;
-                 offset < reader.groupSize; ++offset) {
-                const WavesetUnit& candidate
-                    = reader.units[orderedWavesetIndex(reader, offset)];
-                longest = std::max(longest,
-                    candidate.end - candidate.start);
-            }
-            length += (longest - length) * amount;
         }
         return static_cast<double>(sourceSampleRate_)
             / static_cast<double>(outputSampleRate_)
@@ -5607,13 +5591,7 @@ private:
         reader.oscillatorPhase += increment;
         while (reader.oscillatorPhase >= 1.0) {
             reader.oscillatorPhase -= 1.0;
-            std::size_t cycleAdvance = 1u;
-            if (reader.process == WavesetProcess::telescope) {
-                cycleAdvance += static_cast<std::size_t>(std::lround(
-                    clamp01(reader.processAmount)
-                        * static_cast<float>(reader.groupSize - 1u)));
-            }
-            reader.cycleOffset += cycleAdvance;
+            ++reader.cycleOffset;
             if (reader.cycleOffset < reader.groupSize) continue;
             reader.cycleOffset = 0u;
             if (++reader.repeatIndex < reader.repeats) continue;
@@ -5910,13 +5888,7 @@ private:
             crossedCycleBoundary = true;
             waveset_.oscillatorPhase -= 1.0;
             latchWavesetCycleControls(activeControls);
-            std::size_t cycleAdvance = 1u;
-            if (waveset_.process == WavesetProcess::telescope) {
-                cycleAdvance += static_cast<std::size_t>(std::lround(
-                    clamp01(waveset_.processAmount)
-                        * static_cast<float>(waveset_.groupSize - 1u)));
-            }
-            waveset_.cycleOffset += cycleAdvance;
+            ++waveset_.cycleOffset;
             if (waveset_.cycleOffset < waveset_.groupSize) continue;
             waveset_.cycleOffset = 0u;
             if (++waveset_.repeatIndex < waveset_.repeats) continue;

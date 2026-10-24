@@ -532,10 +532,12 @@ constexpr const char* kWavesetDirectionNames[] {
     "Forward", "Reverse", "Pendulum", "Shuffle"
 };
 constexpr const char* kWavesetProcessNames[] {
-    "Repeat", "Omit", "Replace", "Envelope", "Multiply", "Average",
+    "Repeat", "Omit", "Replace", "Envelope", "Multiply",
     "Interpolate", "Fractal", "Harmonic", "Group Reverse",
-    "Cycle Reverse", "Telescope"
+    "Cycle Reverse"
 };
+static_assert(sizeof(kWavesetProcessNames) / sizeof(kWavesetProcessNames[0u])
+    == Engine::kWavesetProcessCount, "Waveset process labels must match selections");
 constexpr const char* kWavesetDetailNames[] {
     "Raw", "8 kHz", "4 kHz", "1 kHz", "250 Hz"
 };
@@ -717,7 +719,7 @@ constexpr const char kChainParams[] = R"json([
 {"key":"waveset_stride","name":"Group Stride","short_name":"STRIDE","type":"int","min":1,"max":16,"default":1},
 {"key":"waveset_advance","name":"Source Advance","short_name":"ADVANCE","type":"enum","options":["Stretch","Preserve","Hold"],"default":0},
 {"key":"waveset_direction","name":"Cycle Order","short_name":"ORDER","type":"enum","options":["Forward","Reverse","Pendulum","Shuffle"],"default":0},
-{"key":"waveset_process","name":"Waveset Process","short_name":"PROCESS","type":"enum","options":["Repeat","Omit","Replace","Envelope","Multiply","Average","Interpolate","Fractal","Harmonic","Group Reverse","Cycle Reverse","Telescope"],"default":0},
+{"key":"waveset_process","name":"Waveset Process","short_name":"PROCESS","type":"enum","options":["Repeat","Omit","Replace","Envelope","Multiply","Interpolate","Fractal","Harmonic","Group Reverse","Cycle Reverse"],"default":0},
 {"key":"waveset_amount","name":"Process Depth","short_name":"DEPTH","type":"float","min":0,"max":100,"step":1,"default":0,"unit":"%"},
 {"key":"waveset_detail","name":"Crossing Detail","short_name":"DETAIL","type":"enum","options":["Raw","8 kHz","4 kHz","1 kHz","250 Hz"],"default":0},
 {"key":"effect_tone","name":"Effect Tone","short_name":"TONE","type":"float","min":-1,"max":1,"step":0.01,"default":0},
@@ -1111,7 +1113,7 @@ void applyLockedValue(Engine::Controls& controls, float& outputGain,
         case LockParameter::wavesetStride: controls.wavesetStride = clampValue(value, 1.0f, 16.0f); break;
         case LockParameter::wavesetAdvance: controls.wavesetAdvance = static_cast<Engine::WavesetAdvance>(clampValue(static_cast<int>(std::lround(value)), 0, 2)); break;
         case LockParameter::wavesetDirection: controls.wavesetDirection = static_cast<Engine::WavesetDirection>(clampValue(static_cast<int>(std::lround(value)), 0, 3)); break;
-        case LockParameter::wavesetProcess: controls.wavesetProcess = static_cast<Engine::WavesetProcess>(clampValue(static_cast<int>(std::lround(value)), 0, 11)); break;
+        case LockParameter::wavesetProcess: controls.wavesetProcess = Engine::sanitizeWavesetProcess(static_cast<Engine::WavesetProcess>(clampValue(static_cast<int>(std::lround(value)), 0, 11))); break;
         case LockParameter::wavesetProcessAmount: controls.wavesetProcessAmount = clampValue(value / 100.0f, 0.0f, 1.0f); break;
         case LockParameter::wavesetDetail: controls.wavesetDetail = static_cast<Engine::WavesetDetail>(clampValue(static_cast<int>(std::lround(value)), 0, 4)); break;
         case LockParameter::count: break;
@@ -8269,7 +8271,7 @@ struct ThruInstance {
         if (jsonNumber(json, "waveset_stride", value)) controls.wavesetStride = clampValue(value, 1.0f, 16.0f);
         if (jsonNumber(json, "waveset_advance", value)) controls.wavesetAdvance = static_cast<Engine::WavesetAdvance>(clampValue(static_cast<int>(value), 0, 2));
         if (jsonNumber(json, "waveset_direction", value)) controls.wavesetDirection = static_cast<Engine::WavesetDirection>(clampValue(static_cast<int>(value), 0, 3));
-        if (jsonNumber(json, "waveset_process", value)) controls.wavesetProcess = static_cast<Engine::WavesetProcess>(clampValue(static_cast<int>(value), 0, 11));
+        if (jsonNumber(json, "waveset_process", value)) controls.wavesetProcess = Engine::sanitizeWavesetProcess(static_cast<Engine::WavesetProcess>(clampValue(static_cast<int>(value), 0, 11)));
         if (jsonNumber(json, "waveset_amount", value)) controls.wavesetProcessAmount = clampValue(value, 0.0f, 1.0f);
         if (jsonNumber(json, "waveset_detail", value)) controls.wavesetDetail = static_cast<Engine::WavesetDetail>(clampValue(static_cast<int>(value), 0, 4));
         if (jsonNumber(json, "cut_clock", value)) controls.cutClock = static_cast<Engine::CutClock>(clampValue(static_cast<int>(value), 0, 1));
@@ -8613,7 +8615,13 @@ void setParam(void* opaque, const char* key, const char* value)
     if (std::strcmp(key, "waveset_stride") == 0) { controls.wavesetStride = clampValue(parseFloat(value, controls.wavesetStride), 1.0f, 16.0f); return; }
     if (std::strcmp(key, "waveset_advance") == 0) { controls.wavesetAdvance = static_cast<Engine::WavesetAdvance>(parseEnum(value, kWavesetAdvanceNames, static_cast<int>(controls.wavesetAdvance))); return; }
     if (std::strcmp(key, "waveset_direction") == 0) { controls.wavesetDirection = static_cast<Engine::WavesetDirection>(parseEnum(value, kWavesetDirectionNames, static_cast<int>(controls.wavesetDirection))); return; }
-    if (std::strcmp(key, "waveset_process") == 0) { controls.wavesetProcess = static_cast<Engine::WavesetProcess>(parseEnum(value, kWavesetProcessNames, static_cast<int>(controls.wavesetProcess))); return; }
+    if (std::strcmp(key, "waveset_process") == 0) {
+        const int selected = parseEnum(value, kWavesetProcessNames,
+            static_cast<int>(Engine::wavesetProcessIndex(controls.wavesetProcess)));
+        controls.wavesetProcess = Engine::wavesetProcessAt(
+            static_cast<std::size_t>(selected));
+        return;
+    }
     if (std::strcmp(key, "waveset_amount") == 0) { controls.wavesetProcessAmount = clampValue(parseFloat(value, controls.wavesetProcessAmount * 100.0f) / 100.0f, 0.0f, 1.0f); return; }
     if (std::strcmp(key, "waveset_detail") == 0) { controls.wavesetDetail = static_cast<Engine::WavesetDetail>(parseEnum(value, kWavesetDetailNames, static_cast<int>(controls.wavesetDetail))); return; }
     if (std::strcmp(key, "cutups_mode") == 0) { controls.cutups = static_cast<Engine::CutupsMode>(parseEnum(value, kCutupsModeNames, static_cast<int>(controls.cutups))); return; }
@@ -8986,7 +8994,7 @@ int getParam(void* opaque, const char* key, char* buffer, int bufferLength)
     if (std::strcmp(key, "waveset_stride") == 0) return std::snprintf(buffer, bufferLength, "%.0f", controls.wavesetStride);
     if (std::strcmp(key, "waveset_advance") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(controls.wavesetAdvance));
     if (std::strcmp(key, "waveset_direction") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(controls.wavesetDirection));
-    if (std::strcmp(key, "waveset_process") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(controls.wavesetProcess));
+    if (std::strcmp(key, "waveset_process") == 0) return std::snprintf(buffer, bufferLength, "%u", static_cast<unsigned>(Engine::wavesetProcessIndex(controls.wavesetProcess)));
     if (std::strcmp(key, "waveset_amount") == 0) return std::snprintf(buffer, bufferLength, "%.2f", controls.wavesetProcessAmount * 100.0f);
     if (std::strcmp(key, "waveset_detail") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(controls.wavesetDetail));
     if (std::strcmp(key, "cutups_mode") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(controls.cutups));

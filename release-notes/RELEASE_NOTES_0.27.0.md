@@ -1,5 +1,8 @@
 # s3g Thru 0.27.0
 
+Status: testing draft. Wavesets polyphonic performance and playback fidelity
+remain under validation; this version is not ready to publish.
+
 This release adds Wavesets and a complete tape stage, while making live
 playback fuller, smoother, and more dependable across all nine engines.
 
@@ -8,9 +11,12 @@ playback fuller, smoother, and more dependable across all nine engines.
 - Adds a ninth playback engine based on the s3g-dsp Wavesets instrument.
   Rising zero-crossing cycles become pitched groups that can repeat, stride,
   stretch, preserve time, or hold their source position.
-- Adds Forward, Reverse, Pendulum, and repeatable Shuffle ordering, plus 12
-  real-time processes: Repeat, Omit, Replace, Envelope, Multiply, Average,
-  Interpolate, Fractal, Harmonic, Group Reverse, Cycle Reverse, and Telescope.
+- Adds Forward, Reverse, Pendulum, and repeatable Shuffle ordering, plus 10
+  real-time processes: Repeat, Omit, Replace, Envelope, Multiply,
+  Interpolate, Fractal, Harmonic, Group Reverse, and Cycle Reverse.
+  Average and Telescope are excluded to reduce the worst processing costs
+  during polyphonic playback. Earlier testing clips using either process
+  load as Repeat; surviving saved process selections retain their identities.
 - Adds selectable crossing Detail from Raw through 250 Hz. Analysis uses the
   filtered timing reference while playback retains the original recording.
 - Keeps every note's group, pitch, order, and lane-stack path independent.
@@ -59,7 +65,7 @@ playback fuller, smoother, and more dependable across all nine engines.
   A short raised-cosine constant-overlap-add window joins the old and new
   readers, including filtered boundaries that remain nonzero in stereo. Every
   Stretch source-group handoff now receives that transition; very short groups
-  retain an audible-safe minimum window and can restart an in-flight overlap
+  retain a minimum window and can restart an in-flight overlap
   without exposing a raw splice.
 - Adds regression sweeps for shared Sample controls, Motion, Lanes, engine
   switching, Wavesets process/order combinations, effects, retriggering, and

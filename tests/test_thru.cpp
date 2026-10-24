@@ -269,11 +269,11 @@ struct ClickFixture {
     {
         constexpr ClickEngine::WavesetProcess processes[] {
             ClickEngine::WavesetProcess::repeat,
-            ClickEngine::WavesetProcess::average,
+            ClickEngine::WavesetProcess::replace,
             ClickEngine::WavesetProcess::interpolate,
             ClickEngine::WavesetProcess::groupReverse,
             ClickEngine::WavesetProcess::cycleReverse,
-            ClickEngine::WavesetProcess::telescope,
+            ClickEngine::WavesetProcess::envelope,
         };
         RenderMetrics metrics;
         float previous = 0.0f;
@@ -476,7 +476,7 @@ void testEngineClickMatrix()
         controls.wavesetRepeats = 3.0f;
         controls.wavesetStride = 2.0f;
         controls.wavesetDirection = ClickEngine::WavesetDirection::pendulum;
-        controls.wavesetProcess = ClickEngine::WavesetProcess::telescope;
+        controls.wavesetProcess = ClickEngine::WavesetProcess::groupReverse;
         controls.wavesetProcessAmount = 0.7f;
         controls.wavesetDetail = ClickEngine::WavesetDetail::hz4000;
         controls.speed = 2.0f;
@@ -496,8 +496,7 @@ void testEngineClickMatrix()
             controls.wavesetRepeats = 2.0f;
             controls.wavesetDirection
                 = static_cast<ClickEngine::WavesetDirection>(direction);
-            controls.wavesetProcess
-                = static_cast<ClickEngine::WavesetProcess>(process);
+            controls.wavesetProcess = ClickEngine::wavesetProcessAt(process);
             controls.wavesetProcessAmount = 1.0f;
             controls.wavesetDetail = ClickEngine::WavesetDetail::hz1000;
             controls.speed = 2.0f;
@@ -506,12 +505,9 @@ void testEngineClickMatrix()
             std::snprintf(label, sizeof(label),
                 "Wavesets process/order matrix %zu/%zu", process, direction);
             const bool intentionallyHarmonic
-                = process == static_cast<std::size_t>(
-                    ClickEngine::WavesetProcess::multiply)
-                || process == static_cast<std::size_t>(
-                    ClickEngine::WavesetProcess::fractal)
-                || process == static_cast<std::size_t>(
-                    ClickEngine::WavesetProcess::harmonic);
+                = controls.wavesetProcess == ClickEngine::WavesetProcess::multiply
+                || controls.wavesetProcess == ClickEngine::WavesetProcess::fractal
+                || controls.wavesetProcess == ClickEngine::WavesetProcess::harmonic;
             requireSmooth(label,
                 fixture.renderMaximumStep(controls, 32),
                 intentionallyHarmonic ? 0.55f : 0.24f);
@@ -568,7 +564,7 @@ void testEngineClickMatrix()
         controls.wavesetGroup = 4.0f;
         controls.wavesetRepeats = 1.0f;
         controls.wavesetAdvance = ClickEngine::WavesetAdvance::hold;
-        controls.wavesetProcess = ClickEngine::WavesetProcess::average;
+        controls.wavesetProcess = ClickEngine::WavesetProcess::interpolate;
         controls.wavesetProcessAmount = 0.65f;
         controls.lanePath = ClickEngine::LanePath::triangle;
         controls.laneCycles = 16.0f;
@@ -717,27 +713,8 @@ void testEngineClickMatrix()
         controls.join = 0.0f;
         const ClickFixture::RenderMetrics metrics
             = fixture.renderChangingMetrics(controls, 192);
-        // A fully coherent Telescope group has a deliberately steeper
-        // waveform than a single source cycle. Compare live editing against
-        // that steady-state process so the gate catches transition spikes
-        // without mistaking intended harmonic slope for a click.
-        ClickFixture reference;
-        reference.loadSine(37.0f);
-        ClickEngine::Controls referenceControls = controls;
-        referenceControls.wavesetGroup = 16.0f;
-        referenceControls.wavesetDirection
-            = ClickEngine::WavesetDirection::reverse;
-        referenceControls.wavesetProcess
-            = ClickEngine::WavesetProcess::telescope;
-        referenceControls.wavesetProcessAmount = 1.0f;
-        referenceControls.wavesetDetail = ClickEngine::WavesetDetail::hz4000;
-        referenceControls.join = 1.0f;
-        const float steadyProcessStep
-            = reference.renderMaximumStep(referenceControls, 192);
-        const float liveTransitionLimit = std::max(
-            0.20f, steadyProcessStep * 1.05f);
         requireSmooth("Wavesets live parameter changes",
-            metrics.maximumStep, liveTransitionLimit);
+            metrics.maximumStep, 0.20f);
         if (std::abs(metrics.dc) >= 0.05f
             || metrics.highFrequencyRatio >= 0.35f) {
             std::fprintf(stderr,
@@ -746,6 +723,39 @@ void testEngineClickMatrix()
         }
         assert(std::abs(metrics.dc) < 0.05f);
         assert(metrics.highFrequencyRatio < 0.35f);
+    }
+}
+
+void testWavesetRetiredProcesses()
+{
+    // The public menu is contiguous, while saved process/gesture IDs remain
+    // stable. Removed or invalid stored values must never reach a renderer.
+    for (const unsigned retired : {5u, 11u, 255u}) {
+        ClickFixture reference;
+        ClickFixture retiredFixture;
+        reference.loadSine(19.0f);
+        retiredFixture.loadSine(19.0f);
+        ClickEngine::Controls controls;
+        controls.algorithm = ClickEngine::PlaybackAlgorithm::wavesets;
+        controls.wavesetAdvance = ClickEngine::WavesetAdvance::hold;
+        controls.wavesetProcessAmount = 1.0f;
+        ClickEngine::Controls retiredControls = controls;
+        retiredControls.wavesetProcess
+            = static_cast<ClickEngine::WavesetProcess>(retired);
+        for (int block = 0; block < 16; ++block) {
+            reference.engine.process(reference.inputPointers.data(),
+                reference.outputPointers.data(), kFrames, controls);
+            retiredFixture.engine.process(retiredFixture.inputPointers.data(),
+                retiredFixture.outputPointers.data(), kFrames, retiredControls);
+            for (std::size_t channel = 0u; channel < 2u; ++channel) {
+                for (int frame = 0; frame < kFrames; ++frame) {
+                    assert(reference.output[channel][frame]
+                        == retiredFixture.output[channel][frame]);
+                }
+            }
+        }
+        assert(retiredFixture.engine.wavesetDisplayState().process
+            == ClickEngine::WavesetProcess::repeat);
     }
 }
 
@@ -1321,6 +1331,7 @@ std::vector<std::string> directoryFiles(const std::string& directory)
 int main()
 {
     testEngineClickMatrix();
+    testWavesetRetiredProcesses();
     testLiveParameterTransitionMatrix();
     host_api_v1_t host {};
     host.api_version = 1;
@@ -1352,6 +1363,32 @@ int main()
     /* Every engine/global control has a stable absolute external MIDI CC.
        Internal Move CCs remain reserved for the takeover surface. */
     const std::string defaultState = get(api, instance, "state");
+    constexpr const char* waveProcessNames[] {
+        "Repeat", "Omit", "Replace", "Envelope", "Multiply", "Interpolate",
+        "Fractal", "Harmonic", "Group Reverse", "Cycle Reverse",
+    };
+    constexpr int savedWaveProcessIds[] {0, 1, 2, 3, 4, 6, 7, 8, 9, 10};
+    for (std::size_t selection = 0u; selection < 10u; ++selection) {
+        api->set_param(instance, "waveset_process", waveProcessNames[selection]);
+        assert(get(api, instance, "waveset_process") == std::to_string(selection));
+        const std::string saved = get(api, instance, "state");
+        assert(saved.find("\"waveset_process\":"
+            + std::to_string(savedWaveProcessIds[selection]) + ",")
+            != std::string::npos);
+        api->set_param(instance, "waveset_process", "Repeat");
+        api->set_param(instance, "state", saved.c_str());
+        assert(get(api, instance, "waveset_process") == std::to_string(selection));
+    }
+    for (const int retired : {5, 11}) {
+        std::string saved = defaultState;
+        const std::string key = "\"waveset_process\":0";
+        const std::size_t at = saved.find(key);
+        assert(at != std::string::npos);
+        saved.replace(at, key.size(), "\"waveset_process\":" + std::to_string(retired));
+        api->set_param(instance, "state", saved.c_str());
+        assert(get(api, instance, "waveset_process") == "0");
+    }
+    api->set_param(instance, "state", defaultState.c_str());
     assert(get(api, instance, "polyphony_comp") == "1");
     api->set_param(instance, "polyphony_comp", "0");
     const std::string uncompensatedState = get(api, instance, "state");
@@ -1394,6 +1431,11 @@ int main()
     assert(chainParamLength < static_cast<int>(chainParamBuffer.size()));
     const std::string chainParams(chainParamBuffer.data(),
         static_cast<std::size_t>(chainParamLength));
+    assert(chainParams.find("\"Multiply\",\"Interpolate\",\"Fractal\","
+        "\"Harmonic\",\"Group Reverse\",\"Cycle Reverse\"]")
+        != std::string::npos);
+    assert(chainParams.find("\"Average\"") == std::string::npos);
+    assert(chainParams.find("\"Telescope\"") == std::string::npos);
     assert(chainParams.find("\"effect_tape_format\"") != std::string::npos);
     assert(chainParams.find("\"options\":[\"2\\\"\",\"1\\\"\","
         "\"1/2\\\"\",\"1/4\\\"\",\"1/8\\\"\"]")
@@ -2438,7 +2480,7 @@ int main()
     assert(get(api, instance, "waveset_stride") == "3");
     assert(get(api, instance, "waveset_advance") == "1");
     assert(get(api, instance, "waveset_direction") == "3");
-    assert(get(api, instance, "waveset_process") == "6");
+    assert(get(api, instance, "waveset_process") == "5");
     assert(get(api, instance, "waveset_amount") == "65.00");
     assert(get(api, instance, "waveset_detail") == "2");
     midi(api, instance, 0x90, 67, 100);
@@ -3171,7 +3213,7 @@ int main()
     assert(get(api, instance, "waveset_group") == "4");
     assert(get(api, instance, "waveset_repeats") == "5");
     assert(get(api, instance, "waveset_stride") == "3");
-    assert(get(api, instance, "waveset_process") == "6");
+    assert(get(api, instance, "waveset_process") == "5");
     assert(get(api, instance, "waveset_amount") == "65.00");
     assert(get(api, instance, "amp_attack") == "3.00");
     assert(get(api, instance, "amp_decay") == "0.00");

@@ -37,7 +37,7 @@
             <tr><td>3</td><td>STRD</td><td>1–16</td><td>Distance between successive source groups, measured in group spans. Higher values skip farther through the active Field.</td></tr>
             <tr><td>4</td><td>ADVN</td><td>Stretch / Preserve / Hold</td><td><strong>Stretch</strong> slows source progression as Repeat rises. <strong>Preserve</strong> skips proportionally farther so the source timeline keeps moving. <strong>Hold</strong> retains the same measured group while stack motion can continue changing its lane blend.</td></tr>
             <tr><td>5</td><td>ORDR</td><td>Forward / Reverse / Pendulum / Shuffle</td><td>Changes the order of complete cycles inside the group; it does not reverse the samples inside each cycle. Pendulum alternates order on each new group; Shuffle uses a repeatable shuffled order. Use Cycle Reverse or Group Reverse when backward sample motion is wanted.</td></tr>
-            <tr><td>6</td><td>PROC</td><td>12 processes</td><td>Selects the real-time operation described below. Repeat is unprocessed grouped playback.</td></tr>
+            <tr><td>6</td><td>PROC</td><td>10 processes</td><td>Selects the real-time operation described below. Repeat is unprocessed grouped playback.</td></tr>
             <tr><td>7</td><td>DPTH</td><td>0–100%</td><td>Blends from the original cycle to the selected process. Omit also uses Depth as its probability and attenuation.</td></tr>
             <tr><td>8</td><td>DTAL</td><td>Raw / 8 kHz / 4 kHz / 1 kHz / 250 Hz</td><td>Sets the low-pass frequency used only for crossing analysis. Lower settings ignore fine high-frequency crossings and favor broader, steadier waveform cycles; playback still reads the original recording.</td></tr>
           </tbody>
@@ -52,13 +52,11 @@
             <tr><td>Replace</td><td>Moves each cycle toward the strongest cycle in the current group.</td></tr>
             <tr><td>Envelope</td><td>Applies a rounded rise and fall inside every cycle.</td></tr>
             <tr><td>Multiply</td><td>Folds each cycle through progressively higher integer phase multiples.</td></tr>
-            <tr><td>Average</td><td>Aligns and averages every cycle in the group.</td></tr>
             <tr><td>Interpolate</td><td>Morphs the current cycle toward the next source cycle across the repeats.</td></tr>
             <tr><td>Fractal</td><td>Adds successively smaller power-of-two copies inside the cycle.</td></tr>
             <tr><td>Harmonic</td><td>Adds integer-ratio copies; Depth increases the highest included harmonic.</td></tr>
             <tr><td>Group Reverse</td><td>Reverses both cycle order and the samples inside each selected cycle.</td></tr>
             <tr><td>Cycle Reverse</td><td>Reverses the samples inside each cycle without reversing group order.</td></tr>
-            <tr><td>Telescope</td><td>Coherently sums the aligned group, compresses the result, and skips progressively farther through the group as Depth rises.</td></tr>
           </tbody>
         </table>
 
@@ -76,7 +74,7 @@
           <tbody>
             <tr><td>Playable source tone</td><td>8 cycles, 4 repeats, Stride 1, Stretch, Forward, Repeat, Raw detail.</td></tr>
             <tr><td>Slow spectral drift</td><td>16 cycles, 8 repeats, Stride 2, Stretch, Pendulum, Interpolate at 55%, 4 kHz detail.</td></tr>
-            <tr><td>Held stack oscillator</td><td>4 cycles, 8 repeats, Hold, Shuffle, Average at 70%; use a slow Stack Path so each rebuilt group captures a new lane blend.</td></tr>
+            <tr><td>Held stack oscillator</td><td>4 cycles, 8 repeats, Hold, Shuffle, Interpolate at 70%; use a slow Stack Path so each rebuilt group captures a new lane blend.</td></tr>
             <tr><td>Bright recursive edge</td><td>2 cycles, 3 repeats, Stride 3, Preserve, Fractal or Harmonic at 35–60%, 8 kHz detail.</td></tr>
           </tbody>
         </table>

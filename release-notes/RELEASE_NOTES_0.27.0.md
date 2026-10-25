@@ -64,10 +64,15 @@ playback fuller, smoother, and more dependable across all nine engines.
 - Makes Motion Travel and Jitter continuous by keeping Zigzag's three temporal
   sections stable while their targets move. Seed changes now fade before the
   active path is re-hashed instead of moving its reader in one sample.
-- Queues Wavesets Group, Repeat, Stride, Advance, Order, Process, Depth,
-  Detail, and Join changes until a quiet point or cycle boundary, with a
-  bounded wait for long cycles. Every 5 ms overlap finishes before the next
-  edit; short groups cannot keep restarting it and starve parameter changes.
+- Glides Wavesets Join and Depth without restarting the current cycle or
+  repeat. Multiply morphs between neighboring integer copies, Harmonic fades
+  added copies, and Omit smooths its level changes during live edits.
+- Queues Wavesets Group, Repeat, Stride, Advance, Order, Process, and Detail
+  changes until a quiet point or cycle boundary, with a bounded wait for long
+  cycles. Adaptive 15–30 ms crossfades finish before the next structural edit;
+  outgoing readers keep advancing and rapid edits retain the latest target.
+- Makes short-cycle and narrow-Field protection continuous as Speed or Field
+  changes, fixing an abrupt waveform change when protection switched on/off.
 - Fixes skipped source cycles and fractional timing errors across groups of
   different lengths. Natural contiguous playback no longer starts unnecessary
   overlap readers. Independent neighboring-lane readers crossfade their stereo

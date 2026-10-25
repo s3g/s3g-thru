@@ -357,6 +357,7 @@ struct ClickFixture {
 
 void testEngineClickMatrix()
 {
+    // Keep large DSP/source fixtures on the heap for sanitizer stack limits.
     const auto requireSmooth = [](const char* name, float step, float limit) {
         if (step >= limit) {
             std::fprintf(stderr, "%s discontinuity: %.6f (limit %.6f)\n",
@@ -366,7 +367,8 @@ void testEngineClickMatrix()
     };
 
     {
-        ClickFixture fixture;
+        auto fixtureStorage = std::make_unique<ClickFixture>();
+        auto& fixture = *fixtureStorage;
         fixture.loadRamp();
         ClickEngine::Controls controls;
         controls.algorithm = ClickEngine::PlaybackAlgorithm::sample;
@@ -376,7 +378,8 @@ void testEngineClickMatrix()
             fixture.renderMaximumStep(controls, 16), 0.12f);
     }
     {
-        ClickFixture fixture;
+        auto fixtureStorage = std::make_unique<ClickFixture>();
+        auto& fixture = *fixtureStorage;
         fixture.loadRamp();
         ClickEngine::Controls controls;
         controls.algorithm = ClickEngine::PlaybackAlgorithm::slices;
@@ -389,7 +392,8 @@ void testEngineClickMatrix()
             fixture.renderMaximumStep(controls, 16), 0.12f);
     }
     {
-        ClickFixture fixture;
+        auto fixtureStorage = std::make_unique<ClickFixture>();
+        auto& fixture = *fixtureStorage;
         fixture.loadRamp();
         ClickEngine::Controls controls;
         controls.algorithm = ClickEngine::PlaybackAlgorithm::sample;
@@ -400,7 +404,8 @@ void testEngineClickMatrix()
             fixture.renderMaximumStep(controls, 8), 0.12f);
     }
     {
-        ClickFixture fixture;
+        auto fixtureStorage = std::make_unique<ClickFixture>();
+        auto& fixture = *fixtureStorage;
         fixture.loadRamp();
         ClickEngine::Controls controls;
         controls.algorithm = ClickEngine::PlaybackAlgorithm::motion;
@@ -412,7 +417,8 @@ void testEngineClickMatrix()
             fixture.renderMaximumStep(controls, 48), 0.18f);
     }
     {
-        ClickFixture fixture;
+        auto fixtureStorage = std::make_unique<ClickFixture>();
+        auto& fixture = *fixtureStorage;
         fixture.loadRamp();
         ClickEngine::Controls controls;
         controls.algorithm = ClickEngine::PlaybackAlgorithm::motion;
@@ -426,7 +432,8 @@ void testEngineClickMatrix()
             fixture.renderMaximumStep(controls, 48), 0.20f);
     }
     {
-        ClickFixture fixture;
+        auto fixtureStorage = std::make_unique<ClickFixture>();
+        auto& fixture = *fixtureStorage;
         fixture.loadContrastingStack();
         ClickEngine::Controls controls;
         controls.algorithm = ClickEngine::PlaybackAlgorithm::lanes;
@@ -440,7 +447,8 @@ void testEngineClickMatrix()
             fixture.renderMaximumStep(controls, 48), 0.20f);
     }
     {
-        ClickFixture fixture;
+        auto fixtureStorage = std::make_unique<ClickFixture>();
+        auto& fixture = *fixtureStorage;
         fixture.loadRamp();
         ClickEngine::Controls controls;
         controls.algorithm = ClickEngine::PlaybackAlgorithm::grains;
@@ -452,7 +460,8 @@ void testEngineClickMatrix()
             fixture.renderMaximumStep(controls, 48), 0.18f);
     }
     {
-        ClickFixture fixture;
+        auto fixtureStorage = std::make_unique<ClickFixture>();
+        auto& fixture = *fixtureStorage;
         fixture.loadRamp();
         ClickEngine::Controls controls;
         controls.algorithm = ClickEngine::PlaybackAlgorithm::longGrains;
@@ -464,7 +473,8 @@ void testEngineClickMatrix()
             fixture.renderMaximumStep(controls, 96), 0.18f);
     }
     {
-        ClickFixture fixture;
+        auto fixtureStorage = std::make_unique<ClickFixture>();
+        auto& fixture = *fixtureStorage;
         fixture.loadRamp(true);
         ClickEngine::Controls controls;
         controls.algorithm = ClickEngine::PlaybackAlgorithm::cutups;
@@ -478,7 +488,8 @@ void testEngineClickMatrix()
             fixture.renderMaximumStep(controls, 48), 0.20f);
     }
     {
-        ClickFixture fixture;
+        auto fixtureStorage = std::make_unique<ClickFixture>();
+        auto& fixture = *fixtureStorage;
         fixture.loadRamp();
         ClickEngine::Controls controls;
         controls.algorithm = ClickEngine::PlaybackAlgorithm::glitch;
@@ -493,7 +504,8 @@ void testEngineClickMatrix()
             fixture.renderMaximumStep(controls, 64), 0.22f);
     }
     {
-        ClickFixture fixture;
+        auto fixtureStorage = std::make_unique<ClickFixture>();
+        auto& fixture = *fixtureStorage;
         fixture.loadSine();
         ClickEngine::Controls controls;
         controls.algorithm = ClickEngine::PlaybackAlgorithm::wavesets;
@@ -513,7 +525,8 @@ void testEngineClickMatrix()
          process < ClickEngine::kWavesetProcessCount; ++process) {
         for (std::size_t direction = 0u;
              direction < ClickEngine::kWavesetDirectionCount; ++direction) {
-            ClickFixture fixture;
+            auto fixtureStorage = std::make_unique<ClickFixture>();
+            auto& fixture = *fixtureStorage;
             fixture.loadSine(29.0f);
             ClickEngine::Controls controls;
             controls.algorithm = ClickEngine::PlaybackAlgorithm::wavesets;
@@ -539,7 +552,8 @@ void testEngineClickMatrix()
         }
     }
     {
-        ClickFixture fixture;
+        auto fixtureStorage = std::make_unique<ClickFixture>();
+        auto& fixture = *fixtureStorage;
         fixture.loadAntiPhaseSine();
         ClickEngine::Controls controls;
         controls.algorithm = ClickEngine::PlaybackAlgorithm::wavesets;
@@ -555,7 +569,8 @@ void testEngineClickMatrix()
         assert(!fixture.engine.wavesetFallbackActive());
     }
     {
-        ClickFixture fixture;
+        auto fixtureStorage = std::make_unique<ClickFixture>();
+        auto& fixture = *fixtureStorage;
         fixture.loadDcOffsetSine();
         ClickEngine::Controls controls;
         controls.algorithm = ClickEngine::PlaybackAlgorithm::wavesets;
@@ -569,7 +584,8 @@ void testEngineClickMatrix()
         assert(fixture.engine.wavesetFallbackActive());
     }
     {
-        ClickFixture fixture;
+        auto fixtureStorage = std::make_unique<ClickFixture>();
+        auto& fixture = *fixtureStorage;
         fixture.loadDelayedSine();
         ClickEngine::Controls controls;
         controls.algorithm = ClickEngine::PlaybackAlgorithm::wavesets;
@@ -582,7 +598,8 @@ void testEngineClickMatrix()
         assert(fixture.engine.normalizedPosition() > 0.25f);
     }
     {
-        ClickFixture fixture;
+        auto fixtureStorage = std::make_unique<ClickFixture>();
+        auto& fixture = *fixtureStorage;
         fixture.loadContrastingStack();
         ClickEngine::Controls controls;
         controls.algorithm = ClickEngine::PlaybackAlgorithm::wavesets;
@@ -603,7 +620,8 @@ void testEngineClickMatrix()
         // Hardware regression: STRETCH with REPT 1 adopts a fresh measured
         // group at every group boundary. Contiguous cycles retain source time
         // without starting a second reader or treating natural slope as a seam.
-        ClickFixture fixture;
+        auto fixtureStorage = std::make_unique<ClickFixture>();
+        auto& fixture = *fixtureStorage;
         fixture.loadWavesetStack();
         ClickEngine::Controls controls;
         controls.algorithm = ClickEngine::PlaybackAlgorithm::wavesets;
@@ -644,7 +662,8 @@ void testEngineClickMatrix()
             maximumStep, 0.06f);
     }
     {
-        ClickFixture fixture;
+        auto fixtureStorage = std::make_unique<ClickFixture>();
+        auto& fixture = *fixtureStorage;
         fixture.loadSine(13.0f);
         ClickEngine::Controls controls;
         controls.algorithm = ClickEngine::PlaybackAlgorithm::wavesets;
@@ -708,7 +727,8 @@ void testEngineClickMatrix()
             maximumStep, 0.30f);
     }
     {
-        ClickFixture fixture;
+        auto fixtureStorage = std::make_unique<ClickFixture>();
+        auto& fixture = *fixtureStorage;
         fixture.loadSine(29.0f);
         ClickEngine::Controls controls;
         controls.algorithm = ClickEngine::PlaybackAlgorithm::wavesets;
@@ -727,7 +747,8 @@ void testEngineClickMatrix()
             || display.secondarySourcePosition <= 1.0f);
     }
     {
-        ClickFixture fixture;
+        auto fixtureStorage = std::make_unique<ClickFixture>();
+        auto& fixture = *fixtureStorage;
         fixture.loadSine(37.0f);
         ClickEngine::Controls controls;
         controls.algorithm = ClickEngine::PlaybackAlgorithm::wavesets;
@@ -1418,6 +1439,10 @@ void testWavesetMidiPitch(plugin_api_v2_t* api)
 int main()
 {
     testPreparedWavesetProgression();
+    testWavesetContinuousEdits();
+    testWavesetProtectionGlides();
+    testWavesetStructuralTransitionQueue();
+    testWavesetOutgoingProgression();
     testWavesetStereoSeams();
     testWavesetOutgoingSeams();
     testWavesetShortCycleSafety();

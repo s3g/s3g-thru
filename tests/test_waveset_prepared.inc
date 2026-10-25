@@ -57,6 +57,7 @@ void testWavesetOutgoingSeams()
         control.wavesetGroup = control.wavesetRepeats = 1.0f;
         control.wavesetAdvance = ClickEngine::WavesetAdvance::hold;
         control.join = 0.0f;
+        control.wavesetProcessAmount = 1.0f;
         fixture.renderPeak(control, 64);
         for (unsigned frame = 0u; frame < offset; ++frame)
             fixture.engine.process(fixture.inputPointers.data(),
@@ -65,10 +66,12 @@ void testWavesetOutgoingSeams()
             : fixture.output[1u][kFrames - 1u];
         float maximum = 0.0f;
         const auto starts = fixture.engine.wavesetOverlapStartCount();
-        for (unsigned frame = 0u; frame < 2400u; ++frame) {
+        for (unsigned frame = 0u; frame < 7200u; ++frame) {
             // Both directions include the audible outgoing reader, including
             // when it already owns a decaying boundary correction.
-            control.join = (frame / 400u) % 2u ? 0.0f : 1.0f;
+            control.join = (frame / 1200u) % 2u ? 0.0f : 1.0f;
+            control.wavesetProcess = (frame / 1200u) % 2u
+                ? ClickEngine::WavesetProcess::repeat : ClickEngine::WavesetProcess::cycleReverse;
             fixture.engine.process(fixture.inputPointers.data(),
                 fixture.outputPointers.data(), 1u, control);
             const float value = fixture.output[1u][0u];
@@ -177,6 +180,181 @@ void testWavesetKeyboardPitch()
         }
         const float expected = 4096.0f * std::min(0.45f, 4.0f * pitch / 64.0f);
         assert(std::abs(static_cast<float>(crossings) - expected) <= 2.0f);
+    }
+}
+
+void testWavesetContinuousEdits()
+{
+    using Process = ClickEngine::WavesetProcess;
+    for (auto process : {Process::repeat, Process::omit, Process::replace,
+            Process::envelope, Process::multiply, Process::interpolate,
+            Process::fractal, Process::harmonic, Process::groupReverse,
+            Process::cycleReverse}) {
+        auto edited = std::make_unique<ClickFixture>();
+        auto reference = std::make_unique<ClickFixture>();
+        loadWavesetStereoSeamFixture(*edited, 64u);
+        loadWavesetStereoSeamFixture(*reference, 64u);
+        ClickEngine::Controls original;
+        original.algorithm = ClickEngine::PlaybackAlgorithm::wavesets;
+        original.wavesetGroup = 8.0f;
+        original.wavesetRepeats = 16.0f;
+        original.wavesetAdvance = ClickEngine::WavesetAdvance::hold;
+        original.wavesetProcess = process;
+        original.wavesetProcessAmount = 0.0f;
+        original.join = 0.0f;
+        edited->renderPeak(original, 64);
+        reference->renderPeak(original, 64);
+        const auto builds = edited->engine.wavesetGroupBuildCount();
+        const auto starts = edited->engine.wavesetOverlapStartCount();
+        float previous = edited->output[1u][kFrames - 1u], maximum = 0.0f;
+        auto controls = original;
+        for (unsigned frame = 0u; frame < 6000u; ++frame) {
+            const float triangle = static_cast<float>(frame % 3000u) / 2999.0f;
+            controls.join = frame < 3000u ? triangle : 1.0f - triangle;
+            controls.wavesetProcessAmount = controls.join;
+            edited->engine.process(edited->inputPointers.data(),
+                edited->outputPointers.data(), 1u, controls);
+            reference->engine.process(reference->inputPointers.data(),
+                reference->outputPointers.data(), 1u, original);
+            const auto observed = edited->engine.wavesetDisplayState();
+            const auto expected = reference->engine.wavesetDisplayState();
+            assert(observed.cycleOffset == expected.cycleOffset);
+            assert(observed.repeatIndex == expected.repeatIndex);
+            assert(std::abs(observed.oscillatorPhase - expected.oscillatorPhase) < 0.0001f);
+            assert(!edited->engine.wavesetControlChangePending());
+            const float value = edited->output[1u][0u];
+            assert(std::isfinite(value));
+            maximum = std::max(maximum, std::abs(value - previous));
+            previous = value;
+        }
+        // Uniform-length cycles have unchanged timing even in the two
+        // processes whose pitch otherwise follows the interpolated lengths.
+        assert(edited->engine.wavesetGroupBuildCount() == builds);
+        assert(edited->engine.wavesetOverlapStartCount() == starts);
+        if (maximum >= 0.14f)
+            std::fprintf(stderr, "Continuous Wavesets process %u R step %.6f\n",
+                static_cast<unsigned>(process), maximum);
+        assert(maximum < 0.14f);
+    }
+}
+
+void testWavesetProtectionGlides()
+{
+    ClickFixture fixture;
+    for (std::size_t frame = 0u; frame < ClickFixture::capacity; ++frame) {
+        fixture.storage[0u][frame] = 0.5f * static_cast<float>(std::sin(
+            6.283185307179586 * (frame % 16u) / 16.0));
+        fixture.storage[1u][frame] = 0.4f + 0.25f * static_cast<float>(std::cos(
+            6.283185307179586 * frame / ClickFixture::capacity));
+    }
+    assert(fixture.engine.adoptSource(ClickFixture::capacity, 2u, MOVE_SAMPLE_RATE));
+    fixture.prepareWavesets();
+    ClickEngine::Controls controls;
+    controls.algorithm = ClickEngine::PlaybackAlgorithm::wavesets;
+    controls.wavesetGroup = controls.wavesetRepeats = 1.0f;
+    controls.locus = 0.0f;
+    controls.field = 128.0f / ClickFixture::capacity;
+    controls.join = 0.0f;
+    controls.speed = 1.8f;
+    fixture.renderPeak(controls, 160);
+    float previous = fixture.output[1u][kFrames - 1u], maximum = 0.0f;
+    float smallest = previous, largest = previous;
+    for (unsigned sweep = 0u; sweep < 4u; ++sweep) {
+        for (unsigned frame = 0u; frame < 6000u; ++frame) {
+            const float progress = static_cast<float>(frame) / 5999.0f;
+            if (sweep < 2u) controls.speed = sweep ? 2.1f - 0.3f * progress
+                : 1.8f + 0.3f * progress;
+            else controls.field = (sweep == 2u ? 128.0f - 96.0f * progress
+                : 32.0f + 96.0f * progress) / ClickFixture::capacity;
+            fixture.engine.process(fixture.inputPointers.data(),
+                fixture.outputPointers.data(), 1u, controls);
+            const float value = fixture.output[1u][0u];
+            assert(std::isfinite(value));
+            maximum = std::max(maximum, std::abs(value - previous));
+            smallest = std::min(smallest, value);
+            largest = std::max(largest, value);
+            previous = value;
+        }
+    }
+    // This sweep formerly hard-switched a 0.65-amplitude channel to zero.
+    assert(largest - smallest > 0.3f);
+    if (maximum >= 0.02f) std::fprintf(stderr, "Protection glide step %.6f\n", maximum);
+    assert(maximum < 0.02f);
+    assert(fixture.engine.wavesetOverlapStartCount() == 0u);
+}
+
+void testWavesetOutgoingProgression()
+{
+    auto edited = std::make_unique<ClickFixture>();
+    auto reference = std::make_unique<ClickFixture>();
+    loadWavesetStereoSeamFixture(*edited, 64u);
+    loadWavesetStereoSeamFixture(*reference, 64u);
+    ClickEngine::Controls original;
+    original.algorithm = ClickEngine::PlaybackAlgorithm::wavesets;
+    original.wavesetGroup = original.wavesetRepeats = 1.0f;
+    edited->renderPeak(original, 160);
+    reference->renderPeak(original, 160);
+    auto changed = original;
+    changed.wavesetProcess = ClickEngine::WavesetProcess::envelope;
+    changed.wavesetProcessAmount = 1.0f;
+    unsigned checked = 0u;
+    for (unsigned frame = 0u; frame < 1800u; ++frame) {
+        edited->engine.process(edited->inputPointers.data(), edited->outputPointers.data(), 1u, changed);
+        reference->engine.process(reference->inputPointers.data(), reference->outputPointers.data(), 1u, original);
+        const auto state = edited->engine.wavesetDisplayState();
+        if (state.overlap) {
+            const auto expected = reference->engine.wavesetDisplayState();
+            assert(std::abs(state.secondarySourcePosition - expected.sourcePosition) < 0.00001f);
+            ++checked;
+        }
+    }
+    // An outgoing group must keep following its original progression rather
+    // than repeatedly looping the captured group for the entire crossfade.
+    assert(checked > 600u);
+}
+
+void testWavesetStructuralTransitionQueue()
+{
+    for (float cycles : {128.0f, 2.0f}) {
+        ClickFixture fixture;
+        fixture.loadSine(cycles);
+        ClickEngine::Controls controls;
+        controls.algorithm = ClickEngine::PlaybackAlgorithm::wavesets;
+        controls.wavesetGroup = controls.wavesetRepeats = 1.0f;
+        controls.wavesetAdvance = ClickEngine::WavesetAdvance::hold;
+        controls.wavesetProcessAmount = 1.0f;
+        fixture.renderPeak(controls, 160);
+        const auto starts = fixture.engine.wavesetOverlapStartCount();
+        controls.wavesetProcess = ClickEngine::WavesetProcess::cycleReverse;
+        bool began = false, ended = false;
+        unsigned overlapFrames = 0u;
+        for (unsigned frame = 0u; frame < 6000u; ++frame) {
+            if (began && overlapFrames == 50u) {
+                controls.wavesetDirection = ClickEngine::WavesetDirection::reverse;
+                controls.wavesetProcess = ClickEngine::WavesetProcess::multiply;
+            } else if (began && overlapFrames == 100u) {
+                controls.wavesetDirection = ClickEngine::WavesetDirection::shuffle;
+                controls.wavesetProcess = ClickEngine::WavesetProcess::fractal;
+            }
+            fixture.engine.process(fixture.inputPointers.data(),
+                fixture.outputPointers.data(), 1u, controls);
+            if (!ended && fixture.engine.wavesetOverlapActive()) {
+                began = true;
+                ++overlapFrames;
+                assert(fixture.engine.wavesetDisplayState().process
+                    == ClickEngine::WavesetProcess::cycleReverse);
+                assert(fixture.engine.wavesetOverlapStartCount() == starts + 1u);
+            } else if (began && !ended) ended = true;
+        }
+        assert(began && ended);
+        const auto expectedFrames = static_cast<unsigned>(MOVE_SAMPLE_RATE
+            * (cycles > 2.0f ? 0.015f : 0.030f));
+        assert(overlapFrames + 1u == expectedFrames);
+        assert(fixture.engine.wavesetOverlapStartCount() == starts + 2u);
+        assert(!fixture.engine.wavesetOverlapActive());
+        assert(!fixture.engine.wavesetControlChangePending());
+        assert(fixture.engine.wavesetDisplayState().process == ClickEngine::WavesetProcess::fractal);
+        assert(fixture.engine.wavesetDisplayState().direction == ClickEngine::WavesetDirection::shuffle);
     }
 }
 
@@ -303,7 +481,7 @@ void testPreparedWavesetControlLatency()
     assert(!fixture.engine.wavesetControlChangePending());
     assert(fixture.engine.wavesetActiveProcessAmount() == 0.2f);
     assert(!fixture.engine.wavesetOverlapActive());
-    assert(fixture.engine.wavesetOverlapStartCount() <= starts + 4u);
+    assert(fixture.engine.wavesetOverlapStartCount() == starts + 1u);
 }
 
 void testPreparedWavesetLaneReaders()

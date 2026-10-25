@@ -188,6 +188,7 @@ const params = {
     captures_directory: '/data/s3g-thru/captures',
     undo_available: '1',
     performance_state: '724,0',
+    callback_performance_state: '28,16,760,0',
     limiter_state: '0.0,3.2',
     last_error: '',
     waveforms: [0, 1, 2, 3].map(waveform).join('|'),
@@ -456,6 +457,9 @@ cc(50);
 cc(49, 0);
 tick();
 capture('help.svg', 'On-device system performance report');
+cc(63);
+tick();
+capture('help-callbacks.svg', 'On-device callback work report');
 cc(63);
 tick();
 capture('help-shortcuts.svg', 'On-device shortcut help');

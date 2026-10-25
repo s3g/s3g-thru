@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="768" height="384" viewBox="0 0 128 64" role="img" aria-labelledby="title desc">
+  <title id="title">On-device callback work report</title>
+  <desc id="desc">On-device callback work report shown as it appears on Ableton Move.</desc>
+  <rect width="128" height="64" fill="#050706"/>
+  <g shape-rendering="crispEdges" font-family="DejaVu Sans Mono, IBM Plex Mono, monospace" font-size="6" font-style="normal" font-weight="400" text-rendering="geometricPrecision">
+    <text x="1" y="5.5" fill="#dce8e1">CALLBACK WORK 2/3 &lt;&gt;</text>
+    <text x="1" y="18.5" fill="#dce8e1">CONTROL PEAK    28 us</text>
+    <text x="1" y="30.5" fill="#dce8e1">QUERY PEAK      16 us</text>
+    <text x="1" y="42.5" fill="#dce8e1">WORK PEAK      760 us</text>
+    <text x="1" y="54.5" fill="#dce8e1">WORK MISSES         0</text>
+  </g>
+  <rect x="0.25" y="0.25" width="127.5" height="63.5" fill="none" stroke="#5b6661" stroke-width="0.5"/>
+</svg>

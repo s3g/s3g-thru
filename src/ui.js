@@ -649,6 +649,7 @@ const state = {
     undoAvailable: false,
     maximumRenderMicros: 0,
     renderOverruns: 0,
+    controlPeakMicros: 0, queryPeakMicros: 0, workPeakMicros: 0, workOverruns: 0,
     limiterReductionDb: 0,
     limiterMaximumReductionDb: 0,
     helpPage: 0,
@@ -1808,10 +1809,10 @@ function helpReportRow(label, value) {
 function drawHelp() {
     clear_screen();
     if (state.helpPage === 0) {
-        print(1, 0, 'SYSTEM REPORT 1/2 <>', 1);
+        print(1, 0, 'SYSTEM REPORT 1/3 <>', 1);
         print(1, 13, helpReportRow('RENDER PEAK',
             compactReportCount(state.maximumRenderMicros) + ' us'), 1);
-        print(1, 25, helpReportRow('DEADLINE MISSES',
+        print(1, 25, helpReportRow('RENDER MISSES',
             compactReportCount(state.renderOverruns)), 1);
         print(1, 37, helpReportRow('LIMIT CURRENT',
             state.limiterReductionDb.toFixed(1) + ' dB'), 1);
@@ -1819,7 +1820,15 @@ function drawHelp() {
             state.limiterMaximumReductionDb.toFixed(1) + ' dB'), 1);
         return;
     }
-    print(1, 0, 'SHORTCUTS 2/2 <>', 1);
+    if (state.helpPage === 1) {
+        print(1, 0, 'CALLBACK WORK 2/3 <>', 1);
+        print(1, 13, helpReportRow('CONTROL PEAK', compactReportCount(state.controlPeakMicros) + ' us'), 1);
+        print(1, 25, helpReportRow('QUERY PEAK', compactReportCount(state.queryPeakMicros) + ' us'), 1);
+        print(1, 37, helpReportRow('WORK PEAK', compactReportCount(state.workPeakMicros) + ' us'), 1);
+        print(1, 49, helpReportRow('WORK MISSES', compactReportCount(state.workOverruns)), 1);
+        return;
+    }
+    print(1, 0, 'SHORTCUTS 3/3 <>', 1);
     print(1, 13, 'REC        data loop', 1);
     print(1, 23, 'SHIFT+REC  audio lane', 1);
     print(1, 33, 'STEPS      clip slots', 1);
@@ -2390,6 +2399,13 @@ function pollDiagnostics() {
         ? Math.max(0, Math.round(performance[0])) : 0;
     state.renderOverruns = Number.isFinite(performance[1])
         ? Math.max(0, Math.round(performance[1])) : 0;
+    const callback = String(getParam('callback_performance_state', '0,0,0,0'))
+        .split(',').map((item) => Number(item));
+    const bounded = (value) => Number.isFinite(value) ? Math.max(0, Math.round(value)) : 0;
+    state.controlPeakMicros = bounded(callback[0]);
+    state.queryPeakMicros = bounded(callback[1]);
+    state.workPeakMicros = bounded(callback[2]);
+    state.workOverruns = bounded(callback[3]);
     const limiter = String(getParam('limiter_state', '0,0'))
         .split(',').map((item) => Number(item));
     state.limiterReductionDb = Number.isFinite(limiter[0])
@@ -2716,7 +2732,7 @@ globalThis.onMidiMessageInternal = function(data) {
     }
     if ((number === MoveLeft || number === MoveRight) && value > 0
         && state.view === 'help') {
-        state.helpPage = number === MoveRight ? 1 : 0;
+        state.helpPage = clamp(state.helpPage + (number === MoveRight ? 1 : -1), 0, 2);
         return;
     }
     if ((number === MoveLeft || number === MoveRight) && value > 0
@@ -2725,7 +2741,7 @@ globalThis.onMidiMessageInternal = function(data) {
         return;
     }
     if (number === MoveUp && value > 0) {
-        if (state.view === 'help') state.helpPage = 0;
+        if (state.view === 'help') state.helpPage = Math.max(0, state.helpPage - 1);
         else if (state.view === 'chain') adjustChainRepeats(1);
         else if (state.shiftHeld
             && (state.view === 'main' || state.view === 'settings')) {
@@ -2737,7 +2753,7 @@ globalThis.onMidiMessageInternal = function(data) {
         return;
     }
     if (number === MoveDown && value > 0) {
-        if (state.view === 'help') state.helpPage = 1;
+        if (state.view === 'help') state.helpPage = Math.min(2, state.helpPage + 1);
         else if (state.view === 'chain') adjustChainRepeats(-1);
         else if (state.shiftHeld
             && (state.view === 'main' || state.view === 'settings')) {
@@ -2751,7 +2767,7 @@ globalThis.onMidiMessageInternal = function(data) {
     if (number === MoveMainKnob) {
         const delta = decodeDelta(value);
         if (state.view === 'help' && delta !== 0) {
-            state.helpPage = delta > 0 ? 1 : 0;
+            state.helpPage = clamp(state.helpPage + (delta > 0 ? 1 : -1), 0, 2);
         }
         else if (state.view === 'library') moveLibrarySelection(delta);
         else if (state.view === 'chain') adjustChainClip(delta);

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "thru_waveset_map.h"
+#include "thru_background_thread.h"
 
 #include <atomic>
 #include <memory>
@@ -27,7 +28,7 @@ public:
         snapshot_.reset(new (std::nothrow) float[capacity * 2u]);
         if (!snapshot_) return false;
         running_.store(true, std::memory_order_release);
-        if (pthread_create(&thread_, nullptr, entry, this) != 0) {
+        if (!startBackgroundThread(thread_, entry, this)) {
             running_.store(false, std::memory_order_release);
             return false;
         }
@@ -100,10 +101,7 @@ private:
     static void* entry(void* opaque)
     {
         auto& self = *static_cast<ThruWavesetWorker*>(opaque);
-#if defined(__linux__)
-        // Favor the real-time render callback when both threads share a core.
-        (void)setpriority(PRIO_PROCESS, 0, 10);
-#endif
+        configureBackgroundThread();
         while (self.running_.load(std::memory_order_acquire)) {
             if (self.state() != requested) {
                 const timespec delay {0, 1000000};

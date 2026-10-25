@@ -1038,9 +1038,25 @@ std::uint32_t unsignedStateField(const std::string& state, int index)
     return static_cast<std::uint32_t>(std::strtoul(state.c_str() + start, nullptr, 10));
 }
 
+void waitForBackgroundAudio(plugin_api_v2_t* api, void* instance)
+{
+    for (int attempt = 0; attempt < 4000; ++attempt) {
+        const auto background = get(api, instance, "background_state");
+        const auto ui = get(api, instance, "ui_state");
+        if (stateField(background, 1) == 0 && stateField(background, 2) == 0
+            && stateField(ui, 13) == 0) return;
+        render(api, instance, 1);
+        usleep(1000);
+    }
+    std::fprintf(stderr, "Background audio work did not complete: %s\n",
+        get(api, instance, "last_error").c_str());
+    assert(false);
+}
+
 void recordLane(plugin_api_v2_t* api, void* instance,
                 int lane, std::int16_t level, int blocks)
 {
+    waitForBackgroundAudio(api, instance);
     api->set_param(instance, "record_lane", std::to_string(lane).c_str());
     fillInput(level);
     midi(api, instance, 0xB0, 52, 127, MOVE_MIDI_SOURCE_EXTERNAL);
@@ -1049,6 +1065,7 @@ void recordLane(plugin_api_v2_t* api, void* instance,
     midi(api, instance, 0xB0, 52, 0, MOVE_MIDI_SOURCE_EXTERNAL);
     assert(get(api, instance, "recording") == "0");
     render(api, instance, 6);
+    waitForBackgroundAudio(api, instance);
 }
 
 void writePcm16Wav(const std::string& path,
@@ -1658,6 +1675,7 @@ int main()
     assert(waves.size() == 4u * 112u * 2u + 3u);
     assert(waves.substr(0u, 224u).find_first_not_of('7') != std::string::npos);
     api->set_param(instance, "maintenance", "1");
+    waitForBackgroundAudio(api, instance);
     const std::string firstCapture = get(api, instance, "lane_source_path");
     assert(firstCapture == persistenceDir
         + "/captures/t0000000001-c01-l1-input.wav");
@@ -1671,6 +1689,7 @@ int main()
        Shift+Back's generic lane undo can therefore restore actual old audio. */
     recordLane(api, instance, 1, 2000, 12);
     api->set_param(instance, "maintenance", "1");
+    waitForBackgroundAudio(api, instance);
     const std::string secondCapture = get(api, instance, "lane_source_path");
     assert(secondCapture == persistenceDir
         + "/captures/t0000000002-c01-l1-input.wav");
@@ -1688,15 +1707,18 @@ int main()
     api->set_param(instance, "sample_trim_start", "0.10");
     api->set_param(instance, "sample_trim_end", "0.90");
     api->set_param(instance, "sample_trim_apply", "1");
+    waitForBackgroundAudio(api, instance);
     assert(get(api, instance, "lane_source") == "TRIMMED");
     const std::string trimCapture = get(api, instance, "lane_source_path");
     api->set_param(instance, "sample_reverse", "1");
+    waitForBackgroundAudio(api, instance);
     const std::string reverseCapture = get(api, instance, "lane_source_path");
     midi(api, instance, 0x90, 60, 127);
     render(api, instance, 4);
     const int peakBeforeNormalize = peak();
     midi(api, instance, 0x80, 60, 0);
     api->set_param(instance, "sample_normalize", "1");
+    waitForBackgroundAudio(api, instance);
     assert(get(api, instance, "last_error").empty());
     const std::string normalizeCapture = get(api, instance, "lane_source_path");
     midi(api, instance, 0x90, 60, 127);
@@ -1720,8 +1742,10 @@ int main()
     assert(std::strtof(get(api, instance, "limiter_state").c_str(), nullptr)
         < 0.01f);
     api->set_param(instance, "sample_fade", "1");
+    waitForBackgroundAudio(api, instance);
     const std::string fadeCapture = get(api, instance, "lane_source_path");
     api->set_param(instance, "maintenance", "1");
+    waitForBackgroundAudio(api, instance);
     assert(get(api, instance, "lane_source_state").rfind("CAPTURE:FADED", 0u)
         == 0u);
     assert(trimCapture.find("-trim.wav") != std::string::npos);
@@ -3531,8 +3555,9 @@ int main()
     assert(stateField(get(api, instance, "clip_state"), 4) >= 150);
     api->destroy_instance(instance);
 
-    /* That recovery save leaves a valid generation shared by the current
-       binary and JSON backup. A malformed current JSON must find that pair. */
+    /* Recovery retains the older complete backup pair. A malformed current
+       JSON must recover that pair, rather than mixing a newer JSON from a
+       damaged save with a clip bank that reused the same generation number. */
     stateFile = std::fopen(statePath.c_str(), "wb");
     assert(stateFile != nullptr);
     assert(std::fwrite("{", 1u, 1u, stateFile) == 1u);
@@ -3540,7 +3565,7 @@ int main()
     instance = api->create_instance(persistenceDir.c_str(), nullptr);
     assert(instance != nullptr);
     assert(get(api, instance, "persistence") == "1,1");
-    assert(get(api, instance, "record_gain") == "2.5000");
+    assert(get(api, instance, "record_gain") == "1.7500");
     assert(stateField(get(api, instance, "clip_state"), 4) >= 150);
     api->destroy_instance(instance);
 

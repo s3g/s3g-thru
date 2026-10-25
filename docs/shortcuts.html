@@ -20,8 +20,9 @@
         <p class="lead">The same control can change meaning by view, but recording gestures remain deliberately distinct: Record captures performance data; Shift+Record captures stereo audio.</p>
 
         <div class="screen-gallery">
-          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/help.svg" aria-label="Open the on-device system report"><img src="assets/screens/help.svg" alt="System report with render peak, deadline misses, current limiting, and maximum limiting"></button></div><figcaption><kbd>Shift</kbd> + <kbd>Menu</kbd> opens the System Report first. Each value has its own right-aligned field, so a growing counter cannot overwrite another report.</figcaption></figure>
-          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/help-shortcuts.svg" aria-label="Open the on-device shortcut page"><img src="assets/screens/help-shortcuts.svg" alt="Compact shortcut reminder for recording, clips, note hold, and Glitch lock"></button></div><figcaption>Use Left/Right, Up/Down, or the main encoder to move between System Report 1/2 and Shortcuts 2/2. Back, Menu, or Shift+Menu closes the view.</figcaption></figure>
+          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/help.svg" aria-label="Open the on-device system report"><img src="assets/screens/help.svg" alt="System report with render peak, render misses, current limiting, and maximum limiting"></button></div><figcaption><kbd>Shift</kbd> + <kbd>Menu</kbd> opens the System Report first. Each value has its own right-aligned field, so a growing counter cannot overwrite another report.</figcaption></figure>
+          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/help-callbacks.svg" aria-label="Open the callback work report"><img src="assets/screens/help-callbacks.svg" alt="Callback report with control peak, query peak, total work peak, and work misses"></button></div><figcaption><strong>Callback Work 2/3.</strong> Includes live control changes and display queries alongside rendering, helping identify interruptions that the render report alone cannot show.</figcaption></figure>
+          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/help-shortcuts.svg" aria-label="Open the on-device shortcut page"><img src="assets/screens/help-shortcuts.svg" alt="Compact shortcut reminder for recording, clips, note hold, and Glitch lock"></button></div><figcaption>Use Left/Right, Up/Down, or the main encoder to move between System Report 1/3, Callback Work 2/3, and Shortcuts 3/3. Back, Menu, or Shift+Menu closes the view.</figcaption></figure>
         </div>
 
         <h2 id="report">Reading the System Report</h2>
@@ -29,13 +30,17 @@
         <table class="readout-table">
           <thead><tr><th>Display</th><th>What it reports</th><th>How to read it</th></tr></thead>
           <tbody>
-            <tr><td>RENDER PEAK</td><td>Longest audio-block render time since takeover started, in microseconds.</td><td>Lower is safer. It must remain below the audio deadline; <code>DEADLINE MISSES</code> is the definitive indication that the deadline was exceeded.</td></tr>
-            <tr><td>DEADLINE MISSES</td><td>Number of audio blocks that did not finish before their deadline since takeover started.</td><td><code>0</code> is healthy. If the number increases while clicks or gaps occur, reduce costly grain/event settings or active polyphony and test again.</td></tr>
+            <tr><td>RENDER PEAK</td><td>Longest audio-block render time since takeover started, in microseconds.</td><td>Lower leaves more time for the rest of the device. Compare it with WORK PEAK on the next report page; rendering is only part of the work needed for playback.</td></tr>
+            <tr><td>RENDER MISSES</td><td>Number of render calls that exceeded one audio-block period.</td><td><code>0</code> is healthy. If it rises while clicks or gaps occur, reduce costly grain/event settings or active polyphony. This count excludes control and query work.</td></tr>
+            <tr><td>CONTROL PEAK</td><td>Longest live parameter or MIDI operation, in microseconds.</td><td>Watch this while changing controls or playing. A rise helps distinguish control work from engine rendering.</td></tr>
+            <tr><td>QUERY PEAK</td><td>Longest display/status query, in microseconds.</td><td>A large value points to work associated with reading or updating instrument information.</td></tr>
+            <tr><td>WORK PEAK</td><td>Largest combined time for rendering and the preceding Thru control/query calls.</td><td>Compare it with RENDER PEAK to see the additional cost of interaction. It excludes work performed elsewhere in Move or Schwung.</td></tr>
+            <tr><td>WORK MISSES</td><td>Number of combined-work intervals that exceeded one audio-block period.</td><td>Watch this as well as RENDER MISSES. A rise with no render misses indicates that control/query work contributed to overload. Zero cannot rule out an interruption elsewhere in the device.</td></tr>
             <tr><td>LIMIT CURRENT</td><td>Gain reduction being applied by the final stereo safety limiter, in decibels.</td><td><code>0.0 dB</code> means no current limiting. Brief low values on peaks are normal; a sustained or large value means the summed level should be reduced.</td></tr>
             <tr><td>LIMIT MAX</td><td>Largest limiter reduction observed since takeover started.</td><td>Use it as peak history. A large maximum with a near-zero current value describes an earlier transient, not continuous limiting.</td></tr>
           </tbody>
         </table>
-        <p>Large counts are shortened with <code>M</code> or <code>G</code> suffixes so every value remains visible. The report is diagnostic history for the current takeover session; opening or closing it does not reset the counters.</p>
+        <p>Large counts are shortened with <code>M</code> or <code>G</code> suffixes so every value remains visible. The report is diagnostic history for the current takeover session; opening or closing it does not reset the counters. One 128-frame block at 44.1 kHz lasts about 2,902 µs, and Move and Schwung also need part of that time. Neither report measures every cause of a missed device deadline.</p>
 
         <h2 id="global">Global and waveform controls</h2>
 
@@ -88,7 +93,7 @@
             <tr><td>Clip Overview</td><td>Track 1–4 changes bank; Steps address clips; Shift+Step copies; Delete+Step resets.</td></tr>
             <tr><td>Chain</td><td>Step selects entry; main turn chooses clip; Up/Down sets repeats; main click toggles Chain; Shift+click inserts active clip; Delete+Step removes; Shift+Step moves.</td></tr>
             <tr><td>Sample Library</td><td>Main turn or Up/Down browses; main click enters/loads; Back goes up or closes.</td></tr>
-            <tr><td>System Report / Shortcuts</td><td>Left/Right, Up/Down, or main turn selects page 1 or 2; Back, Menu, or Shift+Menu closes the view.</td></tr>
+            <tr><td>System Report / Shortcuts</td><td>Left/Right, Up/Down, or main turn selects one of the three pages; Back, Menu, or Shift+Menu closes the view.</td></tr>
           </tbody>
         </table>
 

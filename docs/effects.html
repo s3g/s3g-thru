@@ -42,6 +42,7 @@
           </tbody>
         </table>
 
+        <p><code>DRIV</code> uses 4× oversampling to reduce harsh aliasing on bright material and high notes. At zero, the clean signal retains its full frequency response. The effects path retains a fixed additional delay of about 0.54 ms as Drive changes.</p>
         <p>Continuous effect controls glide during live moves and recorded automation. Ordinary tone, drive, feedback, stereo, rotary, and tape changes use a short 5 ms response; wet/dry controls use a longer 12 ms fade because they blend signals with different phases. Delay-time changes use a 10 ms tap crossfade and complete it before moving toward the newest queued value. Changes to <code>BITS</code> and <code>RATE</code> also crossfade over 10 ms, keeping the deliberately stepped reduction sound without abruptly switching settings. Rapid edits finish their active fade before applying the newest value.</p>
 
         <h3>Stereo / Rotary</h3>

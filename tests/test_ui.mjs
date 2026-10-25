@@ -734,6 +734,7 @@ globalThis.onMidiMessageInternal([0xB0, 50, 127]);
 globalThis.onMidiMessageInternal([0xB0, 49, 0]);
 params.performance_state = '12345678,987654321';
 params.limiter_state = '12.3,45.6';
+params.callback_performance_state = '12345,67890,9876543,1234567';
 const helpDrawStart = drawWrites.length;
 for (let tick = 0; tick < 60; tick++) globalThis.tick();
 const reportWrites = drawWrites.slice(helpDrawStart).filter((write) =>
@@ -746,10 +747,18 @@ assert(reportWrites.some((write) => String(write[3]).includes('45.6 dB')));
 assert(reportWrites.every((write) => String(write[3]).length <= 21),
     'diagnostic report rows must fit the Move display');
 globalThis.onMidiMessageInternal([0xB0, 63, 127]);
+const callbackDrawStart = drawWrites.length;
+globalThis.tick();
+const callbackRows = drawWrites.slice(callbackDrawStart).filter((write) => write[0] === 'print');
+assert(callbackRows.some((write) => String(write[3]).includes('CALLBACK WORK 2/3')));
+assert(callbackRows.some((write) => String(write[3]).includes('12345 us')));
+assert(callbackRows.some((write) => String(write[3]).includes('1.2M')));
+assert(callbackRows.every((write) => String(write[3]).length <= 21));
+globalThis.onMidiMessageInternal([0xB0, 63, 127]);
 const shortcutDrawStart = drawWrites.length;
 globalThis.tick();
 assert(drawWrites.slice(shortcutDrawStart).some((write) =>
-    write[0] === 'print' && String(write[3]).includes('SHORTCUTS 2/2')));
+    write[0] === 'print' && String(write[3]).includes('SHORTCUTS 3/3')));
 globalThis.onMidiMessageInternal([0xB0, 51, 127]);
 assert.equal(exitCount, 0, 'Back closes settings/help before exiting');
 globalThis.onMidiMessageInternal([0xB0, 51, 127]);

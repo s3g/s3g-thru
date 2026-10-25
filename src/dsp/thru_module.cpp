@@ -2,6 +2,8 @@
 #include "thru_waveset_worker.h"
 #include "thru_output_limiter.h"
 #include "thru_lofi.h"
+#include "thru_drive.h"
+#include "thru_background_thread.h"
 #include "thru_schwung_abi.h"
 
 #include <algorithm>
@@ -23,6 +25,8 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <dirent.h>
+#include <type_traits>
 
 namespace {
 
@@ -35,7 +39,6 @@ constexpr std::size_t kLaneSeconds = 12u;
 constexpr std::size_t kWaveBins = 112u;
 constexpr std::size_t kWaveTextSize = kLaneCount * kWaveBins * 2u
     + (kLaneCount - 1u) + 1u;
-constexpr std::size_t kWaveScanBudget = 65536u;
 constexpr std::size_t kVoiceCount = 8u;
 constexpr std::size_t kRollCount = 8u;
 constexpr float kMaximumRollSeconds = 1.5f;
@@ -800,6 +803,8 @@ constexpr const char kChainParams[] = R"json([
 {"key":"recording","name":"Recording","type":"int","min":0,"max":1,"access":"read","live":true},
 {"key":"ui_state","name":"UI State","type":"string","access":"read","live":true},
 {"key":"performance_state","name":"Realtime Performance","type":"string","access":"read","live":true},
+{"key":"callback_performance_state","name":"Callback Work Report","type":"string","access":"read","live":true},
+{"key":"background_state","name":"Background Save State","type":"string","access":"read","live":true},
 {"key":"limiter_state","name":"Output Limiter","type":"string","access":"read","live":true},
 {"key":"memory_state","name":"Sampler Memory","type":"string","access":"read"},
 {"key":"playheads","name":"Voice Playheads","type":"string","access":"read","live":true},
@@ -1631,6 +1636,7 @@ struct ThruInstance {
     std::size_t effectDelayWrite = 0u;
     std::array<float, 2u> effectToneState {};
     s3g_daisy::ThruLoFi effectLoFi;
+    s3g_daisy::ThruDrive effectDrive;
     float effectControlSlew = 1.0f;
     float effectToneValue = 0.0f;
     float effectToneAlpha = 1.0f;
@@ -1873,16 +1879,11 @@ struct ThruInstance {
         pendingClipSourcePaths {};
     std::uint32_t pendingClipSourceMask = 0u;
 
-    ~ThruInstance() { stopSampleWorker(); wavesetWorker.stop(); }
+    ~ThruInstance() { stopBackgroundWork(); stopSampleWorker(); wavesetWorker.stop(); }
 
     std::array<WaveBins, kLaneCount> waveMinimum {};
     std::array<WaveBins, kLaneCount> waveMaximum {};
-    std::array<float, kWaveBins> scanMinimum {};
-    std::array<float, kWaveBins> scanMaximum {};
     std::uint32_t waveDirtyMask = 0u;
-    int scanLane = -1;
-    std::size_t scanFrame = 0u;
-    std::size_t scanFrames = 0u;
     bool waveTextDirty = false;
     std::array<char, kWaveTextSize> waveText {};
     std::array<char, 160u> lastError {};
@@ -1893,6 +1894,8 @@ struct ThruInstance {
     bool persistenceRestored = false;
     std::uint64_t persistenceGeneration = 0u;
     std::uint64_t nextCaptureId = 1u;
+
+#include "thru_background.inc"
 
     bool prepare(const char* moduleDir)
     {
@@ -1973,6 +1976,7 @@ struct ThruInstance {
         voiceStealFadeFrames = std::max<std::size_t>(1u,
             static_cast<std::size_t>(std::lround(sampleRate * 0.005f)));
         effectLoFi.prepare(sampleRate);
+        effectDrive.reset();
         effectControlSlew = 1.0f
             - std::exp(-1.0f / (sampleRate * 0.005f));
         effectMixSlew = 1.0f
@@ -2013,6 +2017,7 @@ struct ThruInstance {
                 }
             }
             loadPersistentState();
+            reserveCaptureIds();
         }
         if (!clipBankInitialized) captureActiveClip(false);
         clipControls = controls;
@@ -2045,6 +2050,10 @@ struct ThruInstance {
         sampleWorkerReady = startSampleWorker();
         if (!sampleWorkerReady && g_host && g_host->log) {
             g_host->log("s3g Thru sample-library worker unavailable");
+        }
+        if (!startBackgroundWork()) {
+            setError("Unable to start background save/analysis worker");
+            return false;
         }
         rebuildWaveText();
         return true;
@@ -2433,11 +2442,10 @@ struct ThruInstance {
                 float sample = effectToneValue < 0.0f
                     ? inputSample + (low - inputSample) * -effectToneValue
                     : inputSample + (high - inputSample) * effectToneValue;
-                sample = sample * (1.0f + effectDriveValue)
-                    / (1.0f + effectDriveValue * std::abs(sample));
                 colored[channel] = sample;
             }
-            const auto effectRateHold = effectLoFi.process({colored[0u], colored[1u]});
+            const auto driven = effectDrive.process({colored[0u], colored[1u]}, effectDriveValue);
+            const auto effectRateHold = effectLoFi.process(driven);
             float delayMix = 1.0f;
             if (effectDelayTransitionRemaining != 0u) {
                 delayMix = 1.0f
@@ -3154,10 +3162,10 @@ struct ThruInstance {
         result.boundaries[regions] = 1.0f;
     }
 
-    void installRegionMap(std::size_t lane, const RegionMap& map)
+    void installRegionMap(std::size_t lane, const RegionMap& map, bool sourceChanged = true)
     {
         if (lane >= kLaneCount) return;
-        ++wavesetSourceRevisions[lane];
+        if (sourceChanged) ++wavesetSourceRevisions[lane];
         activeRegions[lane] = map;
         engine.setLaneRegions(lane, map.boundaries.data(),
                               std::max<std::size_t>(1u, map.count));
@@ -3236,6 +3244,7 @@ struct ThruInstance {
     static void* sampleWorkerEntry(void* opaque)
     {
         auto* instance = static_cast<ThruInstance*>(opaque);
+        s3g_daisy::configureBackgroundThread();
         while (true) {
             pthread_mutex_lock(&instance->sampleWorkerMutex);
             while (!instance->sampleWorkerSignaled
@@ -3292,7 +3301,7 @@ struct ThruInstance {
             return false;
         }
         sampleWorkerRunning.store(1, std::memory_order_release);
-        if (pthread_create(&sampleWorker, nullptr, sampleWorkerEntry, this) != 0) {
+        if (!s3g_daisy::startBackgroundThread(sampleWorker, sampleWorkerEntry, this)) {
             sampleWorkerRunning.store(0, std::memory_order_release);
             pthread_cond_destroy(&sampleWorkerCondition);
             pthread_mutex_destroy(&sampleWorkerMutex);
@@ -3390,6 +3399,7 @@ struct ThruInstance {
 
     bool requestClipPreparation(int clipIndex)
     {
+        if (pendingCaptureSaveMask != 0u) { maintenanceRequested = true; return false; }
         if (!sampleWorkerReady || engine.recording() || clipIndex < 0
             || clipIndex >= static_cast<int>(clipSlots.size())) return false;
         const auto sampleState = static_cast<SampleLoadState>(
@@ -3481,6 +3491,7 @@ struct ThruInstance {
 
     void serviceSampleLoad()
     {
+        if (pendingCaptureSaveMask != 0u && !sampleRequestPreview) return;
         auto state = static_cast<SampleLoadState>(
             sampleLoadState.load(std::memory_order_acquire));
         if (state == SampleLoadState::ready) {
@@ -3549,7 +3560,6 @@ struct ThruInstance {
         waveMinimum[lane] = sampleStageWaveMinimum;
         waveMaximum[lane] = sampleStageWaveMaximum;
         waveDirtyMask &= ~(1u << lane);
-        if (scanLane == static_cast<int>(lane)) scanLane = -1;
         waveTextDirty = true;
         std::snprintf(laneSourceLabels[lane].data(), laneSourceLabels[lane].size(),
                       "%.*s",
@@ -5649,7 +5659,12 @@ struct ThruInstance {
             && clip->clipDurationMs >= kClipMinimumDurationMs;
     }
 
-    void markPersistentStateDirty() { persistentStateDirty = true; }
+    void markPersistentStateDirty()
+    {
+        persistentStateDirty = true;
+        ++persistentRevision;
+        lastPersistentEditFrame = renderClockSamples.load(std::memory_order_relaxed);
+    }
 
     void pushClipUndo(int index)
     {
@@ -5662,6 +5677,10 @@ struct ThruInstance {
 
     void restoreUndo()
     {
+        if (pendingCaptureSaveMask != 0u && !serviceMaintenance()) {
+            setError("Wait for the recording archive before undoing");
+            return;
+        }
         if (!undoAvailable || undoClipIndex < 0
             || undoClipIndex >= static_cast<int>(clipSlots.size())) return;
         if (clipPreparationInFlight()) {
@@ -5735,6 +5754,7 @@ struct ThruInstance {
 
     void activateStoredClip(int index, bool queueSources = true)
     {
+        markPersistentStateDirty();
         if (index < 0 || index >= static_cast<int>(clipSlots.size())) return;
         ClipSlot& target = clipSlots[static_cast<std::size_t>(index)];
         activeClip = index;
@@ -5799,6 +5819,7 @@ struct ThruInstance {
 
     bool activatePreparedClip()
     {
+        if (pendingCaptureSaveMask != 0u) return false;
         if (clipPrepareState.load(std::memory_order_acquire)
                 != static_cast<int>(ClipPrepareState::ready)
             || preparedClip.load(std::memory_order_relaxed) < 0
@@ -5867,7 +5888,6 @@ struct ThruInstance {
         }
         pendingClearMask = 0u;
         waveDirtyMask = 0u;
-        scanLane = -1;
         waveTextDirty = true;
         const int target = preparedClip.load(std::memory_order_relaxed);
         preparedClip.store(-1, std::memory_order_relaxed);
@@ -5941,7 +5961,7 @@ struct ThruInstance {
             chainNextSlot = -1;
         }
         if (pendingCaptureSaveMask != 0u && !serviceMaintenance()) {
-            setError("Clip change is waiting for capture save");
+            queuedClip = index;
             return;
         }
         captureActiveClip(false);
@@ -6571,21 +6591,12 @@ struct ThruInstance {
         }
     }
 
-    void completedRecordingLane(std::size_t lane, bool analyzeNow = true)
+    void completedRecordingLane(std::size_t lane, bool = true)
     {
         recordingLaneMask = 0u;
         if (lane < kLaneCount && engine.laneFrames(lane) != 0u) {
-            if (analyzeNow) {
-                RegionMap regions;
-                analyzeRegions(engine.laneData(lane, 0u),
-                               engine.laneData(lane, 1u),
-                               engine.laneFrames(lane),
-                               engine.laneSampleRate(lane), regions);
-                installRegionMap(lane, regions);
-                pendingRegionAnalysisMask &= ~(1u << lane);
-            } else {
-                pendingRegionAnalysisMask |= 1u << lane;
-            }
+            pendingRegionAnalysisMask |= 1u << lane;
+            maintenanceRequested = true;
             pendingClearMask &= ~(1u << lane);
             markWaveformDirty(lane);
             currentLaneSourceKinds[lane] = LaneSourceKind::capture;
@@ -6628,7 +6639,8 @@ struct ThruInstance {
             return;
         }
         if (pendingCaptureSaveMask != 0u && !serviceMaintenance()) {
-            setError("Save the current take before recording again");
+            recordStartPending = true;
+            pendingRecordLane = selectedLane;
             return;
         }
         clearError();
@@ -6644,6 +6656,7 @@ struct ThruInstance {
 
     void finishRecording()
     {
+        recordStartPending = false;
         if (!engine.recording()) return;
         const bool adopted = engine.endRecording();
         const std::size_t lane = engine.lastRecordedLane();
@@ -6655,6 +6668,10 @@ struct ThruInstance {
 
     void clearSelectedLane()
     {
+        if (pendingCaptureSaveMask != 0u && !serviceMaintenance()) {
+            setError("Wait for the recording archive before clearing");
+            return;
+        }
         if (!engine.laneLoaded(selectedLane)) return;
         if (clipPreparationInFlight()) {
             setError("Wait for the queued clip to finish preparing");
@@ -6758,12 +6775,8 @@ struct ThruInstance {
         pendingCaptureClips[selectedLane] = activeClip;
         pendingCaptureSaveMask |= 1u << selectedLane;
         markWaveformDirty(selectedLane);
-        RegionMap regions;
-        analyzeRegions(engine.laneData(selectedLane, 0u),
-                       engine.laneData(selectedLane, 1u),
-                       engine.laneFrames(selectedLane),
-                       engine.laneSampleRate(selectedLane), regions);
-        installRegionMap(selectedLane, regions);
+        pendingRegionAnalysisMask |= 1u << selectedLane;
+        maintenanceRequested = true;
         refreshPlaybackVoices();
         markPersistentStateDirty();
     }
@@ -6844,19 +6857,10 @@ struct ThruInstance {
         finishSampleEdit("TRIMMED", "trim");
     }
 
-    void cancelWaveScan(std::size_t lane)
-    {
-        if (lane < kLaneCount && scanLane == static_cast<int>(lane)) {
-            scanLane = -1;
-            scanFrame = 0u;
-            scanFrames = 0u;
-        }
-    }
-
     void markWaveformDirty(std::size_t lane)
     {
         if (lane >= kLaneCount) return;
-        cancelWaveScan(lane);
+        ++wavesetSourceRevisions[lane];
         waveDirtyMask |= 1u << lane;
     }
 
@@ -6864,7 +6868,6 @@ struct ThruInstance {
     {
         if (lane >= kLaneCount) return;
         ++wavesetSourceRevisions[lane];
-        cancelWaveScan(lane);
         waveDirtyMask &= ~(1u << lane);
         waveMinimum[lane].fill(0);
         waveMaximum[lane].fill(0);
@@ -6888,66 +6891,6 @@ struct ThruInstance {
         waveTextDirty = false;
     }
 
-    void beginNextWaveScan()
-    {
-        if (scanLane >= 0 || waveDirtyMask == 0u) return;
-        for (std::size_t lane = 0u; lane < kLaneCount; ++lane) {
-            if ((waveDirtyMask & (1u << lane)) == 0u) continue;
-            scanLane = static_cast<int>(lane);
-            scanFrame = 0u;
-            scanFrames = engine.laneFrames(lane);
-            scanMinimum.fill(0.0f);
-            scanMaximum.fill(0.0f);
-            if (scanFrames == 0u || !engine.laneData(lane, 0u)) {
-                waveMinimum[lane].fill(0);
-                waveMaximum[lane].fill(0);
-                waveDirtyMask &= ~(1u << lane);
-                scanLane = -1;
-                waveTextDirty = true;
-            }
-            return;
-        }
-    }
-
-    void serviceWaveScan()
-    {
-        const auto loadState = static_cast<SampleLoadState>(
-            sampleLoadState.load(std::memory_order_acquire));
-        if (engine.recording()
-            || pendingClearMask != 0u
-            || (loadState >= SampleLoadState::requested
-                && loadState <= SampleLoadState::copying)) return;
-        beginNextWaveScan();
-        if (scanLane < 0) return;
-        const std::size_t lane = static_cast<std::size_t>(scanLane);
-        const float* left = engine.laneData(lane, 0u);
-        const float* right = engine.laneData(lane, 1u);
-        const std::size_t currentFrames = engine.laneFrames(lane);
-        if (!left || !right || currentFrames != scanFrames || scanFrames == 0u) {
-            scanLane = -1;
-            waveDirtyMask |= 1u << lane;
-            return;
-        }
-
-        const std::size_t end = std::min(scanFrames, scanFrame + kWaveScanBudget);
-        for (std::size_t frame = scanFrame; frame < end; ++frame) {
-            const std::size_t bin = std::min(kWaveBins - 1u,
-                frame * kWaveBins / scanFrames);
-            const float low = std::min(left[frame], right[frame]);
-            const float high = std::max(left[frame], right[frame]);
-            scanMinimum[bin] = std::min(scanMinimum[bin], low);
-            scanMaximum[bin] = std::max(scanMaximum[bin], high);
-        }
-        scanFrame = end;
-        if (scanFrame < scanFrames) return;
-
-        quantizeWaveform(scanMinimum, scanMaximum,
-                         waveMinimum[lane], waveMaximum[lane]);
-        waveDirtyMask &= ~(1u << lane);
-        scanLane = -1;
-        waveTextDirty = true;
-    }
-
     void render(int16_t* interleaved, int frames)
     {
         if (!interleaved || frames <= 0) return;
@@ -6963,6 +6906,7 @@ struct ThruInstance {
                 kBlockFrames, static_cast<std::size_t>(frames - rendered));
             serviceSampleLoad();
             serviceClipSourceQueue();
+            serviceBackgroundWork();
             for (std::size_t frame = 0u; frame < count; ++frame) {
                 const std::size_t sourceFrame = static_cast<std::size_t>(rendered) + frame;
                 const float left = audioInput
@@ -7220,28 +7164,39 @@ struct ThruInstance {
             || lane >= kLaneCount || !kind || !path || pathSize == 0u) {
             return false;
         }
-        for (std::size_t attempt = 0u; attempt < 100000u; ++attempt) {
-            const std::uint64_t id = std::max<std::uint64_t>(1u, nextCaptureId++);
-            std::array<char, 96u> leaf {};
-            const int length = std::snprintf(
-                leaf.data(), leaf.size(),
-                "captures/t%010llu-c%02d-l%u-%s.wav",
-                static_cast<unsigned long long>(id), clipIndex + 1,
-                static_cast<unsigned>(lane + 1u), kind);
-            if (length <= 0 || static_cast<std::size_t>(length) >= leaf.size()
-                || !persistencePath(leaf.data(), path, pathSize)) {
-                return false;
-            }
-            errno = 0;
-            if (access(path, F_OK) != 0 && errno == ENOENT) {
-                if (allocatedId) *allocatedId = id;
-                return true;
-            }
+        if (nextCaptureId == ~std::uint64_t {0u}) return false;
+        const std::uint64_t id = std::max<std::uint64_t>(1u, nextCaptureId++);
+        std::array<char, 96u> leaf {};
+        const int length = std::snprintf(
+            leaf.data(), leaf.size(),
+            "captures/t%010llu-c%02d-l%u-%s.wav",
+            static_cast<unsigned long long>(id), clipIndex + 1,
+            static_cast<unsigned>(lane + 1u), kind);
+        if (length <= 0 || static_cast<std::size_t>(length) >= leaf.size()
+            || !persistencePath(leaf.data(), path, pathSize)) {
+            return false;
         }
-        return false;
+        if (allocatedId) *allocatedId = id;
+        return true;
     }
 
-    int serializeState(char* buffer, int bufferLength) const
+    void reserveCaptureIds()
+    {
+        std::array<char, kPersistencePathSize> directory {};
+        if (!persistencePath("captures", directory.data(), directory.size())) return;
+        DIR* entries = opendir(directory.data());
+        if (!entries) return;
+        while (const dirent* entry = readdir(entries)) {
+            unsigned long long id = 0u;
+            if (std::sscanf(entry->d_name, "t%llu-", &id) == 1
+                && id < ~std::uint64_t {0u})
+                nextCaptureId = std::max(nextCaptureId, static_cast<std::uint64_t>(id) + 1u);
+        }
+        closedir(entries);
+    }
+
+    int serializeState(char* buffer, int bufferLength,
+        std::uint64_t generation = kAnyPersistenceGeneration) const
     {
         if (!buffer || bufferLength < 1) return -1;
         return std::snprintf(buffer, static_cast<std::size_t>(bufferLength),
@@ -7426,10 +7381,11 @@ struct ThruInstance {
             previewLevel, grainVoiceLimit,
             static_cast<int>(launchQuantize),
             static_cast<unsigned long long>(nextCaptureId),
-            static_cast<unsigned long long>(persistenceGeneration));
+            static_cast<unsigned long long>(generation == kAnyPersistenceGeneration
+                ? persistenceGeneration : generation));
     }
 
-    bool writeStateFile()
+    bool writeStateFile(const PersistenceSnapshot* snapshot = nullptr, bool stageOnly = false)
     {
         std::array<char, kPersistencePathSize> path {};
         std::array<char, kPersistencePathSize> temporary {};
@@ -7438,21 +7394,23 @@ struct ThruInstance {
             || !persistencePath("thru-state.json.tmp", temporary.data(), temporary.size())) {
             return false;
         }
-        const int length = serializeState(text.data(), static_cast<int>(text.size()));
+        const int length = snapshot
+            ? std::snprintf(text.data(), text.size(), "%s", snapshot->json.data())
+            : serializeState(text.data(), static_cast<int>(text.size()));
         if (length <= 0 || static_cast<std::size_t>(length) >= text.size()) return false;
         std::FILE* file = std::fopen(temporary.data(), "wb");
         if (!file) return false;
         const bool wrote = writeBytes(file, text.data(), static_cast<std::size_t>(length));
         const bool closed = std::fclose(file) == 0;
         if (!wrote || !closed
-            || !replaceFileWithBackup(temporary.data(), path.data())) {
+            || (!stageOnly && !replaceFileWithBackup(temporary.data(), path.data()))) {
             std::remove(temporary.data());
             return false;
         }
         return true;
     }
 
-    bool writeClipFile()
+    bool writeClipFile(const PersistenceSnapshot* snapshot = nullptr, bool stageOnly = false)
     {
         std::array<char, kPersistencePathSize> path {};
         std::array<char, kPersistencePathSize> temporary {};
@@ -7461,26 +7419,28 @@ struct ThruInstance {
                                 temporary.size())) {
             return false;
         }
-        captureActiveClip(false);
+        if (!snapshot) captureActiveClip(false);
+        const auto& savedClips = snapshot ? snapshot->clips : clipSlots;
+        const auto& savedChain = snapshot ? snapshot->chain : clipChain;
         std::FILE* file = std::fopen(temporary.data(), "wb");
         if (!file) return false;
         const char magic[8] { 'S', '3', 'G', 'T', 'H', 'R', '3', '\0' };
         bool ok = writeBytes(file, magic, sizeof(magic))
             && writeU32(file, 11u)
-            && writeU64(file, persistenceGeneration)
-            && writeF32(file, tempoBpm)
-            && writeF32(file, tempoSwing)
-            && writeU32(file, static_cast<std::uint32_t>(launchQuantize))
-            && writeU32(file, static_cast<std::uint32_t>(grainVoiceLimit))
-            && writeU32(file, static_cast<std::uint32_t>(activeClip))
-            && writeU32(file, static_cast<std::uint32_t>(chainPosition))
-            && writeU32(file, static_cast<std::uint32_t>(chainEditSlot));
-        for (const auto& entry : clipChain) {
+            && writeU64(file, snapshot ? snapshot->generation : persistenceGeneration)
+            && writeF32(file, snapshot ? snapshot->tempo : tempoBpm)
+            && writeF32(file, snapshot ? snapshot->swing : tempoSwing)
+            && writeU32(file, static_cast<std::uint32_t>(snapshot ? snapshot->quantize : launchQuantize))
+            && writeU32(file, static_cast<std::uint32_t>(snapshot ? snapshot->grainLimit : grainVoiceLimit))
+            && writeU32(file, static_cast<std::uint32_t>(snapshot ? snapshot->active : activeClip))
+            && writeU32(file, static_cast<std::uint32_t>(snapshot ? snapshot->chainPosition : chainPosition))
+            && writeU32(file, static_cast<std::uint32_t>(snapshot ? snapshot->chainEdit : chainEditSlot));
+        for (const auto& entry : savedChain) {
             ok = ok && writeU32(file, entry.enabled ? 1u : 0u)
                 && writeU32(file, entry.clip)
                 && writeU32(file, entry.repeats);
         }
-        for (const auto& clip : clipSlots) {
+        for (const auto& clip : savedClips) {
             ok = ok && writeU32(file, clip.occupied ? 1u : 0u);
             for (const float base : clip.baseValues) {
                 ok = ok && writeF32(file, base);
@@ -7530,18 +7490,43 @@ struct ThruInstance {
         }
         const bool closed = std::fclose(file) == 0;
         ok = ok && closed && appendFileChecksum(temporary.data());
-        if (!ok || !replaceFileWithBackup(temporary.data(), path.data())) {
+        if (!ok || (!stageOnly && !replaceFileWithBackup(temporary.data(), path.data()))) {
             std::remove(temporary.data());
             return false;
         }
         return true;
     }
 
-    bool writeMetadataFiles()
+    bool writeMetadataFiles(const PersistenceSnapshot* snapshot = nullptr)
     {
-        ++persistenceGeneration;
-        if (!writeClipFile()) return false;
-        return writeStateFile();
+        if (!snapshot) {
+            const auto generation = reservePersistenceGeneration();
+            if (generation == 0u) return false;
+            persistenceGeneration = generation;
+        }
+        // Finish both files before rotating a recoverable generation. A failed
+        // write must not replace half the pair or destroy its matching backup.
+        if (!writeClipFile(snapshot, true) || !writeStateFile(snapshot, true)) return false;
+        std::array<char, kPersistencePathSize> clips {}, state {}, clipTemp {}, stateTemp {};
+        std::array<char, kPersistencePathSize> clipBackup {}, stateBackup {};
+        if (!persistencePath("thru-clips.bin", clips.data(), clips.size())
+            || !persistencePath("thru-state.json", state.data(), state.size())
+            || !persistencePath("thru-clips.bin.tmp", clipTemp.data(), clipTemp.size())
+            || !persistencePath("thru-state.json.tmp", stateTemp.data(), stateTemp.size())
+            || !persistencePath("thru-clips.bin.bak", clipBackup.data(), clipBackup.size())
+            || !persistencePath("thru-state.json.bak", stateBackup.data(), stateBackup.size())) return false;
+        std::uint64_t clipGeneration = 0u, stateGeneration = 0u;
+        const bool currentPairValid = clipFileGeneration(clips.data(), clipGeneration)
+            && stateFileGeneration(state.data(), stateGeneration)
+            && clipGeneration == stateGeneration;
+        if (currentPairValid) {
+            if (std::rename(clips.data(), clipBackup.data()) != 0) return false;
+            if (std::rename(state.data(), stateBackup.data()) != 0) return false;
+        }
+        // A damaged current pair leaves existing backups intact. Every commit
+        // boundary therefore retains a complete older pair for startup recovery.
+        return std::rename(clipTemp.data(), clips.data()) == 0
+            && std::rename(stateTemp.data(), state.data()) == 0;
     }
 
     bool clipFileGeneration(const char* path, std::uint64_t& generation) const
@@ -7778,6 +7763,7 @@ struct ThruInstance {
         grainVoiceLimit = loadedGrainVoiceLimit;
         controls.grainVoiceLimit = static_cast<float>(grainVoiceLimit);
         persistenceGeneration = loadedGeneration;
+        observePersistenceGeneration(loadedGeneration);
         activeClip = static_cast<int>(selected);
         chainPosition = clampValue(static_cast<int>(loadedChainPosition),
             0, static_cast<int>(kClipChainLength) - 1);
@@ -7816,11 +7802,20 @@ struct ThruInstance {
         const float* right = engine.laneData(lane, 1u);
         const std::size_t frames = engine.laneFrames(lane);
         if (!left || !right || frames == 0u || frames > laneCapacityFrames) return false;
+        return writeStereoWavFile(left, right, frames, engine.laneSampleRate(lane),
+            path, temporaryPath, !removeIfEmpty);
+    }
+
+    static bool writeStereoWavFile(const float* left, const float* right,
+        std::size_t frames, float sourceRate, const char* path,
+        const char* temporaryPath, bool preserveExisting, bool* collision = nullptr)
+    {
+        if (!left || !right || frames == 0u) return false;
         const std::uint64_t dataBytes64 = frames * 2u * sizeof(float);
         if (dataBytes64 > 0xffffffffu - 36u) return false;
         const std::uint32_t dataBytes = static_cast<std::uint32_t>(dataBytes64);
         const std::uint32_t rate = static_cast<std::uint32_t>(std::lround(
-            clampValue(engine.laneSampleRate(lane), 8000.0f, 192000.0f)));
+            clampValue(sourceRate, 8000.0f, 192000.0f)));
 
         std::FILE* file = std::fopen(temporaryPath, "wb");
         if (!file) return false;
@@ -7846,7 +7841,12 @@ struct ThruInstance {
             ok = writeBytes(file, interleaved.data(), count * 2u * sizeof(float));
         }
         const bool closed = std::fclose(file) == 0;
-        if (!ok || !closed || std::rename(temporaryPath, path) != 0) {
+        // link publishes a new archived take without replacing an existing one.
+        const bool published = ok && closed && (preserveExisting
+            ? link(temporaryPath, path) == 0 : std::rename(temporaryPath, path) == 0);
+        if (collision) *collision = !published && ok && closed && preserveExisting && errno == EEXIST;
+        if (published && preserveExisting) std::remove(temporaryPath);
+        if (!published) {
             std::remove(temporaryPath);
             return false;
         }
@@ -7908,45 +7908,6 @@ struct ThruInstance {
             laneSourceLabels[lane] = clip.laneSourceLabels[lane];
         }
         return true;
-    }
-
-    bool serviceMaintenance()
-    {
-        if (engine.recording()) return false;
-        if (clipFinishPending && clipRecording) finishClipRecording();
-        bool ok = true;
-        for (std::size_t lane = 0u; lane < kLaneCount; ++lane) {
-            if ((pendingRegionAnalysisMask & (1u << lane)) == 0u) continue;
-            if (engine.laneFrames(lane) != 0u) {
-                RegionMap regions;
-                analyzeRegions(engine.laneData(lane, 0u),
-                               engine.laneData(lane, 1u),
-                               engine.laneFrames(lane),
-                               engine.laneSampleRate(lane), regions);
-                installRegionMap(lane, regions);
-            }
-            pendingRegionAnalysisMask &= ~(1u << lane);
-        }
-        if (!persistenceEnabled) return true;
-        for (std::size_t lane = 0u; lane < kLaneCount; ++lane) {
-            if ((pendingCaptureSaveMask & (1u << lane)) == 0u) continue;
-            const int owner = pendingCaptureClips[lane];
-            if (!writeClipCapture(lane, owner)) {
-                ok = false;
-                continue;
-            }
-            pendingCaptureSaveMask &= ~(1u << lane);
-            pendingCaptureClips[lane] = -1;
-        }
-        if (persistentStateDirty || pendingCaptureSaveMask != 0u) {
-            captureActiveClip(false);
-            const bool metadataSaved = writeMetadataFiles();
-            ok = metadataSaved && ok;
-            if (metadataSaved && pendingCaptureSaveMask == 0u) {
-                persistentStateDirty = false;
-            }
-        }
-        return ok;
     }
 
     bool readLaneFile(std::size_t lane)
@@ -8123,6 +8084,8 @@ struct ThruInstance {
                     statePaths[index].data(), stateGenerations[index]);
                 clipValid[index] = clipFileGeneration(
                     clipPaths[index].data(), clipGenerations[index]);
+                if (stateValid[index]) observePersistenceGeneration(stateGenerations[index]);
+                if (clipValid[index]) observePersistenceGeneration(clipGenerations[index]);
             }
             int stateChoice = -1;
             int clipChoice = -1;
@@ -8160,6 +8123,7 @@ struct ThruInstance {
 
     bool savePersistentState()
     {
+        stopBackgroundWork();
         if (!persistenceEnabled) return false;
         if (engine.recording()) finishRecording();
         if (clipRecording) finishClipRecording();
@@ -8394,7 +8358,32 @@ struct ThruInstance {
             nextCaptureId = std::max<std::uint64_t>(1u, loadedNextCaptureId);
         }
         persistenceGeneration = loadedGeneration;
+        observePersistenceGeneration(loadedGeneration);
         return true;
+    }
+};
+
+void recordMaximum(std::atomic<std::uint64_t>& maximum, std::uint64_t value)
+{
+    auto previous = maximum.load(std::memory_order_relaxed);
+    while (value > previous && !maximum.compare_exchange_weak(previous, value,
+        std::memory_order_relaxed, std::memory_order_relaxed)) {}
+}
+
+struct CallbackWorkTimer {
+    ThruInstance& instance;
+    bool query;
+    timespec before {};
+    CallbackWorkTimer(ThruInstance& target, bool isQuery) : instance(target), query(isQuery)
+    { clock_gettime(CLOCK_MONOTONIC, &before); }
+    ~CallbackWorkTimer()
+    {
+        timespec after {}; clock_gettime(CLOCK_MONOTONIC, &after);
+        const auto nanos = static_cast<std::uint64_t>(
+            (after.tv_sec - before.tv_sec) * 1000000000ll + after.tv_nsec - before.tv_nsec);
+        recordMaximum(query ? instance.maximumQueryMicros : instance.maximumControlMicros,
+            (nanos + 999u) / 1000u);
+        instance.pendingCallbackNanos.fetch_add(nanos, std::memory_order_relaxed);
     }
 };
 
@@ -8426,6 +8415,7 @@ void onMidi(void* opaque, const uint8_t* message, int length, int source)
 {
     auto* instance = static_cast<ThruInstance*>(opaque);
     if (!instance || !message || length < 3) return;
+    CallbackWorkTimer callbackTimer(*instance, false);
     const int type = message[0] & 0xf0;
     const int note = message[1] & 0x7f;
     const int value = message[2] & 0x7f;
@@ -8464,6 +8454,7 @@ void setParam(void* opaque, const char* key, const char* value)
 {
     auto* instance = static_cast<ThruInstance*>(opaque);
     if (!instance || !key || !value) return;
+    CallbackWorkTimer callbackTimer(*instance, false);
     auto& controls = instance->controls;
 
     if (std::strcmp(key, "maintenance") != 0
@@ -8532,7 +8523,13 @@ void setParam(void* opaque, const char* key, const char* value)
     if (std::strcmp(key, "tempo_swing") == 0) { instance->tempoSwing = clampValue(parseFloat(value, instance->tempoSwing * 100.0f) / 100.0f, 0.5f, 0.75f); return; }
     if (std::strcmp(key, "undo") == 0) { if (isTruthy(value)) instance->restoreUndo(); return; }
     if (std::strcmp(key, "maintenance") == 0) { if (isTruthy(value)) instance->serviceMaintenance(); return; }
-    if (std::strcmp(key, "performance_reset") == 0) { if (isTruthy(value)) { instance->maximumRenderMicros.store(0u, std::memory_order_relaxed); instance->renderOverruns.store(0u, std::memory_order_relaxed); instance->limiterMaximumReductionDb.store(0.0f, std::memory_order_relaxed); } return; }
+    if (std::strcmp(key, "performance_reset") == 0) { if (isTruthy(value)) { instance->maximumRenderMicros.store(0u, std::memory_order_relaxed); instance->renderOverruns.store(0u, std::memory_order_relaxed); instance->limiterMaximumReductionDb.store(0.0f, std::memory_order_relaxed);
+        instance->maximumControlMicros.store(0u, std::memory_order_relaxed);
+        instance->maximumQueryMicros.store(0u, std::memory_order_relaxed);
+        instance->maximumWorkMicros.store(0u, std::memory_order_relaxed);
+        instance->workOverruns.store(0u, std::memory_order_relaxed);
+        instance->pendingCallbackNanos.store(0u, std::memory_order_relaxed);
+    } return; }
     if (std::strcmp(key, "chain_enabled") == 0) { instance->chainEnabled = isTruthy(value); instance->markPersistentStateDirty(); return; }
     if (std::strcmp(key, "chain_slot") == 0) { instance->chainEditSlot = clampValue(parseInteger(value, instance->chainEditSlot + 1) - 1, 0, static_cast<int>(kClipChainLength) - 1); return; }
     if (std::strcmp(key, "chain_clip") == 0) { const auto& entry = instance->clipChain[static_cast<std::size_t>(instance->chainEditSlot)]; instance->setChainEntry(instance->chainEditSlot, clampValue(parseInteger(value, static_cast<int>(entry.clip) + 1) - 1, 0, static_cast<int>(kClipSlotCount) - 1), entry.repeats); return; }
@@ -8732,6 +8729,7 @@ int getParam(void* opaque, const char* key, char* buffer, int bufferLength)
 {
     auto* instance = static_cast<ThruInstance*>(opaque);
     if (!instance || !key || !buffer || bufferLength < 1) return -1;
+    CallbackWorkTimer callbackTimer(*instance, true);
     const auto& controls = instance->controls;
 
     if (std::strcmp(key, "chain_params") == 0) return copyText(kChainParams, buffer, bufferLength);
@@ -8748,7 +8746,7 @@ int getParam(void* opaque, const char* key, char* buffer, int bufferLength)
     if (std::strcmp(key, "surface") == 0) { buffer[0] = '\0'; return 0; }
     if (std::strcmp(key, "midi_map") == 0) return copyText(kMidiMap, buffer, bufferLength);
     if (std::strcmp(key, "waveforms") == 0) {
-        instance->serviceWaveScan();
+        // Encode only 448 published bins; never scan source audio in a getter.
         if (instance->waveTextDirty) instance->rebuildWaveText();
         return copyText(instance->waveText.data(), buffer, bufferLength);
     }
@@ -8813,7 +8811,7 @@ int getParam(void* opaque, const char* key, char* buffer, int bufferLength)
             display ? static_cast<int>(std::lrintf(display->engine.laneWeight(2u) * 1000.0f)) : 0,
             display ? static_cast<int>(std::lrintf(display->engine.laneWeight(3u) * 1000.0f)) : 0,
             limited, tenths,
-            instance->scanLane >= 0 || instance->waveDirtyMask != 0u ? 1 : 0,
+            instance->waveDirtyMask != 0u || instance->pendingRegionAnalysisMask != 0u ? 1 : 0,
             instance->persistenceEnabled ? 1 : 0,
             instance->persistenceRestored ? 1 : 0,
             instance->heldVoiceCount());
@@ -8830,6 +8828,17 @@ int getParam(void* opaque, const char* key, char* buffer, int bufferLength)
             std::memory_order_relaxed)),
         static_cast<unsigned long long>(instance->renderOverruns.load(
             std::memory_order_relaxed)));
+    if (std::strcmp(key, "callback_performance_state") == 0) return std::snprintf(
+        buffer, bufferLength, "%llu,%llu,%llu,%llu",
+        static_cast<unsigned long long>(instance->maximumControlMicros.load(std::memory_order_relaxed)),
+        static_cast<unsigned long long>(instance->maximumQueryMicros.load(std::memory_order_relaxed)),
+        static_cast<unsigned long long>(instance->maximumWorkMicros.load(std::memory_order_relaxed)),
+        static_cast<unsigned long long>(instance->workOverruns.load(std::memory_order_relaxed)));
+    if (std::strcmp(key, "background_state") == 0) return std::snprintf(
+        buffer, bufferLength, "%d,%d,%u,%d,%d",
+        instance->persistenceJob.load(std::memory_order_acquire),
+        instance->laneJob.load(std::memory_order_acquire), instance->pendingCaptureSaveMask,
+        instance->persistentStateDirty ? 1 : 0, instance->recordStartPending ? 1 : 0);
     if (std::strcmp(key, "limiter_state") == 0) return std::snprintf(
         buffer, bufferLength, "%.2f,%.2f",
         instance->limiterReductionDb.load(std::memory_order_relaxed),
@@ -9125,6 +9134,7 @@ void renderBlock(void* opaque, int16_t* output, int frames)
     }
     timespec before {};
     timespec after {};
+    const auto callbackNanos = instance->pendingCallbackNanos.exchange(0u, std::memory_order_relaxed);
     clock_gettime(CLOCK_MONOTONIC, &before);
     instance->render(output, frames);
     clock_gettime(CLOCK_MONOTONIC, &after);
@@ -9136,8 +9146,14 @@ void renderBlock(void* opaque, int16_t* output, int frames)
     while (micros > maximum
            && !instance->maximumRenderMicros.compare_exchange_weak(
                maximum, micros, std::memory_order_relaxed)) {}
+    const auto renderNanos = static_cast<std::uint64_t>(
+        (after.tv_sec - before.tv_sec) * 1000000000ll + after.tv_nsec - before.tv_nsec);
+    const auto workMicros = (renderNanos + callbackNanos + 999u) / 1000u;
+    recordMaximum(instance->maximumWorkMicros, workMicros);
     const double deadline = static_cast<double>(frames) * 1000000.0
         / std::max(1.0f, instance->sampleRate);
+    if (static_cast<double>(workMicros) > deadline)
+        instance->workOverruns.fetch_add(1u, std::memory_order_relaxed);
     if (static_cast<double>(micros) > deadline) {
         instance->renderOverruns.fetch_add(1u, std::memory_order_relaxed);
     }

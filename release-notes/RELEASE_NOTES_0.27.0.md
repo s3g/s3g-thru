@@ -43,6 +43,17 @@ playback fuller, smoother, and more dependable across all nine engines.
 - Every Tape control can be captured in a performance loop and stored per
   clip. Parameter changes are smoothed to avoid read-head jumps and zippering.
 
+## Background saving and analysis
+
+- Saves settings and clip banks on a background worker so turning controls
+  does not interrupt audio with file writing or checksums. Newer edits remain
+  pending until their own complete generation is saved.
+- Archives recordings and analyzes waveforms/transients from bounded audio
+  snapshots. Display queries read cached waveforms. Playback continues while
+  this work finishes, and a new audio take can wait for the previous archive.
+- Preserves immutable take archives, checks for filename collisions, and
+  stages matching settings/clip files before replacing a saved generation.
+
 ## Playback quality and gain staging
 
 - Adds a stereo-linked program compressor with gentle 2:1 control and 3 dB of
@@ -61,6 +72,8 @@ playback fuller, smoother, and more dependable across all nine engines.
   instead of hard-resetting an audible reader.
 - Extends seam, transition, and live-parameter safeguards throughout the
   playback engines and Effects, Stereo / Rotary, and Tape stages.
+- Adds 4× oversampled DRIVE to reduce non-harmonic aliasing on bright sources
+  and high notes, retaining the full clean signal at zero Drive and fixed timing.
 - Crossfades live BITS and RATE edits on the Effects page over 10 ms. Their
   lo-fi sound remains intact while rapid edits retain the newest setting.
 - Keeps Sample/Slices and engine-selection fades continuous when controls
@@ -116,10 +129,12 @@ playback fuller, smoother, and more dependable across all nine engines.
 - Updates the illustrated manual for all nine engines, the Tape signal path,
   gain staging, waveform controls, page numbering, and click-safe behavior.
   Wavesets has its own complete parameter and process reference.
-- Replaces the crowded Shift+Menu title report with two readable pages. The
-  System Report gives render peak, deadline misses, current limiter reduction,
-  and maximum limiter reduction separate rows; the second page retains the
-  shortcut reminder. Left/Right, Up/Down, or the main encoder changes page.
+- Provides three readable Shift+Menu pages: System Report, Callback Work,
+  and Shortcuts. Callback Work adds control/query peaks, combined work peak,
+  and work misses. The render-only count is labelled Render Misses. The
+  System Report gives render peak, render misses, current limiter reduction,
+  and maximum limiter reduction separate rows. Left/Right, Up/Down, or the
+  main encoder changes page.
 
 ## Compatibility and installation
 

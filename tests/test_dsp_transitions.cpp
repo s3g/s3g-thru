@@ -262,10 +262,16 @@ void testPreviewIsolation()
     assert(std::abs(instance->lastVoiceMixSample[0u] - performance) < 0.0001f);
     assert(instance->lastPreviewSample[0u] == 0.0f);
 }
+#include "test_background.inc"
 } // namespace
 
 int main()
 {
+    testBoundedBackgroundPersistence();
+    testBackgroundAnalysisOwnership();
+    testBackgroundArchiveAndQueuedRecording();
+    testCallbackWorkTelemetry();
+    testAntialiasedDrive();
     testRetargetedReaders();
     testShortCutGates();
     testLoFiEditContinuity();

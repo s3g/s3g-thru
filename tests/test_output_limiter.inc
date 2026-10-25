@@ -36,6 +36,22 @@ void testOutputLimiterScheduling()
             }
         }
 
+        // Equal peaks can skip additional scheduling once current gain is safe.
+        // Hold through the last delayed peak rather than relying on hard clamp.
+        for (float quiet : {0.0f, 0.1f}) {
+            limiter.reset();
+            for (std::size_t frame = 0u; frame < 500u + delay * 2u; ++frame) {
+                const float value = frame < 500u ? 2.0f : quiet;
+                float left = 0.0f, right = 0.0f;
+                limiter.process(value, -value * 0.5f, left, right);
+                const float delayed = frame < delay ? 0.0f
+                    : (frame - delay < 500u ? 2.0f : quiet);
+                const float planned = delayed * limiter.gain();
+                assert(planned <= kOutputCeiling + 0.0000001f);
+                assert(std::abs(left - planned) < 0.0000001f);
+            }
+        }
+
         // Long trains exercise schedule wrap, increasing peaks, continuous
         // overload, hold/release and stereo linking. The final clamp should
         // not be needed to satisfy the ceiling on these finite signals.

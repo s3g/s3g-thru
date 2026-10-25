@@ -24,6 +24,18 @@ common=(
 ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 \
   "$test_dir/test-thru-sanitize"
 
+# Separate translation unit measures the real module before compression/limiting.
+"$cxx_bin" -std=c++17 -O2 -Wall -Wextra -Werror -Wno-deprecated-declarations \
+  -pthread -I"$repo_dir/include" "$repo_dir/tests/test_dsp_transitions.cpp" \
+  -o "$test_dir/test-transitions"
+"$test_dir/test-transitions"
+"$cxx_bin" -std=c++17 -O1 -g -Wall -Wextra -Werror -Wno-deprecated-declarations \
+  -pthread -fno-omit-frame-pointer -fsanitize=address,undefined \
+  -I"$repo_dir/include" "$repo_dir/tests/test_dsp_transitions.cpp" \
+  -o "$test_dir/test-transitions-sanitize"
+ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 \
+  "$test_dir/test-transitions-sanitize"
+
 node "$repo_dir/tests/test_ui.mjs" "$repo_dir/src/ui.js"
 
 set_dir="$test_dir/set data"

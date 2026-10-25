@@ -66,7 +66,8 @@ public:
         const float peak = std::max(std::abs(inputLeft), std::abs(inputRight));
         const float required = peak > ceiling_ ? ceiling_ / peak : 1.0f;
         if (required < 1.0f) {
-            hold_ = lookahead_;
+            // Include this update and the frame emitting the delayed peak.
+            hold_ = lookahead_ + 1u;
             // A gain already below this requirement stays held until this
             // peak is emitted. Only stricter peaks need additional work.
             if (required < gain_) {

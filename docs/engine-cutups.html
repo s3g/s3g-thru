@@ -36,7 +36,7 @@
             <tr><td>4</td><td>RATE</td><td>0.25–64 Hz</td><td>Events per second in Free mode. Tempo mode ignores it.</td></tr>
             <tr><td>5</td><td>TVAR</td><td>0.00–1.00</td><td>Randomizes every interval around its clock value. At 1.00 the variation reaches approximately ±90%.</td></tr>
             <tr><td>6</td><td>GATE</td><td>5–100%</td><td>Audible duration as a percentage of the current interval.</td></tr>
-            <tr><td>7</td><td>JOIN</td><td>0–100 ms</td><td>Fade-in/out and overlap between consecutive cuts, automatically limited to half of the current event interval. Zero retains a short internal safety transition.</td></tr>
+            <tr><td>7</td><td>JOIN</td><td>0–100 ms</td><td>Fade-in/out and overlap between consecutive cuts, automatically limited to half of the audible GATE duration. Short gates still fade to silence before ending. Zero retains a short internal safety transition.</td></tr>
             <tr><td>8</td><td>RSRC</td><td>Equal / Transients</td><td>Equal divides Field by Regions. Transients uses the selected lane's detected boundaries and falls back to equal regions if no map is available.</td></tr>
           </tbody>
         </table>

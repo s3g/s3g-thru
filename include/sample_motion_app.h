@@ -708,6 +708,7 @@ public:
         sampleTransitionRemaining_ = 0u;
         currentAlgorithm_ = PlaybackAlgorithm::motion;
         pendingAlgorithm_ = PlaybackAlgorithm::motion;
+        requestedAlgorithm_ = PlaybackAlgorithm::motion;
         algorithmFadeRemaining_ = 0u;
         windowFadeRemaining_ = 0u;
         retriggerFadeRemaining_ = 0u;
@@ -1967,7 +1968,8 @@ private:
         motionTravelTarget_ = 1.0f;
         motionJitter_ = 0.0f;
         motionJitterTarget_ = 0.0f;
-        motionMotorShape_ = MotorShape::rounded;
+        motionMotorShape_ = motionShapeTo_ = motionShapeTarget_ = MotorShape::rounded;
+        motionShapeRemaining_ = 0u;
         motionInnerRateScale_ = 1.0f;
         motionSeed_ = 1u;
         pendingMotionSeed_ = 1u;
@@ -2188,15 +2190,12 @@ private:
 
     void requestAlgorithm(PlaybackAlgorithm algorithm)
     {
-        if (algorithm == currentAlgorithm_ && algorithmFadeRemaining_ == 0u) {
+        requestedAlgorithm_ = algorithm;
+        // A destination already audible in a transition is immutable. Finish
+        // its complete envelope before applying the newest request.
+        if (algorithmFadeRemaining_ == 0u && algorithm != currentAlgorithm_) {
             pendingAlgorithm_ = algorithm;
-            return;
-        }
-        if (algorithm != pendingAlgorithm_ || algorithmFadeRemaining_ == 0u) {
-            pendingAlgorithm_ = algorithm;
-            if (pendingAlgorithm_ != currentAlgorithm_) {
-                algorithmFadeRemaining_ = algorithmFadeFrames_ * 2u;
-            }
+            algorithmFadeRemaining_ = algorithmFadeFrames_ * 2u;
         }
     }
 
@@ -2220,9 +2219,8 @@ private:
 
     void advanceAlgorithmTransition()
     {
-        if (algorithmFadeRemaining_ != 0u) {
-            --algorithmFadeRemaining_;
-        }
+        if (algorithmFadeRemaining_ != 0u && --algorithmFadeRemaining_ == 0u)
+            requestAlgorithm(requestedAlgorithm_);
     }
 
     float retriggerTransitionGain()
@@ -2431,7 +2429,7 @@ private:
             // Mode changes retain the old/new render crossfade, but the target
             // window follows the smoothed knobs so it cannot jump at the end.
             toWindow_ = requested;
-            toMode_ = mode;
+            // Preserve the audible destination mode until the fade finishes.
             return;
         }
         if (mode != currentMode_) {
@@ -3278,7 +3276,11 @@ private:
             controls.packetDuty, 0.02f, 0.98f);
         motionMotorSymmetryTarget_ = clamp(
             controls.motorSymmetry, 0.05f, 0.95f);
-        motionMotorShape_ = controls.motorShape;
+        motionShapeTarget_ = controls.motorShape;
+        if (initializeMotionControls) {
+            motionMotorShape_ = motionShapeTo_ = motionShapeTarget_;
+            motionShapeRemaining_ = 0u;
+        }
         motionTravelTarget_ = clamp01(controls.motionTravel);
         motionJitterTarget_ = clamp01(controls.motionJitter);
         if (initializeMotionControls) {
@@ -3311,6 +3313,12 @@ private:
 
     void advanceMotionControlSmoothing()
     {
+        if (motionShapeRemaining_ != 0u && --motionShapeRemaining_ == 0u)
+            motionMotorShape_ = motionShapeTo_;
+        if (motionShapeRemaining_ == 0u && motionShapeTarget_ != motionMotorShape_) {
+            motionShapeTo_ = motionShapeTarget_;
+            motionShapeRemaining_ = readerTransitionFrames_ * 2u;
+        }
         motionSoundPhaseIncrement_ += motionControlSlew_
             * (motionSoundPhaseIncrementTarget_
                 - motionSoundPhaseIncrement_);
@@ -3377,24 +3385,28 @@ private:
             || sound == MotionSound::doublets;
     }
 
-    float motorEnvelopeLevel(float phase) const
+    static float motorShapeLevel(float level, MotorShape shape)
     {
-        float level = phase <= motionMotorSymmetry_
-            ? phase / motionMotorSymmetry_
-            : (1.0f - phase) / (1.0f - motionMotorSymmetry_);
-        level = clamp01(level);
-        switch (motionMotorShape_) {
+        switch (shape) {
             case MotorShape::rounded: return smoothStep(level);
-            case MotorShape::pulse:
-                // Keep the square-like articulation, but round its threshold
-                // over a narrow band so a segment never changes gain in one
-                // sample.
-                return smoothStep((level - 0.44f) / 0.12f);
+            case MotorShape::pulse: return smoothStep((level - 0.44f) / 0.12f);
             case MotorShape::exponential: return level * level;
             case MotorShape::plateau: return std::min(1.0f, level * 3.0f);
             case MotorShape::triangle: return level;
         }
         return level;
+    }
+
+    float motorEnvelopeLevel(float phase) const
+    {
+        const float level = clamp01(phase <= motionMotorSymmetry_
+            ? phase / motionMotorSymmetry_
+            : (1.0f - phase) / (1.0f - motionMotorSymmetry_));
+        const float from = motorShapeLevel(level, motionMotorShape_);
+        if (motionShapeRemaining_ == 0u) return from;
+        const float mix = smoothStep(1.0f - static_cast<float>(motionShapeRemaining_)
+            / static_cast<float>(readerTransitionFrames_ * 2u));
+        return from + (motorShapeLevel(level, motionShapeTo_) - from) * mix;
     }
 
     float motionSoundGain(float join)
@@ -4653,12 +4665,14 @@ private:
         const std::size_t requestedJoin = static_cast<std::size_t>(
             outputSampleRate_
             * clamp(controls.cutJoinMs, 0.0f, 100.0f) * 0.001f);
+        const std::size_t gate = std::max<std::size_t>(1u,
+            static_cast<std::size_t>(static_cast<float>(intervalFrames)
+                * clamp(controls.cutGate, 0.05f, 1.0f)));
         const std::size_t join = std::max<std::size_t>(1u,
-            std::min<std::size_t>(
-                std::max(safetyFadeFrames_, requestedJoin),
-                intervalFrames / 2u));
+            std::min(std::max(safetyFadeFrames_, requestedJoin), (gate - 1u) / 2u));
         if (cutCurrent_.active) {
             cutTail_ = cutCurrent_;
+            cutTail_.gain *= cutEnvelope(cutCurrent_);
             cutTail_.retiring = true;
             cutTail_.retirementAge = 0u;
             cutTail_.joinFrames = join;
@@ -4669,9 +4683,7 @@ private:
         cutCurrent_ = {};
         cutCurrent_.active = true;
         cutCurrent_.joinFrames = join;
-        cutCurrent_.gateFrames = std::max<std::size_t>(1u,
-            static_cast<std::size_t>(static_cast<float>(intervalFrames)
-                * clamp(controls.cutGate, 0.05f, 1.0f)));
+        cutCurrent_.gateFrames = gate;
         cutCurrent_.lane = stackMode_ ? cutLane(controls) : kNoLane;
         cutCurrent_.gain = 1.0f - randomUnit()
             * clamp01(controls.cutLevelVariation);
@@ -4768,23 +4780,17 @@ private:
 
     void prepareSampleConfig(const Controls& controls, bool sliced)
     {
-        const SampleReaderConfig requested
-            = requestedSampleConfig(controls, sliced);
+        requestedSampleConfig_ = requestedSampleConfig(controls, sliced);
         if (!sampleConfigInitialized_) {
-            currentSampleConfig_ = requested;
-            pendingSampleConfig_ = requested;
-            currentSampleMode_ = requested.mode;
+            currentSampleConfig_ = pendingSampleConfig_ = requestedSampleConfig_;
+            currentSampleMode_ = currentSampleConfig_.mode;
             sampleConfigInitialized_ = true;
             return;
         }
-        if (sameSampleConfig(requested, currentSampleConfig_)
-            && !sampleConfigPending_) return;
-        pendingSampleConfig_ = requested;
-        sampleConfigPending_ = !sameSampleConfig(
-            pendingSampleConfig_, currentSampleConfig_);
-        if (!sampleConfigPending_) {
-            sampleTransitionRemaining_ = 0u;
-        } else if (sampleTransitionRemaining_ == 0u) {
+        if (sampleTransitionRemaining_ == 0u
+            && !sameSampleConfig(requestedSampleConfig_, currentSampleConfig_)) {
+            pendingSampleConfig_ = requestedSampleConfig_;
+            sampleConfigPending_ = true;
             sampleTransitionRemaining_ = readerTransitionFrames_ * 2u;
         }
     }
@@ -4811,8 +4817,11 @@ private:
 
     void advanceSampleTransition()
     {
-        if (sampleTransitionRemaining_ != 0u) {
-            --sampleTransitionRemaining_;
+        if (sampleTransitionRemaining_ != 0u && --sampleTransitionRemaining_ == 0u
+            && !sameSampleConfig(requestedSampleConfig_, currentSampleConfig_)) {
+            pendingSampleConfig_ = requestedSampleConfig_;
+            sampleConfigPending_ = true;
+            sampleTransitionRemaining_ = readerTransitionFrames_ * 2u;
         }
     }
 
@@ -4909,6 +4918,14 @@ private:
         }
     }
 
+    static float cutEnvelope(const CutReader& reader)
+    {
+        if (reader.age >= reader.gateFrames || reader.gateFrames <= 1u) return 0.0f;
+        const float join = static_cast<float>(std::max<std::size_t>(1u, reader.joinFrames));
+        return smoothStep(static_cast<float>(reader.age) / join)
+            * smoothStep(static_cast<float>(reader.gateFrames - 1u - reader.age) / join);
+    }
+
     float readCut(const CutReader& reader, std::size_t channel) const
     {
         if (!reader.active) {
@@ -4926,21 +4943,7 @@ private:
                     std::max<std::size_t>(1u, reader.joinFrames)));
             return sample * (1.0f - mix) * reader.gain;
         }
-        if (reader.age < reader.joinFrames) {
-            const float mix = smoothStep(static_cast<float>(reader.age + 1u)
-                / static_cast<float>(reader.joinFrames));
-            return sample * mix * reader.gain;
-        }
-        if (reader.age >= reader.gateFrames) return 0.0f;
-        const std::size_t fadeStart = reader.gateFrames > reader.joinFrames
-            ? reader.gateFrames - reader.joinFrames : 0u;
-        if (reader.age > fadeStart) {
-            const float mix = smoothStep(static_cast<float>(
-                reader.age - fadeStart) / static_cast<float>(
-                    std::max<std::size_t>(1u, reader.joinFrames)));
-            return sample * (1.0f - mix) * reader.gain;
-        }
-        return sample * reader.gain;
+        return sample * cutEnvelope(reader) * reader.gain;
     }
 
     void advanceCutReader(CutReader& reader)
@@ -6373,6 +6376,9 @@ private:
     float motionJitter_ = 0.0f;
     float motionJitterTarget_ = 0.0f;
     MotorShape motionMotorShape_ = MotorShape::rounded;
+    MotorShape motionShapeTo_ = MotorShape::rounded;
+    MotorShape motionShapeTarget_ = MotorShape::rounded;
+    std::size_t motionShapeRemaining_ = 0u;
     float motionEnvelope_ = 1.0f;
     double lastMotionPhaseIncrement_ = 0.0;
     float motionInnerRateScale_ = 1.0f;
@@ -6408,11 +6414,13 @@ private:
     bool motionSoundChangePending_ = false;
     SampleMode currentSampleMode_ = SampleMode::forward;
     SampleReaderConfig currentSampleConfig_ {};
+    SampleReaderConfig requestedSampleConfig_ {};
     SampleReaderConfig pendingSampleConfig_ {};
     bool sampleConfigInitialized_ = false;
     bool sampleConfigPending_ = false;
     PlaybackAlgorithm currentAlgorithm_ = PlaybackAlgorithm::motion;
     PlaybackAlgorithm pendingAlgorithm_ = PlaybackAlgorithm::motion;
+    PlaybackAlgorithm requestedAlgorithm_ = PlaybackAlgorithm::motion;
     std::size_t windowFadeFrames_ = 1440u;
     std::size_t windowFadeRemaining_ = 0u;
     std::size_t retriggerFadeFrames_ = 144u;

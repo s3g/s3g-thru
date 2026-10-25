@@ -1,6 +1,7 @@
 #include "sample_motion_app.h"
 #include "thru_waveset_worker.h"
 #include "thru_output_limiter.h"
+#include "thru_lofi.h"
 #include "thru_schwung_abi.h"
 
 #include <algorithm>
@@ -1629,8 +1630,7 @@ struct ThruInstance {
     std::size_t effectDelayCapacity = 0u;
     std::size_t effectDelayWrite = 0u;
     std::array<float, 2u> effectToneState {};
-    std::array<float, 2u> effectRateHold {};
-    std::size_t effectRateCountdown = 0u;
+    s3g_daisy::ThruLoFi effectLoFi;
     float effectControlSlew = 1.0f;
     float effectToneValue = 0.0f;
     float effectToneAlpha = 1.0f;
@@ -1680,6 +1680,7 @@ struct ThruInstance {
     float tapeMechanicsValue = 0.05f;
     float tapeInertiaValue = 0.0f;
     float tapeInertiaSecondsValue = 0.05f;
+    float tapeTransportSeconds = 0.05f;
     float tapeHissGainValue = 0.0002511886f;
     float tapeMixValue = 0.0f;
     float tapeBandwidthAlphaValue = 1.0f;
@@ -1751,6 +1752,8 @@ struct ThruInstance {
     float previewLevelState = 0.7f;
     float gainControlSlew = 1.0f;
     std::array<float, 2u> lastVoiceMixSample {};
+    std::array<float, 2u> lastPreviewSample {}, previewTransitionTail {};
+    std::size_t previewTransitionRemaining = 0u;
     std::array<float, 2u> sourceTransitionTail {};
     std::size_t sourceTransitionFrames = 1u;
     std::size_t sourceTransitionRemaining = 0u;
@@ -1969,6 +1972,7 @@ struct ThruInstance {
             static_cast<std::size_t>(std::lround(sampleRate * 0.003f)));
         voiceStealFadeFrames = std::max<std::size_t>(1u,
             static_cast<std::size_t>(std::lround(sampleRate * 0.005f)));
+        effectLoFi.prepare(sampleRate);
         effectControlSlew = 1.0f
             - std::exp(-1.0f / (sampleRate * 0.005f));
         effectMixSlew = 1.0f
@@ -2185,10 +2189,9 @@ struct ThruInstance {
         const float targetDrive
             = clampValue(fx.effectDrive, 0.0f, 1.0f) * 12.0f;
         const float bitsAmount = clampValue(fx.effectBits, 0.0f, 1.0f);
-        const float quantization = std::pow(2.0f,
-            15.0f - bitsAmount * 12.0f);
         const std::size_t holdFrames = static_cast<std::size_t>(clampValue(
             std::round(fx.effectRate), 1.0f, 16.0f));
+        effectLoFi.request(bitsAmount, holdFrames);
         const float requestedDelayFrames = clampValue(sampleRate
                 * clampValue(fx.effectDelayMs, 1.0f, 750.0f) * 0.001f,
             1.0f, static_cast<float>(effectDelayCapacity - 1u));
@@ -2434,16 +2437,7 @@ struct ThruInstance {
                     / (1.0f + effectDriveValue * std::abs(sample));
                 colored[channel] = sample;
             }
-            if (effectRateCountdown == 0u) {
-                for (std::size_t channel = 0u; channel < 2u; ++channel) {
-                    effectRateHold[channel] = bitsAmount > 1.0e-5f
-                        ? std::round(colored[channel] * quantization)
-                            / quantization
-                        : colored[channel];
-                }
-                effectRateCountdown = holdFrames;
-            }
-            --effectRateCountdown;
+            const auto effectRateHold = effectLoFi.process({colored[0u], colored[1u]});
             float delayMix = 1.0f;
             if (effectDelayTransitionRemaining != 0u) {
                 delayMix = 1.0f
@@ -2634,7 +2628,11 @@ struct ThruInstance {
             // speed. The stopped wet tape is silent; the dry path still obeys
             // MIX, just as it would around a stopped parallel tape machine.
             const bool inertiaEnabled = tapeInertiaValue > 1.0e-4f;
-            const float inertiaSeconds = tapeInertiaSecondsValue;
+            // Duration belongs to a complete stop/return gesture. Retiming
+            // an audible trajectory would rescale its accumulated read delay.
+            // Apply live INRT edits once the transport returns to normal speed.
+            if (tapeTransportProgress == 0.0f) tapeTransportSeconds = tapeInertiaSecondsValue;
+            const float inertiaSeconds = tapeTransportSeconds;
             const float transportTarget
                 = inertiaEnabled && tapeTransportPaused ? 1.0f : 0.0f;
             const float transportStep = 1.0f
@@ -3360,7 +3358,7 @@ struct ThruInstance {
         if (current == static_cast<int>(SampleLoadState::previewing)) {
             // The staging buffer is about to be reused, so retain a short
             // output tail even though the old preview cannot keep reading it.
-            beginSourceTransitionTail();
+            beginPreviewTransitionTail();
             previewActive = false;
             previewStopRequested = false;
             previewFadeOutRemaining = 0u;
@@ -5755,6 +5753,27 @@ struct ThruInstance {
         queuedClip = -1;
     }
 
+    void beginPreviewTransitionTail()
+    {
+        previewTransitionTail = lastPreviewSample;
+        previewTransitionRemaining = sourceTransitionFrames;
+    }
+
+    void applyPreviewTransitionTail(std::size_t frames)
+    {
+        for (std::size_t frame = 0u; frame < frames && previewTransitionRemaining != 0u; ++frame) {
+            const float phase = static_cast<float>(previewTransitionRemaining)
+                / static_cast<float>(sourceTransitionFrames);
+            const float gain = phase * phase * (3.0f - 2.0f * phase);
+            for (std::size_t channel = 0u; channel < 2u; ++channel) {
+                const float sample = previewTransitionTail[channel] * gain;
+                voiceMix[channel][frame] += sample;
+                if (frame + 1u == frames) lastPreviewSample[channel] += sample;
+            }
+            --previewTransitionRemaining;
+        }
+    }
+
     void beginSourceTransitionTail()
     {
         const float peak = std::max(std::abs(lastVoiceMixSample[0u]),
@@ -7052,6 +7071,7 @@ struct ThruInstance {
             rememberRollHistory(count);
             processAudioRolls(count);
 
+            lastPreviewSample.fill(0.0f);
             if (previewActive && sampleStageFrames != 0u) {
                 const std::size_t available = previewFrame < sampleStageFrames
                     ? sampleStageFrames - previewFrame : 0u;
@@ -7087,10 +7107,11 @@ struct ThruInstance {
                             phase * phase * (3.0f - 2.0f * phase));
                         --previewFadeOutRemaining;
                     }
-                    voiceMix[0u][frame] += previewLeft[previewFrame + frame]
-                        * previewLevelState * fade;
-                    voiceMix[1u][frame] += previewRight[previewFrame + frame]
-                        * previewLevelState * fade;
+                    const float left = previewLeft[previewFrame + frame] * previewLevelState * fade;
+                    const float right = previewRight[previewFrame + frame] * previewLevelState * fade;
+                    voiceMix[0u][frame] += left;
+                    voiceMix[1u][frame] += right;
+                    if (frame + 1u == count) lastPreviewSample = {left, right};
                     previewConsumed = frame + 1u;
                     if (previewStopRequested
                         && previewFadeOutRemaining == 0u) {
@@ -7113,6 +7134,7 @@ struct ThruInstance {
                 }
             }
 
+            applyPreviewTransitionTail(count);
             applySourceTransitionTail(count);
             lastVoiceMixSample[0u] = voiceMix[0u][count - 1u];
             lastVoiceMixSample[1u] = voiceMix[1u][count - 1u];

@@ -42,7 +42,7 @@
           </tbody>
         </table>
 
-        <p>Continuous effect controls glide during live moves and recorded automation. Ordinary tone, drive, feedback, stereo, rotary, and tape changes use a short 5 ms response; wet/dry controls use a longer 12 ms fade because they blend signals with different phases. Delay-time changes use a 10 ms tap crossfade and complete it before moving toward the newest queued value. <code>BITS</code> and <code>RATE</code> remain intentionally stepped because their discontinuities are part of the reduction effect.</p>
+        <p>Continuous effect controls glide during live moves and recorded automation. Ordinary tone, drive, feedback, stereo, rotary, and tape changes use a short 5 ms response; wet/dry controls use a longer 12 ms fade because they blend signals with different phases. Delay-time changes use a 10 ms tap crossfade and complete it before moving toward the newest queued value. Changes to <code>BITS</code> and <code>RATE</code> also crossfade over 10 ms, keeping the deliberately stepped reduction sound without abruptly switching settings. Rapid edits finish their active fade before applying the newest value.</p>
 
         <h3>Stereo / Rotary</h3>
         <table class="readout-table parameter-table">
@@ -77,7 +77,7 @@
         </table>
 
         <p><code>FMT</code> is a musical character macro rather than a calibration of one particular recorder. The first four choices correspond to familiar professional open-reel tape widths. The ⅛″ label is familiar cassette shorthand; compact cassette tape is actually 0.150″ (3.81 mm) wide. Tape speed, track layout, formulation, and machine alignment also affect real tape fidelity. FMT establishes a physical baseline, so AGE, CRNK, and MECH become somewhat more pronounced on narrower formats.</p>
-        <p><code>INRT</code> affects only the Tape wet path. At MIX below 100%, the untreated portion continues while the modeled transport stops. This keeps Stack Hold useful as a subtle gesture at low tape mixes and allows a complete tape stop at 100%.</p>
+        <p><code>INRT</code> affects only the Tape wet path. At MIX below 100%, the untreated portion continues while the modeled transport stops. This keeps Stack Hold useful as a subtle gesture at low tape mixes and allows a complete tape stop at 100%. The stop and return retain the duration in use when the gesture began. Changes to INRT during the gesture take effect after the transport returns to normal; turning it OFF initiates that smooth return.</p>
 
         <h2 id="starts">Good starting points</h2>
         <h3>Core effects starting points</h3>

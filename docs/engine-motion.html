@@ -93,7 +93,7 @@
             <tr><td>2</td><td>DUTY</td><td>2–98%</td><td>Portion of each packet cycle occupied by the Hann-shaped pulse.</td></tr>
             <tr><td>3</td><td>MRAT</td><td>0.05–20 Hz</td><td>Independent outer Motor envelope clock.</td></tr>
             <tr><td>4</td><td>MSYM</td><td>5–95%</td><td>Moves the outer envelope peak between its rise and fall.</td></tr>
-            <tr><td>5</td><td>MSHP</td><td>Linear / Rounded / Pulse / Exponential / Plateau</td><td>Shapes the outer Motor envelope.</td></tr>
+            <tr><td>5</td><td>MSHP</td><td>Linear / Rounded / Pulse / Exponential / Plateau</td><td>Shapes the outer Motor envelope. Live changes morph between contours over 10 ms.</td></tr>
             <tr><td>6–8</td><td>Reserved</td><td>—</td><td>Inactive positions available for future Motor controls.</td></tr>
           </tbody>
         </table>
@@ -131,7 +131,7 @@
             <tr><td>4</td><td>LEVL</td><td>0.00–1.00</td><td>Random attenuation, or repeat decay for Bounce.</td></tr>
             <tr><td>5</td><td>CURV</td><td>−1.00–1.00</td><td>Accelerates or decelerates Clock intervals across the repeat cycle.</td></tr>
             <tr><td>6</td><td>MSYM</td><td>5–95%</td><td>Moves the peak of every segment envelope between its rise and fall.</td></tr>
-            <tr><td>7</td><td>MSHP</td><td>Linear / Rounded / Pulse / Exponential / Plateau</td><td>Sets the contour of every segment envelope.</td></tr>
+            <tr><td>7</td><td>MSHP</td><td>Linear / Rounded / Pulse / Exponential / Plateau</td><td>Sets the contour of every segment envelope. Live changes morph sounding segments between contours over 10 ms.</td></tr>
             <tr><td>8</td><td>DUTY</td><td>2–98%</td><td>Minimum Bounce width and Pulser duration proportion.</td></tr>
           </tbody>
         </table>

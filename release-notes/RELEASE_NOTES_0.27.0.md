@@ -61,6 +61,19 @@ playback fuller, smoother, and more dependable across all nine engines.
   instead of hard-resetting an audible reader.
 - Extends seam, transition, and live-parameter safeguards throughout the
   playback engines and Effects, Stereo / Rotary, and Tape stages.
+- Crossfades live BITS and RATE edits on the Effects page over 10 ms. Their
+  lo-fi sound remains intact while rapid edits retain the newest setting.
+- Keeps Sample/Slices and engine-selection fades continuous when controls
+  return to an earlier value or select another destination mid-transition.
+  Lanes direction changes also finish their current crossfade before retargeting.
+- Makes Cutups attack and release fit the actual Gate duration, preventing
+  short cuts from ending abruptly at high Join settings. Motion envelope-shape
+  edits now morph sounding events over 10 ms.
+- Replaces library previews without duplicating the held performance voices.
+  Tape Inertia retains its duration through a stop-and-return gesture, applying
+  duration edits after normal transport resumes to avoid read-head jumps.
+- Holds limiter gain through the final delayed peak, preventing its safety
+  clamp from catching a peak during an early release.
 - Adds coherent audio-block control snapshots, 10 ms Join smoothing, longer
   effect and wet/dry glides, and queued transitions that cannot restart midway
   through rapid encoder or recorded-automation changes.

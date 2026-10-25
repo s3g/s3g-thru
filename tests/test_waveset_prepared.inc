@@ -358,6 +358,145 @@ void testWavesetStructuralTransitionQueue()
     }
 }
 
+void testWavesetAdaptiveStereoSeam()
+{
+    auto fixture = std::make_unique<ClickFixture>();
+    loadWavesetStereoSeamFixture(*fixture, 1024u);
+    ClickEngine::Controls control;
+    control.algorithm = ClickEngine::PlaybackAlgorithm::wavesets;
+    control.wavesetGroup = control.wavesetRepeats = 1.0f;
+    control.wavesetAdvance = ClickEngine::WavesetAdvance::hold;
+    control.join = 0.0f;
+    fixture->renderPeak(control, 160);
+    float previous = fixture->output[1u][kFrames - 1u];
+    float maximum = 0.0f, peak = 0.0f;
+    const auto repairs = fixture->engine.wavesetSeamCorrectionCount();
+    for (unsigned frame = 0u; frame < 8192u; ++frame) {
+        fixture->engine.process(fixture->inputPointers.data(),
+            fixture->outputPointers.data(), 1u, control);
+        const float value = fixture->output[1u][0u];
+        maximum = std::max(maximum, std::abs(value - previous));
+        peak = std::max(peak, std::abs(value));
+        previous = value;
+    }
+    assert(fixture->engine.wavesetSeamCorrectionCount() >= repairs + 7u);
+    assert(peak > 0.2f && peak < 1.0f);
+    if (maximum >= 0.01f) std::fprintf(stderr, "Adaptive stereo seam step %.6f\n", maximum);
+    assert(maximum < 0.01f);
+}
+
+void testWavesetSlopeContinuity()
+{
+    // The right channel reaches the same level at each left-channel cycle
+    // boundary, but its incoming/outgoing slopes have opposite signs.
+    // Fractional periods and rates ensure crossings fall between output frames.
+    for (float period : {1024.0f, 1024.3f}) for (float speed : {1.0f, 1.7f}) {
+        auto fixture = std::make_unique<ClickFixture>();
+        for (std::size_t frame = 0u; frame < ClickFixture::capacity; ++frame) {
+            fixture->storage[0u][frame] = 0.6f * std::sin(6.28318530718f * frame / period);
+            fixture->storage[1u][frame] = 0.6f * std::sin(3.14159265359f * frame / period);
+        }
+        assert(fixture->engine.adoptSource(ClickFixture::capacity, 2u, MOVE_SAMPLE_RATE));
+        fixture->prepareWavesets();
+        ClickEngine::Controls control;
+        control.algorithm = ClickEngine::PlaybackAlgorithm::wavesets;
+        control.wavesetGroup = control.wavesetRepeats = 1.0f;
+        control.wavesetAdvance = ClickEngine::WavesetAdvance::hold;
+        control.speed = speed;
+        control.join = 0.0f;
+        fixture->renderPeak(control, 160);
+        float previous = fixture->output[1u][kFrames - 1u];
+        float previousSlope = previous - fixture->output[1u][kFrames - 2u];
+        float maximumBend = 0.0f, peak = 0.0f;
+        for (unsigned frame = 0u; frame < 8192u; ++frame) {
+            fixture->engine.process(fixture->inputPointers.data(),
+                fixture->outputPointers.data(), 1u, control);
+            const float value = fixture->output[1u][0u];
+            const float slope = value - previous;
+            maximumBend = std::max(maximumBend, std::abs(slope - previousSlope));
+            peak = std::max(peak, std::abs(value));
+            previous = value;
+            previousSlope = slope;
+        }
+        if (maximumBend >= 0.0005f)
+            std::fprintf(stderr, "Slope join period %.1f speed %.1f bend %.7f\n", period, speed, maximumBend);
+        assert(maximumBend < 0.0005f);
+        assert(peak > 0.3f && peak < 1.0f);
+    }
+}
+
+void testWavesetSeededLiveSeams()
+{
+    // Smooth stereo sources with different contours expose joins that
+    // matching left/right sine waves hide. Every edit sequence is repeatable.
+    for (bool stack : {false, true}) for (unsigned mode = 0u; mode < 3u; ++mode) {
+        auto fixture = std::make_unique<ClickFixture>();
+        const auto frames = stack ? ClickFixture::capacity / 2u : ClickFixture::capacity;
+        for (unsigned lane = 0u; lane < (stack ? 4u : 1u); ++lane) {
+            float* left = stack ? fixture->engine.writableLane(lane, 0u) : fixture->storage[0u].data();
+            float* right = stack ? fixture->engine.writableLane(lane, 1u) : fixture->storage[1u].data();
+            for (std::size_t frame = 0u; frame < frames; ++frame) {
+                const double t = static_cast<double>(frame) / frames;
+                const double phase = 6.283185307179586 * ((4.25 + lane * 0.75) * t + 3.75 * t * t);
+                left[frame] = 0.6f * static_cast<float>(std::sin(phase));
+                right[frame] = 0.5f * static_cast<float>(std::cos(phase * 0.31 + lane * 0.4))
+                    + 0.1f * static_cast<float>(std::sin(phase * 0.73));
+            }
+            if (stack) assert(fixture->engine.adoptLane(lane, frames, MOVE_SAMPLE_RATE));
+        }
+        if (!stack) assert(fixture->engine.adoptSource(frames, 2u, MOVE_SAMPLE_RATE));
+        fixture->prepareWavesets();
+        ClickEngine::Controls controls;
+        controls.algorithm = ClickEngine::PlaybackAlgorithm::wavesets;
+        controls.wavesetGroup = 8.0f;
+        controls.wavesetRepeats = 3.0f;
+        controls.join = 0.3f;
+        controls.lanePath = ClickEngine::LanePath::manual;
+        std::uint32_t seed = 0x7a09ce51u;
+        const auto random = [&] {
+            seed = seed * 1664525u + 1013904223u;
+            return static_cast<float>(seed >> 8u) / 16777216.0f;
+        };
+        float previous = 0.0f, maximum = 0.0f, peak = 0.0f;
+        for (unsigned frame = 0u; frame < 110250u; ++frame) {
+            if (frame % 257u == 0u) {
+                controls.join = random();
+                controls.wavesetProcessAmount = random();
+                controls.manualLane = random() * 3.0f;
+                if (mode == 0u) {
+                    controls.wavesetGroup = static_cast<float>(1u << static_cast<unsigned>(random() * 6u));
+                    controls.wavesetRepeats = 1u + static_cast<unsigned>(random() * 16u);
+                    controls.wavesetStride = 1u + static_cast<unsigned>(random() * 4u);
+                    controls.wavesetDirection = static_cast<ClickEngine::WavesetDirection>(static_cast<unsigned>(random() * 4u));
+                    controls.wavesetAdvance = static_cast<ClickEngine::WavesetAdvance>(static_cast<unsigned>(random() * 3u));
+                } else if (mode == 1u) {
+                    controls.field = 0.02f + 0.98f * random();
+                    controls.locus = random();
+                    controls.speed = 0.3f + 1.2f * random();
+                    controls.wavesetDetail = static_cast<ClickEngine::WavesetDetail>(static_cast<unsigned>(random() * 5u));
+                } else {
+                    constexpr ClickEngine::WavesetProcess processes[] {
+                        ClickEngine::WavesetProcess::repeat, ClickEngine::WavesetProcess::replace,
+                        ClickEngine::WavesetProcess::interpolate, ClickEngine::WavesetProcess::groupReverse,
+                        ClickEngine::WavesetProcess::cycleReverse,
+                    };
+                    controls.wavesetProcess = processes[static_cast<unsigned>(random() * 5u)];
+                }
+            }
+            fixture->engine.process(fixture->inputPointers.data(), fixture->outputPointers.data(), 1u, controls);
+            const float value = fixture->output[1u][0u];
+            assert(std::isfinite(value));
+            if (frame > 1000u) maximum = std::max(maximum, std::abs(value - previous));
+            peak = std::max(peak, std::abs(value));
+            previous = value;
+        }
+        if (maximum >= 0.015f)
+            std::fprintf(stderr, "Seeded seam stack %d mode %u step %.6f\n", stack, mode, maximum);
+        assert(maximum < 0.015f);
+        assert(peak > 0.1f && peak < 1.5f);
+    }
+}
+
 // Real-time architecture regressions, independent of subjective click limits.
 void testPreparedWavesetProgression()
 {

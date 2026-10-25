@@ -48,6 +48,9 @@ playback fuller, smoother, and more dependable across all nine engines.
 - Adds a stereo-linked program compressor with gentle 2:1 control and 3 dB of
   makeup at normal Level, followed by a stereo-linked −1 dBFS lookahead safety
   limiter. Output is fuller without hard-clipping stacked voices or effects.
+- Prevents a stronger peak from compressing the output limiter’s remaining
+  attack into a one-sample gain jump. Each peak schedules a full 1.5 ms
+  lookahead ramp, retaining linked stereo control and the −1 dBFS ceiling.
 - Improves polyphony compensation, capture limiting, sample-rate conversion,
   and transposed playback interpolation. Imported and recorded samples retain
   more detail while dense stacks remain controlled.
@@ -81,6 +84,9 @@ playback fuller, smoother, and more dependable across all nine engines.
   Join. Outgoing parameter-transition readers keep their own stereo boundary
   protection. Very short rearranged cycles automatically match endpoints to
   prevent correction buildup; contiguous raw stereo playback stays intact.
+- Makes Wavesets cycle joins adapt to the size of the discontinuity and the
+  available cycle time. Cached boundary slopes support gentler level-and-slope
+  matching, with fractional crossing timing and short-cycle safeguards.
 - Retains a 1 ms amplitude decay ramp when a zero/very short Decay would jump
   directly from the attack peak to a lower Sustain level.
 - Adds regression sweeps for shared Sample controls, Motion, Lanes, engine

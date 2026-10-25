@@ -1,5 +1,6 @@
 #include "sample_motion_app.h"
 #include "thru_waveset_worker.h"
+#include "thru_output_limiter.h"
 #include "thru_schwung_abi.h"
 
 #include <algorithm>
@@ -1706,16 +1707,8 @@ struct ThruInstance {
     std::size_t rollHistoryWrite = 0u;
     std::size_t rollHistoryFrames = 0u;
     float rollFadeCoefficient = 1.0f;
-    std::unique_ptr<float[]> limiterDelayBuffer;
-    std::size_t limiterDelayCapacity = 0u;
-    std::size_t limiterLookaheadFrames = 0u;
-    std::size_t limiterDelayWrite = 0u;
-    std::size_t limiterHoldFrames = 0u;
-    std::size_t limiterAttackRemaining = 0u;
+    s3g_daisy::ThruOutputLimiter outputLimiter;
     float limiterGain = 1.0f;
-    float limiterTargetGain = 1.0f;
-    float limiterAttackStep = 0.0f;
-    float limiterReleaseCoefficient = 1.0f;
     std::array<std::uint32_t, 2u> ditherState {
         0x5333474cu, 0x54485255u
     };
@@ -1927,15 +1920,10 @@ struct ThruInstance {
             sampleRate * kMaximumRollSeconds)) + kBlockFrames;
         rollStorage.reset(new (std::nothrow) float[
             (kRollCount + 1u) * 2u * rollCapacityFrames] {});
-        limiterLookaheadFrames = std::max<std::size_t>(1u,
-            static_cast<std::size_t>(std::lround(sampleRate * 0.0015f)));
-        limiterDelayCapacity = limiterLookaheadFrames + 1u;
-        limiterDelayBuffer.reset(new (std::nothrow)
-            float[limiterDelayCapacity * 2u] {});
         if (!storage || !preparedClipStorage || !sampleStage
             || !effectDelayBuffer || !rotaryDelayBuffer || !tapeDelayBuffer
             || !rollStorage
-            || !limiterDelayBuffer) {
+            || !outputLimiter.prepare(sampleRate, kOutputCeiling)) {
             setError("Unable to allocate active and prepared sample banks");
             return false;
         }
@@ -1994,8 +1982,6 @@ struct ThruInstance {
         effectDelayPendingFrames = effectDelayCurrentFrames;
         effectRotaryCrossoverAlphaValue = 1.0f - std::exp(
             -6.28318530718f * 800.0f / sampleRate);
-        limiterReleaseCoefficient = 1.0f
-            - std::exp(-1.0f / (sampleRate * 0.080f));
         programAttackCoefficient = 1.0f
             - std::exp(-1.0f / (sampleRate * 0.010f));
         programReleaseCoefficient = 1.0f
@@ -2086,55 +2072,8 @@ struct ThruInstance {
                               float& outputLeft,
                               float& outputRight)
     {
-        if (!limiterDelayBuffer || limiterDelayCapacity == 0u) {
-            outputLeft = clampValue(inputLeft, -kOutputCeiling, kOutputCeiling);
-            outputRight = clampValue(inputRight, -kOutputCeiling, kOutputCeiling);
-            return;
-        }
-        float* left = limiterDelayBuffer.get();
-        float* right = left + limiterDelayCapacity;
-        left[limiterDelayWrite] = std::isfinite(inputLeft) ? inputLeft : 0.0f;
-        right[limiterDelayWrite] = std::isfinite(inputRight) ? inputRight : 0.0f;
-
-        const float peak = std::max(
-            std::fabs(left[limiterDelayWrite]),
-            std::fabs(right[limiterDelayWrite]));
-        const float targetGain = peak > kOutputCeiling
-            ? kOutputCeiling / peak : 1.0f;
-        if (targetGain < limiterTargetGain) {
-            limiterTargetGain = targetGain;
-            if (limiterAttackRemaining == 0u) {
-                limiterAttackRemaining = limiterLookaheadFrames;
-            }
-            limiterAttackStep = (limiterTargetGain - limiterGain)
-                / static_cast<float>(
-                    std::max<std::size_t>(1u, limiterAttackRemaining));
-            limiterHoldFrames = limiterLookaheadFrames;
-        }
-        if (targetGain < 1.0f) {
-            limiterHoldFrames = limiterLookaheadFrames;
-        }
-        if (limiterAttackRemaining != 0u) {
-            limiterGain += limiterAttackStep;
-            if (--limiterAttackRemaining == 0u) {
-                limiterGain = limiterTargetGain;
-            }
-        } else if (limiterHoldFrames != 0u) {
-            --limiterHoldFrames;
-        } else {
-            limiterGain += (1.0f - limiterGain)
-                * limiterReleaseCoefficient;
-            limiterTargetGain = limiterGain;
-        }
-
-        const std::size_t read = (limiterDelayWrite + limiterDelayCapacity
-            - limiterLookaheadFrames) % limiterDelayCapacity;
-        outputLeft = clampValue(
-            left[read] * limiterGain, -kOutputCeiling, kOutputCeiling);
-        outputRight = clampValue(
-            right[read] * limiterGain, -kOutputCeiling, kOutputCeiling);
-        limiterDelayWrite = (limiterDelayWrite + 1u) % limiterDelayCapacity;
-
+        outputLimiter.process(inputLeft, inputRight, outputLeft, outputRight);
+        limiterGain = outputLimiter.gain();
     }
 
     void processProgramBus(float inputLeft,

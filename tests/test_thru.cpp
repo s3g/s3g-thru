@@ -1,6 +1,7 @@
 #include "thru_schwung_abi.h"
 #include "sample_motion_app.h"
 #include "thru_waveset_worker.h"
+#include "thru_output_limiter.h"
 
 #include <algorithm>
 #include <array>
@@ -354,6 +355,7 @@ struct ClickFixture {
 };
 
 #include "test_waveset_prepared.inc"
+#include "test_output_limiter.inc"
 
 void testEngineClickMatrix()
 {
@@ -1438,6 +1440,10 @@ void testWavesetMidiPitch(plugin_api_v2_t* api)
 
 int main()
 {
+    testOutputLimiterScheduling();
+    testWavesetAdaptiveStereoSeam();
+    testWavesetSlopeContinuity();
+    testWavesetSeededLiveSeams();
     testPreparedWavesetProgression();
     testWavesetContinuousEdits();
     testWavesetProtectionGlides();

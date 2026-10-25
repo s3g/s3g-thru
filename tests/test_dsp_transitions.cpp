@@ -2,6 +2,7 @@
 // can be measured without exposing test hooks in the device ABI.
 #include "../src/dsp/thru_module.cpp"
 #include <cassert>
+#include <string>
 #include <vector>
 
 namespace {

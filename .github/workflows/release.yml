@@ -66,6 +66,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           body_path: ${{ runner.temp }}/release-notes.md
+          # Keep a manually promoted, tested tarball and its checksum intact.
+          overwrite_files: false
           files: |
             dist/s3g-thru-module.tar.gz
             dist/s3g-thru-module.tar.gz.sha256

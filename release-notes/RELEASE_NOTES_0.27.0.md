@@ -1,10 +1,10 @@
 # s3g Thru 0.27.0
 
-Status: testing draft. Wavesets polyphonic performance and playback fidelity
-remain under validation; this version is not ready to publish.
+Released October 24, 2026.
 
-This release adds Wavesets and a complete tape stage, while making live
-playback fuller, smoother, and more dependable across all nine engines.
+This release adds Wavesets and a complete tape stage, and improves playback
+across all nine engines. Automatic saving and sample analysis now run in the
+background, preventing storage work from interrupting live control changes.
 
 ## Wavesets engine
 

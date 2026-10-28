@@ -264,10 +264,24 @@ void testPreviewIsolation()
     assert(instance->lastPreviewSample[0u] == 0.0f);
 }
 #include "test_background.inc"
+#include "test_reverb_routing.inc"
+#include "test_cutups_scan.inc"
+#include "test_split.inc"
+#include "test_split_sends.inc"
 } // namespace
 
 int main()
 {
+    testSplitSendReturns();
+    testSplitBankRoundTrip();
+    testSplitInstruments();
+    testSplitCuesRollsAndLoad();
+    testSplitMixer();
+    testSplitRecordingAndState();
+    testCutupsScanClock();
+    testCutupsHoldAndEdits();
+    testCutupsModuleDisplay();
+    testReverbAndRouting();
     testBoundedBackgroundPersistence();
     testBackgroundAnalysisOwnership();
     testBackgroundArchiveAndQueuedRecording();

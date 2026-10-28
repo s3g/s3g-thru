@@ -1162,7 +1162,7 @@ void downgradeClipBankToV8(const std::string& path)
     assert(std::fclose(file) == 0);
     assert(input.size() >= 240u);
     assert(std::memcmp(input.data(), "S3GTHR3", 7u) == 0);
-    assert(littleU32(input, 8u) == 11u);
+    assert(littleU32(input, 8u) == 14u);
 
     std::vector<std::uint8_t> output;
     output.reserve(input.size());
@@ -1178,7 +1178,7 @@ void downgradeClipBankToV8(const std::string& path)
     copyBytes(228u); // generation/globals plus the 16-entry chain
     for (std::size_t clip = 0u; clip < 64u; ++clip) {
         copyBytes(4u + 132u * 4u); // occupied and format-8 parameters
-        offset += 20u * 4u; // Tape controls and Wavesets parameters were appended.
+        offset += 38u * 4u; // Tape controls and Wavesets parameters were appended.
         copyBytes(4u * (4u + 768u + 64u) + 8u * 4u); // sources and cues
         copyBytes(36u); // recorded state through take count
         const std::uint32_t noteCount = littleU32(input, offset);
@@ -1187,7 +1187,109 @@ void downgradeClipBankToV8(const std::string& path)
         copyBytes(static_cast<std::size_t>(noteCount) * 24u);
         copyBytes(static_cast<std::size_t>(pointCount) * 24u);
     }
-    assert(offset == input.size());
+    assert(offset + 95492u == input.size());
+    std::uint32_t checksum = 2166136261u;
+    for (const std::uint8_t byte : output) {
+        checksum ^= byte;
+        checksum *= 16777619u;
+    }
+    appendLittleU32(output, checksum);
+    file = std::fopen(path.c_str(), "wb");
+    assert(file != nullptr);
+    assert(std::fwrite(output.data(), 1u, output.size(), file) == output.size());
+    assert(std::fclose(file) == 0);
+}
+
+void downgradeClipBankToV13(const std::string& path)
+{
+    struct stat status {};
+    assert(stat(path.c_str(), &status) == 0);
+    assert(status.st_size > 4);
+    std::vector<std::uint8_t> input(
+        static_cast<std::size_t>(status.st_size) - 4u);
+    std::FILE* file = std::fopen(path.c_str(), "rb");
+    assert(file != nullptr);
+    assert(std::fread(input.data(), 1u, input.size(), file) == input.size());
+    assert(std::fclose(file) == 0);
+    assert(input.size() >= 240u);
+    assert(std::memcmp(input.data(), "S3GTHR3", 7u) == 0);
+    assert(littleU32(input, 8u) == 14u);
+
+    std::vector<std::uint8_t> output;
+    output.reserve(input.size());
+    output.insert(output.end(), input.begin(), input.begin() + 8u);
+    appendLittleU32(output, 13u);
+    std::size_t offset = 12u;
+    const auto copyBytes = [&](std::size_t count) {
+        assert(offset + count <= input.size());
+        output.insert(output.end(), input.begin() + offset,
+                      input.begin() + offset + count);
+        offset += count;
+    };
+    copyBytes(228u); // generation/globals plus the 16-entry chain
+    for (std::size_t clip = 0u; clip < 64u; ++clip) {
+        copyBytes(4u + 162u * 4u); // occupied and format-12 parameters
+        offset += 8u * 4u; // format-13 Cutups Advance
+        copyBytes(4u * (4u + 768u + 64u) + 8u * 4u); // sources and cues
+        copyBytes(36u); // recorded state through take count
+        const std::uint32_t noteCount = littleU32(input, offset);
+        const std::uint32_t pointCount = littleU32(input, offset + 4u);
+        copyBytes(8u);
+        copyBytes(static_cast<std::size_t>(noteCount) * 24u);
+        copyBytes(static_cast<std::size_t>(pointCount) * 24u);
+    }
+    assert(offset + 95492u == input.size());
+    std::uint32_t checksum = 2166136261u;
+    for (const std::uint8_t byte : output) {
+        checksum ^= byte;
+        checksum *= 16777619u;
+    }
+    appendLittleU32(output, checksum);
+    file = std::fopen(path.c_str(), "wb");
+    assert(file != nullptr);
+    assert(std::fwrite(output.data(), 1u, output.size(), file) == output.size());
+    assert(std::fclose(file) == 0);
+}
+
+void downgradeClipBankToV12(const std::string& path)
+{
+    struct stat status {};
+    assert(stat(path.c_str(), &status) == 0);
+    assert(status.st_size > 4);
+    std::vector<std::uint8_t> input(
+        static_cast<std::size_t>(status.st_size) - 4u);
+    std::FILE* file = std::fopen(path.c_str(), "rb");
+    assert(file != nullptr);
+    assert(std::fread(input.data(), 1u, input.size(), file) == input.size());
+    assert(std::fclose(file) == 0);
+    assert(input.size() >= 240u);
+    assert(std::memcmp(input.data(), "S3GTHR3", 7u) == 0);
+    assert(littleU32(input, 8u) == 14u);
+
+    std::vector<std::uint8_t> output;
+    output.reserve(input.size());
+    output.insert(output.end(), input.begin(), input.begin() + 8u);
+    appendLittleU32(output, 12u);
+    std::size_t offset = 12u;
+    const auto copyBytes = [&](std::size_t count) {
+        assert(offset + count <= input.size());
+        output.insert(output.end(), input.begin() + offset,
+                      input.begin() + offset + count);
+        offset += count;
+    };
+    copyBytes(228u); // generation/globals plus the 16-entry chain
+    for (std::size_t clip = 0u; clip < 64u; ++clip) {
+        copyBytes(4u + 161u * 4u); // occupied and format-12 parameters
+        offset += 9u * 4u; // format-13 Cutups Advance
+        copyBytes(4u * (4u + 768u + 64u) + 8u * 4u); // sources and cues
+        copyBytes(36u); // recorded state through take count
+        const std::uint32_t noteCount = littleU32(input, offset);
+        const std::uint32_t pointCount = littleU32(input, offset + 4u);
+        copyBytes(8u);
+        copyBytes(static_cast<std::size_t>(noteCount) * 24u);
+        copyBytes(static_cast<std::size_t>(pointCount) * 24u);
+    }
+    assert(offset + 95492u == input.size());
     std::uint32_t checksum = 2166136261u;
     for (const std::uint8_t byte : output) {
         checksum ^= byte;
@@ -1213,7 +1315,7 @@ void downgradeClipBankToV9(const std::string& path)
     assert(std::fclose(file) == 0);
     assert(input.size() >= 240u);
     assert(std::memcmp(input.data(), "S3GTHR3", 7u) == 0);
-    assert(littleU32(input, 8u) == 11u);
+    assert(littleU32(input, 8u) == 14u);
 
     std::vector<std::uint8_t> output;
     output.reserve(input.size());
@@ -1229,7 +1331,7 @@ void downgradeClipBankToV9(const std::string& path)
     copyBytes(228u); // generation/globals plus the 16-entry chain
     for (std::size_t clip = 0u; clip < 64u; ++clip) {
         copyBytes(4u + 140u * 4u); // occupied and format-9 parameters
-        offset += 12u * 4u; // format-10 tape macros plus format-11 Wavesets
+        offset += 30u * 4u; // format-10 tape macros plus format-11 Wavesets
         copyBytes(4u * (4u + 768u + 64u) + 8u * 4u); // sources and cues
         copyBytes(36u); // recorded state through take count
         const std::uint32_t noteCount = littleU32(input, offset);
@@ -1238,7 +1340,7 @@ void downgradeClipBankToV9(const std::string& path)
         copyBytes(static_cast<std::size_t>(noteCount) * 24u);
         copyBytes(static_cast<std::size_t>(pointCount) * 24u);
     }
-    assert(offset == input.size());
+    assert(offset + 95492u == input.size());
     std::uint32_t checksum = 2166136261u;
     for (const std::uint8_t byte : output) {
         checksum ^= byte;
@@ -1264,7 +1366,7 @@ void downgradeClipBankToV1(const std::string& path)
     assert(std::fclose(file) == 0);
     assert(input.size() >= 240u);
     assert(std::memcmp(input.data(), "S3GTHR3", 7u) == 0);
-    assert(littleU32(input, 8u) == 11u);
+    assert(littleU32(input, 8u) == 14u);
 
     std::vector<std::uint8_t> output;
     output.reserve(input.size());
@@ -1280,7 +1382,7 @@ void downgradeClipBankToV1(const std::string& path)
     copyBytes(228u); // generation/globals plus the 16-entry chain
     for (std::size_t clip = 0u; clip < 64u; ++clip) {
         copyBytes(4u + 68u * 4u); // occupied and version-1 base parameters
-        offset += 84u * 4u; // fidelity, effects, Weave, ADSR, tape, Wavesets
+        offset += 102u * 4u; // fidelity, effects, Weave, ADSR, tape, Wavesets
         copyBytes(4u * (4u + 768u + 64u) + 8u * 4u); // sources and cues
         copyBytes(32u); // recorded through capacity flags
         offset += 4u; // take count does not exist in format 1
@@ -1296,7 +1398,7 @@ void downgradeClipBankToV1(const std::string& path)
             offset += 4u; // gesture take
         }
     }
-    assert(offset == input.size());
+    assert(offset + 95492u == input.size());
     std::uint32_t checksum = 2166136261u;
     for (const std::uint8_t byte : output) {
         checksum ^= byte;
@@ -1322,7 +1424,7 @@ void downgradeClipBankToV2(const std::string& path)
     assert(std::fclose(file) == 0);
     assert(input.size() >= 240u);
     assert(std::memcmp(input.data(), "S3GTHR3", 7u) == 0);
-    assert(littleU32(input, 8u) == 11u);
+    assert(littleU32(input, 8u) == 14u);
 
     std::vector<std::uint8_t> output;
     output.reserve(input.size());
@@ -1338,7 +1440,7 @@ void downgradeClipBankToV2(const std::string& path)
     copyBytes(228u); // generation/globals plus the 16-entry chain
     for (std::size_t clip = 0u; clip < 64u; ++clip) {
         copyBytes(4u + 68u * 4u); // occupied and format-2 base parameters
-        offset += 84u * 4u; // fidelity, effects, Weave, ADSR, tape, Wavesets
+        offset += 102u * 4u; // fidelity, effects, Weave, ADSR, tape, Wavesets
         copyBytes(4u * (4u + 768u + 64u) + 8u * 4u); // sources and cues
         copyBytes(32u + 4u); // capacities/flags and take count
         const std::uint32_t noteCount = littleU32(input, offset);
@@ -1347,7 +1449,7 @@ void downgradeClipBankToV2(const std::string& path)
         copyBytes(static_cast<std::size_t>(noteCount) * 24u);
         copyBytes(static_cast<std::size_t>(pointCount) * 24u);
     }
-    assert(offset == input.size());
+    assert(offset + 95492u == input.size());
     std::uint32_t checksum = 2166136261u;
     for (const std::uint8_t byte : output) {
         checksum ^= byte;
@@ -1624,6 +1726,7 @@ int main()
         {99, "cut_join", "100.00"}, {100, "cut_regions", "64"},
         {101, "cut_repeats", "16"}, {102, "cut_reverse", "100.00"},
         {103, "cut_pitch_variation", "24.0000"},
+        {19, "cut_lane_advance", "6"},
         {104, "cut_level_variation", "1.0000"}, {105, "cut_lane_order", "6"},
         {106, "cut_poly_path", "3"}, {107, "cut_region_mode", "1"},
         {108, "sample_mode", "3"}, {109, "slice_region_mode", "1"},
@@ -2630,7 +2733,7 @@ int main()
     midi(api, instance, 0x80, 64, 0);
     render(api, instance, 40);
     const std::string longGrainState = get(api, instance, "state");
-    assert(longGrainState.find("\"version\":12") != std::string::npos);
+    assert(longGrainState.find("\"version\":15") != std::string::npos);
     assert(longGrainState.find("\"long_grain_length\":12000.00000")
         != std::string::npos);
 
@@ -3303,6 +3406,15 @@ int main()
     api->set_param(instance, "effect_tape_flutter_depth", "17");
     api->set_param(instance, "effect_tape_hiss", "-68");
     api->set_param(instance, "effect_tape_mix", "33");
+    api->set_param(instance, "effect_reverb_algo", "1");
+    api->set_param(instance, "effect_reverb_decay", "4.25");
+    api->set_param(instance, "effect_reverb_pre", "27");
+    api->set_param(instance, "effect_reverb_damp", "6500");
+    api->set_param(instance, "effect_reverb_diff", "61");
+    api->set_param(instance, "effect_reverb_mod", "23");
+    api->set_param(instance, "effect_reverb_width", "85");
+    api->set_param(instance, "effect_reverb_mix", "19");
+    api->set_param(instance, "effect_order", "719");
     api->set_param(instance, "effect_tape_age", "42");
     api->set_param(instance, "effect_tape_crinkle", "19");
     api->set_param(instance, "effect_tape_mechanics", "58");
@@ -3310,7 +3422,7 @@ int main()
     api->set_param(instance, "algorithm", "Motion");
     api->set_param(instance, "cue_store", "2,0.625");
     const std::string state = get(api, instance, "state");
-    assert(state.find("\"version\":12") != std::string::npos);
+    assert(state.find("\"version\":15") != std::string::npos);
     assert(state.find("\"scale\":20") != std::string::npos);
     assert(state.find("\"clip_record_mode\":1") != std::string::npos);
     assert(state.find("\"monitor_level\"") == std::string::npos);
@@ -3382,6 +3494,15 @@ int main()
     assert(get(api, instance, "effect_tape_flutter_depth") == "17.00");
     assert(get(api, instance, "effect_tape_hiss") == "-68.00");
     assert(get(api, instance, "effect_tape_mix") == "33.00");
+    assert(std::abs(std::stof(get(api, instance, "effect_reverb_algo")) - 1.0f) < .001f);
+    assert(std::abs(std::stof(get(api, instance, "effect_reverb_decay")) - 4.25f) < .001f);
+    assert(std::abs(std::stof(get(api, instance, "effect_reverb_pre")) - 27.0f) < .001f);
+    assert(std::abs(std::stof(get(api, instance, "effect_reverb_damp")) - 6500.0f) < .001f);
+    assert(std::abs(std::stof(get(api, instance, "effect_reverb_diff")) - 61.0f) < .001f);
+    assert(std::abs(std::stof(get(api, instance, "effect_reverb_mod")) - 23.0f) < .001f);
+    assert(std::abs(std::stof(get(api, instance, "effect_reverb_width")) - 85.0f) < .001f);
+    assert(std::abs(std::stof(get(api, instance, "effect_reverb_mix")) - 19.0f) < .001f);
+    assert(std::stof(get(api, instance, "effect_order")) == 719);
     assert(get(api, instance, "effect_tape_age") == "42.00");
     assert(get(api, instance, "effect_tape_crinkle") == "19.00");
     assert(get(api, instance, "effect_tape_mechanics") == "58.00");
@@ -3425,10 +3546,28 @@ int main()
         == sizeof(clipMagic));
     assert(std::memcmp(clipMagic, "S3GTHR3", 7u) == 0);
     assert(std::fread(&clipVersion, sizeof(clipVersion), 1u, clipFile) == 1u);
-    assert(clipVersion == 11u);
+    assert(clipVersion == 14u);
     std::fclose(stateFile);
     std::fclose(laneFile);
     std::fclose(clipFile);
+
+    /* The accepted pre-Split local bank keeps its complete Single setup. */
+    downgradeClipBankToV13(clipPath);
+    instance = api->create_instance(persistenceDir.c_str(), nullptr);
+    assert(instance != nullptr);
+    assert(get(api,instance,"persistence") == "1,1");
+    assert(get(api,instance,"split_mode") == "0");
+    api->destroy_instance(instance);
+
+    /* Previous local test banks retain every old parameter and default the
+       appended Cutups Advance to one cut per lane. */
+    downgradeClipBankToV12(clipPath);
+    instance = api->create_instance(persistenceDir.c_str(), nullptr);
+    assert(instance != nullptr);
+    assert(get(api, instance, "persistence") == "1,1");
+    assert(get(api, instance, "cut_lane_advance") == "1");
+    assert(get(api, instance, "effect_tape_age") == "42.00");
+    api->destroy_instance(instance);
 
     /* A format-9 bank retains the detailed tape lanes. The four macro lanes
        inherit their matching JSON values and upgrade on the next save. */
@@ -3597,7 +3736,7 @@ int main()
     assert(std::fread(clipMagic, 1u, sizeof(clipMagic), clipFile)
         == sizeof(clipMagic));
     assert(std::fread(&clipVersion, sizeof(clipVersion), 1u, clipFile) == 1u);
-    assert(clipVersion == 11u);
+    assert(clipVersion == 14u);
     assert(std::fclose(clipFile) == 0);
 
     std::remove(statePath.c_str());

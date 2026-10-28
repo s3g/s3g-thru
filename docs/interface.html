@@ -11,7 +11,7 @@
     <header class="site-header">
       <a class="brand" href="index.html">s3g Thru <span>manual</span></a>
       <nav class="top-nav" aria-label="Top navigation">
-        <a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a>
+        <a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="split.html">Split</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a>
       </nav>
     </header>
 
@@ -20,6 +20,8 @@
         <p class="eyebrow">Screen guide</p>
         <h1>Interface tour</h1>
         <p class="lead">The waveform page is for playing and seeing motion. Parameter pages assign the eight encoders to the names and values shown on screen. Dedicated overview screens provide access to clips, chains, samples, the System Report, and shortcuts.</p>
+
+        <div class="callout"><p><strong>Split mode:</strong> two independent instruments share the pad grid, with two stereo lanes and four voices each. Use the same engine with different settings or choose different engines. <a href="split.html">Split setup, controls, mixing, and recording</a>.</p></div>
 
         <h2 id="hardware">Move panel layout</h2>
 
@@ -31,7 +33,7 @@
         <ol class="panel-callout-list">
           <li><strong>Display.</strong> Shows waveforms, playheads, stack markers, parameter pages, clips, chains, the browser, the System Report, and shortcuts.</li>
           <li><strong>Encoders 1–8.</strong> Control the eight parameter cells currently shown. Their response is slowed by 50% for precise adjustment; one-shot actions still respond to the first turn. Reserved cells deliberately do nothing.</li>
-          <li><strong>Main wheel.</strong> Selects lanes or browser entries. Its click toggles performance recording from Main and confirms browser choices.</li>
+          <li><strong>Main wheel.</strong> Selects lanes or browser entries. Its click toggles performance recording from Main, confirms browser choices, and lifts or drops effects on FX Order.</li>
           <li><strong>Track 1–4.</strong> Selects the lane used for capture and editing. Shift+Track opens its source browser.</li>
           <li><strong>32 pads.</strong> Play up to eight voices. Pressure moves each held voice's stack offset when Pressure is Offset.</li>
           <li><strong>Step 1–16.</strong> Selects a performance clip in the current A–D bank and addresses entries in Clips and Chain views.</li>
@@ -61,9 +63,9 @@
           <tbody>
             <tr><td>Header</td><td>Active engine, clip address A01–D16, held voice count, and audio/data recording state.</td></tr>
             <tr><td>Rows 1–4</td><td>The four stereo lane waveforms. The left marker selects the lane used by recording, loading, and editing.</td></tr>
-            <tr><td>Small lane bar</td><td>The current contribution of that lane to the displayed voice's crossfade.</td></tr>
-            <tr><td>Vertical lines</td><td>Independent sample playheads for held voices. They disappear on note-off while the short release continues.</td></tr>
-            <tr><td>Hollow markers</td><td>Each voice's lane-stack position. A marker between rows means adjacent lanes are being crossfaded.</td></tr>
+            <tr><td>Small lane bar</td><td>The current contribution of that lane to the displayed voice's crossfade. Cutups combines all sounding voices and their outgoing cuts, including note releases.</td></tr>
+            <tr><td>Vertical lines</td><td>Independent sample playheads for held voices. They disappear on note-off while the short release continues. In Cutups, the full-height lines remain through note release, with dashed outgoing lines during a join.</td></tr>
+            <tr><td>Hollow markers</td><td>Each voice's lane-stack position. A marker between rows means adjacent lanes are being crossfaded. In Cutups, markers sit on the discrete lanes actually being read.</td></tr>
             <tr><td>Position / Field ticks</td><td>Position is the short vertical tick at the top of the waveform area; Field is the short vertical tick at the bottom.</td></tr>
             <tr><td>Short lane ticks</td><td>Detected transient divisions on the selected lane.</td></tr>
             <tr><td>Bottom progress line</td><td>Position inside the current performance-data loop.</td></tr>
@@ -89,7 +91,7 @@
           </tbody>
         </table>
 
-        <p>Glitch therefore uses <code>RATE</code> for the lane-stack scan beneath its history buffer and <code>JOIN</code> for that source's seams. Sample uses <code>JOIN</code> to crossfade its Loop boundary. Glitch's Buffer and Override controls remain on Glitch Clock. Cutups, Sample, and Slices do not use continuous stack scanning; turning <code>RATE</code> while one of those engines is selected retains the shared value for the next engine that uses it.</p>
+        <p>Glitch therefore uses <code>RATE</code> for the lane-stack scan beneath its history buffer and <code>JOIN</code> for that source's seams. Sample uses <code>JOIN</code> to crossfade its Loop boundary. Glitch's Buffer and Override controls remain on Glitch Clock. Cutups replaces <code>STAK</code>/<code>RATE</code> with <code>LANE</code>/<code>ADV</code> in the same knob positions. Lane selects a physical starting source; Advance selects Hold or 1/2/3/4/8/16 cuts per lane. See <a href="engine-cutups.html#lane-controls">Cutups Lane and Advance</a>. Sample and Slices retain the shared Scan Rate value for the next engine that uses it.</p>
 
         <div class="callout"><p><strong>Live control safety:</strong> continuous controls glide to their new values, event controls are adopted by the next grain, cut, or cycle, and changes that replace a reader use a short transition. Wavesets waits for a rendered zero crossing or low-level point and overlap-adds the old and new readers. Bits, Rate reduction, and Glitch can still create deliberate digital edges. For clean playback, use <code>BITS 0.00</code> and <code>RATE 1</code>. If an unexpected click occurs, check both RENDER MISSES and WORK MISSES in the System Report. Zero counts help narrow the cause, but do not rule out a source discontinuity or an interruption elsewhere in the device.</p></div>
 
@@ -115,7 +117,7 @@
           <div><span class="control-number">Knob 8</span><strong>LEVL</strong><p>Set final playback gain.</p></div>
         </div>
 
-        <p>Use <kbd>Up</kbd>/<kbd>Down</kbd> while parameters are open to move through pages. Each parameter has one location: shared controls stay on the same shared page, while engine-only controls appear on separate contextual pages. The title fraction is current page / total pages, so its denominator changes with the selected engine. Mix / Rec, Effects, Stereo / Rotary, Tape, Sample Edit, Performance Loop, Overdub Takes, and Chain follow every engine's contextual pages.</p>
+        <p>Use <kbd>Up</kbd>/<kbd>Down</kbd> while parameters are open to move through pages. Each parameter has one location: shared controls stay on the same shared page, while engine-only controls appear on separate contextual pages. The title fraction is current page / total pages, so its denominator changes with the selected engine. Mix / Rec, Effects, Stereo / Rotary, Tape, Reverb, FX Order, Sample Edit, Performance Loop, Overdub Takes, and Chain follow every engine's contextual pages.</p>
 
         <figure>
           <div class="doc-graphic move-screen"><img src="assets/screens/amp-envelope.svg" alt="Amp Envelope breakpoint editor with attack, decay, sustain, and release values"></div>

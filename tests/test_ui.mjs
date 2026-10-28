@@ -9,6 +9,10 @@ const buttonWrites = [];
 const paramWrites = [];
 const blockingWrites = [];
 const drawWrites = [];
+const forcedPadWrites = [];
+let emulateSharedLedCache = false;
+const sharedLedCache = new Map();
+let invalidations = 0;
 let exitCount = 0;
 let waveformReads = 0;
 
@@ -21,7 +25,12 @@ globalThis.__moveConstants = {
     MoveRight: 63,
 };
 globalThis.__moveInputFilter = {
-    setLED(note, color) { padWrites.push([note, color]); },
+    setLED(note, color, force = false) {
+        if (emulateSharedLedCache && !force && sharedLedCache.get(note) === color) return;
+        sharedLedCache.set(note,color);
+        padWrites.push([note, color]);forcedPadWrites.push([note,color,force]);
+    },
+    invalidateLedCache() { sharedLedCache.clear();invalidations++; },
     setButtonLED(cc, color) { buttonWrites.push([cc, color]); },
 };
 globalThis.__os = {
@@ -50,7 +59,7 @@ globalThis.__os = {
 const flatWave = '77'.repeat(112);
 const params = {
     locus: '0.5', field: '1', speed: '1', manual_lane: '1',
-    lane_cycles: '1', stack_scan_paused: '0', clip_stack_hold: '0',
+    cut_lane_advance: '1', lane_cycles: '1', stack_scan_paused: '0', clip_stack_hold: '0',
     algorithm: '0', join: '1', output_gain: '1', polyphony_comp: '1',
     glitch_buffer_lock: '0',
     record_lane: '1', pad_octave: '0', record_source: '0',
@@ -64,7 +73,7 @@ const params = {
     clip_capacity_state: '3,1024,10,8192,0,0',
     ui_state: '1,1,0,0,250,100,900,1000,0,0,0,0,20,0,1,1,2',
     playheads: '100,700,-1,-1,-1,-1,-1,-1',
-    waveset_state: '',
+    waveset_state: '', cutups_state: '',
     voice_lanes: '333,800,-1,-1,-1,-1,-1,-1',
     voice_pads: '-1,-1,-1,-1,-1,-1,-1,-1',
     voice_notes: '-1,-1,-1,-1,-1,-1,-1,-1',
@@ -97,6 +106,7 @@ globalThis.host_module_set_param = (key, value) => {
 globalThis.host_module_set_param_blocking = (key, value) => {
     blockingWrites.push([key, value]);
     if (Object.hasOwn(params, key)) params[key] = value;
+    if (key === 'effect_order') params.effect_order_state = value + ',' + value + ',0';
     if (key === 'clip_playing') {
         const clip = params.clip_state.split(',');
         clip[1] = value;
@@ -132,9 +142,9 @@ source = source.replace(
     /import \* as os[^;]+;/,
     'const os = globalThis.__os;');
 source += `
-globalThis.__testParameterPageSets = PLAYBACK_PAGES.map((enginePages) =>
-    [ENGINE_PAGE, PADS_SCALE_PAGE, AMP_ENVELOPE_PAGE, ...enginePages,
-        MIX_REC_PAGE, EFFECTS_PAGE, STEREO_ROTARY_PAGE, TAPE_PAGE,
+globalThis.__testParameterPageSets = PLAYBACK_PAGES.map((enginePages, algorithm) =>
+    [algorithm === 3 ? CUTUPS_ENGINE_PAGE : ENGINE_PAGE, PADS_SCALE_PAGE, AMP_ENVELOPE_PAGE, ...enginePages,
+        MIX_REC_PAGE, EFFECTS_PAGE, STEREO_ROTARY_PAGE, TAPE_PAGE, REVERB_PAGE, FX_ORDER_PAGE,
         SAMPLE_PAGE, LOOP_PAGE, TAKE_PAGE, CHAIN_PAGE].map((page) => page.keys));
 globalThis.__testMotionPages = Array.from({ length: 8 }, (_, sound) =>
     playbackPagesForAlgorithm(0, sound).map((page) => ({
@@ -145,6 +155,10 @@ globalThis.__testPlaybackPageTitles = PLAYBACK_PAGES.map((pages) =>
 globalThis.__testMainEngineControls = MAIN_ENGINE_CONTROLS;
 globalThis.__testLockableParams = Array.from(LOCKABLE_PARAMS);
 globalThis.__testDrawMain = drawMain;
+globalThis.__testParseCutups = parseCutupsState;
+globalThis.__testParams = PARAMS;
+globalThis.__testSplit = {pages:parameterPages,parse:parseSplitState,keys:activeControlKeys};
+globalThis.__testResetEncoders = resetParameterEncoderMotion;
 globalThis.__testLongGrainLengthIndex = longGrainLengthIndex;
 globalThis.__testLongGrainLengthAt = longGrainLengthAt;
 globalThis.__testHoldReleaseIndex = holdReleaseIndex;
@@ -161,6 +175,11 @@ globalThis.__testPadMidiNote = padMidiNote;
 globalThis.__testStereoRotaryPage = STEREO_ROTARY_PAGE.keys;
 globalThis.__testTapePage = TAPE_PAGE.keys;
 globalThis.__testWavesetProcess = PARAMS.waveset_process;
+globalThis.__testFx = { adjust: adjustFxOrder, sync: syncFxOrder,
+    encode: encodeFxOrder, decode: decodeFxOrder,
+    state: () => state,
+    parseClip: parseClipBankState, draw: drawSettings,
+    pageIndex: () => parameterPages().indexOf(FX_ORDER_PAGE) };
 `;
 await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
 
@@ -207,7 +226,7 @@ const waveformModeControls = ['motion_mode', 'lanes_mode', 'grain_mode',
     'long_grain_mode', 'waveset_direction'];
 for (let algorithm = 0; algorithm < 9; algorithm++) {
     assert.deepEqual(globalThis.__testMainEngineControls[algorithm], [
-        'locus', 'field', 'speed', 'manual_lane', 'lane_cycles', 'join',
+        'locus', 'field', 'speed', 'manual_lane', algorithm === 3 ? 'cut_lane_advance' : 'lane_cycles', 'join',
         waveformModeControls[algorithm], 'output_gain',
     ], 'the waveform encoder layout must stay stable across engines');
 }
@@ -507,7 +526,7 @@ const scalePageDrawStart = drawWrites.length;
 globalThis.tick();
 const scaleHeader = drawWrites.slice(scalePageDrawStart).find((write) =>
     write[0] === 'print' && write[2] === 0);
-assert(String(scaleHeader?.[3]).includes('PADS & SCALE 2/13'));
+assert(String(scaleHeader?.[3]).includes('PADS & SCALE 2/15'));
 assert(drawWrites.slice(scalePageDrawStart).some((write) =>
     write[0] === 'print' && String(write[3]).includes('POLY')));
 globalThis.onMidiMessageInternal([0xB0, 73, 1]);
@@ -524,7 +543,7 @@ const envelopePageDrawStart = drawWrites.length;
 globalThis.tick();
 const envelopeWrites = drawWrites.slice(envelopePageDrawStart);
 assert(envelopeWrites.some((write) => write[0] === 'print'
-    && String(write[3]).includes('AMP ENVELOPE 3/13')));
+    && String(write[3]).includes('AMP ENVELOPE 3/15')));
 for (const label of ['ATK', 'DEC', 'SUS', 'REL']) {
     assert(envelopeWrites.some((write) => write[0] === 'print'
         && write[3] === label));
@@ -547,7 +566,7 @@ const lanesPageDrawStart = drawWrites.length;
 globalThis.tick();
 const lanesHeader = drawWrites.slice(lanesPageDrawStart).find((write) =>
     write[0] === 'print' && write[2] === 0);
-assert(String(lanesHeader?.[3]).includes('STACK PATH 4/13'));
+assert(String(lanesHeader?.[3]).includes('STACK PATH 4/15'));
 assert(!drawWrites.slice(lanesPageDrawStart).some((write) =>
     write[0] === 'print' && String(write[3]).includes('GRAIN')));
 const lanesPageWrites = drawWrites.slice(lanesPageDrawStart);
@@ -565,7 +584,7 @@ assert.equal(paramWrites.length, writesBeforeReservedTurn,
 
 /* The take page displays the layer count and provides the same action as
    Delete+Record. The following Chain page retains its explicit slot clear. */
-    for (let page = 0; page < 8; page++) {
+    for (let page = 0; page < 10; page++) {
     globalThis.onMidiMessageInternal([0xB0, 55, 127]);
 }
 const takePageDrawStart = drawWrites.length;
@@ -768,4 +787,352 @@ globalThis.onUnload();
 assert(blockingWrites.some((write) => write[0] === 'all_notes_off'));
 assert(buttonWrites.length > 0);
 
+
+
+// Exercise the real main-wheel, click, Back and preset dispatch. Merely
+// selecting/lifting/moving never changes sound or starts performance recording.
+const fx = globalThis.__testFx;
+for (let code = 0; code < 720; ++code) assert.equal(fx.encode(fx.decode(code)), code);
+params.effect_order = '0'; params.effect_order_state = '0,0,0';
+fx.state().view = 'settings'; fx.state().settingsPage = fx.pageIndex();
+fx.state().shiftHeld = false; fx.state().deleteHeld = false;
+fx.state().clipRecording = false; fx.state().clipPlaying = false;
+fx.state().fxRouteClip = -1; fx.state().fxRoutePending = false; fx.sync();
+const routeCount = () => blockingWrites.filter(([key]) => key === 'effect_order').length;
+const recordingCount = () => blockingWrites.filter(([key]) => key === 'clip_record').length;
+const beforeRouteWrites = routeCount(), beforeRecordWrites = recordingCount();
+const ccFx = (number, value = 127) => globalThis.onMidiMessageInternal([0xB0, number, value]);
+for (let turn = 0; turn < 5; ++turn) ccFx(14, 1);
+assert.equal(fx.state().fxRouteSelected, 5); // Reverb
+ccFx(3);
+assert.equal(fx.state().fxRouteGrabbed, true);
+fx.sync(); // Idle polling cannot drop a lifted block before its first move.
+assert.equal(fx.state().fxRouteGrabbed, true);
+for (let turn = 0; turn < 3; ++turn) ccFx(14, 127);
+assert.deepEqual(fx.state().fxOrder, [0,1,5,2,3,4]);
+assert.equal(fx.state().fxRouteSelected, 2);
+assert.equal(routeCount(), beforeRouteWrites);
+assert.equal(recordingCount(), beforeRecordWrites);
+let drawStartFx = drawWrites.length; fx.draw();
+const editText = drawWrites.slice(drawStartFx).filter(([kind]) => kind === 'print');
+assert(editText.some((write) => write[3] === '*3 Reverb'));
+assert(editText.some((write) => write[3] === 'TURN MOVE CLICK SET'));
+assert(editText.every((write) => write[2] >= 0 && write[2] <= 57 && String(write[3]).length <= 21));
+ccFx(51); // cancel, stay in the editor
+assert.equal(fx.state().view, 'settings');
+assert.equal(fx.state().fxRouteGrabbed, false);
+assert.deepEqual(fx.state().fxOrder, [0,1,2,3,4,5]);
+assert.equal(routeCount(), beforeRouteWrites);
+// Drop during recording emits exactly one complete routing event.
+ccFx(3); ccFx(14, 1); fx.state().clipRecording = true; ccFx(3);
+assert.equal(routeCount(), beforeRouteWrites + 1);
+assert.equal(recordingCount(), beforeRecordWrites);
+assert(paramWrites.some(([key,value]) => key === 'clip_automation' && value === 'effect_order'));
+assert.equal(fx.state().fxRouteGrabbed, false);
+assert.equal(fx.state().fxRoutePending, false);
+fx.state().clipRecording = false;
+// Knobs 1-6 and 8 have no legacy slot/apply action. Knob 7 stages presets.
+const heldOrder = [...fx.state().fxOrder];
+for (const number of [71,72,73,74,75,76,78]) ccFx(number, 1);
+assert.deepEqual(fx.state().fxOrder, heldOrder);
+for (let turn = 0; turn < 12; ++turn) ccFx(77, 1);
+assert.equal(fx.state().fxRoutePending, true);
+assert.equal(routeCount(), beforeRouteWrites + 1);
+ccFx(3);
+assert.equal(routeCount(), beforeRouteWrites + 2);
+// Page navigation and actual clip selection both discard unfinished moves.
+ccFx(3); ccFx(14, 1); ccFx(55);
+assert.equal(fx.state().fxRouteGrabbed, false);
+assert.equal(fx.state().fxRoutePending, false);
+ccFx(54); ccFx(3); ccFx(14, 1);
+params.effect_order_state = '0,0,0';
+fx.parseClip(((fx.state().activeClip + 1) % 64) + ',-1,1,0');
+assert.equal(fx.state().fxRouteGrabbed, false);
+assert.equal(fx.state().fxRoutePending, false);
+assert.deepEqual(fx.state().fxOrder, [0,1,2,3,4,5]);
+// Leaving through Menu cancels and restores normal main-click recording.
+ccFx(3); ccFx(14, 1); ccFx(50);
+assert.equal(fx.state().fxRouteGrabbed, false);
+assert.equal(fx.state().fxRoutePending, false);
+ccFx(3);
+assert.equal(recordingCount(), beforeRecordWrites + 1);
+// Cutups uses the shared full-height lines/hollow markers for actual readers, including all eight voices
+// and outgoing/released readers. Missing/stale data cannot revive a scanner.
+const cutState = fx.state();
+cutState.algorithm = 3; cutState.mask = 15; cutState.regions = [];
+cutState.waves = Array.from({ length: 4 }, () => Array.from({ length: 112 }, () => [0,0]));
+globalThis.__testParseCutups(Array.from({ length: 8 }, (_, slot) =>
+    `${slot},${slot % 4},${100 + slot * 100},-1,-1000,800,0`).join(';'));
+let cutDrawStart = drawWrites.length; globalThis.__testDrawMain();
+let cutRects = drawWrites.slice(cutDrawStart).filter(([kind]) => kind === 'rect');
+assert.equal(cutRects.filter((write) => write[3] === 1 && write[4] === 40).length, 8);
+assert.equal(cutRects.filter((write) => write[3] === 5 && write[4] === 5 && write[5] === 0).length, 8);
+globalThis.__testParseCutups('0,2,500,0,250,800,200');
+cutDrawStart = drawWrites.length; globalThis.__testDrawMain();
+cutRects = drawWrites.slice(cutDrawStart).filter(([kind]) => kind === 'rect');
+assert(cutRects.some((w) => w[1] === 71 && w[2] === 10 && w[3] === 1 && w[4] === 40));
+assert(cutRects.some((w) => w[1] === 42 && w[2] === 10 && w[3] === 1 && w[4] === 2));
+assert(cutRects.some((w) => w[1] === 69 && w[2] === 33 && w[3] === 5 && w[4] === 1));
+// Parsing an empty getter clears all stale lines; malformed records are ignored.
+globalThis.__testParseCutups('');
+assert(cutState.cutupsVoices.every((voice) => voice === null));
+globalThis.__testParseCutups('9,0,500,-1,-1000,800,0;0,nope,500,-1,-1000,800,0');
+assert(cutState.cutupsVoices.every((voice) => voice === null));
+cutDrawStart = drawWrites.length; globalThis.__testDrawMain();
+assert(!drawWrites.slice(cutDrawStart).some((w) => w[0] === 'rect' && w[3] === 1 && w[4] === 40));
+// The same physical knobs now edit physical Lane and cut-count Advance.
+cutState.view = 'main'; cutState.shiftHeld = false; cutState.clipRecording = true;
+globalThis.__testParams.manual_lane.value = 2;
+globalThis.__testParams.cut_lane_advance.value = 1;
+globalThis.__testResetEncoders();
+globalThis.onMidiMessageInternal([0xB0,74,2]);
+assert(paramWrites.some(([key,value]) => key === 'manual_lane' && value === '3'));
+assert(paramWrites.some(([key,value]) => key === 'clip_automation' && value === 'manual_lane'));
+globalThis.onMidiMessageInternal([0xB0,75,2]);
+assert(paramWrites.some(([key,value]) => key === 'cut_lane_advance' && value === '2'));
+assert(paramWrites.some(([key,value]) => key === 'clip_automation' && value === 'cut_lane_advance'));
+assert(globalThis.__testLockableParams.includes('cut_lane_advance'));
+assert.equal(globalThis.__testFormatControlValue(globalThis.__testParams.cut_lane_advance), '2 CUTS');
+cutState.view = 'settings'; cutState.settingsPage = 0;
+cutDrawStart = drawWrites.length; fx.draw();
+const cutLabels = drawWrites.slice(cutDrawStart).filter(([kind]) => kind === 'print').map((w) => w[3]);
+assert(cutLabels.includes('LANE') && cutLabels.includes('ADV'));
+assert(!cutLabels.includes('STAK') && !cutLabels.includes('RATE'));
+// Split controls use the actual dispatcher with an emulated two-part DSP scope.
+const split = globalThis.__testSplit;
+const splitState = {enabled:0,focus:0,blend:.5,parts:[
+    {algorithm:4,root:60,octave:0,scale:0,mode:0,hold:0,mute:0,position:.2},
+    {algorithm:2,root:67,octave:1,scale:1,mode:0,hold:0,mute:0,position:.7}]};
+params.split_blend='0.5'; params.split_mode='0';
+const priorSet=globalThis.host_module_set_param_blocking;
+globalThis.host_module_set_param_blocking=(key,value)=>{
+    priorSet(key,value);
+    if(key==='split_mode')splitState.enabled=Number(value);
+    if(key==='split_focus')splitState.focus=Number(value);
+    if(key==='record_lane')splitState.focus=Number(value)>2?1:0;
+    if(key==='part_mute')splitState.parts[splitState.focus].mute=Number(value);
+    const p=splitState.parts[splitState.focus];
+    Object.assign(params,{split_state:JSON.stringify(splitState),algorithm:String(p.algorithm),
+        root_note:String(p.root),scale:String(p.scale),pad_mode:String(p.mode),pad_octave:String(p.octave)});
+};
+params.split_state=JSON.stringify(splitState);
+params.voice_algorithms='4,-1,-1,-1,2,-1,-1,-1';
+globalThis.init();
+const cc=(key,value=127)=>globalThis.onMidiMessageInternal([0xb0,key,value]);
+cc(60); assert(fx.state().splitEnabled);assert.equal(fx.state().splitFocus,0);
+assert.equal(split.keys().at(-1),'split_blend');
+assert.equal(globalThis.__testPadMidiNote(0),48);
+assert.equal(globalThis.__testPadMidiNote(4),67);
+const keys=split.pages().flatMap((p)=>p.keys||[]).filter(Boolean);
+assert.equal(new Set(keys).size,keys.length,'Split pages must not duplicate parameters');
+assert(split.pages().some((p)=>p.title==='PART COLOR'));
+assert(!split.pages().some((p)=>p.title==='EFFECTS'));
+fx.state().settingsPage=2;
+cc(52);cc(52,0);assert.equal(fx.state().splitFocus,1);
+fx.state().settingsPage=3;
+cc(52);cc(52,0);assert.equal(fx.state().splitFocus,0);assert.equal(fx.state().settingsPage,2);
+fx.state().view='settings';globalThis.__testResetEncoders();
+const beforeBlend=paramWrites.length;cc(52);cc(78,4);cc(52,0);
+assert.equal(fx.state().splitFocus,0,'Blend chord must not switch editing focus');
+assert(paramWrites.slice(beforeBlend).some(([key])=>key==='split_blend'));
+cc(49);cc(52);cc(52,0);cc(49,0);
+assert.equal(split.pages()[fx.state().settingsPage].title,'FX SENDS');
+const startCopy=blockingWrites.length;cc(49);cc(60);cc(49,0);
+assert(blockingWrites.slice(startCopy).some(([key])=>key==='split_copy'));
+assert(fx.state().splitEnabled);
+const focus=fx.state().splitFocus;
+globalThis.onMidiMessageInternal([0x90,72,100]);
+assert.equal(fx.state().splitFocus,focus,'Playing the other instrument must not change editing focus');
+cc(88);assert.equal(fx.state().splitParts[0].mute,1);
+fx.state().settingsPage=fx.pageIndex();params.effect_order='7';params.effect_order_state='7,7,0';fx.sync();
+assert.equal(fx.state().fxOrder.length,3,'Only shared returns and Tape are reorderable in Split');
+assert.deepEqual(new Set(fx.state().fxOrder),new Set([2,4,5]));
+cc(60);assert(!fx.state().splitEnabled);
+// Split cursors stay in their owner's pair even when the other part is focused.
+const visual = fx.state();
+visual.splitEnabled = true; visual.mask = 15; visual.regions = [];
+visual.waves = Array.from({length:4},()=>Array.from({length:112},()=>[0,0]));
+visual.playheads = Array.from({length:8},(_,slot)=>(slot+1)/10);
+visual.stackPositions = Array.from({length:8},(_,slot)=>
+    ((slot<4?0:2)+.2+(slot%4)*.2)/3);
+const drawCursorRects = () => {
+    const start=drawWrites.length;globalThis.__testDrawMain();
+    return drawWrites.slice(start).filter(([kind])=>kind==='rect');
+};
+for (let engine=0;engine<9;++engine) {
+    visual.voiceAlgorithms=Array(8).fill(engine);
+    visual.cutupsVoices=Array.from({length:8},(_,slot)=>({
+        lane:slot<4?0:2,position:visual.playheads[slot],gain:1,
+        outgoingLane:-1,outgoingPosition:-1,outgoingGain:0}));
+    visual.wavesetVoices=Array.from({length:8},(_,slot)=>({
+        sourcePosition:visual.playheads[slot],secondarySourcePosition:-1}));
+    for(const focus of [0,1]) {
+        visual.splitFocus=focus;
+        const rects=drawCursorRects();
+        const cursors=rects.filter((w)=>w[3]===1&&w[4]===20&&w[5]===1);
+        assert.equal(cursors.length,8,'all eight sounding Split voices must remain visible');
+        for(let slot=0;slot<8;++slot)assert(cursors.some((w)=>
+            w[1]===14+Math.round(visual.playheads[slot]*113)&&w[2]===(slot<4?10:30)));
+        assert(!rects.some((w)=>w[3]===1&&w[4]===40),'Split must not draw a four-lane cursor');
+    }
+}
+// The outgoing Cutups reader and secondary Wavesets reader obey the same limits.
+for(const engine of [3,8])for(const slot of [0,3,4,7]) {
+    visual.voiceAlgorithms=Array(8).fill(-1);visual.voiceAlgorithms[slot]=engine;
+    visual.playheads=Array(8).fill(-1);visual.stackPositions=Array(8).fill(-1);
+    visual.stackPositions[slot]=(slot<4?.2:2.8)/3;
+    visual.cutupsVoices=Array(8).fill(null);visual.wavesetVoices=Array(8).fill(null);
+    visual.cutupsVoices[slot]={lane:slot<4?0:3,position:.2,gain:1,
+        outgoingLane:slot<4?1:2,outgoingPosition:.7,outgoingGain:.5};
+    visual.wavesetVoices[slot]={sourcePosition:.2,secondarySourcePosition:.7};
+    const rects=drawCursorRects();const x=14+Math.round(.7*113);
+    const dashes=rects.filter((w)=>w[1]===x&&w[3]===1&&w[4]===2&&w[5]===1);
+    const top=slot<4?10:30;
+    assert.equal(dashes.length,5);
+    assert(dashes.every((w)=>w[2]>=top&&w[2]+w[4]<=top+20),
+        'transition cursor must not cross into the other instrument');
+}
+visual.splitEnabled=false;
+// B's background tint must be visible at startup and yield to performance states.
+const emptySlots=Array(8).fill(-1).join(',');
+const colors={enabled:1,focus:0,blend:.5,parts:[
+    {algorithm:4,root:60,octave:0,scale:1,mode:0,hold:0,mute:0},
+    {algorithm:4,root:67,octave:1,scale:1,mode:0,hold:0,mute:0}]};
+Object.assign(params,{split_state:JSON.stringify(colors),algorithm:'4',root_note:'60',
+    scale:'1',pad_mode:'0',pad_octave:'0',voice_pads:emptySlots,voice_notes:emptySlots,
+    roll_pads:emptySlots,roll_notes:emptySlots,cue_state:emptySlots});
+const lastPad=(index)=>padWrites.filter(([note])=>note===68+index).at(-1)?.[1];
+globalThis.init();
+assert.equal(lastPad(0),120);assert.equal(lastPad(1),123);
+assert.equal(lastPad(4),15,'B tonic uses the brighter teal');
+assert.equal(lastPad(5),93,'B idle uses dim teal, not a voice/status color');
+// Focus does not recolor either instrument's grid.
+const beforeFocus=Array.from({length:32},(_,index)=>lastPad(index));
+colors.focus=1;params.split_state=JSON.stringify(colors);
+for(let i=0;i<24;++i)globalThis.tick();
+assert.deepEqual(Array.from({length:32},(_,index)=>lastPad(index)),beforeFocus);
+// The named scale can be changed on the nonfocused side without needing a note press.
+colors.focus=0;colors.parts[1].scale=0;params.split_state=JSON.stringify(colors);
+for(let i=0;i<24;++i)globalThis.tick();
+assert.equal(lastPad(4),93,'Chromatic B remains tinted');
+assert.equal(lastPad(1),123,'A keeps its scale colors');
+colors.parts[1].scale=1;params.split_state=JSON.stringify(colors);
+for(let i=0;i<24;++i)globalThis.tick();
+assert.equal(lastPad(4),15,'B scale roots refresh without changing focus');
+// Active voice and out-of-octave latch colors override the B background.
+const bPitch=globalThis.__testPadMidiNote(4);
+params.voice_pads='-1,-1,-1,-1,4,-1,-1,-1';
+params.voice_notes=`-1,-1,-1,-1,${bPitch},-1,-1,-1`;
+for(let i=0;i<24;++i)globalThis.tick();assert.equal(lastPad(4),16);
+colors.parts[1].octave=2;params.split_state=JSON.stringify(colors);
+for(let i=0;i<24;++i)globalThis.tick();assert.equal(lastPad(4),95);
+colors.parts[1].octave=1;params.split_state=JSON.stringify(colors);
+for(let i=0;i<24;++i)globalThis.tick();assert.equal(lastPad(4),16);
+params.voice_pads=emptySlots;params.voice_notes=emptySlots;
+for(let i=0;i<24;++i)globalThis.tick();assert.equal(lastPad(4),15);
+// The B tint remains an idle indicator in Slices/Rolls; capture colors keep priority.
+for(const mode of [1,3]) {
+    colors.parts[1].mode=mode;params.split_state=JSON.stringify(colors);
+    for(let i=0;i<24;++i)globalThis.tick();assert.equal(lastPad(5),93);
+}
+params.roll_pads='-1,-1,-1,-1,5,-1,-1,-1';
+params.roll_notes=`-1,-1,-1,-1,${globalThis.__testPadMidiNote(5)},-1,-1,-1`;
+for(let i=0;i<24;++i)globalThis.tick();assert.equal(lastPad(5),26);
+params.roll_pads=emptySlots;params.roll_notes=emptySlots;
+colors.parts[1].mode=2;params.split_state=JSON.stringify(colors);
+params.cue_state='-1,-1,-1,-1,500,-1,-1,-1';
+for(let i=0;i<24;++i)globalThis.tick();
+assert.equal(lastPad(4),3,'assigned B cues retain their orange status');
+assert.equal(lastPad(5),93,'empty B cue pads retain the B tint');
+assert.equal(lastPad(12),0,'unused B cue rows remain dark');
+params.cue_state=emptySlots;
+for(let i=0;i<24;++i)globalThis.tick();
+assert.equal(lastPad(4),93,'cleared B cues immediately return to their idle tint');
+// Re-entry must repaint even when the shared LED helper remembers old colors.
+emulateSharedLedCache=true;
+globalThis.init();
+const invalidationsBefore=invalidations;
+const writesBeforeReentry=padWrites.length;
+globalThis.init();
+assert.equal(invalidations,invalidationsBefore+1);
+assert.equal(padWrites.length-writesBeforeReentry,32);
+assert(forcedPadWrites.slice(-32).every(([, , force])=>force),
+    'startup must bypass the shared LED cache for every pad');
+assert(drawWrites.slice(-500).some((w)=>w[0]==='print'&&w[3]==='THRU 0.28.0-test.9'),
+    'startup should identify the installed test build');
+// A mode toggle also sends all 32 pad states immediately, without waiting for the queue.
+Object.assign(splitState,colors);
+const beforeModeRepaint=forcedPadWrites.length;
+cc(60);
+assert.equal(forcedPadWrites.length-beforeModeRepaint,32);
+assert(forcedPadWrites.slice(-32).every(([, , force])=>force));
+cc(60);
+assert(forcedPadWrites.slice(-32).every(([, , force])=>force));
+assert.equal(lastPad(5),93);
+// Older shared helpers may have force support without cache invalidation.
+const savedInvalidation=globalThis.__moveInputFilter.invalidateLedCache;
+globalThis.__moveInputFilter.invalidateLedCache=undefined;
+const beforeLegacyReentry=padWrites.length;
+globalThis.init();
+assert.equal(padWrites.length-beforeLegacyReentry,32,
+    'force repaint must also work without invalidateLedCache');
+globalThis.__moveInputFilter.invalidateLedCache=savedInvalidation;
+// The sends and both wet return levels are on a single, directly reachable page.
+Object.assign(splitState,{enabled:1,focus:0,parts:[
+    {algorithm:4,root:60,octave:0,scale:0,mode:0,hold:0,mute:0},
+    {algorithm:4,root:60,octave:0,scale:0,mode:0,hold:0,mute:0}]});
+Object.assign(params,{split_state:JSON.stringify(splitState),effect_mix:'0',effect_reverb_mix:'0',
+    split_delay_a:'0.2',split_delay_b:'0.25',split_reverb_a:'0.3',split_reverb_b:'0.4',
+    split_level_a:'1',split_level_b:'0.9',split_curve:'1',split_blend:'0.5',algorithm:'4'});
+globalThis.init();cc(49);cc(52);cc(52,0);cc(49,0);
+const sendsKeys=['split_delay_a','split_reverb_a','split_delay_b','split_reverb_b',
+    'effect_mix','effect_reverb_mix','split_curve','split_blend'];
+assert.deepEqual(split.keys(),sendsKeys);
+let fxDrawStart=drawWrites.length;globalThis.tick();
+let fxText=drawWrites.slice(fxDrawStart).filter(([kind])=>kind==='print').map((w)=>String(w[3]));
+assert(fxText.some((text)=>text.includes('FX SENDS ')));
+assert(fxText.includes('DRTN')&&fxText.includes('RRTN')&&fxText.includes('25%'));
+assert(fxText.includes('RETURNS OFF: KNOBS 5/6'));
+globalThis.__testResetEncoders();cc(71,2);
+assert.equal(fx.state().actionMessage,'RAISE DRTN: KNOB 5');
+cc(72,2);assert.equal(fx.state().actionMessage,'RAISE RRTN: KNOB 6');
+for(let i=0;i<4;++i){cc(75,63);cc(76,63);}
+assert.equal(Number(params.effect_mix),100);assert.equal(Number(params.effect_reverb_mix),100);
+fx.state().actionMessageTicks=0;
+fxDrawStart=drawWrites.length;globalThis.tick();
+assert(drawWrites.slice(fxDrawStart).some((w)=>w[0]==='print'&&w[3]==='CLICK: FX PAGES'));
+// A click opens a readable list instead of accidentally starting a take.
+let menuWrites=paramWrites.length;cc(3);
+assert.equal(fx.state().view,'fxMenu');
+assert(!paramWrites.slice(menuWrites).some(([key])=>key==='clip_record'||key==='record_gate'));
+const laneWrites=blockingWrites.filter(([key])=>key==='record_lane').length;
+cc(14,1);cc(3);
+assert.equal(split.pages()[fx.state().settingsPage].title,'DELAY RETURN');
+assert(!split.keys().includes('effect_mix'),'Delay return level must not be duplicated');
+assert.equal(blockingWrites.filter(([key])=>key==='record_lane').length,laneWrites);
+cc(51);assert.equal(fx.state().view,'fxMenu');cc(14,1);cc(3);
+assert.equal(split.pages()[fx.state().settingsPage].title,'REVERB');
+assert(!split.keys().includes('effect_reverb_mix'),'Reverb return level must not be duplicated');
+cc(51);cc(52);cc(52,0);assert.equal(fx.state().splitFocus,1);
+cc(14,1);cc(3);assert.equal(split.pages()[fx.state().settingsPage].title,'PART COLOR');
+fxDrawStart=drawWrites.length;globalThis.tick();
+assert(drawWrites.slice(fxDrawStart).some((w)=>w[0]==='print'&&String(w[3]).includes('B PART COLOR')));
+cc(51);for(let i=0;i<3;++i)cc(14,1);
+fxDrawStart=drawWrites.length;globalThis.tick();
+assert(drawWrites.slice(fxDrawStart).some((w)=>w[0]==='print'&&String(w[3]).includes('EFFECT ORDER')));
+cc(3);assert(split.pages()[fx.state().settingsPage].route);
+cc(3);cc(14,1);cc(51);assert.equal(fx.state().view,'settings','Back first cancels a pending route edit');
+cc(51);assert.equal(fx.state().view,'fxMenu');cc(51);
+assert.equal(split.pages()[fx.state().settingsPage].title,'FX SENDS');
+// A part's level now lives on its own Engine page, with no repeated controls.
+fx.state().settingsPage=0;assert.equal(split.keys()[7],'split_level_b');
+fxDrawStart=drawWrites.length;globalThis.tick();
+assert(drawWrites.slice(fxDrawStart).some((w)=>w[0]==='print'&&w[3]==='LEVL'));
+for(let engine=0;engine<9;++engine)for(let focus=0;focus<2;++focus) {
+    fx.state().algorithm=engine;fx.state().splitFocus=focus;
+    const controls=split.pages().flatMap((page)=>page.keys||[]).filter(Boolean);
+    assert.equal(new Set(controls).size,controls.length);
+}
+// Leaving Split while the menu is open must not leave a stale Split-only view.
+fx.state().view='fxMenu';cc(60);assert.equal(fx.state().view,'main');
 console.log('s3g Thru overtake UI tests: PASS');

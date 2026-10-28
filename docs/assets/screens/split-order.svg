@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="768" height="384" viewBox="0 0 128 64" role="img" aria-labelledby="title desc">
+  <title id="title">Shared Split FX Order</title>
+  <desc id="desc">Shared Split FX Order shown as it appears on Ableton Move.</desc>
+  <rect width="128" height="64" fill="#050706"/>
+  <g shape-rendering="crispEdges" font-family="DejaVu Sans Mono, IBM Plex Mono, monospace" font-size="6" font-style="normal" font-weight="400" text-rendering="geometricPrecision">
+    <text x="1" y="5.5" fill="#dce8e1">FX ORDER 13/17 7:DFLT</text>
+    <rect x="0" y="8" width="128" height="1" fill="#dce8e1"/>
+    <rect x="0" y="12" width="128" height="8" fill="#dce8e1"/>
+    <text x="1" y="17.5" fill="#050706">&gt;1 Delay</text>
+    <text x="1" y="31.5" fill="#dce8e1"> 2 Reverb</text>
+    <text x="1" y="45.5" fill="#dce8e1"> 3 Tape</text>
+    <text x="1" y="62.5" fill="#dce8e1">TURN PICK CLICK LIFT</text>
+  </g>
+  <rect x="0.25" y="0.25" width="127.5" height="63.5" fill="none" stroke="#5b6661" stroke-width="0.5"/>
+</svg>

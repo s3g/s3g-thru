@@ -10,7 +10,7 @@
   <body>
     <header class="site-header">
       <a class="brand" href="index.html">s3g Thru <span>manual</span></a>
-      <nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav>
+      <nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="split.html">Split</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav>
     </header>
 
     <div class="page-shell">
@@ -25,18 +25,20 @@
         </figure>
         <p>The title-row fraction shows the current parameter page and the number available for the selected engine. The total changes with the engine: Sample has the shortest set, while Grains and the extended Motion modes have more contextual pages. The screen examples therefore show the correct fraction for the engine used in each figure rather than one global page count.</p>
 
+        <div class="callout"><p><strong>Split mode:</strong> two independent instruments share the pad grid, with two stereo lanes and four voices each. Use the same engine with different settings or choose different engines. <a href="split.html">Split setup, controls, mixing, and recording</a>.</p></div>
+
         <h2 id="choose">Choose an engine</h2>
 
         <div class="manual-grid engine-grid">
-          <a class="manual-card engine-card" href="engine-motion.html"><h3>Motion</h3><p>Eight trajectories with continuous, packet, motor, and five bounded segment sounds.</p><span>Stack Path + 2–4 contextual pages · 14–16 total</span></a>
-          <a class="manual-card engine-card" href="engine-lanes.html"><h3>Lanes</h3><p>Continuous playback shaped by a programmable path through the four-lane stack.</p><span>Stack Path + 1 unique page · 13 total</span></a>
-          <a class="manual-card engine-card" href="engine-grains.html"><h3>Grains</h3><p>Layered grain clouds with source, variation, timing, energy sorting, and quality control.</p><span>Stack Path + 3 unique pages · 15 total</span></a>
-          <a class="manual-card engine-card" href="engine-cutups.html"><h3>Cutups</h3><p>Clocked region events with ordered, random, walk, or non-repeating shuffled cycles.</p><span>2 unique pages · 13 total</span></a>
-          <a class="manual-card engine-card" href="engine-sample.html"><h3>Sample</h3><p>Direct one-shot, loop, reverse, or ping-pong playback from one discrete lane.</p><span>Shared Direct Play page · 12 total</span></a>
-          <a class="manual-card engine-card" href="engine-slices.html"><h3>Slices</h3><p>Pad-addressed equal or transient regions with direct playback and lane variation.</p><span>Direct Play + 1 unique page · 13 total</span></a>
-          <a class="manual-card engine-card" href="engine-glitch.html"><h3>Glitch</h3><p>Per-voice repeat buffers interrupted by rotating pulse patterns and seeded transformations.</p><span>Stack Path + 2 unique pages · 14 total</span></a>
-          <a class="manual-card engine-card" href="engine-weave.html"><h3>Weave</h3><p>A long-grain approach using one to four sustained layers with independent position, duration, pitch, envelope, and stereo placement.</p><span>Stack Path + 2 unique pages · 14 total</span></a>
-          <a class="manual-card engine-card" href="engine-wavesets.html"><h3>Wavesets</h3><p>Measured zero-crossing cycles become pitched groups with repeat, stride, ordering, and real-time transformations.</p><span>Stack Path + 1 unique page · 13 total</span></a>
+          <a class="manual-card engine-card" href="engine-motion.html"><h3>Motion</h3><p>Eight trajectories with continuous, packet, motor, and five bounded segment sounds.</p><span>Stack Path + 2–4 contextual pages · 16–18 total</span></a>
+          <a class="manual-card engine-card" href="engine-lanes.html"><h3>Lanes</h3><p>Continuous playback shaped by a programmable path through the four-lane stack.</p><span>Stack Path + 1 unique page · 15 total</span></a>
+          <a class="manual-card engine-card" href="engine-grains.html"><h3>Grains</h3><p>Layered grain clouds with source, variation, timing, energy sorting, and quality control.</p><span>Stack Path + 3 unique pages · 17 total</span></a>
+          <a class="manual-card engine-card" href="engine-cutups.html"><h3>Cutups</h3><p>Clocked region events with ordered, random, walk, or non-repeating shuffled cycles.</p><span>2 unique pages · 15 total</span></a>
+          <a class="manual-card engine-card" href="engine-sample.html"><h3>Sample</h3><p>Direct one-shot, loop, reverse, or ping-pong playback from one discrete lane.</p><span>Shared Direct Play page · 14 total</span></a>
+          <a class="manual-card engine-card" href="engine-slices.html"><h3>Slices</h3><p>Pad-addressed equal or transient regions with direct playback and lane variation.</p><span>Direct Play + 1 unique page · 15 total</span></a>
+          <a class="manual-card engine-card" href="engine-glitch.html"><h3>Glitch</h3><p>Per-voice repeat buffers interrupted by rotating pulse patterns and seeded transformations.</p><span>Stack Path + 2 unique pages · 16 total</span></a>
+          <a class="manual-card engine-card" href="engine-weave.html"><h3>Weave</h3><p>A long-grain approach using one to four sustained layers with independent position, duration, pitch, envelope, and stereo placement.</p><span>Stack Path + 2 unique pages · 16 total</span></a>
+          <a class="manual-card engine-card" href="engine-wavesets.html"><h3>Wavesets</h3><p>Measured zero-crossing cycles become pitched groups with repeat, stride, ordering, and real-time transformations.</p><span>Stack Path + 1 unique page · 15 total</span></a>
         </div>
 
         <h2 id="shared">The shared Engine page</h2>
@@ -48,10 +50,10 @@
             <tr><td>2</td><td>POS</td><td>0.00–1.00</td><td>Position centers the active source window. Near either end, the window is clamped so it never extends beyond the sample.</td></tr>
             <tr><td>3</td><td>FLD</td><td>0.02–1.00</td><td>Field sets the active window width as a fraction of the sample. The waveform uses a short top tick for Position and a short bottom tick for Field.</td></tr>
             <tr><td>4</td><td>SPD</td><td>0.05–4.00×</td><td>Speed sets base source transport. In Grains and Weave it moves grain origins independently of keyboard pitch; the other engines, including Wavesets, combine it with note pitch as described in their guides.</td></tr>
-            <tr><td>5</td><td>STAK</td><td>1.00–4.00</td><td>Stack Start sets an exact lane/crossfade for Manual stack motion, or the starting phase of a moving stack path. Sample and Slices round it to a discrete loaded lane.</td></tr>
-            <tr><td>6</td><td>RATE</td><td>0.125–16 Hz</td><td>Scan Rate sets cycles per second for moving stack paths. <kbd>Loop</kbd> freezes the audible phase. Sample, Slices, and Cutups do not use continuous stack scanning.</td></tr>
+            <tr><td>5</td><td>STAK</td><td>1.00–4.00</td><td>Stack Start sets an exact lane/crossfade for Manual stack motion, or the starting phase of a moving stack path. Cutups labels this knob LANE and selects a physical starting lane, adopted at the next cut. Sample and Slices round it to a discrete loaded lane.</td></tr>
+            <tr><td>6</td><td>RATE</td><td>0.125–16 Hz</td><td>Scan Rate sets cycles per second for moving stack paths. <kbd>Loop</kbd> freezes the audible phase. Cutups replaces this knob with ADV: Hold or 1/2/3/4/8/16 cuts per lane. Sample and Slices do not use continuous stack scanning.</td></tr>
             <tr><td>7</td><td>JOIN</td><td>0.00–1.00</td><td>Join scales seam smoothing for continuous/event readers and the Sample engine's Loop boundary. Motion also uses it as articulation depth. Cutups has a separate Cut Join for event-to-event fades. At zero, a very short internal safety transition remains to prevent a one-sample edge.</td></tr>
-            <tr><td>8</td><td>LEVL</td><td>0.00–2.00</td><td>Level sets instrument output gain before the program compressor and safety limiter. At 1.00, the mastering stage supplies a full nominal output; values above 1.00 push it harder. Pad velocity never attenuates playback.</td></tr>
+            <tr><td>8</td><td>LEVL</td><td>0.00–2.00</td><td>Level sets instrument output gain before the program compressor and safety limiter. At 1.00, the mastering stage supplies a full nominal output; values above 1.00 push it harder. Pad velocity never attenuates playback. In Split, Engine-page knob 8 controls the focused part’s level; waveform knob 8 controls Blend.</td></tr>
           </tbody>
         </table>
 
@@ -191,7 +193,7 @@
 
         <h2 id="voices">What every engine shares</h2>
 
-        <p>All engines can play up to eight voices from the four sources owned by the current performance clip. Each voice has its own pitch, read position, release, and physical pad assignment. Motion, Lanes, Grains, Glitch, Weave, and Wavesets also give every voice its own movement through the stack; Cutups, Sample, and Slices choose discrete lanes.</p>
+        <p>All engines can play up to eight voices from the four sources owned by the current performance clip. Each voice has its own pitch, read position, release, and physical pad assignment. Motion, Lanes, Grains, Glitch, Weave, and Wavesets also give every voice its own movement through the stack; Cutups advances each voice’s discrete lane after a chosen number of cuts. Sample and Slices choose discrete lanes.</p>
 
         <p>After every engine's contextual pages, the order is always Mix / Rec, <a href="effects.html">Effects</a>, Stereo / Rotary, Tape, Sample Edit, Performance Loop, Overdub Takes, and Chain.</p>
 

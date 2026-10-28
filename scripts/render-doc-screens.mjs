@@ -108,8 +108,12 @@ function waveform(lane) {
 }
 
 const params = {
+    effect_reverb_algo: '0', effect_reverb_decay: '2.50', effect_reverb_pre: '18',
+    effect_reverb_damp: '8000', effect_reverb_diff: '70', effect_reverb_mod: '10',
+    effect_reverb_width: '100', effect_reverb_mix: '25', effect_order: '0',
+    effect_order_state: '0,0,0',
     locus: '0.42', field: '0.80', speed: '1.00', manual_lane: '1.60',
-    lane_cycles: '0.50', stack_scan_paused: '0', clip_stack_hold: '0',
+    cut_lane_advance: '2', lane_cycles: '0.50', stack_scan_paused: '0', clip_stack_hold: '0',
     algorithm: '1', join: '0.72',
     output_gain: '1.00', polyphony_comp: '1', motion_mode: '5',
     motion_sound: '0', motion_rate: '4',
@@ -165,7 +169,7 @@ const params = {
     clip_capacity_state: '6,1024,128,8192,0,0',
     ui_state: '2,15,0,0,420,100,900,180,520,240,60,0,45,0,1,0,3',
     playheads: '190,510,790,-1,-1,-1,-1,-1',
-    waveset_state: '',
+    waveset_state: '', cutups_state: '',
     voice_lanes: '160,530,810,-1,-1,-1,-1,-1',
     voice_pads: '2,11,25,-1,-1,-1,-1,-1',
     voice_notes: '50,58,73,-1,-1,-1,-1,-1',
@@ -220,6 +224,7 @@ source = source.replace(
 source = source.replace(
     /import \* as os[^;]+;/,
     'const os = globalThis.__os;');
+source += '\nglobalThis.__docSplit = {state, pages:parameterPages};';
 await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
 
 function escapeXml(value) {
@@ -331,6 +336,16 @@ globalThis.init();
 tick(82);
 capture('waveform.svg', 'Waveform page with three polyphonic playheads');
 
+params.algorithm = '3';
+params.cutups_state = '0,0,190,-1,-1000,1000,0;1,2,510,1,440,800,400;2,3,790,-1,-1000,600,0';
+const ordinaryUiState = params.ui_state;
+params.ui_state = '2,15,0,0,420,100,900,1000,400,800,600,0,45,0,1,0,3';
+tick(3);
+capture('cutups-waveform.svg',
+    'Cutups waveform page with shared playhead lines and actual-lane stack markers');
+params.cutups_state = '';
+params.ui_state = ordinaryUiState;
+
 params.algorithm = '8';
 params.waveset_state = [
     '0,8,5,0,2,1,1,0,620,297,-1,310,-1,0',
@@ -393,6 +408,7 @@ captureEnginePages(3, [
     { filename: 'cutups-clock.svg', title: 'Cutups Clock parameter page', heading: 'CUTUPS CLOCK' },
     { filename: 'cutups-path.svg', title: 'Cutups Path parameter page', heading: 'CUTUPS PATH' },
 ]);
+capture('cutups-engine.svg', 'Cutups Engine page with physical Lane and cut-count Advance', 'ENGINE');
 captureEnginePages(4, [
     { filename: 'direct-play.svg', title: 'Shared Direct Play parameter page', heading: 'DIRECT PLAY' },
 ]);
@@ -423,6 +439,16 @@ capture('effects-stereo-rotary.svg', 'Stereo and Rotary effects parameter page',
     'STEREO / ROTARY');
 moveSettingsPage(1);
 capture('effects-tape.svg', 'Tape effects parameter page', 'TAPE');
+moveSettingsPage(1);
+capture('effects-reverb.svg', 'Reverb parameter page', 'REVERB');
+moveSettingsPage(1);
+capture('effects-order.svg', 'Effects order list', 'FX ORDER');
+for (let step = 0; step < 5; ++step) cc(14, 1);
+cc(3);
+for (let step = 0; step < 3; ++step) cc(14, 127);
+tick();
+capture('effects-order-move.svg', 'Moving Reverb before Delay', 'FX ORDER');
+cc(51);
 moveSettingsPage(2);
 capture('performance-page.svg', 'Performance Loop parameter page', 'PERF LOOP');
 
@@ -463,6 +489,48 @@ capture('help-callbacks.svg', 'On-device callback work report');
 cc(63);
 tick();
 capture('help-shortcuts.svg', 'On-device shortcut help');
+
+// Split examples use the same live draw code and parameter pages as the device.
+Object.assign(params, {
+    algorithm:'4', record_lane:'1', manual_lane:'1.4',
+    split_blend:'0.5', split_level_a:'1', split_level_b:'0.85',
+    split_delay_a:'0.2', split_delay_b:'0.45', split_reverb_a:'0.6', split_reverb_b:'0.3', split_curve:'1',
+    effect_order:'7', effect_order_state:'7,7,0', effect_mix:'100',effect_reverb_mix:'100',
+    split_state:JSON.stringify({enabled:1,focus:0,blend:.5,parts:[
+        {algorithm:4,root:60,octave:0,scale:1,mode:0,hold:0,mute:0,position:.25},
+        {algorithm:2,root:67,octave:0,scale:1,mode:0,hold:1,mute:0,position:.7}]}),
+    playheads:'250,-1,-1,-1,700,-1,-1,-1',
+    voice_lanes:'200,-1,-1,-1,750,-1,-1,-1',
+    voice_algorithms:'4,-1,-1,-1,2,-1,-1,-1',
+    voice_pads:'1,-1,-1,-1,20,-1,-1,-1',
+    voice_notes:'50,-1,-1,-1,69,-1,-1,-1',
+    clip_state:'0,0,1,420,6800,6,128,1000,0,1,12000,13600',
+    ui_state:'1,15,0,0,250,100,900,1000,0,1000,0,0,45,0,1,0,2'
+});
+globalThis.init();tick(82);
+capture('split-waveform.svg','Split waveform with Sample A and Grains B');
+const splitExamples=[
+    ['FX SENDS','split-mix.svg','Split FX Sends'],
+    ['ENGINE','split-engine.svg','A Engine and Part Level'],
+    ['SPLIT SETUP','split-setup.svg','Split Setup'],
+    ['PART COLOR','split-color.svg','A Part Color'],
+    ['DELAY RETURN','split-delay.svg','Shared Delay Return'],
+    ['REVERB','split-reverb.svg','Shared Reverb parameters'],
+    ['FX ORDER','split-order.svg','Shared Split FX Order']
+];
+for(const [heading,filename,title] of splitExamples) {
+    const ui=globalThis.__docSplit;
+    ui.state.view='settings';ui.state.settingsPage=ui.pages().findIndex((page)=>page.title===heading);
+    if(ui.state.settingsPage<0)throw new Error('Missing Split page '+heading);
+    tick();capture(filename,title);
+}
+
+const fxDoc=globalThis.__docSplit;
+fxDoc.state.view='settings';fxDoc.state.settingsPage=fxDoc.pages().findIndex((page)=>page.title==='FX SENDS');
+cc(3);tick();capture('split-fx-menu.svg','Split FX Pages menu');
+cc(51);params.effect_mix='0';params.effect_reverb_mix='0';
+cc(49);cc(52);cc(52,0);cc(49,0);tick();
+capture('split-sends-off.svg','Split sends with return-level hints');
 
 if (checkOnly && mismatches !== 0) process.exit(1);
 if (checkOnly) console.log('s3g Thru documentation screens: current');

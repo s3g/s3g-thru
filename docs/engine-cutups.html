@@ -8,23 +8,37 @@
     <link rel="stylesheet" href="assets/styles.css">
   </head>
   <body>
-    <header class="site-header"><a class="brand" href="index.html">s3g Thru <span>manual</span></a><nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav></header>
+    <header class="site-header"><a class="brand" href="index.html">s3g Thru <span>manual</span></a><nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="split.html">Split</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav></header>
 
     <div class="page-shell">
       <main class="content" id="content">
         <p class="eyebrow">Playback engine 4 of 9</p>
         <h1>Cutups</h1>
-        <p class="lead">Cutups launches discrete source regions on a free or tempo clock. Region order, lane order, and polyphonic lane divergence are separate decisions, so several held voices can share a rhythm while following different material.</p>
+        <p class="lead">Cutups launches discrete source regions on a free or tempo clock. Lane selects the physical starting source, Advance sets how many cuts play before moving to the next lane, and the cut clock sets the rhythm. Region order and polyphonic lane divergence are separate decisions, so several held voices can share a rhythm while following different material.</p>
         <div class="callout"><p><strong>Good for:</strong> chopped loops, tempo-locked rearrangement, transient resequencing, repeated fragments, controlled random walks, and polyphonic lane counterpoint.</p></div>
 
         <h2 id="pages">Pages and navigation</h2>
         <p>Set Algorithm to Cutups. Up opens the shared <a href="engines.html#pads-scale">Pads &amp; Scale</a> and <a href="engines.html#amp-envelope">Amp Envelope</a> pages, then Cutups Clock and Cutups Path.</p>
+        <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/cutups-waveform.svg" aria-label="Open Cutups waveform"><img src="assets/screens/cutups-waveform.svg" alt="Cutups waveform with full-height playheads, hollow actual-lane markers, and a dashed outgoing cut"></button></div><figcaption>Full-height solid lines show the current cut readers. Hollow stack markers identify their actual lanes. Dashed lines show outgoing cuts during joins. Playheads remain visible through note release and disappear in silent gate gaps.</figcaption></figure>
         <div class="screen-gallery">
           <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/cutups-clock.svg" aria-label="Open Cutups Clock"><img src="assets/screens/cutups-clock.svg" alt="Cutups Clock parameter page"></button></div><figcaption>Clock determines when cuts happen and how each event enters and leaves.</figcaption></figure>
           <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/cutups-path.svg" aria-label="Open Cutups Path"><img src="assets/screens/cutups-path.svg" alt="Cutups Path parameter page with one reserved position"></button></div><figcaption>Path determines repetition, variation, region count, lane order, and voice divergence.</figcaption></figure>
         </div>
 
         <p>The controls common to every playback engine are documented in the <a href="engines.html#shared">shared Engine page table</a>. The sections below cover Cutups-specific controls.</p>
+
+        <h2 id="lane-controls">Lane and Advance</h2>
+        <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/cutups-engine.svg" aria-label="Open Cutups Engine page"><img src="assets/screens/cutups-engine.svg" alt="Cutups Engine page with Lane and Advance replacing Stack Start and Scan Rate"></button></div><figcaption>Cutups keeps the same knob positions. LANE selects a physical source; ADV counts cuts rather than seconds.</figcaption></figure>
+        <table class="readout-table parameter-table">
+          <thead><tr><th>Knob<br>Waveform / Engine</th><th>Display</th><th>Range</th><th>What it controls</th></tr></thead>
+          <tbody>
+            <tr><td>4 / 5</td><td>LANE</td><td>1–4</td><td>Lane selects the physical starting source. Turning it while a note plays changes the source at the next cut and restarts lane advancement from there. Empty lanes use the nearest loaded lane, preferring the lower lane on a tie. LORD begins its route from that source; POLY may offset individual voices.</td></tr>
+            <tr><td>5 / 6</td><td>ADV</td><td>Hold / 1 / 2 / 3 / 4 / 8 / 16 cuts</td><td>Advance sets the number of cuts on a lane before following LORD to the next lane. Hold disables automatic advancement; Lane and pressure remain usable. The default is one cut per lane. Changing Advance starts a fresh count on the current lane. Repeat continues to control region repetition independently.</td></tr>
+          </tbody>
+        </table>
+        <p>With four loaded lanes, LANE 1, LORD Down, POLY Together, and ADV 2, the lane sequence is <strong>1, 1, 2, 2, 3, 3, 4, 4</strong>. Increasing the cut tempo speeds up that sequence without skipping lanes. Cutups does not use the shared Scan Rate setting.</p>
+        <p><strong>Pressure:</strong> when Pressure Mode is Offset, pad pressure adds zero to three lane positions to LANE, wrapping after lane 4. The dial remains live while a note is held. Each voice owns its pressure offset.</p>
+        <p><strong>Loop Hold:</strong> press Loop to pause automatic advancement while cuts continue on their current lanes. Pressure changes leave the held selection intact; explicit Lane edits still take effect at the next cut. Releasing and replaying a pad recalls its held lane. Press Loop again to resume advancement. Hold changes and the actual selected lanes are captured in performance recording.</p>
 
         <h2 id="clock">Cutups Clock — every parameter</h2>
         <table class="readout-table parameter-table">
@@ -36,7 +50,7 @@
             <tr><td>4</td><td>RATE</td><td>0.25–64 Hz</td><td>Events per second in Free mode. Tempo mode ignores it.</td></tr>
             <tr><td>5</td><td>TVAR</td><td>0.00–1.00</td><td>Randomizes every interval around its clock value. At 1.00 the variation reaches approximately ±90%.</td></tr>
             <tr><td>6</td><td>GATE</td><td>5–100%</td><td>Audible duration as a percentage of the current interval.</td></tr>
-            <tr><td>7</td><td>JOIN</td><td>0–100 ms</td><td>Fade-in/out and overlap between consecutive cuts, automatically limited to half of the audible GATE duration. Short gates still fade to silence before ending. Zero retains a short internal safety transition.</td></tr>
+            <tr><td>7</td><td>JOIN</td><td>0–100 ms</td><td>Fade-in/out and overlap between consecutive cuts, automatically limited to half of the audible GATE duration. At 100% Gate, outgoing cuts overlap the next cut during Join; shorter gates fade to silence before ending. Zero retains a short internal safety transition.</td></tr>
             <tr><td>8</td><td>RSRC</td><td>Equal / Transients</td><td>Equal divides Field by Regions. Transients uses the selected lane's detected boundaries and falls back to equal regions if no map is available.</td></tr>
           </tbody>
         </table>
@@ -50,20 +64,23 @@
             <tr><td>3</td><td>PVAR</td><td>0–24 st</td><td>Random pitch offset inside ± the selected semitone range for every cut.</td></tr>
             <tr><td>4</td><td>LVAR</td><td>0.00–1.00</td><td>Random attenuation per cut. It never boosts above nominal level.</td></tr>
             <tr><td>5</td><td>LORD</td><td>7 choices</td><td>Selects Down, Up, Palindrome, Random, Pairs, Outside In, or Center Out across the currently loaded lanes.</td></tr>
-            <tr><td>6</td><td>POLY</td><td>Together / Stagger / Rotate / Random</td><td>Offsets lane selection per voice. Together aligns voices; Stagger gives each voice a different starting offset; Rotate combines that offset with each new cut; Random gives every voice and cut a repeatable variation.</td></tr>
+            <tr><td>6</td><td>POLY</td><td>Together / Stagger / Rotate / Random</td><td>Offsets the lane path per voice. Together follows the same route; Stagger adds a starting voice offset; Rotate adds that offset and an extra order position at each advance; Random gives each voice and advance a repeatable variation. Pressure offsets individual voices when Pressure Mode is enabled.</td></tr>
             <tr><td>7</td><td>REGN</td><td>1–64</td><td>Equal-region count and fallback count when Transients has no detected map.</td></tr>
             <tr><td>8</td><td>Reserved</td><td>—</td><td>Inactive and available for a future Cutups Path control. Field remains on Engine.</td></tr>
           </tbody>
         </table>
 
+        <div class="callout"><p><strong>Reading the waveforms:</strong> hollow markers stay on the lanes actually being read, even when several voices follow different routes. During a join, a dashed line shows the outgoing reader. The small lane bars combine the current and outgoing cut envelope gains of all sounding voices, including note releases.</p></div>
+
         <h3 id="lane-orders">Lane Order choices</h3>
+        <p>These canonical routes use four loaded lanes. LANE rotates an ordered route to begin on the selected physical lane. For example, Up starting on lane 1 plays 1, 4, 3, 2.</p>
         <table class="readout-table">
           <thead><tr><th>Order</th><th>Four loaded lanes</th></tr></thead>
           <tbody>
             <tr><td>Down</td><td>1, 2, 3, 4, then wrap.</td></tr>
             <tr><td>Up</td><td>4, 3, 2, 1, then wrap.</td></tr>
             <tr><td>Palindrome</td><td>1, 2, 3, 4, 3, 2, then repeat.</td></tr>
-            <tr><td>Random</td><td>A newly randomized loaded lane for each cut.</td></tr>
+            <tr><td>Random</td><td>Starts on LANE, then chooses a loaded lane at each advance. Choices can repeat. ADV Hold or Loop Hold keeps the selection fixed.</td></tr>
             <tr><td>Pairs</td><td>Traverses 1, 2 as the first pair, then 3, 4 as the second pair.</td></tr>
             <tr><td>Outside In</td><td>1, 4, 2, 3.</td></tr>
             <tr><td>Center Out</td><td>2, 3, 1, 4.</td></tr>
@@ -77,10 +94,10 @@
       <aside class="toc" aria-label="Page navigation">
         <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
         <div class="toc-section"><h2>Engine guides</h2><a href="engine-motion.html">Motion</a><a href="engine-lanes.html">Lanes</a><a href="engine-grains.html">Grains</a><a href="engine-cutups.html">Cutups</a><a href="engine-sample.html">Sample</a><a href="engine-slices.html">Slices</a><a href="engine-glitch.html">Glitch</a><a href="engine-weave.html">Weave</a><a href="engine-wavesets.html">Wavesets</a></div>
-        <div class="toc-section"><h2>On this page</h2><a href="#pages">Pages</a><a href="engines.html#shared">Shared Engine table</a><a href="#clock">Cutups Clock</a><a href="#path">Cutups Path</a><a href="#lane-orders">Lane orders</a></div>
+        <div class="toc-section"><h2>On this page</h2><a href="#pages">Pages</a><a href="engines.html#shared">Shared Engine table</a><a href="#lane-controls">Lane and Advance</a><a href="#clock">Cutups Clock</a><a href="#path">Cutups Path</a><a href="#lane-orders">Lane orders</a></div>
       </aside>
     </div>
-    <footer class="manual-footer">Cutups: event clock, region order, and lane order are separate systems.</footer>
+    <footer class="manual-footer">Cutups: Lane selects the source, Advance counts cuts, and the cut clock sets the rhythm.</footer>
     <script src="assets/lightbox.js"></script>
   </body>
 </html>

@@ -65,7 +65,7 @@
   <text x="915" y="155" class="title">EFFECTS</text>
   <text x="915" y="180" class="sub">tone · drive</text>
   <text x="915" y="201" class="sub">bits · rate · delay</text>
-  <text x="915" y="222" class="sub">pan · rotary · tape</text>
+  <text x="915" y="222" class="sub">stereo · tape · reverb</text>
 
   <rect x="1010" y="126" width="105" height="122" class="box"/>
   <text x="1062" y="155" class="title">SAFETY</text>

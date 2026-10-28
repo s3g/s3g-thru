@@ -8,14 +8,14 @@
     <link rel="stylesheet" href="assets/styles.css">
   </head>
   <body>
-    <header class="site-header"><a class="brand" href="index.html">s3g Thru <span>manual</span></a><nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav></header>
+    <header class="site-header"><a class="brand" href="index.html">s3g Thru <span>manual</span></a><nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="split.html">Split</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav></header>
 
     <div class="page-shell">
       <main class="content" id="content">
         <p class="eyebrow">Post-engine sound</p>
         <h1>Effects</h1>
-        <p class="lead">Every playback engine feeds one clip-local stereo chain: tone shaping, drive, bit and rate reduction, cross-feedback delay, stereo cross-pan, rotary speaker, then tape. Three shared pages follow Mix / Rec for every engine.</p>
-        <p>The figures below use Lanes, where these are pages 7–9 of 13. Their order is the same for every engine, but the displayed numbers change because each engine has a different number of contextual pages before Mix / Rec.</p>
+        <p class="lead">Every playback engine feeds one clip-local stereo chain: tone shaping, drive, bit and rate reduction, cross-feedback delay, stereo cross-pan, rotary speaker, then tape and reverb. FX Order lets you rearrange these six blocks. Reverb and FX Order follow the three existing effects pages for every engine.</p>
+        <p>The figures below use Lanes, where these are pages 7–11 of 15. Their order is the same for every engine, but the displayed numbers change because each engine has a different number of contextual pages before Mix / Rec.</p>
 
         <div class="panel-gallery">
           <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/effects.svg" aria-label="Open Effects page"><img src="assets/screens/effects.svg" alt="Effects parameter page"></button></div><figcaption>Effects holds tone, reduction, and delay.</figcaption></figure>
@@ -26,6 +26,9 @@
         <p>Input Monitor stays dry, which prevents the effects from becoming a microphone monitoring loop. Browser Preview and Resample use the complete processed chain.</p>
         <p>The final safety limiter smooths fast peaks from overlapping notes and live parameter changes with 1.5 ms of lookahead. Both channels share the same gain, preserving their stereo balance.</p>
 
+        <div class="callout"><p><strong>Split mode:</strong> two independent instruments share the pad grid, with two stereo lanes and four voices each. Use the same engine with different settings or choose different engines. <a href="split.html">Split setup, controls, mixing, and recording</a>.</p></div>
+
+        <div class="callout"><p><strong>Split effects:</strong> Shift + Capture opens <a href="split.html#mix">FX Sends</a>. Knobs 1–4 send A/B to Delay and Reverb; knobs 5–6 set their shared return levels. Main click opens a menu for every effect page. Each part’s Color and Rotary are private inserts; Tape is shared. These return controls appear only on FX Sends in Split.</p></div>
         <h2 id="controls">Effects — every parameter</h2>
         <h3>Effects</h3>
         <table class="readout-table parameter-table">
@@ -80,6 +83,34 @@
         <p><code>FMT</code> is a musical character macro rather than a calibration of one particular recorder. The first four choices correspond to familiar professional open-reel tape widths. The ⅛″ label is familiar cassette shorthand; compact cassette tape is actually 0.150″ (3.81 mm) wide. Tape speed, track layout, formulation, and machine alignment also affect real tape fidelity. FMT establishes a physical baseline, so AGE, CRNK, and MECH become somewhat more pronounced on narrower formats.</p>
         <p><code>INRT</code> affects only the Tape wet path. At MIX below 100%, the untreated portion continues while the modeled transport stops. This keeps Stack Hold useful as a subtle gesture at low tape mixes and allows a complete tape stop at 100%. The stop and return retain the duration in use when the gesture began. Changes to INRT during the gesture take effect after the transport returns to normal; turning it OFF initiates that smooth return.</p>
 
+        <h3 id="reverb">Reverb</h3>
+        <figure><div class="doc-graphic doc-screenshot move-screen"><img src="assets/screens/effects-reverb.svg" alt="Reverb page with eight controls"></div><figcaption>Plate and Room share one control page, with MIX at the lower right.</figcaption></figure>
+        <table class="readout-table parameter-table"><thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>What it controls</th></tr></thead><tbody>
+          <tr><td>1</td><td>ALGO</td><td>Plate / Room</td><td>Algorithm. Plate is a dense Dattorro-style reverb; Room is a lighter four-line feedback-delay network for tighter spaces.</td></tr>
+          <tr><td>2</td><td>DECY</td><td>0.20–20.0 s</td><td>Decay. Controls the nominal tail duration; damping and source material also affect the audible length. Encoder spacing is finer for short decays.</td></tr>
+          <tr><td>3</td><td>PRE</td><td>0–200 ms</td><td>Predelay. Separates the onset of the reverberation from the dry sound. Changes use queued tap crossfades.</td></tr>
+          <tr><td>4</td><td>DAMP</td><td>500 Hz–18 kHz</td><td>Damping. Darkens high frequencies inside the reverberation. The upper limit also follows the audio sample rate.</td></tr>
+          <tr><td>5</td><td>DIFF</td><td>0–100%</td><td>Diffusion. Controls how strongly the input and tank allpass sections scatter the sound; low values reveal more discrete echoes.</td></tr>
+          <tr><td>6</td><td>MOD</td><td>0–100%</td><td>Modulation. Adds gentle movement to internal delay reads. Room uses less movement than Plate.</td></tr>
+          <tr><td>7</td><td>WDTH</td><td>0–100%</td><td>Stereo width. Zero centres the wet signal; 100% retains its full stereo field. Dry stereo remains intact.</td></tr>
+          <tr><td>8</td><td>MIX</td><td>0–100%</td><td>Wet/dry balance. Zero is a transparent, sleeping reverb stage. Raising it starts a fresh tail; lowering it smoothly fades the tail out.</td></tr>
+        </tbody></table>
+        <p>Only the selected algorithm runs. Algorithm changes fade the wet path to dry over 20 ms, start the new network, and fade it back in over 20 ms. The previous algorithm's tail fades away. Plate preserves side excitation from phase-opposed stereo sources. Both algorithms use the original audio sample rate. A 20 Hz filter on the wet input prevents DC offsets building up in long tails; the dry signal retains its bass response.</p>
+        <h3 id="order">FX Order</h3>
+        <div class="panel-gallery">
+          <figure><div class="doc-graphic doc-screenshot move-screen"><img src="assets/screens/effects-order.svg" alt="Effects chain as a six-row list with Tone and Drive selected"></div><figcaption>The list reads from top to bottom. The highlighted row is selected. The header shows knob 7's starting preset.</figcaption></figure>
+          <figure><div class="doc-graphic doc-screenshot move-screen"><img src="assets/screens/effects-order-move.svg" alt="Reverb lifted and moved into position three before Delay"></div><figcaption>Click to lift Reverb, turn to move it before Delay, then click to drop and apply. The asterisk marks the lifted effect.</figcaption></figure>
+        </div>
+        <table class="readout-table parameter-table"><thead><tr><th>Control</th><th>Display</th><th>Action</th><th>What it controls</th></tr></thead><tbody>
+          <tr><td>Main encoder turn</td><td>Highlighted row</td><td>Select / move</td><td>Highlight an effect. After lifting it, move the effect up or down; intervening effects shift around it.</td></tr>
+          <tr><td>Main encoder click</td><td>* on lifted row</td><td>Lift / drop</td><td>Lift the selected effect. Click again to drop it and apply the complete order. On this page the main click edits routing; the Record button remains available for performance recording.</td></tr>
+          <tr><td>Back</td><td>ORDER CANCELLED</td><td>Cancel</td><td>Cancel the current move or pending preset and restore the active order. With no pending edit, Back returns to the waveform.</td></tr>
+          <tr><td>Knob 7</td><td>7:DFLT / ECHO / CRSH / CUST</td><td>Starting preset</td><td>Stage a complete starting order, then click the main encoder to apply. DFLT places Reverb last; ECHO places it before Delay; CRSH starts with Reverb, followed by Bits/Rate and Tone/Drive. CUST identifies a manually arranged order.</td></tr>
+        </tbody></table>
+        <p>Tone / Drive keeps Tone before Drive. Bits / Rate keeps the two reduction controls together. Stereo / Rotary keeps Cross-pan before Rotary. Each block appears once, giving 720 possible orders. Parameter pages keep their usual positions as the audio order changes.</p>
+        <p>Moving a block or staging a preset does not change the sound until the main click confirms it. Applying uses a 20 ms fade down, switches at silence, then fades up over 20 ms. A short level dip is normal. Delay, rotary, tape and reverb histories remain in memory; their subsequent sound follows the new routing. The compressor and safety limiter always follow the customizable chain, and Input Monitor remains dry.</p>
+        <p>Reverb settings and the applied order belong to the selected performance clip and return next session. During Replace or Overdub, reverb edits and dropped order changes are recorded. The whole order is one stepped event, so playback cannot pass through partial routes. Changing clips, leaving the page, or closing parameters cancels an unfinished move.</p>
+
         <h2 id="starts">Good starting points</h2>
         <h3>Core effects starting points</h3>
         <table class="readout-table">
@@ -120,7 +151,7 @@
         <div class="callout"><p><strong>Resampling:</strong> Resample records the processed instrument output, including this chain. Input recording captures the selected Move input instead. Browser Preview also passes through the effects, while Monitor remains dry.</p></div>
 
         <h2 id="locks">Performance-loop motion</h2>
-        <p>Every control on all three effects pages can be recorded in a performance loop. Begin Replace or Overdub recording, then turn an encoder. Continuous values interpolate between recorded points; stepped choices change at their recorded thresholds while their audio paths retain the appropriate safety transition. Undo Take removes the newest layer of effect motion together with the other notes and gestures in that take.</p>
+        <p>Every control on all effects pages can be recorded in a performance loop. Begin Replace or Overdub recording, then turn an encoder. Continuous values interpolate between recorded points; stepped choices change at their recorded thresholds while their audio paths retain the appropriate safety transition. Undo Take removes the newest layer of effect motion together with the other notes and gestures in that take.</p>
 
         <nav class="page-nav" aria-label="Page navigation"><a class="page-nav-link" href="engine-wavesets.html"><span>Previous</span>Wavesets</a><a class="page-nav-link next" href="performance.html"><span>Next</span>Performance Loops</a></nav>
       </main>
@@ -129,7 +160,7 @@
         <div class="toc-section"><h2>On this page</h2><a href="#controls">Controls</a><a href="#starts">Starting points</a><a href="#locks">Performance motion</a></div>
       </aside>
     </div>
-    <footer class="manual-footer">All three effects pages are clip-local, lockable, and shared by all eight voices.</footer>
+    <footer class="manual-footer">Effects settings and routing are clip-local and shared by all eight voices.</footer>
     <script src="assets/lightbox.js"></script>
   </body>
 </html>

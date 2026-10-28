@@ -10,7 +10,7 @@
   <body>
     <header class="site-header">
       <a class="brand" href="index.html">s3g Thru <span>manual</span></a>
-      <nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav>
+      <nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="split.html">Split</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav>
     </header>
 
     <div class="page-shell">
@@ -50,7 +50,13 @@
             <tr><td>Pads</td><td>Play the current Keys, Slices, Cues, or Rolls layout. Keys and Slices use up to eight source voices; Rolls capture and stutter the combined stereo history of all active playheads at a pad-specific division without stealing those voices.</td></tr>
             <tr><td>Pad pressure</td><td>Move that voice's continuous stack offset when Pressure is Offset.</td></tr>
             <tr><td>Shift + pad</td><td>Latch that pad's note or captured roll; repeat to release it. In Cues, stores the displayed playhead instead.</td></tr>
-            <tr><td>Knobs 1–8</td><td>On the waveform page, always control POS, FLD, SPD, STAK, RATE, JOIN, the current engine's MODE, and LEVL. On parameter pages, they edit the eight displayed positions.</td></tr>
+            <tr><td>Knobs 1–8</td><td>On the waveform page, always control POS, FLD, SPD, STAK, RATE, JOIN, the current engine's MODE, and LEVL. Cutups replaces STAK/RATE with LANE/ADV. In Split, knob 8 is BLND. On parameter pages, they edit the eight displayed positions.</td></tr>
+            <tr><td>Copy</td><td>Toggle Single / Split. See <a href="split.html">Split mode</a>.</td></tr>
+            <tr><td>Capture in Split</td><td>Switch editing focus between A and B.</td></tr>
+            <tr><td>Capture + knob 8</td><td>Adjust Blend from any page in Split; release keeps the current focus.</td></tr>
+            <tr><td>Shift + Capture</td><td>Open FX Sends: A Delay, A Reverb, B Delay, B Reverb; Delay Return, Reverb Return, Curve, Blend.</td></tr>
+            <tr><td>Shift + Copy</td><td>Copy the focused instrument’s settings to the other part.</td></tr>
+            <tr><td>Mute in Split</td><td>Fade the focused part out/in; its playheads keep running.</td></tr>
             <tr><td>Track 1–4</td><td>Select the lane used by audio record, load, clear, and sample edit.</td></tr>
             <tr><td>Main encoder turn</td><td>Select the previous/next lane.</td></tr>
             <tr><td>Up / Down</td><td>Transpose the chromatic or folded-scale pad grid by octave on the waveform page.</td></tr>
@@ -59,7 +65,7 @@
             <tr><td>Record or main click</td><td>Start/stop performance-data recording.</td></tr>
             <tr><td>Shift + Record or Shift + main click</td><td>Start/stop stereo audio capture into the selected lane.</td></tr>
             <tr><td>Play</td><td>Stop/start performance-loop playback.</td></tr>
-            <tr><td>Loop</td><td>Hold/resume every voice's lane-stack scan at its exact crossfade. A released pad recalls its frozen position when retriggered until Run resumes. During performance recording, Hold/Run and each active voice's position are written into the clip. Sample playheads continue. When Tape <code>INRT</code> is above OFF, the tape wet path also slows to rest and accelerates on release.</td></tr>
+            <tr><td>Loop</td><td>Hold/resume every voice's lane-stack scan at its exact crossfade. A released pad recalls its frozen position when retriggered until Run resumes. During performance recording, Hold/Run and each active voice's position are written into the clip. In Cutups, Loop pauses cut-count lane advancement while cuts continue; explicit Lane edits remain live. Sample playheads continue. When Tape <code>INRT</code> is above OFF, the tape wet path also slows to rest and accelerates on release.</td></tr>
             <tr><td>Shift + Loop</td><td>In Glitch, hold for temporary Buffer Lock; tap twice quickly to latch; press once while latched to return to live history.</td></tr>
             <tr><td>Menu</td><td>Toggle waveform and parameter pages.</td></tr>
             <tr><td>Shift + Menu</td><td>Open or close the two-page System Report / Shortcuts view.</td></tr>
@@ -92,6 +98,8 @@
             <tr><td>Parameters</td><td>Up/Down changes page; knobs 1–8 edit aligned cells; Left/Right still changes clip bank.</td></tr>
             <tr><td>Clip Overview</td><td>Track 1–4 changes bank; Steps address clips; Shift+Step copies; Delete+Step resets.</td></tr>
             <tr><td>Chain</td><td>Step selects entry; main turn chooses clip; Up/Down sets repeats; main click toggles Chain; Shift+click inserts active clip; Delete+Step removes; Shift+Step moves.</td></tr>
+            <tr><td>FX Sends (Split)</td><td>Main click opens the FX Pages menu. Turn and click to open a named page. Back returns to the menu, then FX Sends. The Record button remains available for performance recording.</td></tr>
+            <tr><td>FX Order</td><td>Main turn selects an effect; click lifts it; turn moves it; click drops and applies. Back cancels a move. Knob 7 stages a preset, confirmed with main click. Record captures performance data.</td></tr>
             <tr><td>Sample Library</td><td>Main turn or Up/Down browses; main click enters/loads; Back goes up or closes.</td></tr>
             <tr><td>System Report / Shortcuts</td><td>Left/Right, Up/Down, or main turn selects one of the three pages; Back, Menu, or Shift+Menu closes the view.</td></tr>
           </tbody>
@@ -102,7 +110,7 @@
         <table class="readout-table">
           <thead><tr><th>Surface</th><th>State</th></tr></thead>
           <tbody>
-            <tr><td>Pads</td><td>In a named Keys scale, playable pads are dark neutral grey and tonic pads are full white; the recalled map appears as soon as takeover opens. Active voices replace those colors with stable red, orange, yellow, green, azure, blue-violet, purple, and magenta slot colors. Momentary notes turn off on release. Latched notes remain lit until toggle-off or Hold Off expires; their voice color dims outside the stored pitch's pad mapping and brightens when that mapping returns.</td></tr>
+            <tr><td>Pads</td><td>In a named Keys scale, playable pads are dark neutral grey and tonic pads are full white; the recalled map appears as soon as takeover opens. Active voices replace those colors with stable red, orange, yellow, green, azure, blue-violet, purple, and magenta slot colors. In Split, B’s idle pads use dim teal and its scale roots brighter teal. Active voice, cue, and roll colors take priority. Momentary notes return to their idle color on release. Latched notes remain lit until toggle-off or Hold Off expires; their voice color dims outside the stored pitch's pad mapping and brightens when that mapping returns.</td></tr>
             <tr><td>Steps</td><td>White occupied; orange active/stopped; green active/playing; red recording; blue-violet queued.</td></tr>
             <tr><td>Record</td><td>Red during performance-data capture; orange during audio-lane capture; dim while idle.</td></tr>
             <tr><td>Play</td><td>Green while a performance loop runs; blue-violet while launch is queued.</td></tr>
@@ -113,15 +121,20 @@
 
         <h2 id="midi">External MIDI</h2>
 
-        <p>External/host MIDI accepts notes, note-off, polyphonic aftertouch, All Sound Off (CC 120), and All Notes Off (CC 123). Parameter CC values are 7-bit absolute.</p>
+        <p>In Split, channel 1 plays/edits A and channel 2 plays/edits B; other channels address A. Shared controls remain global. External/host MIDI accepts notes, note-off, polyphonic aftertouch, All Sound Off (CC 120), and All Notes Off (CC 123). Parameter CC values are 7-bit absolute.</p>
 
         <details>
           <summary>Show complete CC map</summary>
           <table class="readout-table">
             <thead><tr><th>CC</th><th>Parameter</th><th>CC</th><th>Parameter</th></tr></thead>
             <tbody>
+              <tr><td>11</td><td>Split curve: Linear / Power</td><td>12</td><td>Split Blend</td></tr>
+              <tr><td>13</td><td>A Level</td><td>14</td><td>B Level</td></tr>
+              <tr><td>15</td><td>A Delay send</td><td>16</td><td>B Delay send</td></tr>
+              <tr><td>17</td><td>A Reverb send</td><td>18</td><td>B Reverb send</td></tr>
+              <tr><td>19</td><td>Cutups Advance: Hold / 1 / 2 / 3 / 4 / 8 / 16 cuts</td><td>—</td><td>—</td></tr>
               <tr><td>20</td><td>Position</td><td>21</td><td>Field width</td></tr>
-              <tr><td>22</td><td>Speed</td><td>23</td><td>Stack Start</td></tr>
+              <tr><td>22</td><td>Speed</td><td>23</td><td>Stack Start; physical Lane in Cutups</td></tr>
               <tr><td>24</td><td>Stack scan rate</td><td>25</td><td>Algorithm</td></tr>
               <tr><td>26</td><td>Join</td><td>27</td><td>Output level</td></tr>
               <tr><td>28</td><td>Motion mode</td><td>29</td><td>Motion sound</td></tr>

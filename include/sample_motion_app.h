@@ -265,6 +265,11 @@ public:
 
     static constexpr std::size_t kCutPolyPathCount = 4u;
 
+    enum class CutLaneAdvance : std::uint8_t {
+        hold, everyCut, twoCuts, threeCuts, fourCuts, eightCuts, sixteenCuts,
+    };
+    static constexpr std::size_t kCutLaneAdvanceCount = 7u;
+
     enum class GlitchMode : std::uint8_t {
         repeat,
         stutter,
@@ -411,6 +416,7 @@ public:
         float laneCycles = 1.0f;
         float manualLane = 0.0f;
         float lanePhaseOffset = 0.0f;
+        float stackFirstLane = 0.0f, stackLastLane = 3.0f;
         bool laneScanPaused = false;
         bool lanePhaseOverride = false;
         float lanePhaseOverrideValue = 0.0f;
@@ -474,6 +480,7 @@ public:
         float cutLevelVariation = 0.0f;
         CutLaneOrder cutLaneOrder = CutLaneOrder::down;
         CutPolyPath cutPolyPath = CutPolyPath::together;
+        CutLaneAdvance cutLaneAdvance = CutLaneAdvance::everyCut;
         float cutPitch = 1.0f;
         float cutVoiceIndex = 0.0f;
         RegionMode cutRegionMode = RegionMode::equal;
@@ -541,6 +548,20 @@ public:
         float effectTapeCrinkle = 0.0f;
         float effectTapeMechanics = 0.05f;
         float effectTapeInertia = 0.0f;
+        // Shared post-engine reverb and one atomic serial-routing permutation.
+        int effectReverbAlgorithm = 0;
+        float effectReverbDecay = 2.5f;
+        float effectReverbPre = 0.0f;
+        float effectReverbDamp = 8000.0f;
+        float effectReverbDiff = 0.7f;
+        float effectReverbMod = 0.1f;
+        float effectReverbWidth = 1.0f;
+        float effectReverbMix = 0.0f;
+        int effectOrder = 0;
+        float splitBlend = 0.5f, splitLevelA = 1.0f, splitLevelB = 1.0f;
+        float splitDelayA = 0.0f, splitDelayB = 0.0f;
+        float splitReverbA = 0.0f, splitReverbB = 0.0f;
+        int splitCurve = 1;
         float recordInputGain = 1.0f;
     };
 
@@ -1267,6 +1288,7 @@ public:
         return laneRegionBoundaries_[lane][boundary];
     }
 
+    PlaybackAlgorithm playbackAlgorithm() const { return currentAlgorithm_; }
     bool prepared() const { return prepared_; }
     bool playing() const { return playing_; }
     bool recording() const { return recording_; }
@@ -1319,9 +1341,75 @@ public:
         }
         return mask;
     }
-    float normalizedLanePosition() const { return clamp01(lanePosition_ / 3.0f); }
+    struct CutupsDisplayState {
+        int lane = -1;
+        int outgoingLane = -1;
+        float position = -1.0f;
+        float outgoingPosition = -1.0f;
+        float gain = 0.0f;
+        float outgoingGain = 0.0f;
+    };
+
+    CutupsDisplayState cutupsDisplayState() const
+    {
+        CutupsDisplayState state;
+        if (currentAlgorithm_ != PlaybackAlgorithm::cutups || !playing_
+            || sourceFrames_ == 0u) return state;
+        const auto describe = [&](const CutReader& reader, int& lane,
+                                  float& position, float& gain) {
+            if (!reader.active || reader.lane >= kStackLanes) return;
+            lane = static_cast<int>(reader.lane);
+            position = clamp01(static_cast<float>(reader.position / sourceFrames_));
+            gain = cutReaderGain(reader);
+        };
+        describe(cutCurrent_, state.lane, state.position, state.gain);
+        describe(cutTail_, state.outgoingLane,
+                 state.outgoingPosition, state.outgoingGain);
+        return state;
+    }
+
+    float normalizedLanePosition() const
+    {
+        if (currentAlgorithm_ == PlaybackAlgorithm::cutups) {
+            const auto state = cutupsDisplayState();
+            const int lane = state.lane >= 0 ? state.lane : state.outgoingLane;
+            return lane < 0 ? -1.0f : static_cast<float>(lane) / 3.0f;
+        }
+        return clamp01(lanePosition_ / 3.0f);
+    }
+    std::size_t initialCutupsLane(const Controls& controls) const
+    {
+        std::size_t loaded[kStackLanes] {};
+        std::size_t count = 0u;
+        for (std::size_t lane = 0u; lane < kStackLanes; ++lane)
+            if (laneFrames_[lane] != 0u) loaded[count++] = lane;
+        if (count == 0u) return kNoLane;
+        const int first = static_cast<int>(controls.stackFirstLane);
+        const int span = static_cast<int>(controls.stackLastLane) - first;
+        const int requested = first + (static_cast<int>(std::floor(controls.manualLane - first + 0.5f))
+            + static_cast<int>(std::floor(clamp01(controls.lanePhaseOffset) * span + 0.5f))) % (span + 1);
+        std::size_t best = 0u;
+        for (std::size_t index = 1u; index < count; ++index)
+            if (std::abs(static_cast<int>(loaded[index]) - requested)
+                < std::abs(static_cast<int>(loaded[best]) - requested)) best = index;
+        const std::size_t voice = static_cast<std::size_t>(std::max(0.0f, std::floor(controls.cutVoiceIndex)));
+        if (controls.cutPolyPath == CutPolyPath::stagger || controls.cutPolyPath == CutPolyPath::rotate)
+            best = (best + voice) % count;
+        else if (controls.cutPolyPath == CutPolyPath::random)
+            best = (best + static_cast<std::size_t>(hashUnit(static_cast<std::uint32_t>(voice + 1u)) * count)) % count;
+        return loaded[best];
+    }
+
+    bool cutupsHasLaneSelection() const
+    {
+        return currentAlgorithm_ == PlaybackAlgorithm::cutups && cutHasSelection_;
+    }
     float normalizedLaneScanPhase(float phaseOffset = 0.0f) const
     {
+        // Cutups stores the actual physical lane in the existing normalized
+        // Hold-position gesture. No free-running scanner participates.
+        if (cutupsHasLaneSelection())
+            return static_cast<float>(cutSelectedLane_) / 3.0f;
         float phase = laneScanPaused_ ? laneFrozenPhase_
             : lanePhase_ + clamp01(phaseOffset);
         while (phase >= 1.0f) phase -= 1.0f;
@@ -1330,6 +1418,12 @@ public:
     }
     float laneWeight(std::size_t lane) const
     {
+        if (currentAlgorithm_ == PlaybackAlgorithm::cutups) {
+            const auto state = cutupsDisplayState();
+            return (state.lane == static_cast<int>(lane) ? state.gain : 0.0f)
+                + (state.outgoingLane == static_cast<int>(lane)
+                    ? state.outgoingGain : 0.0f);
+        }
         return lane < kStackLanes ? laneWeights_[lane] : 0.0f;
     }
 
@@ -1903,6 +1997,11 @@ private:
         stretchMix_ = 0.0f;
         cutCurrent_ = {};
         cutTail_ = {};
+        cutHasSelection_ = false;
+        cutSelectedLane_ = cutAnchorLane_ = kNoLane;
+        cutLaneStep_ = cutLaneCuts_ = 0u;
+        cutLaneBase_ = cutLanePressure_ = -1;
+        cutOverrideValid_ = false;
         cutCountdown_ = 0.0;
         cutStep_ = 0u;
         cutWalkRegion_ = 0u;
@@ -2804,7 +2903,8 @@ private:
                     static_cast<int>(std::floor(phase * 4.0f)))) / 3.0f;
                 break;
             case LanePath::manual:
-                unit = clamp(controls.manualLane, 0.0f, 3.0f) / 3.0f;
+                unit = clamp01((controls.manualLane - controls.stackFirstLane)
+                    / std::max(1.0f, controls.stackLastLane - controls.stackFirstLane));
                 break;
             case LanePath::random: {
                 const std::uint32_t step = static_cast<std::uint32_t>(
@@ -2830,7 +2930,8 @@ private:
             case LanePathShape::linear:
                 break;
         }
-        result.position = unit * 3.0f;
+        result.position = controls.stackFirstLane
+            + unit * (controls.stackLastLane - controls.stackFirstLane);
 
         int lower = -1;
         int upper = -1;
@@ -2879,7 +2980,7 @@ private:
 
     void prepareLaneScanBlock(const Controls& controls, std::size_t frames)
     {
-        if (!stackMode_) {
+        if (!stackMode_ || currentAlgorithm_ == PlaybackAlgorithm::cutups) {
             lanePhaseIncrement_ = 0.0f;
             return;
         }
@@ -2902,7 +3003,7 @@ private:
         }
         laneScanPaused_ = controls.laneScanPaused;
         lanePhaseIncrement_ = laneScanPaused_ ? 0.0f : clamp(
-            controls.laneCycles, 0.125f, 16.0f) / outputSampleRate_;
+            controls.laneCycles, 0.125f, 16.0f) / static_cast<double>(outputSampleRate_);
         float targetPhase = laneScanPaused_ ? laneFrozenPhase_ : lanePhase_
             + lanePhaseIncrement_ * static_cast<float>(frames) + phaseOffset;
         while (targetPhase >= 1.0f) {
@@ -4602,60 +4703,85 @@ private:
     {
         std::size_t loaded[kStackLanes] {};
         std::size_t count = 0u;
-        for (std::size_t lane = 0u; lane < kStackLanes; ++lane) {
+        for (std::size_t lane = 0u; lane < kStackLanes; ++lane)
             if (laneFrames_[lane] != 0u) loaded[count++] = lane;
-        }
         if (count == 0u) return kNoLane;
-        std::size_t voiceOffset = 0u;
-        const std::size_t voice = static_cast<std::size_t>(std::max(
-            0.0f, std::floor(controls.cutVoiceIndex)));
-        switch (controls.cutPolyPath) {
-            case CutPolyPath::stagger: voiceOffset = voice; break;
-            case CutPolyPath::rotate: voiceOffset = voice + cutStep_; break;
-            case CutPolyPath::random:
-                voiceOffset = static_cast<std::size_t>(hashUnit(
-                    static_cast<std::uint32_t>(voice * 131u + cutStep_))
-                    * static_cast<float>(count));
-                break;
-            case CutPolyPath::together: break;
+        const auto nearest = [&](int requested) {
+            std::size_t best = 0u;
+            for (std::size_t index = 1u; index < count; ++index)
+                if (std::abs(static_cast<int>(loaded[index]) - requested)
+                    < std::abs(static_cast<int>(loaded[best]) - requested)) best = index;
+            return best;
+        };
+        const int base = static_cast<int>(clamp(std::floor(controls.manualLane + 0.5f), 0.0f, 3.0f));
+        const int pressure = static_cast<int>(std::floor(clamp01(controls.lanePhaseOffset) * (controls.stackLastLane - controls.stackFirstLane) + 0.5f));
+        const bool paused = controls.laneScanPaused;
+        const std::size_t voice = static_cast<std::size_t>(std::max(0.0f, std::floor(controls.cutVoiceIndex)));
+        constexpr std::size_t cuts[] {0u,1u,2u,3u,4u,8u,16u};
+        const std::size_t advance = std::min(static_cast<std::size_t>(controls.cutLaneAdvance), kCutLaneAdvanceCount - 1u);
+        const bool baseChanged = base != cutLaneBase_;
+        const bool pressureChanged = pressure != cutLanePressure_;
+        const bool polyChanged = controls.cutPolyPath != cutLanePoly_;
+        const bool orderChanged = controls.cutLaneOrder != cutLaneOrder_;
+        const bool overrideChanged = paused && controls.lanePhaseOverride
+            && (!cutOverrideValid_ || controls.lanePhaseOverrideValue != cutLastOverride_);
+        bool reanchor = false;
+        if (overrideChanged) {
+            // Hold recall stores the physical sounding lane, independently
+            // of pressure, order and per-voice offsets on the new note.
+            cutAnchorLane_ = loaded[nearest(static_cast<int>(std::floor(
+                clamp01(controls.lanePhaseOverrideValue) * 3.0f + 0.5f)))];
+            reanchor = true;
+        } else if (!cutHasSelection_ || baseChanged || (!paused && (pressureChanged || polyChanged))) {
+            cutAnchorLane_ = initialCutupsLane(controls);
+            reanchor = true;
+        } else if (orderChanged) {
+            cutAnchorLane_ = cutSelectedLane_;
+            reanchor = true;
         }
-        const std::size_t step = cutStep_ + voiceOffset;
-        std::size_t ordered = 0u;
-        switch (controls.cutLaneOrder) {
-            case CutLaneOrder::up:
-                ordered = count - 1u - step % count;
-                break;
-            case CutLaneOrder::palindrome: {
-                if (count <= 1u) return loaded[0u];
-                const std::size_t period = (count - 1u) * 2u;
-                const std::size_t phase = step % period;
-                ordered = phase < count ? phase : period - phase;
-                break;
-            }
-            case CutLaneOrder::random:
-                ordered = static_cast<std::size_t>(randomUnit()
-                    * static_cast<float>(count)) % count;
-                break;
-            case CutLaneOrder::pairs: {
-                constexpr std::size_t pairOrder[4u] { 0u, 1u, 2u, 3u };
-                ordered = pairOrder[step % 4u] % count;
-                break;
-            }
-            case CutLaneOrder::outsideIn: {
-                constexpr std::size_t outside[4u] { 0u, 3u, 1u, 2u };
-                ordered = outside[step % 4u] % count;
-                break;
-            }
-            case CutLaneOrder::centerOut: {
-                constexpr std::size_t center[4u] { 1u, 2u, 0u, 3u };
-                ordered = center[step % 4u] % count;
-                break;
-            }
-            case CutLaneOrder::down:
-                ordered = step % count;
-                break;
+        if (reanchor) cutLaneStep_ = cutLaneCuts_ = 0u;
+        if (advance != cutLaneAdvance_) cutLaneCuts_ = 0u;
+        if (!paused && !reanchor && cuts[advance] != 0u && cutLaneCuts_ >= cuts[advance]) {
+            ++cutLaneStep_;
+            cutLaneCuts_ = 0u;
         }
-        return loaded[ordered];
+
+        const std::size_t period = controls.cutLaneOrder == CutLaneOrder::palindrome && count > 1u
+            ? (count - 1u) * 2u : count;
+        const auto ordered = [&](std::size_t step) {
+            switch (controls.cutLaneOrder) {
+                case CutLaneOrder::up: return count - 1u - step;
+                case CutLaneOrder::palindrome: return step < count ? step : period - step;
+                case CutLaneOrder::outsideIn: return step % 2u == 0u ? step / 2u : count - 1u - step / 2u;
+                case CutLaneOrder::centerOut: return step % 2u == 0u ? (count - 1u) / 2u - step / 2u
+                    : (count - 1u) / 2u + (step + 1u) / 2u;
+                default: return step % count;
+            }
+        };
+        std::size_t anchor = 0u;
+        while (anchor + 1u < period && loaded[ordered(anchor)] != cutAnchorLane_) ++anchor;
+        std::size_t step = cutLaneStep_;
+        if (controls.cutPolyPath == CutPolyPath::rotate) step *= 2u;
+        else if (controls.cutPolyPath == CutPolyPath::random && step != 0u)
+            step += static_cast<std::size_t>(hashUnit(static_cast<std::uint32_t>(voice * 131u + step)) * period);
+        std::size_t selected = cutAnchorLane_;
+        if (cutLaneStep_ != 0u) {
+            selected = controls.cutLaneOrder == CutLaneOrder::random
+                ? loaded[static_cast<std::size_t>(hashUnit(static_cast<std::uint32_t>(
+                    cutLaneStep_ + voice * 131u + cutAnchorLane_ * 17u)) * count) % count]
+                : loaded[ordered((anchor + step) % period)];
+        }
+        // Loop freezes automatic movement, including random/poly paths.
+        // Explicit Lane edits still take effect at the next event.
+        if (paused && cutHasSelection_ && !reanchor) selected = cutSelectedLane_;
+        cutSelectedLane_ = selected;
+        if (!paused && cuts[advance] != 0u) ++cutLaneCuts_;
+        cutLaneBase_ = base; cutLanePressure_ = pressure;
+        cutLaneOrder_ = controls.cutLaneOrder; cutLanePoly_ = controls.cutPolyPath;
+        cutLaneAdvance_ = advance;
+        cutOverrideValid_ = paused && controls.lanePhaseOverride;
+        cutLastOverride_ = controls.lanePhaseOverrideValue;
+        return selected;
     }
 
     void beginCut(const Controls& controls,
@@ -4683,8 +4809,13 @@ private:
         cutCurrent_ = {};
         cutCurrent_.active = true;
         cutCurrent_.joinFrames = join;
-        cutCurrent_.gateFrames = gate;
-        cutCurrent_.lane = stackMode_ ? cutLane(controls) : kNoLane;
+        // At a full gate the outgoing reader must survive until the next
+        // event so its retirement fade can overlap the incoming attack.
+        // Shorter gates retain the existing fade to silence and silent gap.
+        cutCurrent_.gateFrames = gate + (controls.cutGate >= 1.0f ? join : 0u);
+        cutCurrent_.lane = stackMode_
+            ? cutLane(controls) : kNoLane;
+        cutHasSelection_ = cutCurrent_.lane < kStackLanes;
         cutCurrent_.gain = 1.0f - randomUnit()
             * clamp01(controls.cutLevelVariation);
         const double width = std::max(1.0, window.high - window.low);
@@ -4926,6 +5057,15 @@ private:
             * smoothStep(static_cast<float>(reader.gateFrames - 1u - reader.age) / join);
     }
 
+    static float cutReaderGain(const CutReader& reader)
+    {
+        if (!reader.active) return 0.0f;
+        if (!reader.retiring) return cutEnvelope(reader) * reader.gain;
+        const float mix = smoothStep(static_cast<float>(reader.retirementAge)
+            / static_cast<float>(std::max<std::size_t>(1u, reader.joinFrames)));
+        return (1.0f - mix) * reader.gain;
+    }
+
     float readCut(const CutReader& reader, std::size_t channel) const
     {
         if (!reader.active) {
@@ -4937,13 +5077,7 @@ private:
         const float sample = stackMode_ && reader.lane < kStackLanes
             ? readLaneHead(reader.lane, channel, head)
             : readHead(mapSourceChannel(channel), head);
-        if (reader.retiring) {
-            const float mix = smoothStep(static_cast<float>(
-                reader.retirementAge) / static_cast<float>(
-                    std::max<std::size_t>(1u, reader.joinFrames)));
-            return sample * (1.0f - mix) * reader.gain;
-        }
-        return sample * cutEnvelope(reader) * reader.gain;
+        return sample * cutReaderGain(reader);
     }
 
     void advanceCutReader(CutReader& reader)
@@ -6255,8 +6389,8 @@ private:
         1.0f, 1.0f, 1.0f, 1.0f,
     };
     double phase_ = 0.0;
-    float lanePhase_ = 0.0f;
-    float lanePhaseIncrement_ = 0.0f;
+    double lanePhase_ = 0.0;
+    double lanePhaseIncrement_ = 0.0;
     float laneFrozenPhase_ = 0.0f;
     bool laneScanPaused_ = false;
     double stretchPhase_ = 0.0;
@@ -6294,6 +6428,14 @@ private:
     float grainWindowTables_[kGrainWindowCount][kGrainWindowTableSize] {};
     CutReader cutCurrent_ {};
     CutReader cutTail_ {};
+    bool cutHasSelection_ = false;
+    bool cutOverrideValid_ = false;
+    float cutLastOverride_ = 0.0f;
+    std::size_t cutSelectedLane_ = kNoLane, cutAnchorLane_ = kNoLane;
+    std::size_t cutLaneStep_ = 0u, cutLaneCuts_ = 0u, cutLaneAdvance_ = 1u;
+    int cutLaneBase_ = -1, cutLanePressure_ = -1;
+    CutLaneOrder cutLaneOrder_ = CutLaneOrder::down;
+    CutPolyPath cutLanePoly_ = CutPolyPath::together;
     double cutCountdown_ = 0.0;
     std::size_t cutStep_ = 0u;
     std::size_t cutWalkRegion_ = 0u;

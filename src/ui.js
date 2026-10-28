@@ -1,4 +1,4 @@
-/* s3g Thru 0.27.0 — polyphonic sampler/performance-looper takeover for Move. */
+/* s3g Thru 0.28.0-test.9 — polyphonic sampler/performance-looper takeover for Move. */
 
 import * as moveConstants from '/data/UserData/schwung/shared/constants.mjs';
 import * as moveInputFilter from '/data/UserData/schwung/shared/input_filter.mjs';
@@ -24,6 +24,9 @@ const MovePlay = constant('MovePlay', 85);
 const MoveLoop = constant('MoveLoop', 58);
 const MoveDelete = constant('MoveDelete', 119);
 const MoveKnob1 = constant('MoveKnob1', 71);
+const MoveCopy = constant('MoveCopy', 60);
+const MoveCapture = constant('MoveCapture', 52);
+const MoveMute = constant('MoveMute', 88);
 const MovePads = Array.isArray(moveConstants.MovePads)
     ? moveConstants.MovePads : Array.from({ length: 32 }, (_, i) => 68 + i);
 const MoveSteps = Array.isArray(moveConstants.MoveSteps)
@@ -35,6 +38,9 @@ const MoveTracks = [
 
 const Black = constant('Black', 0);
 const ScaleNoteGrey = constant('DarkGrey3', 123);
+// Dim teal stays visibly colored beside A's neutral scale map.
+const SplitBIdle = constant('DeepTealCyan', 93);
+const SplitBRoot = constant('TealCyan', 15);
 const White = constant('White', 120);
 const Cyan = constant('Cyan', 14);
 const BrightRed = constant('BrightRed', 1);
@@ -72,6 +78,7 @@ const setButtonLED = typeof moveInputFilter.setButtonLED === 'function'
         }
     };
 
+const UI_VERSION = '0.28.0-test.9';
 const WAVE_BINS = 112;
 const ALGORITHMS = ['MOTION', 'LANES', 'GRAINS', 'CUTUPS', 'SAMPLE', 'SLICES',
     'GLITCH', 'WEAVE', 'WAVESETS'];
@@ -120,10 +127,23 @@ const parameterEncoderMotion = Array.from({ length: 8 }, () => ({
 }));
 
 const PARAMS = {
+    split_mode: {key:'split_mode',label:'MODE',min:0,max:1,step:1,value:0,integer:true,labels:['SINGLE','SPLIT']},
+    split_focus: {key:'split_focus',label:'EDIT PART',min:0,max:1,step:1,value:0,integer:true,labels:['A','B']},
+    split_copy: {key:'split_copy',label:'COPY OTHER',min:0,max:1,step:1,value:0,integer:true,labels:['TURN','COPY'],momentary:true,result:'COPIED OTHER PART'},
+    part_mute: {key:'part_mute',label:'MUTE',min:0,max:1,step:1,value:0,integer:true,labels:['OFF','ON']},
+    split_blend: {key:'split_blend',label:'A B BLEND',min:0,max:1,step:.01,value:.5},
+    split_level_a: {key:'split_level_a',label:'A LEVEL',min:0,max:2,step:.02,value:1},
+    split_level_b: {key:'split_level_b',label:'B LEVEL',min:0,max:2,step:.02,value:1},
+    split_delay_a: {key:'split_delay_a',label:'A DELAY',min:0,max:1,step:.01,value:0},
+    split_delay_b: {key:'split_delay_b',label:'B DELAY',min:0,max:1,step:.01,value:0},
+    split_reverb_a: {key:'split_reverb_a',label:'A REVERB',min:0,max:1,step:.01,value:0},
+    split_reverb_b: {key:'split_reverb_b',label:'B REVERB',min:0,max:1,step:.01,value:0},
+    split_curve: {key:'split_curve',label:'CURVE',min:0,max:1,step:1,value:1,integer:true,labels:['LINEAR','POWER']},
     locus: { key: 'locus', label: 'POSITION', min: 0, max: 1, step: 0.01, value: 0.5 },
     field: { key: 'field', label: 'FIELD', min: 0.02, max: 1, step: 0.01, value: 1 },
     speed: { key: 'speed', label: 'SPEED', min: 0.05, max: 4, step: 0.02, value: 1 },
     manual_lane: { key: 'manual_lane', label: 'STACK START', min: 1, max: 4, step: 0.04, value: 1 },
+    cut_lane_advance: { key: 'cut_lane_advance', label: 'ADVANCE', min: 0, max: 6, step: 1, value: 1, integer: true, labels: ['HOLD', '1', '2', '3', '4', '8', '16'] },
     lane_cycles: { key: 'lane_cycles', label: 'SCAN RATE', min: 0.125, max: 16, step: 0.125, value: 1 },
     algorithm: { key: 'algorithm', label: 'ALGORITHM', min: 0, max: 8, step: 1, value: 0, integer: true, labels: ALGORITHMS },
     join: { key: 'join', label: 'JOIN', min: 0, max: 1, step: 0.01, value: 1 },
@@ -242,6 +262,15 @@ const PARAMS = {
     waveset_process: { key: 'waveset_process', label: 'PROCESS', min: 0, max: 9, step: 1, value: 0, integer: true, labels: ['REPEAT', 'OMIT', 'REPLACE', 'ENVELOPE', 'MULTIPLY', 'INTERPOLATE', 'FRACTAL', 'HARMONIC', 'GROUP REV', 'CYCLE REV'] },
     waveset_amount: { key: 'waveset_amount', label: 'DEPTH %', min: 0, max: 100, step: 1, value: 0, integer: true },
     waveset_detail: { key: 'waveset_detail', label: 'DETAIL', min: 0, max: 4, step: 1, value: 0, integer: true, labels: ['RAW', '8 KHZ', '4 KHZ', '1 KHZ', '250 HZ'] },
+    effect_reverb_algo: {"key": "effect_reverb_algo", "label": "ALGORITHM", "min": 0, "max": 1, "step": 1, "value": 0, "integer": true, "labels": ["PLATE", "ROOM"]},
+    effect_reverb_decay: {"key": "effect_reverb_decay", "label": "DECAY SECONDS", "min": 0.2, "max": 20, "step": 0.01, "value": 2.5, "integer": false},
+    effect_reverb_pre: {"key": "effect_reverb_pre", "label": "PREDELAY MS", "min": 0, "max": 200, "step": 1, "value": 0, "integer": true},
+    effect_reverb_damp: {"key": "effect_reverb_damp", "label": "DAMPING HZ", "min": 500, "max": 18000, "step": 100, "value": 8000, "integer": true},
+    effect_reverb_diff: {"key": "effect_reverb_diff", "label": "DIFFUSION %", "min": 0, "max": 100, "step": 1, "value": 70, "integer": true},
+    effect_reverb_mod: {"key": "effect_reverb_mod", "label": "MODULATION %", "min": 0, "max": 100, "step": 1, "value": 10, "integer": true},
+    effect_reverb_width: {"key": "effect_reverb_width", "label": "STEREO WIDTH %", "min": 0, "max": 100, "step": 1, "value": 100, "integer": true},
+    effect_reverb_mix: {"key": "effect_reverb_mix", "label": "REVERB MIX %", "min": 0, "max": 100, "step": 1, "value": 0, "integer": true},
+    effect_order: {"key": "effect_order", "label": "ORDER", "min": 0, "max": 719, "step": 1, "value": 0, "integer": true},
     effect_tone: { key: 'effect_tone', label: 'TONE', min: -1, max: 1, step: 0.01, value: 0 },
     effect_drive: { key: 'effect_drive', label: 'DRIVE', min: 0, max: 1, step: 0.01, value: 0 },
     effect_bits: { key: 'effect_bits', label: 'BITS', min: 0, max: 1, step: 0.01, value: 0 },
@@ -311,8 +340,10 @@ const MAIN_ENGINE_CONTROLS = MAIN_ENGINE_MODES.map((mode) => [
     'locus', 'field', 'speed', 'manual_lane',
     'lane_cycles', 'join', mode, 'output_gain',
 ]);
+MAIN_ENGINE_CONTROLS[3][4] = 'cut_lane_advance';
 const ENGINE_PAGE = { title: 'ENGINE', keys: ['algorithm', 'locus', 'field',
     'speed', 'manual_lane', 'lane_cycles', 'join', 'output_gain'] };
+const CUTUPS_ENGINE_PAGE = { ...ENGINE_PAGE, keys: ENGINE_PAGE.keys.map((key) => key === 'lane_cycles' ? 'cut_lane_advance' : key) };
 const STACK_PATH_PAGE = { title: 'STACK PATH', keys: ['lane_path',
     'lane_blend', 'lane_path_shape', 'lane_path_offset', 'lane_path_skew',
     'lane_path_curve', 'lane_slew'] };
@@ -405,6 +436,11 @@ function playbackPagesForAlgorithm(algorithm, motionSound) {
     else if (motionSound >= 3) pages.push(EVENT_CLOCK_PAGE, EVENT_SHAPE_PAGE);
     return pages;
 }
+const SPLIT_SETUP_PAGE = {title:'SPLIT SETUP',global:true,keys:['split_mode','split_focus','split_copy','part_mute']};
+const SPLIT_SEND_KEYS = ['split_delay_a','split_reverb_a','split_delay_b','split_reverb_b'];
+const SPLIT_MIX_PAGE = {title:'FX SENDS',global:true,keys:[...SPLIT_SEND_KEYS,'effect_mix','effect_reverb_mix','split_curve','split_blend']};
+const PART_COLOR_PAGE = {title:'PART COLOR',keys:['effect_tone','effect_drive','effect_bits','effect_rate']};
+const DELAY_RETURN_PAGE = {title:'DELAY RETURN',global:true,keys:['effect_delay','effect_feedback','effect_width']};
 const MIX_REC_PAGE = { title: 'MIX / REC', keys: ['lane_1_gain', 'lane_2_gain',
     'lane_3_gain', 'lane_4_gain', 'record_source', 'record_gain',
     'monitor_level', 'preview_level'] };
@@ -419,6 +455,14 @@ const TAPE_PAGE = { title: 'TAPE', keys: [
     'effect_tape_format', 'effect_tape_drive', 'effect_tape_age',
     'effect_tape_crinkle', 'effect_tape_mechanics',
     'effect_tape_inertia', 'effect_tape_hiss', 'effect_tape_mix'] };
+const REVERB_PAGE = { title: 'REVERB', keys: [
+    'effect_reverb_algo', 'effect_reverb_decay', 'effect_reverb_pre',
+    'effect_reverb_damp', 'effect_reverb_diff', 'effect_reverb_mod',
+    'effect_reverb_width', 'effect_reverb_mix'] };
+const FX_ORDER_PAGE = { title: 'FX ORDER', route: true, keys: Array(8).fill(null) };
+const FX_BLOCK_NAMES = ['Tone / Drive', 'Bits / Rate', 'Delay', 'Stereo / Rotary', 'Tape', 'Reverb'];
+const FX_ROUTE_PRESETS = [[0,1,2,3,4,5], [0,1,5,2,3,4], [5,1,0,2,3,4]];
+const FX_ROUTE_NAMES = ['DFLT','ECHO','CRSH'];
 const SAMPLE_PAGE = { title: 'SAMPLE EDIT', keys: ['sample_trim_start',
     'sample_trim_end', 'sample_trim_apply', 'sample_reverse',
     'sample_normalize', 'sample_fade'] };
@@ -476,10 +520,14 @@ const LOCKABLE_KEYS = [
     'waveset_group', 'waveset_repeats', 'waveset_stride',
     'waveset_advance', 'waveset_direction', 'waveset_process',
     'waveset_amount', 'waveset_detail',
+    'effect_reverb_algo', 'effect_reverb_decay', 'effect_reverb_pre', 'effect_reverb_damp', 'effect_reverb_diff', 'effect_reverb_mod', 'effect_reverb_width', 'effect_reverb_mix', 'effect_order', 'cut_lane_advance', 'split_blend','split_level_a','split_level_b','split_delay_a','split_delay_b','split_reverb_a','split_reverb_b','split_curve',
 ];
 const LOCKABLE_PARAMS = new Set(LOCKABLE_KEYS);
 
 const SHORT_LABELS = {
+    split_blend:'BLND',split_level_a:'ALVL',split_level_b:'BLVL',split_delay_a:'ADLY',split_delay_b:'BDLY',split_reverb_a:'AREV',split_reverb_b:'BREV',split_curve:'CURV',split_copy:'COPY',split_focus:'EDIT',part_mute:'MUTE',
+    effect_reverb_algo: 'ALGO', effect_reverb_decay: 'DECY', effect_reverb_pre: 'PRE', effect_reverb_damp: 'DAMP', effect_reverb_diff: 'DIFF', effect_reverb_mod: 'MOD', effect_reverb_width: 'WDTH', effect_reverb_mix: 'MIX', effect_order: 'ORDR',
+    cut_lane_advance: 'ADV',
     locus: 'POS', field: 'FLD', speed: 'SPD', manual_lane: 'STAK',
     lane_cycles: 'RATE', algorithm: 'ALG', join: 'JOIN', output_gain: 'LEVL',
     motion_mode: 'MODE', motion_sound: 'SND', motion_rate: 'RATE',
@@ -559,6 +607,9 @@ const SHORT_LABELS = {
 
 const state = {
     ticks: 0,
+    splitEnabled:false,splitFocus:0,splitBlend:.5,splitParts:[{},{}],splitPages:[0,0],
+    focusButtonHeld:false,focusButtonUsed:false,voiceAlgorithms:Array(8).fill(-1),
+    fxMenuSelection:0,fxMenuReturn:false,
     lane: 1,
     mask: 0,
     recording: false,
@@ -569,6 +620,7 @@ const state = {
     weights: [0, 0, 0, 0],
     playheads: Array(8).fill(-1),
     wavesetVoices: Array(8).fill(null),
+    cutupsVoices: Array(8).fill(null),
     wavesetAnalysisPending: 0,
     stackPositions: Array(8).fill(-1),
     voicePads: Array(8).fill(-1),
@@ -625,6 +677,8 @@ const state = {
     clipTakeCanUndo: false,
     clipRecordingTake: 0,
     activeClip: 0,
+    fxOrder: [0,1,2,3,4,5], fxSavedOrder: 0, fxRouteClip: -1, fxRoutePending: false, fxRouteTransition: 0,
+    fxRouteSelected: 0, fxRouteGrabbed: false,
     queuedClip: -1,
     clipBank: 0,
     clipMaskLow: 0,
@@ -676,10 +730,14 @@ function parseRegionState(text) {
 
 function parseCueState(text) {
     const values = String(text || '').split(',').map((item) => Number(item));
+    let changed = false;
     for (let index = 0; index < state.cues.length; index++) {
-        state.cues[index] = Number.isFinite(values[index]) && values[index] >= 0
+        const position = Number.isFinite(values[index]) && values[index] >= 0
             ? clamp(values[index] / 1000, 0, 1) : -1;
+        changed = changed || position !== state.cues[index];
+        state.cues[index] = position;
     }
+    if (changed) rebuildLedQueue();
 }
 
 function clamp(value, low, high) {
@@ -893,6 +951,61 @@ function parseUiState(text) {
         || oldRecording !== state.recording) rebuildLedQueue();
 }
 
+function parseSplitState(text) {
+    let data;
+    try { data=JSON.parse(String(text||'{}')); } catch (_) { return; }
+    const enabled=Number(data.enabled)===1;
+    const focus=clamp(Number(data.focus)||0,0,1);
+    const changed=enabled!==state.splitEnabled || focus!==state.splitFocus;
+    if(changed)state.splitPages[state.splitFocus]=state.settingsPage;
+    state.splitEnabled=enabled;state.splitFocus=focus;
+    if(!enabled && state.view==='fxMenu'){state.view='main';state.fxMenuReturn=false;}
+    state.splitBlend=clamp(Number(data.blend)||0,0,1);
+    let padMapChanged = false;
+    if (Array.isArray(data.parts) && data.parts.length === 2) {
+        padMapChanged = data.parts.some((part, index) =>
+            ['root', 'octave', 'scale', 'mode', 'mute'].some((key) =>
+                part[key] !== state.splitParts[index]?.[key]));
+        state.splitParts = data.parts;
+    }
+    PARAMS.split_mode.value=enabled?1:0;PARAMS.split_focus.value=focus;
+    if(changed) {
+        for(const key of Object.keys(PARAMS)) {
+            const p=PARAMS[key];p.value=clamp(getNumber(p.key,p.value),p.min,p.max);
+        }
+        state.algorithm=Math.round(PARAMS.algorithm.value);
+        state.padMode=Math.round(PARAMS.pad_mode.value);state.scale=Math.round(PARAMS.scale.value);
+        state.octave=clamp(getNumber('pad_octave',0),-3,3);
+        state.settingsPage=state.splitPages[focus]||0;
+        state.fxRouteClip=-1;state.fxRouteGrabbed=false;state.fxRoutePending=false;
+        resetParameterEncoderMotion();rebuildLedQueue();
+    }
+    if (padMapChanged && !changed) rebuildLedQueue();
+    state.voiceAlgorithms=String(getParam('voice_algorithms','')).split(',').map(Number);
+}
+function padSettings(index) {
+    if(state.splitEnabled)return state.splitParts[index%8>=4?1:0]||{};
+    return {root:Math.round(PARAMS.root_note.value),octave:state.octave,scale:state.scale,mode:state.padMode};
+}
+function setSplitFocus(part) {
+    setParamBlocking('split_focus',part);parseSplitState(getParam('split_state','{}'));
+    showMessage('EDIT PART '+(state.splitFocus?'B':'A'));rebuildLedQueue();
+}
+function toggleSplitMode() {
+    setParamBlocking('split_mode',state.splitEnabled?0:1);
+    parseSplitState(getParam('split_state','{}'));
+    const error=String(getParam('last_error','')||'');
+    showMessage(error|| (state.splitEnabled?'SPLIT A / B':'SINGLE STACK'));rebuildLedQueue();
+    primePadLeds();
+}
+function adjustSplitBlend(delta) {
+    delta=parameterEncoderDelta(7,'split_blend',delta);if(!delta)return;
+    const control=PARAMS.split_blend;control.value=clamp(control.value+delta*.01,0,1);
+    setParam('split_blend',control.value.toFixed(4));
+    if(state.clipRecording)setParam('clip_automation','split_blend');
+    showMessage('BLEND A '+Math.round((1-control.value)*100)+' B '+Math.round(control.value*100));
+}
+
 function parsePlayheads(text) {
     const values = String(text || '').split(',').map((item) => Number(item));
     state.playheads = Array.from({ length: 8 }, (_, index) => {
@@ -900,6 +1013,27 @@ function parsePlayheads(text) {
         return Number.isFinite(value) && value >= 0
             ? clamp(value / 1000, 0, 1) : -1;
     });
+}
+
+function parseCutupsState(text) {
+    const voices = Array(8).fill(null);
+    for (const record of String(text || '').split(';')) {
+        if (!record) continue;
+        const v = record.split(',').map(Number);
+        if (v.length !== 7 || !v.every(Number.isFinite)) continue;
+        const slot = v[0];
+        if (!Number.isInteger(slot) || slot < 0 || slot >= voices.length) continue;
+        const validLane = (value) => Number.isInteger(value) && value >= 0 && value < 4;
+        voices[slot] = {
+            lane: validLane(v[1]) ? v[1] : -1,
+            position: v[2] >= 0 ? clamp(v[2] / 1000, 0, 1) : -1,
+            outgoingLane: validLane(v[3]) ? v[3] : -1,
+            outgoingPosition: v[4] >= 0 ? clamp(v[4] / 1000, 0, 1) : -1,
+            gain: clamp(v[5] / 1000, 0, 1),
+            outgoingGain: clamp(v[6] / 1000, 0, 1),
+        };
+    }
+    state.cutupsVoices = voices;
 }
 
 function parseWavesetState(text) {
@@ -1094,6 +1228,8 @@ function parseClipBankState(text) {
         }
         state.algorithm = Math.round(PARAMS.algorithm.value);
     }
+    if (active !== previousActive
+        || (state.view === 'settings' && currentSettingsPage().route)) syncFxOrder();
     if (changed) rebuildLedQueue();
 }
 
@@ -1153,15 +1289,17 @@ function clipOccupied(index) {
     return ((state.clipMaskHigh >>> (index - 32)) & 1) !== 0;
 }
 
-function basePadColor() {
-    if (state.padMode === 1) return AzureBlue;
-    if (state.padMode === 2) return WhiteLedDim;
-    if (state.padMode === 3) return Purple;
-    if (state.scale !== 0) return ScaleNoteGrey;
+function basePadColor(owner = padSettings(0), index = 0) {
+    if (state.splitEnabled && index % 8 >= 4) return SplitBIdle;
+    if (owner.mode === 1) return AzureBlue;
+    if (owner.mode === 2) return WhiteLedDim;
+    if (owner.mode === 3) return Purple;
+    if (owner.scale !== 0) return ScaleNoteGrey;
     return Black;
 }
 
 function padColor(index) {
+    const owner=padSettings(index);
     for (let roll = 0; roll < state.rollPads.length; roll++) {
         if (state.rollPads[roll] === index) {
             return state.rollNotes[roll] >= 0
@@ -1176,17 +1314,18 @@ function padColor(index) {
                 ? VOICE_DIM_COLORS[voice] : VOICE_COLORS[voice];
         }
     }
-    if (state.padMode === 2) {
-        if (index >= 8) return Black;
+    if (owner.mode === 2) {
+        if(state.splitEnabled ? Math.floor(index/8)>0 : index>=8)return Black;
         if (state.activePads.has(MovePads[index])) return Cyan;
-        return state.cues[index] >= 0 ? BrightOrange : WhiteLedDim;
+        return state.cues[state.splitEnabled?(index%4)+(index%8>=4?4:0):index] >= 0
+            ? BrightOrange : (state.splitEnabled && index % 8 >= 4 ? SplitBIdle : WhiteLedDim);
     }
     if (state.activePads.has(MovePads[index])) return Cyan;
-    if (state.padMode === 0 && state.scale !== 0
-        && (padMidiNote(index) - Math.round(PARAMS.root_note.value)) % 12 === 0) {
-        return White;
+    if (owner.mode === 0 && owner.scale !== 0
+        && (padMidiNote(index) - Math.round(owner.root||60)) % 12 === 0) {
+        return state.splitEnabled && index % 8 >= 4 ? SplitBRoot : White;
     }
-    return basePadColor();
+    return basePadColor(owner, index);
 }
 
 function ledKey(type, id) {
@@ -1209,15 +1348,18 @@ function queueLed(type, id, color, priority) {
     });
 }
 
-function sendLedNow(type, id, color) {
+function sendLedNow(type, id, color, force = false) {
     const key = ledKey(type, id);
     state.ledPending.delete(key);
-    if (type === 'cc') setButtonLED(id, color);
-    else setLED(id, color);
+    if (type === 'cc') setButtonLED(id, color, force);
+    else setLED(id, color, force);
     state.ledSent.set(key, color);
 }
 
 function rebuildLedQueue() {
+    queueLed('cc',MoveCopy,state.splitEnabled?WhiteLedBright:WhiteLedDim,0);
+    queueLed('cc',MoveCapture,state.splitEnabled?(state.splitFocus?WhiteLedBright:WhiteLedDim):Black,0);
+    queueLed('cc',MoveMute,state.splitEnabled&&state.splitParts[state.splitFocus]?.mute?WhiteLedBright:WhiteLedDim,0);
     queueLed('cc', MovePlay,
         state.clipLaunchPending ? BlueViolet
             : (state.clipPlaying ? NeonGreen : WhiteLedDim), 0);
@@ -1268,7 +1410,7 @@ function rebuildLedQueue() {
 
 function primePadLeds() {
     for (let index = 0; index < MovePads.length; index++) {
-        sendLedNow('note', MovePads[index], padColor(index));
+        sendLedNow('note', MovePads[index], padColor(index), true);
     }
 }
 
@@ -1369,8 +1511,10 @@ function drawMain() {
         : (state.recording ? (state.limited ? ' LIM' : ' AUDIO') : '');
     const displayedAlgorithm = state.algorithm === 6 && state.glitchBufferLocked
         ? 'GLCH LOCK' : algorithm;
-    print(1, 0, ('THRU ' + displayedAlgorithm + ' ' + clipLabel(state.activeClip)
-        + ' V' + state.voiceCount + recordTag).slice(0, 21), 1);
+    const title=state.splitEnabled?(state.splitFocus===0?'>A:':' A:')+(ALGORITHMS[state.splitParts[0]?.algorithm]||'---').slice(0,3)
+        +(state.splitFocus===1?' >B:':'  B:')+(ALGORITHMS[state.splitParts[1]?.algorithm]||'---').slice(0,3)+' '+Math.round(state.splitBlend*100)+'%'
+        :'THRU '+displayedAlgorithm+' '+clipLabel(state.activeClip)+' V'+state.voiceCount+recordTag;
+    print(1,0,title.slice(0,21),1);
 
     const left = 14;
     const width = 114;
@@ -1417,38 +1561,91 @@ function drawMain() {
         const endX = left + Math.round(state.fieldEnd * (width - 1));
         drawRect(startX, top, 1, 2, 1);
         drawRect(endX, top + 38, 1, 2, 1);
-        if (wavesetFocus) {
-            for (const voice of state.wavesetVoices) {
-                if (!voice || voice.secondarySourcePosition < 0) continue;
-                const playX = left + Math.round(
-                    voice.secondarySourcePosition * (width - 1));
-                drawDashedPlayhead(playX, top, 40);
+        if (state.splitEnabled) {
+            const markers = [];
+            const span = rowHeight * 2;
+            for (let slot = 0; slot < 8; ++slot) {
+                // Slots 0–3 belong to A, slots 4–7 to B, regardless of focus.
+                const cursorTop = top + (slot < 4 ? 0 : span);
+                const algorithm = state.voiceAlgorithms[slot];
+                const cut = state.cutupsVoices[slot];
+                const ws = state.wavesetVoices[slot];
+                const head = algorithm === 3 ? (cut?.gain > 0 ? cut.position : -1)
+                    : algorithm === 8 ? (ws?.sourcePosition ?? -1) : state.playheads[slot];
+                const lane = algorithm === 3 ? (cut?.lane ?? -1)
+                    : (state.stackPositions[slot] >= 0 ? state.stackPositions[slot] * 3 : -1);
+                if (head >= 0 && lane >= 0) {
+                    const x = left + Math.round(head * (width - 1));
+                    drawRect(x, cursorTop, 1, span, 1);
+                    markers.push([x, top + 5 + lane * rowHeight]);
+                }
+                if (algorithm === 3 && cut?.outgoingLane >= 0 && cut.outgoingGain > 0) {
+                    const x = left + Math.round(cut.outgoingPosition * (width - 1));
+                    drawDashedPlayhead(x, cursorTop, span);
+                    markers.push([x, top + 5 + cut.outgoingLane * rowHeight]);
+                }
+                if (algorithm === 8 && ws?.secondarySourcePosition >= 0) {
+                    const x = left + Math.round(ws.secondarySourcePosition * (width - 1));
+                    drawDashedPlayhead(x, cursorTop, span);
+                }
             }
-        }
-        for (const playhead of displayedPlayheads) {
-            if (playhead < 0) continue;
-            const playX = left + Math.round(playhead * (width - 1));
-            drawRect(playX, top, 1, 40, 1);
-        }
-        for (let voice = 0; voice < displayedPlayheads.length; voice++) {
-            const playhead = displayedPlayheads[voice];
-            const stackPosition = state.stackPositions[voice];
-            if (playhead < 0 || stackPosition < 0) continue;
-            const playX = left + playhead * (width - 1);
-            const stackY = top + 5 + stackPosition * rowHeight * 3;
-            clearStackMarker(playX, stackY);
-        }
-        for (let voice = 0; voice < displayedPlayheads.length; voice++) {
-            const playhead = displayedPlayheads[voice];
-            const stackPosition = state.stackPositions[voice];
-            if (playhead < 0 || stackPosition < 0) continue;
-            const playX = left + playhead * (width - 1);
-            const stackY = top + 5 + stackPosition * rowHeight * 3;
-            drawStackMarker(playX, stackY);
+            for (const [x,y] of markers) clearStackMarker(x,y);
+            for (const [x,y] of markers) drawStackMarker(x,y);
+        } else if (state.algorithm === 3) {
+            // Match the shared full-height playheads and hollow stack
+            // markers, using the actual source readers for each cut.
+            const markers = [];
+            for (const voice of state.cutupsVoices) {
+                if (!voice || voice.outgoingLane < 0 || voice.outgoingPosition < 0
+                    || voice.outgoingGain <= 0 || (state.mask & (1 << voice.outgoingLane)) === 0) continue;
+                const x = left + Math.round(voice.outgoingPosition * (width - 1));
+                drawDashedPlayhead(x, top, 40);
+                markers.push([x, top + 5 + voice.outgoingLane * rowHeight]);
+            }
+            for (const voice of state.cutupsVoices) {
+                if (!voice || voice.lane < 0 || voice.position < 0
+                    || voice.gain <= 0 || (state.mask & (1 << voice.lane)) === 0) continue;
+                const x = left + Math.round(voice.position * (width - 1));
+                drawRect(x, top, 1, 40, 1);
+                markers.push([x, top + 5 + voice.lane * rowHeight]);
+            }
+            for (const [x,y] of markers) clearStackMarker(x,y);
+            for (const [x,y] of markers) drawStackMarker(x,y);
+        } else {
+            if (wavesetFocus) {
+                for (const voice of state.wavesetVoices) {
+                    if (!voice || voice.secondarySourcePosition < 0) continue;
+                    const playX = left + Math.round(
+                        voice.secondarySourcePosition * (width - 1));
+                    drawDashedPlayhead(playX, top, 40);
+                }
+            }
+            for (const playhead of displayedPlayheads) {
+                if (playhead < 0) continue;
+                const playX = left + Math.round(playhead * (width - 1));
+                drawRect(playX, top, 1, 40, 1);
+            }
+            for (let voice = 0; voice < displayedPlayheads.length; voice++) {
+                const playhead = displayedPlayheads[voice];
+                const stackPosition = state.stackPositions[voice];
+                if (playhead < 0 || stackPosition < 0) continue;
+                const playX = left + playhead * (width - 1);
+                const stackY = top + 5 + stackPosition * rowHeight * 3;
+                clearStackMarker(playX, stackY);
+            }
+            for (let voice = 0; voice < displayedPlayheads.length; voice++) {
+                const playhead = displayedPlayheads[voice];
+                const stackPosition = state.stackPositions[voice];
+                if (playhead < 0 || stackPosition < 0) continue;
+                const playX = left + playhead * (width - 1);
+                const stackY = top + 5 + stackPosition * rowHeight * 3;
+                drawStackMarker(playX, stackY);
+            }
         }
     }
 
-    const railFocus = drawWavesetRail(left, width);
+    const railFocus = state.splitEnabled?null:drawWavesetRail(left, width);
+    if(state.splitEnabled){drawRect(0,30,12,1,1);drawRect(0,51,128,1,1);drawRect(clamp(Math.round(state.splitBlend*125),0,125),50,3,3,1);}
     if (state.recording) {
         drawRect(left, railFocus ? 53 : 51,
             Math.max(1, Math.round(width * state.meter)), railFocus ? 1 : 2, 1);
@@ -1482,6 +1679,176 @@ function drawMain() {
     print(1, 55, String(footer).slice(0, 21), 1);
 }
 
+function decodeFxOrder(code) {
+    const available = [0,1,2,3,4,5];
+    return [120,24,6,2,1,1].map((factor) => {
+        const index = Math.floor(code / factor); code %= factor;
+        return available.splice(index, 1)[0];
+    });
+}
+function encodeFxOrder(order) {
+    const available = [0,1,2,3,4,5];
+    return order.reduce((code, block, slot) => {
+        const index = available.indexOf(block); available.splice(index, 1);
+        return code + index * [120,24,6,2,1,1][slot];
+    }, 0);
+}
+function routePresets() {return state.splitEnabled?[[2,5,4],[2,4,5],[4,2,5]]:FX_ROUTE_PRESETS;}
+function routeCode(order) {return encodeFxOrder(state.splitEnabled?[0,1,3,...order]:order);}
+function syncFxOrder() {
+    const values = String(getParam('effect_order_state',
+        Math.round(PARAMS.effect_order.value) + ',0,0')).split(',').map(Number);
+    const code = clamp(Math.round(values[0] || 0), 0, 719);
+    const clipChanged = state.fxRouteClip !== state.activeClip;
+    // A lifted block is protected even before its first move. Audio/recorded
+    // automation can advance behind the editor until the user drops or cancels.
+    if (clipChanged || (!state.fxRoutePending && !state.fxRouteGrabbed)) {
+        state.fxOrder = state.splitEnabled?decodeFxOrder(code).filter((block)=>[2,4,5].includes(block)):decodeFxOrder(code);
+        state.fxSavedOrder = state.splitEnabled?routeCode(state.fxOrder):code;
+        state.fxRoutePending = false;
+        state.fxRouteClip = state.activeClip;
+        if (clipChanged) {
+            state.fxRouteSelected = 0;
+            state.fxRouteGrabbed = false;
+        }
+    }
+    state.fxRouteTransition = values[2] || 0;
+}
+function cancelFxOrder(announce = true) {
+    state.fxRouteGrabbed = false;
+    state.fxRoutePending = false;
+    syncFxOrder();
+    if (announce) showActionMessage('ORDER CANCELLED');
+}
+function applyFxOrder() {
+    if (state.fxRoutePending) {
+        const code = routeCode(state.fxOrder);
+        setParamBlocking('effect_order', code);
+        PARAMS.effect_order.value = code;
+        if (state.clipRecording) setParam('clip_automation', 'effect_order');
+        state.fxSavedOrder = state.splitEnabled?routeCode(state.fxOrder):code;
+        state.fxRoutePending = false;
+        showActionMessage('ORDER APPLIED');
+    }
+    state.fxRouteGrabbed = false;
+}
+function turnFxOrder(delta) {
+    if (delta === 0) return;
+    const from = state.fxRouteSelected;
+    const to = clamp(from + (delta > 0 ? 1 : -1), 0, state.fxOrder.length-1);
+    if (state.fxRouteGrabbed && from !== to) {
+        const block = state.fxOrder.splice(from, 1)[0];
+        state.fxOrder.splice(to, 0, block);
+        state.fxRoutePending = routeCode(state.fxOrder) !== state.fxSavedOrder;
+    }
+    state.fxRouteSelected = to;
+    state.actionMessageTicks = 0;
+}
+function clickFxOrder() {
+    if (state.fxRouteGrabbed || state.fxRoutePending) applyFxOrder();
+    else { state.fxRouteGrabbed = true; state.actionMessageTicks = 0; }
+}
+function adjustFxOrder(index, delta) {
+    // Only knob 7 has a role here. The main encoder owns list editing.
+    if (index !== 6 || delta === 0) return;
+    delta = parameterEncoderDelta(index, 'fx_order_preset', delta);
+    if (delta === 0) return;
+    const current = routePresets().findIndex((order) =>
+        routeCode(order) === routeCode(state.fxOrder));
+    const next = clamp((current < 0 ? 0 : current) + delta, 0, 2);
+    state.fxOrder = [...routePresets()[next]];
+    state.fxRouteGrabbed = false;
+    state.fxRoutePending = routeCode(state.fxOrder) !== state.fxSavedOrder;
+    state.fxRouteSelected = 0;
+    state.actionMessageTicks = 0;
+}
+function drawFxOrder() {
+    const preset = routePresets().findIndex((order) =>
+        routeCode(order) === routeCode(state.fxOrder));
+    const presetName = preset < 0 ? 'CUST' : FX_ROUTE_NAMES[preset];
+    const page = (state.settingsPage + 1) + '/' + parameterPages().length;
+    const heading = (state.clipRecording ? 'REC FX' : (state.clipPlaying ? '> FX ORD' : 'FX ORDER'))
+        + ' ' + page + ' 7:' + presetName;
+    print(1, 0, (state.actionMessageTicks > 0 ? state.actionMessage : heading).slice(0, 21), 1);
+    drawRect(0, 8, 128, 1, 1);
+    for (let index = 0; index < state.fxOrder.length; ++index) {
+        const y = state.splitEnabled?12+index*14:9+index*8;
+        const selected = index === state.fxRouteSelected;
+        const marker = selected ? (state.fxRouteGrabbed ? '*' : '>') : ' ';
+        if (selected) drawRect(0, y, 128, 8, 1);
+        print(1, y, marker + (index + 1) + ' ' + FX_BLOCK_NAMES[state.fxOrder[index]], selected ? 0 : 1);
+    }
+    const footer = state.fxRouteGrabbed ? 'TURN MOVE CLICK SET'
+        : (state.fxRoutePending ? 'PRESET CLICK SET' : 'TURN PICK CLICK LIFT');
+    print(1, 57, footer, 1);
+}
+
+function splitFxPages() {
+    const part=state.splitFocus?'B':'A';
+    return [
+        {title:'SENDS + RETURNS',page:SPLIT_MIX_PAGE},
+        {title:'DELAY',page:DELAY_RETURN_PAGE},
+        {title:'REVERB',page:REVERB_PAGE},
+        {title:part+' COLOR INSERT',page:PART_COLOR_PAGE},
+        {title:part+' STEREO / ROTARY',page:STEREO_ROTARY_PAGE},
+        {title:'SHARED TAPE',page:TAPE_PAGE},
+        {title:'EFFECT ORDER',page:FX_ORDER_PAGE}
+    ];
+}
+
+function syncSplitFxValues() {
+    for(const key of [...SPLIT_MIX_PAGE.keys,'split_level_a','split_level_b']) {
+        const control=PARAMS[key];
+        control.value=clamp(getNumber(key,control.value),control.min,control.max);
+    }
+}
+
+function openSplitSends() {
+    syncSplitFxValues();state.view='settings';state.fxMenuReturn=false;
+    state.settingsPage=parameterPages().indexOf(SPLIT_MIX_PAGE);
+    state.actionMessageTicks=0;resetParameterEncoderMotion();
+}
+
+function openSplitFxMenu() {
+    syncSplitFxValues();state.view='fxMenu';state.fxMenuReturn=false;
+    state.fxMenuSelection=clamp(state.fxMenuSelection,0,splitFxPages().length-1);
+    state.actionMessageTicks=0;
+}
+
+function moveSplitFxMenu(delta) {
+    if(delta)state.fxMenuSelection=clamp(state.fxMenuSelection+(delta>0?1:-1),0,splitFxPages().length-1);
+}
+
+function activateSplitFxPage() {
+    const entry=splitFxPages()[state.fxMenuSelection];
+    state.settingsPage=parameterPages().findIndex((page)=>page.title===entry.page.title);
+    state.view='settings';state.fxMenuReturn=true;state.actionMessageTicks=0;
+    resetParameterEncoderMotion();
+}
+
+function splitSendFooter() {
+    const delayOff=PARAMS.effect_mix.value<=0 && (PARAMS.split_delay_a.value>0||PARAMS.split_delay_b.value>0);
+    const reverbOff=PARAMS.effect_reverb_mix.value<=0 && (PARAMS.split_reverb_a.value>0||PARAMS.split_reverb_b.value>0);
+    if(delayOff&&reverbOff)return 'RETURNS OFF: KNOBS 5/6';
+    if(delayOff)return 'DELAY OFF: KNOB 5';
+    if(reverbOff)return 'REVERB OFF: KNOB 6';
+    return 'CLICK: FX PAGES';
+}
+
+function drawSplitFxMenu() {
+    clear_screen();
+    const entries=splitFxPages();
+    print(1,0,'FX PAGES '+(state.fxMenuSelection+1)+'/'+entries.length+' EDIT '+(state.splitFocus?'B':'A'),1);
+    drawRect(0,8,128,1,1);
+    const start=clamp(state.fxMenuSelection-4,0,entries.length-5);
+    for(let row=0;row<5;++row) {
+        const index=start+row,selected=index===state.fxMenuSelection,y=10+row*9;
+        if(selected)drawRect(0,y,128,8,1);
+        print(1,y,(selected?'>':' ')+entries[index].title,selected?0:1);
+    }
+    print(1,57,'TURN PICK CLICK OPEN',1);
+}
+
 function currentSettingsPage() {
     const pages = parameterPages();
     state.settingsPage = clamp(state.settingsPage | 0, 0, pages.length - 1);
@@ -1489,17 +1856,36 @@ function currentSettingsPage() {
 }
 
 function parameterPages() {
-    const enginePages = playbackPagesForAlgorithm(
-        state.algorithm, Math.round(PARAMS.motion_sound.value));
-    return [ENGINE_PAGE, PADS_SCALE_PAGE, AMP_ENVELOPE_PAGE, ...enginePages,
-        MIX_REC_PAGE, EFFECTS_PAGE, STEREO_ROTARY_PAGE, TAPE_PAGE, SAMPLE_PAGE,
-        LOOP_PAGE, TAKE_PAGE, CHAIN_PAGE];
+    const enginePages=playbackPagesForAlgorithm(state.algorithm,Math.round(PARAMS.motion_sound.value));
+    const engine=state.algorithm===3?CUTUPS_ENGINE_PAGE:ENGINE_PAGE;
+    if(!state.splitEnabled)return [engine,PADS_SCALE_PAGE,AMP_ENVELOPE_PAGE,...enginePages,
+        MIX_REC_PAGE,EFFECTS_PAGE,STEREO_ROTARY_PAGE,TAPE_PAGE,REVERB_PAGE,FX_ORDER_PAGE,SAMPLE_PAGE,LOOP_PAGE,TAKE_PAGE,CHAIN_PAGE];
+    const engineSplit={...engine,keys:engine.keys.map((key)=>key==='output_gain'?(state.splitFocus?'split_level_b':'split_level_a'):key)};
+    const rec={...MIX_REC_PAGE,keys:[state.splitFocus?'lane_3_gain':'lane_1_gain',state.splitFocus?'lane_4_gain':'lane_2_gain',null,null,...MIX_REC_PAGE.keys.slice(4)]};
+    return [engineSplit,PADS_SCALE_PAGE,AMP_ENVELOPE_PAGE,...enginePages,SPLIT_MIX_PAGE,SPLIT_SETUP_PAGE,
+        rec,PART_COLOR_PAGE,STEREO_ROTARY_PAGE,DELAY_RETURN_PAGE,{...TAPE_PAGE,global:true},
+        {...REVERB_PAGE,global:true,keys:REVERB_PAGE.keys.map((key)=>key==='effect_reverb_mix'?null:key)},FX_ORDER_PAGE,SAMPLE_PAGE,LOOP_PAGE,TAKE_PAGE,CHAIN_PAGE];
+}
+
+function controlForKey(key) {
+    const control = PARAMS[key];
+    if (control && state.splitEnabled) {
+        if (key==='effect_mix') return {...control,shortLabel:'DRTN',label:'DELAY RETURN %'};
+        if (key==='effect_reverb_mix') return {...control,shortLabel:'RRTN',label:'REVERB RETURN %'};
+        if (key==='split_level_a'||key==='split_level_b') return {...control,shortLabel:'LEVL',label:'PART LEVEL'};
+    }
+    if(control && key==='manual_lane' && state.splitEnabled) return {...control,max:2,value:clamp(control.value,1,2),...(state.algorithm===3?{label:'LANE',shortLabel:'LANE',integer:true,step:1,value:clamp(Math.round(control.value),1,2)}:{})};
+    if (control && key === 'manual_lane' && state.algorithm === 3) {
+        return { ...control, label: 'LANE', shortLabel: 'LANE',
+            integer: true, step: 1, value: Math.round(control.value) };
+    }
+    return control;
 }
 
 function activeControlKeys() {
     return state.view === 'settings'
         ? currentSettingsPage().keys
-        : (MAIN_ENGINE_CONTROLS[state.algorithm] || MAIN_ENGINE_CONTROLS[0]);
+        : (MAIN_ENGINE_CONTROLS[state.algorithm] || MAIN_ENGINE_CONTROLS[0]).map((key,index)=>state.splitEnabled&&index===7?'split_blend':key);
 }
 
 function noteName(value) {
@@ -1511,6 +1897,12 @@ function noteName(value) {
 
 function formatControlValue(control) {
     if (!control) return '';
+    if(SPLIT_SEND_KEYS.includes(control.key))return Math.round(control.value*100)+'%';
+    if(control.key==='split_blend')return 'A '+Math.round((1-control.value)*100)+' B '+Math.round(control.value*100);
+    if (control.key === 'cut_lane_advance') {
+        const n = Math.round(control.value);
+        return n === 0 ? 'HOLD' : control.labels[n] + (n === 1 ? ' CUT' : ' CUTS');
+    }
     if (control.key === 'waveset_direction') {
         const value = control.labels[clamp(Math.round(control.value), 0,
             control.labels.length - 1)] || '';
@@ -1582,7 +1974,15 @@ function formatControlValue(control) {
 }
 
 function compactControlValue(control) {
+    if (control && control.key === 'effect_reverb_algo') return control.value < .5 ? 'PLAT' : 'ROOM';
+    if (control && control.key === 'effect_reverb_decay') return control.value.toFixed(control.value < 10 ? 2 : 1);
+    if (control && control.key === 'effect_reverb_damp') return control.value >= 1000
+        ? (control.value / 1000).toFixed(control.value < 10000 ? 1 : 0) + 'k'
+        : String(Math.round(control.value));
     if (!control) return '';
+    if(SPLIT_SEND_KEYS.includes(control.key))return Math.round(control.value*100)+'%';
+    if(state.splitEnabled&&(control.key==='effect_mix'||control.key==='effect_reverb_mix'))return Math.round(control.value)+'%';
+    if(control.key==='split_blend')return Math.round(control.value*100)+'%';
     if (control.key === 'waveset_direction') {
         const labels = ['FWD', 'REV', 'PEN', 'SHF'];
         const pending = state.wavesetVoices.some((voice) =>
@@ -1670,22 +2070,22 @@ function compactControlValue(control) {
     return control.value.toFixed(2).slice(0, 4);
 }
 
-function drawParameterCell(index, control) {
+function drawParameterCell(index, control, compact = false) {
     const column = index % 4;
     const row = Math.floor(index / 4);
     const x = column * 32;
-    const y = 13 + row * 26;
-    const label = String(SHORT_LABELS[control.key] || control.label).slice(0, 4);
+    const y = (compact ? 11 : 13) + row * (compact ? 24 : 26);
+    const label = String(control.shortLabel || SHORT_LABELS[control.key] || control.label).slice(0, 4);
     const value = compactControlValue(control);
     print(x + 3, y, label, 1);
     print(x + 3, y + 11, value, 1);
 }
 
-function drawReservedParameterCell(index) {
+function drawReservedParameterCell(index, compact = false) {
     const column = index % 4;
     const row = Math.floor(index / 4);
     const x = column * 32 + 14;
-    const y = 20 + row * 26;
+    const y = (compact ? 18 : 20) + row * (compact ? 24 : 26);
     drawRect(x, y, 4, 4, 1);
     drawRect(x + 1, y + 1, 2, 2, 0);
 }
@@ -1766,12 +2166,15 @@ function drawAmpEnvelopePage() {
 function drawSettings() {
     clear_screen();
     const page = currentSettingsPage();
+    if (page.route) { drawFxOrder(); return; }
     const target = state.clipRecording ? 'REC ' : (state.clipPlaying ? '> ' : '');
     const pages = parameterPages();
-    const takeSuffix = page === TAKE_PAGE ? ' ' + state.clipTakeCount : '';
+    const takeSuffix = page === TAKE_PAGE ? ' ' + state.clipTakeCount
+        : (page === FX_ORDER_PAGE && state.fxRoutePending ? '*' : '');
     const lockTarget = state.algorithm === 6 && state.glitchBufferLocked
         ? 'LCK ' : '';
-    const pageTitle = target + lockTarget + page.title + takeSuffix + ' '
+    const scope=state.splitEnabled?((page===SPLIT_MIX_PAGE||page===SPLIT_SETUP_PAGE)?'':page.global?'FX ':((state.splitFocus?'B ':'A '))):'';
+    const pageTitle = target + lockTarget + scope + page.title + takeSuffix + ' '
         + (state.settingsPage + 1)
         + '/' + pages.length;
     const title = state.actionMessageTicks > 0
@@ -1782,15 +2185,20 @@ function drawSettings() {
         drawAmpEnvelopePage();
         return;
     }
+    const hasFooter = state.splitEnabled && (page===SPLIT_MIX_PAGE
+        || page===DELAY_RETURN_PAGE || page.title===REVERB_PAGE.title);
     for (let index = 0; index < 8; index++) {
         const key = page.keys[index];
         if (!key) {
-            drawReservedParameterCell(index);
+            drawReservedParameterCell(index, hasFooter);
             continue;
         }
-        const control = PARAMS[key];
-        drawParameterCell(index, control);
+        const control = controlForKey(key);
+        drawParameterCell(index, control, hasFooter);
     }
+    if (state.splitEnabled && page===SPLIT_MIX_PAGE) print(1,57,splitSendFooter(),1);
+    else if (state.splitEnabled && (page===DELAY_RETURN_PAGE || page.title===REVERB_PAGE.title))
+        print(1,57,'RETURN: FX SENDS',1);
 }
 
 function compactReportCount(value) {
@@ -1934,6 +2342,7 @@ function draw() {
     else if (state.view === 'clips') drawClips();
     else if (state.view === 'chain') drawChain();
     else if (state.view === 'library') drawLibrary();
+    else if (state.view === 'fxMenu') drawSplitFxMenu();
     else drawMain();
 }
 
@@ -1941,6 +2350,7 @@ function selectLane(lane) {
     if (state.recording) return;
     state.lane = clamp(lane | 0, 1, 4);
     setParamBlocking('record_lane', state.lane);
+    parseSplitState(getParam('split_state','{}'));
     showMessage('RECORD LANE ' + state.lane);
     rebuildLedQueue();
 }
@@ -2012,6 +2422,7 @@ function openLibrary(lane) {
     state.libraryLane = clamp(lane | 0, 1, 4);
     state.lane = state.libraryLane;
     setParamBlocking('record_lane', state.lane);
+    parseSplitState(getParam('split_state','{}'));
     state.capturesDirectory = String(getParam(
         'captures_directory', state.capturesDirectory) || '');
     scanLibrary(LIBRARY_HOME);
@@ -2214,6 +2625,7 @@ function togglePerformanceRecording() {
         return;
     }
     setParamBlocking('clip_record', 1);
+    syncFxOrder();
     parseClipState(getParam('clip_state', ''));
     parseClipTakeState(getParam('clip_take_state', '0,0,0'));
     showMessage(state.clipRecording
@@ -2233,20 +2645,21 @@ function toggleClipPlaying() {
 }
 
 function padMidiNote(padIndex) {
-    if (state.padMode === 1 || state.padMode === 3) {
-        return Math.round(PARAMS.root_note.value);
+    const owner=padSettings(padIndex);
+    if (owner.mode === 1 || owner.mode === 3) {
+        return Math.round(owner.root||60);
     }
     const row = Math.floor(padIndex / 8);
-    const column = padIndex % 8;
-    if (state.scale !== 0) {
-        const intervals = SCALE_INTERVALS[state.scale] || SCALE_INTERVALS[0];
+    const column = padIndex % (state.splitEnabled?4:8);
+    if (owner.scale !== 0) {
+        const intervals = SCALE_INTERVALS[owner.scale] || SCALE_INTERVALS[0];
         const degree = row * 3 + column;
         const octave = Math.floor(degree / intervals.length);
-        return clamp(Math.round(PARAMS.root_note.value) - 12
-            + state.octave * 12 + octave * 12
+        return clamp(Math.round(owner.root||60) - 12
+            + (owner.octave||0) * 12 + octave * 12
             + intervals[degree % intervals.length], 0, 127);
     }
-    return clamp(48 + state.octave * 12 + row * 5 + column, 0, 127);
+    return clamp((state.splitEnabled?(owner.root||60)-12:48) + (owner.octave||0) * 12 + row * 5 + column, 0, 127);
 }
 
 function adjustOctave(delta) {
@@ -2270,6 +2683,7 @@ function adjustClipBank(delta) {
 }
 
 function adjustSettingsPage(delta) {
+    if (currentSettingsPage().route) cancelFxOrder(false);
     const pages = parameterPages();
     state.settingsPage = (state.settingsPage + (delta > 0 ? 1 : -1)
         + pages.length) % pages.length;
@@ -2317,8 +2731,12 @@ function applyMomentaryControl(control) {
 }
 
 function adjustControl(index, delta) {
+    if (state.view === 'settings' && currentSettingsPage().route) {
+        if (delta !== 0) adjustFxOrder(index, delta);
+        return;
+    }
     const keys = activeControlKeys();
-    const control = PARAMS[keys[index]];
+    const control = controlForKey(keys[index]);
     if (!control || delta === 0) return;
     if (control.key === 'chain_clear') {
         parameterEncoderMotion[index].key = control.key;
@@ -2338,7 +2756,9 @@ function adjustControl(index, delta) {
     delta = parameterEncoderDelta(index, control.key, delta);
     if (delta === 0) return;
     let value;
-    if (control.key === 'long_grain_length') {
+    if (control.key === 'effect_reverb_decay' || control.key === 'effect_reverb_damp') {
+        value = logarithmicControlAt(control, logarithmicControlIndex(control) + delta);
+    } else if (control.key === 'long_grain_length') {
         value = longGrainLengthAt(longGrainLengthIndex(control.value) + delta);
     } else if (control.key === 'effect_rotary_ramp') {
         value = rotaryRampAt(rotaryRampIndex(control.value) + delta);
@@ -2361,11 +2781,13 @@ function adjustControl(index, delta) {
     }
     if (control.integer) value = Math.round(value);
     control.value = value;
+    PARAMS[control.key].value = value;
     if (control.key === 'algorithm') {
         selectAlgorithm(value);
         return;
     }
-    setParam(control.key, value.toFixed(control.integer ? 0 : 4));
+    if(['split_mode','split_focus'].includes(control.key)){setParamBlocking(control.key,value);parseSplitState(getParam('split_state','{}'));}
+    else setParam(control.key, value.toFixed(control.integer ? 0 : 4));
     if (control.key === 'chain_enabled') {
         state.chainEnabled = value !== 0;
     } else if (control.key === 'chain_slot') {
@@ -2390,6 +2812,11 @@ function adjustControl(index, delta) {
         setParam('clip_automation', control.key);
     }
     showMessage(control.label + ' ' + formatControlValue(control), 35);
+    if(state.splitEnabled && SPLIT_SEND_KEYS.includes(control.key) && value>0) {
+        const delay=control.key.includes('delay');
+        if(PARAMS[delay?'effect_mix':'effect_reverb_mix'].value<=0)
+            showActionMessage(delay?'RAISE DRTN: KNOB 5':'RAISE RRTN: KNOB 6');
+    }
 }
 
 function pollDiagnostics() {
@@ -2415,6 +2842,8 @@ function pollDiagnostics() {
 }
 
 function pollDsp() {
+    if ((state.fxRouteGrabbed || state.fxRoutePending)
+        && !(state.view === 'settings' && currentSettingsPage().route)) cancelFxOrder(false);
     const algorithm = clamp(Math.round(getNumber('algorithm', state.algorithm)),
         0, ALGORITHMS.length - 1);
     if (algorithm !== state.algorithm) {
@@ -2422,9 +2851,11 @@ function pollDsp() {
         PARAMS.algorithm.value = algorithm;
         state.settingsPage = clamp(state.settingsPage, 0, parameterPages().length - 1);
     }
+    parseSplitState(getParam('split_state','{}'));
     parseUiState(getParam('ui_state', ''));
     parsePlayheads(getParam('playheads', ''));
     parseWavesetState(getParam('waveset_state', ''));
+    parseCutupsState(getParam('cutups_state', ''));
     state.wavesetAnalysisPending = Number(String(getParam(
         'waveset_analysis_state', '0,0,0')).split(',')[1]) || 0;
     parseStackPositions(getParam('voice_lanes', ''));
@@ -2472,10 +2903,17 @@ function pollDsp() {
 }
 
 globalThis.init = function() {
+    // Schwung may clear or restore the physical surface between takeover sessions.
+    if (typeof moveInputFilter.invalidateLedCache === 'function') {
+        moveInputFilter.invalidateLedCache();
+    }
     state.ticks = 0;
     state.view = 'main';
     state.settingsPage = 0;
     state.helpPage = 0;
+    state.splitEnabled = false; state.splitFocus = 0; state.splitPages = [0,0];
+    state.focusButtonHeld = false; state.focusButtonUsed = false;
+    state.fxMenuSelection=0;state.fxMenuReturn=false;
     state.message = 'REC CAPTURES PERFORMANCE';
     state.messageTicks = 80;
     state.actionMessage = '';
@@ -2491,6 +2929,8 @@ globalThis.init = function() {
     state.ledSent.clear();
     state.ledOrder = 0;
     resetParameterEncoderMotion();
+    state.fxRouteClip = -1; state.fxRoutePending = false;
+    state.fxRouteSelected = 0; state.fxRouteGrabbed = false;
     setParam('shift_held', 0);
     for (const key of Object.keys(PARAMS)) {
         const control = PARAMS[key];
@@ -2501,9 +2941,11 @@ globalThis.init = function() {
     state.lane = clamp(getNumber('record_lane', 1) | 0, 1, 4);
     state.octave = clamp(getNumber('pad_octave', 0) | 0, -3, 3);
     state.recordSource = clamp(getNumber('record_source', 0) | 0, 0, 1);
+    parseSplitState(getParam('split_state','{}'));
     parseUiState(getParam('ui_state', ''));
     parsePlayheads(getParam('playheads', ''));
     parseWavesetState(getParam('waveset_state', ''));
+    parseCutupsState(getParam('cutups_state', ''));
     state.wavesetAnalysisPending = Number(String(getParam(
         'waveset_analysis_state', '0,0,0')).split(',')[1]) || 0;
     parseStackPositions(getParam('voice_lanes', ''));
@@ -2540,6 +2982,8 @@ globalThis.init = function() {
     } else if (state.persistenceEnabled) {
         state.message = 'EXIT SAVES BANK';
     }
+    state.message = 'THRU ' + UI_VERSION;
+    syncFxOrder();
     rebuildLedQueue();
     // Scale and recalled voice ownership are meaningful as soon as takeover
     // opens. Send the grid immediately rather than placing it behind the
@@ -2576,21 +3020,22 @@ globalThis.onMidiMessageInternal = function(data) {
         }
         const pad = MovePads.indexOf(number);
         if (pad >= 0) {
+            const owner=padSettings(pad),mode=owner.mode;
             if (pressed) {
                 state.activePads.add(number);
-                if (state.padMode === 2) {
-                    if (pad >= 8) {
-                        showMessage('CUES USE PADS 1-8');
+                if (mode === 2) {
+                    if(state.splitEnabled?Math.floor(pad/8)>0:pad>=8){
+                        showMessage(state.splitEnabled?'CUES USE TOP 4':'CUES USE PADS 1-8');
                         rebuildLedQueue();
                         return;
                     }
-                    const cue = pad % 8;
+                    const cue = state.splitEnabled?(pad%4)+(pad%8>=4?4:0):pad%8;
                     if (state.deleteHeld) {
                         setParamBlocking('cue_clear', cue);
                         showMessage('CLEARED CUE ' + (cue + 1));
                     } else if (state.shiftHeld) {
                         setParamBlocking('cue_store', cue + ','
-                            + state.position.toFixed(4));
+                            + (state.splitEnabled?(owner.position||0):state.position).toFixed(4));
                         showMessage('STORED CUE ' + (cue + 1));
                     } else {
                         setParamBlocking('cue_trigger', cue);
@@ -2599,9 +3044,9 @@ globalThis.onMidiMessageInternal = function(data) {
                     rebuildLedQueue();
                 } else {
                     sendLedNow('note', number, Cyan);
-                    if (state.padMode === 3) {
+                    if (mode === 3) {
                         showMessage('ROLL '
-                            + ROLL_DIVISIONS[pad % ROLL_DIVISIONS.length]
+                            + ROLL_DIVISIONS[(state.splitEnabled?Math.floor(pad/8)*4+pad%4:pad) % ROLL_DIVISIONS.length]
                             + ' ALL' + (state.shiftHeld ? ' LATCH' : ''));
                     } else if (state.shiftHeld) {
                         showMessage('PAD HOLD TOGGLE');
@@ -2622,6 +3067,21 @@ globalThis.onMidiMessageInternal = function(data) {
     }
 
     if (status !== 0xB0) return;
+    if(number===MoveCopy&&value>0){
+        if(state.shiftHeld&&state.splitEnabled){setParamBlocking('split_copy',1);showMessage('COPIED TO OTHER PART');}
+        else toggleSplitMode();return;
+    }
+    if(number===MoveCapture&&state.splitEnabled){
+        if(value>0){state.focusButtonHeld=true;state.focusButtonUsed=false;
+            if(state.shiftHeld){state.focusButtonUsed=true;openSplitSends();}}
+        else {if(!state.focusButtonUsed)setSplitFocus(1-state.splitFocus);state.focusButtonHeld=false;}
+        return;
+    }
+    if(number===MoveMute&&value>0&&state.splitEnabled){
+        const muted=!(state.splitParts[state.splitFocus]?.mute);
+        setParamBlocking('part_mute',muted?1:0);parseSplitState(getParam('split_state','{}'));showMessage(muted?'PART MUTED':'PART UNMUTED');return;
+    }
+    if(number===MoveKnob1+7&&state.splitEnabled&&state.focusButtonHeld){state.focusButtonUsed=true;adjustSplitBlend(decodeDelta(value));return;}
     if (number === MoveShift) {
         state.shiftHeld = value > 0;
         setParam('shift_held', state.shiftHeld ? 1 : 0);
@@ -2741,7 +3201,8 @@ globalThis.onMidiMessageInternal = function(data) {
         return;
     }
     if (number === MoveUp && value > 0) {
-        if (state.view === 'help') state.helpPage = Math.max(0, state.helpPage - 1);
+        if (state.view === 'fxMenu') moveSplitFxMenu(-1);
+        else if (state.view === 'help') state.helpPage = Math.max(0, state.helpPage - 1);
         else if (state.view === 'chain') adjustChainRepeats(1);
         else if (state.shiftHeld
             && (state.view === 'main' || state.view === 'settings')) {
@@ -2753,7 +3214,8 @@ globalThis.onMidiMessageInternal = function(data) {
         return;
     }
     if (number === MoveDown && value > 0) {
-        if (state.view === 'help') state.helpPage = Math.min(2, state.helpPage + 1);
+        if (state.view === 'fxMenu') moveSplitFxMenu(1);
+        else if (state.view === 'help') state.helpPage = Math.min(2, state.helpPage + 1);
         else if (state.view === 'chain') adjustChainRepeats(-1);
         else if (state.shiftHeld
             && (state.view === 'main' || state.view === 'settings')) {
@@ -2766,16 +3228,21 @@ globalThis.onMidiMessageInternal = function(data) {
     }
     if (number === MoveMainKnob) {
         const delta = decodeDelta(value);
-        if (state.view === 'help' && delta !== 0) {
+        if (state.view === 'fxMenu') moveSplitFxMenu(delta);
+        else if (state.view === 'help' && delta !== 0) {
             state.helpPage = clamp(state.helpPage + (delta > 0 ? 1 : -1), 0, 2);
         }
+        else if (state.view === 'settings' && currentSettingsPage().route) turnFxOrder(delta);
         else if (state.view === 'library') moveLibrarySelection(delta);
         else if (state.view === 'chain') adjustChainClip(delta);
         else if (delta !== 0) selectLane(state.lane + (delta > 0 ? 1 : -1));
         return;
     }
     if (number === MoveMainButton && value > 0) {
-        if (state.view === 'library') activateLibraryItem();
+        if (state.view === 'fxMenu') activateSplitFxPage();
+        else if (state.splitEnabled && state.view==='settings' && currentSettingsPage()===SPLIT_MIX_PAGE && !state.shiftHeld) openSplitFxMenu();
+        else if (state.view === 'settings' && currentSettingsPage().route) clickFxOrder();
+        else if (state.view === 'library') activateLibraryItem();
         else if (state.view === 'chain') {
             if (state.shiftHeld) {
                 insertActiveClipInChain();
@@ -2798,6 +3265,7 @@ globalThis.onMidiMessageInternal = function(data) {
         return;
     }
     if (number === MoveMenu && value > 0) {
+        if (state.view === 'settings' && currentSettingsPage().route) cancelFxOrder(false);
         if (state.shiftHeld) {
             if (state.view === 'help') {
                 state.view = 'main';
@@ -2806,17 +3274,27 @@ globalThis.onMidiMessageInternal = function(data) {
                 state.helpPage = 0;
                 state.view = 'help';
             }
-        } else if (state.view === 'help') {
-            state.view = 'main';
+        } else if (state.view === 'help' || state.view === 'fxMenu') {
+            state.view = 'main';state.fxMenuReturn=false;
         } else {
+            state.fxMenuReturn=false;
             state.view = state.view === 'settings' ? 'main' : 'settings';
         }
         return;
     }
     if (number === MoveBack && value > 0) {
+        if (state.view === 'settings' && currentSettingsPage().route
+            && (state.fxRouteGrabbed || state.fxRoutePending)) {
+            cancelFxOrder();
+            return;
+        }
         if (state.shiftHeld && state.undoAvailable) {
             setParamBlocking('undo', 1);
             showMessage('UNDO');
+        } else if (state.view==='fxMenu') {
+            openSplitSends();
+        } else if (state.view==='settings' && state.fxMenuReturn && state.splitEnabled) {
+            openSplitFxMenu();
         } else if (state.view === 'library') {
             libraryBack();
         } else if (state.view !== 'main') {

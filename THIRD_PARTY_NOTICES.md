@@ -20,3 +20,12 @@ BSD-3-Clause license.
 - Imported source SHA-256:
   `73385c00a02d05a3af1dea74ced8c60ff57261c2e87efc6d0c6f82c11492f2d7`
 
+
+## Reverb design reference
+
+`include/thru_reverb.h` is an original BSD-3-Clause implementation. Its Plate
+algorithm follows the network topology and delay-time constants in Jon Dattorro,
+“Effect Design, Part 1: Reverberator and Other Filters”, JAES 45(9), 1997.
+The Room algorithm uses a four-line orthogonal feedback-delay network.
+
+Reference: https://www.convexoptimization.com/TOOLS/EffectDesignPart1.pdf

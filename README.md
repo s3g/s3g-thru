@@ -46,7 +46,19 @@ The installable is written to `dist/s3g-thru-module.tar.gz`. Run
 `npm run docs:serve` to preview the manual locally and `npm run release:check`
 before creating a version tag.
 
+## AI assistance
+
+s3g Thru is developed with AI assistance for code and documentation. Instrument
+design draws largely on s3g’s prior work in environments such as Max/MSP. s3g
+directs design, hardware testing, and release decisions, conducts code review,
+and edits documentation.
+
+AI-assisted content may contain errors and bugs. Please keep this in mind for
+your intended use. Functionality may change in new releases.
+
 ## License
 
-BSD 3-Clause. See [LICENSE](LICENSE) and
-[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+The software is provided **“as is,” without express or implied warranties**,
+under the BSD 3-Clause [LICENSE](LICENSE). See the license for the full warranty
+disclaimer and limitation of liability, and
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for third-party notices.

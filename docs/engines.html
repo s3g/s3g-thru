@@ -23,7 +23,7 @@
           <div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/engine-page.svg" aria-label="Open the Engine page figure"><img src="assets/screens/engine-page.svg" alt="Engine page with algorithm and seven shared playback controls"></button></div>
           <figcaption>Press <kbd>Menu</kbd> to open Engine. Knobs 1–4 follow the top row; knobs 5–8 follow the bottom row. Up/Down then moves through only the pages used by the selected Algorithm.</figcaption>
         </figure>
-        <p>The title-row fraction shows the current parameter page and the number available for the selected engine. The total changes with the engine: Sample has the shortest set, while Grains and the extended Motion modes have more contextual pages. The screen examples therefore show the correct fraction for the engine used in each figure rather than one global page count.</p>
+        <p>The title-row fraction shows the current parameter page and the number available for the selected engine. The totals below describe Single mode; Split adds three pages. The total also changes with the engine: Sample has the shortest set, while Grains and the extended Motion modes have more contextual pages. The screen examples therefore show the correct fraction for the engine used in each figure rather than one global page count.</p>
 
         <div class="callout"><p><strong>Split mode:</strong> two independent instruments share the pad grid, with two stereo lanes and four voices each. Use the same engine with different settings or choose different engines. <a href="split.html">Split setup, controls, mixing, and recording</a>.</p></div>
 
@@ -48,10 +48,10 @@
           <tbody>
             <tr><td>1</td><td>ALG</td><td>9 choices</td><td>Algorithm selects Motion, Lanes, Grains, Cutups, Sample, Slices, Glitch, Weave, or Wavesets. Up/Down then shows the pages for that engine.</td></tr>
             <tr><td>2</td><td>POS</td><td>0.00–1.00</td><td>Position centers the active source window. Near either end, the window is clamped so it never extends beyond the sample.</td></tr>
-            <tr><td>3</td><td>FLD</td><td>0.02–1.00</td><td>Field sets the active window width as a fraction of the sample. The waveform uses a short top tick for Position and a short bottom tick for Field.</td></tr>
+            <tr><td>3</td><td>FLD</td><td>0.02–1.00</td><td>Field sets the active window width as a fraction of the sample. See <a href="interface.html#zoom">Waveform zoom</a>. Single zooms all four lanes together; Split gives each part its own window.</td></tr>
             <tr><td>4</td><td>SPD</td><td>0.05–4.00×</td><td>Speed sets base source transport. In Grains and Weave it moves grain origins independently of keyboard pitch; the other engines, including Wavesets, combine it with note pitch as described in their guides.</td></tr>
-            <tr><td>5</td><td>STAK</td><td>1.00–4.00</td><td>Stack Start sets an exact lane/crossfade for Manual stack motion, or the starting phase of a moving stack path. Cutups labels this knob LANE and selects a physical starting lane, adopted at the next cut. Sample and Slices round it to a discrete loaded lane.</td></tr>
-            <tr><td>6</td><td>RATE</td><td>0.125–16 Hz</td><td>Scan Rate sets cycles per second for moving stack paths. <kbd>Loop</kbd> freezes the audible phase. Cutups replaces this knob with ADV: Hold or 1/2/3/4/8/16 cuts per lane. Sample and Slices do not use continuous stack scanning.</td></tr>
+            <tr><td>5</td><td>STAK / LANE</td><td>1.00–4.00 Single; 1.00–2.00 Split</td><td>Stack Start sets an exact lane/crossfade for Manual stack motion, or the starting phase of a moving stack path. Cutups labels this knob LANE and selects a physical starting lane, adopted at the next cut. Sample and Slices round it to a discrete loaded lane.</td></tr>
+            <tr><td>6</td><td>RATE / ADV</td><td>0.125–16 Hz; Cutups Hold / 1 / 2 / 3 / 4 / 8 / 16 cuts</td><td>Scan Rate sets cycles per second for moving stack paths. <kbd>Loop</kbd> freezes the audible phase. Cutups replaces this knob with ADV: Hold or 1/2/3/4/8/16 cuts per lane. Sample and Slices do not use continuous stack scanning.</td></tr>
             <tr><td>7</td><td>JOIN</td><td>0.00–1.00</td><td>Join scales seam smoothing for continuous/event readers and the Sample engine's Loop boundary. Motion also uses it as articulation depth. Cutups has a separate Cut Join for event-to-event fades. At zero, a very short internal safety transition remains to prevent a one-sample edge.</td></tr>
             <tr><td>8</td><td>LEVL</td><td>0.00–2.00</td><td>Level sets instrument output gain before the program compressor and safety limiter. At 1.00, the mastering stage supplies a full nominal output; values above 1.00 push it harder. Pad velocity never attenuates playback. In Split, Engine-page knob 8 controls the focused part’s level; waveform knob 8 controls Blend.</td></tr>
           </tbody>
@@ -74,7 +74,7 @@
             <tr><td>1</td><td>PADS</td><td>Keys / Slices / Cues / Rolls</td><td>Chooses how the 32 pads address pitches, regions, stored positions, or clocked rolls.</td></tr>
             <tr><td>2</td><td>ROOT</td><td>C1–C7</td><td>Sets sample unison and the tonic of a named scale. Slices play this pitch; Rolls retain the pitches already present in their grouped capture. In a named Keys scale, the bottom-left pad begins one octave below Root before octave transposition.</td></tr>
             <tr><td>3</td><td>SCAL</td><td>Chromatic + 24 scales</td><td>Chromatic preserves the original semitone grid. A named scale removes out-of-scale pitches and maps adjacent columns to consecutive scale degrees.</td></tr>
-            <tr><td>4</td><td>HOLD</td><td>Manual / 50 ms–60 s</td><td>Keeps Shift+pad latches active until toggled, or schedules their release with one global delay.</td></tr>
+            <tr><td>4</td><td>HOLD</td><td>Manual / 50 ms–60 s</td><td>Keeps Shift+pad latches active until toggled, or schedules their release with one delay per instrument: shared across Single, independent for A and B in Split.</td></tr>
             <tr><td>5</td><td>POLY</td><td>Off / On</td><td>Polyphony Compensation smoothly controls summed energy as simultaneous source voices and Rolls increase. One voice remains unchanged. Turn it off only when intentional additive buildup is part of the sound.</td></tr>
             <tr><td>6–8</td><td>Reserved</td><td>—</td><td>Inactive positions available for future pad-layout controls.</td></tr>
           </tbody>
@@ -102,7 +102,7 @@
           </tbody>
         </table>
 
-        <p>The time knobs use close-spaced millisecond values near zero and progressively wider steps for long fades. The default 3 ms attack, 0 ms decay, 100% sustain, and 25 ms release preserves the earlier immediate pad response while suppressing clicks. Replaying a note during a long release leaves its old tail on a separate voice when capacity permits; when all eight voices are occupied, the reused voice fades out before its reader restarts. Envelope gestures recorded into a performance clip replay with that clip. Rolls use a captured, already-enveloped stereo fragment and retain their separate short edge crossfade; the Amp Envelope is not applied a second time.</p>
+        <p>The time knobs use close-spaced millisecond values near zero and progressively wider steps for long fades. The default 3 ms attack, 0 ms decay, 100% sustain, and 25 ms release preserves the earlier immediate pad response while suppressing clicks. Replaying a note during a long release leaves its old tail on a separate voice when capacity permits; when the available voices are occupied (eight in Single, four per part in Split), the reused voice fades out before its reader restarts. Envelope gestures recorded into a performance clip replay with that clip. Rolls use a captured, already-enveloped stereo fragment and retain their separate short edge crossfade; the Amp Envelope is not applied a second time.</p>
 
         <h3>Pad mode behavior</h3>
         <table class="readout-table">
@@ -135,7 +135,7 @@
 
         <h2 id="stack-path">Shared Stack Path page</h2>
 
-        <p>Motion, Lanes, Grains, Glitch, Weave, and Wavesets all use this same page to shape movement through the four audio lanes. Stack Start and Scan Rate remain on Engine and are not repeated here.</p>
+        <p>Motion, Lanes, Grains, Glitch, Weave, and Wavesets all use this same page to shape movement through all four lanes in Single, or the focused pair in Split. Stack Start and Scan Rate remain on Engine and are not repeated here.</p>
 
         <figure>
           <div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/stack-path.svg" aria-label="Open the shared Stack Path page figure"><img src="assets/screens/stack-path.svg" alt="Shared Stack Path page with seven controls and one reserved encoder position"></button></div>
@@ -193,9 +193,14 @@
 
         <h2 id="voices">What every engine shares</h2>
 
-        <p>All engines can play up to eight voices from the four sources owned by the current performance clip. Each voice has its own pitch, read position, release, and physical pad assignment. Motion, Lanes, Grains, Glitch, Weave, and Wavesets also give every voice its own movement through the stack; Cutups advances each voice’s discrete lane after a chosen number of cuts. Sample and Slices choose discrete lanes.</p>
+        <p>Single shares eight voices across the clip’s four lanes. Split gives each instrument four voices across its own two lanes, using the same or different engines with independent settings. Each voice has its own pitch, read position, release, and physical pad assignment. Motion, Lanes, Grains, Glitch, Weave, and Wavesets also give every voice its own movement through the stack; Cutups advances each voice’s discrete lane after a chosen number of cuts. Sample and Slices choose discrete lanes.</p>
 
-        <p>After every engine's contextual pages, the order is always Mix / Rec, <a href="effects.html">Effects</a>, Stereo / Rotary, Tape, Sample Edit, Performance Loop, Overdub Takes, and Chain.</p>
+        <p>After the engine’s contextual pages, the shared pages appear in this order:</p>
+        <table class="readout-table"><thead><tr><th>Mode</th><th>Page order</th></tr></thead><tbody>
+          <tr><td>Single</td><td>Mix / Rec → Effects → Stereo / Rotary → Tape → Reverb → FX Order → Sample Edit → Performance Loop → Overdub Takes → Chain.</td></tr>
+          <tr><td>Split</td><td>FX Sends → Split Setup → Mix / Rec → Part Color → Stereo / Rotary → Delay Return → Tape → Reverb → FX Order → Sample Edit → Performance Loop → Overdub Takes → Chain.</td></tr>
+        </tbody></table>
+        <p>Split’s Mix / Rec shows the focused part’s two lane gains. Its inserts are independent; shared effects are marked FX. <a href="split.html#fx-menu">Shift + Capture and the FX Pages menu</a> provide a direct route to effects without stepping through every page.</p>
 
         <nav class="page-nav" aria-label="Page navigation">
           <a class="page-nav-link" href="recording.html"><span>Previous</span>Samples and Recording</a>
@@ -204,12 +209,12 @@
       </main>
 
       <aside class="toc" aria-label="Page navigation">
-        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
+        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="split.html">Split</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
         <div class="toc-section"><h2>Engine guides</h2><a href="engine-motion.html">Motion</a><a href="engine-lanes.html">Lanes</a><a href="engine-grains.html">Grains</a><a href="engine-cutups.html">Cutups</a><a href="engine-sample.html">Sample</a><a href="engine-slices.html">Slices</a><a href="engine-glitch.html">Glitch</a><a href="engine-weave.html">Weave</a><a href="engine-wavesets.html">Wavesets</a></div>
         <div class="toc-section"><h2>On this page</h2><a href="#choose">Choose</a><a href="#shared">Engine page</a><a href="#pads-scale">Pads &amp; Scale</a><a href="#amp-envelope">Amp Envelope</a><a href="#stack-path">Stack Path</a><a href="#direct-play">Direct Play</a><a href="#compare">Compare</a><a href="#voices">Shared behavior</a></div>
       </aside>
     </div>
-    <footer class="manual-footer">All engines share the same four clip-local lane sources and eight-voice pool.</footer>
+    <footer class="manual-footer">Single: four lanes and eight voices. Split: two lanes and four voices per instrument.</footer>
     <script src="assets/lightbox.js"></script>
   </body>
 </html>

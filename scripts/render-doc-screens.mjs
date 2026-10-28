@@ -198,12 +198,44 @@ const params = {
     waveforms: [0, 1, 2, 3].map(waveform).join('|'),
 };
 
-globalThis.host_module_get_param = (key) => params[key] ?? '';
+globalThis.host_module_get_param = (key) => {
+    if(key==='ui_state') {
+        const values=params.ui_state.split(',');
+        if(!params.split_state||!JSON.parse(params.split_state).enabled) {
+            const width=Number(params.field),half=width*.5;
+            const center=Math.max(half,Math.min(1-half,Number(params.locus)));
+            const low=center-half,high=center+half;
+            values[5]=String(Math.round(low*1000));values[6]=String(Math.round(high*1000));
+            values[17]=String(low);values[18]=String(high);
+        }
+        return values.join(',');
+    }
+
+    if(key==='ui_editor_state') {
+        const values=Object.fromEntries(Object.entries(globalThis.__docSplit.params)
+            .filter(([,p])=>!p.momentary).map(([key,p])=>[key,Number(params[key]??p.value)]));
+        const split=JSON.parse(params.split_state||'{"enabled":0,"focus":0,"blend":0.5,"parts":[{},{}]}');
+        values.split_mode=split.enabled;values.split_focus=split.focus;
+        values.part_mute=split.parts[split.focus]?.mute||0;
+        for(const key of ['pad_octave','record_lane','stack_scan_paused','glitch_buffer_lock'])
+            values[key]=Number(params[key]||0);
+        return JSON.stringify({v:1,values,split,voices:params.voice_algorithms||'-1,-1,-1,-1,-1,-1,-1,-1'});
+    }
+    return params[key]??'';
+};
 globalThis.host_module_set_param = (key, value) => {
     if (Object.hasOwn(params, key)) params[key] = String(value);
 };
 globalThis.host_module_set_param_blocking = (key, value) => {
     if (Object.hasOwn(params, key)) params[key] = String(value);
+    if(key==='split_focus'&&params.split_state) {
+        const split=JSON.parse(params.split_state);split.focus=Number(value);
+        const part=split.parts[split.focus];params.split_state=JSON.stringify(split);
+        Object.assign(params,{algorithm:String(part.algorithm),root_note:String(part.root),
+            pad_octave:String(part.octave),pad_mode:String(part.mode),scale:String(part.scale),
+            record_lane:String(split.focus*2+1)});
+        const ui=params.ui_state.split(',');ui[0]=params.record_lane;params.ui_state=ui.join(',');
+    }
 };
 globalThis.host_exit_module = () => {};
 globalThis.clear_screen = () => { frame = []; };
@@ -224,7 +256,7 @@ source = source.replace(
 source = source.replace(
     /import \* as os[^;]+;/,
     'const os = globalThis.__os;');
-source += '\nglobalThis.__docSplit = {state, pages:parameterPages};';
+source += '\nglobalThis.__docSplit = {state, params:PARAMS, pages:parameterPages};';
 await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
 
 function escapeXml(value) {
@@ -335,6 +367,18 @@ function captureEnginePages(algorithm, pages) {
 globalThis.init();
 tick(82);
 capture('waveform.svg', 'Waveform page with three polyphonic playheads');
+
+const wideWaveformFixture = {
+    locus: params.locus, field: params.field, playheads: params.playheads,
+};
+Object.assign(params, {
+    locus: '0.55', field: '0.22',
+    playheads: '480,550,620,-1,-1,-1,-1,-1',
+});
+tick(3);
+capture('waveform-zoom.svg', 'Single waveform zoom at Position 0.55 and Field 0.22');
+Object.assign(params, wideWaveformFixture);
+tick(3);
 
 params.algorithm = '3';
 params.cutups_state = '0,0,190,-1,-1000,1000,0;1,2,510,1,440,800,400;2,3,790,-1,-1000,600,0';
@@ -497,9 +541,9 @@ Object.assign(params, {
     split_delay_a:'0.2', split_delay_b:'0.45', split_reverb_a:'0.6', split_reverb_b:'0.3', split_curve:'1',
     effect_order:'7', effect_order_state:'7,7,0', effect_mix:'100',effect_reverb_mix:'100',
     split_state:JSON.stringify({enabled:1,focus:0,blend:.5,parts:[
-        {algorithm:4,root:60,octave:0,scale:1,mode:0,hold:0,mute:0,position:.25},
-        {algorithm:2,root:67,octave:0,scale:1,mode:0,hold:1,mute:0,position:.7}]}),
-    playheads:'250,-1,-1,-1,700,-1,-1,-1',
+        {algorithm:4,root:60,octave:0,scale:1,mode:0,hold:0,mute:0,position:.25,window:[.1,.5]},
+        {algorithm:2,root:67,octave:0,scale:1,mode:0,hold:1,mute:0,position:.82,window:[.55,.95]}]}),
+    playheads:'250,-1,-1,-1,820,-1,-1,-1',
     voice_lanes:'200,-1,-1,-1,750,-1,-1,-1',
     voice_algorithms:'4,-1,-1,-1,2,-1,-1,-1',
     voice_pads:'1,-1,-1,-1,20,-1,-1,-1',
@@ -508,7 +552,14 @@ Object.assign(params, {
     ui_state:'1,15,0,0,250,100,900,1000,0,1000,0,0,45,0,1,0,2'
 });
 globalThis.init();tick(82);
-capture('split-waveform.svg','Split waveform with Sample A and Grains B');
+capture('split-waveform.svg','Split waveform with A focused and independent A/B zoom');
+cc(52);cc(52,0);tick();capture('split-waveform-b.svg','Split waveform with B focused');
+cc(52);cc(52,0);tick();
+const mutedExample=JSON.parse(params.split_state);
+mutedExample.parts[1].mute=1;params.split_state=JSON.stringify(mutedExample);tick(3);
+capture('split-muted.svg','Split with B muted and an unmute hint');
+mutedExample.parts[1].mute=0;params.split_state=JSON.stringify(mutedExample);tick(3);
+
 const splitExamples=[
     ['FX SENDS','split-mix.svg','Split FX Sends'],
     ['ENGINE','split-engine.svg','A Engine and Part Level'],

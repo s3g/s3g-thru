@@ -961,61 +961,62 @@ int parseEnum(const char* value, const char* const (&names)[Count], int fallback
     return clampValue(parseInteger(value, fallback), 0, static_cast<int>(Count) - 1);
 }
 
+constexpr const char* kLockParameterKeys[kLockParameterCount] {
+    "locus", "field", "speed", "manual_lane", "lane_cycles",
+    "algorithm", "join", "output_gain", "motion_mode", "motion_sound",
+    "motion_rate", "lanes_mode", "lane_path", "lanes_stretch",
+    "stretch_ratio", "lane_1_gain", "lane_2_gain", "lane_3_gain",
+    "lane_4_gain", "grain_mode", "grain_size", "grain_density",
+    "grain_pitch", "grain_window", "grain_spread", "cutups_mode",
+    "motion_travel", "motion_jitter", "packet_duty", "motor_rate",
+    "motor_symmetry", "motor_shape", "lane_blend", "lane_path_shape",
+    "lane_path_offset", "lane_path_skew", "lane_path_curve", "lane_slew",
+    "grain_spray", "grain_bias", "grain_pitch_spray", "grain_reverse",
+    "grain_size_variation", "grain_level_variation", "grain_timing",
+    "grain_timing_scatter", "grain_envelope_skew", "grain_process",
+    "grain_process_amount", "grain_regions", "grain_advance", "cut_clock",
+    "cut_division", "cut_rate", "cut_time_variation", "cut_gate",
+    "cut_join", "cut_regions", "cut_repeats", "cut_reverse",
+    "cut_pitch_variation", "cut_level_variation", "cut_lane_order",
+    "cut_poly_path", "cut_region_mode", "sample_mode",
+    "slice_region_mode", "slice_regions", "motion_rate_basis",
+    "motion_path_rate", "motion_step", "motion_seed",
+    "segment_trigger", "segment_overlap", "segment_layers",
+    "segment_rate", "segment_repeats", "segment_step",
+    "segment_pitch", "segment_level", "segment_curve",
+    "glitch_mode", "glitch_clock", "glitch_division", "glitch_rate",
+    "glitch_slice", "glitch_repeats", "glitch_chance", "glitch_mix",
+    "glitch_steps", "glitch_pulses", "glitch_rotate", "glitch_jump",
+    "glitch_pitch", "glitch_reverse", "glitch_decay", "glitch_seed",
+    "effect_tone", "effect_drive", "effect_bits", "effect_rate",
+    "effect_delay", "effect_feedback", "effect_width", "effect_mix",
+    "long_grain_mode", "long_grain_length", "long_grain_layers",
+    "long_grain_pitch", "long_grain_shape", "long_grain_edge",
+    "long_grain_spread", "long_grain_reverse", "long_grain_spray",
+    "long_grain_bias", "long_grain_duration_variation",
+    "long_grain_pitch_spray", "long_grain_level_variation",
+    "long_grain_phase", "long_grain_advance", "amp_attack",
+    "amp_decay", "amp_sustain", "amp_release", "effect_cross_pan",
+    "effect_rotary_rate", "effect_rotary_depth", "effect_rotary_mix",
+    "effect_rotary_ramp", "effect_rotary_balance",
+    "effect_rotary_crossover", "effect_rotary_spread",
+    "effect_tape_format", "effect_tape_drive",
+    "effect_tape_wow_rate", "effect_tape_wow_depth",
+    "effect_tape_flutter_rate", "effect_tape_flutter_depth",
+    "effect_tape_hiss", "effect_tape_mix", "effect_tape_age",
+    "effect_tape_crinkle", "effect_tape_mechanics",
+    "effect_tape_inertia", "waveset_group", "waveset_repeats",
+    "waveset_stride", "waveset_advance", "waveset_direction",
+    "waveset_process", "waveset_amount", "waveset_detail",
+    "effect_reverb_algo", "effect_reverb_decay", "effect_reverb_pre", "effect_reverb_damp", "effect_reverb_diff", "effect_reverb_mod", "effect_reverb_width", "effect_reverb_mix", "effect_order", "cut_lane_advance", "split_blend", "split_level_a", "split_level_b",
+    "split_delay_a", "split_delay_b", "split_reverb_a", "split_reverb_b", "split_curve"
+};
+
 int lockParameterIndex(const char* key)
 {
     if (!key) return -1;
-    static constexpr const char* keys[kLockParameterCount] {
-        "locus", "field", "speed", "manual_lane", "lane_cycles",
-        "algorithm", "join", "output_gain", "motion_mode", "motion_sound",
-        "motion_rate", "lanes_mode", "lane_path", "lanes_stretch",
-        "stretch_ratio", "lane_1_gain", "lane_2_gain", "lane_3_gain",
-        "lane_4_gain", "grain_mode", "grain_size", "grain_density",
-        "grain_pitch", "grain_window", "grain_spread", "cutups_mode",
-        "motion_travel", "motion_jitter", "packet_duty", "motor_rate",
-        "motor_symmetry", "motor_shape", "lane_blend", "lane_path_shape",
-        "lane_path_offset", "lane_path_skew", "lane_path_curve", "lane_slew",
-        "grain_spray", "grain_bias", "grain_pitch_spray", "grain_reverse",
-        "grain_size_variation", "grain_level_variation", "grain_timing",
-        "grain_timing_scatter", "grain_envelope_skew", "grain_process",
-        "grain_process_amount", "grain_regions", "grain_advance", "cut_clock",
-        "cut_division", "cut_rate", "cut_time_variation", "cut_gate",
-        "cut_join", "cut_regions", "cut_repeats", "cut_reverse",
-        "cut_pitch_variation", "cut_level_variation", "cut_lane_order",
-        "cut_poly_path", "cut_region_mode", "sample_mode",
-        "slice_region_mode", "slice_regions", "motion_rate_basis",
-        "motion_path_rate", "motion_step", "motion_seed",
-        "segment_trigger", "segment_overlap", "segment_layers",
-        "segment_rate", "segment_repeats", "segment_step",
-        "segment_pitch", "segment_level", "segment_curve",
-        "glitch_mode", "glitch_clock", "glitch_division", "glitch_rate",
-        "glitch_slice", "glitch_repeats", "glitch_chance", "glitch_mix",
-        "glitch_steps", "glitch_pulses", "glitch_rotate", "glitch_jump",
-        "glitch_pitch", "glitch_reverse", "glitch_decay", "glitch_seed",
-        "effect_tone", "effect_drive", "effect_bits", "effect_rate",
-        "effect_delay", "effect_feedback", "effect_width", "effect_mix",
-        "long_grain_mode", "long_grain_length", "long_grain_layers",
-        "long_grain_pitch", "long_grain_shape", "long_grain_edge",
-        "long_grain_spread", "long_grain_reverse", "long_grain_spray",
-        "long_grain_bias", "long_grain_duration_variation",
-        "long_grain_pitch_spray", "long_grain_level_variation",
-        "long_grain_phase", "long_grain_advance", "amp_attack",
-        "amp_decay", "amp_sustain", "amp_release", "effect_cross_pan",
-        "effect_rotary_rate", "effect_rotary_depth", "effect_rotary_mix",
-        "effect_rotary_ramp", "effect_rotary_balance",
-        "effect_rotary_crossover", "effect_rotary_spread",
-        "effect_tape_format", "effect_tape_drive",
-        "effect_tape_wow_rate", "effect_tape_wow_depth",
-        "effect_tape_flutter_rate", "effect_tape_flutter_depth",
-        "effect_tape_hiss", "effect_tape_mix", "effect_tape_age",
-        "effect_tape_crinkle", "effect_tape_mechanics",
-        "effect_tape_inertia", "waveset_group", "waveset_repeats",
-        "waveset_stride", "waveset_advance", "waveset_direction",
-        "waveset_process", "waveset_amount", "waveset_detail",
-        "effect_reverb_algo", "effect_reverb_decay", "effect_reverb_pre", "effect_reverb_damp", "effect_reverb_diff", "effect_reverb_mod", "effect_reverb_width", "effect_reverb_mix", "effect_order", "cut_lane_advance", "split_blend", "split_level_a", "split_level_b",
-        "split_delay_a", "split_delay_b", "split_reverb_a", "split_reverb_b", "split_curve"
-    };
     for (std::size_t index = 0u; index < kLockParameterCount; ++index) {
-        if (std::strcmp(key, keys[index]) == 0) return static_cast<int>(index);
+        if (std::strcmp(key, kLockParameterKeys[index]) == 0) return static_cast<int>(index);
     }
     return -1;
 }
@@ -1736,7 +1737,7 @@ struct ThruInstance {
     std::array<float,kBlockFrames> splitEnvelopePower[2u] {};
     float splitBlendState = 0.5f, splitCurveState = 1.0f;
     std::array<float,2u> splitLevelState {1.0f,1.0f}, splitDelayState {}, splitReverbState {};
-    std::uint64_t splitBlendOverrideUntil = 0u;
+    std::array<bool,kLockParameterCount-static_cast<std::size_t>(LockParameter::splitBlend)> splitMixerOverrides {};
     std::unique_ptr<float[]> storage;
     std::unique_ptr<float[]> preparedClipStorage;
     std::size_t laneCapacityFrames = 0u;
@@ -3539,9 +3540,18 @@ struct ThruInstance {
             && !preview
             && std::strcmp(path, sampleRequestPath.data()) == 0) {
             if (!fromClip) pushClipUndo(activeClip);
+            if (sampleRequestLane != lane) {
+                // Keep the old preview's already-mixed tail when changing sides.
+                beginPreviewTransitionTail();
+                previewActive = false;
+                previewStopRequested = false;
+                previewFadeOutRemaining = 0u;
+            } else stopPreviewWithFade();
+            sampleRequestLane = lane;
+            sampleRequestClip = ownerClip >= 0 ? ownerClip : activeClip;
+            sampleRequestFromClip = fromClip;
             sampleRequestPreview = false;
             samplePreviewCancelled = false;
-            stopPreviewWithFade();
             sampleLoadState.store(static_cast<int>(SampleLoadState::ready),
                                   std::memory_order_release);
             return;
@@ -5533,6 +5543,7 @@ struct ThruInstance {
         clipReplacing = !overdub;
         clipRecordingTake = overdub ? clip->takeCount : 0u;
         if (!overdub) {
+            splitMixerOverrides.fill(false);
             clip->clipNoteCount = 0u;
             clip->clipPointCount = 0u;
             clip->takeCount = 0u;
@@ -5897,6 +5908,7 @@ struct ThruInstance {
 
     void startClipPlaybackNow()
     {
+        splitMixerOverrides.fill(false);
         clipPlaying = true;
         releaseClipVoices();
         clipPositionMs = 0.0;
@@ -6058,6 +6070,7 @@ struct ThruInstance {
                              target.baseValues[parameter]);
         }
         const bool previousSplit=splitEnabled;
+        splitMixerOverrides.fill(false);
         restoreSplitClip(target);
         if(previousSplit!=splitEnabled && voices[0].engine.prepared())refreshPlaybackVoices();
         clipControls = controls;
@@ -6675,7 +6688,7 @@ struct ThruInstance {
             case 21: controls.field = midiRange(value, 0.02f, 1.0f); break;
             case 22: controls.speed = midiRange(value, 0.05f, 4.0f); break;
             case 11: controls.splitCurve=value>=64?1:0; break;
-            case 12: controls.splitBlend=midiUnit(value); splitBlendOverrideUntil=renderClockSamples.load()+static_cast<std::uint64_t>(sampleRate*.5f); break;
+            case 12: controls.splitBlend=midiUnit(value); break;
             case 13: controls.splitLevelA=midiRange(value,0,2); break;
             case 14: controls.splitLevelB=midiRange(value,0,2); break;
             case 15: controls.splitDelayA=midiUnit(value); break;
@@ -6857,6 +6870,7 @@ struct ThruInstance {
         if(cc==11)lockParameter=static_cast<int>(LockParameter::splitCurve);
         if(cc>=12 && cc<=18)lockParameter=static_cast<int>(LockParameter::splitBlend)+cc-12;
         if (cc == 19) lockParameter = static_cast<int>(LockParameter::cutLaneAdvance);
+        if (lockParameter >= 0) touchSplitMixerParameter(static_cast<std::size_t>(lockParameter));
         if (clipRecording && lockParameter >= 0
             && lockParameter < static_cast<int>(kLockParameterCount)) {
             captureClipParameter(lockParameter);
@@ -8886,7 +8900,7 @@ void setParam(void* opaque, const char* key, const char* value)
     const int splitParameter = lockParameterIndex(key);
     if (splitParameter >= static_cast<int>(LockParameter::splitBlend)) {
         applyLockedValue(controls,instance->outputGain,static_cast<std::size_t>(splitParameter),parseFloat(value,0));
-        if (splitParameter == static_cast<int>(LockParameter::splitBlend)) instance->splitBlendOverrideUntil = instance->renderClockSamples.load() + static_cast<std::uint64_t>(instance->sampleRate * 0.5f);
+        instance->touchSplitMixerParameter(static_cast<std::size_t>(splitParameter));
         return;
     }
     if (std::strcmp(key, "state") == 0) { instance->restoreState(value); return; }
@@ -9157,12 +9171,15 @@ void setParam(void* opaque, const char* key, const char* value)
     if (std::strcmp(key, "effect_tape_inertia") == 0) { controls.effectTapeInertia = clampValue(parseFloat(value, controls.effectTapeInertia * 100.0f) / 100.0f, 0.0f, 1.0f); return; }
 }
 
-int getParam(void* opaque, const char* key, char* buffer, int bufferLength)
+int formatEditorState(void* opaque, char* buffer, int bufferLength);
+
+int getParamValue(void* opaque, const char* key, char* buffer, int bufferLength)
 {
     auto* instance = static_cast<ThruInstance*>(opaque);
     if (!instance || !key || !buffer || bufferLength < 1) return -1;
-    CallbackWorkTimer callbackTimer(*instance, true);
     const auto& controls = instance->controls;
+
+    if (std::strcmp(key, "ui_editor_state") == 0) return formatEditorState(opaque,buffer,bufferLength);
 
     if (std::strcmp(key, "chain_params") == 0) return copyText(kChainParams, buffer, bufferLength);
     if (std::strcmp(key, "ui_hierarchy") == 0) return copyText(kUiHierarchy, buffer, bufferLength);
@@ -9224,12 +9241,9 @@ int getParam(void* opaque, const char* key, char* buffer, int bufferLength)
         const PlaybackVoice* display = instance->displayVoice();
         const int position = display
             ? static_cast<int>(std::lrintf(display->engine.normalizedPosition() * 1000.0f)) : 0;
-        const int fieldStart = static_cast<int>(std::lrintf(
-            (display ? display->engine.normalizedFieldStart()
-                     : instance->engine.normalizedFieldStart()) * 1000.0f));
-        const int fieldEnd = static_cast<int>(std::lrintf(
-            (display ? display->engine.normalizedFieldEnd()
-                     : instance->engine.normalizedFieldEnd()) * 1000.0f));
+        const auto window=instance->displayWindow(instance->splitEnabled?instance->splitFocus:0);
+        const int fieldStart=static_cast<int>(std::lrintf(window[0]*1000.0f));
+        const int fieldEnd=static_cast<int>(std::lrintf(window[1]*1000.0f));
         const int meter = static_cast<int>(std::lrintf(clampValue(instance->engine.recordMeterPeak(), 0.0f, 1.0f) * 1000.0f));
         const int limited = instance->engine.recording()
             ? (instance->engine.recordLimited() ? 1 : 0)
@@ -9238,7 +9252,7 @@ int getParam(void* opaque, const char* key, char* buffer, int bufferLength)
         const int tenths = static_cast<int>(std::llround(
             static_cast<double>(laneFrames) * 10.0 / instance->sampleRate));
         return std::snprintf(buffer, bufferLength,
-            "%u,%u,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
+            "%u,%u,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%.7f,%.7f",
             static_cast<unsigned>(instance->selectedLane + 1u),
             static_cast<unsigned>(instance->engine.loadedLaneMask()),
             instance->engine.recording() ? 1 : 0,
@@ -9251,7 +9265,7 @@ int getParam(void* opaque, const char* key, char* buffer, int bufferLength)
             instance->waveDirtyMask != 0u || instance->pendingRegionAnalysisMask != 0u ? 1 : 0,
             instance->persistenceEnabled ? 1 : 0,
             instance->persistenceRestored ? 1 : 0,
-            instance->heldVoiceCount());
+            instance->heldVoiceCount(),window[0],window[1]);
     }
     if(std::strcmp(key,"voice_algorithms")==0) {
         int at=0;
@@ -9578,6 +9592,80 @@ int getParam(void* opaque, const char* key, char* buffer, int bufferLength)
     if (std::strcmp(key, "effect_tape_mechanics") == 0) return std::snprintf(buffer, bufferLength, "%.2f", controls.effectTapeMechanics * 100.0f);
     if (std::strcmp(key, "effect_tape_inertia") == 0) return std::snprintf(buffer, bufferLength, "%.2f", controls.effectTapeInertia * 100.0f);
     return -1;
+}
+
+int formatEditorState(void* opaque, char* buffer, int bufferLength)
+{
+    auto* instance = static_cast<ThruInstance*>(opaque);
+    if (!instance || !buffer || bufferLength < 1) return -1;
+    // One read-only UI transaction. Reuse the scalar getters so parameter
+    // units and enum values cannot diverge from the existing public API.
+    static constexpr const char* extraKeys[] {
+        "split_mode",
+        "split_focus",
+        "part_mute",
+        "polyphony_comp",
+        "grain_quality",
+        "pad_mode",
+        "lane_variation",
+        "preview_level",
+        "pressure_mode",
+        "root_note",
+        "scale",
+        "record_gain",
+        "record_source",
+        "monitor_level",
+        "clip_rate",
+        "clip_record_mode",
+        "clip_timing",
+        "launch_quantize",
+        "tempo_bpm",
+        "tempo_swing",
+        "hold_release_ms",
+        "chain_enabled",
+        "chain_slot",
+        "chain_clip",
+        "chain_repeats",
+        "sample_trim_start",
+        "sample_trim_end",
+        "pad_octave",
+        "record_lane",
+        "stack_scan_paused",
+        "glitch_buffer_lock",
+    };
+    int at=0;bool ok=true,comma=false;
+    const auto append=[&](const char* format,auto... values) {
+        if (!ok) return;
+        const int n=std::snprintf(buffer+at,static_cast<std::size_t>(bufferLength-at),format,values...);
+        if (n<0 || n>=bufferLength-at) { ok=false;return; }
+        at+=n;
+    };
+    append("%s","{\"v\":1,\"values\":{");
+    const auto parameter=[&](const char* key) {
+        char value[64] {};
+        const int n=getParamValue(opaque,key,value,sizeof(value));
+        char* end=nullptr;const float number=std::strtof(value,&end);
+        if (n<1 || n>=static_cast<int>(sizeof(value)) || end==value || *end!='\0' || !std::isfinite(number)) { ok=false;return; }
+        append("%s\"%s\":%s",comma?",":"",key,value);comma=true;
+    };
+    for (const auto* key:kLockParameterKeys) parameter(key);
+    for (const auto* key:extraKeys) parameter(key);
+    char split[1024] {},voices[64] {};
+    const int splitLength=instance->formatSplitState(split,sizeof(split));
+    const int voiceLength=getParamValue(opaque,"voice_algorithms",voices,sizeof(voices));
+    if (splitLength<1 || splitLength>=static_cast<int>(sizeof(split))
+        || voiceLength<1 || voiceLength>=static_cast<int>(sizeof(voices))) ok=false;
+    append("},\"split\":%s,\"voices\":\"%s\"}",split,voices);
+    if (!ok) { buffer[0]='\0';return -1; }
+    return at;
+}
+
+int getParam(void* opaque, const char* key, char* buffer, int bufferLength)
+{
+    auto* instance=static_cast<ThruInstance*>(opaque);
+    if (!instance || !key || !buffer || bufferLength<1) return -1;
+    CallbackWorkTimer callbackTimer(*instance,true);
+    return getParamValue(opaque,key,buffer,bufferLength);
 }
 
 int getError(void* opaque, char* buffer, int bufferLength)

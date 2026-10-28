@@ -268,10 +268,18 @@ void testPreviewIsolation()
 #include "test_cutups_scan.inc"
 #include "test_split.inc"
 #include "test_split_sends.inc"
+#include "test_split_silence.inc"
+#include "test_editor_snapshot.inc"
 } // namespace
 
 int main()
 {
+    testEditorSnapshot();
+    testSplitDisplayWindows();
+    testSingleDisplayWindow();
+    testSplitMuteRecovery();
+    testSplitMixerLiveRecovery();
+    testSplitPreviewDestination();
     testSplitSendReturns();
     testSplitBankRoundTrip();
     testSplitInstruments();

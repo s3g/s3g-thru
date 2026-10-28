@@ -11,7 +11,7 @@
     <header class="site-header">
       <a class="brand" href="index.html">s3g Thru <span>manual</span></a>
       <nav class="top-nav" aria-label="Top navigation">
-        <a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="split.html">Split</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a>
+        <a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="split.html">Split</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a>
       </nav>
     </header>
 
@@ -33,19 +33,27 @@
         <ol class="panel-callout-list">
           <li><strong>Display.</strong> Shows waveforms, playheads, stack markers, parameter pages, clips, chains, the browser, the System Report, and shortcuts.</li>
           <li><strong>Encoders 1–8.</strong> Control the eight parameter cells currently shown. Their response is slowed by 50% for precise adjustment; one-shot actions still respond to the first turn. Reserved cells deliberately do nothing.</li>
-          <li><strong>Main wheel.</strong> Selects lanes or browser entries. Its click toggles performance recording from Main, confirms browser choices, and lifts or drops effects on FX Order.</li>
-          <li><strong>Track 1–4.</strong> Selects the lane used for capture and editing. Shift+Track opens its source browser.</li>
-          <li><strong>32 pads.</strong> Play up to eight voices. Pressure moves each held voice's stack offset when Pressure is Offset.</li>
+          <li><strong>Main wheel.</strong> Selects lanes or browser entries. Its click toggles performance recording from Main, confirms browser choices, opens FX Pages from Split’s FX Sends page, and lifts or drops effects on FX Order.</li>
+          <li><strong>Track 1–4.</strong> Selects the lane used for capture and editing. In Split it also focuses A for lanes 1–2 or B for lanes 3–4. Shift+Track opens its source browser.</li>
+          <li><strong>32 pads.</strong> Play up to eight voices in Single, or four per half in Split. Pressure moves each held voice's stack offset when Pressure is Offset.</li>
           <li><strong>Step 1–16.</strong> Selects a performance clip in the current A–D bank and addresses entries in Clips and Chain views.</li>
           <li><strong>Play.</strong> Stops or resumes performance-loop playback. Shift+Play cycles Main → Clip Overview → Chain → Main.</li>
           <li><strong>Record.</strong> Starts or stops performance-data capture. Shift+Record records stereo audio into the selected lane; Delete+Record removes the newest overdub take.</li>
-          <li><strong>Loop.</strong> Holds or resumes stack scanning. Shift+Loop controls Glitch Buffer Lock.</li>
+          <li><strong>Loop.</strong> Holds or resumes stack scanning for the whole Single instrument or the focused Split part. Shift+Loop controls Glitch Buffer Lock.</li>
           <li><strong>Back and Menu.</strong> Menu toggles the waveform and parameter pages; Shift+Menu opens System Report / Shortcuts. Back closes a secondary view or saves and exits from Main. Shift+Back performs the one-level safety undo.</li>
           <li><strong>Left / Right arrows.</strong> Select performance-clip bank A–D from the waveform and parameter pages.</li>
           <li><strong>+ / − keys (Up / Down).</strong> Transpose the pad grid by octave on the waveform page, move through parameter pages, set Chain repeats, or browse lists according to the current view.</li>
           <li><strong>Delete.</strong> Delete+Step resets a clip or removes a Chain entry; Delete+Record removes the newest overdub take; Delete+pad clears a cue. Shift+Delete clears the selected audio lane.</li>
           <li><strong>Shift.</strong> Accesses audio recording, lane-source browsing, System Report / Shortcuts, clip copy and move, Glitch Buffer Lock, and the safety-undo combinations documented in <a href="shortcuts.html">Shortcut Reference</a>.</li>
         </ol>
+
+        <h3 id="split-buttons">Find the Split controls</h3>
+        <p>Three icon buttons to the right of the pad grid provide direct Split control:</p>
+        <table class="readout-table"><thead><tr><th>Control</th><th>Where to find it</th><th>Action</th></tr></thead><tbody>
+          <tr><td>Copy</td><td>Overlapping squares, right of Delete and below Mute.</td><td>Toggle Single / Split. Shift + Copy copies the focused part’s sound settings to the other side, keeping its samples and mute state.</td></tr>
+          <tr><td>Capture</td><td>Four broken-corner brackets, directly right of the pads and above Loop.</td><td>Switch A/B editing focus on release. Shift + Capture opens FX Sends. Capture + knob 8 adjusts Blend from any page.</td></tr>
+          <tr><td>Mute</td><td>M-marked button, right of Loop and above Copy.</td><td>Mute or unmute the focused Split part. Its playheads keep moving; sample preview follows its mute.</td></tr>
+        </tbody></table>
 
         <h2 id="waveform">Waveform page</h2>
 
@@ -55,27 +63,32 @@
               <img src="assets/screens/waveform.svg" alt="Waveform page with four lane waveforms, playheads, lane-stack markers, and clip progress">
             </button>
           </div>
-          <figcaption><code>THRU LANES A01 V3</code> means the Lanes engine is active, clip A01 is selected, and three voices are held. <code>PLAY 13.6b SYNC 1.00x</code> reports a running Beat Sync clip, its length, rate, and take count.</figcaption>
+          <figcaption><code>THRU LANES A01 V3</code> means the Lanes engine is active, clip A01 is selected, and three voices are held. <code>PLAY 13.6b SYNC 1.00x</code> reports a running Beat Sync clip, its length, and playback rate.</figcaption>
         </figure>
 
         <table class="readout-table">
           <thead><tr><th>Display element</th><th>Meaning</th></tr></thead>
           <tbody>
-            <tr><td>Header</td><td>Active engine, clip address A01–D16, held voice count, and audio/data recording state.</td></tr>
-            <tr><td>Rows 1–4</td><td>The four stereo lane waveforms. The left marker selects the lane used by recording, loading, and editing.</td></tr>
-            <tr><td>Small lane bar</td><td>The current contribution of that lane to the displayed voice's crossfade. Cutups combines all sounding voices and their outgoing cuts, including note releases.</td></tr>
-            <tr><td>Vertical lines</td><td>Independent sample playheads for held voices. They disappear on note-off while the short release continues. In Cutups, the full-height lines remain through note release, with dashed outgoing lines during a join.</td></tr>
+            <tr><td>Header</td><td>Single shows the engine, clip address, held voices, and recording state. Split identifies both engines and Blend; MUT replaces a muted part’s engine name.</td></tr>
+            <tr><td>Rows 1–4</td><td>The four stereo lane waveforms. The thin mark at far left selects the recording/loading/editing destination. In Split, black lane numbers on white backgrounds identify the focused pair independently of that destination.</td></tr>
+            <tr><td>Small lane bar</td><td>The lane’s contribution to the displayed voice. Cutups and Split combine all sounding voices and outgoing readers, including release tails.</td></tr>
+            <tr><td>Vertical lines</td><td>Independent source playheads. Single usually hides them on note-off; Cutups and Split retain them through release. Solid lines are primary readers; dashed lines show outgoing or secondary readers. In Split each line spans only its own two lanes.</td></tr>
             <tr><td>Hollow markers</td><td>Each voice's lane-stack position. A marker between rows means adjacent lanes are being crossfaded. In Cutups, markers sit on the discrete lanes actually being read.</td></tr>
-            <tr><td>Position / Field ticks</td><td>Position is the short vertical tick at the top of the waveform area; Field is the short vertical tick at the bottom.</td></tr>
+            <tr><td>Position / Field view</td><td>Single enlarges the active Position/Field window across all four waveform lanes. Split gives each instrument its own window; inverted lane numbers show editing focus. Playheads use the same zoom as their waveforms.</td></tr>
             <tr><td>Short lane ticks</td><td>Detected transient divisions on the selected lane.</td></tr>
             <tr><td>Bottom progress line</td><td>Position inside the current performance-data loop.</td></tr>
             <tr><td>Footer</td><td>Clip transport, source ownership, waveform scanning, load errors, or the most recent action.</td></tr>
           </tbody>
         </table>
 
+        <h3 id="zoom">Read the waveform zoom</h3>
+        <p>Turn waveform knob 1, <code>POS</code>, to move the readable source window; turn knob 2, <code>FLD</code>, to change its width. At FLD 1.00 the whole sample is visible. A smaller Field fills the display with that region, replacing boundary ticks with a closer view.</p>
+        <p>Single uses one window across all four rows. Split gives A and B independent windows across their own pair. Capture changes the highlighted lane numbers without clearing the waveforms or moving either window.</p>
+        <p>The view follows the regions of sounding voices. Overlapping notes, release tails, or a recorded gesture using different regions can widen it until those readers finish. With no notes sounding it follows the current controls. Zoom changes the display scale; sample and cue positions keep their source coordinates. Very narrow Fields enlarge the existing overview, so fine waveform detail is limited.</p>
+        <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/waveform-zoom.svg" aria-label="Open a narrower Single waveform zoom"><img src="assets/screens/waveform-zoom.svg" alt="Four lanes enlarged to Position 0.55 and Field 0.22 with three playheads inside the window"></button></div><figcaption>A narrower Single window: POS 0.55 and FLD 0.22 show source positions 0.44–0.66 across all four rows. Cursors and hollow stack markers use that same horizontal scale.</figcaption></figure>
         <h3>Waveform encoder layout</h3>
 
-        <p>The waveform page keeps one physical layout across every playback engine. Engine-specific controls never replace shared controls in this view.</p>
+        <p>The waveform page keeps Position, Field, Speed, smoothing, and level in consistent positions. The lane and mode controls adapt to the engine, and Split uses knob 8 for Blend.</p>
 
         <table class="readout-table parameter-table">
           <thead><tr><th>Knob</th><th>Display</th><th>What it controls</th></tr></thead>
@@ -83,11 +96,11 @@
             <tr><td>1</td><td>POS</td><td>Position within the source.</td></tr>
             <tr><td>2</td><td>FLD</td><td>Width of the readable source field.</td></tr>
             <tr><td>3</td><td>SPD</td><td>Source transport speed.</td></tr>
-            <tr><td>4</td><td>STAK</td><td>Manual lane or moving stack path's starting offset.</td></tr>
-            <tr><td>5</td><td>RATE</td><td>Stack-scan cycles per second.</td></tr>
+            <tr><td>4</td><td>STAK / LANE</td><td>Manual lane or moving path’s starting offset. Cutups uses a discrete starting lane.</td></tr>
+            <tr><td>5</td><td>RATE / ADV</td><td>Stack-scan cycles per second. Cutups uses cuts per lane, or Hold.</td></tr>
             <tr><td>6</td><td>JOIN</td><td>Seam and transition smoothing.</td></tr>
-            <tr><td>7</td><td>MODE</td><td>The selected engine's primary playback mode.</td></tr>
-            <tr><td>8</td><td>LEVL</td><td>Instrument level into the mastering stage.</td></tr>
+            <tr><td>7</td><td>MODE / PLAY / ORDR</td><td>The engine’s primary mode; PLAY for Sample/Slices, ORDR for Wavesets.</td></tr>
+            <tr><td>8</td><td>LEVL / BLND</td><td>Single instrument level, or the A/B crossfade in Split. Split part levels remain on Engine-page knob 8.</td></tr>
           </tbody>
         </table>
 
@@ -117,7 +130,7 @@
           <div><span class="control-number">Knob 8</span><strong>LEVL</strong><p>Set final playback gain.</p></div>
         </div>
 
-        <p>Use <kbd>Up</kbd>/<kbd>Down</kbd> while parameters are open to move through pages. Each parameter has one location: shared controls stay on the same shared page, while engine-only controls appear on separate contextual pages. The title fraction is current page / total pages, so its denominator changes with the selected engine. Mix / Rec, Effects, Stereo / Rotary, Tape, Reverb, FX Order, Sample Edit, Performance Loop, Overdub Takes, and Chain follow every engine's contextual pages.</p>
+        <p>Use <kbd>Up</kbd>/<kbd>Down</kbd> while parameters are open to move through pages. Each parameter has one location: shared controls stay on the same shared page, while engine-only controls appear on separate contextual pages. The title fraction is current page / total pages, so its denominator changes with the selected engine. In Single, Mix / Rec, Effects, Stereo / Rotary, Tape, Reverb, FX Order, Sample Edit, Performance Loop, Overdub Takes, and Chain follow the contextual pages. Split adds FX Sends and Split Setup, and separates private inserts from shared returns; see the <a href="engines.html#voices">page order by mode</a>.</p>
 
         <figure>
           <div class="doc-graphic move-screen"><img src="assets/screens/amp-envelope.svg" alt="Amp Envelope breakpoint editor with attack, decay, sustain, and release values"></div>
@@ -136,7 +149,7 @@
         <div class="callout"><p><strong>Reserved positions:</strong> an unlabelled hollow box means that encoder has no assignment on this page. Turning it has no effect.</p></div>
 
         <div class="callout">
-          <p><strong>Stack Start versus Scan Rate:</strong> Stack Start is the exact crossfade position only when Path is Manual. On moving paths it seeds each new voice's phase; Scan Rate then advances from there. Press <kbd>Loop</kbd> to freeze every voice at its exact audible blend—even between lanes. A released pad returns to that same blend if pressed again while Hold remains active. Press Loop again to clear those retained positions and resume. Performance recording stores these Hold/Run changes and the exact positions of held voices. Tape <code>INRT</code> can add a wet-path mechanical stop/start to the same gesture. In Glitch, <kbd>Shift</kbd> + <kbd>Loop</kbd> instead freezes the recent repeat histories while Stack Path can continue.</p>
+          <p><strong>Stack Start versus Scan Rate:</strong> Stack Start is the exact crossfade position only when Path is Manual. On moving paths it seeds each new voice's phase; Scan Rate then advances from there. Press <kbd>Loop</kbd> to freeze every voice of the Single instrument, or the focused Split part, at its exact audible blend—even between lanes. A released pad returns to that same blend if pressed again while Hold remains active. Press Loop again to clear those retained positions and resume. Performance recording stores these Hold/Run changes and the exact positions of held voices. Tape <code>INRT</code> can add a wet-path mechanical stop/start to the same gesture. In Glitch, <kbd>Shift</kbd> + <kbd>Loop</kbd> instead freezes the recent repeat histories while Stack Path can continue.</p>
         </div>
 
         <h2 id="secondary">Secondary screens</h2>
@@ -146,7 +159,7 @@
           <figure><div class="doc-graphic move-screen"><img src="assets/screens/chain.svg" alt="Performance clip chain screen"></div><figcaption><strong>Chain editor.</strong> A 16-entry list gives each clip a repeat count and shows the selected/current entry.</figcaption></figure>
           <figure><div class="doc-graphic move-screen"><img src="assets/screens/library.svg" alt="Sample source browser screen"></div><figcaption><strong>Sample browser.</strong> Shift+Track opens Move Samples and Thru Recordings for that lane. The main encoder browses and clicks to enter or load.</figcaption></figure>
           <figure><div class="doc-graphic move-screen"><img src="assets/screens/help.svg" alt="On-device system report"></div><figcaption><strong>System Report.</strong> Shift+Menu opens readable, separately aligned render, control/query-work, and limiter reports. See <a href="shortcuts.html#report">Reading the System Report</a>.</figcaption></figure>
-          <figure><div class="doc-graphic move-screen"><img src="assets/screens/help-shortcuts.svg" alt="On-device shortcut reminder"></div><figcaption><strong>Shortcuts.</strong> Left/Right, Up/Down, or the main encoder moves from report page 1 to the compact gesture reminder on page 2.</figcaption></figure>
+          <figure><div class="doc-graphic move-screen"><img src="assets/screens/help-shortcuts.svg" alt="On-device shortcut reminder"></div><figcaption><strong>Shortcuts.</strong> Left/Right, Up/Down, or the main encoder moves through System Report 1/3, Callback Work 2/3, and the compact gesture reminder on page 3/3.</figcaption></figure>
         </div>
 
         <h2 id="navigation">View navigation</h2>
@@ -183,8 +196,8 @@
       </main>
 
       <aside class="toc" aria-label="Page navigation">
-        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
-        <div class="toc-section"><h2>On this page</h2><a href="#hardware">Panel layout</a><a href="#waveform">Waveform</a><a href="#parameters">Parameters</a><a href="#secondary">Secondary screens</a><a href="#navigation">Navigation</a><a href="#leds">LED language</a></div>
+        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="split.html">Split</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
+        <div class="toc-section"><h2>On this page</h2><a href="#hardware">Panel layout</a><a href="#split-buttons">Split buttons</a><a href="#waveform">Waveform</a><a href="#zoom">Waveform zoom</a><a href="#parameters">Parameters</a><a href="#secondary">Secondary screens</a><a href="#navigation">Navigation</a><a href="#leds">LED language</a></div>
       </aside>
     </div>
     <footer class="manual-footer">Use Shift+Menu on Move for the system report and compact control reminder.</footer>

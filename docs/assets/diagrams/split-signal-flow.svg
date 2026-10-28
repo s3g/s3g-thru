@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="740" viewBox="0 0 1200 740" role="img" aria-labelledby="title desc">
+  <title id="title">s3g Thru Split audio signal flow</title>
+  <desc id="desc">A and B each have two stereo lanes, four source voices, private Color and Rotary inserts, and independent level and mute. Blend sets their contributions to the dry sum and parallel Delay and Reverb sends. Shared returns join the dry sum. This example places Tape after both returns, before the program compressor and final limiter.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" markerWidth="8" markerHeight="8" refX="9" refY="5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0L10 5L0 10Z" fill="#202020"/></marker>
+    <style>
+      .box{fill:#fff;stroke:#202020;stroke-width:2}
+      .soft{fill:#ececea;stroke:#202020;stroke-width:2}
+      .group{fill:#f5f5f2;stroke:#777;stroke-width:1.4}
+      .flow{fill:none;stroke:#202020;stroke-width:2;marker-end:url(#arrow)}
+      .title{fill:#181818;font-family:Arial,Helvetica,sans-serif;font-size:16px;font-weight:700;text-anchor:middle}
+      .sub{fill:#505050;font-family:Arial,Helvetica,sans-serif;font-size:13px;text-anchor:middle}
+      .small{fill:#505050;font-family:Menlo,Monaco,monospace;font-size:12px;text-anchor:middle}
+      .legend{fill:#333;font-family:Arial,Helvetica,sans-serif;font-size:13px}
+    </style>
+  </defs>
+  <rect width="1200" height="740" fill="#fff"/>
+  <text x="40" y="48" class="legend" font-weight="700">SPLIT AUDIO PATH · TAPE AFTER BOTH RETURNS</text>
+  <line x1="40" y1="63" x2="1150" y2="63" stroke="#202020" stroke-width="1.5"/>
+
+  <g aria-hidden="true">
+    <path d="M230 147H270" class="flow"/>
+    <path d="M555 147H595" class="flow"/>
+    <path d="M765 147H815" class="flow"/>
+    <path d="M230 337H270" class="flow"/>
+    <path d="M555 337H595" class="flow"/>
+    <path d="M765 337H815" class="flow"/>
+    <path d="M890 430V470" class="flow"/>
+    <path d="M1070 430V470" class="flow"/>
+    <path d="M815 400H700V596" class="flow"/>
+    <path d="M890 540V610H714" class="flow"/>
+    <path d="M1070 540V665H700V624" class="flow"/>
+    <path d="M686 610H640" class="flow"/>
+    <path d="M470 610H430" class="flow"/>
+    <path d="M240 610H200" class="flow"/>
+  </g>
+
+  <rect x="40" y="100" width="190" height="95" class="soft"/>
+  <text x="135" y="132" class="title">A · LANES 1–2</text>
+  <text x="135" y="158" class="sub">4 source voices</text>
+  <text x="135" y="180" class="sub">engine + envelope</text>
+  <rect x="270" y="100" width="285" height="95" class="box"/>
+  <text x="412" y="132" class="title">A PRIVATE INSERTS</text>
+  <text x="412" y="158" class="sub">Tone / Drive → Bits / Rate</text>
+  <text x="412" y="180" class="sub">→ Stereo / Rotary</text>
+  <rect x="595" y="100" width="170" height="95" class="box"/>
+  <text x="680" y="132" class="title">A PART MIX</text>
+  <text x="680" y="158" class="small">LEVL · MUTE</text>
+  <text x="680" y="180" class="sub">A share of Blend</text>
+
+  <rect x="40" y="290" width="190" height="95" class="soft"/>
+  <text x="135" y="322" class="title">B · LANES 3–4</text>
+  <text x="135" y="348" class="sub">4 source voices</text>
+  <text x="135" y="370" class="sub">engine + envelope</text>
+  <rect x="270" y="290" width="285" height="95" class="box"/>
+  <text x="412" y="322" class="title">B PRIVATE INSERTS</text>
+  <text x="412" y="348" class="sub">Tone / Drive → Bits / Rate</text>
+  <text x="412" y="370" class="sub">→ Stereo / Rotary</text>
+  <rect x="595" y="290" width="170" height="95" class="box"/>
+  <text x="680" y="322" class="title">B PART MIX</text>
+  <text x="680" y="348" class="small">LEVL · MUTE</text>
+  <text x="680" y="370" class="sub">B share of Blend</text>
+
+  <rect x="815" y="85" width="330" height="345" class="group"/>
+  <text x="980" y="116" class="title">DRY + PARALLEL SENDS</text>
+  <rect x="835" y="135" width="290" height="65" class="box"/>
+  <text x="980" y="161" class="title">DRY SUM</text>
+  <text x="980" y="185" class="small">A + B</text>
+  <rect x="835" y="220" width="290" height="65" class="box"/>
+  <text x="980" y="246" class="title">DELAY SEND</text>
+  <text x="980" y="270" class="small">ADLY × A + BDLY × B</text>
+  <rect x="835" y="305" width="290" height="65" class="box"/>
+  <text x="980" y="331" class="title">REVERB SEND</text>
+  <text x="980" y="355" class="small">AREV × A + BREV × B</text>
+  <text x="980" y="405" class="sub">Sends follow part level, mute, and Blend.</text>
+
+  <text x="757" y="421" class="small">DRY</text>
+  <rect x="815" y="470" width="150" height="70" class="soft"/>
+  <text x="890" y="498" class="title">DELAY</text>
+  <text x="890" y="523" class="small">DRTN return</text>
+  <rect x="995" y="470" width="150" height="70" class="soft"/>
+  <text x="1070" y="498" class="title">REVERB</text>
+  <text x="1070" y="523" class="small">RRTN return</text>
+
+  <circle cx="700" cy="610" r="14" class="box"/>
+  <text x="700" y="616" class="title">+</text>
+  <rect x="470" y="575" width="170" height="70" class="soft"/>
+  <text x="555" y="603" class="title">SHARED TAPE</text>
+  <text x="555" y="628" class="sub">dry + both returns</text>
+  <rect x="240" y="575" width="190" height="70" class="box"/>
+  <text x="335" y="603" class="title">MASTERING</text>
+  <text x="335" y="628" class="sub">program comp → limiter</text>
+  <rect x="40" y="575" width="160" height="70" class="soft"/>
+  <text x="120" y="603" class="title">MOVE OUT</text>
+  <text x="120" y="628" class="sub">stereo</text>
+
+  <text x="40" y="705" class="legend">FX Order can move Tape before or between the returns. Delay and Reverb remain parallel in Split.</text>
+  <text x="40" y="725" class="legend">Existing Delay/Reverb tails keep ringing when a part is faded or muted. Input Monitor and browser preview are separate paths.</text>
+</svg>

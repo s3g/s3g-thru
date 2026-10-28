@@ -10,7 +10,7 @@
   <body>
     <header class="site-header">
       <a class="brand" href="index.html">s3g Thru <span>manual</span></a>
-      <nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="split.html">Split</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav>
+      <nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="split.html">Split</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav>
     </header>
 
     <div class="page-shell">
@@ -25,12 +25,12 @@
 
         <figure>
           <div class="manual-diagram"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/diagrams/audio-signal-flow.svg" aria-label="Open the s3g Thru audio signal-flow chart"><img src="assets/diagrams/audio-signal-flow.svg" alt="Block diagram of input, four clip lanes, playback engines, effects, output, monitoring, and resampling"></button></div>
-          <figcaption>Solid arrows are audible paths. The dashed return shows Resample writing the processed stereo output back into the selected lane.</figcaption>
+          <figcaption>Single-mode signal flow. Solid arrows are audible paths; the dashed return records post-effects audio before program compression and limiting. Split has <a href="split.html#effects">private inserts and parallel shared returns</a>.</figcaption>
         </figure>
 
         <div class="flow-notes">
           <div><strong>Sources</strong><p>Each clip owns four assignments chosen from live recordings, resamples, library WAVs, archived Thru recordings, or Empty.</p></div>
-          <div><strong>Playback</strong><p>The selected engine reads those lanes into as many as eight independent voices before lane gain and shared effects.</p></div>
+          <div><strong>Playback</strong><p>Single reads the four lanes with up to eight voices. Split assigns lanes 1–2 and four voices to A, lanes 3–4 and four voices to B, with private inserts and shared returns.</p></div>
           <div><strong>Monitoring</strong><p>Input Monitor bypasses the sampler and effects, then joins the final safety limiter. It is dry and defaults to zero to reduce feedback risk.</p></div>
         </div>
 
@@ -43,7 +43,7 @@
           <li>Start with <code>REC GAIN</code> at <code>1.00</code>. The display reports <code>LIM</code> if the stereo-linked −1 dBFS capture limiter reduces the stored signal. Lower Record Gain if <code>LIM</code> appears frequently.</li>
         </ol>
 
-        <div class="callout"><p><strong>Quiet playback is not corrected with Record Gain.</strong> Record Gain affects newly captured audio. Use Lane 1–4 gain and final Level for playback balance; Normalize is an explicit destructive sample edit.</p></div>
+        <div class="callout"><p><strong>Quiet playback is not corrected with Record Gain.</strong> Record Gain affects newly captured audio. Use the lane gains and Level for playback balance. In Split also check the focused part’s LEVL, Mute, and Blend; see <a href="split.html#silent">Restore a silent part</a>. Normalize is an explicit destructive sample edit.</p></div>
 
         <h2 id="capture">Record or replace a lane</h2>
 
@@ -55,7 +55,7 @@
           <li>Wait briefly if <code>SCANNING WAVEFORM</code> appears. The waveform fills in as the scan completes.</li>
         </ol>
 
-        <p>The main display's lane number and left selection mark identify the target. The adjacent vertical bar reports the selected/displayed voice's current contribution from that lane—it is not the input meter. During recording, the horizontal bar near the bottom is the capture level.</p>
+        <p>The thin mark at the far left of a waveform row identifies the target lane. In Split, the white backgrounds behind two lane numbers identify editing focus instead. The adjacent lane-weight bar shows playback contribution, not input level. During recording, the horizontal bar near the bottom is the capture level.</p>
 
         <p>Each completed input recording or resample is written as a new stereo WAV. Recording the lane again changes its active assignment but does not overwrite the earlier file. Hold <kbd>Shift</kbd> and press <kbd>Delete</kbd> to clear the selected lane. The latest capture, clear, library replacement, or sample edit can be reversed once with <kbd>Shift</kbd> + <kbd>Back</kbd>.</p>
 
@@ -79,9 +79,12 @@
 
         <p>The browser starts with two sources. <strong>Move Samples</strong> opens <code>/data/UserData/UserLibrary/Samples</code>. <strong>Thru Recordings</strong> opens the module's capture archive with the newest files first. It accepts mono or stereo PCM 16/24/32-bit and 32-bit-float WAV files. Mono files play from both channels, other sample rates are converted automatically, and material beyond the 12-second lane capacity is truncated.</p>
 
+        <h3 id="preview">Sample preview</h3>
+        <p>Highlight a WAV to audition it before loading. Preview Level is knob 8, <code>PREV</code>, on Mix / Rec. Clicking the highlighted file loads it into the chosen lane; recording a new take assigns that capture automatically, without a trip to the browser.</p>
+        <p>Single preview passes through the complete selected effects chain. Split preview follows the destination part’s LEVL, Mute, and Blend, so select the appropriate Track lane and center Blend when comparing files for both sides. It bypasses private Color and Rotary inserts and does not feed Delay/Reverb sends; shared Tape and the final program compressor/limiter still apply.</p>
         <h2 id="ownership">Sources belong to clips</h2>
 
-        <p>The first time a blank A01–D16 clip is selected, it snapshots the four sources then in use. From that point its assignments are independent—there is no live “previous pattern” lookup. A loaded file is stored as a User Library path; a recording becomes a clip-local capture; a reset lane remains explicitly empty.</p>
+        <p>The first time a blank A01–D16 clip is selected, it snapshots the four sources then in use. Its source assignments then remain independent; loading a sample in another clip does not change them. A loaded file is stored as a User Library path; a recording becomes a clip-local capture; a reset lane remains explicitly empty.</p>
 
         <p>When a clip needs different sources, the previous clip can continue until all four lanes are ready. This prevents a partial change with lanes from two clips. The footer reports <code>FILE</code>, <code>CAPTURE</code>, <code>EMPTY</code>, <code>LOADING</code>, or <code>MISSING</code>.</p>
 
@@ -102,7 +105,7 @@
 
         <h2 id="gain-staging">Gain staging and output safety</h2>
 
-        <p>At <code>LEVL 1.00</code>, the instrument path reaches a full nominal output. A stereo-linked program compressor adds 3 dB of makeup below its −12 dBFS threshold, then applies a gentle 2:1 ratio above it. This raises quieter detail and controls sustained peaks without changing the stereo image. <code>LEVL</code> values above 1.00 push the program stage harder. Polyphony Compensation is on by default and smoothly controls summed energy as more independent voices or Rolls overlap; it does not change pad velocity behavior.</p>
+        <p>At <code>LEVL 1.00</code>, the instrument path reaches a full nominal output. In Split, the two part levels and Blend feed the combined mastering path. A stereo-linked program compressor adds 3 dB of makeup below its −12 dBFS threshold, then applies a gentle 2:1 ratio above it. This raises quieter detail and controls sustained peaks without changing the stereo image. <code>LEVL</code> values above 1.00 push the program stage harder. Polyphony Compensation is on by default and smoothly controls summed energy as more independent voices or Rolls overlap; it does not change pad velocity behavior.</p>
 
         <p>A separate stereo-linked lookahead limiter remains the final safety stage. Its −1 dBFS ceiling catches transient stack, effect, monitor, and polyphonic peaks without flat-topping them. The program compressor supplies everyday density; persistent limiter reduction still means Lane Gain, Level, effect Drive/feedback, Record Gain, or Input Monitor should be reduced.</p>
 
@@ -125,8 +128,8 @@
       </main>
 
       <aside class="toc" aria-label="Page navigation">
-        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
-        <div class="toc-section"><h2>On this page</h2><a href="#signal-flow">Signal flow</a><a href="#input">Input safety</a><a href="#capture">Audio capture</a><a href="#library">Sample library</a><a href="#ownership">Clip ownership</a><a href="#editing">Sample edits</a><a href="#gain-staging">Gain staging</a><a href="#saving">Saving</a></div>
+        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="split.html">Split</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
+        <div class="toc-section"><h2>On this page</h2><a href="#signal-flow">Signal flow</a><a href="#input">Input safety</a><a href="#capture">Audio capture</a><a href="#library">Sample library</a><a href="#preview">Sample preview</a><a href="#ownership">Clip ownership</a><a href="#editing">Sample edits</a><a href="#gain-staging">Gain staging</a><a href="#saving">Saving</a></div>
       </aside>
     </div>
     <footer class="manual-footer">Use headphones for the first microphone and resampling tests.</footer>

@@ -17,7 +17,7 @@
     </style>
   </defs>
   <rect width="1200" height="520" fill="#fff"/>
-  <text x="42" y="48" class="legend" font-weight="700">AUDIO PATH</text>
+  <text x="42" y="48" class="legend" font-weight="700">SINGLE AUDIO PATH</text>
   <line x1="42" y1="63" x2="1158" y2="63" stroke="#202020" stroke-width="1.5"/>
 
   <!-- Draw connectors first so cell fills mask every route cleanly. Each
@@ -82,7 +82,7 @@
   <text x="570" y="325" class="title">INPUT MONITOR</text>
   <text x="570" y="348" class="sub">dry · normally 0.00</text>
 
-  <text x="665" y="443" class="small">RESAMPLE RETURN · PROCESSED OUTPUT TO SELECTED LANE</text>
+  <text x="665" y="443" class="small">RESAMPLE RETURN · POST EFFECTS, BEFORE MASTERING</text>
 
   <line x1="42" y1="478" x2="88" y2="478" stroke="#202020" stroke-width="2" marker-end="url(#arrow)"/>
   <text x="102" y="482" class="legend">audio</text>

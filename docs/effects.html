@@ -14,34 +14,33 @@
       <main class="content" id="content">
         <p class="eyebrow">Post-engine sound</p>
         <h1>Effects</h1>
-        <p class="lead">Every playback engine feeds one clip-local stereo chain: tone shaping, drive, bit and rate reduction, cross-feedback delay, stereo cross-pan, rotary speaker, then tape and reverb. FX Order lets you rearrange these six blocks. Reverb and FX Order follow the three existing effects pages for every engine.</p>
-        <p>The figures below use Lanes, where these are pages 7–11 of 15. Their order is the same for every engine, but the displayed numbers change because each engine has a different number of contextual pages before Mix / Rec.</p>
+        <p class="lead">Single mode feeds one clip-local stereo chain with six reorderable blocks: Tone / Drive, Bits / Rate, Delay, Stereo / Rotary, Tape, and Reverb. Split gives each part private Color and Stereo / Rotary inserts, then shared Delay/Reverb sends and Tape.</p>
+        <p>The figures below use Lanes in Single mode, where these are pages 7–11 of 15. Page numbers depend on the engine and mode. Use the page title to find a control; changing FX Order changes the audio path while the parameter pages stay in place.</p>
 
         <div class="panel-gallery">
           <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/effects.svg" aria-label="Open Effects page"><img src="assets/screens/effects.svg" alt="Effects parameter page"></button></div><figcaption>Effects holds tone, reduction, and delay.</figcaption></figure>
           <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/effects-stereo-rotary.svg" aria-label="Open Stereo and Rotary page"><img src="assets/screens/effects-stereo-rotary.svg" alt="Stereo and Rotary effects parameter page"></button></div><figcaption>Stereo / Rotary follows Effects. The factory Mix is 0%; this example raises it to show a usable slow setting.</figcaption></figure>
-          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/effects-tape.svg" aria-label="Open Tape page"><img src="assets/screens/effects-tape.svg" alt="Tape effects parameter page"></button></div><figcaption>Tape follows the rotary stage. Eight macros describe the medium, record level, condition, mechanics, and transport without exposing separate calibration controls.</figcaption></figure>
+          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/effects-tape.svg" aria-label="Open Tape page"><img src="assets/screens/effects-tape.svg" alt="Tape effects parameter page"></button></div><figcaption>Tape’s position in the audio path follows FX Order. Its eight macros control the medium, record level, condition, mechanics, transport, hiss, and mix.</figcaption></figure>
         </div>
 
-        <p>Input Monitor stays dry, which prevents the effects from becoming a microphone monitoring loop. Browser Preview and Resample use the complete processed chain.</p>
+        <p>Input Monitor bypasses the engines, effects, and program compressor, and joins the final limiter. Resample captures processed instrument audio before the program compressor and limiter. Browser preview follows the routing described under <a href="recording.html#preview">Sample preview</a>.</p>
         <p>The final safety limiter smooths fast peaks from overlapping notes and live parameter changes with 1.5 ms of lookahead. Both channels share the same gain, preserving their stereo balance.</p>
-
-        <div class="callout"><p><strong>Split mode:</strong> two independent instruments share the pad grid, with two stereo lanes and four voices each. Use the same engine with different settings or choose different engines. <a href="split.html">Split setup, controls, mixing, and recording</a>.</p></div>
 
         <div class="callout"><p><strong>Split effects:</strong> Shift + Capture opens <a href="split.html#mix">FX Sends</a>. Knobs 1–4 send A/B to Delay and Reverb; knobs 5–6 set their shared return levels. Main click opens a menu for every effect page. Each part’s Color and Rotary are private inserts; Tape is shared. These return controls appear only on FX Sends in Split.</p></div>
         <h2 id="controls">Effects — every parameter</h2>
-        <h3>Effects</h3>
+        <h3>Effects · Single mode</h3>
+        <p>In Split, TONE/DRIV/BITS/RATE are knobs 1–4 on the focused part’s Color page; DLY/FDBK/WDTH are knobs 1–3 on Delay Return. Delay and Reverb return levels live on <a href="split.html#mix">FX Sends</a>.</p>
         <table class="readout-table parameter-table">
           <thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>What it controls</th></tr></thead>
           <tbody>
             <tr><td>1</td><td>TONE</td><td>−1.00–1.00</td><td>Darkens toward −1 with a low-pass contour; brightens toward +1 by progressively removing low frequencies. Zero is bypass.</td></tr>
-            <tr><td>2</td><td>DRIV</td><td>0.00–1.00</td><td>Adds level-dependent soft saturation before reduction and delay. Its smoothed, continuous transfer does not generate isolated clicks, although added level and harmonics can make an existing edge more prominent.</td></tr>
+            <tr><td>2</td><td>DRIV</td><td>0.00–1.00</td><td>Drive adds level-dependent soft saturation within the Tone / Drive block. Its smoothed, continuous transfer does not generate isolated clicks, although added level and harmonics can make an existing edge more prominent.</td></tr>
             <tr><td>3</td><td>BITS</td><td>0.00–1.00</td><td>Moves from transparent resolution toward coarse four-bit quantization. Quantizer edges are deliberately digital; use 0.00 when clean playback is required.</td></tr>
             <tr><td>4</td><td>RATE</td><td>1–16</td><td>Holds each stereo sample for this many output frames. Values above 1 deliberately create stepped high-frequency edges; use 1 for full-rate clean playback.</td></tr>
             <tr><td>5</td><td>DLY</td><td>1–750 ms</td><td>Free-running delay time in milliseconds. Live and recorded changes use uninterrupted tap crossfades; a new value arriving mid-transition is queued rather than jumping the active read head.</td></tr>
             <tr><td>6</td><td>FDBK</td><td>0–90%</td><td>Amount returned to the delay. The feedback path is safely limited but high values can still build a dense tail.</td></tr>
             <tr><td>7</td><td>WDTH</td><td>0–100%</td><td>At 0%, each delay channel feeds itself. At 100%, left and right cross-feed for ping-pong motion.</td></tr>
-            <tr><td>8</td><td>MIX</td><td>0–100%</td><td>Delay wet balance. Tone, Drive, Bits, and Rate remain audible at 0% because they precede the dry/wet delay stage.</td></tr>
+            <tr><td>8</td><td>MIX</td><td>0–100%</td><td>Delay wet balance. At 0%, Delay is dry; the other effects remain active in their chosen order. In Split, the shared Delay return level is DRTN on FX Sends.</td></tr>
           </tbody>
         </table>
 
@@ -84,7 +83,7 @@
         <p><code>INRT</code> affects only the Tape wet path. At MIX below 100%, the untreated portion continues while the modeled transport stops. This keeps Stack Hold useful as a subtle gesture at low tape mixes and allows a complete tape stop at 100%. The stop and return retain the duration in use when the gesture began. Changes to INRT during the gesture take effect after the transport returns to normal; turning it OFF initiates that smooth return.</p>
 
         <h3 id="reverb">Reverb</h3>
-        <figure><div class="doc-graphic doc-screenshot move-screen"><img src="assets/screens/effects-reverb.svg" alt="Reverb page with eight controls"></div><figcaption>Plate and Room share one control page, with MIX at the lower right.</figcaption></figure>
+        <figure><div class="doc-graphic doc-screenshot move-screen"><img src="assets/screens/effects-reverb.svg" alt="Reverb page with eight controls"></div><figcaption>Plate and Room share one control page. Single has MIX at the lower right; Split reserves that cell and uses RRTN on knob 6 of FX Sends.</figcaption></figure>
         <table class="readout-table parameter-table"><thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>What it controls</th></tr></thead><tbody>
           <tr><td>1</td><td>ALGO</td><td>Plate / Room</td><td>Algorithm. Plate is a dense Dattorro-style reverb; Room is a lighter four-line feedback-delay network for tighter spaces.</td></tr>
           <tr><td>2</td><td>DECY</td><td>0.20–20.0 s</td><td>Decay. Controls the nominal tail duration; damping and source material also affect the audible length. Encoder spacing is finer for short decays.</td></tr>
@@ -104,10 +103,17 @@
         <table class="readout-table parameter-table"><thead><tr><th>Control</th><th>Display</th><th>Action</th><th>What it controls</th></tr></thead><tbody>
           <tr><td>Main encoder turn</td><td>Highlighted row</td><td>Select / move</td><td>Highlight an effect. After lifting it, move the effect up or down; intervening effects shift around it.</td></tr>
           <tr><td>Main encoder click</td><td>* on lifted row</td><td>Lift / drop</td><td>Lift the selected effect. Click again to drop it and apply the complete order. On this page the main click edits routing; the Record button remains available for performance recording.</td></tr>
-          <tr><td>Back</td><td>ORDER CANCELLED</td><td>Cancel</td><td>Cancel the current move or pending preset and restore the active order. With no pending edit, Back returns to the waveform.</td></tr>
-          <tr><td>Knob 7</td><td>7:DFLT / ECHO / CRSH / CUST</td><td>Starting preset</td><td>Stage a complete starting order, then click the main encoder to apply. DFLT places Reverb last; ECHO places it before Delay; CRSH starts with Reverb, followed by Bits/Rate and Tone/Drive. CUST identifies a manually arranged order.</td></tr>
+          <tr><td>Back</td><td>ORDER CANCELLED</td><td>Cancel</td><td>Cancel the current move or pending preset and restore the active order. With no pending edit, Back returns to FX Pages if opened from that menu; otherwise it returns to the waveform.</td></tr>
+          <tr><td>Knob 7</td><td>7:DFLT / ECHO / CRSH / CUST</td><td>Starting preset</td><td>Stage a complete starting order, then click the main encoder to apply. In Single: DFLT places Reverb last; ECHO places it before Delay; CRSH starts with Reverb, then Bits/Rate and Tone/Drive. Split uses the Tape placements below. CUST identifies a manually arranged order.</td></tr>
         </tbody></table>
-        <p>Tone / Drive keeps Tone before Drive. Bits / Rate keeps the two reduction controls together. Stereo / Rotary keeps Cross-pan before Rotary. Each block appears once, giving 720 possible orders. Parameter pages keep their usual positions as the audio order changes.</p>
+        <p>Tone / Drive keeps Tone before Drive. Bits / Rate keeps the two reduction controls together. Stereo / Rotary keeps Cross-pan before Rotary. In Single each of the six blocks appears once, giving 720 possible orders. Parameter pages keep their usual positions as the audio order changes.</p>
+        <p>In Split, private inserts keep their fixed order. FX Order lists only Delay, Tape, and Reverb. Their sends remain parallel: moving Delay above Reverb does not feed echoes into reverb. Tape’s position determines which returns receive tape processing.</p>
+        <table class="readout-table"><thead><tr><th>Display</th><th>Split order</th><th>What it controls</th></tr></thead><tbody>
+          <tr><td>DFLT</td><td>Delay → Reverb → Tape</td><td>Tape processes the dry sum and both effect returns.</td></tr>
+          <tr><td>ECHO</td><td>Delay → Tape → Reverb</td><td>Tape processes the dry sum and Delay return; Reverb joins afterward.</td></tr>
+          <tr><td>CRSH</td><td>Tape → Delay → Reverb</td><td>Tape processes the dry sum; both returns join afterward.</td></tr>
+        </tbody></table>
+        <p>See the <a href="split.html#effects">Split signal-flow diagram</a> for the private and shared paths.</p>
         <p>Moving a block or staging a preset does not change the sound until the main click confirms it. Applying uses a 20 ms fade down, switches at silence, then fades up over 20 ms. A short level dip is normal. Delay, rotary, tape and reverb histories remain in memory; their subsequent sound follows the new routing. The compressor and safety limiter always follow the customizable chain, and Input Monitor remains dry.</p>
         <p>Reverb settings and the applied order belong to the selected performance clip and return next session. During Replace or Overdub, reverb edits and dropped order changes are recorded. The whole order is one stepped event, so playback cannot pass through partial routes. Changing clips, leaving the page, or closing parameters cancels an unfinished move.</p>
 
@@ -148,19 +154,19 @@
           </tbody>
         </table>
 
-        <div class="callout"><p><strong>Resampling:</strong> Resample records the processed instrument output, including this chain. Input recording captures the selected Move input instead. Browser Preview also passes through the effects, while Monitor remains dry.</p></div>
+        <div class="callout"><p><strong>Resampling and audition:</strong> Resample writes post-effects instrument audio before the program compressor and final limiter; it excludes direct Input Monitor. Single browser preview uses the complete effects chain. Split preview follows its destination’s level, mute, and Blend, then shared Tape and mastering; it bypasses private inserts and does not feed Delay/Reverb sends.</p></div>
 
         <h2 id="locks">Performance-loop motion</h2>
-        <p>Every control on all effects pages can be recorded in a performance loop. Begin Replace or Overdub recording, then turn an encoder. Continuous values interpolate between recorded points; stepped choices change at their recorded thresholds while their audio paths retain the appropriate safety transition. Undo Take removes the newest layer of effect motion together with the other notes and gestures in that take.</p>
+        <p>Effect parameters and applied FX Order changes can be recorded in a performance loop. In Split this includes both parts’ insert settings and the shared sends and effects. Begin Replace or Overdub recording, then turn an encoder. Continuous values interpolate between recorded points; stepped choices change at their recorded thresholds while their audio paths retain the appropriate safety transition. Undo Take removes the newest layer of effect motion together with the other notes and gestures in that take.</p>
 
         <nav class="page-nav" aria-label="Page navigation"><a class="page-nav-link" href="engine-wavesets.html"><span>Previous</span>Wavesets</a><a class="page-nav-link next" href="performance.html"><span>Next</span>Performance Loops</a></nav>
       </main>
       <aside class="toc" aria-label="Page navigation">
-        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
-        <div class="toc-section"><h2>On this page</h2><a href="#controls">Controls</a><a href="#starts">Starting points</a><a href="#locks">Performance motion</a></div>
+        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="split.html">Split</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
+        <div class="toc-section"><h2>On this page</h2><a href="#controls">Controls</a><a href="#reverb">Reverb</a><a href="#order">FX Order</a><a href="#starts">Starting points</a><a href="#locks">Performance motion</a></div>
       </aside>
     </div>
-    <footer class="manual-footer">Effects settings and routing are clip-local and shared by all eight voices.</footer>
+    <footer class="manual-footer">Effects settings and routing belong to the clip. Split keeps private inserts per part and shared Delay, Reverb, and Tape.</footer>
     <script src="assets/lightbox.js"></script>
   </body>
 </html>

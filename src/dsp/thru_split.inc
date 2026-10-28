@@ -98,6 +98,7 @@
         if (enabled == splitEnabled) return;
         if (engine.recording() || clipRecording) { setError("Stop recording before changing mode"); return; }
         captureActiveClip(false); clipPlaying = false; releaseClipVoices();
+        splitMixerOverrides.fill(false);
         beginPreviewTransitionTail(); previewActive = false;
         if (enabled) {
             splitSingleControls = controls; splitSingleSettings = currentPartSettings();
@@ -134,7 +135,10 @@
         for (std::size_t p=0;p<kLockParameterCount;++p)
             if (splitPartParameter(p)) applyLockedValue(to.controls,outputGain,p,lockedValue(from.controls,outputGain,p));
         for (int lane=0;lane<2;++lane) to.controls.laneGains[target*2+lane] = from.controls.laneGains[source*2+lane];
+        // Copy the sound, preserving the destination's intentional mute.
+        const int destinationMute = to.settings.muted;
         to.settings = from.settings;
+        to.settings.muted = destinationMute;
         if (target == splitFocus) loadPartEditor(target);
         if (clipRecording) {
             for (std::size_t p=0;p<kLockParameterCount;++p) if (splitPartParameter(p))
@@ -196,19 +200,55 @@
         splitClipControls[0] = liveControlsForPart(0); splitClipControls[1] = liveControlsForPart(1);
     }
 
+    std::array<float,2> displayWindow(int part=0) const
+    {
+        const auto& c=splitEnabled
+            ?(clipPlaying?splitClipControls[static_cast<std::size_t>(part)]:liveControlsForPart(part))
+            :(clipPlaying?clipControls:controls);
+        const auto first=splitEnabled?static_cast<std::size_t>(part)*2u:0u;
+        const auto last=splitEnabled?first+2u:kLaneCount;
+        std::size_t frames=0u;
+        for(auto lane=first;lane<last;++lane)frames=std::max(frames,engine.laneFrames(lane));
+        const float minimum=frames?std::min(4.0f,static_cast<float>(frames))/static_cast<float>(frames):0.0f;
+        const float width=clampValue(c.field,std::max(.02f,minimum),1.0f);
+        const float center=clampValue(c.locus,width*.5f,1-width*.5f);
+        std::array<float,2> result {center-width*.5f,center+width*.5f};
+        bool active=false;
+        for(const auto& voice:voices) {
+            if(!voice.active||(splitEnabled&&voice.part!=part)||(!voice.held&&voice.envelope<=.00001f))continue;
+            const float low=voice.engine.normalizedFieldStart(),high=voice.engine.normalizedFieldEnd();
+            if(high<=low)continue;
+            if(!active){result={low,high};active=true;}
+            else {result[0]=std::min(result[0],low);result[1]=std::max(result[1],high);}
+            const auto include=[&](float position){if(position>=0){result[0]=std::min(result[0],position);result[1]=std::max(result[1],position);}};
+            include(voice.engine.normalizedPosition());
+            if(voice.engine.playbackAlgorithm()==Engine::PlaybackAlgorithm::cutups) {
+                const auto display=voice.engine.cutupsDisplayState();
+                if(display.gain>.00001f)include(display.position);
+                if(display.outgoingGain>.00001f)include(display.outgoingPosition);
+            } else if(voice.engine.playbackAlgorithm()==Engine::PlaybackAlgorithm::wavesets) {
+                const auto display=voice.engine.wavesetDisplayState();
+                include(display.sourcePosition);include(display.secondarySourcePosition);
+            }
+        }
+        result[0]=clampValue(result[0],0.0f,1.0f);result[1]=clampValue(result[1],0.0f,1.0f);
+        return result;
+    }
+
     int formatSplitState(char* buffer, int capacity) const
     {
         const auto a=settingsForPart(0), b=settingsForPart(1);
+        const auto aw=displayWindow(0),bw=displayWindow(1);
         const auto position=[&](int part) { const PlaybackVoice* found=nullptr;
             for(const auto& v:voices)if(v.active&&v.held&&v.part==part&&(!found||v.age>found->age))found=&v;
             return found?found->engine.normalizedPosition():0.0f; };
         return std::snprintf(buffer,capacity,
             "{\"enabled\":%d,\"focus\":%d,\"blend\":%.5f,\"parts\":["
-            "{\"algorithm\":%d,\"root\":%d,\"octave\":%d,\"scale\":%d,\"mode\":%d,\"hold\":%d,\"mute\":%d,\"position\":%.5f},"
-            "{\"algorithm\":%d,\"root\":%d,\"octave\":%d,\"scale\":%d,\"mode\":%d,\"hold\":%d,\"mute\":%d,\"position\":%.5f}]}",
+            "{\"algorithm\":%d,\"root\":%d,\"octave\":%d,\"scale\":%d,\"mode\":%d,\"hold\":%d,\"mute\":%d,\"position\":%.5f,\"window\":[%.7f,%.7f]},"
+            "{\"algorithm\":%d,\"root\":%d,\"octave\":%d,\"scale\":%d,\"mode\":%d,\"hold\":%d,\"mute\":%d,\"position\":%.5f,\"window\":[%.7f,%.7f]}]}",
             splitEnabled?1:0,splitFocus,splitBlendState,
-            static_cast<int>(liveControlsForPart(0).algorithm),a.root,a.octave,a.scale,a.mode,a.stackHold,a.muted,position(0),
-            static_cast<int>(liveControlsForPart(1).algorithm),b.root,b.octave,b.scale,b.mode,b.stackHold,b.muted,position(1));
+            static_cast<int>(liveControlsForPart(0).algorithm),a.root,a.octave,a.scale,a.mode,a.stackHold,a.muted,position(0),aw[0],aw[1],
+            static_cast<int>(liveControlsForPart(1).algorithm),b.root,b.octave,b.scale,b.mode,b.stackHold,b.muted,position(1),bw[0],bw[1]);
     }
 
     void clearSplitHoldKeys(int part)
@@ -219,10 +259,29 @@
         }
     }
 
+    void touchSplitMixerParameter(std::size_t parameter)
+    {
+        const auto first = static_cast<std::size_t>(LockParameter::splitBlend);
+        if (splitEnabled && clipPlaying && parameter >= first && parameter < kLockParameterCount)
+            splitMixerOverrides[parameter-first] = true;
+    }
+
+    Engine::Controls effectiveSplitMixer(const Engine::Controls& recorded) const
+    {
+        Engine::Controls mixer = clipPlaying ? recorded : controls;
+        if (clipPlaying) {
+            float ignored = outputGain;
+            const auto first = static_cast<std::size_t>(LockParameter::splitBlend);
+            for (std::size_t i=0;i<splitMixerOverrides.size();++i) if (splitMixerOverrides[i])
+                applyLockedValue(mixer,ignored,first+i,lockedValue(controls,outputGain,first+i));
+        }
+        return mixer;
+    }
+
     void processSplitBuses(std::size_t frames, const std::array<Engine::Controls,2u>& live,
                            const Engine::Controls& recorded)
     {
-        const Engine::Controls& mixer = clipPlaying ? recorded : controls;
+        const Engine::Controls mixer = effectiveSplitMixer(recorded);
         for (std::size_t part=0;part<2;++part) {
             for (std::size_t frame=0;frame<frames;++frame) {
                 const float power = splitEnvelopePower[part][frame];
@@ -235,8 +294,7 @@
             processAudioRolls(frames,static_cast<int>(part));
             splitInserts[part].process(frames,splitBus[part],clipPlaying?splitClipControls[part]:live[part]);
         }
-        const float targetBlend = clipPlaying && renderClockSamples.load() >= splitBlendOverrideUntil
-            ? mixer.splitBlend : controls.splitBlend;
+        const float targetBlend = mixer.splitBlend;
         const float levels[2] {mixer.splitLevelA,mixer.splitLevelB};
         const float delay[2] {mixer.splitDelayA,mixer.splitDelayB};
         const float rev[2] {mixer.splitReverbA,mixer.splitReverbB};
@@ -397,6 +455,7 @@
             }
             if(!decodeSettings(v,settings[group]))return false;
         }
+        splitMixerOverrides.fill(false);
         splitSingleControls=restored[0];splitSingleSettings=settings[0];
         for(std::size_t p=0;p<2;++p){splitParts[p].controls=restored[p+1];splitParts[p].settings=settings[p+1];}
         splitEnabled=enabled>=.5f;splitInitialized=initialized>=.5f;splitFocus=clampValue(static_cast<int>(focus),0,1);

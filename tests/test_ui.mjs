@@ -3,12 +3,17 @@ import fs from 'node:fs';
 
 const uiPath = process.argv[2];
 assert(uiPath, 'ui.js path is required');
+const testVersion=JSON.parse(fs.readFileSync(new URL('../package.json',import.meta.url),'utf8')).version;
 
 const padWrites = [];
 const buttonWrites = [];
 const paramWrites = [];
+const paramReads = [];
+let corruptEditorSnapshot = false;
 const blockingWrites = [];
 const drawWrites = [];
+const screenBits=new Uint8Array(128*64),screenText=new Map();
+const screenPixel=(x,y)=>screenBits[y*128+x];
 const forcedPadWrites = [];
 let emulateSharedLedCache = false;
 const sharedLedCache = new Map();
@@ -96,6 +101,19 @@ const params = {
     waveforms: [flatWave, flatWave, flatWave, flatWave].join('|'),
 };
 globalThis.host_module_get_param = (key) => {
+    paramReads.push(key);
+    if (key === 'ui_editor_state') {
+        if (corruptEditorSnapshot) return '{truncated';
+        const values = Object.fromEntries(Object.entries(globalThis.__testParams || {})
+            .filter(([,p]) => !p.momentary)
+            .map(([key,p]) => [key, Number(params[key] ?? p.value)]));
+        const split = JSON.parse(params.split_state || '{"enabled":0,"focus":0,"blend":0.5,"parts":[{},{}]}');
+        values.split_mode = split.enabled; values.split_focus = split.focus;
+        values.part_mute = split.parts[split.focus]?.mute || 0;
+        for (const key of ['pad_octave','record_lane','stack_scan_paused','glitch_buffer_lock'])
+            values[key]=Number(params[key] || 0);
+        return JSON.stringify({v:1,values,split,voices:params.voice_algorithms || '-1,-1,-1,-1,-1,-1,-1,-1'});
+    }
     if (key === 'waveforms') waveformReads++;
     return params[key] ?? '';
 };
@@ -127,9 +145,14 @@ globalThis.host_module_set_param_blocking = (key, value) => {
     }
 };
 globalThis.host_exit_module = () => { exitCount++; };
-globalThis.clear_screen = () => drawWrites.push(['clear']);
-globalThis.print = (...args) => drawWrites.push(['print', ...args]);
-globalThis.fill_rect = (...args) => drawWrites.push(['rect', ...args]);
+globalThis.clear_screen = () => {drawWrites.push(['clear']);screenBits.fill(0);screenText.clear();};
+globalThis.print = (...args) => {drawWrites.push(['print',...args]);screenText.set(args[0]+','+args[1],args);};
+globalThis.fill_rect = (x,y,width,height,color) => {
+    drawWrites.push(['rect',x,y,width,height,color]);
+    for(let yy=Math.max(0,y);yy<Math.min(64,y+height);++yy)
+        for(let xx=Math.max(0,x);xx<Math.min(128,x+width);++xx)screenBits[yy*128+xx]=color?1:0;
+    for(const [key,text] of screenText)if(text[0]>=x&&text[0]<x+width&&text[1]>=y&&text[1]<y+height)screenText.delete(key);
+};
 
 let source = fs.readFileSync(uiPath, 'utf8');
 source = source.replace(
@@ -155,7 +178,9 @@ globalThis.__testPlaybackPageTitles = PLAYBACK_PAGES.map((pages) =>
 globalThis.__testMainEngineControls = MAIN_ENGINE_CONTROLS;
 globalThis.__testLockableParams = Array.from(LOCKABLE_PARAMS);
 globalThis.__testDrawMain = drawMain;
+globalThis.__testClearDisplay=clearDisplay;
 globalThis.__testParseCutups = parseCutupsState;
+globalThis.__testParseUi = parseUiState;
 globalThis.__testParams = PARAMS;
 globalThis.__testSplit = {pages:parameterPages,parse:parseSplitState,keys:activeControlKeys};
 globalThis.__testResetEncoders = resetParameterEncoderMotion;
@@ -322,24 +347,14 @@ assert(drawWrites.length > 100, 'waveform page should draw');
 assert(drawWrites.some((write) => write[0] === 'print'
     && String(write[3]).includes('A01 V')),
     'waveform header should identify the active performance clip');
-assert(drawWrites.some((write) => write[0] === 'rect'
-    && write[1] === 25 && write[2] === 10 && write[3] === 1 && write[4] === 40));
-assert(drawWrites.some((write) => write[0] === 'rect'
-    && write[1] === 93 && write[2] === 10 && write[3] === 1 && write[4] === 40));
-assert(drawWrites.some((write) => write[0] === 'rect'
-    && write[1] === 25 && write[2] === 10 && write[3] === 1
-    && write[4] === 2 && write[5] === 1),
-    'Position should use a short vertical tick at the top edge');
-assert(drawWrites.some((write) => write[0] === 'rect'
-    && write[1] === 116 && write[2] === 48 && write[3] === 1
-    && write[4] === 2 && write[5] === 1),
-    'Field should use a short vertical tick at the bottom edge');
-assert(drawWrites.some((write) => write[0] === 'rect'
-    && write[1] === 23 && write[2] === 23 && write[3] === 5
-    && write[4] === 5 && write[5] === 0));
-assert(drawWrites.some((write) => write[0] === 'rect'
-    && write[1] === 23 && write[2] === 23 && write[3] === 5
-    && write[4] === 1 && write[5] === 1));
+assert(drawWrites.some((write)=>write[0]==='rect'&&write[1]===14&&write[2]===10&&write[3]===1&&write[4]===40));
+assert(drawWrites.some((write)=>write[0]==='rect'&&write[1]===99&&write[2]===10&&write[3]===1&&write[4]===40));
+assert(!drawWrites.some((write)=>write[0]==='rect'&&write[1]===14&&write[2]===10&&write[3]===1&&write[4]===2),
+    'Single zoom replaces the old Position tick');
+assert(!drawWrites.some((write)=>write[0]==='rect'&&write[1]===127&&write[2]===48&&write[3]===1&&write[4]===2),
+    'Single zoom replaces the old Field tick');
+assert(drawWrites.some((write)=>write[0]==='rect'&&write[1]===12&&write[2]===23&&write[3]===5&&write[4]===5&&write[5]===0));
+assert(drawWrites.some((write)=>write[0]==='rect'&&write[1]===12&&write[2]===23&&write[3]===5&&write[4]===1&&write[5]===1));
 assert(drawWrites.some((write) => write[0] === 'rect'
     && write[1] === 71 && write[2] === 11 && write[3] === 1
     && write[4] === 2), 'selected waveform should show transient markers');
@@ -374,10 +389,10 @@ assert(wavesetWrites.some((write) => write[0] === 'print'
     && String(write[3]).includes('WS <*~ C2/8 R1/2')),
     'Wavesets footer should identify active order, pending state, cycle, and repeat');
 assert(wavesetWrites.some((write) => write[0] === 'rect'
-    && write[1] === 100 && write[2] === 10 && write[4] === 40),
+    && write[1] === 107 && write[2] === 10 && write[4] === 40),
     'Wavesets primary cursor should follow the audible processed source');
 assert(wavesetWrites.some((write) => write[0] === 'rect'
-    && write[1] === 40 && write[2] === 10 && write[4] === 2),
+    && write[1] === 32 && write[2] === 10 && write[4] === 2),
     'Wavesets secondary source should use a sparse cursor');
 assert(wavesetWrites.some((write) => write[0] === 'rect'
     && write[2] === 51 && write[3] === 114 && write[4] === 1),
@@ -860,6 +875,7 @@ assert.equal(recordingCount(), beforeRecordWrites + 1);
 // and outgoing/released readers. Missing/stale data cannot revive a scanner.
 const cutState = fx.state();
 cutState.algorithm = 3; cutState.mask = 15; cutState.regions = [];
+cutState.fieldStart=0;cutState.fieldEnd=1;
 cutState.waves = Array.from({ length: 4 }, () => Array.from({ length: 112 }, () => [0,0]));
 globalThis.__testParseCutups(Array.from({ length: 8 }, (_, slot) =>
     `${slot},${slot % 4},${100 + slot * 100},-1,-1000,800,0`).join(';'));
@@ -913,7 +929,7 @@ globalThis.host_module_set_param_blocking=(key,value)=>{
     if(key==='part_mute')splitState.parts[splitState.focus].mute=Number(value);
     const p=splitState.parts[splitState.focus];
     Object.assign(params,{split_state:JSON.stringify(splitState),algorithm:String(p.algorithm),
-        root_note:String(p.root),scale:String(p.scale),pad_mode:String(p.mode),pad_octave:String(p.octave)});
+        root_note:String(p.root),scale:String(p.scale),pad_mode:String(p.mode),pad_octave:String(p.octave),part_mute:String(p.mute)});
 };
 params.split_state=JSON.stringify(splitState);
 params.voice_algorithms='4,-1,-1,-1,2,-1,-1,-1';
@@ -928,7 +944,12 @@ assert.equal(new Set(keys).size,keys.length,'Split pages must not duplicate para
 assert(split.pages().some((p)=>p.title==='PART COLOR'));
 assert(!split.pages().some((p)=>p.title==='EFFECTS'));
 fx.state().settingsPage=2;
+const focusReadsBefore=paramReads.length;
 cc(52);cc(52,0);assert.equal(fx.state().splitFocus,1);
+const focusReads=paramReads.slice(focusReadsBefore);
+assert(focusReads.length <= 3,
+    'A/B focus must use one editor snapshot, not read every control: '+focusReads.length+' reads');
+assert.equal(focusReads.filter((key)=>key==='ui_editor_state').length,1);
 fx.state().settingsPage=3;
 cc(52);cc(52,0);assert.equal(fx.state().splitFocus,0);assert.equal(fx.state().settingsPage,2);
 fx.state().view='settings';globalThis.__testResetEncoders();
@@ -944,13 +965,36 @@ const focus=fx.state().splitFocus;
 globalThis.onMidiMessageInternal([0x90,72,100]);
 assert.equal(fx.state().splitFocus,focus,'Playing the other instrument must not change editing focus');
 cc(88);assert.equal(fx.state().splitParts[0].mute,1);
+assert.equal(globalThis.__testParams.part_mute.value,1,
+    'hardware Mute must update the Split Setup control without changing focus');
+fx.state().messageTicks=0;drawWrites.length=0;globalThis.__testDrawMain();
+assert([...screenText.values()].some((w)=>String(w[2]).includes('A:MUT')),
+    'a muted instrument must stay identifiable on the waveform screen');
+// B can be muted/unmuted independently, including after changing focus.
+cc(52);cc(52,0);assert.equal(fx.state().splitFocus,1);
+cc(88);assert.equal(splitState.parts[1].mute,1);
+assert.equal(globalThis.__testParams.part_mute.value,1);
+cc(52);cc(52,0);cc(88);assert.equal(splitState.parts[0].mute,0);
+cc(52);cc(52,0);assert.equal(globalThis.__testParams.part_mute.value,1);
+fx.state().messageTicks=0;drawWrites.length=0;globalThis.__testDrawMain();
+assert([...screenText.values()].some((w)=>String(w[2]).includes('B:MUT')));
+assert([...screenText.values()].some((w)=>w[2]==='B MUTED: PRESS MUTE'));
+// The Setup encoder must recover B from the actual ON value.
+fx.state().view='settings';fx.state().settingsPage=split.pages().findIndex((p)=>p.title==='SPLIT SETUP');
+globalThis.__testResetEncoders();cc(74,124);
+assert.equal(splitState.parts[1].mute,0);assert.equal(globalThis.__testParams.part_mute.value,0);
+// A recalled mute can arrive between polls: the button must toggle the DSP state.
+splitState.parts[1].mute=1;params.split_state=JSON.stringify(splitState);
+cc(88);assert.equal(splitState.parts[1].mute,0);
+assert.equal(globalThis.__testParams.part_mute.value,0);
+cc(52);cc(52,0);
 fx.state().settingsPage=fx.pageIndex();params.effect_order='7';params.effect_order_state='7,7,0';fx.sync();
 assert.equal(fx.state().fxOrder.length,3,'Only shared returns and Tape are reorderable in Split');
 assert.deepEqual(new Set(fx.state().fxOrder),new Set([2,4,5]));
 cc(60);assert(!fx.state().splitEnabled);
 // Split cursors stay in their owner's pair even when the other part is focused.
 const visual = fx.state();
-visual.splitEnabled = true; visual.mask = 15; visual.regions = [];
+visual.splitEnabled = true; visual.mask = 15; visual.regions = [];visual.laneRegions=Array(4).fill(null);
 visual.waves = Array.from({length:4},()=>Array.from({length:112},()=>[0,0]));
 visual.playheads = Array.from({length:8},(_,slot)=>(slot+1)/10);
 visual.stackPositions = Array.from({length:8},(_,slot)=>
@@ -969,10 +1013,12 @@ for (let engine=0;engine<9;++engine) {
     for(const focus of [0,1]) {
         visual.splitFocus=focus;
         const rects=drawCursorRects();
-        const cursors=rects.filter((w)=>w[3]===1&&w[4]===20&&w[5]===1);
-        assert.equal(cursors.length,8,'all eight sounding Split voices must remain visible');
-        for(let slot=0;slot<8;++slot)assert(cursors.some((w)=>
-            w[1]===14+Math.round(visual.playheads[slot]*113)&&w[2]===(slot<4?10:30)));
+        for(let slot=0;slot<8;++slot) {
+            const x=14+Math.round(visual.playheads[slot]*113),top=slot<4?10:30;
+            assert.equal(screenPixel(x,top),1,'all eight sounding Split voices must remain visible');
+            assert.equal(screenPixel(x,top+19),1);
+            assert.equal(screenPixel(x,slot<4?30:10),0,'a cursor must stay in its owning pair');
+        }
         assert(!rects.some((w)=>w[3]===1&&w[4]===40),'Split must not draw a four-lane cursor');
     }
 }
@@ -986,12 +1032,132 @@ for(const engine of [3,8])for(const slot of [0,3,4,7]) {
         outgoingLane:slot<4?1:2,outgoingPosition:.7,outgoingGain:.5};
     visual.wavesetVoices[slot]={sourcePosition:.2,secondarySourcePosition:.7};
     const rects=drawCursorRects();const x=14+Math.round(.7*113);
-    const dashes=rects.filter((w)=>w[1]===x&&w[3]===1&&w[4]===2&&w[5]===1);
     const top=slot<4?10:30;
-    assert.equal(dashes.length,5);
-    assert(dashes.every((w)=>w[2]>=top&&w[2]+w[4]<=top+20),
-        'transition cursor must not cross into the other instrument');
+    for(let offset=0;offset<20;++offset) {
+        const y=top+offset,markerY=15+visual.cutupsVoices[slot].outgoingLane*10;
+        if(engine===3&&Math.abs(y-markerY)<=2)continue;
+        if(y%10===5)continue; // the source's zero line
+        assert.equal(screenPixel(x,y),offset%4<2?1:0,'outgoing readers retain their dash pattern');
+    }
+    assert.equal(screenPixel(x,slot<4?30:10),0,'transition cursor stays in its owning pair');
 }
+// Focus is a gutter-only change; source pixels and the A/B heading stay put.
+visual.regions=[];visual.messageTicks=0;visual.splitFocus=0;visual.lane=1;
+visual.laneRegions=[{source:visual.waveKeys[0],regions:[0,.25,.75,1]},null,null,null];
+visual.splitParts=[{algorithm:4,window:[0,1]},{algorithm:4,window:[0,1]}];
+visual.voiceAlgorithms=Array(8).fill(-1);visual.voiceAlgorithms[0]=visual.voiceAlgorithms[4]=4;
+visual.playheads=Array(8).fill(-1);visual.playheads[0]=.3;visual.playheads[4]=.7;
+visual.stackPositions=Array(8).fill(-1);visual.stackPositions[0]=.2/3;visual.stackPositions[4]=2.8/3;
+globalThis.__testClearDisplay();globalThis.__testDrawMain();
+const wavePixels=()=>Uint8Array.from({length:116*40},(_,i)=>screenPixel(12+i%116,10+Math.floor(i/116)));
+const beforeWaveFocus=wavePixels(),focusHeader=screenText.get('1,0')[2];
+let waveWrites=drawWrites.length;visual.splitFocus=1;visual.lane=3;globalThis.__testDrawMain();
+assert.deepEqual(wavePixels(),beforeWaveFocus);
+assert.equal(screenText.get('1,0')[2],focusHeader,'the A/B heading does not shift with focus');
+assert(!drawWrites.slice(waveWrites).some((w)=>w[0]==='clear'));
+assert(!drawWrites.slice(waveWrites).some((w)=>w[0]==='rect'&&w[1]+w[3]>12&&w[2]<50&&w[2]+w[4]>10),
+    'a focus change must not clear or repaint the waveform canvas');
+for(let lane=0;lane<4;++lane)assert.equal(screenText.get('3,'+(11+lane*10))[3],lane<2?1:0,
+    'focused lane numbers are black on a white background');
+assert.equal(screenPixel(2,31),1);assert.equal(screenPixel(2,41),1);
+assert.equal(screenPixel(2,11),0);assert.equal(screenPixel(2,21),0);
+waveWrites=drawWrites.length;globalThis.__testDrawMain();
+assert.equal(drawWrites.length,waveWrites,'an unchanged Split frame emits no display writes');
+// An advancing reader restores its old pixels without blanking the waveform.
+const oldHead=14+Math.round(.7*113);visual.playheads[4]=.8;
+globalThis.__testDrawMain();assert.equal(screenPixel(oldHead,30),0);
+assert.equal(screenPixel(14+Math.round(.8*113),30),1);
+const checkRetainedFrame=()=>{
+    const retained=screenBits.slice();globalThis.__testClearDisplay();globalThis.__testDrawMain();
+    assert.deepEqual(screenBits,retained,'incremental pixels must equal a complete fresh frame');
+};
+checkRetainedFrame();
+// Separate A/B zoom windows stretch only their own source field across the view.
+visual.splitParts[0].window=[.2,.4];visual.splitParts[1].window=[.55,.95];
+visual.laneRegions=Array(4).fill(null);
+visual.waves=Array.from({length:4},(_,lane)=>Array.from({length:112},(_,bin)=>{
+    const position=bin/111,amplitude=lane<2?(position>=.18&&position<=.45?2:7):(position>=.5?4:0);
+    return [-amplitude,amplitude];
+}));
+visual.playheads[0]=.3;visual.playheads[4]=.75;
+waveWrites=drawWrites.length;globalThis.__testDrawMain();
+assert.equal(screenPixel(71,10),1);assert.equal(screenPixel(71,30),1,
+    'different absolute source positions share the midpoint of their own zoom windows');
+assert.equal(screenPixel(14,11),0,'unused loud source material before A’s window is hidden');
+assert.equal(screenPixel(14,14),1);assert.equal(screenPixel(14,33),1,
+    'B uses its own window instead of A’s field');
+assert(!drawWrites.slice(waveWrites).some((w)=>w[0]==='clear'));
+checkRetainedFrame();
+visual.playheads[0]=.9;globalThis.__testDrawMain();
+assert.equal(screenPixel(127,10),0,'an out-of-window cursor must not be pinned to a false edge position');
+checkRetainedFrame();
+// Old region markers cannot be drawn into a newly selected source lane.
+visual.regions=[0,.3,1];visual.regionLane=1;visual.lane=3;
+globalThis.__testDrawMain();checkRetainedFrame();
+visual.waves=Array.from({length:4},()=>Array.from({length:112},()=>[0,0]));
+globalThis.__testDrawMain();checkRetainedFrame();
+
+// The regular instrument uses the same source crop for all four lanes and
+// preserves eight full-height playheads across every playback algorithm.
+visual.splitEnabled=false;visual.mask=15;visual.fieldStart=.2;visual.fieldEnd=.4;
+visual.regions=[];visual.laneRegions=Array(4).fill(null);visual.messageTicks=0;
+visual.waves=Array.from({length:4},()=>Array.from({length:112},(_,bin)=>{
+    const amplitude=bin/111>=.18&&bin/111<=.45?2:7;return [-amplitude,amplitude];
+}));
+for(let algorithm=0;algorithm<9;++algorithm) {
+    visual.algorithm=algorithm;
+    visual.playheads=Array.from({length:8},(_,slot)=>.21+slot*.02);
+    visual.stackPositions=Array.from({length:8},(_,slot)=>(slot%4)/3);
+    visual.cutupsVoices=visual.playheads.map((position,slot)=>({lane:slot%4,position,gain:1,
+        outgoingLane:-1,outgoingPosition:-1,outgoingGain:0}));
+    visual.wavesetVoices=visual.playheads.map((sourcePosition,slot)=>({sourcePosition,
+        secondarySourcePosition:-1,groupSize:8,groupPosition:.3,secondaryGroupPosition:-1,focused:slot===0}));
+    globalThis.__testDrawMain();
+    for(const position of visual.playheads) {
+        const x=14+Math.round((position-.2)/.2*113+1e-9);
+        assert.equal(screenPixel(x,10),1,'Single playhead must use the zoomed source coordinate');
+        assert.equal(screenPixel(x,49),1,'Single retains full four-lane playhead height');
+    }
+    assert.equal(screenPixel(14,11),0,'the unused loud source before the field must be cropped out');
+    assert.equal(screenPixel(14,14),1);
+}
+for(const algorithm of [3,8]) {
+    visual.algorithm=algorithm;visual.playheads=Array(8).fill(-1);
+    visual.stackPositions=Array(8).fill(-1);visual.stackPositions[0]=0;
+    visual.cutupsVoices=Array(8).fill(null);visual.wavesetVoices=Array(8).fill(null);
+    visual.cutupsVoices[0]={lane:0,position:.25,gain:1,outgoingLane:2,outgoingPosition:.35,outgoingGain:.5};
+    visual.wavesetVoices[0]={sourcePosition:.25,secondarySourcePosition:.35,
+        groupSize:8,groupPosition:.3,secondaryGroupPosition:-1,focused:true};
+    globalThis.__testDrawMain();
+    assert.equal(screenPixel(99,10),1);assert.equal(screenPixel(99,11),1);
+    assert.equal(screenPixel(99,12),0,'outgoing readers keep their dash pattern after zooming');
+}
+// A flat source must have an uninterrupted baseline in both display modes.
+// The old 112-bin-to-114-pixel mapping left black seams at x70 and x126.
+visual.algorithm=4;visual.playheads=Array(8).fill(-1);visual.stackPositions=Array(8).fill(-1);
+visual.voiceAlgorithms=Array(8).fill(-1);visual.cutupsVoices=Array(8).fill(null);visual.wavesetVoices=Array(8).fill(null);
+visual.waves=Array.from({length:4},()=>Array.from({length:112},()=>[0,0]));
+visual.splitParts=[{algorithm:4,window:[0,1]},{algorithm:4,window:[0,1]}];
+visual.fieldStart=0;visual.fieldEnd=1;
+for(const mode of [false,true]) {
+    visual.splitEnabled=mode;globalThis.__testClearDisplay();globalThis.__testDrawMain();
+    for(let lane=0;lane<4;++lane)for(let x=14;x<128;++x)
+        assert.equal(screenPixel(x,15+lane*10),1,'every waveform column must be painted');
+}
+visual.splitEnabled=false;
+globalThis.__testParseUi('1,15,0,0,0,315,339,0,0,0,0,0,45,0,1,0,1,0.3154650,0.3388350');
+assert.equal(visual.fieldStart,.315465);assert.equal(visual.fieldEnd,.338835);
+visual.playheads[0]=.32715;visual.stackPositions[0]=0;
+globalThis.__testDrawMain();assert.equal(screenPixel(71,10),1,
+    'narrow fields must use precise bounds instead of rounded per-mille values');
+visual.playheads[0]=.9;globalThis.__testDrawMain();
+assert.equal(screenPixel(127,10),0,'a reader outside the visible window is not falsely pinned to an edge');
+visual.mask=0;visual.lane=1;visual.regionLane=1;visual.regions=[0,.32715,1];
+const emptyLaneDraw=drawWrites.length;globalThis.__testDrawMain();
+assert(!drawWrites.slice(emptyLaneDraw).some((w)=>w[0]==='rect'&&w[1]===71&&w[2]===11&&w[4]===2),
+    'a cleared source lane cannot retain old transient marks');
+
+
 visual.splitEnabled=false;
 // B's background tint must be visible at startup and yield to performance states.
 const emptySlots=Array(8).fill(-1).join(',');
@@ -1058,7 +1224,7 @@ assert.equal(invalidations,invalidationsBefore+1);
 assert.equal(padWrites.length-writesBeforeReentry,32);
 assert(forcedPadWrites.slice(-32).every(([, , force])=>force),
     'startup must bypass the shared LED cache for every pad');
-assert(drawWrites.slice(-500).some((w)=>w[0]==='print'&&w[3]==='THRU 0.28.0-test.9'),
+assert(drawWrites.slice(-500).some((w)=>w[0]==='print'&&w[3]==='THRU '+testVersion),
     'startup should identify the installed test build');
 // A mode toggle also sends all 32 pad states immediately, without waiting for the queue.
 Object.assign(splitState,colors);
@@ -1133,6 +1299,40 @@ for(let engine=0;engine<9;++engine)for(let focus=0;focus<2;++focus) {
     const controls=split.pages().flatMap((page)=>page.keys||[]).filter(Boolean);
     assert.equal(new Set(controls).size,controls.length);
 }
+// Fresh backend values and an immediate redraw on each focus change.
+const focusSetter=globalThis.host_module_set_param_blocking;
+globalThis.host_module_set_param_blocking=(key,value)=>{
+    focusSetter(key,value);
+    if(key==='split_focus')Object.assign(params,Number(value)
+        ?{locus:'0.83',effect_drive:'0.42',amp_release:'1234'}
+        :{locus:'0.17',effect_drive:'0.12',amp_release:'250'});
+};
+fx.state().view='main';
+if(fx.state().splitFocus!==0){cc(52);cc(52,0);}
+let focusDraws=drawWrites.length,focusCalls=paramReads.length;
+cc(52);cc(52,0);
+assert.equal(paramReads.length-focusCalls,1,'focus uses exactly one snapshot read: '+paramReads.slice(focusCalls).join(','));
+assert.equal(globalThis.__testParams.locus.value,.83);
+assert.equal(globalThis.__testParams.effect_drive.value,.42);
+assert.equal(globalThis.__testParams.amp_release.value,1234);
+assert(drawWrites.length>focusDraws,'focus must redraw without waiting for the next tick');
+const immediate=paramWrites.length;globalThis.__testResetEncoders();cc(71,2);
+assert(paramWrites.slice(immediate).some(([key,value])=>key==='locus'&&Number(value)>.83),
+    'the first turn after switching must start from B’s value: '+JSON.stringify(paramWrites.slice(immediate)));
+// A malformed snapshot must not expose stale A/B knob values for editing.
+corruptEditorSnapshot=true;cc(52);cc(52,0);
+assert.equal(fx.state().editorReady,false);
+const staleWrites=paramWrites.length;cc(71,4);
+assert.equal(paramWrites.length,staleWrites,'do not send a stale parameter while the snapshot is incomplete');
+corruptEditorSnapshot=false;
+for(let i=0;i<3;++i)globalThis.tick();
+assert.equal(fx.state().editorReady,true);
+assert.equal(globalThis.__testParams.locus.value,.17);
+// A snapshot refresh is bounded even when the DSP changed focus between polls.
+focusCalls=paramReads.length;
+splitState.focus=1;params.split_state=JSON.stringify(splitState);
+for(let i=0;i<3;++i)globalThis.tick();
+assert(paramReads.slice(focusCalls).filter((key)=>key==='ui_editor_state').length<=1);
 // Leaving Split while the menu is open must not leave a stale Split-only view.
 fx.state().view='fxMenu';cc(60);assert.equal(fx.state().view,'main');
 console.log('s3g Thru overtake UI tests: PASS');

@@ -1,4 +1,4 @@
-/* s3g Thru 0.28.0-test.9 — polyphonic sampler/performance-looper takeover for Move. */
+/* s3g Thru 0.28.0-test.13 — polyphonic sampler/performance-looper takeover for Move. */
 
 import * as moveConstants from '/data/UserData/schwung/shared/constants.mjs';
 import * as moveInputFilter from '/data/UserData/schwung/shared/input_filter.mjs';
@@ -78,7 +78,7 @@ const setButtonLED = typeof moveInputFilter.setButtonLED === 'function'
         }
     };
 
-const UI_VERSION = '0.28.0-test.9';
+const UI_VERSION = '0.28.0-test.13';
 const WAVE_BINS = 112;
 const ALGORITHMS = ['MOTION', 'LANES', 'GRAINS', 'CUTUPS', 'SAMPLE', 'SLICES',
     'GLITCH', 'WEAVE', 'WAVESETS'];
@@ -609,6 +609,7 @@ const state = {
     ticks: 0,
     splitEnabled:false,splitFocus:0,splitBlend:.5,splitParts:[{},{}],splitPages:[0,0],
     focusButtonHeld:false,focusButtonUsed:false,voiceAlgorithms:Array(8).fill(-1),
+    editorReady:false,
     fxMenuSelection:0,fxMenuReturn:false,
     lane: 1,
     mask: 0,
@@ -710,13 +711,15 @@ const state = {
     sampleLoadState: 0,
     sampleLoadProgress: 0,
     sampleLoadName: '',
-    regions: [],
+    regions: [], regionLane:0, waveText:null,
+    waveKeys:Array(4).fill(''),laneRegions:Array(4).fill(null),
     padMode: 0,
     scale: 0,
     cues: Array(8).fill(-1),
 };
 
 function parseRegionState(text) {
+    state.regionLane=state.lane;
     const values = String(text || '').split(',').map((item) => Number(item));
     const count = values.length > 0 && Number.isFinite(values[0])
         ? clamp(values[0] | 0, 0, 64) : 0;
@@ -726,6 +729,7 @@ function parseRegionState(text) {
             state.regions.push(clamp(values[index] / 1000, 0, 1));
         }
     }
+    state.laneRegions[state.lane-1]={source:state.waveKeys[state.lane-1],regions:state.regions};
 }
 
 function parseCueState(text) {
@@ -915,6 +919,37 @@ function setParamBlocking(key, value) {
     } catch (error) {}
 }
 
+function refreshEditorSnapshot() {
+    state.editorReady=false;
+    let snapshot;
+    try { snapshot=JSON.parse(String(getParam('ui_editor_state',''))); }
+    catch (_) { return false; }
+    const values=snapshot?.values,split=snapshot?.split;
+    if(snapshot?.v!==1 || !values || typeof values!=='object'
+        || !split || ![0,1].includes(split.enabled) || ![0,1].includes(split.focus)
+        || !Array.isArray(split.parts) || split.parts.length!==2
+        || split.parts.some((part)=>!part || typeof part!=='object')) return false;
+    // Validate the complete response before replacing any displayed controls.
+    for(const [key,control] of Object.entries(PARAMS))
+        if(!control.momentary && !Number.isFinite(values[key])) return false;
+    for(const key of ['pad_octave','record_lane','stack_scan_paused','glitch_buffer_lock'])
+        if(!Number.isFinite(values[key])) return false;
+    for(const [key,control] of Object.entries(PARAMS))
+        control.value=control.momentary?0:clamp(values[key],control.min,control.max);
+    parseSplitState(split,false);
+    state.algorithm=Math.round(PARAMS.algorithm.value);
+    state.padMode=Math.round(PARAMS.pad_mode.value);state.scale=Math.round(PARAMS.scale.value);
+    state.octave=clamp(values.pad_octave,-3,3);
+    state.lane=clamp(Math.round(values.record_lane),1,4);
+    state.recordSource=Math.round(PARAMS.record_source.value);
+    state.stackScanPaused=values.stack_scan_paused!==0;
+    state.glitchBufferLocked=values.glitch_buffer_lock!==0;
+    state.voiceAlgorithms=String(snapshot.voices||'').split(',').map(Number);
+    state.editorReady=true;
+    if(state.message==='UPDATING EDITOR')state.messageTicks=0;
+    return true;
+}
+
 function showMessage(text, ticks) {
     state.message = String(text || '');
     state.messageTicks = ticks || 45;
@@ -936,8 +971,8 @@ function parseUiState(text) {
     state.recording = values[2] !== 0;
     state.meter = clamp(values[3] / 1000, 0, 1);
     state.position = clamp(values[4] / 1000, 0, 1);
-    state.fieldStart = clamp(values[5] / 1000, 0, 1);
-    state.fieldEnd = clamp(values[6] / 1000, 0, 1);
+    state.fieldStart = clamp(Number.isFinite(values[17])?values[17]:values[5]/1000,0,1);
+    state.fieldEnd = clamp(Number.isFinite(values[18])?values[18]:values[6]/1000,0,1);
     state.weights = [7, 8, 9, 10].map((index) => clamp(values[index] / 1000, 0, 1));
     state.limited = values[11] !== 0;
     state.tenths = Math.max(0, values[12] | 0);
@@ -951,12 +986,14 @@ function parseUiState(text) {
         || oldRecording !== state.recording) rebuildLedQueue();
 }
 
-function parseSplitState(text) {
+function parseSplitState(text, refresh=true) {
     let data;
-    try { data=JSON.parse(String(text||'{}')); } catch (_) { return; }
+    try { data=typeof text==='object'?text:JSON.parse(String(text||'{}')); } catch (_) { return; }
+    if(!data || typeof data!=='object')return;
     const enabled=Number(data.enabled)===1;
     const focus=clamp(Number(data.focus)||0,0,1);
     const changed=enabled!==state.splitEnabled || focus!==state.splitFocus;
+    if(changed && refresh && refreshEditorSnapshot())return;
     if(changed)state.splitPages[state.splitFocus]=state.settingsPage;
     state.splitEnabled=enabled;state.splitFocus=focus;
     if(!enabled && state.view==='fxMenu'){state.view='main';state.fxMenuReturn=false;}
@@ -970,26 +1007,28 @@ function parseSplitState(text) {
     }
     PARAMS.split_mode.value=enabled?1:0;PARAMS.split_focus.value=focus;
     if(changed) {
-        for(const key of Object.keys(PARAMS)) {
-            const p=PARAMS[key];p.value=clamp(getNumber(p.key,p.value),p.min,p.max);
-        }
         state.algorithm=Math.round(PARAMS.algorithm.value);
         state.padMode=Math.round(PARAMS.pad_mode.value);state.scale=Math.round(PARAMS.scale.value);
-        state.octave=clamp(getNumber('pad_octave',0),-3,3);
+        state.octave=clamp(Number(data.parts?.[focus]?.octave)||0,-3,3);
         state.settingsPage=state.splitPages[focus]||0;
         state.fxRouteClip=-1;state.fxRouteGrabbed=false;state.fxRoutePending=false;
         resetParameterEncoderMotion();rebuildLedQueue();
     }
+    // Mute can change from the hardware button, recall, or another editor.
+    // Focus need not change; never leave Split Setup displaying a stale OFF.
+    PARAMS.part_mute.value=state.splitParts[focus]?.mute?1:0;
     if (padMapChanged && !changed) rebuildLedQueue();
-    state.voiceAlgorithms=String(getParam('voice_algorithms','')).split(',').map(Number);
 }
 function padSettings(index) {
     if(state.splitEnabled)return state.splitParts[index%8>=4?1:0]||{};
     return {root:Math.round(PARAMS.root_note.value),octave:state.octave,scale:state.scale,mode:state.padMode};
 }
 function setSplitFocus(part) {
-    setParamBlocking('split_focus',part);parseSplitState(getParam('split_state','{}'));
-    showMessage('EDIT PART '+(state.splitFocus?'B':'A'));rebuildLedQueue();
+    setParamBlocking('split_focus',part);
+    if(!refreshEditorSnapshot())parseSplitState(getParam('split_state','{}'),false);
+    if(!state.editorReady)showMessage('UPDATING EDITOR');
+    else if(state.view!=='main')showMessage('EDIT PART '+(state.splitFocus?'B':'A'));
+    rebuildLedQueue();draw();
 }
 function toggleSplitMode() {
     setParamBlocking('split_mode',state.splitEnabled?0:1);
@@ -999,6 +1038,7 @@ function toggleSplitMode() {
     primePadLeds();
 }
 function adjustSplitBlend(delta) {
+    if(!state.editorReady){showMessage('UPDATING EDITOR');return;}
     delta=parameterEncoderDelta(7,'split_blend',delta);if(!delta)return;
     const control=PARAMS.split_blend;control.value=clamp(control.value+delta*.01,0,1);
     setParam('split_blend',control.value.toFixed(4));
@@ -1138,7 +1178,12 @@ function parseRollNotes(text) {
 }
 
 function parseWaveforms(text) {
-    const lanes = String(text || '').split('|');
+    text=String(text||'');
+    if(text===state.waveText)return;
+    state.waveText=text;
+    const lanes = text.split('|');
+    for(let lane=0;lane<4;++lane)if(lanes[lane]!==state.waveKeys[lane])state.laneRegions[lane]=null;
+    state.waveKeys=lanes;
     const decoded = [];
     for (let lane = 0; lane < 4; lane++) {
         const source = lanes[lane] || '';
@@ -1221,11 +1266,7 @@ function parseClipBankState(text) {
     if (active !== previousActive) {
         state.clipBank = Math.floor(active / 16);
         resetParameterEncoderMotion();
-        for (const key of Object.keys(PARAMS)) {
-            const control = PARAMS[key];
-            control.value = clamp(getNumber(control.key, control.value),
-                control.min, control.max);
-        }
+        refreshEditorSnapshot();
         state.algorithm = Math.round(PARAMS.algorithm.value);
     }
     if (active !== previousActive
@@ -1424,8 +1465,167 @@ function drainLedQueue() {
     }
 }
 
+// Retain the Split waveform pixels. Focus, text and meters have separate
+// regions; moving readers restore only the pixels they actually change.
+const SPLIT_CANVAS_LEFT=12,SPLIT_CANVAS_TOP=10,SPLIT_CANVAS_WIDTH=116;
+const splitDisplay={valid:false,header:null,gutter:null,rail:null,footer:null,
+    waves:null,mask:-1,windows:null,
+    base:new Uint32Array(SPLIT_CANVAS_WIDTH*2),
+    frame:new Uint32Array(SPLIT_CANVAS_WIDTH*2),
+    painted:new Uint32Array(SPLIT_CANVAS_WIDTH*2)};
+let splitRasterTarget=null;
+
+function clearDisplay() {
+    splitDisplay.valid=false;
+    clear_screen();
+}
+
+function splitRasterRect(x,y,width,height,color) {
+    const first=clamp(x-SPLIT_CANVAS_LEFT,0,SPLIT_CANVAS_WIDTH);
+    const last=clamp(x+width-SPLIT_CANVAS_LEFT,0,SPLIT_CANVAS_WIDTH);
+    const lowStart=clamp(y-SPLIT_CANVAS_TOP,0,32),lowEnd=clamp(y+height-SPLIT_CANVAS_TOP,0,32);
+    const highStart=clamp(y-SPLIT_CANVAS_TOP-32,0,8),highEnd=clamp(y+height-SPLIT_CANVAS_TOP-32,0,8);
+    const low=lowEnd>lowStart?(0xffffffff>>>(32-(lowEnd-lowStart)))<<lowStart:0;
+    const high=highEnd>highStart?((1<<(highEnd-highStart))-1)<<highStart:0;
+    for(let column=first;column<last;++column) {
+        const at=column*2;
+        splitRasterTarget[at]=color?splitRasterTarget[at]|low:splitRasterTarget[at]&~low;
+        splitRasterTarget[at+1]=color?splitRasterTarget[at+1]|high:splitRasterTarget[at+1]&~high;
+    }
+}
+
+function paintSplitWaveChanges() {
+    const {frame,painted}=splitDisplay;
+    for(let column=0;column<SPLIT_CANVAS_WIDTH;++column) {
+        const at=column*2;
+        const diff=[frame[at]^painted[at],frame[at+1]^painted[at+1]];
+        if(!(diff[0]||diff[1]))continue;
+        const changed=(y)=>(diff[y>>>5]>>>(y&31))&1;
+        const pixel=(y)=>(frame[at+(y>>>5)]>>>(y&31))&1;
+        let y=0;
+        while(y<40) {
+            if(!changed(y)){++y;continue;}
+            const first=y,color=pixel(y++);
+            while(y<40&&changed(y)&&pixel(y)===color)++y;
+            drawRect(SPLIT_CANVAS_LEFT+column,SPLIT_CANVAS_TOP+first,1,y-first,color);
+        }
+    }
+    painted.set(frame);
+}
+
+function normalizedWaveWindow(window) {
+    if(!Array.isArray(window)||window.length!==2||!window.every(Number.isFinite))return [0,1];
+    const start=clamp(window[0],0,1),end=clamp(window[1],0,1);
+    return end-start>1e-6?[start,end]:[0,1];
+}
+
+function splitWaveWindow(part) {return normalizedWaveWindow(state.splitParts[part]?.window);}
+
+function waveformX(position,window) {
+    if(!Number.isFinite(position)||position<window[0]-1e-6||position>window[1]+1e-6)return -1;
+    return 14+Math.round(clamp((position-window[0])/(window[1]-window[0]),0,1)*113+1e-9);
+}
+
+function drawWaveformLane(lane,window,center) {
+    if(!(state.mask&(1<<lane))){drawRect(14,center,114,1,1);return;}
+    const bins=state.waves[lane];
+    for(let pixel=0;pixel<114;++pixel) {
+        const source=(window[0]+pixel/113*(window[1]-window[0]))*(WAVE_BINS-1);
+        const first=Math.min(WAVE_BINS-1,Math.floor(source)),next=Math.min(WAVE_BINS-1,first+1),mix=source-first;
+        const low=clamp(bins[first][0]+(bins[next][0]-bins[first][0])*mix,-7,7);
+        const high=clamp(bins[first][1]+(bins[next][1]-bins[first][1])*mix,-7,7);
+        const top=center-Math.round(high*4/7),bottom=center-Math.round(low*4/7);
+        drawRect(14+pixel,top,1,Math.max(1,bottom-top+1),1);
+    }
+}
+
+function drawSplitWavePixels(windows) {
+    const key=windows.flat().join(',');
+    if(splitDisplay.waves!==state.waves||splitDisplay.mask!==state.mask||splitDisplay.windows!==key) {
+        splitDisplay.base.fill(0);splitRasterTarget=splitDisplay.base;
+        for(let lane=0;lane<4;++lane) {
+            drawWaveformLane(lane,windows[lane<2?0:1],15+lane*10);
+        }
+        splitRasterTarget=null;
+        splitDisplay.waves=state.waves;splitDisplay.mask=state.mask;splitDisplay.windows=key;
+    }
+    splitDisplay.frame.set(splitDisplay.base);splitRasterTarget=splitDisplay.frame;
+    // Remember landmarks on each source lane. Editing focus must not move
+    // or erase them, and replacing a sample invalidates only its own cache.
+    for(let lane=0;lane<4;++lane) {
+        const entry=state.laneRegions[lane];
+        if(!entry||entry.source!==state.waveKeys[lane]||entry.regions.length<=2)continue;
+        const center=15+lane*10,window=windows[lane<2?0:1];
+        for(const region of entry.regions.slice(1,-1)) {
+            const x=waveformX(region,window);
+            if(x>=0){drawRect(x,center-4,1,2,1);drawRect(x,center+3,1,2,1);}
+        }
+    }
+    const markers=[];
+    if(state.mask)for(let slot=0;slot<8;++slot) {
+        const part=slot<4?0:1,top=10+part*20,window=windows[part];
+        const algorithm=state.voiceAlgorithms[slot],cut=state.cutupsVoices[slot],ws=state.wavesetVoices[slot];
+        const head=algorithm===3?(cut?.gain>0?cut.position:-1):algorithm===8?(ws?.sourcePosition??-1):state.playheads[slot];
+        const lane=algorithm===3?(cut?.lane??-1):(state.stackPositions[slot]>=0?state.stackPositions[slot]*3:-1);
+        const x=waveformX(head,window);
+        if(x>=0&&lane>=part*2&&lane<=part*2+1){drawRect(x,top,1,20,1);markers.push([x,15+lane*10]);}
+        if(algorithm===3&&cut?.outgoingLane>=part*2&&cut.outgoingLane<=part*2+1&&cut.outgoingGain>0) {
+            const outgoing=waveformX(cut.outgoingPosition,window);
+            if(outgoing>=0){drawDashedPlayhead(outgoing,top,20);markers.push([outgoing,15+cut.outgoingLane*10]);}
+        }
+        if(algorithm===8&&ws?.secondarySourcePosition>=0) {
+            const outgoing=waveformX(ws.secondarySourcePosition,window);
+            if(outgoing>=0)drawDashedPlayhead(outgoing,top,20);
+        }
+    }
+    for(const [x,y] of markers)clearStackMarker(x,y);
+    for(const [x,y] of markers)drawStackMarker(x,y);
+    splitRasterTarget=null;paintSplitWaveChanges();
+}
+
+function drawSplitMain() {
+    if(!splitDisplay.valid) {
+        clearDisplay();splitDisplay.painted.fill(0);
+        splitDisplay.header=splitDisplay.gutter=splitDisplay.rail=splitDisplay.footer=null;
+    }
+    const name=(part)=>state.splitParts[part]?.mute?'MUT':(ALGORITHMS[state.splitParts[part]?.algorithm]||'---').slice(0,3);
+    const title='A:'+name(0)+' B:'+name(1)+' '+Math.round(state.splitBlend*100)+'%';
+    if(title!==splitDisplay.header) {
+        drawRect(0,0,128,9,0);print(1,0,title,1);splitDisplay.header=title;
+    }
+    const weights=state.weights.map((weight)=>Math.round(weight*7));
+    const gutter=[state.splitFocus,state.lane,...weights].join(',');
+    if(gutter!==splitDisplay.gutter) {
+        drawRect(0,10,12,40,0);
+        for(let lane=0;lane<4;++lane) {
+            const y=11+lane*10,focused=Math.floor(lane/2)===state.splitFocus;
+            if(state.lane===lane+1)drawRect(0,y,2,8,1);
+            if(focused)drawRect(2,y,7,8,1);
+            print(3,y,String(lane+1),focused?0:1);
+            if(weights[lane]>0)drawRect(9,y+8-weights[lane],2,weights[lane],1);
+        }
+        drawRect(0,30,12,1,1);splitDisplay.gutter=gutter;
+    }
+    drawSplitWavePixels([splitWaveWindow(0),splitWaveWindow(1)]);
+    const blend=clamp(Math.round(state.splitBlend*125),0,125),meter=Math.max(1,Math.round(114*state.meter));
+    const progress=state.clipDuration>0?Math.max(1,Math.round(128*state.clipPosition)):0;
+    const rail=[blend,state.recording?meter:0,progress].join(',');
+    if(rail!==splitDisplay.rail) {
+        drawRect(0,50,128,5,0);drawRect(0,51,128,1,1);drawRect(blend,50,3,3,1);
+        if(state.recording)drawRect(14,51,meter,2,1);
+        if(progress){drawRect(0,53,128,1,0);drawRect(0,53,progress,1,1);}
+        splitDisplay.rail=rail;
+    }
+    const footer=mainFooter(null);
+    if(footer!==splitDisplay.footer) {
+        drawRect(0,55,128,9,0);print(1,55,footer,1);splitDisplay.footer=footer;
+    }
+    splitDisplay.valid=true;
+}
+
 function drawRect(x, y, width, height, value) {
     if (width <= 0 || height <= 0) return;
+    if(splitRasterTarget){splitRasterRect(x|0,y|0,width|0,height|0,value!==0);return;}
     if (typeof fill_rect === 'function') {
         fill_rect(x | 0, y | 0, width | 0, height | 0, value === 0 ? 0 : 1);
     }
@@ -1505,21 +1705,21 @@ function wavesetStatus(voice) {
 }
 
 function drawMain() {
-    clear_screen();
+    if(state.splitEnabled){drawSplitMain();return;}
+    clearDisplay();
     const algorithm = ALGORITHMS[state.algorithm] || ALGORITHMS[0];
     const recordTag = state.clipRecording ? ' DATA REC'
         : (state.recording ? (state.limited ? ' LIM' : ' AUDIO') : '');
     const displayedAlgorithm = state.algorithm === 6 && state.glitchBufferLocked
         ? 'GLCH LOCK' : algorithm;
-    const title=state.splitEnabled?(state.splitFocus===0?'>A:':' A:')+(ALGORITHMS[state.splitParts[0]?.algorithm]||'---').slice(0,3)
-        +(state.splitFocus===1?' >B:':'  B:')+(ALGORITHMS[state.splitParts[1]?.algorithm]||'---').slice(0,3)+' '+Math.round(state.splitBlend*100)+'%'
-        :'THRU '+displayedAlgorithm+' '+clipLabel(state.activeClip)+' V'+state.voiceCount+recordTag;
+    const title='THRU '+displayedAlgorithm+' '+clipLabel(state.activeClip)+' V'+state.voiceCount+recordTag;
     print(1,0,title.slice(0,21),1);
 
     const left = 14;
     const width = 114;
     const top = 10;
     const rowHeight = 10;
+    const window=normalizedWaveWindow([state.fieldStart,state.fieldEnd]);
     for (let lane = 0; lane < 4; lane++) {
         const center = top + lane * rowHeight + 5;
         const selected = state.lane === lane + 1;
@@ -1529,22 +1729,11 @@ function drawMain() {
         if (weightHeight > 0) {
             drawRect(9, center + 4 - weightHeight, 2, weightHeight, 1);
         }
-        if ((state.mask & (1 << lane)) === 0) {
-            drawRect(left, center, width, 1, 1);
-            continue;
-        }
-        const bins = state.waves[lane];
-        for (let bin = 0; bin < WAVE_BINS; bin++) {
-            const x = left + Math.floor(bin * (width - 1) / (WAVE_BINS - 1));
-            const low = clamp(bins[bin][0], -7, 7);
-            const high = clamp(bins[bin][1], -7, 7);
-            const y1 = center - Math.round(high * 4 / 7);
-            const y2 = center - Math.round(low * 4 / 7);
-            drawRect(x, y1, 1, Math.max(1, y2 - y1 + 1), 1);
-        }
-        if (selected && state.regions.length > 2) {
+        drawWaveformLane(lane,window,center);
+        if (selected && (state.mask&(1<<lane)) && state.regionLane===state.lane && state.regions.length > 2) {
             for (let region = 1; region < state.regions.length - 1; region++) {
-                const x = left + Math.round(state.regions[region] * (width - 1));
+                const x=waveformX(state.regions[region],window);
+                if(x<0)continue;
                 drawRect(x, center - 4, 1, 2, 1);
                 drawRect(x, center + 3, 1, 2, 1);
             }
@@ -1557,55 +1746,23 @@ function drawMain() {
             ? voice.sourcePosition : -1)
         : state.playheads;
     if (state.mask !== 0) {
-        const startX = left + Math.round(state.fieldStart * (width - 1));
-        const endX = left + Math.round(state.fieldEnd * (width - 1));
-        drawRect(startX, top, 1, 2, 1);
-        drawRect(endX, top + 38, 1, 2, 1);
-        if (state.splitEnabled) {
-            const markers = [];
-            const span = rowHeight * 2;
-            for (let slot = 0; slot < 8; ++slot) {
-                // Slots 0–3 belong to A, slots 4–7 to B, regardless of focus.
-                const cursorTop = top + (slot < 4 ? 0 : span);
-                const algorithm = state.voiceAlgorithms[slot];
-                const cut = state.cutupsVoices[slot];
-                const ws = state.wavesetVoices[slot];
-                const head = algorithm === 3 ? (cut?.gain > 0 ? cut.position : -1)
-                    : algorithm === 8 ? (ws?.sourcePosition ?? -1) : state.playheads[slot];
-                const lane = algorithm === 3 ? (cut?.lane ?? -1)
-                    : (state.stackPositions[slot] >= 0 ? state.stackPositions[slot] * 3 : -1);
-                if (head >= 0 && lane >= 0) {
-                    const x = left + Math.round(head * (width - 1));
-                    drawRect(x, cursorTop, 1, span, 1);
-                    markers.push([x, top + 5 + lane * rowHeight]);
-                }
-                if (algorithm === 3 && cut?.outgoingLane >= 0 && cut.outgoingGain > 0) {
-                    const x = left + Math.round(cut.outgoingPosition * (width - 1));
-                    drawDashedPlayhead(x, cursorTop, span);
-                    markers.push([x, top + 5 + cut.outgoingLane * rowHeight]);
-                }
-                if (algorithm === 8 && ws?.secondarySourcePosition >= 0) {
-                    const x = left + Math.round(ws.secondarySourcePosition * (width - 1));
-                    drawDashedPlayhead(x, cursorTop, span);
-                }
-            }
-            for (const [x,y] of markers) clearStackMarker(x,y);
-            for (const [x,y] of markers) drawStackMarker(x,y);
-        } else if (state.algorithm === 3) {
+        if (state.algorithm === 3) {
             // Match the shared full-height playheads and hollow stack
             // markers, using the actual source readers for each cut.
             const markers = [];
             for (const voice of state.cutupsVoices) {
                 if (!voice || voice.outgoingLane < 0 || voice.outgoingPosition < 0
                     || voice.outgoingGain <= 0 || (state.mask & (1 << voice.outgoingLane)) === 0) continue;
-                const x = left + Math.round(voice.outgoingPosition * (width - 1));
+                const x=waveformX(voice.outgoingPosition,window);
+                if(x<0)continue;
                 drawDashedPlayhead(x, top, 40);
                 markers.push([x, top + 5 + voice.outgoingLane * rowHeight]);
             }
             for (const voice of state.cutupsVoices) {
                 if (!voice || voice.lane < 0 || voice.position < 0
                     || voice.gain <= 0 || (state.mask & (1 << voice.lane)) === 0) continue;
-                const x = left + Math.round(voice.position * (width - 1));
+                const x=waveformX(voice.position,window);
+                if(x<0)continue;
                 drawRect(x, top, 1, 40, 1);
                 markers.push([x, top + 5 + voice.lane * rowHeight]);
             }
@@ -1615,21 +1772,23 @@ function drawMain() {
             if (wavesetFocus) {
                 for (const voice of state.wavesetVoices) {
                     if (!voice || voice.secondarySourcePosition < 0) continue;
-                    const playX = left + Math.round(
-                        voice.secondarySourcePosition * (width - 1));
+                    const playX=waveformX(voice.secondarySourcePosition,window);
+                    if(playX<0)continue;
                     drawDashedPlayhead(playX, top, 40);
                 }
             }
             for (const playhead of displayedPlayheads) {
                 if (playhead < 0) continue;
-                const playX = left + Math.round(playhead * (width - 1));
+                const playX=waveformX(playhead,window);
+                if(playX<0)continue;
                 drawRect(playX, top, 1, 40, 1);
             }
             for (let voice = 0; voice < displayedPlayheads.length; voice++) {
                 const playhead = displayedPlayheads[voice];
                 const stackPosition = state.stackPositions[voice];
                 if (playhead < 0 || stackPosition < 0) continue;
-                const playX = left + playhead * (width - 1);
+                const playX=waveformX(playhead,window);
+                if(playX<0)continue;
                 const stackY = top + 5 + stackPosition * rowHeight * 3;
                 clearStackMarker(playX, stackY);
             }
@@ -1637,15 +1796,15 @@ function drawMain() {
                 const playhead = displayedPlayheads[voice];
                 const stackPosition = state.stackPositions[voice];
                 if (playhead < 0 || stackPosition < 0) continue;
-                const playX = left + playhead * (width - 1);
+                const playX=waveformX(playhead,window);
+                if(playX<0)continue;
                 const stackY = top + 5 + stackPosition * rowHeight * 3;
                 drawStackMarker(playX, stackY);
             }
         }
     }
 
-    const railFocus = state.splitEnabled?null:drawWavesetRail(left, width);
-    if(state.splitEnabled){drawRect(0,30,12,1,1);drawRect(0,51,128,1,1);drawRect(clamp(Math.round(state.splitBlend*125),0,125),50,3,3,1);}
+    const railFocus = drawWavesetRail(left, width);
     if (state.recording) {
         drawRect(left, railFocus ? 53 : 51,
             Math.max(1, Math.round(width * state.meter)), railFocus ? 1 : 2, 1);
@@ -1656,6 +1815,10 @@ function drawMain() {
         drawRect(0, clipY,
             Math.max(1, Math.round(128 * state.clipPosition)), 1, 1);
     }
+    print(1,55,mainFooter(railFocus),1);
+}
+
+function mainFooter(railFocus) {
     const clipStatus = state.clipNoteFull || state.clipPointFull
         ? 'CLIP FULL N' + state.clipNoteCount + ' G' + state.clipPointCount
         : (state.clipLaunchPending ? 'QUEUED ' + PARAMS.launch_quantize.labels[
@@ -1664,9 +1827,14 @@ function drawMain() {
                 + (state.clipTiming ? state.clipBeats.toFixed(1) + 'b SYNC '
                     : (state.clipDuration / 1000).toFixed(1) + 's ')
                 + state.clipRate.toFixed(2) + 'x T' + state.clipTakeCount));
+    const mutedParts=state.splitEnabled?[0,1].filter((part)=>state.splitParts[part]?.mute):[];
+    const muteHint=mutedParts.length
+        ? mutedParts.map((part)=>part?'B':'A').join('+')+' MUTED: '
+            +(state.splitParts[state.splitFocus]?.mute?'PRESS MUTE':'CAPTURE MUTE')
+        : '';
     const footer = state.messageTicks > 0
         ? state.message
-        : (state.algorithm === 6 && state.glitchBufferLocked
+        : (muteHint || (state.algorithm === 6 && state.glitchBufferLocked
             ? 'GLITCH BUFFER LOCKED'
             : (state.laneSourceState.startsWith('MISSING')
             ? 'MISSING SHIFT+TRK FIX'
@@ -1675,8 +1843,8 @@ function drawMain() {
                     : (state.recordedStackHold ? 'RECORDED STACK HOLD'
                     : (railFocus ? wavesetStatus(railFocus)
                     : (state.clipDuration > 0 ? clipStatus
-                    : state.laneSourceState + ' MENU')))))));
-    print(1, 55, String(footer).slice(0, 21), 1);
+                    : state.laneSourceState + ' MENU'))))))));
+    return String(footer).slice(0,21);
 }
 
 function decodeFxOrder(code) {
@@ -1836,7 +2004,7 @@ function splitSendFooter() {
 }
 
 function drawSplitFxMenu() {
-    clear_screen();
+    clearDisplay();
     const entries=splitFxPages();
     print(1,0,'FX PAGES '+(state.fxMenuSelection+1)+'/'+entries.length+' EDIT '+(state.splitFocus?'B':'A'),1);
     drawRect(0,8,128,1,1);
@@ -2164,7 +2332,8 @@ function drawAmpEnvelopePage() {
 }
 
 function drawSettings() {
-    clear_screen();
+    clearDisplay();
+    if(!state.editorReady){print(1,0,'UPDATING EDITOR',1);return;}
     const page = currentSettingsPage();
     if (page.route) { drawFxOrder(); return; }
     const target = state.clipRecording ? 'REC ' : (state.clipPlaying ? '> ' : '');
@@ -2215,7 +2384,7 @@ function helpReportRow(label, value) {
 }
 
 function drawHelp() {
-    clear_screen();
+    clearDisplay();
     if (state.helpPage === 0) {
         print(1, 0, 'SYSTEM REPORT 1/3 <>', 1);
         print(1, 13, helpReportRow('RENDER PEAK',
@@ -2250,7 +2419,7 @@ function clipLabel(index) {
 }
 
 function drawClips() {
-    clear_screen();
+    clearDisplay();
     const active = clipLabel(state.activeClip);
     const queued = state.queuedClip >= 0
         ? ' >' + clipLabel(state.queuedClip) : '';
@@ -2271,7 +2440,7 @@ function drawClips() {
 }
 
 function drawChain() {
-    clear_screen();
+    clearDisplay();
     const selected = state.chainEntries[state.chainSlot];
     const selection = selected && selected.enabled
         ? String(selected.clip + 1).padStart(2, '0') + 'x' + selected.repeats
@@ -2306,7 +2475,7 @@ function libraryLeaf(path) {
 }
 
 function drawLibrary() {
-    clear_screen();
+    clearDisplay();
     const leaf = libraryLeaf(state.libraryDir);
     const heading = leaf === 'THRU RECORDINGS'
         ? 'L' + state.libraryLane + ' THRU RECORDINGS'
@@ -2731,6 +2900,7 @@ function applyMomentaryControl(control) {
 }
 
 function adjustControl(index, delta) {
+    if(!state.editorReady){showMessage('UPDATING EDITOR');return;}
     if (state.view === 'settings' && currentSettingsPage().route) {
         if (delta !== 0) adjustFxOrder(index, delta);
         return;
@@ -2786,7 +2956,7 @@ function adjustControl(index, delta) {
         selectAlgorithm(value);
         return;
     }
-    if(['split_mode','split_focus'].includes(control.key)){setParamBlocking(control.key,value);parseSplitState(getParam('split_state','{}'));}
+    if(['split_mode','split_focus','part_mute'].includes(control.key)){setParamBlocking(control.key,value);parseSplitState(getParam('split_state','{}'));}
     else setParam(control.key, value.toFixed(control.integer ? 0 : 4));
     if (control.key === 'chain_enabled') {
         state.chainEnabled = value !== 0;
@@ -2842,6 +3012,7 @@ function pollDiagnostics() {
 }
 
 function pollDsp() {
+    if(!state.editorReady)refreshEditorSnapshot();
     if ((state.fxRouteGrabbed || state.fxRoutePending)
         && !(state.view === 'settings' && currentSettingsPage().route)) cancelFxOrder(false);
     const algorithm = clamp(Math.round(getNumber('algorithm', state.algorithm)),
@@ -2852,6 +3023,7 @@ function pollDsp() {
         state.settingsPage = clamp(state.settingsPage, 0, parameterPages().length - 1);
     }
     parseSplitState(getParam('split_state','{}'));
+    state.voiceAlgorithms=String(getParam('voice_algorithms','')).split(',').map(Number);
     parseUiState(getParam('ui_state', ''));
     parsePlayheads(getParam('playheads', ''));
     parseWavesetState(getParam('waveset_state', ''));
@@ -2903,6 +3075,7 @@ function pollDsp() {
 }
 
 globalThis.init = function() {
+    splitDisplay.valid=false;state.waveText=null;
     // Schwung may clear or restore the physical surface between takeover sessions.
     if (typeof moveInputFilter.invalidateLedCache === 'function') {
         moveInputFilter.invalidateLedCache();
@@ -2932,16 +3105,7 @@ globalThis.init = function() {
     state.fxRouteClip = -1; state.fxRoutePending = false;
     state.fxRouteSelected = 0; state.fxRouteGrabbed = false;
     setParam('shift_held', 0);
-    for (const key of Object.keys(PARAMS)) {
-        const control = PARAMS[key];
-        control.value = clamp(getNumber(control.key, control.value),
-            control.min, control.max);
-    }
-    state.algorithm = Math.round(PARAMS.algorithm.value);
-    state.lane = clamp(getNumber('record_lane', 1) | 0, 1, 4);
-    state.octave = clamp(getNumber('pad_octave', 0) | 0, -3, 3);
-    state.recordSource = clamp(getNumber('record_source', 0) | 0, 0, 1);
-    parseSplitState(getParam('split_state','{}'));
+    refreshEditorSnapshot();
     parseUiState(getParam('ui_state', ''));
     parsePlayheads(getParam('playheads', ''));
     parseWavesetState(getParam('waveset_state', ''));
@@ -3078,6 +3242,7 @@ globalThis.onMidiMessageInternal = function(data) {
         return;
     }
     if(number===MoveMute&&value>0&&state.splitEnabled){
+        parseSplitState(getParam('split_state','{}'));
         const muted=!(state.splitParts[state.splitFocus]?.mute);
         setParamBlocking('part_mute',muted?1:0);parseSplitState(getParam('split_state','{}'));showMessage(muted?'PART MUTED':'PART UNMUTED');return;
     }

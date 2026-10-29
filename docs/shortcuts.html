@@ -19,6 +19,13 @@
         <h1>Shortcut reference</h1>
         <p class="lead">The same control can change meaning by view, but recording gestures remain deliberately distinct: Record captures performance data; Shift+Record captures stereo audio.</p>
 
+        <h2 id="known-issues">Known issues in 0.28.0</h2>
+
+        <div class="callout">
+          <p><strong>Shift + Capture conflicts with Schwung Skipback.</strong> Schwung uses this shortcut to save recent audio from its rolling buffer as a WAV. It remains active during takeover, so pressing it can show “Skipback saved” instead of opening Thru’s FX Sends. The conflicting Thru shortcut is planned to change in a future release.</p>
+          <p><strong>Workaround:</strong> in Split, Shared Dual, or Quad, hold <kbd>Capture</kbd> and press <kbd>Menu</kbd>, choose <strong>FX SENDS</strong>, then click the main encoder.</p>
+        </div>
+
         <div class="screen-gallery">
           <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/help.svg" aria-label="Open the on-device system report"><img src="assets/screens/help.svg" alt="System report with render peak, render misses, current limiting, and maximum limiting"></button></div><figcaption><kbd>Shift</kbd> + <kbd>Menu</kbd> opens the System Report first. Each value has its own right-aligned field, so a growing counter cannot overwrite another report.</figcaption></figure>
           <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/help-callbacks.svg" aria-label="Open the callback work report"><img src="assets/screens/help-callbacks.svg" alt="Callback report with control peak, query peak, total work peak, and work misses"></button></div><figcaption><strong>Callback Work 2/3.</strong> Includes live control changes and display queries alongside rendering, helping identify interruptions that the render report alone cannot show.</figcaption></figure>
@@ -56,7 +63,7 @@
             <tr><td>Copy</td><td>Toggle Single / last multi-instrument mode. Choose Split, Shared Dual, or Quad via Capture + Menu → Instrument Mode. See <a href="modes.html">Modes</a>.</td></tr>
             <tr><td>Capture in multi-instrument modes</td><td>Switch editing focus on release. Split highlights lane numbers 1–2 or 3–4; Shared Dual highlights A/B in the waveform header. Quad cycles A–D and highlights its lane and header letter. See <a href="interface.html#split-buttons">the physical button guide</a>.</td></tr>
             <tr><td>Capture + knob 8</td><td>Adjust Blend in either dual mode, or the focused part’s level in Quad, from any page; release keeps focus.</td></tr>
-            <tr><td>Shift + Capture</td><td>Open FX Sends. Dual modes show A/B sends, return levels, Curve, and Blend. Quad shows all eight A–D sends; its returns are on Delay Return and Reverb.</td></tr>
+            <tr><td>Shift + Capture</td><td>Intended FX Sends shortcut; <a href="#known-issues">conflicts with Schwung Skipback in 0.28.0</a>. Use Capture + Menu → FX SENDS instead. Dual modes show A/B sends, return levels, Curve, and Blend. Quad shows all eight A–D sends; its returns are on Delay Return and Reverb.</td></tr>
             <tr><td>Shift + Copy</td><td>Copy engine, pad, envelope, lane-gain, and private insert settings to the other part in dual modes, or the next A–D part in Quad. Keep its samples, cues, notes, and mute state; shared mixing stays in place.</td></tr>
             <tr><td>Mute in multi-instrument modes</td><td>Fade the focused part out/in, including Part-mode preview; playheads keep running. Mute persists across mode changes. See <a href="split.html#silent">silent-part recovery</a>.</td></tr>
             <tr><td>Track 1–4</td><td>Select the lane used by audio record, load, clear, and sample edit. Split also focuses the owning A/B part. Shared Dual keeps focus unchanged. Quad focuses the corresponding A–D part.</td></tr>
@@ -210,7 +217,7 @@
 
       <aside class="toc" aria-label="Page navigation">
         <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
-        <div class="toc-section"><h2>On this page</h2><a href="#global">Global</a><a href="#editing">Editing</a><a href="#context">By view</a><a href="#leds">LEDs</a><a href="#midi">External MIDI</a></div>
+        <div class="toc-section"><h2>On this page</h2><a href="#known-issues">Known issues</a><a href="#global">Global</a><a href="#editing">Editing</a><a href="#context">By view</a><a href="#leds">LEDs</a><a href="#midi">External MIDI</a></div>
       </aside>
     </div>
     <footer class="manual-footer">Keep monitoring at zero unless input pass-through is intentional.</footer>

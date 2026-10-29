@@ -842,6 +842,11 @@ details > :not(summary) {
   font-size: 13px;
 }
 
+.table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
 .readout-table {
   width: 100%;
   margin: 18px 0;

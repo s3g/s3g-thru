@@ -10,9 +10,7 @@
   <body>
     <header class="site-header">
       <a class="brand" href="index.html">s3g Thru <span>manual</span></a>
-      <nav class="top-nav" aria-label="Top navigation">
-        <a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a>
-      </nav>
+      <nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav>
     </header>
 
     <div class="page-shell">
@@ -85,7 +83,7 @@
 
         <h3 id="zoom">Read the waveform zoom</h3>
         <p>Turn waveform knob 1, <code>POS</code>, to move the readable source window; turn knob 2, <code>FLD</code>, to change its width. At FLD 1.00 the whole sample is visible. A smaller Field fills the display with that region, replacing boundary ticks with a closer view.</p>
-        <p>Single uses one window across all four rows. Split gives A and B independent windows across their own pair. Capture changes the highlighted lane numbers without clearing the waveforms or moving either window. Shared Dual uses all four rows for both sides and one window controlled by the focused instrument’s POS/FLD. The view responds while notes or data loops play, without widening to fit the other side’s readers. Capture follows the newly focused instrument’s window; an inverted A/B header letter identifies editing focus. Small cursor caps at the top identify A, and caps at the bottom identify B. See <a href="split.html#shared">Shared Dual</a>.</p>
+        <p>Single uses one window across all four rows. Split gives A and B independent windows across their own pair. Capture changes the highlighted lane numbers without clearing the waveforms or moving either window. Shared Dual uses all four rows for both sides and one window controlled by the focused instrument’s POS/FLD. The view responds while notes or data loops play, without widening to fit the other side’s readers. Capture follows the newly focused instrument’s window; an inverted A/B header letter identifies editing focus. Small cursor caps at the top identify A, and caps at the bottom identify B. See <a href="shared-dual.html#start">Shared Dual</a>.</p>
         <p>In Single and Split, sounding voices, release tails, and recorded gestures can widen the view until their readers finish. With no notes sounding it follows the controls. Shared Dual instead follows the focused part’s editable POS/FLD; Quad follows each row’s part controls, even while notes or recorded data play. Readers outside those windows are hidden while their audio continues. Zoom changes the display scale; sample and cue positions keep their source coordinates. Very narrow Fields enlarge the existing overview, so fine waveform detail is limited.</p>
         <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/waveform-zoom.svg" aria-label="Open a narrower Single waveform zoom"><img src="assets/screens/waveform-zoom.svg" alt="Four lanes enlarged to Position 0.55 and Field 0.22 with three playheads inside the window"></button></div><figcaption>A narrower Single window: POS 0.55 and FLD 0.22 show source positions 0.44–0.66 across all four rows. Cursors and hollow stack markers use that same horizontal scale.</figcaption></figure>
         <h3>Waveform encoder layout</h3>
@@ -199,13 +197,14 @@
         <p>The Play key turns green while the performance loop runs. The Loop key is bright white for Glitch Buffer Lock or a live Stack Hold, medium white for a Stack Hold recalled from the playing clip, and dim white while both stack scan and Glitch history are live. Record is red for data capture and orange for audio-lane capture.</p>
 
         <nav class="page-nav" aria-label="Page navigation">
-          <a class="page-nav-link" href="index.html"><span>Previous</span>Start</a>
-          <a class="page-nav-link next" href="recording.html"><span>Next</span>Samples and Recording</a>
+          <a class="page-nav-link" href="index.html"><span>Previous</span>Manual Start</a>
+          <a class="page-nav-link next" href="playing.html"><span>Next</span>Basic Playing · Single</a>
         </nav>
       </main>
 
       <aside class="toc" aria-label="Page navigation">
-        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
+        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
+        <div class="toc-section"><h2>Instrument modes</h2><a href="playing.html">Single · Basic playing</a><a href="modes.html">Compare modes</a><a href="split.html">Split</a><a href="shared-dual.html">Shared Dual</a><a href="quad.html">Quad</a></div>
         <div class="toc-section"><h2>On this page</h2><a href="#hardware">Panel layout</a><a href="#split-buttons">Icon buttons</a><a href="#waveform">Waveform</a><a href="#zoom">Waveform zoom</a><a href="#parameters">Parameters</a><a href="#page-picker">Page picker</a><a href="#secondary">Secondary screens</a><a href="#navigation">Navigation</a><a href="#leds">LED language</a></div>
       </aside>
     </div>

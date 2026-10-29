@@ -10,16 +10,7 @@
   <body>
     <header class="site-header">
       <a class="brand" href="index.html">s3g Thru <span>manual</span></a>
-      <nav class="top-nav" aria-label="Top navigation">
-        <a href="index.html">Start</a>
-        <a href="interface.html">Interface</a>
-        <a href="recording.html">Recording</a>
-        <a href="engines.html">Engines</a>
-        <a href="effects.html">Effects</a><a href="modes.html">Modes</a>
-        <a href="performance.html">Performance</a>
-        <a href="shortcuts.html">Shortcuts</a>
-        <a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a>
-      </nav>
+      <nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav>
     </header>
 
     <div class="page-shell">
@@ -48,14 +39,15 @@
         <h2 id="whats-new">New in 0.28.0</h2>
 
         <ul>
-          <li><a href="split.html">Split and Shared Dual</a> combine two independent engines; <a href="quad.html">Quad</a> provides four instruments with independent programs, levels, mutes, and sends.</li>
+          <li><a href="split.html">Split</a> and <a href="shared-dual.html">Shared Dual</a> combine two independent engines; <a href="quad.html">Quad</a> provides four instruments with independent programs, levels, mutes, and sends.</li>
           <li><a href="effects.html#reverb">Plate and Room reverb</a> add stereo space. <a href="effects.html#order">FX Order</a> lets you lift and move effect blocks in a readable list.</li>
           <li><a href="engine-cutups.html#lane-controls">Cutups Lane and Advance</a> put source changes under direct control, with overlapping joins and visible outgoing readers.</li>
           <li><a href="interface.html#zoom">Waveform zoom</a> follows the source window. Shared Dual and Quad keep live POS/FLD editing responsive while notes play.</li>
           <li><a href="interface.html#page-picker">Pages</a>, <a href="performance.html#panic">Panic</a>, the curved-arrow <a href="shortcuts.html#editing">Undo</a> key, <a href="recording.html#preview">Part/Direct preview</a>, and activity/save readouts make playing and editing easier to follow.</li>
         </ul>
 
-        <h2 id="quick-start">Quick start</h2>
+        <h2 id="quick-start">Quick start · Single mode</h2>
+        <p>These first steps use Single, the default four-lane instrument. A saved clip can recall another mode; choose Single from Capture + Menu → Instrument Mode when following the <a href="playing.html">Basic Playing guide</a>.</p>
 
         <ol>
           <li>Install Schwung 1.7.3 or newer. In Schwung Manager, choose <strong>Install Custom Module → GitHub URL</strong>, enter <code>https://github.com/s3g/s3g-thru</code>, and restart Move when prompted.</li>
@@ -91,11 +83,12 @@
         <h2 id="manual-map">Read next</h2>
 
         <ul>
+          <li><a href="playing.html">Basic playing</a> introduces Single: load or record a sound, play and hold notes, shape the stack, and capture a performance.</li>
           <li><a href="interface.html">Interface tour</a> identifies every part of the waveform and parameter screens.</li>
           <li><a href="recording.html">Samples and recording</a> covers microphone/line capture, resampling, library loading, editing, saving, and recall.</li>
           <li><a href="engines.html">Playback engines</a> compares all nine engines and links to an individual parameter-by-parameter guide for each one.</li>
           <li><a href="effects.html">Effects</a> covers tone, drive, reduction, stereo delay, cross-pan, rotary speaker, tape, reverb, customizable order, parameter motion, and practical starting points.</li>
-          <li><a href="split.html">Split mode</a> covers A/B focus, crossfading, sends, sample preview, and restoring a silent part.</li>
+          <li><a href="modes.html">Instrument modes</a> compares the layouts, followed by separate <a href="split.html">Split</a>, <a href="shared-dual.html">Shared Dual</a>, and <a href="quad.html">Quad</a> guides.</li>
           <li><a href="performance.html">Performance loops</a> covers Replace, Overdub takes, clip banks, timing, launch, and chains.</li>
           <li><a href="shortcuts.html">Shortcut reference</a> lists Move gestures, view-specific controls, LEDs, and the external MIDI map.</li>
         </ul>
@@ -107,15 +100,8 @@
       </main>
 
       <aside class="toc" aria-label="Page navigation">
-        <div class="toc-section">
-          <h2>Manual</h2>
-          <a href="index.html">Start</a>
-          <a href="interface.html">Interface</a>
-          <a href="recording.html">Recording</a>
-          <a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a>
-          <a href="performance.html">Performance</a>
-          <a href="shortcuts.html">Shortcuts</a>
-        </div>
+        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
+        <div class="toc-section"><h2>Instrument modes</h2><a href="playing.html">Single · Basic playing</a><a href="modes.html">Compare modes</a><a href="split.html">Split</a><a href="shared-dual.html">Shared Dual</a><a href="quad.html">Quad</a></div>
         <div class="toc-section">
           <h2>On this page</h2>
           <a href="#whats-new">New in 0.28</a>
@@ -125,7 +111,7 @@
         </div>
       </aside>
     </div>
-    <footer class="manual-footer">s3g Thru · 0.28 testing manual · Takeover module for Ableton Move via Schwung</footer>
+    <footer class="manual-footer">s3g Thru · 0.28.0 manual · Takeover module for Ableton Move via Schwung</footer>
     <script src="assets/lightbox.js"></script>
   </body>
 </html>

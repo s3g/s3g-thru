@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Basic playing · Single mode - s3g Thru manual</title>
+    <meta name="description" content="Learn the default Single instrument: load sounds, play notes, hold the stack, shape effects and record a performance in s3g Thru.">
+    <link rel="stylesheet" href="assets/styles.css">
+  </head>
+  <body>
+    <header class="site-header"><a class="brand" href="index.html">s3g Thru <span>manual</span></a><nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav></header>
+    <div class="page-shell">
+      <main class="content" id="content">
+        <p class="eyebrow">Basic playing · Single mode</p>
+        <h1>Basic playing</h1>
+        <p class="lead">Start with one four-lane stereo instrument. All 32 pads play the same program, with eight independent source voices and one complete effects chain.</p>
+        <h2 id="start">Start with Single</h2>
+        <p>Single is the basic playing mode: the whole pad grid controls one program over four stereo lanes. Saved clips can recall another mode. To return to Single, hold Capture and press Menu, choose Instrument Mode, select <strong>Single</strong>, and click the main encoder. Finish recording before changing mode.</p>
+        <p>The Track keys choose a source lane for recording, loading, and editing. They do not turn the four lanes into separate instruments: the selected playback engine determines which lanes each note reads.</p>
+        <figure>
+          <div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/waveform.svg" aria-label="Open figure"><img src="assets/screens/waveform.svg" alt="Single waveform view with four source lanes and independent playheads."></button></div>
+          <figcaption>Single uses all four lanes and up to eight source voices. Each hollow marker shows one voice’s lane or between-lane blend.</figcaption>
+        </figure>
+        <h2 id="sources">Load or record a sound</h2>
+        <ol>
+          <li>Press Track 1–4 to choose the destination lane.</li>
+          <li>To load a WAV, hold Shift and press that Track key. Turn the main encoder to browse; click to enter a folder or load the selected file. Highlighted files audition at Preview Level.</li>
+          <li>To record instead, choose Move’s microphone or line input and set its input gain, then use Shift + Record to start and stop a stereo capture. The finished recording becomes the selected lane’s source.</li>
+          <li>Repeat for the other lanes you want to use. A scanning engine can become quiet when it reaches an empty lane.</li>
+        </ol>
+        <p>Use headphones when recording the microphone. Leave Input Monitor at zero unless direct monitoring is intentional. See <a href="recording.html">Samples and recording</a> for input setup, library browsing, saved recordings, and source ownership.</p>
+        <h2 id="notes">Play notes</h2>
+        <p>In the Keys pad mode, press pads to play pitches. Up/Down changes the keyboard octave. Choose Root and Scale on Pads &amp; Scale to change the available notes. Root-pad colors identify tonics; an active note uses its playhead color. Pad strike velocity does not set sample volume.</p>
+        <p>Each note has its own voice and path through the source stack. Higher notes transpose the source according to the chosen engine; grains and time-based processing can change duration independently of pitch. A long release still occupies a voice slot. Use the <a href="engines.html">engine guides</a> to choose direct Sample playback, moving stacks, grains, cuts, or other treatments.</p>
+        <p>Press Menu to open parameter pages. The eight encoders match the eight screen positions. Use Up/Down to change parameter pages, or Capture + Menu to choose a page directly. The <a href="engines.html#shared">Engine</a>, <a href="engines.html#pads-scale">Pads &amp; Scale</a>, and <a href="engines.html#amp-envelope">Amp Envelope</a> references explain the shared controls.</p>
+        <h2 id="stack">Shape the source and stack movement</h2>
+        <p>On the waveform page, POS moves the source window and FLD changes its width. The display enlarges that region across all four rows. SPD sets the base transport rate; note pitch remains an additional transposition. See the <a href="interface.html#waveform">waveform control map</a> for the eight encoders.</p>
+        <p>For engines with stack motion, Stack Start seeds a new voice’s lane position and Scan Rate advances it along the selected path. Pressure offsets that voice’s position. With a Manual path, Stack Start selects the exact lane blend. Press Loop to hold the audible stack positions, including blends between lanes; press again to resume.</p>
+        <p>Controls adapt to the engine. Cutups uses Lane and Advance for discrete source changes; Sample and Slices use their Direct Play settings. The engine guide explains these differences.</p>
+        <h2 id="hold">Hold and release notes</h2>
+        <p>A normal pad press is momentary. Shift + pad toggles that note’s latch; repeat to release it. Pads &amp; Scale’s Hold Off can keep latches until toggled, or release them after a chosen delay. Amp Envelope sets attack, decay, sustain, and release.</p>
+        <p>Hold Delete and press Play for Panic: stop the performance loop and release notes, latches, Rolls, and preview. Existing effect tails decay naturally. See <a href="performance.html#note-hold">held notes</a> and <a href="performance.html#panic">Panic</a>.</p>
+        <h2 id="effects">Set level and effects</h2>
+        <p>Single sends the instrument through the complete <a href="effects.html">effects chain</a>. Use Level for the instrument’s playback level and Mix / Rec’s lane gains to balance sources. Record Gain affects new audio recordings. FX Order changes the series of effects; each effect has its own parameter page.</p>
+        <h2 id="performance">Capture a performance</h2>
+        <p>Press Record without Shift to record notes, pressure, stack holds, and parameter movements as data. Notes already held are included. Press Record again to finish, and use Play to start or stop the loop. Step keys select stored clips rather than individual note steps. The <a href="performance.html">Performance loops</a> chapter covers Replace, Overdub, takes, clip banks, and chains.</p>
+        <p>When you want more than one independently configured instrument, compare <a href="modes.html">Split, Shared Dual, and Quad</a>. They keep the same sources and performance recorder while dividing the eight source voices differently.</p>
+
+        <nav class="page-nav" aria-label="Page navigation">
+          <a class="page-nav-link" href="interface.html"><span>Previous</span>Interface Tour</a>
+          <a class="page-nav-link next" href="recording.html"><span>Next</span>Samples and Recording</a>
+        </nav>
+      </main>
+      <aside class="toc" aria-label="Page navigation">
+        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
+        <div class="toc-section"><h2>Instrument modes</h2><a href="playing.html">Single · Basic playing</a><a href="modes.html">Compare modes</a><a href="split.html">Split</a><a href="shared-dual.html">Shared Dual</a><a href="quad.html">Quad</a></div>
+        <div class="toc-section"><h2>Engine guides</h2><a href="engine-motion.html">Motion</a><a href="engine-lanes.html">Lanes</a><a href="engine-grains.html">Grains</a><a href="engine-cutups.html">Cutups</a><a href="engine-sample.html">Sample</a><a href="engine-slices.html">Slices</a><a href="engine-glitch.html">Glitch</a><a href="engine-weave.html">Weave</a><a href="engine-wavesets.html">Wavesets</a></div>
+        <div class="toc-section"><h2>On this page</h2><a href="#start">Single mode</a><a href="#sources">Load or record</a><a href="#notes">Play notes</a><a href="#stack">Source and stack</a><a href="#hold">Hold notes</a><a href="#effects">Level and effects</a><a href="#performance">Capture a performance</a></div>
+      </aside>
+    </div>
+    <footer class="manual-footer">Single · Four source lanes · Eight source voices</footer>
+    <script src="assets/lightbox.js"></script>
+  </body>
+</html>

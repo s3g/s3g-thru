@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="assets/styles.css">
   </head>
   <body>
-    <header class="site-header"><a class="brand" href="index.html">s3g Thru <span>manual</span></a><nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav></header>
+    <header class="site-header"><a class="brand" href="index.html">s3g Thru <span>manual</span></a><nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav></header>
 
     <div class="page-shell">
       <main class="content" id="content">
@@ -21,9 +21,9 @@
 <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/quad-mode.svg" aria-label="Open figure"><img src="assets/screens/quad-mode.svg" alt="Instrument Mode lists Single, Split, Shared Dual and Quad."></button></div><figcaption>The mode chooser is available from Single as well as the multi-instrument layouts.</figcaption></figure>
         <h2 id="compare">Compare the layouts</h2>
         <table class="readout-table"><thead><tr><th>Mode</th><th>Parts</th><th>Source lanes per part</th><th>Voices per part</th><th>Pad zones</th></tr></thead><tbody>
-          <tr><td>Single</td><td>1</td><td>All four</td><td>8</td><td>Whole grid</td></tr>
+          <tr><td><a href="playing.html">Single</a></td><td>1</td><td>All four</td><td>8</td><td>Whole grid</td></tr>
           <tr><td><a href="split.html#start">Split</a></td><td>A / B</td><td>A: 1–2; B: 3–4</td><td>4</td><td>Left / right halves, 16 pads each</td></tr>
-          <tr><td><a href="split.html#shared">Shared Dual</a></td><td>A / B</td><td>Both use 1–4</td><td>4</td><td>Left / right halves, 16 pads each</td></tr>
+          <tr><td><a href="shared-dual.html#start">Shared Dual</a></td><td>A / B</td><td>Both use 1–4</td><td>4</td><td>Left / right halves, 16 pads each</td></tr>
           <tr><td><a href="quad.html">Quad</a></td><td>A / B / C / D</td><td>A: 1; B: 2; C: 3; D: 4</td><td>2</td><td>Four quadrants, eight pads each</td></tr>
         </tbody></table>
 <figure><div class="manual-diagram"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/diagrams/pad-modes.svg" aria-label="Open figure"><img src="assets/diagrams/pad-modes.svg" alt="Single uses every pad; dual modes split left and right; Quad uses A/B above C/D."></button></div><figcaption>Pad zones viewed from above. In Quad, A/B occupy the upper half and C/D the lower half. The diagram uses greys to identify zones; the hardware uses the pad colors described below.</figcaption></figure>
@@ -40,17 +40,37 @@
         </div>
         <h2 id="mix">Levels and effects</h2>
         <p>Single uses the complete configurable effects chain. In both dual modes, waveform knob 8 is BLND; part levels remain on their Engine pages. Capture + knob 8 reaches Blend from any page. Quad uses LEVL for the focused part on waveform knob 8 and the same Capture shortcut.</p>
-        <p>Multi-instrument modes give every part private Color and Stereo / Rotary inserts. Open FX Sends with Capture + Menu → FX SENDS; <a href="shortcuts.html#known-issues">Shift + Capture conflicts with Schwung Skipback in 0.28.0</a>. Dual modes keep returns on that sends page; Quad uses all eight positions for sends and puts DRTN/RRTN on knob 8 of Delay Return/Reverb. Delay and Reverb remain parallel sends, with Tape shared according to FX Order. Read the complete <a href="split.html#mix">dual-mode mixing</a> or <a href="quad.html#mix">Quad mixing</a> instructions.</p>
+        <p>Multi-instrument modes give every part private Color and Stereo / Rotary inserts. Open FX Sends with Capture + Menu → FX SENDS; <a href="shortcuts.html#known-issues">Shift + Capture conflicts with Schwung Skipback in 0.28.0</a>. Dual modes keep returns on that sends page; Quad uses all eight positions for sends and puts DRTN/RRTN on knob 8 of Delay Return/Reverb. Delay and Reverb remain parallel sends, with Tape shared according to FX Order. Read the complete <a href="effects.html#dual-sends">dual-mode mixing</a> or <a href="quad.html#mix">Quad mixing</a> instructions.</p>
+        <h2 id="status">A/B Mix Status</h2>
+        <p>In Split or Shared Dual, open Capture + Menu → A/B Mix Status. Each meter follows that part’s inserts, level, mute, and Blend. Voice counts include release tails, up to four per part. Shared effect tails and sample preview are excluded; Rolls can produce activity without increasing the source-voice count. Capture changes editing focus, and Menu or Back returns to waveforms.</p>
+<table class="readout-table"><thead><tr><th>Display</th><th>Meaning</th></tr></thead><tbody>
+          <tr><td>ACTIVE</td><td>A source voice or Roll is active; the meter shows its actual audio level.</td></tr>
+          <tr><td>MUTED</td><td>The part’s Mute is on.</td></tr>
+          <tr><td>LEVEL 0</td><td>The part’s Engine LEVL is zero.</td></tr>
+          <tr><td>FADED OUT</td><td>Blend is at the opposite part’s endpoint.</td></tr>
+          <tr><td>NO AUDIO</td><td>The part’s two source lanes are empty in Split, or all four shared lanes are empty in Shared Dual.</td></tr>
+          <tr><td>IDLE</td><td>The part has source audio but no active voice or Roll.</td></tr>
+        </tbody></table>
+        <p>Quad provides a <a href="quad.html#mix">four-part Mix Status view</a> with the same activity and silence indicators.</p>
+        <h2 id="dual-setup">Dual Setup</h2><p>Split and Shared Dual use the same setup controls. Choose the page from Capture + Menu → Dual Setup. Quad has its own <a href="quad.html#setup">Quad Setup</a>.</p>
+<figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/split-setup.svg" aria-label="Open screen"><img src="assets/screens/split-setup.svg" alt="Dual Setup offers mode, editing focus, copy, and mute. Empty positions are reserved."></button></div><figcaption>Dual Setup offers mode, editing focus, copy, and mute. Empty positions are reserved.</figcaption></figure><table class="readout-table parameter-table"><thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>What it controls</th></tr></thead><tbody><tr><td>1</td><td>MODE</td><td>Single / Split / Shared / Quad</td><td>Instrument mode selects Single, Split, Shared Dual, or Quad. Stop audio and performance recording before changing mode.</td></tr><tr><td>2</td><td>EDIT</td><td>A / B</td><td>Edit changes the side controlled by the parameter pages.</td></tr><tr><td>3</td><td>COPY</td><td>Turn to apply</td><td>Copy duplicates the focused side’s engine, pad, envelope, lane-gain and insert settings to the other side. Samples, cues, recorded notes, the destination’s mute state, shared returns, and Blend stay in place.</td></tr><tr><td>4</td><td>MUTE</td><td>Off / On</td><td>Mute fades out the focused side.</td></tr></tbody></table>
+        <p><strong>Shift + Copy</strong> performs the same settings copy directly. After copying, edit the other side to vary its sound while keeping the same engine.</p>
+
         <h2 id="recall">Recording and recall</h2>
         <p>Each clip stores its mode, programs, source assignments, recorded notes, and automation. The performance recorder captures all active parts together. Audio recording still captures one selected source lane at a time. Shared Dual programs read the same audio: replacing or editing a shared lane changes that source for both.</p>
         <p>Single remembers a separate program. A/B sound settings are shared between the multi-instrument layouts; C/D programs and recorded notes remain stored when you select a two-part mode. C/D notes are silent in the two-part layouts and become available again in Quad.</p>
         <p><strong>Before upgrading:</strong> export a set backup using the <a href="recording.html#backup">backup instructions</a>. The expanded current bank requires 0.28.0 or newer. Keep an older export if you need to downgrade.</p>
         <p>Use the <a href="shortcuts.html">shortcuts reference</a> for the full control map, and <a href="shortcuts.html#midi">External MIDI</a> for part channels and Quad’s channel-specific mixing CCs.</p>
+        <nav class="page-nav" aria-label="Page navigation">
+          <a class="page-nav-link" href="effects.html"><span>Previous</span>Effects</a>
+          <a class="page-nav-link next" href="split.html"><span>Next</span>Split Mode</a>
+        </nav>
       </main>
       <aside class="toc" aria-label="Page navigation">
-        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
+        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
+        <div class="toc-section"><h2>Instrument modes</h2><a href="playing.html">Single</a><a href="modes.html">Compare modes</a><a href="split.html">Split</a><a href="shared-dual.html">Shared Dual</a><a href="quad.html">Quad</a></div>
         <div class="toc-section"><h2>Engine guides</h2><a href="engine-motion.html">Motion</a><a href="engine-lanes.html">Lanes</a><a href="engine-grains.html">Grains</a><a href="engine-cutups.html">Cutups</a><a href="engine-sample.html">Sample</a><a href="engine-slices.html">Slices</a><a href="engine-glitch.html">Glitch</a><a href="engine-weave.html">Weave</a><a href="engine-wavesets.html">Wavesets</a></div>
-        <div class="toc-section"><h2>On this page</h2><a href="#choose">Choose a mode</a><a href="#compare">Layouts</a><a href="#focus">Focus and sources</a><a href="#zoom">Waveform windows</a><a href="#mix">Mixing</a><a href="#recall">Recording and recall</a></div>
+        <div class="toc-section"><h2>On this page</h2><a href="#choose">Choose a mode</a><a href="#compare">Layouts</a><a href="#focus">Focus and sources</a><a href="#zoom">Waveform windows</a><a href="#mix">Mixing</a><a href="#status">A/B Mix Status</a><a href="#dual-setup">Dual Setup</a><a href="#recall">Recording and recall</a></div>
       </aside>
     </div>
     <footer class="manual-footer">One instrument, two programs, or four parts.</footer>

@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Shared Dual mode - s3g Thru manual</title>
+    <meta name="description" content="Two independent programs over the same four stereo lanes: setup, focus, live waveform zoom, Blend, effects, recording and MIDI in s3g Thru.">
+    <link rel="stylesheet" href="assets/styles.css">
+  </head>
+  <body>
+    <header class="site-header"><a class="brand" href="index.html">s3g Thru <span>manual</span></a><nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav></header>
+    <div class="page-shell">
+      <main class="content" id="content">
+        <p class="eyebrow">Two programs · four shared source lanes</p>
+        <h1>Shared Dual mode</h1>
+        <p class="lead">Play two independent instruments over one four-lane stereo source stack. A uses the left half of the pads and B the right. Each has four source voices and its own engine settings; both can read every lane.</p>
+        <h2 id="start">Start a Shared Dual performance</h2>
+        <ol>
+          <li>Finish audio or performance recording. Hold Capture and press Menu, choose Instrument Mode, select <strong>Shared Dual</strong>, and click the main encoder.</li>
+          <li>Load or record audio into Tracks 1–4. Both programs can use every source. Existing audio stays in place.</li>
+          <li>Press Capture to focus A or B. Choose each part’s engine, keyboard, envelope, stack path, and private effects. The two parts can use the same engine with different settings.</li>
+          <li>Play A on the left four pad columns and B on the right four. Each side has sixteen pads and four source voices.</li>
+          <li>Turn waveform knob 8, BLND, to crossfade: 0% is A, 100% is B. Capture + knob 8 reaches Blend from any page.</li>
+        </ol>
+        <p>Copy switches between Single and the last selected multi-instrument mode. Single remembers its own program. Split and Shared Dual share the A/B sound settings; changing layout retains those programs and maps their stack start positions to the new lane range.</p>
+        <figure>
+          <div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/shared-waveform.svg" aria-label="Open figure"><img src="assets/screens/shared-waveform.svg" alt="Shared Dual A focus with both instruments reading the same four source lanes."></button></div>
+          <figcaption>SH identifies Shared Dual. Both programs read all four rows; the inverted header letter identifies editing focus.</figcaption>
+        </figure>
+        <h2 id="sources">Shared audio, independent programs</h2>
+        <p>Track 1–4 selects the recording, loading, and sample-editing lane without changing A/B focus. Capture changes focus without changing the destination lane. Loading, recording, clearing, or editing a lane changes that source for both instruments.</p>
+        <p>Each part has its own lane gains, Position/Field, engine parameters, stack path, pressure offsets, holds, keyboard, and envelope. Mix / Rec shows four lane gains for the focused instrument. Its audio input and recording controls remain shared.</p>
+        <figure>
+          <div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/shared-mix-rec.svg" aria-label="Open figure"><img src="assets/screens/shared-mix-rec.svg" alt="B Mix / Rec with independent L1, L2, L3 and L4 playback gains."></button></div>
+          <figcaption>Adjust the focused part’s four playback gains without changing the audio shared by A and B.</figcaption>
+        </figure>
+        <h2 id="focus">Editing and pad colors</h2>
+        <p>Capture switches A/B focus on release; playing the other pad group leaves editing focus unchanged. Parameter page names begin with A or B for private controls, and FX for shared effects. Each side remembers its page.</p>
+        <p>A uses the neutral scale map. B’s idle pads are muted plum, with brighter pink scale roots. Active playheads, held-note brightness, Cues, and Rolls use their usual status colors. Inverted lane numbers and a divider between lanes 2 and 3 are unnecessary here because both instruments use every lane.</p>
+        <p>Each half has its own Pads &amp; Scale and Amp Envelope settings. Shift + pad latches that side’s note. Slices uses sixteen pads per part; Cues uses each half’s bottom four pads. Rolls captures only its own part’s active stereo playheads, before private inserts and Blend.</p>
+        <h2 id="zoom">Waveform zoom and readers</h2>
+        <p>All four rows use the focused instrument’s Position/Field window. Turn waveform knob 1 (POS) to move that window and knob 2 (FLD) to change its width. The view responds while either side or a recorded performance plays. Capture changes focus and follows the other instrument’s window.</p>
+        <figure>
+          <div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/shared-waveform-b.svg" aria-label="Open figure"><img src="assets/screens/shared-waveform-b.svg" alt="Shared Dual B focus showing its editable Position/Field window over the four sources."></button></div>
+          <figcaption>A playheads have top caps; B playheads have bottom caps. Hollow markers show each voice’s stack position.</figcaption>
+        </figure>
+        <p>The other program’s wider field, recorded readers, and release tails do not widen the display. Readers outside the focused window are hidden while their audio continues. Very narrow fields enlarge the existing overview, so fine waveform detail is limited.</p>
+        <p>Both programs can move through lanes 1–4 on independent paths. Pressure offsets the corresponding voice. Loop holds or resumes only the focused part’s stack; focus the other part to hold it separately. Cutups uses Lane and Advance across the same four sources.</p>
+        <h2 id="mix">Blend, levels, and effects</h2>
+        <p>Waveform knob 8 remains BLND. Focus a part and use its Engine page’s knob 8, LEVL, to set its dry level. Mute fades the focused part without stopping its readers. At a Blend endpoint, the faded-out part continues its timing and becomes audible again when you blend it back.</p>
+        <p>Each part has private Color and Stereo / Rotary inserts. Delay and Reverb are shared parallel sends with separate amounts from A and B. Tape is shared; FX Order determines which return tails receive tape processing.</p>
+        <p>Open Capture + Menu → <strong>FX SENDS</strong>. Set DRTN (knob 5) and RRTN (knob 6) above zero, then raise A’s ADLY/AREV (knobs 1–2) or B’s BDLY/BREV (knobs 3–4). Click the main encoder for FX Pages. The common <a href="effects.html#dual-sends">A/B send and return table</a> describes all eight knobs; the <a href="effects.html#dual-fx-pages">FX Pages reference</a> covers effect navigation.</p>
+        <div class="callout"><p><strong>Known shortcut issue in 0.28.0:</strong> Shift + Capture conflicts with Schwung Skipback. Use the Pages route above; see <a href="shortcuts.html#known-issues">the workaround and planned correction</a>.</p></div>
+        <h2 id="silent">Preview and restoring a silent part</h2>
+        <p>Part-mode sample preview follows the <em>focused</em> instrument’s level, mute, and Blend. Capture changes that preview destination. Direct preview bypasses the instrument mixer; it can remain audible while a part is muted or faded out. See <a href="recording.html#preview">sample preview routing</a>.</p>
+        <ol>
+          <li>Press Capture to focus the silent part; check the inverted A/B header letter.</li>
+          <li>If its heading says MUT, press Mute to restore it. Mute is remembered across mode changes.</li>
+          <li>Center BLND and set Engine LEVL to a useful starting value such as 1.00.</li>
+          <li>On that part’s Mix / Rec page, raise the required lane gains and confirm those sources contain audio. For preview, also raise PREV.</li>
+          <li>If dry notes work but effects do not, raise both the part’s send and its matching DRTN/RRTN return.</li>
+        </ol>
+        <p>Capture + Menu → A/B Mix Status shows activity, source-voice counts, and reasons for silence. Read the common <a href="modes.html#status">A/B Mix Status reference</a> for every indicator. Meters exclude shared effect tails and preview.</p>
+        <h2 id="setup">Copy sound settings</h2>
+        <p>Shift + Copy copies the focused part’s engine, keyboard, envelope, lane gains, and private inserts to the other part. Samples, cues, recorded notes, the destination’s mute, shared returns, and Blend stay in place. Edit the other part afterward to vary its sound. The same action is on <a href="modes.html#dual-setup">Dual Setup</a>.</p>
+        <h2 id="record">Record and recall both parts</h2>
+        <p>Performance Record captures A and B together: held notes, subsequent playing, pressure, stack holds, engine and insert changes, sends, and Blend. Clip Rate changes the combined performance’s speed. Overdub adds a take; Delete + Record removes the newest completed take. See <a href="performance.html">Performance loops</a>.</p>
+        <p>Each clip stores its mode, both programs, shared effects, and four source assignments. Audio recording still targets one selected lane at a time; that lane’s new recording becomes available to both parts. Export a <a href="recording.html#backup">set backup</a> before upgrading or downgrading.</p>
+        <p>During clip playback, a live change to Blend, level, sends, or Curve overrides that parameter’s recorded movement until playback restarts or another clip launches. Record the movement in an Overdub take to keep it.</p>
+        <h2 id="midi">External MIDI</h2>
+        <p>MIDI channel 1 addresses A; channel 2 addresses B. Other channels address A. Notes, note-offs, pressure, and instrument parameter CCs follow that channel without changing visible focus. Shared controls affect both programs. See the <a href="shortcuts.html#midi">complete MIDI map</a> for Blend, levels, sends, and engine parameters.</p>
+        <p>The total source-voice budget remains eight, divided four per part. Both programs and all effects share Move’s processor. Shift + Menu opens render and work counters for demanding combinations.</p>
+
+        <nav class="page-nav" aria-label="Page navigation">
+          <a class="page-nav-link" href="split.html"><span>Previous</span>Split Mode</a>
+          <a class="page-nav-link next" href="quad.html"><span>Next</span>Quad Mode</a>
+        </nav>
+      </main>
+      <aside class="toc" aria-label="Page navigation">
+        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
+        <div class="toc-section"><h2>Instrument modes</h2><a href="playing.html">Single · Basic playing</a><a href="modes.html">Compare modes</a><a href="split.html">Split</a><a href="shared-dual.html">Shared Dual</a><a href="quad.html">Quad</a></div>
+        <div class="toc-section"><h2>Engine guides</h2><a href="engine-motion.html">Motion</a><a href="engine-lanes.html">Lanes</a><a href="engine-grains.html">Grains</a><a href="engine-cutups.html">Cutups</a><a href="engine-sample.html">Sample</a><a href="engine-slices.html">Slices</a><a href="engine-glitch.html">Glitch</a><a href="engine-weave.html">Weave</a><a href="engine-wavesets.html">Wavesets</a></div>
+        <div class="toc-section"><h2>On this page</h2><a href="#start">Getting started</a><a href="#sources">Shared sources</a><a href="#focus">Focus and pads</a><a href="#zoom">Waveform zoom</a><a href="#mix">Mix and effects</a><a href="#silent">Preview and silence</a><a href="#setup">Copy settings</a><a href="#record">Recording and recall</a><a href="#midi">MIDI</a></div>
+      </aside>
+    </div>
+    <footer class="manual-footer">Shared Dual · Two independent programs · Four common source lanes</footer>
+    <script src="assets/lightbox.js"></script>
+  </body>
+</html>

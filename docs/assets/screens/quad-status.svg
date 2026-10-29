@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="768" height="384" viewBox="0 0 128 64" role="img" aria-labelledby="title desc">
+  <title id="title">Quad activity and voice counts</title>
+  <desc id="desc">Quad activity and voice counts shown as it appears on Ableton Move.</desc>
+  <rect width="128" height="64" fill="#050706"/>
+  <g shape-rendering="crispEdges" font-family="DejaVu Sans Mono, IBM Plex Mono, monospace" font-size="6" font-style="normal" font-weight="400" text-rendering="geometricPrecision">
+    <text x="1" y="5.5" fill="#dce8e1">QUAD MIX EDIT A</text>
+    <rect x="0" y="8" width="128" height="1" fill="#dce8e1"/>
+    <text x="1" y="17.5" fill="#dce8e1">A1</text>
+    <text x="19" y="17.5" fill="#dce8e1">SAM</text>
+    <rect x="43" y="14" width="24" height="3" fill="#050706"/>
+    <rect x="43" y="14" width="17" height="3" fill="#dce8e1"/>
+    <text x="73" y="17.5" fill="#dce8e1">ACTIVE</text>
+    <text x="1" y="27.5" fill="#dce8e1">B1</text>
+    <text x="19" y="27.5" fill="#dce8e1">GRA</text>
+    <rect x="43" y="24" width="24" height="3" fill="#050706"/>
+    <rect x="43" y="24" width="15" height="3" fill="#dce8e1"/>
+    <text x="73" y="27.5" fill="#dce8e1">ACTIVE</text>
+    <text x="1" y="37.5" fill="#dce8e1">C1</text>
+    <text x="19" y="37.5" fill="#dce8e1">CUT</text>
+    <rect x="43" y="34" width="24" height="3" fill="#050706"/>
+    <rect x="43" y="34" width="16" height="3" fill="#dce8e1"/>
+    <text x="73" y="37.5" fill="#dce8e1">ACTIVE</text>
+    <text x="1" y="47.5" fill="#dce8e1">D1</text>
+    <text x="19" y="47.5" fill="#dce8e1">WAV</text>
+    <rect x="43" y="44" width="24" height="3" fill="#050706"/>
+    <rect x="43" y="44" width="14" height="3" fill="#dce8e1"/>
+    <text x="73" y="47.5" fill="#dce8e1">ACTIVE</text>
+    <text x="1" y="62.5" fill="#dce8e1">TRACK / CAPTURE: EDIT</text>
+  </g>
+  <rect x="0.25" y="0.25" width="127.5" height="63.5" fill="none" stroke="#5b6661" stroke-width="0.5"/>
+</svg>

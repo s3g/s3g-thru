@@ -32,6 +32,7 @@
     std::size_t persistenceCopyOffset = 0u;
     std::uint64_t nextPersistenceGeneration = 1u;
     std::uint64_t laneRetryFrame = 0u, saveRetryFrame = 0u;
+    bool saveFailed = false;
     bool recordStartPending = false;
     std::size_t pendingRecordLane = 0u;
     std::atomic<std::uint64_t> maximumControlMicros {0u}, maximumQueryMicros {0u};
@@ -162,6 +163,7 @@
                 } else {
                     laneRetryFrame = renderClockSamples.load(std::memory_order_relaxed)
                         + static_cast<std::uint64_t>(sampleRate * 2.0f);
+                    saveFailed=true;
                     setError("Recording save failed; take retained in memory");
                 }
             }
@@ -173,6 +175,7 @@
                 persistenceGeneration = std::max(persistenceGeneration, job.generation);
                 if (job.revision == persistentRevision) persistentStateDirty = false;
             } else {
+                saveFailed=true;
                 setError("Background save failed; previous saved set retained");
                 saveRetryFrame = renderClockSamples.load(std::memory_order_relaxed)
                     + static_cast<std::uint64_t>(sampleRate * 2.0f);
@@ -260,7 +263,7 @@
                 persistenceCopyOffset = 0u;
                 persistenceJob.store(backgroundCopying, std::memory_order_release);
                 saveState = backgroundCopying;
-            } else setError("Background save snapshot could not be serialized");
+            } else {saveFailed=true;setError("Background save snapshot could not be serialized");}
         }
         if (saveState == backgroundCopying) {
             static_assert(std::is_trivially_copyable<ClipSlot>::value,
@@ -275,12 +278,24 @@
             if (persistenceCopyOffset == sizeof(clipSlots))
                 persistenceJob.store(backgroundRequested, std::memory_order_release);
         }
+        if(saveFailed && pendingCaptureSaveMask==0u && !persistentStateDirty
+            && persistenceJob.load(std::memory_order_acquire)==backgroundIdle)saveFailed=false;
         if (waveTextDirty) rebuildWaveText();
         if (recordStartPending && pendingCaptureSaveMask == 0u) {
             recordStartPending = false;
             selectedLane = pendingRecordLane;
             startRecording();
         }
+    }
+
+    int saveStatus() const
+    {
+        if(!persistenceEnabled)return 0; // No persistent data directory.
+        if(saveFailed || !backgroundStarted)return 4;
+        if(engine.recording() || clipRecording)return 1;
+        if(pendingCaptureSaveMask || persistentStateDirty || recordStartPending
+            || persistenceJob.load(std::memory_order_acquire)!=backgroundIdle)return 2;
+        return 3; // All referenced audio and the latest metadata are committed.
     }
 
     bool serviceMaintenance()

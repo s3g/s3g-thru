@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="768" height="384" viewBox="0 0 128 64" role="img" aria-labelledby="title desc">
-  <title id="title">Split Setup</title>
-  <desc id="desc">Split Setup shown as it appears on Ableton Move.</desc>
+  <title id="title">Dual Setup</title>
+  <desc id="desc">Dual Setup shown as it appears on Ableton Move.</desc>
   <rect width="128" height="64" fill="#050706"/>
   <g shape-rendering="crispEdges" font-family="DejaVu Sans Mono, IBM Plex Mono, monospace" font-size="6" font-style="normal" font-weight="400" text-rendering="geometricPrecision">
-    <text x="1" y="5.5" fill="#dce8e1">SPLIT SETUP 6/17</text>
+    <text x="1" y="5.5" fill="#dce8e1">DUAL SETUP 6/17</text>
     <rect x="0" y="8" width="128" height="1" fill="#dce8e1"/>
     <text x="3" y="18.5" fill="#dce8e1">MODE</text>
     <text x="3" y="29.5" fill="#dce8e1">SPLI</text>

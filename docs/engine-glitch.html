@@ -8,14 +8,14 @@
     <link rel="stylesheet" href="assets/styles.css">
   </head>
   <body>
-    <header class="site-header"><a class="brand" href="index.html">s3g Thru <span>manual</span></a><nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="split.html">Split</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav></header>
+    <header class="site-header"><a class="brand" href="index.html">s3g Thru <span>manual</span></a><nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav></header>
 
     <div class="page-shell">
       <main class="content" id="content">
         <p class="eyebrow">Playback engine 7 of 9</p>
         <h1>Glitch</h1>
         <p class="lead">Glitch continuously records each voice into its own short history, then replaces selected moments with repeating fragments. A rotating pulse pattern decides when overrides happen; deterministic history jumps, pitch changes, reversals, shrinking loops, and a performable history lock make the result repeatable without becoming regular.</p>
-        <p>In Split, these controls edit the focused A or B instrument. Its two lanes and four voices are independent of the other side. See <a href="split.html#focus">Split focus</a> and <a href="interface.html#zoom">waveform zoom</a>.</p>
+        <p>Controls edit the focused instrument. <a href="modes.html">Instrument mode</a> sets its lane and voice budget: eight voices in Single, four per part in either dual mode, or two per part in Quad. Quad omits stack controls because each part has one lane.</p>
         <div class="callout"><p><strong>Good for:</strong> hard stutters, unstable meters, asymmetric accents, repeat-buffer interruption, abrupt silences between dense events, and patterns that can be recalled exactly by Seed.</p></div>
 
         <h2 id="pages">Pages and navigation</h2>
@@ -25,7 +25,7 @@
           <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/glitch-pattern.svg" aria-label="Open Glitch Pattern"><img src="assets/screens/glitch-pattern.svg" alt="Glitch Pattern parameter page"></button></div><figcaption>Pattern makes a deterministic pulse cycle and sets how far and how radically it can alter the captured history.</figcaption></figure>
         </div>
 
-        <p>The controls common to every playback engine are documented in the <a href="engines.html#shared">shared Engine page table</a>. Stack Path keeps moving each voice through its four-lane Single stack or two-lane Split stack while its history is being filled.</p>
+        <p>The controls common to every playback engine are documented in the <a href="engines.html#shared">shared Engine page table</a>. Stack Path keeps moving each voice through its four-lane Single or Shared Dual stack, or two-lane Split stack while its history is being filled.</p>
 
         <h2 id="lock">Buffer Lock</h2>
         <p>Hold <kbd>Shift</kbd> + <kbd>Loop</kbd> to freeze the recent history owned by every active Glitch voice. Release the chord to return to live capture. Tap the chord twice quickly to latch the histories, then press it once more to release the latch. Plain <kbd>Loop</kbd> remains Stack Hold, so lane motion and buffer capture can be stopped independently.</p>
@@ -76,7 +76,7 @@
         <nav class="page-nav" aria-label="Engine navigation"><a class="page-nav-link" href="engine-slices.html"><span>Previous engine</span>Slices</a><a class="page-nav-link next" href="engine-weave.html"><span>Next engine</span>Weave</a></nav>
       </main>
       <aside class="toc" aria-label="Page navigation">
-        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="split.html">Split</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
+        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
         <div class="toc-section"><h2>Engine guides</h2><a href="engine-motion.html">Motion</a><a href="engine-lanes.html">Lanes</a><a href="engine-grains.html">Grains</a><a href="engine-cutups.html">Cutups</a><a href="engine-sample.html">Sample</a><a href="engine-slices.html">Slices</a><a href="engine-glitch.html">Glitch</a><a href="engine-weave.html">Weave</a><a href="engine-wavesets.html">Wavesets</a></div>
         <div class="toc-section"><h2>On this page</h2><a href="#pages">Pages</a><a href="#lock">Buffer Lock</a><a href="#clock">Glitch Clock</a><a href="#pattern">Glitch Pattern</a><a href="#starts">Starting points</a></div>
       </aside>

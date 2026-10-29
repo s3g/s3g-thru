@@ -8,14 +8,14 @@
     <link rel="stylesheet" href="assets/styles.css">
   </head>
   <body>
-    <header class="site-header"><a class="brand" href="index.html">s3g Thru <span>manual</span></a><nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="split.html">Split</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav></header>
+    <header class="site-header"><a class="brand" href="index.html">s3g Thru <span>manual</span></a><nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav></header>
 
     <div class="page-shell">
       <main class="content" id="content">
         <p class="eyebrow">Playback engine 9 of 9</p>
         <h1>Wavesets</h1>
         <p class="lead">Wavesets divides a recording at rising zero crossings and plays those measured cycles in small groups. Repetition turns a fragment of recorded sound into a stable pitched tone; stride, order, source advance, and real-time processes can then pull that tone back toward the changing source.</p>
-        <p>In Split, these controls edit the focused A or B instrument. Its two lanes and four voices are independent of the other side. See <a href="split.html#focus">Split focus</a> and <a href="interface.html#zoom">waveform zoom</a>.</p>
+        <p>Controls edit the focused instrument. <a href="modes.html">Instrument mode</a> sets its lane and voice budget: eight voices in Single, four per part in either dual mode, or two per part in Quad. Quad omits stack controls because each part has one lane.</p>
         <div class="callout"><p><strong>Good for:</strong> extracting playable pitches from speech or noise, microscopic rhythmic loops, animated drones, crossing-level rearrangement, and transformations that retain the timing and contour of the recording.</p></div>
 
         <h2 id="pages">Pages and navigation</h2>
@@ -27,7 +27,7 @@
 
         <h2 id="display">Reading the Wavesets cursor</h2>
         <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/wavesets-waveform.svg" aria-label="Open the Wavesets waveform display"><img src="assets/screens/wavesets-waveform.svg" alt="Wavesets waveform display with physical source cursors and an ordered cycle rail"></button></div><figcaption>The waveforms show source positions within the current Position/Field zoom. In Single, the segmented rail below them shows positions inside the currently measured cycle group.</figcaption></figure>
-        <p>Solid lines show primary or reference source positions for active voices. They span all four lanes in Single, or only their part’s two lanes in Split. Split uses these source cursors without the group rail. A sparse line is a secondary source being blended by Process or the outgoing reader during a safe transition. On Single’s group rail, each segment is one measured cycle in source order. The newest voice has a capped marker; other voices use narrow markers. Reverse therefore steps from the rightmost cycle toward the left, Pendulum changes direction on alternate groups, and Shuffle jumps among slots. Individual cycles still run forward unless <code>PROC</code> is Cycle Reverse or Group Reverse.</p>
+        <p>Solid lines show primary or reference source positions for active voices. They span all four lanes in Single and Shared Dual, or only their part’s two lanes in Split. Both dual modes use these source cursors without the group rail. A sparse line is a secondary source being blended by Process or the outgoing reader during a safe transition. On Single’s group rail, each segment is one measured cycle in source order. The newest voice has a capped marker; other voices use narrow markers. Reverse therefore steps from the rightmost cycle toward the left, Pendulum changes direction on alternate groups, and Shuffle jumps among slots. Individual cycles still run forward unless <code>PROC</code> is Cycle Reverse or Group Reverse.</p>
         <p>The footer reads <code>WS direction Ccycle/group Rrepeat/total</code>. <code>&gt;</code>, <code>&lt;</code>, <code>&lt;&gt;</code>, and <code>SH</code> mean Forward, Reverse, Pendulum, and Shuffle. An asterisk means the selected Order is queued and the displayed direction is still active; a tilde means the old and new readers are overlap-adding. Processes that read several sources at once add small source dots across the rail instead of claiming that one cursor represents the complete result.</p>
 
         <h2 id="parameters">Wavesets — every parameter</h2>
@@ -87,7 +87,7 @@
         <nav class="page-nav" aria-label="Engine navigation"><a class="page-nav-link" href="engine-weave.html"><span>Previous engine</span>Weave</a><a class="page-nav-link next" href="effects.html"><span>Next</span>Effects</a></nav>
       </main>
       <aside class="toc" aria-label="Page navigation">
-        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="split.html">Split</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
+        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
         <div class="toc-section"><h2>Engine guides</h2><a href="engine-motion.html">Motion</a><a href="engine-lanes.html">Lanes</a><a href="engine-grains.html">Grains</a><a href="engine-cutups.html">Cutups</a><a href="engine-sample.html">Sample</a><a href="engine-slices.html">Slices</a><a href="engine-glitch.html">Glitch</a><a href="engine-weave.html">Weave</a><a href="engine-wavesets.html">Wavesets</a></div>
         <div class="toc-section"><h2>On this page</h2><a href="#pages">Pages</a><a href="engines.html#shared">Shared Engine table</a><a href="engines.html#stack-path">Stack Path</a><a href="#parameters">Parameters</a><a href="#processes">Processes</a><a href="#stack">Stack and polyphony</a><a href="#starts">Starting points</a></div>
       </aside>

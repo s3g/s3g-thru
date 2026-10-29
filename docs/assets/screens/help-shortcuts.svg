@@ -5,11 +5,13 @@
   <rect width="128" height="64" fill="#050706"/>
   <g shape-rendering="crispEdges" font-family="DejaVu Sans Mono, IBM Plex Mono, monospace" font-size="6" font-style="normal" font-weight="400" text-rendering="geometricPrecision">
     <text x="1" y="5.5" fill="#dce8e1">SHORTCUTS 3/3 &lt;&gt;</text>
-    <text x="1" y="18.5" fill="#dce8e1">REC        data loop</text>
-    <text x="1" y="28.5" fill="#dce8e1">SHIFT+REC  audio lane</text>
-    <text x="1" y="38.5" fill="#dce8e1">STEPS      clip slots</text>
-    <text x="1" y="48.5" fill="#dce8e1">SHIFT+PAD  note hold</text>
-    <text x="1" y="60.5" fill="#dce8e1">SH+LOOP glitch lock</text>
+    <text x="1" y="14.5" fill="#dce8e1">REC        data loop</text>
+    <text x="1" y="22.5" fill="#dce8e1">SHIFT+REC  audio lane</text>
+    <text x="1" y="30.5" fill="#dce8e1">UNDO      sample/clip</text>
+    <text x="1" y="38.5" fill="#dce8e1">SHIFT+PAD  note hold</text>
+    <text x="1" y="46.5" fill="#dce8e1">SH+LOOP glitch lock</text>
+    <text x="1" y="54.5" fill="#dce8e1">CAP+MENU   pages</text>
+    <text x="1" y="62.5" fill="#dce8e1">DEL+PLAY   panic</text>
   </g>
   <rect x="0.25" y="0.25" width="127.5" height="63.5" fill="none" stroke="#5b6661" stroke-width="0.5"/>
 </svg>

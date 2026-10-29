@@ -270,10 +270,25 @@ void testPreviewIsolation()
 #include "test_split_sends.inc"
 #include "test_split_silence.inc"
 #include "test_editor_snapshot.inc"
+#include "test_performance_tools.inc"
+#include "test_shared_dual.inc"
+#include "test_quad.inc"
 } // namespace
 
 int main()
 {
+    testQuadGeometryAndAudio();
+    testQuadMixerAndMidi();
+    testQuadRollsAndPublication();
+    testQuadRecordingAndRecall();
+    testSharedDualSourcesAndVoices();
+    testSharedDualWindowsAndRecall();
+    testSharedDualLiveZoom();
+    testSharedDualBankRoundTrip();
+    testHardwarePanic();
+    testPreviewRoutesAndTransitions();
+    testMixReadouts();
+    testSaveStatusAndRecovery();
     testEditorSnapshot();
     testSplitDisplayWindows();
     testSingleDisplayWindow();

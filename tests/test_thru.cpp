@@ -1162,7 +1162,7 @@ void downgradeClipBankToV8(const std::string& path)
     assert(std::fclose(file) == 0);
     assert(input.size() >= 240u);
     assert(std::memcmp(input.data(), "S3GTHR3", 7u) == 0);
-    assert(littleU32(input, 8u) == 14u);
+    assert(littleU32(input, 8u) == 15u);
 
     std::vector<std::uint8_t> output;
     output.reserve(input.size());
@@ -1178,7 +1178,7 @@ void downgradeClipBankToV8(const std::string& path)
     copyBytes(228u); // generation/globals plus the 16-entry chain
     for (std::size_t clip = 0u; clip < 64u; ++clip) {
         copyBytes(4u + 132u * 4u); // occupied and format-8 parameters
-        offset += 38u * 4u; // Tape controls and Wavesets parameters were appended.
+        offset += 44u * 4u; // Tape controls and Wavesets parameters were appended.
         copyBytes(4u * (4u + 768u + 64u) + 8u * 4u); // sources and cues
         copyBytes(36u); // recorded state through take count
         const std::uint32_t noteCount = littleU32(input, offset);
@@ -1187,7 +1187,7 @@ void downgradeClipBankToV8(const std::string& path)
         copyBytes(static_cast<std::size_t>(noteCount) * 24u);
         copyBytes(static_cast<std::size_t>(pointCount) * 24u);
     }
-    assert(offset + 95492u == input.size());
+    assert(offset + 193796u == input.size());
     std::uint32_t checksum = 2166136261u;
     for (const std::uint8_t byte : output) {
         checksum ^= byte;
@@ -1213,7 +1213,7 @@ void downgradeClipBankToV13(const std::string& path)
     assert(std::fclose(file) == 0);
     assert(input.size() >= 240u);
     assert(std::memcmp(input.data(), "S3GTHR3", 7u) == 0);
-    assert(littleU32(input, 8u) == 14u);
+    assert(littleU32(input, 8u) == 15u);
 
     std::vector<std::uint8_t> output;
     output.reserve(input.size());
@@ -1229,7 +1229,7 @@ void downgradeClipBankToV13(const std::string& path)
     copyBytes(228u); // generation/globals plus the 16-entry chain
     for (std::size_t clip = 0u; clip < 64u; ++clip) {
         copyBytes(4u + 162u * 4u); // occupied and format-12 parameters
-        offset += 8u * 4u; // format-13 Cutups Advance
+        offset += 14u * 4u; // format-13 Cutups Advance
         copyBytes(4u * (4u + 768u + 64u) + 8u * 4u); // sources and cues
         copyBytes(36u); // recorded state through take count
         const std::uint32_t noteCount = littleU32(input, offset);
@@ -1238,7 +1238,7 @@ void downgradeClipBankToV13(const std::string& path)
         copyBytes(static_cast<std::size_t>(noteCount) * 24u);
         copyBytes(static_cast<std::size_t>(pointCount) * 24u);
     }
-    assert(offset + 95492u == input.size());
+    assert(offset + 193796u == input.size());
     std::uint32_t checksum = 2166136261u;
     for (const std::uint8_t byte : output) {
         checksum ^= byte;
@@ -1264,7 +1264,7 @@ void downgradeClipBankToV12(const std::string& path)
     assert(std::fclose(file) == 0);
     assert(input.size() >= 240u);
     assert(std::memcmp(input.data(), "S3GTHR3", 7u) == 0);
-    assert(littleU32(input, 8u) == 14u);
+    assert(littleU32(input, 8u) == 15u);
 
     std::vector<std::uint8_t> output;
     output.reserve(input.size());
@@ -1280,7 +1280,7 @@ void downgradeClipBankToV12(const std::string& path)
     copyBytes(228u); // generation/globals plus the 16-entry chain
     for (std::size_t clip = 0u; clip < 64u; ++clip) {
         copyBytes(4u + 161u * 4u); // occupied and format-12 parameters
-        offset += 9u * 4u; // format-13 Cutups Advance
+        offset += 15u * 4u; // format-13 Cutups Advance
         copyBytes(4u * (4u + 768u + 64u) + 8u * 4u); // sources and cues
         copyBytes(36u); // recorded state through take count
         const std::uint32_t noteCount = littleU32(input, offset);
@@ -1289,7 +1289,7 @@ void downgradeClipBankToV12(const std::string& path)
         copyBytes(static_cast<std::size_t>(noteCount) * 24u);
         copyBytes(static_cast<std::size_t>(pointCount) * 24u);
     }
-    assert(offset + 95492u == input.size());
+    assert(offset + 193796u == input.size());
     std::uint32_t checksum = 2166136261u;
     for (const std::uint8_t byte : output) {
         checksum ^= byte;
@@ -1315,7 +1315,7 @@ void downgradeClipBankToV9(const std::string& path)
     assert(std::fclose(file) == 0);
     assert(input.size() >= 240u);
     assert(std::memcmp(input.data(), "S3GTHR3", 7u) == 0);
-    assert(littleU32(input, 8u) == 14u);
+    assert(littleU32(input, 8u) == 15u);
 
     std::vector<std::uint8_t> output;
     output.reserve(input.size());
@@ -1331,7 +1331,7 @@ void downgradeClipBankToV9(const std::string& path)
     copyBytes(228u); // generation/globals plus the 16-entry chain
     for (std::size_t clip = 0u; clip < 64u; ++clip) {
         copyBytes(4u + 140u * 4u); // occupied and format-9 parameters
-        offset += 30u * 4u; // format-10 tape macros plus format-11 Wavesets
+        offset += 36u * 4u; // format-10 tape macros plus format-11 Wavesets
         copyBytes(4u * (4u + 768u + 64u) + 8u * 4u); // sources and cues
         copyBytes(36u); // recorded state through take count
         const std::uint32_t noteCount = littleU32(input, offset);
@@ -1340,7 +1340,7 @@ void downgradeClipBankToV9(const std::string& path)
         copyBytes(static_cast<std::size_t>(noteCount) * 24u);
         copyBytes(static_cast<std::size_t>(pointCount) * 24u);
     }
-    assert(offset + 95492u == input.size());
+    assert(offset + 193796u == input.size());
     std::uint32_t checksum = 2166136261u;
     for (const std::uint8_t byte : output) {
         checksum ^= byte;
@@ -1366,7 +1366,7 @@ void downgradeClipBankToV1(const std::string& path)
     assert(std::fclose(file) == 0);
     assert(input.size() >= 240u);
     assert(std::memcmp(input.data(), "S3GTHR3", 7u) == 0);
-    assert(littleU32(input, 8u) == 14u);
+    assert(littleU32(input, 8u) == 15u);
 
     std::vector<std::uint8_t> output;
     output.reserve(input.size());
@@ -1382,7 +1382,7 @@ void downgradeClipBankToV1(const std::string& path)
     copyBytes(228u); // generation/globals plus the 16-entry chain
     for (std::size_t clip = 0u; clip < 64u; ++clip) {
         copyBytes(4u + 68u * 4u); // occupied and version-1 base parameters
-        offset += 102u * 4u; // fidelity, effects, Weave, ADSR, tape, Wavesets
+        offset += 108u * 4u; // fidelity, effects, Weave, ADSR, tape, Wavesets
         copyBytes(4u * (4u + 768u + 64u) + 8u * 4u); // sources and cues
         copyBytes(32u); // recorded through capacity flags
         offset += 4u; // take count does not exist in format 1
@@ -1398,7 +1398,7 @@ void downgradeClipBankToV1(const std::string& path)
             offset += 4u; // gesture take
         }
     }
-    assert(offset + 95492u == input.size());
+    assert(offset + 193796u == input.size());
     std::uint32_t checksum = 2166136261u;
     for (const std::uint8_t byte : output) {
         checksum ^= byte;
@@ -1424,7 +1424,7 @@ void downgradeClipBankToV2(const std::string& path)
     assert(std::fclose(file) == 0);
     assert(input.size() >= 240u);
     assert(std::memcmp(input.data(), "S3GTHR3", 7u) == 0);
-    assert(littleU32(input, 8u) == 14u);
+    assert(littleU32(input, 8u) == 15u);
 
     std::vector<std::uint8_t> output;
     output.reserve(input.size());
@@ -1440,7 +1440,7 @@ void downgradeClipBankToV2(const std::string& path)
     copyBytes(228u); // generation/globals plus the 16-entry chain
     for (std::size_t clip = 0u; clip < 64u; ++clip) {
         copyBytes(4u + 68u * 4u); // occupied and format-2 base parameters
-        offset += 102u * 4u; // fidelity, effects, Weave, ADSR, tape, Wavesets
+        offset += 108u * 4u; // fidelity, effects, Weave, ADSR, tape, Wavesets
         copyBytes(4u * (4u + 768u + 64u) + 8u * 4u); // sources and cues
         copyBytes(32u + 4u); // capacities/flags and take count
         const std::uint32_t noteCount = littleU32(input, offset);
@@ -1449,7 +1449,7 @@ void downgradeClipBankToV2(const std::string& path)
         copyBytes(static_cast<std::size_t>(noteCount) * 24u);
         copyBytes(static_cast<std::size_t>(pointCount) * 24u);
     }
-    assert(offset + 95492u == input.size());
+    assert(offset + 193796u == input.size());
     std::uint32_t checksum = 2166136261u;
     for (const std::uint8_t byte : output) {
         checksum ^= byte;
@@ -3546,7 +3546,7 @@ int main()
         == sizeof(clipMagic));
     assert(std::memcmp(clipMagic, "S3GTHR3", 7u) == 0);
     assert(std::fread(&clipVersion, sizeof(clipVersion), 1u, clipFile) == 1u);
-    assert(clipVersion == 14u);
+    assert(clipVersion == 15u);
     std::fclose(stateFile);
     std::fclose(laneFile);
     std::fclose(clipFile);
@@ -3736,7 +3736,7 @@ int main()
     assert(std::fread(clipMagic, 1u, sizeof(clipMagic), clipFile)
         == sizeof(clipMagic));
     assert(std::fread(&clipVersion, sizeof(clipVersion), 1u, clipFile) == 1u);
-    assert(clipVersion == 14u);
+    assert(clipVersion == 15u);
     assert(std::fclose(clipFile) == 0);
 
     std::remove(statePath.c_str());

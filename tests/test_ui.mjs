@@ -10,6 +10,7 @@ const buttonWrites = [];
 const paramWrites = [];
 const paramReads = [];
 let corruptEditorSnapshot = false;
+let rejectSafetyUndo = false;
 const blockingWrites = [];
 const drawWrites = [];
 const screenBits=new Uint8Array(128*64),screenText=new Map();
@@ -108,13 +109,23 @@ globalThis.host_module_get_param = (key) => {
             .filter(([,p]) => !p.momentary)
             .map(([key,p]) => [key, Number(params[key] ?? p.value)]));
         const split = JSON.parse(params.split_state || '{"enabled":0,"focus":0,"blend":0.5,"parts":[{},{}]}');
-        values.split_mode = split.enabled; values.split_focus = split.focus;
+        if(!split.enabled||!split.quad)split.parts=split.parts.slice(0,2);
+        values.split_mode = split.enabled ? (split.quad ? 3 : split.shared ? 2 : 1) : 0; values.split_focus = split.focus;
         values.part_mute = split.parts[split.focus]?.mute || 0;
         for (const key of ['pad_octave','record_lane','stack_scan_paused','glitch_buffer_lock'])
             values[key]=Number(params[key] || 0);
         return JSON.stringify({v:1,values,split,voices:params.voice_algorithms || '-1,-1,-1,-1,-1,-1,-1,-1'});
     }
     if (key === 'waveforms') waveformReads++;
+    if(key==='ui_state') {
+        const split=JSON.parse(params.split_state||'{}');
+        if(split.enabled&&split.shared) {
+            const values=params.ui_state.split(','),width=Math.max(.02,Math.min(1,Number(params.field))),half=width*.5;
+            const center=Math.max(half,Math.min(1-half,Number(params.locus)));
+            values[5]=String(Math.round((center-half)*1000));values[6]=String(Math.round((center+half)*1000));
+            values[17]=String(center-half);values[18]=String(center+half);return values.join(',');
+        }
+    }
     return params[key] ?? '';
 };
 globalThis.host_module_set_param = (key, value) => {
@@ -136,6 +147,10 @@ globalThis.host_module_set_param_blocking = (key, value) => {
         clip[0] = recording ? '0' : '1';
         clip[1] = recording ? '1' : (params.clip_record_mode === '1' ? '1' : '0');
         params.clip_state = clip.join(',');
+    }
+    if (key === 'undo' && params.undo_available === '1') {
+        if (rejectSafetyUndo) params.last_error='Wait for the recording archive before undoing';
+        else {params.undo_available='0';params.locus='0.23';}
     }
     if (key === 'clip_take_undo') {
         const take = params.clip_take_state.split(',');
@@ -200,6 +215,7 @@ globalThis.__testPadMidiNote = padMidiNote;
 globalThis.__testStereoRotaryPage = STEREO_ROTARY_PAGE.keys;
 globalThis.__testTapePage = TAPE_PAGE.keys;
 globalThis.__testWavesetProcess = PARAMS.waveset_process;
+globalThis.__testTools={entries:pageEntries,parseSave:parseSaveStatus,parseMix:parseMixStatus,drawMix:drawMixStatus};
 globalThis.__testFx = { adjust: adjustFxOrder, sync: syncFxOrder,
     encode: encodeFxOrder, decode: decodeFxOrder,
     state: () => state,
@@ -652,7 +668,7 @@ globalThis.onMidiMessageInternal([0xB0, 58, 127]);
 assert.deepEqual(blockingWrites.pop(), ['glitch_buffer_lock', '1']);
 for (let tick = 0; tick < 3; tick++) globalThis.tick();
 assert.deepEqual(buttonWrites.filter((write) => write[0] === 58).at(-1),
-    [58, 3], 'Loop should turn orange while Glitch history is locked');
+    [58, 127], 'Loop uses bright white while Glitch history is locked');
 globalThis.onMidiMessageInternal([0xB0, 58, 0]);
 assert.deepEqual(blockingWrites.pop(), ['glitch_buffer_lock', '0']);
 globalThis.onMidiMessageInternal([0xB0, 58, 127]);
@@ -921,11 +937,13 @@ const splitState = {enabled:0,focus:0,blend:.5,parts:[
     {algorithm:2,root:67,octave:1,scale:1,mode:0,hold:0,mute:0,position:.7}]};
 params.split_blend='0.5'; params.split_mode='0';
 const priorSet=globalThis.host_module_set_param_blocking;
+let rejectModeSwitch=false;
 globalThis.host_module_set_param_blocking=(key,value)=>{
     priorSet(key,value);
-    if(key==='split_mode')splitState.enabled=Number(value);
-    if(key==='split_focus')splitState.focus=Number(value);
-    if(key==='record_lane')splitState.focus=Number(value)>2?1:0;
+    if(key==='split_mode'&&rejectModeSwitch){params.split_mode=String(splitState.enabled?(splitState.quad?3:splitState.shared?2:1):0);return;}
+    if(key==='split_mode'){splitState.enabled=Number(value)!==0?1:0;if(splitState.enabled){splitState.shared=Number(value)===2?1:0;splitState.quad=Number(value)===3?1:0;}}
+    if(key==='split_focus'){splitState.focus=Number(value);if(splitState.quad)params.record_lane=String(splitState.focus+1);}
+    if(key==='record_lane'&&splitState.enabled&&!splitState.shared)splitState.focus=splitState.quad?Number(value)-1:Number(value)>2?1:0;
     if(key==='part_mute')splitState.parts[splitState.focus].mute=Number(value);
     const p=splitState.parts[splitState.focus];
     Object.assign(params,{split_state:JSON.stringify(splitState),algorithm:String(p.algorithm),
@@ -980,7 +998,7 @@ fx.state().messageTicks=0;drawWrites.length=0;globalThis.__testDrawMain();
 assert([...screenText.values()].some((w)=>String(w[2]).includes('B:MUT')));
 assert([...screenText.values()].some((w)=>w[2]==='B MUTED: PRESS MUTE'));
 // The Setup encoder must recover B from the actual ON value.
-fx.state().view='settings';fx.state().settingsPage=split.pages().findIndex((p)=>p.title==='SPLIT SETUP');
+fx.state().view='settings';fx.state().settingsPage=split.pages().findIndex((p)=>p.title==='DUAL SETUP');
 globalThis.__testResetEncoders();cc(74,124);
 assert.equal(splitState.parts[1].mute,0);assert.equal(globalThis.__testParams.part_mute.value,0);
 // A recalled mute can arrive between polls: the button must toggle the DSP state.
@@ -1335,4 +1353,286 @@ for(let i=0;i<3;++i)globalThis.tick();
 assert(paramReads.slice(focusCalls).filter((key)=>key==='ui_editor_state').length<=1);
 // Leaving Split while the menu is open must not leave a stale Split-only view.
 fx.state().view='fxMenu';cc(60);assert.equal(fx.state().view,'main');
+// General navigation is contextual and never fires recording or a focus toggle.
+const tools=globalThis.__testTools,ui=fx.state();
+ui.view='settings';ui.settingsPage=2;ui.shiftHeld=false;ui.deleteHeld=false;
+let toolWrites=blockingWrites.length;
+cc(52);cc(50);cc(50,0);cc(52,0);
+assert.equal(ui.view,'pages');
+assert(!blockingWrites.slice(toolWrites).some(([k])=>['clip_record','record_gate','split_focus'].includes(k)));
+assert(tools.entries().some(e=>e.title==='AMP ENVELOPE'));
+assert(!tools.entries().some(e=>e.title.includes('A/B')),'Single hides Split status');
+let destination=tools.entries().findIndex(e=>e.title==='REVERB');
+ui.pageSelection=destination;cc(3);assert.equal(ui.view,'settings');
+assert.equal(globalThis.__testSplit.pages()[ui.settingsPage].title,'REVERB');
+cc(52);cc(50);cc(52,0);cc(51);assert.equal(ui.view,'settings');
+assert.equal(globalThis.__testSplit.pages()[ui.settingsPage].title,'REVERB');
+cc(60);assert(ui.splitEnabled);ui.view='main';
+const pickerFocus=ui.splitFocus;
+cc(52);cc(50);cc(52,0);assert.equal(ui.splitFocus,pickerFocus);
+destination=tools.entries().findIndex(e=>e.view==='mixStatus');assert(destination>=0);
+ui.pageSelection=destination;cc(3);assert.equal(ui.view,'mixStatus');
+tools.parseMix('.12,0,2,3,0,3');tools.drawMix();
+assert.equal(ui.mixVoices[0],2);assert.equal(ui.mixVoices[1],3);
+assert([...screenText.values()].some(t=>t[2]==='FADED OUT'));
+cc(50);assert.equal(ui.view,'main');
+// Cancelling after changing focus returns to that part's remembered page.
+if(ui.splitFocus!==0){cc(52);cc(52,0);}
+ui.view='settings';ui.settingsPage=2;ui.splitPages=[2,5];
+cc(52);cc(50);cc(52,0);cc(52);cc(52,0);
+assert.equal(ui.splitFocus,1);assert.equal(ui.settingsPage,5);
+cc(51);assert.equal(ui.view,'settings');assert.equal(ui.settingsPage,5);
+cc(52);cc(52,0);assert.equal(ui.settingsPage,2);
+// The browser exposes only its two relevant encoders, without an audio load.
+cc(49);cc(43);cc(49,0);assert.equal(ui.view,'library');
+assert.deepEqual(globalThis.__testSplit.keys(),[null,null,null,null,null,null,'preview_route','preview_level']);
+globalThis.__testResetEncoders();toolWrites=paramWrites.length;
+cc(77,2);cc(78,2);
+assert(paramWrites.slice(toolWrites).some(([k,v])=>k==='preview_route'&&Number(v)===1));
+assert(paramWrites.slice(toolWrites).some(([k])=>k==='preview_level'));
+assert(!paramWrites.slice(toolWrites).some(([k])=>k==='algorithm'));
+// A mode change inside Pages cannot restore a Split-only screen in Single.
+ui.view='mixStatus';cc(52);cc(50);cc(52,0);cc(60);cc(51);
+assert(!ui.splitEnabled);assert.equal(ui.view,'main');cc(60);
+// Saved follows the completion transition, and errors stay until recovery.
+tools.parseSave('2');assert.equal(ui.savedTicks,0);
+tools.parseSave('4');assert.equal(ui.saveStatus,4);
+ui.view='main';ui.messageTicks=0;globalThis.__testDrawMain();
+assert([...screenText.values()].some(t=>t[2]==='SAVE FAILED: RETRYING'));
+tools.drawMix();assert([...screenText.values()].some(t=>t[2]==='SAVE FAILED: RETRYING'));
+cc(52);cc(50);cc(52,0);globalThis.tick();
+assert([...screenText.values()].some(t=>t[2]==='SAVE FAILED: RETRYING'));
+cc(51);
+tools.parseSave('2');tools.parseSave('3');assert(ui.savedTicks>0);
+tools.parseSave('bad');assert.equal(ui.saveStatus,3);
+// Delete+Play calls the module command, never toggles playback or changes views.
+toolWrites=blockingWrites.length;ui.activePads.add(70);
+cc(119);cc(85);cc(85,0);cc(119,0);
+assert(blockingWrites.slice(toolWrites).some(([k,v])=>k==='panic'&&Number(v)===1));
+assert(!blockingWrites.slice(toolWrites).some(([k])=>k==='clip_playing'));
+assert.equal(ui.activePads.size,0);
+// Used white icon keys are primed immediately, including Capture in Single.
+if(ui.splitEnabled){cc(60);cc(60,0);}
+params.glitch_buffer_lock='0';params.stack_scan_paused='0';params.clip_stack_hold='0';
+params.undo_available='0';
+const idleUi=params.ui_state.split(',');idleUi[2]='0';params.ui_state=idleUi.join(',');
+const idleClip=params.clip_state.split(',');idleClip[0]='0';params.clip_state=idleClip.join(',');
+globalThis.init();
+const lastButton=(id)=>buttonWrites.filter(w=>w[0]===id).at(-1)?.[1];
+const settleIcons=()=>{for(let i=0;i<6;++i)globalThis.tick();};
+const tapIcon=(id)=>{cc(id);cc(id,0);};
+for(const id of [49,50,51,52,54,55,58,60,62,63,119])assert.equal(lastButton(id),16,'available icon '+id);
+assert.equal(lastButton(88),0,'Mute is unassigned in Single');
+assert.equal(lastButton(56),0,'Undo is dark without a safety undo point');
+settleIcons();let stableIcons=buttonWrites.length;settleIcons();
+assert.equal(buttonWrites.length,stableIcons,'steady icons generate no repeated MIDI writes');
+idleUi[2]='1';params.ui_state=idleUi.join(',');settleIcons();assert.equal(lastButton(60),0);
+idleUi[2]='0';params.ui_state=idleUi.join(',');settleIcons();assert.equal(lastButton(60),16);
+idleClip[0]='1';params.clip_state=idleClip.join(',');settleIcons();assert.equal(lastButton(60),0);
+idleClip[0]='0';params.clip_state=idleClip.join(',');settleIcons();assert.equal(lastButton(60),16);
+tapIcon(50);settleIcons();assert.equal(lastButton(50),127);assert.equal(lastButton(51),127);
+tapIcon(50);settleIcons();assert.equal(lastButton(50),16);assert.equal(lastButton(51),16);
+params.undo_available='1';settleIcons();cc(49);settleIcons();
+assert.equal(lastButton(49),127);assert.equal(lastButton(51),16,'Back brightness follows navigation, not undo');
+assert.equal(lastButton(56),127,'the dedicated Undo key advertises availability');
+cc(49,0);settleIcons();assert.equal(lastButton(49),16);assert.equal(lastButton(51),16);
+cc(119);settleIcons();assert.equal(lastButton(119),127);
+cc(119,0);settleIcons();assert.equal(lastButton(119),16);
+cc(49);tapIcon(43);cc(49,0);settleIcons();
+assert.equal(ui.view,'library');assert.equal(lastButton(62),0);assert.equal(lastButton(63),0);
+assert.equal(lastButton(55),16);cc(55);settleIcons();assert.equal(lastButton(55),127);
+cc(55,0);settleIcons();assert.equal(lastButton(55),16);
+ui.view='main';tapIcon(60);settleIcons();assert(ui.splitEnabled);
+assert.equal(lastButton(60),127);assert.equal(lastButton(88),16);
+tapIcon(88);settleIcons();assert.equal(lastButton(88),127);
+tapIcon(52);settleIcons();assert.equal(lastButton(52),127);assert.equal(lastButton(88),16);
+tapIcon(60);settleIcons();assert.equal(lastButton(52),16);assert.equal(lastButton(88),0);
+cc(52);tapIcon(50);cc(52,0);settleIcons();assert.equal(ui.view,'pages');
+assert.equal(lastButton(52),127);assert.equal(lastButton(50),127);
+tapIcon(51);settleIcons();assert.equal(lastButton(52),16);
+globalThis.onUnload();
+for(const id of [49,50,51,52,54,55,56,58,60,62,63,88,119])assert.equal(lastButton(id),0,'unload clears icon '+id);
+globalThis.init();assert.equal(lastButton(52),16,'re-entry restores the page-picker hint before any tick');
+// Physical Undo restores the safety snapshot without navigating or exiting.
+const beforeUndoExit=exitCount;
+params.undo_available='1';settleIcons();let undoWrites=blockingWrites.length;
+tapIcon(56);settleIcons();
+assert(blockingWrites.slice(undoWrites).some(([key])=>key==='undo'));
+assert.equal(ui.view,'main');assert.equal(exitCount,beforeUndoExit);
+assert.equal(params.undo_available,'0');assert.equal(lastButton(56),0);
+assert.equal(globalThis.__testParams.locus.value,.23,'Undo refreshes restored parameter values');
+undoWrites=blockingWrites.length;tapIcon(56);settleIcons();
+assert.equal(ui.message,'NOTHING TO UNDO');assert.equal(exitCount,beforeUndoExit);
+assert(!blockingWrites.slice(undoWrites).some(([key])=>key==='undo'));
+// A refused undo retains its point and gives a readable wait message.
+params.undo_available='1';rejectSafetyUndo=true;settleIcons();tapIcon(56);settleIcons();
+assert.equal(lastButton(56),127);assert.equal(ui.message,'WAIT FOR TAKE TO SAVE');
+rejectSafetyUndo=false;tapIcon(50);settleIcons();
+ui.settingsPage=fx.pageIndex();ui.fxRouteGrabbed=true;ui.fxRoutePending=true;
+tapIcon(56);settleIcons();
+assert(!ui.fxRouteGrabbed&&!ui.fxRoutePending,'restoring a snapshot cancels stale FX-order drafts');
+assert.equal(ui.view,'settings');assert.equal(params.undo_available,'0');
+assert.equal(ui.actionMessage,'UNDONE');
+// Recording gates Undo even if the last periodic poll was stale.
+params.undo_available='1';params.recording='1';idleUi[2]='1';params.ui_state=idleUi.join(',');ui.recording=false;undoWrites=blockingWrites.length;
+tapIcon(56);settleIcons();assert.equal(lastButton(56),0);
+assert.equal(ui.message,'STOP RECORD TO UNDO');
+assert(!blockingWrites.slice(undoWrites).some(([key])=>key==='undo'));
+params.recording='0';idleUi[2]='0';params.ui_state=idleUi.join(',');idleClip[0]='1';params.clip_state=idleClip.join(',');undoWrites=blockingWrites.length;
+tapIcon(56);settleIcons();assert.equal(lastButton(56),0);
+assert(!blockingWrites.slice(undoWrites).some(([key])=>key==='undo'));
+idleClip[0]='0';params.clip_state=idleClip.join(',');settleIcons();assert.equal(lastButton(56),127);
+// Shift+Back now navigates normally; it never consumes the safety snapshot.
+undoWrites=blockingWrites.length;cc(49);tapIcon(51);cc(49,0);settleIcons();
+assert.equal(ui.view,'main');assert.equal(params.undo_available,'1');
+assert(!blockingWrites.slice(undoWrites).some(([key])=>key==='undo'));
+// Exit/re-entry releases and restores the dedicated key along with other icons.
+globalThis.onUnload();assert.equal(lastButton(56),0);
+globalThis.init();assert.equal(lastButton(56),127);
+cc(49);tapIcon(50);cc(49,0);tapIcon(63);tapIcon(63);globalThis.tick();
+assert.equal(ui.helpPage,2);
+assert([...screenText.values()].some(t=>t[2]==='UNDO      sample/clip'));
+for(const [x,y,text] of screenText.values()) {
+    assert(x+String(text).length*6<=128,'shortcut text must fit the display');
+    assert(y>=0&&y+7<=64,'shortcut rows must fit the display');
+}
+// Shared Dual is selectable from Single, without entering Split first.
+ui.view='main';ui.activePads.clear();ui.voicePads=Array(8).fill(-1);ui.rollPads=Array(8).fill(-1);
+params.voice_pads=params.voice_notes=params.roll_pads=params.roll_notes=Array(8).fill(-1).join(',');
+params.playheads=params.voice_lanes=Array(8).fill(-1).join(',');
+splitState.enabled=0;splitState.shared=0;splitState.focus=0;
+for(const p of splitState.parts){p.mute=0;p.mode=0;p.scale=0;}
+params.split_state=JSON.stringify(splitState);params.split_mode='0';params.mix_status='0,0,0,0,5,5';
+globalThis.init();
+const pickInstrumentMode=()=>{cc(52);tapIcon(50);cc(52,0);ui.pageSelection=tools.entries().findIndex(e=>e.view==='mode');tapIcon(3);};
+pickInstrumentMode();assert.equal(ui.view,'mode');assert.equal(ui.modeSelection,0);
+tapIcon(54);tapIcon(54);assert.equal(ui.modeSelection,2);
+tapIcon(3);settleIcons();assert(ui.sharedDual&&ui.splitEnabled);assert.equal(ui.view,'main');
+assert.equal(globalThis.__testParams.split_mode.value,2);
+assert.equal(padWrites.filter(w=>w[0]===73).at(-1)[1],35,'Shared B idle pads use muted plum');
+assert.equal(padWrites.filter(w=>w[0]===69).at(-1)[1],0,'A retains its chromatic idle color');
+// Both programs expose all four lane gains, one time each.
+const sharedKeys=split.pages().flatMap(p=>p.keys||[]).filter(Boolean);
+assert.equal(new Set(sharedKeys).size,sharedKeys.length);
+const mixRec=split.pages().find(p=>p.title==='MIX / REC');
+assert.deepEqual(mixRec.keys.slice(0,4),['lane_1_gain','lane_2_gain','lane_3_gain','lane_4_gain']);
+tapIcon(40);assert.equal(ui.splitFocus,0,'Track 4 selects a shared source without focusing B');
+const sharedLane=ui.lane;tapIcon(52);assert.equal(ui.splitFocus,1);assert.equal(ui.lane,sharedLane);
+tapIcon(43);assert.equal(ui.splitFocus,1,'Track 1 must not focus A in Shared');
+splitState.parts[1].scale=1;params.split_state=JSON.stringify(splitState);settleIcons();
+const bRootIndex=Array.from({length:32},(_,i)=>i).find(i=>i%8>=4&&(globalThis.__testPadMidiNote(i)-splitState.parts[1].root)%12===0);
+assert.notEqual(bRootIndex,undefined);
+assert.equal(padWrites.filter(w=>w[0]===68+bRootIndex).at(-1)[1],52,'Shared B scale roots use brighter pink');
+// Copy returns to the last dual layout; a failed change keeps the chooser open.
+tapIcon(60);assert(!ui.splitEnabled&&ui.sharedDual);tapIcon(60);assert(ui.splitEnabled&&ui.sharedDual);
+pickInstrumentMode();tapIcon(51);assert.equal(ui.view,'pages');tapIcon(51);assert.equal(ui.view,'main');
+pickInstrumentMode();ui.modeSelection=1;rejectModeSwitch=true;tapIcon(3);globalThis.tick();
+assert.equal(ui.view,'mode');assert(ui.sharedDual);assert.equal(ui.actionMessage,'STOP RECORD FIRST');
+assert([...screenText.values()].some(t=>t[2]==='STOP RECORD FIRST'));rejectModeSwitch=false;
+tapIcon(3);settleIcons();assert(ui.splitEnabled&&!ui.sharedDual);
+assert.equal(padWrites.filter(w=>w[0]===73).at(-1)[1],93,'Split retains its distinct teal background');
+pickInstrumentMode();ui.modeSelection=2;tapIcon(3);
+// Shared source readers use a common four-row zoom, with A top/B bottom caps.
+ui.view='main';ui.messageTicks=0;ui.mask=15;ui.regions=[];ui.laneRegions=Array(4).fill(null);
+ui.waves=Array.from({length:4},()=>Array.from({length:112},()=>[0,0]));
+ui.fieldStart=0;ui.fieldEnd=1;ui.playheads=Array(8).fill(-1);ui.stackPositions=Array(8).fill(-1);
+ui.voiceAlgorithms=Array(8).fill(-1);ui.playheads[0]=.2;ui.playheads[4]=.8;
+ui.stackPositions[0]=1;ui.stackPositions[4]=0;ui.voiceAlgorithms[0]=ui.voiceAlgorithms[4]=4;
+ui.mixVoices=[1,1];ui.splitFocus=0;
+globalThis.__testClearDisplay();globalThis.__testDrawMain();
+for(const [slot,capY] of [[0,10],[4,49]]) {
+    const x=14+Math.round(ui.playheads[slot]*113);
+    assert.equal(screenPixel(x,10),1);assert.equal(screenPixel(x,49),1);
+    assert.equal(screenPixel(x-1,capY),1,'caps identify A above and B below the shared stack');
+}
+// Shared sources have plain labels and no A/B lane-pair divider.
+for(let lane=0;lane<4;++lane) {
+    const y=11+lane*10;
+    assert.equal(screenText.get('3,'+y)?.[3],1,'Shared lane numbers remain white on black');
+    assert.equal(screenPixel(2,y),0,'Shared lane labels have no inverted background');
+}
+assert.equal(screenPixel(11,30),0,'Shared must not divide lanes 2 and 3');
+assert.equal(screenPixel(0,11+(ui.lane-1)*10),1,'the source destination mark remains visible');
+const sharedPixels=wavePixels();let sharedFocusDraws=drawWrites.length;ui.splitFocus=1;globalThis.__testDrawMain();
+assert.deepEqual(wavePixels(),sharedPixels,'focus changes must preserve the common source raster');
+assert(!drawWrites.slice(sharedFocusDraws).some(w=>w[0]==='clear'),'Shared focus avoids a full clear');
+for(const [x,y,text] of screenText.values())assert(x+String(text).length*6<=128,'Shared headings must fit');
+// Real encoder turns can narrow and move the shared window while both parts play.
+splitState.enabled=splitState.shared=1;splitState.focus=0;
+splitState.parts[0].algorithm=splitState.parts[1].algorithm=4;
+splitState.parts[0].window=splitState.parts[1].window=[0,1];
+Object.assign(params,{split_state:JSON.stringify(splitState),split_mode:'2',locus:'.5',field:'1',
+    playheads:'500,-1,-1,-1,800,-1,-1,-1',voice_lanes:'0,-1,-1,-1,1000,-1,-1,-1',
+    voice_algorithms:'4,-1,-1,-1,4,-1,-1,-1',mix_status:'.1,.1,1,1,0,0'});
+globalThis.init();settleIcons();
+const zoomWaves=ui.waves;
+globalThis.__testResetEncoders();cc(72,96);settleIcons();
+assert(ui.fieldEnd-ui.fieldStart<.99,'FLD must zoom in with both instruments active');
+const beforePan=(ui.fieldStart+ui.fieldEnd)*.5;
+cc(71,8);settleIcons();
+assert((ui.fieldStart+ui.fieldEnd)*.5>beforePan,'POS must pan the zoom while notes are sounding');
+assert.equal(ui.waves,zoomWaves,'zoom reuses cached source waveforms');
+assert(ui.playheads[0]>=0&&ui.playheads[4]>=0,'both parts continue to report active readers');
+// The waveform and both cursor kinds use the same crop; off-window readers vanish.
+ui.waves=Array.from({length:4},()=>Array.from({length:112},()=>[0,0]));
+ui.fieldStart=.4;ui.fieldEnd=.6;ui.playheads[0]=.5;ui.playheads[4]=.8;
+ui.regions=[];ui.laneRegions=Array(4).fill(null);ui.messageTicks=0;
+globalThis.__testClearDisplay();globalThis.__testDrawMain();
+const zoomA=14+Math.round(.5*113),outsideB=14+Math.round(.8*113);
+assert.equal(screenPixel(zoomA,10),1);assert.equal(screenPixel(zoomA,49),1);
+assert.equal(screenPixel(outsideB,10),0,'B must not be drawn at a misleading unzoomed position');
+// Changing the crop must erase the previous waveform and cursor raster completely.
+ui.waves=Array.from({length:4},(_,lane)=>Array.from({length:112},(_,bin)=>[-(bin+lane)%4,(bin*3+lane)%8]));
+ui.fieldStart=.1;ui.fieldEnd=.5;ui.playheads[0]=.25;ui.playheads[4]=.82;
+globalThis.__testClearDisplay();globalThis.__testDrawMain();
+ui.fieldStart=.55;ui.fieldEnd=.95;ui.splitFocus=1;globalThis.__testDrawMain();
+const retainedZoomPixels=wavePixels();
+globalThis.__testClearDisplay();globalThis.__testDrawMain();
+assert.deepEqual(wavePixels(),retainedZoomPixels,'live zoom must match a fresh raster without old pixels');
+// Quad has four independent eight-pad zones and two source voices per zone.
+splitState.enabled=0;splitState.shared=0;splitState.quad=0;splitState.focus=0;
+splitState.parts.push({...splitState.parts[0],root:64,window:[.1,.5]}, {...splitState.parts[1],root:67,window:[.55,.95]});
+for(const part of splitState.parts){part.mode=0;part.scale=0;part.mute=0;part.window=part.window||[0,1];}
+params.split_state=JSON.stringify({...splitState,parts:splitState.parts.slice(0,2)});params.split_mode='0';
+params.playheads=params.voice_lanes=params.voice_pads=params.voice_notes=Array(8).fill(-1).join(',');
+params.mix_status='0,0,0,0,0,0,0,0,5,5,5,5';
+globalThis.init();pickInstrumentMode();ui.modeSelection=3;tapIcon(3);settleIcons();
+assert(ui.quadMode&&ui.splitEnabled);assert.equal(globalThis.__testParams.split_mode.value,3);
+const quadPad=[16,20,0,4];
+for(let p=0;p<4;++p) {
+    assert.equal(globalThis.__testPadMidiNote(quadPad[p]),splitState.parts[p].root-12);
+    assert.equal(padWrites.filter(w=>w[0]===68+quadPad[p]+1).at(-1)[1],[123,93,79,35][p]);
+}
+for(let p=0;p<4;++p){tapIcon([43,42,41,40][p]);assert.equal(ui.splitFocus,p);assert.equal(ui.lane,p+1);assert(ui.editorReady,'all four editors must accept snapshots');}
+tapIcon(52);assert.equal(ui.splitFocus,0);tapIcon(52);assert.equal(ui.splitFocus,1);
+const quadPages=split.pages();const quadKeys=quadPages.flatMap(p=>p.keys||[]).filter(Boolean);
+assert.equal(quadKeys.length,new Set(quadKeys).size,'Quad parameters appear in one place each');
+assert(!quadPages.some(p=>p.title==='STACK PATH'));
+assert(!quadKeys.includes('manual_lane')&&!quadKeys.includes('lane_cycles'));
+assert.equal(quadPages.find(p=>p.title==='ENGINE').keys[7],'split_level_b');
+assert.equal(quadPages.find(p=>p.title==='FX SENDS').keys.length,8);
+assert.equal(quadPages.find(p=>p.title==='DELAY RETURN').keys[7],'effect_mix');
+cc(49);tapIcon(52);cc(49,0);assert.equal(split.pages()[ui.settingsPage].title,'FX SENDS');
+tapIcon(3);assert.equal(ui.view,'fxMenu');ui.fxMenuSelection=1;tapIcon(3);
+assert.equal(split.pages()[ui.settingsPage].title,'DELAY RETURN');
+// C/D controls, focus indicators and one-lane cursors fit the display.
+ui.view='main';ui.messageTicks=0;ui.mask=15;ui.waves=Array.from({length:4},()=>Array.from({length:112},()=>[0,0]));
+ui.laneRegions=Array(4).fill(null);ui.playheads=Array.from({length:8},(_,i)=>(i+1)/10);
+ui.stackPositions=Array.from({length:8},(_,i)=>Math.round(Math.floor(i/2)/3*1000)/1000);ui.voiceAlgorithms=Array(8).fill(4);
+ui.splitParts=splitState.parts.map(p=>({...p,window:[0,1]}));ui.mixVoices=[2,2,2,2];ui.mixPeaks=[.1,.2,.3,.4];
+globalThis.__testClearDisplay();globalThis.__testDrawMain();
+for(let slot=0;slot<8;++slot) {
+    const x=14+Math.round(ui.playheads[slot]*113),top=10+Math.floor(slot/2)*10;
+    assert.equal(screenPixel(x,top),1);assert.equal(screenPixel(x,top+9),1);
+    assert.equal(screenPixel(x,top===10?40:10),0,'Quad cursors stay in their own source row');
+}
+for(const [x,y,text] of screenText.values())assert(x+String(text).length*6<=128,'Quad heading must fit');
+tools.drawMix();for(const [x,y,text] of screenText.values())assert(x+String(text).length*6<=128,'Quad status must fit');
+ui.view='main';tapIcon(60);assert(!ui.splitEnabled&&ui.quadMode);tapIcon(60);assert(ui.splitEnabled&&ui.quadMode);
+// With no stack scan in Quad, Loop is lit only for an applicable gesture.
+params.effect_tape_inertia='0';globalThis.__testParams.effect_tape_inertia.value=0;ui.algorithm=4;settleIcons();
+assert.equal(lastButton(58),0);
+params.effect_tape_inertia='30';globalThis.__testParams.effect_tape_inertia.value=30;settleIcons();
+assert.notEqual(lastButton(58),0);const quadLoopWrites=blockingWrites.length;tapIcon(58);
+assert(blockingWrites.slice(quadLoopWrites).some(([key])=>key==='stack_scan_paused'));
 console.log('s3g Thru overtake UI tests: PASS');

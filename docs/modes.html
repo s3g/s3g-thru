@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Instrument modes - s3g Thru manual</title>
+    <meta name="description" content="Single, Split, Shared Dual and Quad source layouts, voices and controls in s3g Thru.">
+    <link rel="stylesheet" href="assets/styles.css">
+  </head>
+  <body>
+    <header class="site-header"><a class="brand" href="index.html">s3g Thru <span>manual</span></a><nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav></header>
+
+    <div class="page-shell">
+      <main class="content" id="content">
+        <p class="eyebrow">Source layout · voice budget · editing focus</p>
+        <h1>Instrument modes</h1>
+        <p class="lead">Use all 32 pads as one instrument, play two independent programs, or divide the grid into four instruments. Every mode uses the same four stereo source lanes and the same eight-source-voice budget.</p>
+        <h2 id="choose">Choose a mode</h2>
+        <ol><li>Hold <kbd>Capture</kbd> and press <kbd>Menu</kbd> to open Pages.</li><li>Choose <strong>Instrument Mode</strong> and click the main encoder.</li><li>Turn or use Up/Down to select Single, Split, Shared Dual, or Quad. Click to apply; Back returns to Pages.</li></ol>
+        <p>The star marks the active mode; the highlight marks your selection. Finish audio and performance recording before changing mode. Applying a mode stops the data loop and releases the current notes through their transition fades. Copy switches between Single and your last selected multi-instrument mode.</p>
+<figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/quad-mode.svg" aria-label="Open figure"><img src="assets/screens/quad-mode.svg" alt="Instrument Mode lists Single, Split, Shared Dual and Quad."></button></div><figcaption>The mode chooser is available from Single as well as the multi-instrument layouts.</figcaption></figure>
+        <h2 id="compare">Compare the layouts</h2>
+        <table class="readout-table"><thead><tr><th>Mode</th><th>Parts</th><th>Source lanes per part</th><th>Voices per part</th><th>Pad zones</th></tr></thead><tbody>
+          <tr><td>Single</td><td>1</td><td>All four</td><td>8</td><td>Whole grid</td></tr>
+          <tr><td><a href="split.html#start">Split</a></td><td>A / B</td><td>A: 1–2; B: 3–4</td><td>4</td><td>Left / right halves, 16 pads each</td></tr>
+          <tr><td><a href="split.html#shared">Shared Dual</a></td><td>A / B</td><td>Both use 1–4</td><td>4</td><td>Left / right halves, 16 pads each</td></tr>
+          <tr><td><a href="quad.html">Quad</a></td><td>A / B / C / D</td><td>A: 1; B: 2; C: 3; D: 4</td><td>2</td><td>Four quadrants, eight pads each</td></tr>
+        </tbody></table>
+<figure><div class="manual-diagram"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/diagrams/pad-modes.svg" aria-label="Open figure"><img src="assets/diagrams/pad-modes.svg" alt="Single uses every pad; dual modes split left and right; Quad uses A/B above C/D."></button></div><figcaption>Pad zones viewed from above. In Quad, A/B occupy the upper half and C/D the lower half. The diagram uses greys to identify zones; the hardware uses the pad colors described below.</figcaption></figure>
+        <p>Every part has its own engine, note pitch, keyboard settings, envelope, and private effects. Two parts may use the same engine with different settings. Eight is the source-voice total, not eight per part; a release tail still occupies its voice slot. Rolls use captured stereo history and do not steal source voices.</p>
+        <h2 id="focus">Focus and source selection</h2>
+        <p>In multi-instrument modes, Capture changes which program the parameter pages edit. Playing another zone keeps the current focus. Dual modes alternate A/B; Quad cycles A–D. Each part remembers its parameter page.</p>
+        <p>Track 1–4 always selects a lane for recording, loading, and sample editing. Split also focuses that lane’s owning side, and Quad focuses its corresponding A–D part. Shared Dual keeps source selection separate from focus because both programs can use every lane.</p>
+        <p>Split B’s idle pads are muted teal, Shared Dual B’s are muted plum, and Quad zones use neutral grey, teal, amber, and plum. Scale roots brighten the zone color. Active playheads, held notes, Cues, and Rolls retain their status colors.</p>
+        <h2 id="zoom">Waveform windows</h2>
+        <p>POS moves a source window and FLD changes its width. In Single, one window fills all four rows. Split shows independent windows over its two lane pairs. Those views can widen to include sounding readers and release tails.</p>
+        <p>Shared Dual shows all four sources through the focused instrument’s editable POS/FLD window. Quad gives each lane row its own part’s editable window. These views remain responsive while notes or a data loop play; readers outside the window are hidden while their audio continues.</p>
+        <div class="screen-gallery">
+<figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/split-waveform.svg" aria-label="Open figure"><img src="assets/screens/split-waveform.svg" alt="Split A focus with two independent pair windows."></button></div><figcaption>Split: an inverted lane pair shows focus; each reader stays within its pair.</figcaption></figure><figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/shared-waveform.svg" aria-label="Open figure"><img src="assets/screens/shared-waveform.svg" alt="Shared Dual A focus over four common source rows."></button></div><figcaption>Shared Dual: the header marks focus, lane numbers remain plain, and A/B cursor caps identify readers.</figcaption></figure><figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/quad-waveform.svg" aria-label="Open figure"><img src="assets/screens/quad-waveform.svg" alt="Quad A focus with four source windows."></button></div><figcaption>Quad: each cursor stays in its source row; the header shows four voice counts and the focused engine.</figcaption></figure>
+        </div>
+        <h2 id="mix">Levels and effects</h2>
+        <p>Single uses the complete configurable effects chain. In both dual modes, waveform knob 8 is BLND; part levels remain on their Engine pages. Capture + knob 8 reaches Blend from any page. Quad uses LEVL for the focused part on waveform knob 8 and the same Capture shortcut.</p>
+        <p>Multi-instrument modes give every part private Color and Stereo / Rotary inserts. Shift + Capture opens FX Sends. Dual modes keep returns on that sends page; Quad uses all eight positions for sends and puts DRTN/RRTN on knob 8 of Delay Return/Reverb. Delay and Reverb remain parallel sends, with Tape shared according to FX Order. Read the complete <a href="split.html#mix">dual-mode mixing</a> or <a href="quad.html#mix">Quad mixing</a> instructions.</p>
+        <h2 id="recall">Recording and recall</h2>
+        <p>Each clip stores its mode, programs, source assignments, recorded notes, and automation. The performance recorder captures all active parts together. Audio recording still captures one selected source lane at a time. Shared Dual programs read the same audio: replacing or editing a shared lane changes that source for both.</p>
+        <p>Single remembers a separate program. A/B sound settings are shared between the multi-instrument layouts; C/D programs and recorded notes remain stored when you select a two-part mode. C/D notes are silent in the two-part layouts and become available again in Quad.</p>
+        <p><strong>Before upgrading:</strong> export a set backup using the <a href="recording.html#backup">backup instructions</a>. The expanded current bank requires 0.28.0 or newer. Keep an older export if you need to downgrade.</p>
+        <p>Use the <a href="shortcuts.html">shortcuts reference</a> for the full control map, and <a href="shortcuts.html#midi">External MIDI</a> for part channels and Quad’s channel-specific mixing CCs.</p>
+      </main>
+      <aside class="toc" aria-label="Page navigation">
+        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
+        <div class="toc-section"><h2>Engine guides</h2><a href="engine-motion.html">Motion</a><a href="engine-lanes.html">Lanes</a><a href="engine-grains.html">Grains</a><a href="engine-cutups.html">Cutups</a><a href="engine-sample.html">Sample</a><a href="engine-slices.html">Slices</a><a href="engine-glitch.html">Glitch</a><a href="engine-weave.html">Weave</a><a href="engine-wavesets.html">Wavesets</a></div>
+        <div class="toc-section"><h2>On this page</h2><a href="#choose">Choose a mode</a><a href="#compare">Layouts</a><a href="#focus">Focus and sources</a><a href="#zoom">Waveform windows</a><a href="#mix">Mixing</a><a href="#recall">Recording and recall</a></div>
+      </aside>
+    </div>
+    <footer class="manual-footer">One instrument, two programs, or four parts.</footer>
+    <script src="assets/lightbox.js"></script>
+  </body>
+</html>

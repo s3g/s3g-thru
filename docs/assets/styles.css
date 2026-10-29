@@ -936,6 +936,16 @@ details > :not(summary) {
 }
 
 @media (max-width: 700px) {
+  .readout-table th,
+  .readout-table td {
+    padding: 8px 6px;
+  }
+
+  .content h2,
+  .content h3 {
+    scroll-margin-top: 185px;
+  }
+
   .top-nav {
     display: grid;
     grid-template-columns: repeat(4, max-content);

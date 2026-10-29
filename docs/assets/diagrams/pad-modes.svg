@@ -1,0 +1,237 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="760" viewBox="0 0 1040 760" role="img" aria-labelledby="title desc">
+<title id="title">s3g Thru pad layouts</title><desc id="desc">Single uses all 32 pads. Split and Shared Dual have left A and right B halves. Quad has A upper left, B upper right, C lower left, D lower right.</desc>
+<rect width="1040" height="760" fill="#fff"/><style>text{font-family:Arial,Helvetica,sans-serif;fill:#202020}.heading{font-size:20px;font-weight:700}.label{font-size:14px}.pad-label{font-size:15px;text-anchor:middle}.outline{fill:#fafafa;stroke:#aaa;stroke-width:1}</style>
+<text x="30" y="31" class="heading">PAD LAYOUTS · VIEWED FROM ABOVE</text>
+<g><rect x="30" y="60" width="460" height="315" rx="6" class="outline"/><text x="50" y="91" class="heading">SINGLE</text>
+<rect x="60" y="112" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<rect x="110" y="112" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<rect x="160" y="112" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<rect x="210" y="112" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<rect x="260" y="112" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<rect x="310" y="112" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<rect x="360" y="112" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<rect x="410" y="112" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<rect x="60" y="156" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<rect x="110" y="156" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<rect x="160" y="156" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<rect x="210" y="156" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<rect x="260" y="156" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<rect x="310" y="156" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<rect x="360" y="156" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<rect x="410" y="156" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<rect x="60" y="200" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<rect x="110" y="200" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<rect x="160" y="200" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<rect x="210" y="200" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<rect x="260" y="200" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<rect x="310" y="200" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<rect x="360" y="200" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<rect x="410" y="200" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<rect x="60" y="244" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<rect x="110" y="244" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<rect x="160" y="244" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<rect x="210" y="244" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<rect x="260" y="244" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<rect x="310" y="244" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<rect x="360" y="244" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<rect x="410" y="244" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<text x="50" y="320" class="label">One instrument · 8 voices</text><text x="50" y="347" class="label">Four stereo lanes</text></g>
+<g><rect x="550" y="60" width="460" height="315" rx="6" class="outline"/><text x="570" y="91" class="heading">SPLIT</text>
+<rect x="580" y="112" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<text x="601" y="135" class="pad-label">A</text>
+<rect x="630" y="112" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<text x="651" y="135" class="pad-label">A</text>
+<rect x="680" y="112" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<text x="701" y="135" class="pad-label">A</text>
+<rect x="730" y="112" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<text x="751" y="135" class="pad-label">A</text>
+<rect x="780" y="112" width="42" height="34" rx="3" fill="#dedede" stroke="#777"/>
+<text x="801" y="135" class="pad-label">B</text>
+<rect x="830" y="112" width="42" height="34" rx="3" fill="#dedede" stroke="#777"/>
+<text x="851" y="135" class="pad-label">B</text>
+<rect x="880" y="112" width="42" height="34" rx="3" fill="#dedede" stroke="#777"/>
+<text x="901" y="135" class="pad-label">B</text>
+<rect x="930" y="112" width="42" height="34" rx="3" fill="#dedede" stroke="#777"/>
+<text x="951" y="135" class="pad-label">B</text>
+<rect x="580" y="156" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<text x="601" y="179" class="pad-label">A</text>
+<rect x="630" y="156" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<text x="651" y="179" class="pad-label">A</text>
+<rect x="680" y="156" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<text x="701" y="179" class="pad-label">A</text>
+<rect x="730" y="156" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<text x="751" y="179" class="pad-label">A</text>
+<rect x="780" y="156" width="42" height="34" rx="3" fill="#dedede" stroke="#777"/>
+<text x="801" y="179" class="pad-label">B</text>
+<rect x="830" y="156" width="42" height="34" rx="3" fill="#dedede" stroke="#777"/>
+<text x="851" y="179" class="pad-label">B</text>
+<rect x="880" y="156" width="42" height="34" rx="3" fill="#dedede" stroke="#777"/>
+<text x="901" y="179" class="pad-label">B</text>
+<rect x="930" y="156" width="42" height="34" rx="3" fill="#dedede" stroke="#777"/>
+<text x="951" y="179" class="pad-label">B</text>
+<rect x="580" y="200" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<text x="601" y="223" class="pad-label">A</text>
+<rect x="630" y="200" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<text x="651" y="223" class="pad-label">A</text>
+<rect x="680" y="200" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<text x="701" y="223" class="pad-label">A</text>
+<rect x="730" y="200" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<text x="751" y="223" class="pad-label">A</text>
+<rect x="780" y="200" width="42" height="34" rx="3" fill="#dedede" stroke="#777"/>
+<text x="801" y="223" class="pad-label">B</text>
+<rect x="830" y="200" width="42" height="34" rx="3" fill="#dedede" stroke="#777"/>
+<text x="851" y="223" class="pad-label">B</text>
+<rect x="880" y="200" width="42" height="34" rx="3" fill="#dedede" stroke="#777"/>
+<text x="901" y="223" class="pad-label">B</text>
+<rect x="930" y="200" width="42" height="34" rx="3" fill="#dedede" stroke="#777"/>
+<text x="951" y="223" class="pad-label">B</text>
+<rect x="580" y="244" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<text x="601" y="267" class="pad-label">A</text>
+<rect x="630" y="244" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<text x="651" y="267" class="pad-label">A</text>
+<rect x="680" y="244" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<text x="701" y="267" class="pad-label">A</text>
+<rect x="730" y="244" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<text x="751" y="267" class="pad-label">A</text>
+<rect x="780" y="244" width="42" height="34" rx="3" fill="#dedede" stroke="#777"/>
+<text x="801" y="267" class="pad-label">B</text>
+<rect x="830" y="244" width="42" height="34" rx="3" fill="#dedede" stroke="#777"/>
+<text x="851" y="267" class="pad-label">B</text>
+<rect x="880" y="244" width="42" height="34" rx="3" fill="#dedede" stroke="#777"/>
+<text x="901" y="267" class="pad-label">B</text>
+<rect x="930" y="244" width="42" height="34" rx="3" fill="#dedede" stroke="#777"/>
+<text x="951" y="267" class="pad-label">B</text>
+<text x="570" y="320" class="label">A / B · 4 voices each</text><text x="570" y="347" class="label">A: lanes 1–2 · B: lanes 3–4</text></g>
+<g><rect x="30" y="405" width="460" height="315" rx="6" class="outline"/><text x="50" y="436" class="heading">SHARED DUAL</text>
+<rect x="60" y="457" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<text x="81" y="480" class="pad-label">A</text>
+<rect x="110" y="457" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<text x="131" y="480" class="pad-label">A</text>
+<rect x="160" y="457" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<text x="181" y="480" class="pad-label">A</text>
+<rect x="210" y="457" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<text x="231" y="480" class="pad-label">A</text>
+<rect x="260" y="457" width="42" height="34" rx="3" fill="#dedede" stroke="#777"/>
+<text x="281" y="480" class="pad-label">B</text>
+<rect x="310" y="457" width="42" height="34" rx="3" fill="#dedede" stroke="#777"/>
+<text x="331" y="480" class="pad-label">B</text>
+<rect x="360" y="457" width="42" height="34" rx="3" fill="#dedede" stroke="#777"/>
+<text x="381" y="480" class="pad-label">B</text>
+<rect x="410" y="457" width="42" height="34" rx="3" fill="#dedede" stroke="#777"/>
+<text x="431" y="480" class="pad-label">B</text>
+<rect x="60" y="501" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<text x="81" y="524" class="pad-label">A</text>
+<rect x="110" y="501" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<text x="131" y="524" class="pad-label">A</text>
+<rect x="160" y="501" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<text x="181" y="524" class="pad-label">A</text>
+<rect x="210" y="501" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<text x="231" y="524" class="pad-label">A</text>
+<rect x="260" y="501" width="42" height="34" rx="3" fill="#dedede" stroke="#777"/>
+<text x="281" y="524" class="pad-label">B</text>
+<rect x="310" y="501" width="42" height="34" rx="3" fill="#dedede" stroke="#777"/>
+<text x="331" y="524" class="pad-label">B</text>
+<rect x="360" y="501" width="42" height="34" rx="3" fill="#dedede" stroke="#777"/>
+<text x="381" y="524" class="pad-label">B</text>
+<rect x="410" y="501" width="42" height="34" rx="3" fill="#dedede" stroke="#777"/>
+<text x="431" y="524" class="pad-label">B</text>
+<rect x="60" y="545" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<text x="81" y="568" class="pad-label">A</text>
+<rect x="110" y="545" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<text x="131" y="568" class="pad-label">A</text>
+<rect x="160" y="545" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<text x="181" y="568" class="pad-label">A</text>
+<rect x="210" y="545" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<text x="231" y="568" class="pad-label">A</text>
+<rect x="260" y="545" width="42" height="34" rx="3" fill="#dedede" stroke="#777"/>
+<text x="281" y="568" class="pad-label">B</text>
+<rect x="310" y="545" width="42" height="34" rx="3" fill="#dedede" stroke="#777"/>
+<text x="331" y="568" class="pad-label">B</text>
+<rect x="360" y="545" width="42" height="34" rx="3" fill="#dedede" stroke="#777"/>
+<text x="381" y="568" class="pad-label">B</text>
+<rect x="410" y="545" width="42" height="34" rx="3" fill="#dedede" stroke="#777"/>
+<text x="431" y="568" class="pad-label">B</text>
+<rect x="60" y="589" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<text x="81" y="612" class="pad-label">A</text>
+<rect x="110" y="589" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<text x="131" y="612" class="pad-label">A</text>
+<rect x="160" y="589" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<text x="181" y="612" class="pad-label">A</text>
+<rect x="210" y="589" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<text x="231" y="612" class="pad-label">A</text>
+<rect x="260" y="589" width="42" height="34" rx="3" fill="#dedede" stroke="#777"/>
+<text x="281" y="612" class="pad-label">B</text>
+<rect x="310" y="589" width="42" height="34" rx="3" fill="#dedede" stroke="#777"/>
+<text x="331" y="612" class="pad-label">B</text>
+<rect x="360" y="589" width="42" height="34" rx="3" fill="#dedede" stroke="#777"/>
+<text x="381" y="612" class="pad-label">B</text>
+<rect x="410" y="589" width="42" height="34" rx="3" fill="#dedede" stroke="#777"/>
+<text x="431" y="612" class="pad-label">B</text>
+<text x="50" y="665" class="label">A / B · 4 voices each</text><text x="50" y="692" class="label">Both programs read lanes 1–4</text></g>
+<g><rect x="550" y="405" width="460" height="315" rx="6" class="outline"/><text x="570" y="436" class="heading">QUAD</text>
+<rect x="580" y="457" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<text x="601" y="480" class="pad-label">A</text>
+<rect x="630" y="457" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<text x="651" y="480" class="pad-label">A</text>
+<rect x="680" y="457" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<text x="701" y="480" class="pad-label">A</text>
+<rect x="730" y="457" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<text x="751" y="480" class="pad-label">A</text>
+<rect x="780" y="457" width="42" height="34" rx="3" fill="#dedede" stroke="#777"/>
+<text x="801" y="480" class="pad-label">B</text>
+<rect x="830" y="457" width="42" height="34" rx="3" fill="#dedede" stroke="#777"/>
+<text x="851" y="480" class="pad-label">B</text>
+<rect x="880" y="457" width="42" height="34" rx="3" fill="#dedede" stroke="#777"/>
+<text x="901" y="480" class="pad-label">B</text>
+<rect x="930" y="457" width="42" height="34" rx="3" fill="#dedede" stroke="#777"/>
+<text x="951" y="480" class="pad-label">B</text>
+<rect x="580" y="501" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<text x="601" y="524" class="pad-label">A</text>
+<rect x="630" y="501" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<text x="651" y="524" class="pad-label">A</text>
+<rect x="680" y="501" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<text x="701" y="524" class="pad-label">A</text>
+<rect x="730" y="501" width="42" height="34" rx="3" fill="#f3f3f3" stroke="#777"/>
+<text x="751" y="524" class="pad-label">A</text>
+<rect x="780" y="501" width="42" height="34" rx="3" fill="#dedede" stroke="#777"/>
+<text x="801" y="524" class="pad-label">B</text>
+<rect x="830" y="501" width="42" height="34" rx="3" fill="#dedede" stroke="#777"/>
+<text x="851" y="524" class="pad-label">B</text>
+<rect x="880" y="501" width="42" height="34" rx="3" fill="#dedede" stroke="#777"/>
+<text x="901" y="524" class="pad-label">B</text>
+<rect x="930" y="501" width="42" height="34" rx="3" fill="#dedede" stroke="#777"/>
+<text x="951" y="524" class="pad-label">B</text>
+<rect x="580" y="545" width="42" height="34" rx="3" fill="#c9c9c9" stroke="#777"/>
+<text x="601" y="568" class="pad-label">C</text>
+<rect x="630" y="545" width="42" height="34" rx="3" fill="#c9c9c9" stroke="#777"/>
+<text x="651" y="568" class="pad-label">C</text>
+<rect x="680" y="545" width="42" height="34" rx="3" fill="#c9c9c9" stroke="#777"/>
+<text x="701" y="568" class="pad-label">C</text>
+<rect x="730" y="545" width="42" height="34" rx="3" fill="#c9c9c9" stroke="#777"/>
+<text x="751" y="568" class="pad-label">C</text>
+<rect x="780" y="545" width="42" height="34" rx="3" fill="#b4b4b4" stroke="#777"/>
+<text x="801" y="568" class="pad-label">D</text>
+<rect x="830" y="545" width="42" height="34" rx="3" fill="#b4b4b4" stroke="#777"/>
+<text x="851" y="568" class="pad-label">D</text>
+<rect x="880" y="545" width="42" height="34" rx="3" fill="#b4b4b4" stroke="#777"/>
+<text x="901" y="568" class="pad-label">D</text>
+<rect x="930" y="545" width="42" height="34" rx="3" fill="#b4b4b4" stroke="#777"/>
+<text x="951" y="568" class="pad-label">D</text>
+<rect x="580" y="589" width="42" height="34" rx="3" fill="#c9c9c9" stroke="#777"/>
+<text x="601" y="612" class="pad-label">C</text>
+<rect x="630" y="589" width="42" height="34" rx="3" fill="#c9c9c9" stroke="#777"/>
+<text x="651" y="612" class="pad-label">C</text>
+<rect x="680" y="589" width="42" height="34" rx="3" fill="#c9c9c9" stroke="#777"/>
+<text x="701" y="612" class="pad-label">C</text>
+<rect x="730" y="589" width="42" height="34" rx="3" fill="#c9c9c9" stroke="#777"/>
+<text x="751" y="612" class="pad-label">C</text>
+<rect x="780" y="589" width="42" height="34" rx="3" fill="#b4b4b4" stroke="#777"/>
+<text x="801" y="612" class="pad-label">D</text>
+<rect x="830" y="589" width="42" height="34" rx="3" fill="#b4b4b4" stroke="#777"/>
+<text x="851" y="612" class="pad-label">D</text>
+<rect x="880" y="589" width="42" height="34" rx="3" fill="#b4b4b4" stroke="#777"/>
+<text x="901" y="612" class="pad-label">D</text>
+<rect x="930" y="589" width="42" height="34" rx="3" fill="#b4b4b4" stroke="#777"/>
+<text x="951" y="612" class="pad-label">D</text>
+<text x="570" y="665" class="label">A / B / C / D · 2 voices each</text><text x="570" y="692" class="label">A: lane 1 · B: lane 2 · C: lane 3 · D: lane 4</text></g>
+</svg>

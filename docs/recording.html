@@ -10,7 +10,7 @@
   <body>
     <header class="site-header">
       <a class="brand" href="index.html">s3g Thru <span>manual</span></a>
-      <nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="split.html">Split</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav>
+      <nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav>
     </header>
 
     <div class="page-shell">
@@ -30,7 +30,7 @@
 
         <div class="flow-notes">
           <div><strong>Sources</strong><p>Each clip owns four assignments chosen from live recordings, resamples, library WAVs, archived Thru recordings, or Empty.</p></div>
-          <div><strong>Playback</strong><p>Single reads the four lanes with up to eight voices. Split assigns lanes 1–2 and four voices to A, lanes 3–4 and four voices to B, with private inserts and shared returns.</p></div>
+          <div><strong>Playback</strong><p>Single reads the four lanes with up to eight voices. Split assigns lanes 1–2 and four voices to A, lanes 3–4 and four voices to B, with private inserts and shared returns. Shared Dual lets both A and B use all four sources, with four voices each and independent settings. Quad assigns one lane and two voices to each A–D instrument.</p></div>
           <div><strong>Monitoring</strong><p>Input Monitor bypasses the sampler and effects, then joins the final safety limiter. It is dry and defaults to zero to reduce feedback risk.</p></div>
         </div>
 
@@ -43,7 +43,7 @@
           <li>Start with <code>REC GAIN</code> at <code>1.00</code>. The display reports <code>LIM</code> if the stereo-linked −1 dBFS capture limiter reduces the stored signal. Lower Record Gain if <code>LIM</code> appears frequently.</li>
         </ol>
 
-        <div class="callout"><p><strong>Quiet playback is not corrected with Record Gain.</strong> Record Gain affects newly captured audio. Use the lane gains and Level for playback balance. In Split also check the focused part’s LEVL, Mute, and Blend; see <a href="split.html#silent">Restore a silent part</a>. Normalize is an explicit destructive sample edit.</p></div>
+        <div class="callout"><p><strong>Quiet playback is not corrected with Record Gain.</strong> Record Gain affects newly captured audio. Use the lane gains and Level for playback balance. In either dual mode also check the focused part’s LEVL, Mute, and Blend; see <a href="split.html#silent">Restore a silent part</a>. Normalize is an explicit destructive sample edit.</p></div>
 
         <h2 id="capture">Record or replace a lane</h2>
 
@@ -55,9 +55,9 @@
           <li>Wait briefly if <code>SCANNING WAVEFORM</code> appears. The waveform fills in as the scan completes.</li>
         </ol>
 
-        <p>The thin mark at the far left of a waveform row identifies the target lane. In Split, the white backgrounds behind two lane numbers identify editing focus instead. The adjacent lane-weight bar shows playback contribution, not input level. During recording, the horizontal bar near the bottom is the capture level.</p>
+        <p>The thin mark at the far left of a waveform row identifies the target lane. In either dual mode, the white backgrounds behind two lane numbers identify editing focus instead. The adjacent lane-weight bar shows playback contribution, not input level. During recording, the horizontal bar near the bottom is the capture level.</p>
 
-        <p>Each completed input recording or resample is written as a new stereo WAV. Recording the lane again changes its active assignment but does not overwrite the earlier file. Hold <kbd>Shift</kbd> and press <kbd>Delete</kbd> to clear the selected lane. The latest capture, clear, library replacement, or sample edit can be reversed once with <kbd>Shift</kbd> + <kbd>Back</kbd>.</p>
+        <p>Each completed input recording or resample is written as a new stereo WAV. Recording the lane again changes its active assignment but does not overwrite the earlier file. Hold <kbd>Shift</kbd> and press <kbd>Delete</kbd> to clear the selected lane. The latest capture, clear, library replacement, or sample edit can be reversed once with <kbd>Undo</kbd>.</p>
 
         <h2 id="library">Load from the sample library</h2>
 
@@ -79,9 +79,16 @@
 
         <p>The browser starts with two sources. <strong>Move Samples</strong> opens <code>/data/UserData/UserLibrary/Samples</code>. <strong>Thru Recordings</strong> opens the module's capture archive with the newest files first. It accepts mono or stereo PCM 16/24/32-bit and 32-bit-float WAV files. Mono files play from both channels, other sample rates are converted automatically, and material beyond the 12-second lane capacity is truncated.</p>
 
-        <h3 id="preview">Sample preview</h3>
+        <h3 id="preview">Sample preview</h3><p>In Shared Dual, each lane is a source for both instruments. Track selects the destination without changing A/B focus. Part preview follows the focused instrument’s level, mute, and Blend; Capture changes that preview destination smoothly. Direct preview bypasses the part mixer. See <a href="split.html#shared">Shared Dual</a>.</p>
         <p>Highlight a WAV to audition it before loading. Preview Level is knob 8, <code>PREV</code>, on Mix / Rec. Clicking the highlighted file loads it into the chosen lane; recording a new take assigns that capture automatically, without a trip to the browser.</p>
-        <p>Single preview passes through the complete selected effects chain. Split preview follows the destination part’s LEVL, Mute, and Blend, so select the appropriate Track lane and center Blend when comparing files for both sides. It bypasses private Color and Rotary inserts and does not feed Delay/Reverb sends; shared Tape and the final program compressor/limiter still apply.</p>
+        <p>In the browser, knob 7 selects <strong>Part</strong> or <strong>Direct</strong>; knob 8 adjusts Preview Level. The route appears in the heading and both controls are identified in the footer. The choice is remembered globally. Older settings begin with Part.</p>
+        <table class="readout-table parameter-table"><thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>What it controls</th></tr></thead><tbody>
+          <tr><td>7</td><td>PART / DIRECT</td><td>2 choices</td><td>Preview Route selects audition through the instrument path or a dry route to mastering.</td></tr>
+          <tr><td>8</td><td>8:…%</td><td>0–100%</td><td>Preview Level adjusts audition volume; the same setting is PREV on Mix / Rec.</td></tr>
+        </tbody></table>
+        <p><strong>Part:</strong> Single preview passes through the complete effects chain. In Split or Quad, Part preview follows the lane’s destination instrument; Shared Dual follows the focused instrument. It follows LEVL and Mute, plus Blend in dual modes, bypasses private Color/Rotary inserts, and does not feed Delay/Reverb sends. Shared Tape and mastering apply. Select the appropriate Track lane and center Blend to compare both parts.</p>
+        <p><strong>Direct:</strong> audition is dry and independent of part level, mute, Blend, and effects. Preview Level, the program compressor, and the final limiter remain active. This uses the main stereo output; choose an appropriate Preview Level before auditioning during a performance. Existing effect tails can continue ringing after switching routes.</p>
+        <figure><div class="doc-graphic move-screen"><img src="assets/screens/library-direct.svg" alt="Sample browser showing Direct preview and its knob 7 and 8 controls"></div><figcaption>Direct lets you audition a file for a muted or faded-out destination before loading it.</figcaption></figure>
         <h2 id="ownership">Sources belong to clips</h2>
 
         <p>The first time a blank A01–D16 clip is selected, it snapshots the four sources then in use. Its source assignments then remain independent; loading a sample in another clip does not change them. A loaded file is stored as a User Library path; a recording becomes a clip-local capture; a reset lane remains explicitly empty.</p>
@@ -101,11 +108,11 @@
           </tbody>
         </table>
 
-        <p>Knobs 7–8 show reserved boxes because Record Gain is on Mix / Rec and Level is on Engine. The action controls show <code>TURN</code> until either encoder direction is moved. A successful action temporarily changes the title to <code>TRIMMED L1</code>, <code>REVERSED L1</code>, <code>NORMALIZED L1</code>, or <code>FADED L1</code>. Every committed edit writes a new archive WAV; <kbd>Shift</kbd> + <kbd>Back</kbd> restores the source from before the most recent edit.</p>
+        <p>Knobs 7–8 show reserved boxes because Record Gain is on Mix / Rec and Level is on Engine. The action controls show <code>TURN</code> until either encoder direction is moved. A successful action temporarily changes the title to <code>TRIMMED L1</code>, <code>REVERSED L1</code>, <code>NORMALIZED L1</code>, or <code>FADED L1</code>. Every committed edit writes a new archive WAV; <kbd>Undo</kbd> restores the source from before the most recent edit. Wait for any pending recording archive or queued clip to finish preparing before undoing.</p>
 
         <h2 id="gain-staging">Gain staging and output safety</h2>
 
-        <p>At <code>LEVL 1.00</code>, the instrument path reaches a full nominal output. In Split, the two part levels and Blend feed the combined mastering path. A stereo-linked program compressor adds 3 dB of makeup below its −12 dBFS threshold, then applies a gentle 2:1 ratio above it. This raises quieter detail and controls sustained peaks without changing the stereo image. <code>LEVL</code> values above 1.00 push the program stage harder. Polyphony Compensation is on by default and smoothly controls summed energy as more independent voices or Rolls overlap; it does not change pad velocity behavior.</p>
+        <p>At <code>LEVL 1.00</code>, the instrument path reaches a full nominal output. In either dual mode, the two part levels and Blend feed the combined mastering path. A stereo-linked program compressor adds 3 dB of makeup below its −12 dBFS threshold, then applies a gentle 2:1 ratio above it. This raises quieter detail and controls sustained peaks without changing the stereo image. <code>LEVL</code> values above 1.00 push the program stage harder. Polyphony Compensation is on by default and smoothly controls summed energy as more independent voices or Rolls overlap; it does not change pad velocity behavior.</p>
 
         <p>A separate stereo-linked lookahead limiter remains the final safety stage. Its −1 dBFS ceiling catches transient stack, effect, monitor, and polyphonic peaks without flat-topping them. The program compressor supplies everyday density; persistent limiter reduction still means Lane Gain, Level, effect Drive/feedback, Record Gain, or Input Monitor should be reduced.</p>
 
@@ -115,6 +122,9 @@
 
         <p>Thru autosaves changed settings and completed captures, then saves again when <kbd>Back</kbd> exits from the main waveform page. It also keeps one recovery copy in case a metadata save is interrupted. Capture WAVs are append-only during normal use: rerecording, editing, clearing, and resetting do not delete older files.</p>
 
+        <p>The footer shows <code>SAVING...</code> while capture archives or the latest settings are pending, then briefly shows <code>SAVED</code> after both are committed. Recording has its usual capture indicators. A <code>SAVE FAILED: RETRYING</code> message stays visible until saving recovers; the current take stays in memory while Thru retries.</p>
+        <div class="screen-gallery"><figure><div class="doc-graphic move-screen"><img src="assets/screens/save-pending.svg" alt="Waveform footer showing Saving"></div><figcaption>Saving includes archive completion and the latest set metadata.</figcaption></figure><figure><div class="doc-graphic move-screen"><img src="assets/screens/save-complete.svg" alt="Waveform footer confirming Saved"></div><figcaption>Saved appears after the pending work is committed.</figcaption></figure></div>
+        <h3 id="backup">Export a set backup</h3>
         <p>Uninstalling a module may remove its data. Before uninstalling or moving to another Move, export the module data with:</p>
 
         <pre><code>scripts/export-set.sh /path/to/s3g-thru-data Thru-set.tar.gz</code></pre>
@@ -128,7 +138,7 @@
       </main>
 
       <aside class="toc" aria-label="Page navigation">
-        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="split.html">Split</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
+        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
         <div class="toc-section"><h2>On this page</h2><a href="#signal-flow">Signal flow</a><a href="#input">Input safety</a><a href="#capture">Audio capture</a><a href="#library">Sample library</a><a href="#preview">Sample preview</a><a href="#ownership">Clip ownership</a><a href="#editing">Sample edits</a><a href="#gain-staging">Gain staging</a><a href="#saving">Saving</a></div>
       </aside>
     </div>

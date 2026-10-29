@@ -8,14 +8,14 @@
     <link rel="stylesheet" href="assets/styles.css">
   </head>
   <body>
-    <header class="site-header"><a class="brand" href="index.html">s3g Thru <span>manual</span></a><nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="split.html">Split</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav></header>
+    <header class="site-header"><a class="brand" href="index.html">s3g Thru <span>manual</span></a><nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav></header>
 
     <div class="page-shell">
       <main class="content" id="content">
         <p class="eyebrow">Playback engine 5 of 9</p>
         <h1>Sample</h1>
         <p class="lead">Sample is the direct reader: every note selects one discrete lane, then plays the Position/Field window as a one-shot, loop, or ping-pong voice. It is the clearest engine for pitched polyphony and for hearing a lane without continuous stack motion.</p>
-        <p>In Split, these controls edit the focused A or B instrument. Its two lanes and four voices are independent of the other side. See <a href="split.html#focus">Split focus</a> and <a href="interface.html#zoom">waveform zoom</a>.</p>
+        <p>Controls edit the focused instrument. <a href="modes.html">Instrument mode</a> sets its lane and voice budget: eight voices in Single, four per part in either dual mode, or two per part in Quad. Quad omits stack controls because each part has one lane.</p>
         <div class="callout"><p><strong>Good for:</strong> conventional sample playback, pitched chords, sustained loops, reverse one-shots, velocity-addressed lane layers, cue points, and tempo-synced rolls.</p></div>
 
         <h2 id="page">Page and navigation</h2>
@@ -63,14 +63,14 @@
         <h3 id="pad-modes">Pad layouts</h3>
         <p>See the shared <a href="engines.html#pads-scale">Pads &amp; Scale reference</a> for every layout and scale. Sample reads the whole current window in Keys and Slices layouts; choose the Slices engine when each pad should address a different region.</p>
 
-        <p>With a long Amp Envelope release, replaying the same note starts a new voice while the old tail finishes whenever another voice slot is available. If all available slots are occupied—eight in Single or four per part in Split— the reused reader makes a short fade to silence before restarting. This prevents a same-note retrigger from cutting a nonzero sample directly to the new start.</p>
+        <p>With a long Amp Envelope release, replaying the same note starts a new voice while the old tail finishes whenever another voice slot is available. If all available slots are occupied—eight in Single or four per part in either dual mode— the reused reader makes a short fade to silence before restarting. This prevents a same-note retrigger from cutting a nonzero sample directly to the new start.</p>
 
         <div class="callout"><p><strong>Lane selection is not lane scanning:</strong> Variation chooses one lane for a voice at note-on. Pressure can still offset engines that scan the stack, but it does not crossfade an active direct Sample voice to another lane.</p></div>
 
         <nav class="page-nav" aria-label="Engine navigation"><a class="page-nav-link" href="engine-cutups.html"><span>Previous engine</span>Cutups</a><a class="page-nav-link next" href="engine-slices.html"><span>Next engine</span>Slices</a></nav>
       </main>
       <aside class="toc" aria-label="Page navigation">
-        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="split.html">Split</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
+        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
         <div class="toc-section"><h2>Engine guides</h2><a href="engine-motion.html">Motion</a><a href="engine-lanes.html">Lanes</a><a href="engine-grains.html">Grains</a><a href="engine-cutups.html">Cutups</a><a href="engine-sample.html">Sample</a><a href="engine-slices.html">Slices</a><a href="engine-glitch.html">Glitch</a><a href="engine-weave.html">Weave</a><a href="engine-wavesets.html">Wavesets</a></div>
         <div class="toc-section"><h2>On this page</h2><a href="#page">Page</a><a href="engines.html#shared">Shared Engine table</a><a href="#parameters">Parameters</a><a href="#play-modes">Play modes</a><a href="#variation">Variation</a><a href="#pad-modes">Pad modes</a></div>
       </aside>

@@ -562,6 +562,9 @@ public:
         float splitDelayA = 0.0f, splitDelayB = 0.0f;
         float splitReverbA = 0.0f, splitReverbB = 0.0f;
         int splitCurve = 1;
+        float splitLevelC = 1.0f, splitLevelD = 1.0f;
+        float splitDelayC = 0.0f, splitDelayD = 0.0f;
+        float splitReverbC = 0.0f, splitReverbD = 0.0f;
         float recordInputGain = 1.0f;
     };
 

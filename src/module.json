@@ -1,10 +1,10 @@
 {
   "id": "s3g-thru",
   "name": "s3g Thru",
-  "version": "0.28.0-test.13",
+  "version": "0.28.0",
   "min_host_version": "1.7.3",
   "abbrev": "THRU",
-  "description": "Eight-voice Sample-family sampler with scale-aware playing, Wavesets, Weave, grouped rolls, performance looping, stereo recording, and clip-local effects.",
+  "description": "Four-lane stereo sampler with Single, Split, Shared Dual and Quad modes, nine engines, performance looping, stereo recording, reverb, and configurable effects.",
   "author": "s3g",
   "component_type": "overtake",
   "ui": "ui.js",
@@ -18,4 +18,3 @@
     "component_type": "overtake"
   }
 }
-

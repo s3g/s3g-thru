@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="assets/styles.css">
   </head>
   <body>
-    <header class="site-header"><a class="brand" href="index.html">s3g Thru <span>manual</span></a><nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="split.html">Split</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav></header>
+    <header class="site-header"><a class="brand" href="index.html">s3g Thru <span>manual</span></a><nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav></header>
 
     <div class="page-shell">
       <main class="content" id="content">
@@ -26,10 +26,10 @@
         <p>Input Monitor bypasses the engines, effects, and program compressor, and joins the final limiter. Resample captures processed instrument audio before the program compressor and limiter. Browser preview follows the routing described under <a href="recording.html#preview">Sample preview</a>.</p>
         <p>The final safety limiter smooths fast peaks from overlapping notes and live parameter changes with 1.5 ms of lookahead. Both channels share the same gain, preserving their stereo balance.</p>
 
-        <div class="callout"><p><strong>Split effects:</strong> Shift + Capture opens <a href="split.html#mix">FX Sends</a>. Knobs 1–4 send A/B to Delay and Reverb; knobs 5–6 set their shared return levels. Main click opens a menu for every effect page. Each part’s Color and Rotary are private inserts; Tape is shared. These return controls appear only on FX Sends in Split.</p></div>
+        <div class="callout"><p><strong>Multi-instrument effects:</strong> Shift + Capture opens <a href="split.html#mix">FX Sends</a>. In dual modes, knobs 1–4 send A/B to Delay and Reverb; knobs 5–6 set their shared return levels. Main click opens a menu for every effect page. Each part’s Color and Rotary are private inserts; Tape is shared. Those return controls appear only on FX Sends in dual modes. Quad uses all eight send positions, with DRTN/RRTN on knob 8 of Delay Return/Reverb; see <a href="quad.html#mix">Quad mixing</a>.</p></div>
         <h2 id="controls">Effects — every parameter</h2>
         <h3>Effects · Single mode</h3>
-        <p>In Split, TONE/DRIV/BITS/RATE are knobs 1–4 on the focused part’s Color page; DLY/FDBK/WDTH are knobs 1–3 on Delay Return. Delay and Reverb return levels live on <a href="split.html#mix">FX Sends</a>.</p>
+        <p>In multi-instrument modes, TONE/DRIV/BITS/RATE are knobs 1–4 on the focused part’s Color page; DLY/FDBK/WDTH are knobs 1–3 on Delay Return. Dual-mode Delay and Reverb returns are on <a href="split.html#mix">FX Sends</a>; Quad puts each return on knob 8 of its effect page.</p>
         <table class="readout-table parameter-table">
           <thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>What it controls</th></tr></thead>
           <tbody>
@@ -40,7 +40,7 @@
             <tr><td>5</td><td>DLY</td><td>1–750 ms</td><td>Free-running delay time in milliseconds. Live and recorded changes use uninterrupted tap crossfades; a new value arriving mid-transition is queued rather than jumping the active read head.</td></tr>
             <tr><td>6</td><td>FDBK</td><td>0–90%</td><td>Amount returned to the delay. The feedback path is safely limited but high values can still build a dense tail.</td></tr>
             <tr><td>7</td><td>WDTH</td><td>0–100%</td><td>At 0%, each delay channel feeds itself. At 100%, left and right cross-feed for ping-pong motion.</td></tr>
-            <tr><td>8</td><td>MIX</td><td>0–100%</td><td>Delay wet balance. At 0%, Delay is dry; the other effects remain active in their chosen order. In Split, the shared Delay return level is DRTN on FX Sends.</td></tr>
+            <tr><td>8</td><td>MIX</td><td>0–100%</td><td>Delay wet balance. At 0%, Delay is dry; the other effects remain active in their chosen order. In multi-instrument modes, the shared Delay return level is DRTN on FX Sends.</td></tr>
           </tbody>
         </table>
 
@@ -104,11 +104,11 @@
           <tr><td>Main encoder turn</td><td>Highlighted row</td><td>Select / move</td><td>Highlight an effect. After lifting it, move the effect up or down; intervening effects shift around it.</td></tr>
           <tr><td>Main encoder click</td><td>* on lifted row</td><td>Lift / drop</td><td>Lift the selected effect. Click again to drop it and apply the complete order. On this page the main click edits routing; the Record button remains available for performance recording.</td></tr>
           <tr><td>Back</td><td>ORDER CANCELLED</td><td>Cancel</td><td>Cancel the current move or pending preset and restore the active order. With no pending edit, Back returns to FX Pages if opened from that menu; otherwise it returns to the waveform.</td></tr>
-          <tr><td>Knob 7</td><td>7:DFLT / ECHO / CRSH / CUST</td><td>Starting preset</td><td>Stage a complete starting order, then click the main encoder to apply. In Single: DFLT places Reverb last; ECHO places it before Delay; CRSH starts with Reverb, then Bits/Rate and Tone/Drive. Split uses the Tape placements below. CUST identifies a manually arranged order.</td></tr>
+          <tr><td>Knob 7</td><td>7:DFLT / ECHO / CRSH / CUST</td><td>Starting preset</td><td>Stage a complete starting order, then click the main encoder to apply. In Single: DFLT places Reverb last; ECHO places it before Delay; CRSH starts with Reverb, then Bits/Rate and Tone/Drive. Multi-instrument modes use the Tape placements below. CUST identifies a manually arranged order.</td></tr>
         </tbody></table>
         <p>Tone / Drive keeps Tone before Drive. Bits / Rate keeps the two reduction controls together. Stereo / Rotary keeps Cross-pan before Rotary. In Single each of the six blocks appears once, giving 720 possible orders. Parameter pages keep their usual positions as the audio order changes.</p>
-        <p>In Split, private inserts keep their fixed order. FX Order lists only Delay, Tape, and Reverb. Their sends remain parallel: moving Delay above Reverb does not feed echoes into reverb. Tape’s position determines which returns receive tape processing.</p>
-        <table class="readout-table"><thead><tr><th>Display</th><th>Split order</th><th>What it controls</th></tr></thead><tbody>
+        <p>In multi-instrument modes, private inserts keep their fixed order. FX Order lists only Delay, Tape, and Reverb. Their sends remain parallel: moving Delay above Reverb does not feed echoes into reverb. Tape’s position determines which returns receive tape processing.</p>
+        <table class="readout-table"><thead><tr><th>Display</th><th>Multi-instrument order</th><th>What it controls</th></tr></thead><tbody>
           <tr><td>DFLT</td><td>Delay → Reverb → Tape</td><td>Tape processes the dry sum and both effect returns.</td></tr>
           <tr><td>ECHO</td><td>Delay → Tape → Reverb</td><td>Tape processes the dry sum and Delay return; Reverb joins afterward.</td></tr>
           <tr><td>CRSH</td><td>Tape → Delay → Reverb</td><td>Tape processes the dry sum; both returns join afterward.</td></tr>
@@ -154,15 +154,15 @@
           </tbody>
         </table>
 
-        <div class="callout"><p><strong>Resampling and audition:</strong> Resample writes post-effects instrument audio before the program compressor and final limiter; it excludes direct Input Monitor. Single browser preview uses the complete effects chain. Split preview follows its destination’s level, mute, and Blend, then shared Tape and mastering; it bypasses private inserts and does not feed Delay/Reverb sends.</p></div>
+        <div class="callout"><p><strong>Resampling and audition:</strong> Resample writes post-effects instrument audio before the program compressor and final limiter; it excludes direct Input Monitor. Part-mode preview uses the complete chain in Single. In multi-instrument modes it follows the destination part’s level and mute, plus dual-mode Blend, shared Tape, and mastering; Shared Dual uses the focused part as its destination. Part preview in these modes bypasses private inserts and does not feed Delay/Reverb sends. Direct preview bypasses effects and part mixing, then joins the program compressor and final limiter.</p></div>
 
         <h2 id="locks">Performance-loop motion</h2>
-        <p>Effect parameters and applied FX Order changes can be recorded in a performance loop. In Split this includes both parts’ insert settings and the shared sends and effects. Begin Replace or Overdub recording, then turn an encoder. Continuous values interpolate between recorded points; stepped choices change at their recorded thresholds while their audio paths retain the appropriate safety transition. Undo Take removes the newest layer of effect motion together with the other notes and gestures in that take.</p>
+        <p>Effect parameters and applied FX Order changes can be recorded in a performance loop. In multi-instrument modes this includes every part’s insert settings and the shared sends and effects. Begin Replace or Overdub recording, then turn an encoder. Continuous values interpolate between recorded points; stepped choices change at their recorded thresholds while their audio paths retain the appropriate safety transition. Undo Take removes the newest layer of effect motion together with the other notes and gestures in that take.</p>
 
         <nav class="page-nav" aria-label="Page navigation"><a class="page-nav-link" href="engine-wavesets.html"><span>Previous</span>Wavesets</a><a class="page-nav-link next" href="performance.html"><span>Next</span>Performance Loops</a></nav>
       </main>
       <aside class="toc" aria-label="Page navigation">
-        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="split.html">Split</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
+        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
         <div class="toc-section"><h2>On this page</h2><a href="#controls">Controls</a><a href="#reverb">Reverb</a><a href="#order">FX Order</a><a href="#starts">Starting points</a><a href="#locks">Performance motion</a></div>
       </aside>
     </div>

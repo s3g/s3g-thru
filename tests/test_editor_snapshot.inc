@@ -20,7 +20,7 @@ void testEditorSnapshot()
             assert(value==std::strtof(scalar,nullptr)); // identical units, enums, and rounding
         }
         for(const char* key:{"part_mute","pad_mode","root_note","pad_octave","scale","record_lane",
-                "preview_level","pressure_mode","hold_release_ms","stack_scan_paused","glitch_buffer_lock",
+                "preview_level","preview_route","pressure_mode","hold_release_ms","stack_scan_paused","glitch_buffer_lock",
                 "split_mode","split_focus","polyphony_comp","grain_quality","lane_variation",
                 "record_gain","record_source","monitor_level","clip_rate","clip_record_mode",
                 "clip_timing","launch_quantize","tempo_bpm","tempo_swing","chain_enabled",

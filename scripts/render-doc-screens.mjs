@@ -160,7 +160,7 @@ const params = {
     pressure_mode: '1', root_note: '60', record_lane: '2', pad_octave: '0',
     hold_release_ms: '0', shift_held: '0',
     amp_attack: '20', amp_decay: '300', amp_sustain: '62', amp_release: '750',
-    record_source: '0', record_gain: '1', monitor_level: '0', preview_level: '0.7',
+    record_source: '0', record_gain: '1', monitor_level: '0', preview_level: '0.7', preview_route:'0', save_status:'0', mix_status:'0,0,0,0,5,5',
     clip_rate: '1', clip_record_mode: '1', clip_timing: '1', launch_quantize: '1',
     tempo_bpm: '120', tempo_swing: '54', chain_enabled: '1', chain_slot: '2',
     chain_clip: '5', chain_repeats: '2',
@@ -201,6 +201,14 @@ const params = {
 globalThis.host_module_get_param = (key) => {
     if(key==='ui_state') {
         const values=params.ui_state.split(',');
+        const split=params.split_state?JSON.parse(params.split_state):null;
+        if(split?.enabled&&split.shared) {
+            const width=Math.max(.02,Math.min(1,Number(params.field))),half=width*.5;
+            const center=Math.max(half,Math.min(1-half,Number(params.locus)));
+            const low=center-half,high=center+half;
+            values[5]=String(Math.round(low*1000));values[6]=String(Math.round(high*1000));
+            values[17]=String(low);values[18]=String(high);
+        }
         if(!params.split_state||!JSON.parse(params.split_state).enabled) {
             const width=Number(params.field),half=width*.5;
             const center=Math.max(half,Math.min(1-half,Number(params.locus)));
@@ -215,7 +223,7 @@ globalThis.host_module_get_param = (key) => {
         const values=Object.fromEntries(Object.entries(globalThis.__docSplit.params)
             .filter(([,p])=>!p.momentary).map(([key,p])=>[key,Number(params[key]??p.value)]));
         const split=JSON.parse(params.split_state||'{"enabled":0,"focus":0,"blend":0.5,"parts":[{},{}]}');
-        values.split_mode=split.enabled;values.split_focus=split.focus;
+        values.split_mode=split.enabled?(split.quad?3:split.shared?2:1):0;values.split_focus=split.focus;
         values.part_mute=split.parts[split.focus]?.mute||0;
         for(const key of ['pad_octave','record_lane','stack_scan_paused','glitch_buffer_lock'])
             values[key]=Number(params[key]||0);
@@ -233,7 +241,8 @@ globalThis.host_module_set_param_blocking = (key, value) => {
         const part=split.parts[split.focus];params.split_state=JSON.stringify(split);
         Object.assign(params,{algorithm:String(part.algorithm),root_note:String(part.root),
             pad_octave:String(part.octave),pad_mode:String(part.mode),scale:String(part.scale),
-            record_lane:String(split.focus*2+1)});
+            ...(split.shared||split.quad?{locus:String((part.window[0]+part.window[1])*.5),field:String(part.window[1]-part.window[0])}:{}),
+            record_lane:split.shared?params.record_lane:String(split.quad?split.focus+1:split.focus*2+1)});
         const ui=params.ui_state.split(',');ui[0]=params.record_lane;params.ui_state=ui.join(',');
     }
 };
@@ -256,7 +265,7 @@ source = source.replace(
 source = source.replace(
     /import \* as os[^;]+;/,
     'const os = globalThis.__os;');
-source += '\nglobalThis.__docSplit = {state, params:PARAMS, pages:parameterPages};';
+source += '\nglobalThis.__docSplit = {state, params:PARAMS, pages:parameterPages, redraw:()=>{clearDisplay();draw();}};';
 await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
 
 function escapeXml(value) {
@@ -379,6 +388,11 @@ tick(3);
 capture('waveform-zoom.svg', 'Single waveform zoom at Position 0.55 and Field 0.22');
 Object.assign(params, wideWaveformFixture);
 tick(3);
+cc(52);cc(50);cc(50,0);cc(52,0);tick();
+capture('pages.svg','Contextual Pages picker');cc(51);tick();
+params.save_status='2';tick(3);capture('save-pending.svg','Waveform with saving status');
+params.save_status='3';tick(3);capture('save-complete.svg','Waveform with saved confirmation');
+params.save_status='0';tick(3);
 
 params.algorithm = '3';
 params.cutups_state = '0,0,190,-1,-1000,1000,0;1,2,510,1,440,800,400;2,3,790,-1,-1000,600,0';
@@ -519,6 +533,7 @@ cc(42);
 cc(49, 0);
 tick();
 capture('library.svg', 'Sample library browser');
+params.preview_route='1';tick(3);capture('library-direct.svg','Sample browser with Direct audition');params.preview_route='0';tick(3);
 
 cc(51);
 tick();
@@ -549,7 +564,7 @@ Object.assign(params, {
     voice_pads:'1,-1,-1,-1,20,-1,-1,-1',
     voice_notes:'50,-1,-1,-1,69,-1,-1,-1',
     clip_state:'0,0,1,420,6800,6,128,1000,0,1,12000,13600',
-    ui_state:'1,15,0,0,250,100,900,1000,0,1000,0,0,45,0,1,0,2'
+    ui_state:'1,15,0,0,250,100,900,1000,0,1000,0,0,45,0,1,0,2',mix_status:'.12,.08,1,1,0,0'
 });
 globalThis.init();tick(82);
 capture('split-waveform.svg','Split waveform with A focused and independent A/B zoom');
@@ -558,12 +573,15 @@ cc(52);cc(52,0);tick();
 const mutedExample=JSON.parse(params.split_state);
 mutedExample.parts[1].mute=1;params.split_state=JSON.stringify(mutedExample);tick(3);
 capture('split-muted.svg','Split with B muted and an unmute hint');
+params.mix_status='.12,0,1,1,0,1';globalThis.__docSplit.state.view='mixStatus';tick(3);
+capture('split-mix-status.svg','Split activity and muted B status');
+globalThis.__docSplit.state.view='main';params.mix_status='.12,.08,1,1,0,0';
 mutedExample.parts[1].mute=0;params.split_state=JSON.stringify(mutedExample);tick(3);
 
 const splitExamples=[
     ['FX SENDS','split-mix.svg','Split FX Sends'],
     ['ENGINE','split-engine.svg','A Engine and Part Level'],
-    ['SPLIT SETUP','split-setup.svg','Split Setup'],
+    ['DUAL SETUP','split-setup.svg','Dual Setup'],
     ['PART COLOR','split-color.svg','A Part Color'],
     ['DELAY RETURN','split-delay.svg','Shared Delay Return'],
     ['REVERB','split-reverb.svg','Shared Reverb parameters'],
@@ -582,6 +600,51 @@ cc(3);tick();capture('split-fx-menu.svg','Split FX Pages menu');
 cc(51);params.effect_mix='0';params.effect_reverb_mix='0';
 cc(49);cc(52);cc(52,0);cc(49,0);tick();
 capture('split-sends-off.svg','Split sends with return-level hints');
+
+// Shared Dual zoom follows the focused program across all four source rows.
+const sharedExample=JSON.parse(params.split_state);
+sharedExample.shared=1;sharedExample.focus=0;
+params.split_state=JSON.stringify(sharedExample);
+params.locus=String((sharedExample.parts[0].window[0]+sharedExample.parts[0].window[1])*.5);
+params.field=String(sharedExample.parts[0].window[1]-sharedExample.parts[0].window[0]);
+params.effect_mix=params.effect_reverb_mix='100';
+globalThis.init();tick(82);
+capture('shared-waveform.svg','Shared Dual with A focused and its live source zoom');
+cc(52);cc(52,0);tick(3);
+if(Math.abs(globalThis.__docSplit.state.fieldStart-.55)>.00001
+    ||Math.abs(globalThis.__docSplit.state.fieldEnd-.95)>.00001)
+    throw new Error('Shared B focus must update the live source zoom');
+globalThis.__docSplit.redraw();
+capture('shared-waveform-b.svg','Shared Dual with B focused and its own live source zoom');
+const sharedDoc=globalThis.__docSplit;
+sharedDoc.state.view='settings';sharedDoc.state.settingsPage=sharedDoc.pages().findIndex(p=>p.title==='MIX / REC');
+tick();capture('shared-mix-rec.svg','Shared Dual B lane gains and common recording controls');
+sharedDoc.state.view='mode';sharedDoc.state.modeSelection=2;
+tick();capture('instrument-mode.svg','Instrument mode chooser with Shared Dual selected');
+
+const quadExample={enabled:1,shared:0,quad:1,focus:0,blend:.5,parts:[
+    {algorithm:4,root:60,octave:0,scale:1,mode:0,hold:0,mute:0,position:.3,window:[.1,.6]},
+    {algorithm:2,root:62,octave:0,scale:1,mode:0,hold:0,mute:0,position:.65,window:[.4,.9]},
+    {algorithm:3,root:64,octave:0,scale:1,mode:0,hold:0,mute:0,position:.2,window:[0,.5]},
+    {algorithm:8,root:67,octave:0,scale:1,mode:0,hold:0,mute:0,position:.8,window:[.5,1]}]};
+Object.assign(params,{split_state:JSON.stringify(quadExample),algorithm:'4',record_lane:'1',locus:'.35',field:'.5',
+    split_level_c:'1',split_level_d:'.85',split_delay_c:'.25',split_reverb_c:'.4',split_delay_d:'.1',split_reverb_d:'.5',
+    voice_algorithms:'4,-1,2,-1,3,-1,8,-1',playheads:'300,-1,650,-1,200,-1,800,-1',
+    voice_lanes:'0,-1,333,-1,667,-1,1000,-1',voice_pads:'16,-1,20,-1,0,-1,4,-1',
+    voice_notes:'48,-1,50,-1,52,-1,55,-1',cutups_state:'4,2,200,-1,-1000,1000,0',
+    waveset_state:'6,2,0,0,1,0,0,0,500,500,-1,800,-1,16',mix_status:'.12,.08,.1,.06,1,1,1,1,0,0,0,0'});
+globalThis.init();tick(82);capture('quad-waveform.svg','Quad waveform with one source lane per instrument');
+const quadDoc=globalThis.__docSplit;
+cc(52);cc(52,0);cc(52);cc(52,0);tick(3);quadDoc.redraw();
+if(quadDoc.state.splitFocus!==2||quadDoc.state.lane!==3)throw new Error('Quad C focus must select lane 3');
+capture('quad-waveform-c.svg','Quad waveform with C focused and all source windows retained');
+cc(52);cc(52,0);cc(52);cc(52,0);tick(3);
+quadDoc.state.view='mode';quadDoc.state.modeSelection=3;tick();capture('quad-mode.svg','Instrument Mode with Quad selected');
+for(const [heading,file] of [['FX SENDS','quad-sends.svg'],['QUAD SETUP','quad-setup.svg'],['ENGINE','quad-engine.svg'],['DELAY RETURN','quad-delay.svg'],['REVERB','quad-reverb.svg']]) {
+    quadDoc.state.view='settings';quadDoc.state.settingsPage=quadDoc.pages().findIndex(p=>p.title===heading);
+    tick();capture(file,'Quad '+heading);
+}
+quadDoc.state.view='mixStatus';tick();capture('quad-status.svg','Quad activity and voice counts');
 
 if (checkOnly && mismatches !== 0) process.exit(1);
 if (checkOnly) console.log('s3g Thru documentation screens: current');

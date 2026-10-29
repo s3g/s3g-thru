@@ -375,6 +375,7 @@ enum class LockParameter : std::uint32_t {
     cutLaneAdvance,
     splitBlend, splitLevelA, splitLevelB, splitDelayA, splitDelayB,
     splitReverbA, splitReverbB, splitCurve,
+    splitLevelC, splitLevelD, splitDelayC, splitDelayD, splitReverbC, splitReverbD,
     count
 };
 
@@ -392,7 +393,8 @@ constexpr std::size_t kVersion10LockParameterCount = 144u;
 constexpr std::size_t kVersion11LockParameterCount = 152u;
 constexpr std::size_t kVersion12LockParameterCount = 161u;
 constexpr std::size_t kVersion13LockParameterCount = 162u;
-static_assert(kLockParameterCount == 170u,
+constexpr std::size_t kVersion14LockParameterCount = 170u;
+static_assert(kLockParameterCount == 176u,
               "clip point descriptors support up to 255 lock parameters");
 constexpr std::size_t kClipPressureLaneOffset = kLockParameterCount;
 constexpr std::size_t kClipStackPositionLaneOffset =
@@ -403,18 +405,18 @@ constexpr std::size_t kClipRollPositionLaneOffset = kClipStackHoldLane + 1u;
 constexpr std::size_t kClipRollLanePositionLaneOffset =
     kClipRollPositionLaneOffset + 32u;
 constexpr std::size_t kClipPartParameterOffset = kClipRollLanePositionLaneOffset + 32u;
-constexpr std::size_t kClipPartHoldOffset = kClipPartParameterOffset + kLockParameterCount * 2u;
-constexpr std::size_t kClipCurveLaneCount = kClipPartHoldOffset + 2u;
+constexpr std::size_t kClipPartHoldOffset = kClipPartParameterOffset + kLockParameterCount * 4u;
+constexpr std::size_t kClipCurveLaneCount = kClipPartHoldOffset + 4u;
 struct PartSettings {
     int root = 60, octave = 0, scale = 0, mode = 0, pressure = 1;
     int holdMs = 0, stackHold = 0, glitchHold = 0, muted = 0, variation = 0;
 };
 struct ClipSlot {
     std::array<float, kLockParameterCount> baseValues {};
-    std::array<std::array<float, kLockParameterCount>, 2u> splitValues {};
-    std::array<PartSettings, 2u> splitSettings {};
+    std::array<std::array<float, kLockParameterCount>, 4u> splitValues {};
+    std::array<PartSettings, 4u> splitSettings {};
     PartSettings singleSettings {};
-    bool splitEnabled = false, splitInitialized = false;
+    bool splitEnabled = false, splitInitialized = false, sharedDual = false, quadMode = false, quadInitialized = false;
     int splitFocus = 0;
     std::array<std::array<char, kPersistencePathSize>, kLaneCount>
         laneSourcePaths {};
@@ -613,7 +615,7 @@ constexpr const char kMidiMap[] =
     "59 motion_rate_basis,60 motion_path_rate,61 motion_step,62 motion_seed,"
     "63 segment_trigger,64 segment_overlap,118 segment_layers,"
     "119 segment_rate,121 segment_repeats,122 segment_step,"
-    "124 segment_pitch,125 segment_level,126 segment_curve";
+    "124 segment_pitch,125 segment_level,126 segment_curve; Quad channels 1-4 A-D: 13 part_level,15 part_delay,17 part_reverb";
 
 constexpr const char kChainParams[] = R"json([
 {"key":"locus","name":"Position","short_name":"POS","type":"float","min":0,"max":1,"step":0.01,"default":0.5},
@@ -832,6 +834,10 @@ constexpr const char kChainParams[] = R"json([
 {"key":"sample_load_state","name":"Sample Load State","type":"string","access":"read","live":true},
 {"key":"region_state","name":"Transient Regions","type":"string","access":"read","live":true},
 {"key":"cue_state","name":"Clip Cues","type":"string","access":"read","live":true},
+{"key":"preview_route","name":"Preview Route","type":"enum","options":["Part","Direct"],"default":0},
+{"key":"panic","name":"Panic","type":"int","min":0,"max":1,"access":"write"},
+{"key":"save_status","name":"Save Status","type":"int","access":"read","live":true},
+{"key":"mix_status","name":"Part Activity","type":"string","access":"read","live":true},
 {"key":"preview_file","name":"Preview Sample","type":"string","access":"write"},
 {"key":"preview_stop","name":"Stop Preview","type":"int","min":0,"max":1,"access":"write"},
 {"key":"cue_store","name":"Store Cue","type":"string","access":"write"},
@@ -863,8 +869,8 @@ constexpr const char kChainParams[] = R"json([
 {"key":"roll_state","name":"Grouped Roll State","type":"string","access":"read","live":true},
 {"key":"midi_map","name":"MIDI CC Map","type":"string","access":"read"},
 {"key":"waveforms","name":"Waveforms","type":"string","access":"read"},
-{"key":"split_mode","name":"Performance Mode","type":"enum","options":["Single","Split"],"default":0},
-{"key":"split_focus","name":"Edit Part","type":"enum","options":["A","B"],"default":0},
+{"key":"split_mode","name":"Performance Mode","type":"enum","options":["Single","Split","Shared Dual","Quad"],"default":0},
+{"key":"split_focus","name":"Edit Part","type":"enum","options":["A","B","C","D"],"default":0},
 {"key":"split_copy","name":"Copy to Other Part","type":"trigger"},
 {"key":"part_mute","name":"Part Mute","type":"enum","options":["Off","On"],"default":0},
 {"key":"voice_algorithms","name":"Voice Algorithms","type":"string","access":"read","live":true},
@@ -876,7 +882,13 @@ constexpr const char kChainParams[] = R"json([
 {"key":"split_delay_b","name":"B Delay Send","type":"float","min":0,"max":1,"default":0},
 {"key":"split_reverb_a","name":"A Reverb Send","type":"float","min":0,"max":1,"default":0},
 {"key":"split_reverb_b","name":"B Reverb Send","type":"float","min":0,"max":1,"default":0},
-{"key":"split_curve","name":"Blend Curve","type":"enum","options":["Linear","Equal Power"],"default":1}
+{"key":"split_curve","name":"Blend Curve","type":"enum","options":["Linear","Equal Power"],"default":1},
+{"key":"split_level_c","name":"C Level","type":"float","min":0,"max":2,"default":1},
+{"key":"split_level_d","name":"D Level","type":"float","min":0,"max":2,"default":1},
+{"key":"split_delay_c","name":"C Delay Send","type":"float","min":0,"max":1,"default":0},
+{"key":"split_delay_d","name":"D Delay Send","type":"float","min":0,"max":1,"default":0},
+{"key":"split_reverb_c","name":"C Reverb Send","type":"float","min":0,"max":1,"default":0},
+{"key":"split_reverb_d","name":"D Reverb Send","type":"float","min":0,"max":1,"default":0}
 ])json";
 
 constexpr const char kUiHierarchy[] = R"json({
@@ -1009,7 +1021,8 @@ constexpr const char* kLockParameterKeys[kLockParameterCount] {
     "waveset_stride", "waveset_advance", "waveset_direction",
     "waveset_process", "waveset_amount", "waveset_detail",
     "effect_reverb_algo", "effect_reverb_decay", "effect_reverb_pre", "effect_reverb_damp", "effect_reverb_diff", "effect_reverb_mod", "effect_reverb_width", "effect_reverb_mix", "effect_order", "cut_lane_advance", "split_blend", "split_level_a", "split_level_b",
-    "split_delay_a", "split_delay_b", "split_reverb_a", "split_reverb_b", "split_curve"
+    "split_delay_a", "split_delay_b", "split_reverb_a", "split_reverb_b", "split_curve",
+    "split_level_c", "split_level_d", "split_delay_c", "split_delay_d", "split_reverb_c", "split_reverb_d"
 };
 
 int lockParameterIndex(const char* key)
@@ -1191,6 +1204,12 @@ void applyLockedValue(Engine::Controls& controls, float& outputGain,
         case LockParameter::splitDelayB: controls.splitDelayB = clampValue(value, 0.0f, 1.0f); break;
         case LockParameter::splitReverbA: controls.splitReverbA = clampValue(value, 0.0f, 1.0f); break;
         case LockParameter::splitReverbB: controls.splitReverbB = clampValue(value, 0.0f, 1.0f); break;
+        case LockParameter::splitLevelC: controls.splitLevelC = clampValue(value, 0.0f, 2.0f); break;
+        case LockParameter::splitLevelD: controls.splitLevelD = clampValue(value, 0.0f, 2.0f); break;
+        case LockParameter::splitDelayC: controls.splitDelayC = clampValue(value, 0.0f, 1.0f); break;
+        case LockParameter::splitDelayD: controls.splitDelayD = clampValue(value, 0.0f, 1.0f); break;
+        case LockParameter::splitReverbC: controls.splitReverbC = clampValue(value, 0.0f, 1.0f); break;
+        case LockParameter::splitReverbD: controls.splitReverbD = clampValue(value, 0.0f, 1.0f); break;
         case LockParameter::splitCurve: controls.splitCurve = clampValue(static_cast<int>(std::lround(value)), 0, 1); break;
         case LockParameter::cutLaneAdvance: controls.cutLaneAdvance = static_cast<Engine::CutLaneAdvance>(clampValue(static_cast<int>(std::lround(value)), 0, 6)); break;
         case LockParameter::wavesetGroup: {
@@ -1374,6 +1393,12 @@ float lockedValue(const Engine::Controls& controls, float outputGain,
         case LockParameter::splitDelayB: return controls.splitDelayB;
         case LockParameter::splitReverbA: return controls.splitReverbA;
         case LockParameter::splitReverbB: return controls.splitReverbB;
+        case LockParameter::splitLevelC: return controls.splitLevelC;
+        case LockParameter::splitLevelD: return controls.splitLevelD;
+        case LockParameter::splitDelayC: return controls.splitDelayC;
+        case LockParameter::splitDelayD: return controls.splitDelayD;
+        case LockParameter::splitReverbC: return controls.splitReverbC;
+        case LockParameter::splitReverbD: return controls.splitReverbD;
         case LockParameter::splitCurve: return static_cast<float>(controls.splitCurve);
         case LockParameter::cutLaneAdvance: return static_cast<float>(controls.cutLaneAdvance);
         case LockParameter::wavesetGroup:
@@ -1687,6 +1712,7 @@ struct PlaybackVoice {
     bool liveStackPhaseValid = false;
     bool envelopeDurationSet = false;
     bool stealPending = false;
+    bool panicRelease = false;
 };
 
 struct AudioRoll {
@@ -1719,24 +1745,24 @@ struct ThruInstance {
     std::array<PlaybackVoice, kVoiceCount> voices {};
     Engine::Controls controls;
     struct SplitPart { Engine::Controls controls; PartSettings settings; };
-    std::array<SplitPart,2u> splitParts;
-    std::array<s3g_daisy::ThruPartEffects,2u> splitInserts;
+    std::array<SplitPart,4u> splitParts;
+    std::array<s3g_daisy::ThruPartEffects,4u> splitInserts;
     Engine::Controls splitSingleControls;
     PartSettings splitSingleSettings;
-    bool splitEnabled = false, splitInitialized = false;
+    bool splitEnabled = false, splitInitialized = false, sharedDual = false, quadMode = false, quadInitialized = false;
     int splitFocus = 0, midiPart = 0;
-    std::array<Engine::Controls,2u> splitClipControls;
-    std::array<std::array<std::array<float,kBlockFrames>,2u>,2u> splitBus {};
+    std::array<Engine::Controls,4u> splitClipControls;
+    std::array<std::array<std::array<float,kBlockFrames>,2u>,4u> splitBus {};
     std::array<std::array<float,kBlockFrames>,2u> splitDelayInput {}, splitReverbInput {};
-    std::array<std::array<float,kBlockFrames>,2u> splitFrameGain {};
+    std::array<std::array<float,kBlockFrames>,4u> splitFrameGain {};
     std::unique_ptr<float[]> splitRollHistory;
-    std::array<std::size_t,2u> splitRollWrite {}, splitRollFrames {};
-    std::array<float,2u> splitPolyGain {1.0f,1.0f};
-    std::array<std::uint32_t,2u> splitVariationCounter {};
-    std::array<int,2u> splitLastVariationLane {-1,-1};
-    std::array<float,kBlockFrames> splitEnvelopePower[2u] {};
+    std::array<std::size_t,4u> splitRollWrite {}, splitRollFrames {};
+    std::array<float,4u> splitPolyGain {1.0f,1.0f,1.0f,1.0f};
+    std::array<std::uint32_t,4u> splitVariationCounter {};
+    std::array<int,4u> splitLastVariationLane {-1,-1,-1,-1};
+    std::array<float,kBlockFrames> splitEnvelopePower[4u] {};
     float splitBlendState = 0.5f, splitCurveState = 1.0f;
-    std::array<float,2u> splitLevelState {1.0f,1.0f}, splitDelayState {}, splitReverbState {};
+    std::array<float,4u> splitLevelState {1.0f,1.0f,1.0f,1.0f}, splitDelayState {}, splitReverbState {};
     std::array<bool,kLockParameterCount-static_cast<std::size_t>(LockParameter::splitBlend)> splitMixerOverrides {};
     std::unique_ptr<float[]> storage;
     std::unique_ptr<float[]> preparedClipStorage;
@@ -1872,8 +1898,8 @@ struct ThruInstance {
     std::uint32_t variationCounter = 0u;
     int lastVariationLane = -1;
     float performanceLane = 0.0f;
-    std::array<float, 288u> liveStackHoldPhases {};
-    std::array<bool, 288u> liveStackHoldPhaseValid {};
+    std::array<float, 544u> liveStackHoldPhases {};
+    std::array<bool, 544u> liveStackHoldPhaseValid {};
     bool stackScanPaused = false;
     bool glitchBufferLocked = false;
     std::size_t selectedLane = 0u;
@@ -1882,11 +1908,17 @@ struct ThruInstance {
     float monitorLevel = 0.0f;
     float outputGain = 1.0f;
     float previewLevel = 0.7f;
+    int previewRoute = 0;
+    float previewRouteState = 0.0f;
+    float previewPartGainState = 1.0f;
+    std::array<float,4u> splitMeter {};
     float monitorGainState = 0.0f;
     float previewLevelState = 0.7f;
     float gainControlSlew = 1.0f;
     std::array<float, 2u> lastVoiceMixSample {};
     std::array<float, 2u> lastPreviewSample {}, previewTransitionTail {};
+    std::array<float, 2u> lastDirectPreviewSample {}, directPreviewTransitionTail {};
+    std::array<std::array<float,kBlockFrames>,2u> directPreview {};
     std::size_t previewTransitionRemaining = 0u;
     std::array<float, 2u> sourceTransitionTail {};
     std::size_t sourceTransitionFrames = 1u;
@@ -1902,8 +1934,8 @@ struct ThruInstance {
     double clipAbsolutePositionMs = 0.0;
     std::atomic<std::uint64_t> renderClockSamples { 0u };
     std::uint64_t clipRecordStartSample = 0u;
-    std::array<int, 288u> clipOpenNoteIndices {};
-    std::array<double, 288u> clipOpenNoteStarts {};
+    std::array<int, 544u> clipOpenNoteIndices {};
+    std::array<double, 544u> clipOpenNoteStarts {};
     std::array<std::uint32_t, 32u> clipLastPressureTimes {};
     std::array<float, 32u> clipLastPressureValues {};
     std::array<int, kClipCurveLaneCount> clipLastPointIndices {};
@@ -2055,7 +2087,7 @@ struct ThruInstance {
             sampleRate * kMaximumRollSeconds)) + kBlockFrames;
         rollStorage.reset(new (std::nothrow) float[
             (kRollCount + 1u) * 2u * rollCapacityFrames] {});
-        splitRollHistory.reset(new (std::nothrow) float[4u * rollCapacityFrames] {});
+        splitRollHistory.reset(new (std::nothrow) float[8u * rollCapacityFrames] {});
         if (!splitRollHistory || !storage || !preparedClipStorage || !sampleStage
             || !effectDelayBuffer || !rotaryDelayBuffer || !tapeDelayBuffer
             || !rollStorage
@@ -2159,7 +2191,7 @@ struct ThruInstance {
         clipControls = controls;
         clipOutputGain = outputGain;
         for (auto& voice : voices) {
-            voice.part = static_cast<int>(&voice - voices.data()) / 4;
+            voice.part = static_cast<int>(&voice - voices.data()) / voicesPerPart();
             if (!voice.engine.prepare(sampleRate,
                                       storage.get() + planeCapacityFrames * 0u,
                                       storage.get() + planeCapacityFrames * 1u,
@@ -3699,6 +3731,8 @@ struct ThruInstance {
                     return;
                 }
                 previewFrame = 0u;
+                const auto owner=static_cast<std::size_t>(sharedDual?splitFocus:isQuad()?sampleRequestLane:sampleRequestLane/2);
+                previewPartGainState=splitEnabled?splitFrameGain[owner].back():1.0f;
                 previewActive = true;
                 previewStopRequested = false;
                 previewFadeInRemaining = previewFadeFrames;
@@ -3784,6 +3818,7 @@ struct ThruInstance {
 
     void beginVoiceAttack(PlaybackVoice& voice)
     {
+        voice.panicRelease = false;
         voice.envelope = clampValue(voice.envelope, 0.0f, 1.0f);
         voice.envelopeStageStart = voice.envelope;
         voice.envelopeStageFrames = 0u;
@@ -3795,6 +3830,7 @@ struct ThruInstance {
     {
         if (!voice.active || voice.envelopeStage == AmpEnvelopeStage::idle
             || voice.envelopeStage == AmpEnvelopeStage::release) return;
+        voice.panicRelease = false;
         voice.envelope = clampValue(voice.envelope, 0.0f, 1.0f);
         voice.envelopeStageStart = voice.envelope;
         voice.envelopeStageFrames = 0u;
@@ -3950,8 +3986,8 @@ struct ThruInstance {
                                     envelopeControls.ampReleaseMs)
                                 * sampleRate / 1000.0f));
                         voice.envelopeStageDuration = std::max(
-                            requested, static_cast<std::uint32_t>(
-                                previewFadeFrames));
+                            voice.panicRelease ? static_cast<std::uint32_t>(sampleRate * .005f) : requested,
+                            static_cast<std::uint32_t>(previewFadeFrames));
                         voice.envelopeDurationSet = true;
                     }
                     const std::uint32_t duration
@@ -3974,6 +4010,24 @@ struct ThruInstance {
             }
         }
         return voice.envelope;
+    }
+
+    // No file I/O; voices retain their click-safe release and stealing fades.
+    void panic()
+    {
+        allNotesOff();
+        if (clipRecording) finishClipRecording();
+        setClipPlaying(false);
+        clipLaunchPending = false; queuedClip = -1; chainNextSlot = -1;
+        clipNeedsStart = false;
+        stopPreviewWithFade();
+        for (auto& voice : voices) {
+            if (!voice.active) continue;
+            voice.panicRelease = true; // Held=false retires pending steals at their existing fade boundary.
+            voice.envelopeStageStart = voice.envelope;
+            voice.envelopeStageFrames = 0u; voice.envelopeDurationSet = false;
+            voice.envelopeStage = AmpEnvelopeStage::release;
+        }
     }
 
     void allNotesOff()
@@ -4069,7 +4123,7 @@ struct ThruInstance {
         for (auto& voice : voices) {
             if ((!splitEnabled || voice.part == owner) && !voice.active) return voice;
         }
-        PlaybackVoice* oldest = &voices[splitEnabled ? static_cast<std::size_t>(owner) * 4u : 0u];
+        PlaybackVoice* oldest = &voices[splitEnabled ? static_cast<std::size_t>(owner) * voicesPerPart() : 0u];
         for (auto& voice : voices) {
             if (splitEnabled && voice.part != owner) continue;
             if (!voice.held && oldest->held) oldest = &voice;
@@ -4085,7 +4139,7 @@ struct ThruInstance {
         std::array<std::size_t, kLaneCount> loaded {};
         std::size_t count = 0u;
         for (std::size_t lane = 0u; lane < kLaneCount; ++lane) {
-            if (engine.laneLoaded(lane) && (!splitEnabled || static_cast<int>(lane / 2u) == part)) loaded[count++] = lane;
+            if (engine.laneLoaded(lane) && (!splitEnabled || partOwnsLane(part,lane))) loaded[count++] = lane;
         }
         if (count == 0u) return 0u;
         std::size_t choice = 0u;
@@ -4115,7 +4169,7 @@ struct ThruInstance {
                 break;
             case LaneVariation::manual: {
                 const std::size_t requested = static_cast<std::size_t>(clampValue(
-                    static_cast<int>(std::lround(sourceControls.manualLane + (splitEnabled ? static_cast<float>(part * 2) : 0.0f))), 0, 3));
+                    static_cast<int>(std::lround(sourceControls.manualLane + (splitEnabled && !sharedDual ? static_cast<float>(firstLaneForPart(part)) : 0.0f))), 0, 3));
                 for (std::size_t index = 0u; index < count; ++index) {
                     if (loaded[index] == requested) choice = index;
                 }
@@ -4181,11 +4235,11 @@ struct ThruInstance {
     {
         if (point.type == ClipPointType::partParameter) {
             const std::size_t p=point.parameter&255u;
-            return p<kLockParameterCount && point.sourcePad<2u
+            return p<kLockParameterCount && point.sourcePad<4u
                 ? kClipPartParameterOffset+static_cast<std::size_t>(point.sourcePad)*kLockParameterCount+p : kClipCurveLaneCount;
         }
         if(point.type==ClipPointType::partHold)
-            return point.sourcePad<2u ? kClipPartHoldOffset+point.sourcePad : kClipCurveLaneCount;
+            return point.sourcePad<4u ? kClipPartHoldOffset+point.sourcePad : kClipCurveLaneCount;
         if (point.type == ClipPointType::parameter) {
             const std::size_t parameter = point.parameter & 0xffu;
             return parameter < kLockParameterCount
@@ -4314,10 +4368,10 @@ struct ThruInstance {
         const std::uint32_t time = clipCaptureTimeMs();
         std::size_t curveLane = kClipCurveLaneCount;
         if (type == ClipPointType::partParameter) {
-            curveLane = sourcePad>=0 && sourcePad<2
+            curveLane = sourcePad>=0 && sourcePad<4
                 ? kClipPartParameterOffset+static_cast<std::size_t>(sourcePad)*kLockParameterCount+parameter : kClipCurveLaneCount;
         } else if(type==ClipPointType::partHold) {
-            curveLane = sourcePad>=0 && sourcePad<2 ? kClipPartHoldOffset+static_cast<std::size_t>(sourcePad) : kClipCurveLaneCount;
+            curveLane = sourcePad>=0 && sourcePad<4 ? kClipPartHoldOffset+static_cast<std::size_t>(sourcePad) : kClipCurveLaneCount;
         } else if (type == ClipPointType::parameter) {
             curveLane = std::min(parameter, kLockParameterCount - 1u);
         } else if (sourcePad >= 0 && sourcePad < 32) {
@@ -4510,7 +4564,7 @@ struct ThruInstance {
         voice.variantLane = chooseVariationLane(velocity, voice.part);
         const auto& ownerControls = liveControlsForPart(voice.part);
         voice.age = noteClock;
-        voice.laneOffset = clampValue(ownerControls.manualLane / (splitEnabled ? 1.0f : 3.0f), 0.0f, 1.0f);
+        voice.laneOffset = clampValue(ownerControls.manualLane / (splitEnabled && !sharedDual ? 1.0f : 3.0f), 0.0f, 1.0f);
         voice.cutLanePressure = 0.0f;
         voice.recordedStackPhase = 0.0f;
         voice.recordedStackPhaseValid = false;
@@ -4596,7 +4650,7 @@ struct ThruInstance {
         if (localMode == PadMode::slices || localMode == PadMode::rolls) {
             return owner.root;
         }
-        const int row = index / kPadColumns;
+        const int row = isQuad() ? index / 8 % 2 : index / kPadColumns;
         const int column = splitEnabled ? index % 4 : index % kPadColumns;
         if (owner.scale != 0) {
             const std::size_t scaleIndex = static_cast<std::size_t>(owner.scale);
@@ -4714,10 +4768,10 @@ struct ThruInstance {
     AudioRoll& allocateAudioRoll(int sourcePad, bool clipOwned,
                                  int clipNoteIndex)
     {
-        const int owner = splitEnabled ? partForInput(sourcePad) : 0;
+        const int owner = rollOwner(sourcePad,clipOwned,clipNoteIndex);
         for (auto& roll : rolls) {
-            if (splitEnabled && &roll - rolls.data() >= (owner+1)*4) continue;
-            if (splitEnabled && &roll - rolls.data() < owner*4) continue;
+            if (splitEnabled && &roll - rolls.data() >= (owner+1)*voicesPerPart()) continue;
+            if (splitEnabled && &roll - rolls.data() < owner*voicesPerPart()) continue;
             if (roll.active && roll.sourcePad == sourcePad
                 && roll.clipOwned == clipOwned
                 && (!clipOwned || roll.clipNoteIndex == clipNoteIndex)) {
@@ -4725,9 +4779,9 @@ struct ThruInstance {
             }
         }
         for (auto& roll : rolls) {
-            if (!roll.active && (!splitEnabled || (&roll - rolls.data()) / 4 == owner)) return roll;
+            if (!roll.active && (!splitEnabled || (&roll - rolls.data()) / voicesPerPart() == owner)) return roll;
         }
-        AudioRoll* oldest = &rolls[splitEnabled ? owner*4 : 0];
+        AudioRoll* oldest = &rolls[splitEnabled ? owner*voicesPerPart() : 0];
         for (auto& roll : rolls) {
             if (splitEnabled && (&roll - rolls.data()) / 4 != owner) continue;
             if (!roll.held && oldest->held) oldest = &roll;
@@ -4750,7 +4804,8 @@ struct ThruInstance {
     void beginAudioRoll(int note, int velocity, int sourcePad,
                         bool clipOwned = false, int clipNoteIndex = -1)
     {
-        const int owner = splitEnabled ? partForInput(sourcePad) : 0;
+        const int owner = rollOwner(sourcePad,clipOwned,clipNoteIndex);
+        if(owner<0||owner>=partCount())return;
         const auto rollHistoryWrite = splitEnabled ? splitRollWrite[static_cast<std::size_t>(owner)] : this->rollHistoryWrite;
         const auto rollHistoryFrames = splitEnabled ? splitRollFrames[static_cast<std::size_t>(owner)] : this->rollHistoryFrames;
 
@@ -5001,7 +5056,7 @@ struct ThruInstance {
         }
         const auto owner = settingsForPart(partForInput(index));
         if (static_cast<PadMode>(owner.mode) == PadMode::cues && padMappedNotes[pad] < 0) {
-            if (index < static_cast<int>(kCueCount)) noteOff(owner.root, index);
+            if (cueForPad(index)>=0) noteOff(owner.root, index);
             return;
         }
         if (latchedPadNotes[pad] >= 0) return;
@@ -5017,12 +5072,12 @@ struct ThruInstance {
     {
         const float requested = clampValue(position, 0.0f, 1.0f);
         std::size_t lane = selectedLane;
-        if (splitEnabled && part >= 0 && static_cast<int>(lane / 2u) != part) lane = part * 2u;
+        if (splitEnabled && !sharedDual && part >= 0 && !partOwnsLane(part,lane)) lane = firstLaneForPart(part);
         if (!engine.laneLoaded(lane)) {
             lane = kLaneCount;
             for (std::size_t candidate = 0u; candidate < kLaneCount;
                  ++candidate) {
-                if (engine.laneLoaded(candidate) && (!splitEnabled || part < 0 || static_cast<int>(candidate / 2u) == part)) {
+                if (engine.laneLoaded(candidate) && (!splitEnabled || part < 0 || partOwnsLane(part,candidate))) {
                     lane = candidate;
                     break;
                 }
@@ -5109,7 +5164,7 @@ struct ThruInstance {
             || slot < 0 || slot >= static_cast<int>(kCueCount)) return;
         pushClipUndo(activeClip);
         clipSlots[static_cast<std::size_t>(activeClip)].cues[
-            static_cast<std::size_t>(slot)] = snapCueToZeroCrossing(position, splitEnabled ? slot / 4 : -1);
+            static_cast<std::size_t>(slot)] = snapCueToZeroCrossing(position, splitEnabled ? slot / cuesPerPart() : -1);
         clipSlots[static_cast<std::size_t>(activeClip)].occupied = true;
         markPersistentStateDirty();
     }
@@ -5135,11 +5190,11 @@ struct ThruInstance {
         for (const auto& voice : voices) {
             hasPerformanceVoice = hasPerformanceVoice
                 || (voice.active && voice.held && !voice.clipOwned
-                    && (!splitEnabled || voice.part == slot / 4));
+                    && (!splitEnabled || voice.part == slot / cuesPerPart()));
         }
-        if (!hasPerformanceVoice) noteOn(settingsForPart(splitEnabled?(slot>=4?1:0):0).root,100,slot);
+        if (!hasPerformanceVoice) noteOn(settingsForPart(splitEnabled?slot/cuesPerPart():0).root,100,splitEnabled?padForPart(slot/cuesPerPart(),slot%cuesPerPart()):slot);
         for (auto& voice : voices) {
-            if (voice.active && (!splitEnabled || voice.part==(slot>=4?1:0))) voice.engine.seekNormalized(cue);
+            if (voice.active && (!splitEnabled || voice.part==slot/cuesPerPart())) voice.engine.seekNormalized(cue);
         }
     }
 
@@ -5151,9 +5206,9 @@ struct ThruInstance {
         Engine::Controls effective = voice.clipOwned ? recordedControls : liveControls;
         const auto owner = settingsForPart(voice.part);
         if (splitEnabled) {
-            effective.stackFirstLane = static_cast<float>(voice.part * 2);
-            effective.stackLastLane = effective.stackFirstLane + 1.0f;
-            effective.manualLane = effective.stackFirstLane + clampValue(effective.manualLane,0.0f,1.0f);
+            effective.stackFirstLane = sharedDual?0.0f:static_cast<float>(firstLaneForPart(voice.part));
+            effective.stackLastLane = sharedDual?3.0f:effective.stackFirstLane+(isQuad()?0.0f:1.0f);
+            effective.manualLane = effective.stackFirstLane + clampValue(effective.manualLane,0.0f,sharedDual?3.0f:isQuad()?0.0f:1.0f);
         }
         const float noteRatio = voice.note >= 0
             ? std::pow(2.0f, static_cast<float>(voice.note - owner.root) / 12.0f)
@@ -5217,7 +5272,7 @@ struct ThruInstance {
             }
         }
         if (candidate) return *candidate;
-        candidate = &voices[splitEnabled?static_cast<std::size_t>(owner)*4u:0u];
+        candidate = &voices[splitEnabled?static_cast<std::size_t>(owner)*voicesPerPart():0u];
         for (auto& voice : voices) {
             if(splitEnabled && voice.part!=owner)continue;
             if (voice.clipOwned && !candidate->clipOwned) candidate = &voice;
@@ -5297,6 +5352,8 @@ struct ThruInstance {
     {
         if (noteIndex >= clip.clipNoteCount) return;
         const ClipNote& event = clip.clipNotes[noteIndex];
+        const int owner=splitEnabled ? (event.part?event.part-1:partForInput(event.sourcePad<32?event.sourcePad:-1)) : 0;
+        if(owner<0||owner>=partCount())return;
         if (event.sourcePad < 32u) {
             float rollMarker = 0.0f;
             float rollGroupMarker = 0.0f;
@@ -5316,7 +5373,6 @@ struct ThruInstance {
             }
         }
         ++noteClock;
-        const int owner=splitEnabled ? (event.part?event.part-1:partForInput(event.sourcePad<32?event.sourcePad:-1)) : 0;
         const auto& ownerControls=splitEnabled?splitClipControls[static_cast<std::size_t>(owner)]:clipControls;
         PlaybackVoice& voice = allocateClipVoice(owner);
         const bool reusingActiveVoice = voice.active;
@@ -5328,7 +5384,7 @@ struct ThruInstance {
         voice.velocity = event.velocity;
         voice.variantLane = chooseVariationLane(voice.velocity,owner);
         voice.age = noteClock;
-        voice.laneOffset = clampValue(ownerControls.manualLane / (splitEnabled?1.0f:3.0f), 0.0f, 1.0f);
+        voice.laneOffset = clampValue(ownerControls.manualLane / (splitEnabled&&!sharedDual?1.0f:3.0f), 0.0f, 1.0f);
         voice.cutLanePressure = 0.0f;
         voice.recordedStackPhase = 0.0f;
         voice.recordedStackPhaseValid = false;
@@ -5451,7 +5507,7 @@ struct ThruInstance {
     {
         clipControls = controls;
         clipControls.laneScanPaused = false;
-        splitClipControls[0]=liveControlsForPart(0); splitClipControls[1]=liveControlsForPart(1);
+        for(int p=0;p<4;++p)splitClipControls[p]=liveControlsForPart(p);
         for(auto& part:splitClipControls)part.laneScanPaused=false;
         clipOutputGain = outputGain;
         if (clip.clipPointCount == 0u || clip.clipDurationMs == 0u) return;
@@ -5461,7 +5517,7 @@ struct ThruInstance {
             applyLockedValue(clipControls, clipOutputGain,
                 static_cast<std::size_t>(LockParameter::algorithm), algorithm);
         // Resolve each part's engine before its dependent discrete curves.
-        for (std::size_t part = 0; part < 2; ++part) {
+        for (std::size_t part = 0; part < 4; ++part) {
             const auto parameter = static_cast<std::size_t>(LockParameter::algorithm);
             if (sampleClipCurve(clip,kClipPartParameterOffset + part*kLockParameterCount + parameter,
                                 position,false,algorithm))
@@ -5575,7 +5631,7 @@ struct ThruInstance {
             std::memory_order_relaxed);
         clipRecording = true;
         if(splitEnabled) {
-            for(int part=0;part<2;++part) captureClipPoint(ClipPointType::partHold,0u,part,
+            for(int part=0;part<partCount();++part) captureClipPoint(ClipPointType::partHold,0u,part,
                 settingsForPart(part).stackHold?1.0f:0.0f);
         } else if (clipReplacing || stackScanPaused) {
             captureClipPoint(ClipPointType::stackHold, 0u, -1,
@@ -6069,10 +6125,10 @@ struct ThruInstance {
             applyLockedValue(controls, outputGain, parameter,
                              target.baseValues[parameter]);
         }
-        const bool previousSplit=splitEnabled;
+        const bool previousSplit=splitEnabled,previousShared=sharedDual,previousQuad=quadMode;
         splitMixerOverrides.fill(false);
         restoreSplitClip(target);
-        if(previousSplit!=splitEnabled && voices[0].engine.prepared())refreshPlaybackVoices();
+        if((previousSplit!=splitEnabled||previousShared!=sharedDual||previousQuad!=quadMode) && voices[0].engine.prepared())refreshPlaybackVoices();
         clipControls = controls;
         clipOutputGain = outputGain;
         clipPositionMs = 0.0;
@@ -6085,6 +6141,7 @@ struct ThruInstance {
     void beginPreviewTransitionTail()
     {
         previewTransitionTail = lastPreviewSample;
+        directPreviewTransitionTail = lastDirectPreviewSample;
         previewTransitionRemaining = sourceTransitionFrames;
     }
 
@@ -6097,7 +6154,12 @@ struct ThruInstance {
             for (std::size_t channel = 0u; channel < 2u; ++channel) {
                 const float sample = previewTransitionTail[channel] * gain;
                 voiceMix[channel][frame] += sample;
-                if (frame + 1u == frames) lastPreviewSample[channel] += sample;
+                const float direct = directPreviewTransitionTail[channel] * gain;
+                directPreview[channel][frame] += direct;
+                if (frame + 1u == frames) {
+                    lastPreviewSample[channel] += sample;
+                    lastDirectPreviewSample[channel] += direct;
+                }
             }
             --previewTransitionRemaining;
         }
@@ -6563,7 +6625,7 @@ struct ThruInstance {
         int position = 0;
         for (std::size_t index = 0u; index < voices.size(); ++index) {
             const auto& voice = voices[index];
-            const int pad = voice.active && voice.held ? voice.sourcePad : -1;
+            const int pad = voice.active && voice.held ? displayedPad(voice.sourcePad,voice.part,voice.clipOwned) : -1;
             const int written = std::snprintf(
                 buffer + position, static_cast<std::size_t>(bufferLength - position),
                 index == 0u ? "%d" : ",%d", pad);
@@ -6596,7 +6658,7 @@ struct ThruInstance {
         int position = 0;
         for (std::size_t index = 0u; index < rolls.size(); ++index) {
             const auto& roll = rolls[index];
-            const int pad = roll.active && roll.held ? roll.sourcePad : -1;
+            const int pad = roll.active && roll.held ? displayedPad(roll.sourcePad,roll.part,roll.clipOwned) : -1;
             const int written = std::snprintf(
                 buffer + position,
                 static_cast<std::size_t>(bufferLength - position),
@@ -6689,14 +6751,14 @@ struct ThruInstance {
             case 22: controls.speed = midiRange(value, 0.05f, 4.0f); break;
             case 11: controls.splitCurve=value>=64?1:0; break;
             case 12: controls.splitBlend=midiUnit(value); break;
-            case 13: controls.splitLevelA=midiRange(value,0,2); break;
+            case 13: if(isQuad())applyLockedValue(controls,outputGain,partLevelParameter(midiPart),midiRange(value,0,2));else controls.splitLevelA=midiRange(value,0,2); break;
             case 14: controls.splitLevelB=midiRange(value,0,2); break;
-            case 15: controls.splitDelayA=midiUnit(value); break;
+            case 15: if(isQuad())applyLockedValue(controls,outputGain,partDelayParameter(midiPart),midiUnit(value));else controls.splitDelayA=midiUnit(value); break;
             case 16: controls.splitDelayB=midiUnit(value); break;
-            case 17: controls.splitReverbA=midiUnit(value); break;
+            case 17: if(isQuad())applyLockedValue(controls,outputGain,partReverbParameter(midiPart),midiUnit(value));else controls.splitReverbA=midiUnit(value); break;
             case 18: controls.splitReverbB=midiUnit(value); break;
             case 19: controls.cutLaneAdvance = static_cast<Engine::CutLaneAdvance>(midiChoice(value, 7)); break;
-            case 23: controls.manualLane = midiRange(value, 0.0f, splitEnabled ? 1.0f : 3.0f); break;
+            case 23: controls.manualLane = midiRange(value, 0.0f, splitEnabled && !sharedDual ? 1.0f : 3.0f); break;
             case 24: controls.laneCycles = midiRange(value, 0.125f, 16.0f); break;
             case 25: controls.algorithm = static_cast<Engine::PlaybackAlgorithm>(
                 midiChoice(value, static_cast<int>(Engine::kPlaybackAlgorithmCount))); break;
@@ -6869,6 +6931,7 @@ struct ThruInstance {
         else if (cc == 126) lockParameter = 80;
         if(cc==11)lockParameter=static_cast<int>(LockParameter::splitCurve);
         if(cc>=12 && cc<=18)lockParameter=static_cast<int>(LockParameter::splitBlend)+cc-12;
+        if(isQuad()&&(cc==13||cc==15||cc==17))lockParameter=static_cast<int>(cc==13?partLevelParameter(midiPart):cc==15?partDelayParameter(midiPart):partReverbParameter(midiPart));
         if (cc == 19) lockParameter = static_cast<int>(LockParameter::cutLaneAdvance);
         if (lockParameter >= 0) touchSplitMixerParameter(static_cast<std::size_t>(lockParameter));
         if (clipRecording && lockParameter >= 0
@@ -7079,7 +7142,10 @@ struct ThruInstance {
     {
         beginSourceTransitionTail();
         allNotesOff();
+        std::size_t voiceIndex=0;
         for (auto& voice : voices) {
+            voice.part=splitEnabled?static_cast<int>(voiceIndex/voicesPerPart()):0;
+            ++voiceIndex;
             voice.engine.rebindStorage(
                 storage.get() + planeCapacityFrames * 0u,
                 storage.get() + planeCapacityFrames * 1u,
@@ -7307,8 +7373,8 @@ struct ThruInstance {
             // different points in the same block.
             const Engine::Controls liveControlSnapshot = controls;
             const Engine::Controls clipControlSnapshot = clipControls;
-            const std::array<Engine::Controls,2u> partSnapshots {liveControlsForPart(0),liveControlsForPart(1)};
-            if (splitEnabled) for (int part=0;part<2;++part) {
+            const std::array<Engine::Controls,4u> partSnapshots {liveControlsForPart(0),liveControlsForPart(1),liveControlsForPart(2),liveControlsForPart(3)};
+            if (splitEnabled) for (int part=0;part<partCount();++part) {
                 for (auto& channel : splitBus[static_cast<std::size_t>(part)]) channel.fill(0);
                 splitEnvelopePower[part].fill(0);
             }
@@ -7404,6 +7470,8 @@ struct ThruInstance {
             }
 
             lastPreviewSample.fill(0.0f);
+            lastDirectPreviewSample.fill(0.0f);
+            for (auto& channel : directPreview) std::fill_n(channel.begin(),count,0.0f);
             if (previewActive && sampleStageFrames != 0u) {
                 const std::size_t available = previewFrame < sampleStageFrames
                     ? sampleStageFrames - previewFrame : 0u;
@@ -7439,9 +7507,22 @@ struct ThruInstance {
                             phase * phase * (3.0f - 2.0f * phase));
                         --previewFadeOutRemaining;
                     }
-                    const float partGain = splitEnabled ? splitFrameGain[static_cast<std::size_t>(sampleRequestLane / 2)][frame] : 1.0f;
-                    const float left = previewLeft[previewFrame + frame] * previewLevelState * fade * partGain;
-                    const float right = previewRight[previewFrame + frame] * previewLevelState * fade * partGain;
+                    const auto previewPart=static_cast<std::size_t>(sharedDual?splitFocus:isQuad()?sampleRequestLane:sampleRequestLane/2);
+                    const float partTarget=splitEnabled?splitFrameGain[previewPart][frame]:1.0f;
+                    if(splitEnabled&&sharedDual) {
+                        previewPartGainState+=(partTarget-previewPartGainState)*gainControlSlew;
+                        if(std::abs(partTarget-previewPartGainState)<.0001f)previewPartGainState=partTarget;
+                    } else previewPartGainState=partTarget;
+                    const float partGain=previewPartGainState;
+                    const float routeStep=1.0f/(sampleRate*.012f);
+                    previewRouteState=clampValue(previewRouteState+(previewRoute?routeStep:-routeStep),0.0f,1.0f);
+                    const float rawLeft = previewLeft[previewFrame+frame]*previewLevelState*fade;
+                    const float rawRight = previewRight[previewFrame+frame]*previewLevelState*fade;
+                    const float left = rawLeft*partGain*(1-previewRouteState);
+                    const float right = rawRight*partGain*(1-previewRouteState);
+                    directPreview[0][frame] += rawLeft*previewRouteState;
+                    directPreview[1][frame] += rawRight*previewRouteState;
+                    if(frame+1u==count)lastDirectPreviewSample={directPreview[0][frame],directPreview[1][frame]};
                     voiceMix[0u][frame] += left;
                     voiceMix[1u][frame] += right;
                     if (frame + 1u == count) lastPreviewSample = {left, right};
@@ -7475,6 +7556,8 @@ struct ThruInstance {
             const Engine::Controls& effectControlSnapshot = clipPlaying
                 ? clipControlSnapshot : liveControlSnapshot;
             processEffects(count, effectControlSnapshot);
+            for(std::size_t frame=0;frame<count;++frame)
+                for(std::size_t ch=0;ch<2;++ch)voiceMix[ch][frame]+=directPreview[ch][frame];
 
             if (engine.recording() && recordSource == 1) {
                 for (std::size_t frame = 0u; frame < count; ++frame) {
@@ -7671,7 +7754,7 @@ struct ThruInstance {
             "\"waveset_amount\":%.5f,\"waveset_detail\":%d,"
             "\"effect_reverb_algo\":%.5f,\"effect_reverb_decay\":%.5f,\"effect_reverb_pre\":%.5f,\"effect_reverb_damp\":%.5f,\"effect_reverb_diff\":%.5f,\"effect_reverb_mod\":%.5f,\"effect_reverb_width\":%.5f,\"effect_reverb_mix\":%.5f,\"effect_order\":%.5f,"
             "\"pad_mode\":%d,\"lane_variation\":%d,\"clip_record_mode\":%d,"
-            "\"preview_level\":%.5f,\"grain_quality\":%zu,"
+            "\"preview_level\":%.5f,\"preview_route\":%d,\"grain_quality\":%zu,"
             "\"launch_quantize\":%d,\"next_capture_id\":%llu,"
             "\"generation\":%llu,\"complete\":1}",
             controls.locus, controls.field, controls.speed,
@@ -7777,7 +7860,7 @@ struct ThruInstance {
             static_cast<double>(controls.effectOrder),
             static_cast<int>(padMode),
             static_cast<int>(laneVariation), static_cast<int>(clipRecordMode),
-            previewLevel, grainVoiceLimit,
+            previewLevel, previewRoute, grainVoiceLimit,
             static_cast<int>(launchQuantize),
             static_cast<unsigned long long>(nextCaptureId),
             static_cast<unsigned long long>(generation == kAnyPersistenceGeneration
@@ -7826,7 +7909,7 @@ struct ThruInstance {
         if (!file) return false;
         const char magic[8] { 'S', '3', 'G', 'T', 'H', 'R', '3', '\0' };
         bool ok = writeBytes(file, magic, sizeof(magic))
-            && writeU32(file, 14u)
+            && writeU32(file, 15u)
             && writeU64(file, snapshot ? snapshot->generation : persistenceGeneration)
             && writeF32(file, snapshot ? snapshot->tempo : tempoBpm)
             && writeF32(file, snapshot ? snapshot->swing : tempoSwing)
@@ -7945,7 +8028,7 @@ struct ThruInstance {
             && (version == 1u || version == 2u || version == 3u
                 || version == 4u || version == 5u || version == 6u
                 || version == 7u || version == 8u || version == 9u
-                || version == 10u || version == 11u || version == 12u || version == 13u || version == 14u)
+                || version == 10u || version == 11u || version == 12u || version == 13u || version == 14u || version==15u)
             && readU64(file, generation) && generation != 0u;
         std::fclose(file);
         return ok;
@@ -7979,7 +8062,7 @@ struct ThruInstance {
             && (version == 1u || version == 2u || version == 3u
                 || version == 4u || version == 5u || version == 6u
                 || version == 7u || version == 8u || version == 9u
-                || version == 10u || version == 11u || version == 12u || version == 13u || version == 14u)
+                || version == 10u || version == 11u || version == 12u || version == 13u || version == 14u || version==15u)
             && readU64(file, loadedGeneration)
             && loadedGeneration != 0u
             && (expectedGeneration == kAnyPersistenceGeneration
@@ -8016,8 +8099,8 @@ struct ThruInstance {
                     kVersion3LockParameterCount, kVersion4LockParameterCount, kVersion5LockParameterCount,
                     kVersion6LockParameterCount, kVersion7LockParameterCount, kVersion8LockParameterCount,
                     kVersion9LockParameterCount, kVersion10LockParameterCount, kVersion11LockParameterCount,
-                    kVersion12LockParameterCount, kVersion13LockParameterCount, kLockParameterCount};
-                const std::size_t storedBaseCount = counts[std::min<std::uint32_t>(version, 14u)];
+                    kVersion12LockParameterCount, kVersion13LockParameterCount, kVersion14LockParameterCount,kLockParameterCount};
+                const std::size_t storedBaseCount = counts[std::min<std::uint32_t>(version, 15u)];
                 for (std::size_t parameter = 0u;
                      parameter < storedBaseCount; ++parameter) {
                     ok = ok && readF32(file, clip.baseValues[parameter]);
@@ -8101,7 +8184,7 @@ struct ThruInstance {
                         && readU32(file, velocity)
                         && readU32(file, sourcePad)
                         && (version < 2u || readU32(file, take))
-                        && (take & 255u) < std::max(1u,takeCount) && (version<14u?take<256u:(take>>8u)<=2u);
+                        && (take & 255u) < std::max(1u,takeCount) && (version<14u?take<256u:(take>>8u)<=(version>=15u?4u:2u));
                     if (clip.clipDurationMs != 0u) {
                         note.startMs %= clip.clipDurationMs;
                     }
@@ -8579,6 +8662,8 @@ struct ThruInstance {
                 static_cast<int>(sizeof(kScaleNames) / sizeof(kScaleNames[0])) - 1));
         if (jsonNumber(json, "lane_variation", value)) laneVariation = static_cast<LaneVariation>(clampValue(static_cast<int>(value), 0, 4));
         if (jsonNumber(json, "clip_record_mode", value)) clipRecordMode = static_cast<ClipRecordMode>(clampValue(static_cast<int>(value), 0, 1));
+        previewRoute=0;
+        if (jsonNumber(json,"preview_route",value)) previewRoute=static_cast<int>(clampValue(value,0.0f,1.0f));
         if (jsonNumber(json, "preview_level", value)) previewLevel = clampValue(value, 0.0f, 1.0f);
         if (jsonNumber(json, "grain_quality", value)) {
             const int voices = clampValue(static_cast<int>(std::lround(value)), 4, 16);
@@ -8771,9 +8856,9 @@ struct ThruInstance {
         if (jsonUnsigned64(json, "next_capture_id", loadedNextCaptureId)) {
             nextCaptureId = std::max<std::uint64_t>(1u, loadedNextCaptureId);
         }
-        const bool previousSplit = splitEnabled;
+        const bool previousSplit = splitEnabled, previousShared = sharedDual, previousQuad=quadMode;
         if(!restoreSplitJson(json))return false;
-        if (previousSplit != splitEnabled && voices[0].engine.prepared()) refreshPlaybackVoices();
+        if ((previousSplit != splitEnabled || previousShared != sharedDual || previousQuad!=quadMode) && voices[0].engine.prepared()) refreshPlaybackVoices();
         persistenceGeneration = loadedGeneration;
         observePersistenceGeneration(loadedGeneration);
         return true;
@@ -8834,7 +8919,7 @@ void onMidi(void* opaque, const uint8_t* message, int length, int source)
     if (!instance || !message || length < 3) return;
     CallbackWorkTimer callbackTimer(*instance, false);
     const int type = message[0] & 0xf0;
-    instance->midiPart = (message[0] & 0x0f) == 1 ? 1 : 0;
+    instance->midiPart = (message[0]&0x0f)<instance->partCount()?(message[0]&0x0f):0;
     const int note = message[1] & 0x7f;
     const int value = message[2] & 0x7f;
     const bool hardwarePad = source == MOVE_MIDI_SOURCE_INTERNAL
@@ -8886,6 +8971,7 @@ void setParam(void* opaque, const char* key, const char* value)
     if (std::strcmp(key, "maintenance") != 0
         && std::strcmp(key, "performance_reset") != 0
         && std::strcmp(key, "all_notes_off") != 0
+        && std::strcmp(key, "panic") != 0
         && std::strcmp(key, "shift_held") != 0
         && std::strcmp(key, "stack_scan_paused") != 0
         && std::strcmp(key, "glitch_buffer_lock") != 0
@@ -8893,7 +8979,7 @@ void setParam(void* opaque, const char* key, const char* value)
         instance->markPersistentStateDirty();
     }
 
-    if (std::strcmp(key, "split_mode") == 0) { instance->setSplitMode(isTruthy(value)); return; }
+    if (std::strcmp(key, "split_mode") == 0) { instance->setPerformanceMode(clampValue(parseInteger(value,0),0,3)); return; }
     if (std::strcmp(key, "split_focus") == 0) { instance->selectSplitPart(parseInteger(value,0)); return; }
     if (std::strcmp(key, "split_copy") == 0) { instance->copySplitPart(instance->splitFocus); return; }
     if (std::strcmp(key, "part_mute") == 0) { if (instance->splitEnabled) instance->splitParts[static_cast<std::size_t>(instance->splitFocus)].settings.muted = isTruthy(value); return; }
@@ -8918,6 +9004,7 @@ void setParam(void* opaque, const char* key, const char* value)
     if (std::strcmp(key, "pad_mode") == 0) { instance->padMode = static_cast<PadMode>(parseEnum(value, kPadModeNames, static_cast<int>(instance->padMode))); return; }
     if (std::strcmp(key, "scale") == 0) { instance->padScale = static_cast<PadScale>(parseEnum(value, kScaleNames, static_cast<int>(instance->padScale))); instance->releaseSplitPart(instance->splitFocus); return; }
     if (std::strcmp(key, "lane_variation") == 0) { instance->laneVariation = static_cast<LaneVariation>(parseEnum(value, kLaneVariationNames, static_cast<int>(instance->laneVariation))); return; }
+    if (std::strcmp(key, "preview_route") == 0) { instance->previewRoute=clampValue(parseInteger(value,0),0,1); return; }
     if (std::strcmp(key, "preview_level") == 0) { instance->previewLevel = clampValue(parseFloat(value, instance->previewLevel), 0.0f, 1.0f); return; }
     if (std::strcmp(key, "clip_rate") == 0) { if (ClipSlot* clip = instance->activeClipSlot()) clip->clipRate = clampValue(parseFloat(value, clip->clipRate), 0.25f, 4.0f); return; }
     if (std::strcmp(key, "clip_record_mode") == 0) { instance->clipRecordMode = static_cast<ClipRecordMode>(parseEnum(value, kClipRecordModeNames, static_cast<int>(instance->clipRecordMode))); return; }
@@ -8941,7 +9028,7 @@ void setParam(void* opaque, const char* key, const char* value)
     if (std::strcmp(key, "root_note") == 0) { instance->rootNote = clampValue(parseInteger(value, instance->rootNote), 24, 96); return; }
     if (std::strcmp(key, "pad_octave") == 0) { instance->padOctave = clampValue(parseInteger(value, instance->padOctave), -3, 3); return; }
     if (std::strcmp(key, "performance_lane") == 0) { instance->setPerformanceLane(parseFloat(value, instance->performanceLane + 1.0f) - 1.0f); return; }
-    if (std::strcmp(key, "record_lane") == 0 && !instance->engine.recording()) { if (instance->splitEnabled) instance->selectSplitPart((clampValue(parseInteger(value,1),1,4)-1)/2); instance->selectedLane = static_cast<std::size_t>(clampValue(parseInteger(value, static_cast<int>(instance->selectedLane) + 1), 1, 4) - 1); return; }
+    if (std::strcmp(key, "record_lane") == 0 && !instance->engine.recording()) { if (instance->splitEnabled && !instance->sharedDual) instance->selectSplitPart(instance->isQuad()?clampValue(parseInteger(value,1),1,4)-1:(clampValue(parseInteger(value,1),1,4)-1)/2); instance->selectedLane = static_cast<std::size_t>(clampValue(parseInteger(value, static_cast<int>(instance->selectedLane) + 1), 1, 4) - 1); return; }
     if (std::strcmp(key, "record_source") == 0 && !instance->engine.recording()) { instance->recordSource = parseEnum(value, kRecordSourceNames, instance->recordSource); return; }
     if (std::strcmp(key, "record_gain") == 0) { instance->recordGain = clampValue(parseFloat(value, instance->recordGain), 0.0f, 4.0f); return; }
     if (std::strcmp(key, "monitor_level") == 0) { instance->monitorLevel = clampValue(parseFloat(value, instance->monitorLevel), 0.0f, 1.0f); return; }
@@ -8953,6 +9040,7 @@ void setParam(void* opaque, const char* key, const char* value)
     if (std::strcmp(key, "sample_normalize") == 0) { if (isTruthy(value)) instance->normalizeSelectedLane(); return; }
     if (std::strcmp(key, "sample_fade") == 0) { if (isTruthy(value)) instance->fadeSelectedLane(); return; }
     if (std::strcmp(key, "sample_trim_apply") == 0) { if (isTruthy(value)) instance->trimSelectedLane(); return; }
+    if (std::strcmp(key, "panic") == 0) { if(isTruthy(value))instance->panic(); return; }
     if (std::strcmp(key, "all_notes_off") == 0) { instance->allNotesOff(); return; }
     if (std::strcmp(key, "clip_playing") == 0) { instance->setClipPlaying(isTruthy(value)); return; }
     if (std::strcmp(key, "tempo_bpm") == 0) { instance->tempoBpm = clampValue(parseFloat(value, instance->tempoBpm), 40.0f, 240.0f); return; }
@@ -9241,7 +9329,7 @@ int getParamValue(void* opaque, const char* key, char* buffer, int bufferLength)
         const PlaybackVoice* display = instance->displayVoice();
         const int position = display
             ? static_cast<int>(std::lrintf(display->engine.normalizedPosition() * 1000.0f)) : 0;
-        const auto window=instance->displayWindow(instance->splitEnabled?instance->splitFocus:0);
+        const auto window=instance->sharedDual&&instance->splitEnabled?instance->sharedDisplayWindow():instance->displayWindow(instance->splitEnabled?instance->splitFocus:0);
         const int fieldStart=static_cast<int>(std::lrintf(window[0]*1000.0f));
         const int fieldEnd=static_cast<int>(std::lrintf(window[1]*1000.0f));
         const int meter = static_cast<int>(std::lrintf(clampValue(instance->engine.recordMeterPeak(), 0.0f, 1.0f) * 1000.0f));
@@ -9277,7 +9365,7 @@ int getParamValue(void* opaque, const char* key, char* buffer, int bufferLength)
         }
         return at;
     }
-    if (std::strcmp(key, "split_mode") == 0) return std::snprintf(buffer,bufferLength,"%d",instance->splitEnabled?1:0);
+    if (std::strcmp(key, "split_mode") == 0) return std::snprintf(buffer,bufferLength,"%d",instance->performanceMode());
     if (std::strcmp(key, "split_focus") == 0) return std::snprintf(buffer,bufferLength,"%d",instance->splitFocus);
     if (std::strcmp(key, "part_mute") == 0) return std::snprintf(buffer,bufferLength,"%d",instance->settingsForPart(instance->splitFocus).muted);
     if (std::strcmp(key, "split_state") == 0) return instance->formatSplitState(buffer,bufferLength);
@@ -9404,6 +9492,9 @@ int getParamValue(void* opaque, const char* key, char* buffer, int bufferLength)
     if (std::strcmp(key, "pad_mode") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(instance->padMode));
     if (std::strcmp(key, "scale") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(instance->padScale));
     if (std::strcmp(key, "lane_variation") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(instance->laneVariation));
+    if (std::strcmp(key, "preview_route") == 0) return std::snprintf(buffer,bufferLength,"%d",instance->previewRoute);
+    if (std::strcmp(key, "save_status") == 0) return std::snprintf(buffer,bufferLength,"%d",instance->saveStatus());
+    if (std::strcmp(key, "mix_status") == 0) return instance->mixStatus(buffer,bufferLength);
     if (std::strcmp(key, "preview_level") == 0) return std::snprintf(buffer, bufferLength, "%.4f", instance->previewLevel);
     if (std::strcmp(key, "clip_rate") == 0) { const ClipSlot* clip = instance->activeClipSlot(); return std::snprintf(buffer, bufferLength, "%.4f", clip ? clip->clipRate : 1.0f); }
     if (std::strcmp(key, "clip_record_mode") == 0) return std::snprintf(buffer, bufferLength, "%d", static_cast<int>(instance->clipRecordMode));
@@ -9608,7 +9699,7 @@ int formatEditorState(void* opaque, char* buffer, int bufferLength)
         "grain_quality",
         "pad_mode",
         "lane_variation",
-        "preview_level",
+        "preview_level", "preview_route",
         "pressure_mode",
         "root_note",
         "scale",

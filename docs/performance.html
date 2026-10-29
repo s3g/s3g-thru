@@ -10,7 +10,7 @@
   <body>
     <header class="site-header">
       <a class="brand" href="index.html">s3g Thru <span>manual</span></a>
-      <nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="split.html">Split</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav>
+      <nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav>
     </header>
 
     <div class="page-shell">
@@ -19,7 +19,7 @@
         <h1>Performance loops</h1>
         <p class="lead">The recorder captures performance data—not a mixed audio bounce. Notes, hold time, pitch, the pad played, polyphonic pressure, stack position and Hold/Run changes, and knob gestures remain editable through engine settings and can be replayed at other rates.</p>
 
-        <div class="callout"><p><strong>Split mode:</strong> two independent instruments share the pad grid, with two stereo lanes and four voices each. Use the same engine with different settings or choose different engines. <a href="split.html">Split setup, controls, mixing, and recording</a>.</p></div>
+        <div class="callout"><p><strong>Instrument modes:</strong> Single, Split, Shared Dual, and Quad use different lane layouts and voice budgets. <a href="modes.html">Compare the modes and choose a layout</a> before following the controls below.</p></div>
 
         <h2 id="data-flow">Performance data flow</h2>
 
@@ -50,17 +50,19 @@
           <li>Press <kbd>Play</kbd> to stop or resume performance playback. Free play remains available and shares the eight-voice pool.</li>
         </ol>
 
-        <p>In Split, the same take captures both parts’ notes, pressure, parameter edits, stack holds, sends, and Blend. Removing that take undoes the whole pass across both parts.</p>
+        <p>A take captures all active parts: notes, pressure, parameter edits, inserts, sends, levels, and any stack holds or Blend available in that mode. In Quad it includes C/D. Removing the take undoes that whole pass across the instruments.</p>
         <p>Recording is unquantized. Overlapping notes retain exact onset and duration, velocity, pitch, and which physical pad produced them. Continuous gesture curves interpolate across the loop seam, while recorded stack positions and Hold/Run transitions remain exact. Loop Rate scales note timing and gestures together from 0.25x to 4x.</p>
 
-        <div class="callout"><p><strong>Recorded versus live Stack Hold:</strong> a yellow Loop key and <code>RECORDED STACK HOLD</code> footer mean the playing clip is holding its stored stack positions. A bright-white Loop key means the physical button is applying a live hold on the Single instrument or focused Split part. The live hold overrides recorded motion; switching the live hold off returns the clip to its recorded Hold/Run state. If Tape <code>INRT</code> is active, recorded and live Hold transitions also drive the tape wet path's mechanical stop/start.</p></div>
+        <div class="callout"><p><strong>Recorded versus live Stack Hold:</strong> a medium-white Loop key and <code>RECORDED STACK HOLD</code> footer mean the playing clip is holding its stored stack positions. A bright-white Loop key means the physical button is applying a live hold on the Single instrument or focused part in a multi-instrument mode. The live hold overrides recorded motion; switching the live hold off returns the clip to its recorded Hold/Run state. If Tape <code>INRT</code> is active, recorded and live Hold transitions also drive the tape wet path's mechanical stop/start.</p></div>
 
         <h2 id="note-hold">Hold individual notes</h2>
 
         <p>Hold <kbd>Shift</kbd> and press a pad to latch that pad's note. Release both controls and the voice continues; its stable voice color remains on the pad. Use <kbd>Shift</kbd> + the same physical pad again to release it. Changing keyboard octave or Pad Mode does not release or remap an existing latch; this lets a latched Keys chord remain active when you enter Rolls. When an octave, Root, or Scale change makes that pad represent another pitch, the latch keeps the same dimmed voice color as an ownership marker. Return to its original mapping and it brightens again. Each pad is independent, up to eight source voices in Single or four per part in Split. In Rolls mode the same gesture latches a grouped stereo roll without consuming a source voice; in Cues mode, Shift+pad keeps its cue-store function instead.</p>
 
-        <p><code>HOLD OFF</code> on knob 4 of Pads &amp; Scale applies to the whole Single instrument, or independently to the focused part in Split. <code>MAN</code> is the default and leaves every latch active until it is toggled off. Choose 50 ms–60 s to auto-release latched notes. Changing the value reschedules that instrument’s currently latched pads from that moment; returning to Manual cancels their pending automatic release. Each newly latched pad receives the current delay. Latched note-on and note-off times are captured normally by performance recording.</p>
+        <p><code>HOLD OFF</code> on knob 4 of Pads &amp; Scale applies to the whole Single instrument, or independently to the focused part in any multi-instrument mode. <code>MAN</code> is the default and leaves every latch active until it is toggled off. Choose 50 ms–60 s to auto-release latched notes. Changing the value reschedules that instrument’s currently latched pads from that moment; returning to Manual cancels their pending automatic release. Each newly latched pad receives the current delay. Latched note-on and note-off times are captured normally by performance recording.</p>
 
+        <h3 id="panic">Stop all playing notes</h3>
+        <p>Hold <kbd>Delete</kbd> and press <kbd>Play</kbd> for <strong>Panic</strong>. Performance playback stops, an active performance take is closed, and notes, latches, Rolls, and browser preview release with short fades. Long Amp Envelope releases are shortened for this stop. Your sample assignments, recorded performance, and sound settings are retained. Delay and Reverb tails decay naturally. Audio-lane recording continues if it was active.</p>
         <h2 id="timing">Timing and launch</h2>
 
         <table class="readout-table parameter-table">
@@ -79,7 +81,7 @@
 
         <p>Thru uses its own Tempo setting; it does not follow Move's native transport. The blue-violet Step LED and <code>QUEUED</code> footer identify a pending launch.</p>
 
-        <div class="callout"><p><strong>Live Split mixing:</strong> moving Blend, a part level, a send, or Curve overrides that parameter’s recorded curve until playback restarts or another clip launches. Use Overdub to save the new movement. Mute is saved part state rather than a recorded mixer gesture. See <a href="split.html#live-mix">Mix over a playing clip</a>.</p></div>
+        <div class="callout"><p><strong>Live multi-instrument mixing:</strong> moving a part level or send, or dual-mode Blend/Curve, overrides that parameter’s recorded curve until playback restarts or another clip launches. Use Overdub to save the new movement. Mute is saved part state rather than a recorded mixer gesture. See <a href="split.html#live-mix">Mix over a playing clip</a>.</p></div>
         <h2 id="takes">Replace, Overdub, and takes</h2>
 
         <p>Replace clears the old event data and establishes take 1 as a protected base. Every completed, non-empty Overdub pass adds a take containing its new notes and pressure/parameter gestures. An empty pass adds nothing.</p>
@@ -90,9 +92,9 @@
           <li>Hold <kbd>Delete</kbd> and press <kbd>Record</kbd> to remove the newest overdub’s notes and gestures. Loop playback can continue.</li>
           <li>Repeat to remove earlier overdubs in reverse order. The base take stays protected; use Replace or reset the clip to start a new foundation.</li>
         </ol>
-        <p>Knob 2, <code>UNDO TAKE</code>, on Overdub Takes performs the same action. The other cells are reserved; Record Mode remains on Performance Loop. In Split, undo affects the latest pass across both instruments.</p>
+        <p>Knob 2, <code>UNDO TAKE</code>, on Overdub Takes performs the same action. The other cells are reserved; Record Mode remains on Performance Loop. In multi-instrument modes, take undo affects the latest pass across all instruments.</p>
 
-        <div class="callout"><p><strong>Undo scopes differ:</strong> Delete+Record is take-only undo. Shift+Back is the one-level safety undo for a destructive clip reset, lane-source replacement, clear, or sample edit.</p></div>
+        <div class="callout"><p><strong>Undo scopes differ:</strong> Delete+Record is take-only undo. The curved-arrow Undo key is the one-level safety undo for a destructive clip reset, lane-source replacement, clear, or sample edit. Stop recording before using it.</p></div>
 
         <h2 id="clips">Clip banks</h2>
 
@@ -101,14 +103,14 @@
           <figcaption>Shift+Play opens the current 16-slot bank. Track 1–4 selects bank A–D; Step 1–16 addresses its clips.</figcaption>
         </figure>
 
-        <p>Each A01–D16 clip stores its four sample assignments, Single/Split mode, instrument setups, shared effects, duration, rate, timing mode, captured tempo, notes, gestures, and take membership. Split recalls both A and B. A clip holds up to 1,024 note events and 8,192 gesture points over a maximum 120 seconds.</p>
+        <p>Each A01–D16 clip stores its four sample assignments, Single, Split, Shared Dual, or Quad mode, instrument setups, shared effects, duration, rate, timing mode, captured tempo, notes, gestures, and take membership. Dual modes recall A/B; Quad recalls A–D. A clip holds up to 1,024 note events and 8,192 gesture points over a maximum 120 seconds.</p>
 
         <table class="readout-table">
           <thead><tr><th>Gesture</th><th>Clip action</th></tr></thead>
           <tbody>
             <tr><td>Step</td><td>Select immediately or queue the clip according to Launch.</td></tr>
             <tr><td>Shift + Step</td><td>Copy the current clip—including sources and all takes—to the destination.</td></tr>
-            <tr><td>Delete + Step</td><td>Reset the complete destination clip, including source ownership. Shift+Back can undo the last reset.</td></tr>
+            <tr><td>Delete + Step</td><td>Reset the complete destination clip, including source ownership. Undo can undo the last reset.</td></tr>
             <tr><td>Left / Right</td><td>Move between banks A–D from the waveform or parameter view.</td></tr>
           </tbody>
         </table>
@@ -144,8 +146,8 @@
       </main>
 
       <aside class="toc" aria-label="Page navigation">
-        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="split.html">Split</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
-        <div class="toc-section"><h2>On this page</h2><a href="#data-flow">Data flow</a><a href="#record">Record</a><a href="#note-hold">Note hold</a><a href="#timing">Timing</a><a href="#takes">Overdub takes</a><a href="#clips">Clip banks</a><a href="#chain">Chain</a><a href="#capacity">Capacity</a></div>
+        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
+        <div class="toc-section"><h2>On this page</h2><a href="#data-flow">Data flow</a><a href="#record">Record</a><a href="#note-hold">Note hold</a><a href="#panic">Panic</a><a href="#timing">Timing</a><a href="#takes">Overdub takes</a><a href="#clips">Clip banks</a><a href="#chain">Chain</a><a href="#capacity">Capacity</a></div>
       </aside>
     </div>
     <footer class="manual-footer">Performance clips store data and source assignments; they do not duplicate the mixed audio output.</footer>

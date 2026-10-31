@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Texture engine - s3g Thru manual</title>
+    <meta name="description" content="Complete parameter reference for the s3g Thru Texture playback engine.">
+    <link rel="stylesheet" href="assets/styles.css">
+  </head>
+  <body>
+    <header class="site-header"><a class="brand" href="index.html">s3g Thru <span>manual</span></a><nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav></header>
+
+    <div class="page-shell">
+      <main class="content" id="content">
+        <p class="eyebrow">Playback engine 12 of 13</p>
+        <h1>Texture</h1><p class="lead">A held note becomes a small sample phrase: scattered events, grouped bursts, repeated pitch contours, or ornaments. Each note keeps its own source path and a bounded set of overlapping stereo events.</p>
+        <div class="callout"><p><strong>Good for:</strong> Playable sample textures, generated motifs, scattered layers, and short ornamental phrases.</p></div>
+        <h2 id="pages">Pages and navigation</h2>
+        <p>Choose Texture with Algorithm on the shared Engine page. Up/Down reaches Pads &amp; Scale, Amp Envelope, Stack Path, and the Texture page. Quad omits Stack Path because each part owns one lane. The remaining shared pages work as described in the <a href="engines.html#shared">shared Engine table</a> and <a href="engines.html#stack-path">Stack Path reference</a>.</p>
+        <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/texture.svg" aria-label="Open Texture page"><img src="assets/screens/texture.svg" alt="Texture parameter page with knob labels and values."></button></div><figcaption>Knobs 1–4 match the top row; 5–8 match the bottom row. Small boxes mark reserved controls.</figcaption></figure>
+        <h2 id="parameters">Texture — every parameter</h2>
+        <table class="readout-table parameter-table"><thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>What it controls</th></tr></thead><tbody>
+          <tr><td>1</td><td>MODE</td><td>Spray / Grouped / Motif / Ornament</td><td>Mode selects Spray, Grouped, Motif, or Ornament. Spray scatters independent events; Grouped introduces gaps between event groups; Motif repeats a pitched contour and spaced source positions; Ornament adds shorter notes around each main event.</td></tr>
+          <tr><td>2</td><td>RATE</td><td>0.25–24 Hz</td><td>Texture event rate sets the underlying event launches per second. Scatter and grouped or ornamental timing modify this spacing. Four internal events per held note keep the voice cost bounded; a full event pool skips a new launch.</td></tr>
+          <tr><td>3</td><td>LEN</td><td>20–2000 ms</td><td>Texture event length sets each new sample event’s duration. Existing events finish with their captured timing. Ornament notes are shorter than the main event. Dense, long events may fill the four-event pool.</td></tr>
+          <tr><td>4</td><td>SCAT</td><td>0–100%</td><td>Texture timing scatter varies intervals between event launches. In Grouped mode it also varies source positions slightly. Zero keeps regular base timing.</td></tr>
+          <tr><td>5</td><td>RNGE</td><td>0–24 st</td><td>Texture pitch range limits generated semitone intervals around the played note. The selected Pads &amp; Scale scale quantizes these intervals; zero keeps the played pitch. Spray and Grouped use both directions, Motif builds an upward contour, and Ornament moves around the main note.</td></tr>
+          <tr><td>6</td><td>GRUP</td><td>2–8</td><td>Texture group size sets the length of a repeated motif, an ornament group, or a group before a pause. It is reserved in Spray mode.</td></tr>
+          <tr><td>7</td><td>SPRD</td><td>0–100%</td><td>Texture stereo spread distributes events toward the left and right while keeping the recorded stereo pair together. Zero centers placement; 100% gives the widest distribution.</td></tr>
+          <tr><td>8</td><td>SEED</td><td>1–9999</td><td>Texture seed chooses a reproducible sequence of random variations. Each played voice has its own variation. A new seed is adopted at the next group boundary, while already sounding events finish normally.</td></tr>
+        </tbody></table>
+        <p><strong>MIDI:</strong> CCs 40–45 address the first six engine-page knobs. Texture Spread and Seed use CCs 28 and 29. Values are absolute 0–127, scaled to the displayed range. Unused slots are reserved; the MIDI channel selects the part as described in <a href="shortcuts.html#midi">External MIDI</a>.</p>
+        <h2 id="playing">Playing, lanes, and preparation</h2>
+<p>Notes set pitch. Speed controls movement through the source independently. The shared Amp Envelope sets note attack and release. Single provides eight note voices; both dual modes provide four per part; Quad provides two per part. Each note follows its own stack path and phase. Loop holds stack travel in Single and dual modes.</p>
+<p>Each held note can run four internal events. Each event captures its pitch, stereo placement, lane blend, source region, and edge fades at launch. Pressure, stack travel, and parameter edits shape later events while existing ones finish. Join controls the short launch, release, and loop-edge fades. Loaded transient regions guide event starts when available.</p>
+<h2 id="starts">Starting points</h2><p>Start with Motif, Rate 4 Hz, Length 250 ms, Scatter 20%, Range 7 semitones, Group 4, Spread 50%, and Seed 1. Select a scale on Pads &amp; Scale and hold a note. For a regular same-pitch phrase, set Range and Scatter to zero.</p>
+<nav class="page-nav" aria-label="Page navigation"><a class="page-nav-link" href="engine-morph.html"><span>Previous</span>Morph</a><a class="page-nav-link next" href="engine-formant.html"><span>Next</span>Formant</a></nav>
+      </main>
+      <aside class="toc" aria-label="Page navigation">
+        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
+        <div class="toc-section"><h2>Instrument modes</h2><a href="playing.html">Single · Basic playing</a><a href="modes.html">Compare modes</a><a href="split.html">Split</a><a href="shared-dual.html">Shared Dual</a><a href="quad.html">Quad</a></div>
+        <div class="toc-section"><h2>Engine guides</h2><a href="engine-motion.html">Motion</a><a href="engine-lanes.html">Lanes</a><a href="engine-grains.html">Grains</a><a href="engine-cutups.html">Cutups</a><a href="engine-sample.html">Sample</a><a href="engine-slices.html">Slices</a><a href="engine-glitch.html">Glitch</a><a href="engine-weave.html">Weave</a><a href="engine-wavesets.html">Wavesets</a><a href="engine-prism.html">Prism</a><a href="engine-morph.html">Morph</a><a href="engine-texture.html">Texture</a><a href="engine-formant.html">Formant</a></div>
+        <div class="toc-section"><h2>On this page</h2><a href="#pages">Pages</a><a href="#parameters">Parameters</a><a href="#playing">Playing</a><a href="#starts">Starting points</a></div>
+      </aside>
+    </div>
+    <footer class="manual-footer">Texture: Playable sample textures, generated motifs, scattered layers, and short ornamental phrases.</footer>
+    <script src="assets/lightbox.js"></script>
+  </body>
+</html>

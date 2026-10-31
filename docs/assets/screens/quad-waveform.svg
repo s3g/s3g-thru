@@ -507,7 +507,7 @@
     <rect x="0" y="53" width="128" height="1" fill="#050706"/>
     <rect x="0" y="53" width="54" height="1" fill="#dce8e1"/>
     <rect x="0" y="55" width="128" height="9" fill="#050706"/>
-    <text x="1" y="60.5" fill="#dce8e1">THRU 0.28.0</text>
+    <text x="1" y="60.5" fill="#dce8e1">THRU 0.29.0-test.18</text>
     <rect x="0" y="55" width="128" height="9" fill="#050706"/>
     <text x="1" y="60.5" fill="#dce8e1">STOP 13.6b SYNC 1.00x</text>
   </g>

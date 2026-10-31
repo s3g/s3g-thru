@@ -1149,8 +1149,98 @@ void appendLittleU32(
     bytes.push_back(static_cast<std::uint8_t>(value >> 24u));
 }
 
+// Remove the chain-bank extension to test migration from a real format-17 bank.
+void downgradeClipBankToV17(const std::string& path)
+{
+    struct stat st{};assert(stat(path.c_str(),&st)==0&&st.st_size>4);
+    std::vector<std::uint8_t> bytes(static_cast<std::size_t>(st.st_size)-4u);
+    auto* file=std::fopen(path.c_str(),"rb");assert(file);
+    assert(std::fread(bytes.data(),1,bytes.size(),file)==bytes.size());std::fclose(file);
+    if(littleU32(bytes,8)==23u){assert(bytes.size()>37128);bytes.resize(bytes.size()-37128);bytes[8]=19;}
+    if(littleU32(bytes,8)==22u){assert(bytes.size()>29448);bytes.resize(bytes.size()-29448);bytes[8]=19;}
+    if(littleU32(bytes,8)==21u){assert(bytes.size()>25608);bytes.resize(bytes.size()-25608);bytes[8]=19;}
+    if(littleU32(bytes,8)==20u){assert(bytes.size()>24328);bytes.resize(bytes.size()-24328);bytes[8]=19;}
+    if(littleU32(bytes,8)==19u){assert(bytes.size()>4104);bytes.resize(bytes.size()-4104);bytes[8]=18;}
+    if(littleU32(bytes,8)!=18u)return;
+    constexpr std::size_t extension=16u+16u*(24u+64u*32u);
+    assert(bytes.size()>extension&&littleU32(bytes,bytes.size()-extension)==0x43484e31u);
+    bytes.resize(bytes.size()-extension);bytes[8]=17;
+    std::uint32_t checksum=2166136261u;for(auto byte:bytes){checksum^=byte;checksum*=16777619u;}
+    appendLittleU32(bytes,checksum);file=std::fopen(path.c_str(),"wb");assert(file);
+    assert(std::fwrite(bytes.data(),1,bytes.size(),file)==bytes.size());assert(std::fclose(file)==0);
+}
+
+// Strip the optional path extension to exercise the real format-16 reader.
+void downgradeClipBankToV16(const std::string& path)
+{
+    downgradeClipBankToV17(path);
+    struct stat st{};assert(stat(path.c_str(),&st)==0 && st.st_size>4);
+    std::vector<std::uint8_t> input(static_cast<std::size_t>(st.st_size)-4u),output;
+    auto* file=std::fopen(path.c_str(),"rb");assert(file);
+    assert(std::fread(input.data(),1,input.size(),file)==input.size());std::fclose(file);
+    if(littleU32(input,8)!=17u)return;
+    constexpr std::size_t extension=4u+64u*5u*25u*4u;
+    assert(input.size()>extension&&littleU32(input,input.size()-extension)==0x42505431u);
+    output.insert(output.end(),input.begin(),input.begin()+8);appendLittleU32(output,16u);
+    std::size_t offset=12;
+    const auto copy=[&](std::size_t count){assert(offset+count<=input.size());
+        output.insert(output.end(),input.begin()+offset,input.begin()+offset+count);offset+=count;};
+    copy(228u);
+    for(int clip=0;clip<64;++clip) {
+        copy(4u+176u*4u+4u*(4u+768u+64u)+16u*4u+36u);
+        const auto notes=littleU32(input,offset),points=littleU32(input,offset+4u);
+        appendLittleU32(output,notes);const auto countOffset=output.size();appendLittleU32(output,0);
+        offset+=8;copy(notes*24u);std::uint32_t retained=0;
+        for(std::uint32_t point=0;point<points;++point) {
+            if(littleU32(input,offset+16u)<9u){copy(24u);++retained;}else offset+=24u;
+        }
+        for(int byte=0;byte<4;++byte)output[countOffset+byte]=static_cast<std::uint8_t>(retained>>(byte*8));
+    }
+    copy(input.size()-extension-offset);
+    std::uint32_t checksum=2166136261u;for(auto byte:output){checksum^=byte;checksum*=16777619u;}
+    appendLittleU32(output,checksum);
+    file=std::fopen(path.c_str(),"wb");assert(file);
+    assert(std::fwrite(output.data(),1,output.size(),file)==output.size());assert(std::fclose(file)==0);
+}
+
+// Produce a genuine pre-gesture bank before exercising older migrations.
+void downgradeClipBankToV15(const std::string& path)
+{
+    downgradeClipBankToV16(path);
+    struct stat st{};assert(stat(path.c_str(),&st)==0 && st.st_size>4);
+    std::vector<std::uint8_t> input(static_cast<std::size_t>(st.st_size)-4u),output;
+    auto* file=std::fopen(path.c_str(),"rb");assert(file);
+    assert(std::fread(input.data(),1,input.size(),file)==input.size());std::fclose(file);
+    if(littleU32(input,8)==15u)return;
+    assert(littleU32(input,8)==16u);
+    output.insert(output.end(),input.begin(),input.begin()+8);appendLittleU32(output,15u);
+    std::size_t offset=12;
+    const auto copy=[&](std::size_t count){assert(offset+count<=input.size());
+        output.insert(output.end(),input.begin()+offset,input.begin()+offset+count);offset+=count;};
+    copy(228u);
+    for(int clip=0;clip<64;++clip) {
+        copy(4u+176u*4u+4u*(4u+768u+64u)+8u*4u);
+        offset+=8u*4u; // physical cue positions were introduced in format 16
+        copy(36u);
+        const auto notes=littleU32(input,offset),points=littleU32(input,offset+4);
+        appendLittleU32(output,notes);const auto countOffset=output.size();appendLittleU32(output,0);
+        offset+=8;copy(notes*24u);
+        std::uint32_t retained=0;
+        for(std::uint32_t point=0;point<points;++point) {
+            if(littleU32(input,offset+16u)<8u){copy(24u);++retained;}else offset+=24u;
+        }
+        for(int byte=0;byte<4;++byte)output[countOffset+byte]=static_cast<std::uint8_t>(retained>>(byte*8));
+    }
+    copy(input.size()-offset);
+    std::uint32_t checksum=2166136261u;for(auto byte:output){checksum^=byte;checksum*=16777619u;}
+    appendLittleU32(output,checksum);
+    file=std::fopen(path.c_str(),"wb");assert(file);
+    assert(std::fwrite(output.data(),1,output.size(),file)==output.size());assert(std::fclose(file)==0);
+}
+
 void downgradeClipBankToV8(const std::string& path)
 {
+    downgradeClipBankToV15(path);
     struct stat status {};
     assert(stat(path.c_str(), &status) == 0);
     assert(status.st_size > 4);
@@ -1202,6 +1292,7 @@ void downgradeClipBankToV8(const std::string& path)
 
 void downgradeClipBankToV13(const std::string& path)
 {
+    downgradeClipBankToV15(path);
     struct stat status {};
     assert(stat(path.c_str(), &status) == 0);
     assert(status.st_size > 4);
@@ -1253,6 +1344,7 @@ void downgradeClipBankToV13(const std::string& path)
 
 void downgradeClipBankToV12(const std::string& path)
 {
+    downgradeClipBankToV15(path);
     struct stat status {};
     assert(stat(path.c_str(), &status) == 0);
     assert(status.st_size > 4);
@@ -1304,6 +1396,7 @@ void downgradeClipBankToV12(const std::string& path)
 
 void downgradeClipBankToV9(const std::string& path)
 {
+    downgradeClipBankToV15(path);
     struct stat status {};
     assert(stat(path.c_str(), &status) == 0);
     assert(status.st_size > 4);
@@ -1355,6 +1448,7 @@ void downgradeClipBankToV9(const std::string& path)
 
 void downgradeClipBankToV1(const std::string& path)
 {
+    downgradeClipBankToV15(path);
     struct stat status {};
     assert(stat(path.c_str(), &status) == 0);
     assert(status.st_size > 4);
@@ -1413,6 +1507,7 @@ void downgradeClipBankToV1(const std::string& path)
 
 void downgradeClipBankToV2(const std::string& path)
 {
+    downgradeClipBankToV15(path);
     struct stat status {};
     assert(stat(path.c_str(), &status) == 0);
     assert(status.st_size > 4);
@@ -1691,11 +1786,11 @@ int main()
     const CcCheck ccChecks[] {
         {20, "locus", "1.0000"}, {21, "field", "1.0000"},
         {22, "speed", "4.0000"}, {23, "manual_lane", "4.0000"},
-        {24, "lane_cycles", "16.0000"}, {25, "algorithm", "8"},
+        {24, "lane_cycles", "16.0000"}, {25, "algorithm", "12"},
         {26, "join", "1.0000"}, {27, "output_gain", "2.0000"},
         {28, "motion_mode", "7"}, {29, "motion_sound", "7"},
         {30, "motion_rate", "20.0000"}, {31, "lanes_mode", "2"},
-        {32, "lane_path", "7"}, {33, "lanes_stretch", "1"},
+        {32, "lane_path", "8"}, {33, "lanes_stretch", "1"},
         {34, "stretch_ratio", "4.0000"}, {35, "lane_1_gain", "2.0000"},
         {36, "lane_2_gain", "2.0000"}, {37, "lane_3_gain", "2.0000"},
         {38, "lane_4_gain", "2.0000"}, {39, "grain_mode", "3"},
@@ -1745,6 +1840,7 @@ int main()
         {126, "segment_curve", "1.0000"},
     };
     for (const auto& check : ccChecks) {
+        api->set_param(instance,"algorithm","Motion"); // Legacy map; contextual new-engine CCs have separate coverage.
         midi(api, instance, 0xB0, static_cast<std::uint8_t>(check.cc), 127,
              MOVE_MIDI_SOURCE_EXTERNAL);
         const std::string actual = get(api, instance, check.key);
@@ -2097,11 +2193,8 @@ int main()
     api->set_param(instance, "clip_playing", "1");
     api->set_param(instance, "clip_select", "1");
     assert(stateField(get(api, instance, "clip_bank_state"), 1) == 1);
-    for (int block = 0; block < 240
-         && stateField(get(api, instance, "clip_bank_state"), 0) != 1; ++block) {
-        render(api, instance, 1);
-    }
-    assert(stateField(get(api, instance, "clip_bank_state"), 0) == 1);
+    // Give the asynchronous loader wall-clock time, as for stopped launches.
+    waitForClip(api, instance, 1);
     assert(get(api, instance, "algorithm") == "1");
     api->set_param(instance, "clip_playing", "0");
     api->set_param(instance, "clip_select", "0");
@@ -2733,7 +2826,7 @@ int main()
     midi(api, instance, 0x80, 64, 0);
     render(api, instance, 40);
     const std::string longGrainState = get(api, instance, "state");
-    assert(longGrainState.find("\"version\":15") != std::string::npos);
+    assert(longGrainState.find("\"version\":17") != std::string::npos);
     assert(longGrainState.find("\"long_grain_length\":12000.00000")
         != std::string::npos);
 
@@ -3422,7 +3515,7 @@ int main()
     api->set_param(instance, "algorithm", "Motion");
     api->set_param(instance, "cue_store", "2,0.625");
     const std::string state = get(api, instance, "state");
-    assert(state.find("\"version\":15") != std::string::npos);
+    assert(state.find("\"version\":17") != std::string::npos);
     assert(state.find("\"scale\":20") != std::string::npos);
     assert(state.find("\"clip_record_mode\":1") != std::string::npos);
     assert(state.find("\"monitor_level\"") == std::string::npos);
@@ -3546,10 +3639,18 @@ int main()
         == sizeof(clipMagic));
     assert(std::memcmp(clipMagic, "S3GTHR3", 7u) == 0);
     assert(std::fread(&clipVersion, sizeof(clipVersion), 1u, clipFile) == 1u);
-    assert(clipVersion == 15u);
+    assert(clipVersion == 23u);
     std::fclose(stateFile);
     std::fclose(laneFile);
     std::fclose(clipFile);
+
+    /* The previous testing bank upgrades with a default authored path. */
+    downgradeClipBankToV16(clipPath);
+    instance=api->create_instance(persistenceDir.c_str(),nullptr);assert(instance);
+    assert(get(api,instance,"persistence")=="1,1");
+    assert(get(api,instance,"stack_path_state").rfind("4,0,",0)==0);
+    assert(get(api,instance,"effect_tape_age")=="42.00");
+    api->destroy_instance(instance);
 
     /* The accepted pre-Split local bank keeps its complete Single setup. */
     downgradeClipBankToV13(clipPath);
@@ -3736,7 +3837,7 @@ int main()
     assert(std::fread(clipMagic, 1u, sizeof(clipMagic), clipFile)
         == sizeof(clipMagic));
     assert(std::fread(&clipVersion, sizeof(clipVersion), 1u, clipFile) == 1u);
-    assert(clipVersion == 15u);
+    assert(clipVersion == 23u);
     assert(std::fclose(clipFile) == 0);
 
     std::remove(statePath.c_str());

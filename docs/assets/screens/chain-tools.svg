@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="768" height="384" viewBox="0 0 128 64" role="img" aria-labelledby="title desc">
+  <title id="title">Chain and Entry Copy/Paste with numbered encoders and wider text spacing</title>
+  <desc id="desc">Chain and Entry Copy/Paste with numbered encoders and wider text spacing shown as it appears on Ableton Move.</desc>
+  <rect width="128" height="64" fill="#050706"/>
+  <g shape-rendering="crispEdges" font-family="DejaVu Sans Mono, IBM Plex Mono, monospace" font-size="6" font-style="normal" font-weight="400" text-rendering="geometricPrecision">
+    <text x="1" y="5.5" fill="#dce8e1">CHAIN TOOLS</text>
+    <text x="102" y="5.5" fill="#dce8e1">C01</text>
+    <rect x="0" y="8" width="128" height="1" fill="#dce8e1"/>
+    <text x="17" y="16.5" fill="#dce8e1">CHAIN</text>
+    <text x="81" y="16.5" fill="#dce8e1">ENTRY</text>
+    <rect x="63" y="11" width="1" height="28" fill="#dce8e1"/>
+    <text x="3" y="26.5" fill="#dce8e1">1 COPY</text>
+    <text x="3" y="36.5" fill="#dce8e1">2 PASTE</text>
+    <text x="67" y="26.5" fill="#dce8e1">3 COPY</text>
+    <text x="67" y="36.5" fill="#dce8e1">4 PASTE</text>
+    <rect x="0" y="41" width="128" height="1" fill="#dce8e1"/>
+    <text x="2" y="49.5" fill="#dce8e1">BANK</text>
+    <text x="2" y="59.5" fill="#dce8e1">01</text>
+    <text x="34" y="49.5" fill="#dce8e1">SLOT</text>
+    <text x="34" y="59.5" fill="#dce8e1">02</text>
+    <text x="66" y="49.5" fill="#dce8e1">CUE</text>
+    <text x="66" y="59.5" fill="#dce8e1">HERE</text>
+    <text x="98" y="49.5" fill="#dce8e1">CNCL</text>
+    <text x="98" y="59.5" fill="#dce8e1">QUEU</text>
+  </g>
+  <rect x="0.25" y="0.25" width="127.5" height="63.5" fill="none" stroke="#5b6661" stroke-width="0.5"/>
+</svg>

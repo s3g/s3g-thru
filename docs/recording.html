@@ -49,7 +49,7 @@
 
         <ol>
           <li>Press <kbd>Track 1</kbd>, <kbd>2</kbd>, <kbd>3</kbd>, or <kbd>4</kbd> to select the destination.</li>
-          <li>On Mix / Rec, choose <code>INPUT</code> for Move's selected hardware input or <code>RESAMPLE</code> for Thru's stereo output.</li>
+          <li>On Mix / Rec, choose <code>INPUT</code> for Move's selected hardware input or <code>MAIN MIX</code> for Thru's stereo output (<code>RESAMPLE</code> in 0.28.0).</li>
           <li>Hold <kbd>Shift</kbd> and press <kbd>Record</kbd>. The Record key is orange during audio capture.</li>
           <li>Repeat <kbd>Shift</kbd> + <kbd>Record</kbd> to stop. The completed capture becomes that lane's active source; the other three lanes are unchanged.</li>
           <li>Wait briefly if <code>SCANNING WAVEFORM</code> appears. The waveform fills in as the scan completes.</li>
@@ -59,6 +59,12 @@
 
         <p>Each completed input recording or resample is written as a new stereo WAV. Recording the lane again changes its active assignment but does not overwrite the earlier file. Hold <kbd>Shift</kbd> and press <kbd>Delete</kbd> to clear the selected lane. The latest capture, clear, library replacement, or sample edit can be reversed once with <kbd>Undo</kbd>.</p>
 
+        <h2 id="part-capture">Record a part into a lane</h2>
+        <p><strong>Requires 0.29.0-test.2 or newer.</strong> In Split, Shared Dual, or Quad, SRC on Mix / Rec also offers PART A/B, or PART A/B/C/D in Quad. Single offers INPUT and MAIN MIX.</p>
+        <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/part-capture-source.svg" aria-label="Open the part capture source screen"><img src="assets/screens/part-capture-source.svg" alt="Mix and Record page showing PT D in the SRC cell"></button></div><figcaption>SRC uses IN, MIX, and PT A–PT D so the part letter stays visible. This Quad example records Part D.</figcaption></figure>
+        <ol><li>Use Track to select the destination lane. Stop any sample preview.</li><li>On Mix / Rec, turn SRC to the part you want to capture. Source selection does not switch editing focus.</li><li>Play that part or start its performance loop. Press Shift + Record to begin.</li><li>Press Shift + Record again to stop. The completed stereo take becomes the selected lane's source and is saved to the recordings archive. Wait for loading and saving to finish before another capture.</li></ol>
+        <p>The tap is after the part's private processing and before mute, part level, and A/B Blend. You can capture a muted or faded-out part. Shared Tape and Delay/Reverb returns are excluded. The mixer remains where you set it.</p>
+        <p>The previous lane stays available while recording, including Shared Dual and recording a part back into its own source lane. After capture stops, the destination changes using the usual sample-loading transition. In Shared Dual, both programs then hear that new shared source. The normal 12-second lane limit applies; captures use free length.</p>
         <h2 id="library">Load from the sample library</h2>
 
         <figure>

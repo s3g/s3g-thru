@@ -1,6 +1,7 @@
 #pragma once
 
 #include "thru_waveset_map.h"
+#include "thru_spectral.h"
 #include "thru_background_thread.h"
 
 #include <atomic>
@@ -17,10 +18,10 @@ namespace s3g_daisy {
 // Single-producer/single-consumer snapshot mailbox. Audio copies a fixed
 // number of frames, never waits or allocates, and never lends mutable source
 // memory to the worker. Completed maps replace active banks between blocks.
-class ThruWavesetWorker {
+template<class Bank> class ThruAnalysisWorker {
 public:
     enum State { idle, copying, requested, analyzing, complete };
-    ~ThruWavesetWorker() { stop(); }
+    ~ThruAnalysisWorker() { stop(); }
 
     bool prepare(std::size_t capacity)
     {
@@ -47,10 +48,14 @@ public:
     State state() const { return state_.load(std::memory_order_acquire); }
     std::size_t lane() const { return lane_; }
     std::uint64_t revision() const { return revision_; }
-    const ThruWavesetBank* bank(std::size_t lane) const
+    const Bank* bank(std::size_t lane) const
     {
         return lane < active_.size() ? active_[lane].get() : nullptr;
     }
+
+    void exchangeBanks(ThruAnalysisWorker& other) { active_.swap(other.active_); }
+    void exchangePreparedBanks(std::array<std::unique_ptr<Bank>,4u>& banks) { active_.swap(banks); }
+    void clearBanks() { for(auto& bank:active_)bank.reset(); }
 
     void begin(std::size_t lane, std::uint64_t revision,
                std::size_t frames, float rate)
@@ -100,7 +105,7 @@ public:
 private:
     static void* entry(void* opaque)
     {
-        auto& self = *static_cast<ThruWavesetWorker*>(opaque);
+        auto& self = *static_cast<ThruAnalysisWorker*>(opaque);
         configureBackgroundThread();
         while (self.running_.load(std::memory_order_acquire)) {
             if (self.state() != requested) {
@@ -112,7 +117,7 @@ private:
             self.retired_.reset();
             self.result_.reset();
             try {
-                self.result_ = std::make_unique<ThruWavesetBank>();
+                self.result_ = std::make_unique<Bank>();
                 self.result_->analyze(self.snapshot_.get(),
                     self.snapshot_.get() + self.capacity_, self.frames_,
                     self.rate_, self.revision_);
@@ -129,11 +134,14 @@ private:
     std::atomic<bool> running_ {false};
     std::atomic<State> state_ {idle};
     std::unique_ptr<float[]> snapshot_;
-    std::array<std::unique_ptr<ThruWavesetBank>, 4u> active_;
-    std::unique_ptr<ThruWavesetBank> result_, retired_;
+    std::array<std::unique_ptr<Bank>, 4u> active_;
+    std::unique_ptr<Bank> result_, retired_;
     std::size_t capacity_ = 0u, frames_ = 0u, copied_ = 0u, lane_ = 0u;
     float rate_ = 44100.0f;
     std::uint64_t revision_ = 0u;
 };
+
+using ThruWavesetWorker=ThruAnalysisWorker<ThruWavesetBank>;
+using ThruSpectralWorker=ThruAnalysisWorker<ThruSpectralBank>;
 
 } // namespace s3g_daisy

@@ -1,4 +1,4 @@
-/* s3g Thru 0.28.0 — polyphonic sampler/performance-looper takeover for Move. */
+/* s3g Thru 0.29.0-test.18 — polyphonic sampler/performance-looper takeover for Move. */
 
 import * as moveConstants from '/data/UserData/schwung/shared/constants.mjs';
 import * as moveInputFilter from '/data/UserData/schwung/shared/input_filter.mjs';
@@ -25,6 +25,8 @@ const MovePlay = constant('MovePlay', 85);
 const MoveLoop = constant('MoveLoop', 58);
 const MoveDelete = constant('MoveDelete', 119);
 const MoveKnob1 = constant('MoveKnob1', 71);
+// Move's eight capacitive knob touches are note numbers 0..7 (Schwung page_input.mjs).
+const MoveCrossfaderTouch = 2;
 const MoveCopy = constant('MoveCopy', 60);
 const MoveCapture = constant('MoveCapture', 52);
 const MoveMute = constant('MoveMute', 88);
@@ -86,10 +88,10 @@ const setButtonLED = typeof moveInputFilter.setButtonLED === 'function'
         }
     };
 
-const UI_VERSION = '0.28.0';
+const UI_VERSION = '0.29.0-test.18';
 const WAVE_BINS = 112;
 const ALGORITHMS = ['MOTION', 'LANES', 'GRAINS', 'CUTUPS', 'SAMPLE', 'SLICES',
-    'GLITCH', 'WEAVE', 'WAVESETS'];
+    'GLITCH', 'WEAVE', 'WAVESETS', 'PRISM', 'MORPH', 'TEXTURE', 'FORMANT'];
 const ROLL_DIVISIONS = ['1/4', '1/8', '1/8T', '1/16', '1/16T', '1/32'];
 const SCALE_LABELS = [
     'CHROMATIC', 'MAJOR', 'MINOR', 'DORIAN', 'MIXOLYDIAN', 'LYDIAN',
@@ -122,7 +124,8 @@ const SCALE_INTERVALS = [
 ];
 const LEDS_PER_TICK = 8;
 const GLITCH_LOCK_TAP_TICKS = 30;
-const PARAMETER_ENCODER_RESPONSE = 0.5;
+const PARAMETER_ENCODER_RESPONSE = 0.375;
+const CHAIN_BANK_ENCODER_RESPONSE = 0.25;
 const VOICE_COLORS = [BrightRed, BrightOrange, BrightYellow, NeonGreen,
     AzureBlue, BlueViolet, Purple, LightMagenta];
 const VOICE_DIM_COLORS = [DeepRed, BurntSienna, DarkYellowOlive, DarkGrass,
@@ -159,7 +162,35 @@ const PARAMS = {
     manual_lane: { key: 'manual_lane', label: 'STACK START', min: 1, max: 4, step: 0.04, value: 1 },
     cut_lane_advance: { key: 'cut_lane_advance', label: 'ADVANCE', min: 0, max: 6, step: 1, value: 1, integer: true, labels: ['HOLD', '1', '2', '3', '4', '8', '16'] },
     lane_cycles: { key: 'lane_cycles', label: 'SCAN RATE', min: 0.125, max: 16, step: 0.125, value: 1 },
-    algorithm: { key: 'algorithm', label: 'ALGORITHM', min: 0, max: 8, step: 1, value: 0, integer: true, labels: ALGORITHMS },
+    prism_mode: {"key":"prism_mode","min":0,"max":4,"step":1,"label":"PRISM MODE","value":0,"integer":true,"labels":["SCAN","HOLD","AMP","FREQ","ACCU"]},
+    prism_blur: {"key":"prism_blur","min":0,"max":2000,"step":10,"label":"SPECTRAL BLUR","value":80},
+    prism_decay: {"key":"prism_decay","min":50,"max":20000,"step":100,"label":"ACCUMULATION DECAY","value":2000},
+    prism_pitch: {"key":"prism_pitch","min":-24,"max":24,"step":1,"label":"PRISM TRANSPOSE","value":0},
+    prism_tilt: {"key":"prism_tilt","min":-100,"max":100,"step":2,"label":"SPECTRAL TILT","value":0},
+    prism_smear: {"key":"prism_smear","min":0,"max":100,"step":2,"label":"FREQUENCY SMEAR","value":0},
+    formant_pitch: {key:'formant_pitch',label:'FORMANT TRANSPOSE',min:-24,max:24,step:1,value:0},
+    formant_shift: {key:'formant_shift',label:'FORMANT SHIFT',min:-24,max:24,step:1,value:0},
+    formant_smoothing: {key:'formant_smoothing',label:'FORMANT SMOOTHING',min:5,max:200,step:5,value:30},
+    formant_tune: {key:'formant_tune',label:'PITCH LOCK',min:0,max:100,step:2,value:0},
+    formant_freeze: {key:'formant_freeze',label:'FREEZE SOURCE',min:0,max:1,step:1,value:0,integer:true,labels:['OFF','ON']},
+    formant_keytrack: {key:'formant_keytrack',label:'FORMANT KEY TRACK',min:-100,max:100,step:2,value:0},
+    formant_rough: {key:'formant_rough',label:'VOICING ROUGHNESS',min:0,max:100,step:2,value:0},
+    formant_sub: {key:'formant_sub',label:'SUBHARMONIC',min:0,max:100,step:2,value:0},
+    morph_mode: {key:"morph_mode",label:"MORPH MODE",min:0,max:1,step:1,value:0,integer:true,labels:["MORPH","IMPR"]},
+    morph_amplitude: {"key":"morph_amplitude","min":0,"max":100,"step":2,"label":"AMPLITUDE MORPH","value":50},
+    morph_frequency: {"key":"morph_frequency","min":0,"max":100,"step":2,"label":"FREQUENCY MORPH","value":50},
+    morph_offset: {"key":"morph_offset","min":-100,"max":100,"step":2,"label":"PARTNER TIME OFFSET","value":0},
+    morph_blur: {"key":"morph_blur","min":0,"max":2000,"step":10,"label":"MORPH SMOOTHING","value":40},
+    morph_pitch: {"key":"morph_pitch","min":-24,"max":24,"step":1,"label":"MORPH TRANSPOSE","value":0},
+    texture_mode: {"key":"texture_mode","min":0,"max":3,"step":1,"label":"TEXTURE MODE","value":0,"integer":true,"labels":["SPRAY","GROUP","MOTIF","ORN"]},
+    texture_rate: {"key":"texture_rate","min":0.25,"max":24,"step":0.25,"label":"TEXTURE EVENT RATE","value":4},
+    texture_length: {"key":"texture_length","min":20,"max":2000,"step":10,"label":"TEXTURE EVENT LENGTH","value":250},
+    texture_scatter: {"key":"texture_scatter","min":0,"max":100,"step":2,"label":"TEXTURE TIMING SCATTER","value":20},
+    texture_range: {"key":"texture_range","min":0,"max":24,"step":1,"label":"TEXTURE PITCH RANGE","value":7,"integer":true},
+    texture_group: {"key":"texture_group","min":2,"max":8,"step":1,"label":"TEXTURE GROUP SIZE","value":4,"integer":true},
+    texture_spread: {"key":"texture_spread","min":0,"max":100,"step":2,"label":"TEXTURE STEREO SPREAD","value":50},
+    texture_seed: {"key":"texture_seed","min":1,"max":9999,"step":1,"label":"TEXTURE SEED","value":1,"integer":true},
+    algorithm: { key: 'algorithm', label: 'ALGORITHM', min: 0, max: 12, step: 1, value: 0, integer: true, labels: ALGORITHMS },
     join: { key: 'join', label: 'JOIN', min: 0, max: 1, step: 0.01, value: 1 },
     output_gain: { key: 'output_gain', label: 'LEVEL', min: 0, max: 2, step: 0.02, value: 1 },
     polyphony_comp: { key: 'polyphony_comp', label: 'POLY COMP', min: 0, max: 1, step: 1, value: 1, integer: true, labels: ['OFF', 'ON'] },
@@ -190,7 +221,7 @@ const PARAMS = {
     segment_level: { key: 'segment_level', label: 'LEVEL VAR', min: 0, max: 1, step: 0.01, value: 0.15 },
     segment_curve: { key: 'segment_curve', label: 'INT CURVE', min: -1, max: 1, step: 0.01, value: 0 },
     lanes_mode: { key: 'lanes_mode', label: 'MODE', min: 0, max: 2, step: 1, value: 0, integer: true, labels: ['FWD', 'REV', 'PINGPONG'] },
-    lane_path: { key: 'lane_path', label: 'PATH', min: 0, max: 7, step: 1, value: 2, integer: true, labels: ['DOWN', 'UP', 'TRI', 'SINE', 'STEP DN', 'STEP UP', 'MANUAL', 'RANDOM'] },
+    lane_path: { key: 'lane_path', label: 'PATH', min: 0, max: 8, step: 1, value: 2, integer: true, labels: ['DOWN', 'UP', 'TRI', 'SINE', 'STEP DN', 'STEP UP', 'MANUAL', 'RANDOM', 'DRAW'] },
     lane_blend: { key: 'lane_blend', label: 'TRANSITION', min: 0, max: 1, step: 1, value: 0, integer: true, labels: ['XFADE', 'JUMP'] },
     lane_path_shape: { key: 'lane_path_shape', label: 'PATH SHAPE', min: 0, max: 3, step: 1, value: 0, integer: true, labels: ['LINEAR', 'SMOOTH', 'EXP', 'PLATEAU'] },
     lane_path_offset: { key: 'lane_path_offset', label: 'PATH OFFSET', min: 0, max: 1, step: 0.01, value: 0 },
@@ -325,7 +356,7 @@ const PARAMS = {
     root_note: { key: 'root_note', label: 'ROOT', min: 24, max: 96, step: 1, value: 60, integer: true, note: true },
     scale: { key: 'scale', label: 'SCALE', min: 0, max: 24, step: 1, value: 0, integer: true, labels: SCALE_LABELS },
     record_gain: { key: 'record_gain', label: 'REC GAIN', min: 0, max: 4, step: 0.05, value: 1 },
-    record_source: { key: 'record_source', label: 'REC SOURCE', min: 0, max: 1, step: 1, value: 0, integer: true, labels: ['INPUT', 'RESAMPLE'] },
+    record_source: { key: 'record_source', label: 'REC SOURCE', min: 0, max: 5, step: 1, value: 0, integer: true, labels: ['INPUT', 'MAIN MIX', 'PART A', 'PART B', 'PART C', 'PART D'] },
     monitor_level: { key: 'monitor_level', label: 'MONITOR', min: 0, max: 1, step: 0.01, value: 0 },
     clip_rate: { key: 'clip_rate', label: 'LOOP RATE', min: 0.25, max: 4, step: 0.05, value: 1 },
     clip_record_mode: { key: 'clip_record_mode', label: 'REC MODE', min: 0, max: 1, step: 1, value: 0, integer: true, labels: ['REPLACE', 'OVERDUB'] },
@@ -336,9 +367,12 @@ const PARAMS = {
     tempo_swing: { key: 'tempo_swing', label: 'SWING', min: 50, max: 75, step: 1, value: 50, integer: true },
     hold_release_ms: { key: 'hold_release_ms', label: 'HOLD OFF', min: 0, max: 60000, step: 50, value: 0, integer: true },
     chain_enabled: { key: 'chain_enabled', label: 'CHAIN', min: 0, max: 1, step: 1, value: 0, integer: true, labels: ['OFF', 'ON'] },
-    chain_slot: { key: 'chain_slot', label: 'CHAIN SLOT', min: 1, max: 16, step: 1, value: 1, integer: true },
+    chain_slot: { key: 'chain_slot', label: 'CHAIN SLOT', min: 1, max: 64, step: 1, value: 1, integer: true },
     chain_clip: { key: 'chain_clip', label: 'CLIP', min: 1, max: 64, step: 1, value: 1, integer: true },
-    chain_repeats: { key: 'chain_repeats', label: 'REPEATS', min: 1, max: 16, step: 1, value: 1, integer: true },
+    chain_repeats: { key: 'chain_repeats', label: 'REPEATS', min: 0, max: 16, step: 1, value: 1, integer: true },
+    chain_bank: { key:'chain_bank',label:'BANK',min:1,max:16,step:1,value:1,integer:true },
+    chain_end: { key:'chain_end',label:'END',min:0,max:2,step:1,value:0,integer:true,labels:['LOOP','STAY','STOP'] },
+    chain_advance: { key:'chain_advance',label:'NEXT',min:0,max:1,step:1,value:0,integer:true,momentary:true,labels:['TURN','NEXT'] },
     chain_clear: { key: 'chain_clear', label: 'CLEAR SLOT', min: 0, max: 1, step: 1, value: 0, integer: true, labels: ['TURN', 'CLEAR'], momentary: true },
     sample_trim_start: { key: 'sample_trim_start', label: 'TRIM START', min: 0, max: 0.99, step: 0.01, value: 0 },
     sample_trim_end: { key: 'sample_trim_end', label: 'TRIM END', min: 0.01, max: 1, step: 0.01, value: 1 },
@@ -350,7 +384,7 @@ const PARAMS = {
 
 const MAIN_ENGINE_MODES = ['motion_mode', 'lanes_mode', 'grain_mode',
     'cutups_mode', 'sample_mode', 'sample_mode', 'glitch_mode',
-    'long_grain_mode', 'waveset_direction'];
+    'long_grain_mode', 'waveset_direction','prism_mode','morph_amplitude','texture_mode','formant_shift'];
 const MAIN_ENGINE_CONTROLS = MAIN_ENGINE_MODES.map((mode) => [
     'locus', 'field', 'speed', 'manual_lane',
     'lane_cycles', 'join', mode, 'output_gain',
@@ -362,10 +396,11 @@ const CUTUPS_ENGINE_PAGE = { ...ENGINE_PAGE, keys: ENGINE_PAGE.keys.map((key) =>
 const STACK_PATH_PAGE = { title: 'STACK PATH', keys: ['lane_path',
     'lane_blend', 'lane_path_shape', 'lane_path_offset', 'lane_path_skew',
     'lane_path_curve', 'lane_slew'] };
+const PATH_EDITOR_PAGE = {title:'PATH EDITOR',pathEditor:true,keys:['path_point','path_time','path_lane','path_curve','path_count',null,null,'path_reset']};
 const DIRECT_PLAY_PAGE = { title: 'DIRECT PLAY', keys: ['sample_mode',
     'lane_variation'] };
 const PADS_SCALE_PAGE = { title: 'PADS & SCALE', keys: ['pad_mode',
-    'root_note', 'scale', 'hold_release_ms', 'polyphony_comp'] };
+    'root_note', 'scale', 'hold_release_ms', 'polyphony_comp','pressure_mode'] };
 const AMP_ENVELOPE_PAGE = { title: 'AMP ENVELOPE', breakpoint: true,
     keys: ['amp_attack', 'amp_decay', 'amp_sustain', 'amp_release'] };
 const MOTION_SOUND_PAGE = { title: 'MOTION SOUND', keys: ['motion_sound'] };
@@ -441,6 +476,11 @@ const PLAYBACK_PAGES = [
             'waveset_stride', 'waveset_advance', 'waveset_direction',
             'waveset_process', 'waveset_amount', 'waveset_detail'] },
     ],
+    [STACK_PATH_PAGE,{title:'PRISM',keys:['prism_mode','prism_blur','prism_decay','prism_pitch','prism_tilt','prism_smear']}],
+    [STACK_PATH_PAGE,{title:'MORPH',keys:['morph_amplitude','morph_frequency','morph_offset','morph_blur','morph_pitch','morph_mode']}],
+    [STACK_PATH_PAGE,{title:'TEXTURE',keys:['texture_mode','texture_rate','texture_length','texture_scatter','texture_range','texture_group','texture_spread','texture_seed']}],
+    [STACK_PATH_PAGE,{title:'FORMANT',keys:['formant_pitch','formant_shift','formant_smoothing','formant_tune','formant_freeze','formant_keytrack','formant_rough','formant_sub']} ]
+
 ];
 
 function playbackPagesForAlgorithm(algorithm, motionSound) {
@@ -485,12 +525,19 @@ const SAMPLE_PAGE = { title: 'SAMPLE EDIT', keys: ['sample_trim_start',
     'sample_normalize', 'sample_fade'] };
 // Keep the full current/total page count visible in Move's 21-character
 // title row. The manual continues to use the unabbreviated page name.
-const LOOP_PAGE = { title: 'PERF LOOP', keys: ['clip_rate',
+const LOOP_PAGE = { title: 'PERF LOOP', global:true,scopeLabel:'',keys: ['clip_rate',
     'clip_timing', 'launch_quantize', 'tempo_bpm', 'clip_record_mode',
-    'tempo_swing', 'pressure_mode'] };
-const TAKE_PAGE = { title: 'OVERDUB TAKES', keys: [null, 'clip_take_undo'] };
-const CHAIN_PAGE = { title: 'CHAIN', keys: ['chain_enabled', 'chain_slot',
-    'chain_clip', 'chain_repeats', 'chain_clear'] };
+    'tempo_swing'] };
+const PATTERN_FADE_PAGE = { title: 'PATTERN FADE', patternFade: true, global: true,scopeLabel:'', keys: Array(8).fill(null) };
+const FADE_CURVES=['LIN','IN','OUT','SMTH','PWR'];
+const MAX_PATTERN_FADE_MS=30000;
+const FADE_TIMES=[0,25,50,75,100,150,200,250,300,400,500,650,800,1000,1250,1500,1750,2000,2500,3000,3500,4000,4500,5000,5500,6000,6500,7000,7500,8000,8500,9000,9500,10000,...Array.from({length:20},(_,i)=>11000+i*1000)];
+const TAKE_PAGE = {global:true,scopeLabel:'', title: 'OVERDUB TAKES', keys: [null, 'clip_take_undo'] };
+const CHAIN_FADE_PAGE = {global:true,scopeLabel:'',title:'CHAIN FADE',chainFade:'chain',keys:Array(8).fill(null)};
+const CHAIN_TOOLS_PAGE={title:'CHAIN TOOLS',chainTools:true,global:true,scopeLabel:'',keys:Array(8).fill(null)};
+const ENTRY_FADE_PAGE = {global:true,scopeLabel:'',title:'ENTRY FADE',chainFade:'entry',keys:Array(8).fill(null)};
+const CHAIN_PAGE = {global:true,scopeLabel:'', title: 'CHAIN', keys: ['chain_enabled', 'chain_slot',
+    'chain_clip', 'chain_repeats', 'chain_clear', 'chain_bank', 'chain_end', 'chain_advance'] };
 
 const LOCKABLE_KEYS = [
     'locus', 'field', 'speed', 'manual_lane', 'lane_cycles', 'algorithm',
@@ -539,9 +586,32 @@ const LOCKABLE_KEYS = [
     'waveset_amount', 'waveset_detail',
     'effect_reverb_algo', 'effect_reverb_decay', 'effect_reverb_pre', 'effect_reverb_damp', 'effect_reverb_diff', 'effect_reverb_mod', 'effect_reverb_width', 'effect_reverb_mix', 'effect_order', 'cut_lane_advance', 'split_blend','split_level_a','split_level_b','split_delay_a','split_delay_b','split_reverb_a','split_reverb_b','split_curve',
 ];
-const LOCKABLE_PARAMS = new Set([...LOCKABLE_KEYS,'split_level_c','split_level_d','split_delay_c','split_delay_d','split_reverb_c','split_reverb_d']);
+const NEW_ENGINE_KEYS=["prism_mode", "prism_blur", "prism_decay", "prism_pitch", "prism_tilt", "prism_smear", "morph_amplitude", "morph_frequency", "morph_offset", "morph_blur", "morph_pitch", "texture_mode", "texture_rate", "texture_length", "texture_scatter", "texture_range", "texture_group", "texture_spread", "texture_seed","morph_mode","formant_pitch","formant_shift","formant_smoothing","formant_tune","formant_freeze","formant_keytrack","formant_rough","formant_sub"];
+const LOCKABLE_PARAMS = new Set([...NEW_ENGINE_KEYS,...LOCKABLE_KEYS,'split_level_c','split_level_d','split_delay_c','split_delay_d','split_reverb_c','split_reverb_d']);
 
 const SHORT_LABELS = {
+    prism_mode: "MODE",
+    prism_blur: "BLUR",
+    prism_decay: "DCAY",
+    prism_pitch: "PIT",
+    prism_tilt: "TILT",
+    prism_smear: "SMER",
+    formant_pitch:'PIT',formant_shift:'FORM',formant_smoothing:'SMTH',formant_tune:'TUNE',formant_freeze:'FRZE',formant_keytrack:'KEYT',formant_rough:'ROUG',formant_sub:'SUB',
+    morph_mode:'MODE',
+    morph_amplitude: "AMP",
+    morph_frequency: "FREQ",
+    morph_offset: "OFST",
+    morph_blur: "BLUR",
+    morph_pitch: "PIT",
+    texture_mode: "MODE",
+    texture_rate: "RATE",
+    texture_length: "LEN",
+    texture_scatter: "SCAT",
+    texture_range: "RNGE",
+    texture_group: "GRUP",
+    texture_spread: "SPRD",
+    texture_seed: "SEED",
+
     split_blend:'BLND',split_level_a:'ALVL',split_level_b:'BLVL',split_delay_a:'ADLY',split_delay_b:'BDLY',split_reverb_a:'AREV',split_reverb_b:'BREV',split_curve:'CURV',split_copy:'COPY',split_focus:'EDIT',part_mute:'MUTE',
     effect_reverb_algo: 'ALGO', effect_reverb_decay: 'DECY', effect_reverb_pre: 'PRE', effect_reverb_damp: 'DAMP', effect_reverb_diff: 'DIFF', effect_reverb_mod: 'MOD', effect_reverb_width: 'WDTH', effect_reverb_mix: 'MIX', effect_order: 'ORDR',
     cut_lane_advance: 'ADV',
@@ -626,7 +696,8 @@ const SHORT_LABELS = {
 const state = {
     ticks: 0,
     splitEnabled:false,sharedDual:false,quadMode:false,modeSelection:0,splitFocus:0,splitBlend:.5,splitParts:[{},{}],splitPages:[0,0,0,0],
-    focusButtonHeld:false,focusButtonUsed:false,voiceAlgorithms:Array(8).fill(-1),
+    pathReady:false,pathCount:4,pathPoint:0,pathPoints:Array.from({length:8},(_,i)=>({time:[0,.25,.5,.75,.8,.85,.9,.95][i],lane:[0,.5,1,.5,.4,.3,.2,.1][i],curve:0})),
+    focusButtonHeld:false,focusButtonUsed:false,captureStartTick:0,performanceVisible:false,performanceArmed:false,performanceOwner:0,performancePads:new Set(),performancePadLive:new Set(),performanceValues:Array(8).fill(0),voiceAlgorithms:Array(8).fill(-1),
     editorReady:false,
     fxMenuSelection:0,fxMenuReturn:false,
     pageSelection:0,pageReturn:null,
@@ -643,6 +714,7 @@ const state = {
     playheads: Array(8).fill(-1),
     wavesetVoices: Array(8).fill(null),
     cutupsVoices: Array(8).fill(null),
+    spectralPending:0,
     wavesetAnalysisPending: 0,
     stackPositions: Array(8).fill(-1),
     voicePads: Array(8).fill(-1),
@@ -658,6 +730,7 @@ const state = {
     octave: 0,
     algorithm: 0,
     recordSource: 0,
+    copyShortcut: null,
     shiftHeld: false,
     deleteHeld: false,
     view: 'main',
@@ -714,13 +787,18 @@ const state = {
     libraryScroll: 0,
     laneSource: 'EMPTY',
     laneSourceState: 'EMPTY:EMPTY',
+    patternFaderTouched: false,
+    patternFade: {active:false,held:false,from:-1,to:-1,position:0,time:0,curve:0,underflows:0,mode:0,low:2000,high:12000,duration:0,override:false},
     clipPrepareState: 0,
+    chainBank:0,chainPage:0,chainEnd:0,chainAdvance:false,
+    chainPlayBank:0,chainLaunchBank:-1,chainLaunchSlot:-1,
+    chainFades:[0,0,2000,12000,0,0,0,2000,12000,0],
     chainEnabled: false,
     chainPosition: 0,
     chainRepeat: 0,
     chainSlot: 0,
     chainQueuedSlot: -1,
-    chainEntries: Array.from({ length: 16 }, () => ({
+    chainEntries: Array.from({ length: 64 }, () => ({
         enabled: false, clip: 0, repeats: 1,
     })),
     undoAvailable: false,
@@ -887,8 +965,9 @@ function decodeDelta(value) {
     return v < 64 ? v : v - 128;
 }
 
-function resetParameterEncoderMotion() {
-    for (const motion of parameterEncoderMotion) {
+function resetParameterEncoderMotion(keepIndex = -1) {
+    for (const [index, motion] of parameterEncoderMotion.entries()) {
+        if (index === keepIndex) continue;
         motion.key = '';
         motion.remainder = 0;
     }
@@ -901,12 +980,15 @@ function parameterEncoderDelta(index, key, delta) {
         motion.key = key;
         motion.remainder = 0;
     }
-    const scaled = motion.remainder + delta * PARAMETER_ENCODER_RESPONSE;
+    const response = key === 'chain_bank' ? CHAIN_BANK_ENCODER_RESPONSE : PARAMETER_ENCODER_RESPONSE;
+    const scaled = motion.remainder + delta * response;
     const magnitude = Math.floor(Math.abs(scaled) + 0.5);
     const applied = scaled < 0 ? -magnitude : magnitude;
     motion.remainder = scaled - applied;
     if (Math.abs(motion.remainder) < 1e-9) motion.remainder = 0;
-    return applied;
+    // BANK is a selector: consume acceleration without jumping several banks
+    // or retaining a backlog of whole steps for later messages.
+    return key === 'chain_bank' ? clamp(applied, -1, 1) : applied;
 }
 
 function getParam(key, fallback) {
@@ -942,6 +1024,8 @@ function setParamBlocking(key, value) {
 }
 
 function refreshEditorSnapshot() {
+    const previousPage=state.view==='settings'?parameterPages()[state.settingsPage]:null;
+    const keepPage=previousPage&&(previousPage.scopeLabel===''||previousPage.patternFade||previousPage.chainFade||previousPage.chainTools||previousPage===CHAIN_PAGE)?previousPage:null;
     state.editorReady=false;
     let snapshot;
     try { snapshot=JSON.parse(String(getParam('ui_editor_state',''))); }
@@ -968,6 +1052,7 @@ function refreshEditorSnapshot() {
     state.glitchBufferLocked=values.glitch_buffer_lock!==0;
     state.voiceAlgorithms=String(snapshot.voices||'').split(',').map(Number);
     state.editorReady=true;
+    if(keepPage){const index=parameterPages().findIndex(page=>page.title===keepPage.title);if(index>=0)state.settingsPage=index;}
     if(state.message==='UPDATING EDITOR')state.messageTicks=0;
     return true;
 }
@@ -1060,13 +1145,16 @@ function padSettings(index) {
     return {root:Math.round(PARAMS.root_note.value),octave:state.octave,scale:state.scale,mode:state.padMode};
 }
 function setSplitFocus(part) {
+    endPerformanceLayer();
     setParamBlocking('split_focus',part);
     if(!refreshEditorSnapshot())parseSplitState(getParam('split_state','{}'),false);
     if(!state.editorReady)showMessage('UPDATING EDITOR');
     else if(state.view!=='main')showMessage('EDIT PART '+partName());
+    if(state.view==='settings'&&currentSettingsPage().pathEditor)readStackPath();
     rebuildLedQueue();draw();
 }
 function toggleSplitMode() {
+    endPerformanceLayer();
     setParamBlocking('split_mode',state.splitEnabled?0:(state.quadMode?3:state.sharedDual?2:1));
     parseSplitState(getParam('split_state','{}'));
     const error=String(getParam('last_error','')||'');
@@ -1338,16 +1426,21 @@ function parseClipPrepareState(text) {
 }
 
 function parseChainState(text) {
-    const values = String(text || '').split(',').map((item) => Number(item));
-    if (values.length < 4 || !values.every((value) => Number.isFinite(value))) return;
-    state.chainEnabled = values[0] !== 0;
-    state.chainPosition = clamp(values[1] | 0, 0, 15);
-    state.chainRepeat = Math.max(0, values[2] | 0);
-    state.chainSlot = clamp(values[3] | 0, 0, 15);
-    state.chainQueuedSlot = values.length >= 5 && values[4] >= 0
-        ? clamp(values[4] | 0, 0, 15) : -1;
-    PARAMS.chain_enabled.value = state.chainEnabled ? 1 : 0;
-    PARAMS.chain_slot.value = state.chainSlot + 1;
+    const v=String(text||'').split(',').map(Number);if(v.length<5||!v.every(Number.isFinite))return;
+    const previous=[state.chainEnabled,state.chainPosition,state.chainSlot,state.chainQueuedSlot,state.chainBank,state.chainPlayBank,state.chainLaunchBank,state.chainLaunchSlot];
+    state.chainEnabled=!!v[0];state.chainPosition=clamp(v[1]|0,0,63);state.chainRepeat=Math.max(0,v[2]|0);
+    state.chainSlot=clamp(v[3]|0,0,63);state.chainQueuedSlot=v[4]<0?-1:clamp(v[4]|0,0,63);
+    state.chainBank=clamp(v[5]|0,0,15);state.chainEnd=clamp(v[6]|0,0,2);state.chainAdvance=!!v[7];
+    state.chainPlayBank=Number.isFinite(v[8])?clamp(v[8]|0,0,15):state.chainBank;
+    state.chainLaunchBank=Number.isFinite(v[9])?v[9]|0:-1;state.chainLaunchSlot=Number.isFinite(v[10])?v[10]|0:-1;
+    state.chainPage=Math.floor(state.chainSlot/16);
+    PARAMS.chain_enabled.value=state.chainEnabled?1:0;PARAMS.chain_slot.value=state.chainSlot+1;
+    PARAMS.chain_bank.value=state.chainBank+1;PARAMS.chain_end.value=state.chainEnd;
+    if(previous.some((x,i)=>x!==[state.chainEnabled,state.chainPosition,state.chainSlot,state.chainQueuedSlot,state.chainBank,state.chainPlayBank,state.chainLaunchBank,state.chainLaunchSlot][i]))rebuildLedQueue();
+}
+function readChainFades() {
+    const v=String(getParam('chain_fades_state','0,0,2000,12000,0,0,0,2000,12000,0')).split(',').map(Number);
+    if(v.length===10&&v.every(Number.isFinite))state.chainFades=v;
 }
 
 function parseChainEntries(text) {
@@ -1357,9 +1450,12 @@ function parseChainEntries(text) {
         state.chainEntries[index] = fields.length >= 3
             && fields.every((value) => Number.isFinite(value))
             ? { enabled: fields[0] !== 0, clip: clamp(fields[1] | 0, 0, 63),
-                repeats: clamp(fields[2] | 0, 1, 16) }
+                repeats: clamp(fields[2] | 0, 0, 16) }
             : { enabled: false, clip: 0, repeats: 1 };
     }
+    const selected=state.chainEntries[state.chainSlot];
+    PARAMS.chain_clip.value=selected.enabled?selected.clip+1:state.activeClip+1;
+    PARAMS.chain_repeats.value=selected.enabled?selected.repeats:1;
 }
 
 function clipOccupied(index) {
@@ -1378,6 +1474,10 @@ function basePadColor(owner = padSettings(0), index = 0) {
 }
 
 function padColor(index) {
+    if(state.performanceVisible && index<8 && !state.activePads.has(MovePads[index])) {
+        if(index<4&&!performanceLaneEnabled(index))return Black;
+        return state.performancePadLive.has(MovePads[index])?Cyan:(index<4?BrightOrange:WhiteLedDim);
+    }
     const owner=padSettings(index);
     for (let roll = 0; roll < state.rollPads.length; roll++) {
         if (state.rollPads[roll] === index) {
@@ -1448,7 +1548,7 @@ function iconLedStates() {
         [MoveUp,upDown?IconLedDim:Black],[MoveDown,upDown?IconLedDim:Black],
         [MoveLeft,leftRight?IconLedDim:Black],[MoveRight,leftRight?IconLedDim:Black],
         [MoveCopy,state.recording||state.clipRecording?Black:state.splitEnabled?WhiteLedBright:IconLedDim],
-        [MoveCapture,state.view==='pages'||(state.splitEnabled&&state.splitFocus)?WhiteLedBright:IconLedDim],
+        [MoveCapture,state.focusButtonHeld||state.view==='pages'||(state.splitEnabled&&state.splitFocus)?WhiteLedBright:IconLedDim],
         [MoveMute,state.splitEnabled?(state.splitParts[state.splitFocus]?.mute?WhiteLedBright:IconLedDim):Black],
         [MoveLoop,!loopAvailable()?Black:state.glitchBufferLocked||state.stackScanPaused?WhiteLedBright:state.recordedStackHold?IconLedMedium:IconLedDim],
     ].map(([id,value])=>[id,value!==Black&&state.iconPressed.has(id)?WhiteLedBright:value]);
@@ -1474,13 +1574,14 @@ function rebuildLedQueue() {
     for (let i = 0; i < MoveSteps.length; i++) {
         let color = Black;
         let urgent = false;
-        if (state.view === 'chain') {
-            if (state.chainEntries[i].enabled) color = White;
-            if (i === state.chainSlot) color = BrightOrange;
-            if (i === state.chainPosition && state.chainEnabled) color = NeonGreen;
-            if (i === state.chainQueuedSlot) color = BlueViolet;
-            urgent = i === state.chainSlot || i === state.chainPosition
-                || i === state.chainQueuedSlot;
+        if (chainEditorActive()) {
+            const row=state.chainPage*16+i;
+            if (state.chainEntries[row].enabled) color = White;
+            if (row === state.chainSlot) color = BrightOrange;
+            if (row === state.chainPosition && state.chainEnabled && state.chainBank===state.chainPlayBank) color = NeonGreen;
+            if ((state.chainLaunchBank===state.chainBank&&row===state.chainLaunchSlot)||(state.chainLaunchBank<0&&state.chainPlayBank===state.chainBank&&row===state.chainQueuedSlot)) color = BlueViolet;
+            urgent = row === state.chainSlot || row === state.chainPosition
+                || row === state.chainQueuedSlot;
         } else {
             const clip = state.clipBank * 16 + i;
             if (clipOccupied(clip)) color = White;
@@ -1905,6 +2006,8 @@ function drawMain() {
 }
 
 function mainFooter(railFocus) {
+    if(state.patternFade.active&&state.saveStatus!==4) {const f=state.patternFade;const name=i=>'ABCD'[Math.floor(clamp(i,0,63)/16)]+String(clamp(i,0,63)%16+1).padStart(2,'0');return name(f.from)+'>'+name(f.to)+' '+Math.round(f.position)+'%'+(f.held?' HOLD':'');}
+
     const clipStatus = state.clipNoteFull || state.clipPointFull
         ? 'CLIP FULL N' + state.clipNoteCount + ' G' + state.clipPointCount
         : (state.clipLaunchPending ? 'QUEUED ' + PARAMS.launch_quantize.labels[
@@ -1924,7 +2027,7 @@ function mainFooter(railFocus) {
     if(state.saveStatus===4)return saving.slice(0,21);
     const footer = state.messageTicks > 0
         ? state.message
-        : (muteHint || silent || saving || (state.algorithm === 6 && state.glitchBufferLocked
+        : (([9,10,12].includes(state.algorithm)&&state.spectralPending?(state.algorithm===12?'PITCH PREPARING':'SPECTRAL PREPARING'):'') || muteHint || silent || saving || (state.algorithm === 6 && state.glitchBufferLocked
             ? 'GLITCH BUFFER LOCKED'
             : (state.laneSourceState.startsWith('MISSING')
             ? 'MISSING SHIFT+TRK FIX'
@@ -2115,27 +2218,35 @@ function currentSettingsPage() {
 }
 
 function parameterPages() {
-    const enginePages=playbackPagesForAlgorithm(state.algorithm,Math.round(PARAMS.motion_sound.value));
+    let enginePages=playbackPagesForAlgorithm(state.algorithm,Math.round(PARAMS.motion_sound.value));
+    if(!isQuad() && Math.round(PARAMS.lane_path.value)===8)
+        enginePages=enginePages.flatMap(page=>page.title===STACK_PATH_PAGE.title
+            ? [{...page,keys:page.keys.map(key=>['lane_path_shape','lane_path_skew','lane_path_curve'].includes(key)?null:key)},PATH_EDITOR_PAGE]
+            : [page]);
+    enginePages=enginePages.map(p=>p.title==='PRISM'?{...p,keys:p.keys.map(k=>k==='prism_decay'&&Math.round(PARAMS.prism_mode.value)!==4?null:k)}:p.title==='MORPH'?{...p,keys:p.keys.map(k=>k==='morph_frequency'&&Math.round(PARAMS.morph_mode.value)===1?null:k)}:p.title==='TEXTURE'?{...p,keys:p.keys.map(k=>k==='texture_group'&&Math.round(PARAMS.texture_mode.value)===0?null:k)}:p);
     const engine=state.algorithm===3?CUTUPS_ENGINE_PAGE:ENGINE_PAGE;
     if(!state.splitEnabled)return [engine,PADS_SCALE_PAGE,AMP_ENVELOPE_PAGE,...enginePages,
-        MIX_REC_PAGE,EFFECTS_PAGE,STEREO_ROTARY_PAGE,TAPE_PAGE,REVERB_PAGE,FX_ORDER_PAGE,SAMPLE_PAGE,LOOP_PAGE,TAKE_PAGE,CHAIN_PAGE];
+        MIX_REC_PAGE,EFFECTS_PAGE,STEREO_ROTARY_PAGE,TAPE_PAGE,REVERB_PAGE,FX_ORDER_PAGE,SAMPLE_PAGE,LOOP_PAGE,PATTERN_FADE_PAGE,TAKE_PAGE,CHAIN_PAGE,CHAIN_FADE_PAGE,ENTRY_FADE_PAGE,CHAIN_TOOLS_PAGE];
+    const pads=isQuad()?{...PADS_SCALE_PAGE,keys:PADS_SCALE_PAGE.keys.map(k=>k==='pressure_mode'?null:k)}:PADS_SCALE_PAGE;
     const engineSplit={...engine,keys:engine.keys.map((key)=>key==='output_gain'?partLevelKey():isQuad()&&['manual_lane','lane_cycles','cut_lane_advance'].includes(key)?null:key)};
     if(isQuad()) {
         const pages=enginePages.filter(p=>p.title!==STACK_PATH_PAGE.title).map(p=>({...p,keys:p.keys.map(k=>['manual_lane','lane_cycles','cut_lane_advance','cut_lane_order','cut_poly_path'].includes(k)?null:k)}));
         const rec={...MIX_REC_PAGE,keys:['lane_'+(state.splitFocus+1)+'_gain',null,null,null,...MIX_REC_PAGE.keys.slice(4)]};
-        return [engineSplit,PADS_SCALE_PAGE,AMP_ENVELOPE_PAGE,...pages,QUAD_SEND_PAGE,QUAD_SETUP_PAGE,rec,PART_COLOR_PAGE,STEREO_ROTARY_PAGE,
+        return [engineSplit,pads,AMP_ENVELOPE_PAGE,...pages,QUAD_SEND_PAGE,QUAD_SETUP_PAGE,rec,PART_COLOR_PAGE,STEREO_ROTARY_PAGE,
             {...DELAY_RETURN_PAGE,keys:['effect_delay','effect_feedback','effect_width',null,null,null,null,'effect_mix']},
             {...TAPE_PAGE,global:true},{...REVERB_PAGE,global:true},FX_ORDER_PAGE,SAMPLE_PAGE,
-            {...LOOP_PAGE,keys:LOOP_PAGE.keys.map(k=>k==='pressure_mode'?null:k)},TAKE_PAGE,CHAIN_PAGE];
+            LOOP_PAGE,PATTERN_FADE_PAGE,TAKE_PAGE,CHAIN_PAGE,CHAIN_FADE_PAGE,ENTRY_FADE_PAGE,CHAIN_TOOLS_PAGE];
     }
     const rec=state.sharedDual?MIX_REC_PAGE:{...MIX_REC_PAGE,keys:[state.splitFocus?'lane_3_gain':'lane_1_gain',state.splitFocus?'lane_4_gain':'lane_2_gain',null,null,...MIX_REC_PAGE.keys.slice(4)]};
-    return [engineSplit,PADS_SCALE_PAGE,AMP_ENVELOPE_PAGE,...enginePages,SPLIT_MIX_PAGE,SPLIT_SETUP_PAGE,
+    return [engineSplit,pads,AMP_ENVELOPE_PAGE,...enginePages,SPLIT_MIX_PAGE,SPLIT_SETUP_PAGE,
         rec,PART_COLOR_PAGE,STEREO_ROTARY_PAGE,DELAY_RETURN_PAGE,{...TAPE_PAGE,global:true},
-        {...REVERB_PAGE,global:true,keys:REVERB_PAGE.keys.map((key)=>key==='effect_reverb_mix'?null:key)},FX_ORDER_PAGE,SAMPLE_PAGE,LOOP_PAGE,TAKE_PAGE,CHAIN_PAGE];
+        {...REVERB_PAGE,global:true,keys:REVERB_PAGE.keys.map((key)=>key==='effect_reverb_mix'?null:key)},FX_ORDER_PAGE,SAMPLE_PAGE,LOOP_PAGE,PATTERN_FADE_PAGE,TAKE_PAGE,CHAIN_PAGE,CHAIN_FADE_PAGE,ENTRY_FADE_PAGE,CHAIN_TOOLS_PAGE];
 }
 
 function controlForKey(key) {
     const control = PARAMS[key];
+    if(control&&key==='morph_amplitude'&&state.algorithm===10&&Math.round(PARAMS.morph_mode.value)===1)return {...control,label:'IMPRINT AMOUNT',shortLabel:'IMPR'};
+    if(control&&key==='record_source')return {...control,max:state.splitEnabled?(isQuad()?5:3):1};
     if(control&&key==='split_focus')return {...control,max:isQuad()?3:1};
     if (control && state.splitEnabled) {
         if (key==='effect_mix') return {...control,shortLabel:'DRTN',label:'DELAY RETURN %'};
@@ -2150,6 +2261,38 @@ function controlForKey(key) {
     return control;
 }
 
+function copyShortcutScope() {
+    if(state.view==='clips'||(state.view==='settings'&&[LOOP_PAGE,TAKE_PAGE,PATTERN_FADE_PAGE].some(p=>p.title===currentSettingsPage().title)))return 'clip';
+    if(!chainEditorActive())return null;
+    return 'chain_clip';
+}
+function runCopyShortcut(scope,paste,target=state.activeClip) {
+    if(state.recording||state.clipRecording){showMessage('STOP RECORDING FIRST');return;}
+    if(scope==='clip') {
+        setParamBlocking(paste?'clip_clipboard_paste':'clip_clipboard_copy',target);
+        const error=String(getParam('last_error',''));
+        if(!error&&paste){if(target<32)state.clipMaskLow|=1<<target;else state.clipMaskHigh|=1<<(target-32);}
+        state.undoAvailable=getNumber('undo_available',0)!==0;
+        showMessage(error||('CLIP '+clipLabel(target)+(paste?' PASTED':' COPIED')));rebuildLedQueue();
+        if(!error&&paste&&target===state.activeClip)refreshEditorSnapshot();
+    } else chainAction(paste?'chain_clip_paste':'chain_clip_copy',()=>{
+        const entry=state.chainEntries[state.chainSlot];
+        return entry?.enabled?'CLIP '+clipLabel(entry.clip)+(paste?' TO E'+String(state.chainSlot+1).padStart(2,'0'):' COPIED'):'NO CLIP ENTRY';
+    });
+}
+function copyShortcutStep(step) {
+    const gesture=state.copyShortcut;if(!gesture)return false;
+    gesture.used=true;
+    if(copyShortcutScope()!==gesture.scope){showMessage('COPY CANCELLED');return true;}
+    if(gesture.scope==='clip')runCopyShortcut('clip',state.shiftHeld,state.clipBank*16+step);
+    else {
+        state.chainSlot=state.chainPage*16+step;
+        setParamBlocking('chain_slot',state.chainSlot+1);
+        runCopyShortcut('chain_clip',state.shiftHeld);
+    }
+    return true;
+}
+function chainEditorActive() {return state.view==='chain'||(state.view==='settings'&&(currentSettingsPage()===CHAIN_PAGE||!!currentSettingsPage().chainFade||currentSettingsPage().chainTools));}
 function activeControlKeys() {
     if(state.view==='library')return [null,null,null,null,null,null,'preview_route','preview_level'];
     return state.view === 'settings'
@@ -2166,6 +2309,9 @@ function noteName(value) {
 
 function formatControlValue(control) {
     if (!control) return '';
+    if(['prism_blur','prism_decay','morph_blur','texture_length','formant_smoothing'].includes(control.key))return formatFadeTime(control.value);
+    if(['formant_tune','formant_keytrack','formant_rough','formant_sub','morph_amplitude','morph_frequency','morph_offset','prism_tilt','prism_smear','texture_scatter','texture_spread'].includes(control.key))return Math.round(control.value)+'%';
+    if(control.key==='chain_repeats'&&control.value===0)return 'WAIT';
     if([...SPLIT_SEND_KEYS,...QUAD_SEND_PAGE.keys].includes(control.key))return Math.round(control.value*100)+'%';
     if(control.key==='split_blend')return 'A '+Math.round((1-control.value)*100)+' B '+Math.round(control.value*100);
     if (control.key === 'cut_lane_advance') {
@@ -2243,6 +2389,8 @@ function formatControlValue(control) {
 }
 
 function compactControlValue(control) {
+    if(control&&control.key==='record_source')return ['IN','MIX','PT A','PT B','PT C','PT D'][clamp(Math.round(control.value),0,5)];
+
     if (control && control.key === 'effect_reverb_algo') return control.value < .5 ? 'PLAT' : 'ROOM';
     if (control && control.key === 'effect_reverb_decay') return control.value.toFixed(control.value < 10 ? 2 : 1);
     if (control && control.key === 'effect_reverb_damp') return control.value >= 1000
@@ -2328,8 +2476,8 @@ function compactControlValue(control) {
         const value = control.labels[clamp(Math.round(control.value), 0,
             control.labels.length - 1)] || '';
         if (control.key === 'lane_path') {
-            return ['DOWN', 'UP', 'TRI', 'SINE', 'SDN', 'SUP', 'MAN', 'RAND'][
-                clamp(Math.round(control.value), 0, 7)];
+            return ['DOWN', 'UP', 'TRI', 'SINE', 'SDN', 'SUP', 'MAN', 'RAND', 'DRAW'][
+                clamp(Math.round(control.value), 0, 8)];
         }
         return String(value).slice(0, 4);
     }
@@ -2432,18 +2580,169 @@ function drawAmpEnvelopePage() {
     }
 }
 
+function readPatternFade() {
+    const v=String(getParam('pattern_fade_state','0,0,-1,-1,0,0,0,0,0,2000,12000,0,0')).split(',').map(Number);
+    if(v.length!==13||!v.every(Number.isFinite)||v[9]>v[10])return false;
+    state.patternFade={active:!!v[0],held:!!v[1],from:v[2],to:v[3],position:clamp(v[4]/100,0,100),
+        time:clamp(v[5],0,MAX_PATTERN_FADE_MS),curve:clamp(Math.round(v[6]),0,4),underflows:Math.max(0,v[7]),
+        mode:clamp(Math.round(v[8]),0,1),low:clamp(v[9],0,MAX_PATTERN_FADE_MS),
+        high:clamp(v[10],0,MAX_PATTERN_FADE_MS),duration:clamp(v[11],0,MAX_PATTERN_FADE_MS),override:!!v[12]};return true;
+}
+function formatFadeTime(ms) {
+    if(ms===0)return 'CUT';
+    if(ms<1000)return Math.round(ms)+'ms';
+    const seconds=ms/1000;
+    return seconds.toFixed(ms%1000===0?0:seconds>=10?1:2)+'s';
+}
+function engagePatternFader() {
+    readPatternFade();
+    if(!state.patternFade.held) {
+        setParamBlocking('pattern_fade_hold',1);
+        readPatternFade();
+    }
+}
+function drawPatternFade() {
+    const f=state.patternFade;
+    print(1,0,state.actionMessageTicks>0?state.actionMessage.slice(0,21):'PATTERN FADE',1);drawRect(0,8,128,1,1);
+    const name=i=>'ABCD'[Math.floor(clamp(i,0,63)/16)]+String(clamp(i,0,63)%16+1).padStart(2,'0');
+    if(f.active) {
+        print(1,11,name(f.from)+'>'+name(f.to)+(f.held?' H':''),1);
+        drawRect(77,13,49,1,1);
+        drawRect(77+Math.round(f.position*.48),11,2,5,1);
+    } else print(1,11,state.queuedClip>=0?(state.clipPrepareState===4?'SAMPLE LOAD ERROR':'WAIT '+name(state.queuedClip)):
+        f.held?'ARMED: PICK PATTERN':'SELECT NEXT PATTERN',1);
+    const controls=[
+        [f.mode||f.override?'NOW':'TIME',f.mode||f.override?(f.from>=0?formatFadeTime(f.duration):'-'):formatFadeTime(f.time)],
+        ['CURVE',FADE_CURVES[f.curve]],['XFADE',Math.round(f.position)+'%'],['HOLD',f.held?'ON':'OFF'],
+        f.mode&&!f.override?['LOW',formatFadeTime(f.low)]:null,f.mode&&!f.override?['HIGH',formatFadeTime(f.high)]:null,
+        ['MODE',f.override?'CHN':f.mode?'RAND':'FIX'],[state.shiftHeld?'FROM':'DONE','TURN']
+    ];
+    controls.forEach((control,i)=>{
+        const x=i%4*32,y=i<4?21:44;
+        if(!control){drawRect(x+14,y+8,4,4,1);drawRect(x+15,y+9,2,2,0);return;}
+        print(x+1,y,control[0],1);print(x+1,y+10,control[1],1);
+    });
+}
+function adjustPatternFade(index,delta) {
+    readPatternFade();
+    if((state.patternFade.override&&[0,4,5,6].includes(index))||(index===0&&state.patternFade.mode===1)||([4,5].includes(index)&&state.patternFade.mode===0))return;
+    if(index===2&&delta!==0)engagePatternFader();
+    delta=parameterEncoderDelta(index,'pattern_fade_'+index,delta);if(!delta)return;
+    readPatternFade();const f=state.patternFade;
+    if(index===7&&delta>0&&state.shiftHeld){chainAction('pattern_fade_return','RETURNING TO SOURCE');readPatternFade();draw();return;}
+    if(index===0||index===4||index===5) {
+        const current=index===0?f.time:index===4?f.low:f.high;
+        let closest=0;FADE_TIMES.forEach((v,i)=>{if(Math.abs(v-current)<Math.abs(FADE_TIMES[closest]-current))closest=i;});
+        setParamBlocking(index===0?'pattern_fade_ms':index===4?'pattern_fade_low_ms':'pattern_fade_high_ms',
+            FADE_TIMES[clamp(closest+delta,0,FADE_TIMES.length-1)]);
+    } else if(index===1)setParamBlocking('pattern_fade_curve',clamp(f.curve+delta,0,4));
+    else if(index===2)setParamBlocking('pattern_fade_nudge',delta);
+    else if(index===3)setParamBlocking('pattern_fade_hold',delta>0?1:0);
+    else if(index===6)setParamBlocking('pattern_fade_mode',delta>0?1:0);
+    else if(index===7&&delta>0)setParamBlocking('pattern_fade_finish',1);
+    readPatternFade();draw();
+}
+function parseStackPath(text) {
+    const values=String(text||'').split(',').map(Number);
+    if(values.length!==26 || !values.every(Number.isFinite))return false;
+    const count=values[0];if(count<4||count>8||count!==Math.round(count))return false;
+    const points=Array.from({length:8},(_,i)=>({time:values[2+i*3],lane:values[3+i*3],curve:values[4+i*3]}));
+    if(points[0].time!==0 || points[count-1].time>.990001 || points.some((p,i)=>p.time<0||p.time>1||p.lane<0||p.lane>1||p.curve< -1||p.curve>1
+        ||(i>0&&i<count&&p.time<points[i-1].time+.00999)))return false;
+    state.pathCount=count;state.pathPoint=clamp(Math.round(values[1]),0,count-1);
+    state.pathPoints=points;state.pathReady=true;return true;
+}
+function readStackPath() {
+    state.pathReady=parseStackPath(getParam('stack_path_state',''));return state.pathReady;
+}
+function pathLaneBounds() {
+    return state.splitEnabled&&!state.sharedDual?[state.splitFocus*2+1,state.splitFocus*2+2]:[1,4];
+}
+function stackPathValue(phase) {
+    phase-=Math.floor(phase);const points=state.pathPoints,count=state.pathCount;
+    let before=0;while(before+1<count&&phase>=points[before+1].time)++before;
+    const after=(before+1)%count,end=after?points[after].time:1;
+    const u=clamp((phase-points[before].time)/(end-points[before].time),0,1);
+    const bent=u+points[before].curve*(u*u-u);
+    return points[before].lane+(points[after].lane-points[before].lane)*bent;
+}
+function pathEditorControls() {
+    const p=state.pathPoints[state.pathPoint],bounds=pathLaneBounds();
+    return [
+        {label:'PT',value:(state.pathPoint+1)+'/'+state.pathCount},
+        {label:'TIME',value:Math.round(p.time*100)+'%'},
+        {label:'LANE',value:(bounds[0]+p.lane*(bounds[1]-bounds[0])).toFixed(2)},
+        {label:'CURV',value:String(Math.round(p.curve*100))},
+        {label:'PNTS',value:String(state.pathCount)},null,null,{label:'RSET',value:'SHFT'}
+    ];
+}
+function drawPathEditor() {
+    drawRect(0,0,128,8,0);drawRect(0,8,128,1,1);
+    print(1,0,(state.actionMessageTicks>0?state.actionMessage:
+        ((state.splitEnabled?partName()+' ':'')+'PATH EDIT '+(state.pathPoint+1)+'/'+state.pathCount+(saveNotice()?' *':''))).slice(0,21),1);
+    if(!state.pathReady){print(1,19,'LOADING PATH',1);return;}
+    const left=12,right=125,top=11,bottom=26,bounds=pathLaneBounds();
+    print(0,9,String(bounds[0]),1);print(0,22,String(bounds[1]),1);
+    for(let y=top;y<=bottom;y+=5)for(let x=left;x<=right;x+=4)drawRect(x,y,1,1,1);
+    let priorY=top+stackPathValue(0)*(bottom-top);
+    for(let x=left+1;x<=right;++x) {
+        const phase=(x-left)/(right-left),y=top+stackPathValue(phase>=1?0:phase)*(bottom-top);
+        drawPixelLine(x-1,priorY,x,y);priorY=y;
+    }
+    for(let i=0;i<state.pathCount;++i) {
+        const p=state.pathPoints[i],x=Math.round(left+p.time*(right-left)),y=Math.round(top+p.lane*(bottom-top));
+        if(i===state.pathPoint){drawRect(x-2,y-2,5,5,1);drawRect(x-1,y-1,3,3,0);drawRect(x,y,1,1,1);}
+        else drawRect(x-1,y-1,3,3,1);
+    }
+    for(const [index,control] of pathEditorControls().entries()) {
+        const x=(index%4)*32,y=index<4?31:48;
+        if(!control){drawRect(x+14,y+6,4,4,1);drawRect(x+15,y+7,2,2,0);continue;}
+        print(x+2,y,control.label,1);print(x+2,y+8,control.value,1);
+    }
+}
+function openPathEditor() {
+    const page=parameterPages().findIndex(p=>p.pathEditor);if(page<0)return;
+    state.view='settings';state.settingsPage=page;state.actionMessageTicks=0;resetParameterEncoderMotion();readStackPath();draw();
+}
+function adjustPathEditor(index,delta) {
+    if(!state.pathReady && !readStackPath()){showActionMessage('PATH UNAVAILABLE');return;}
+    if(index===5||index===6)return;
+    delta=parameterEncoderDelta(index,'path_'+index+'_'+state.pathPoint,delta);if(!delta)return;
+    const p=state.pathPoints[state.pathPoint];let operation,value;
+    if(index===0){operation='select';value=0;}
+    if(index===1){operation='time';value=clamp(p.time+delta*.005,0,.99);}
+    if(index===2){operation='lane';value=clamp(p.lane+delta*.01,0,1);}
+    if(index===3){operation='curve';value=clamp(p.curve+delta*.025,-1,1);}
+    if(index===4){operation='count';value=clamp(state.pathCount+delta,4,8);}
+    if(index===7){
+        if(!state.shiftHeld){showActionMessage('SHIFT+K8 RESETS PATH');return;}
+        if(delta<0)return;operation='reset';value=0;
+    }
+    if(!operation)return;
+    const point=index===0?clamp(state.pathPoint+delta,0,state.pathCount-1):state.pathPoint;
+    setParamBlocking('stack_path_edit',operation+','+point+','+value);
+    readStackPath();
+    const error=String(getParam('last_error','')||'');
+    if(error)showActionMessage(index===1&&point===0?'FIRST POINT TIME IS 0':'MOVE POINTS APART');
+    else if(index===7)showActionMessage('RESET DRAW PATH');
+    draw();
+}
 function drawSettings() {
     clearDisplay();
     if(!state.editorReady){print(1,0,'UPDATING EDITOR',1);return;}
     const page = currentSettingsPage();
     if (page.route) { drawFxOrder(); return; }
+    if(page.pathEditor){drawPathEditor();return;}
+    if(page.patternFade){drawPatternFade();return;}
+    if(page.chainTools){drawChainTools();return;}
+    if(page.chainFade){drawChainFade(page.chainFade);return;}
     const target = state.clipRecording ? 'REC ' : (state.clipPlaying ? '> ' : '');
     const pages = parameterPages();
-    const takeSuffix = page === TAKE_PAGE ? ' ' + state.clipTakeCount
+    const takeSuffix = page===CHAIN_PAGE?' '+String(state.chainBank+1).padStart(2,'0'):page === TAKE_PAGE ? ' ' + state.clipTakeCount
         : (page === FX_ORDER_PAGE && state.fxRoutePending ? '*' : '');
     const lockTarget = state.algorithm === 6 && state.glitchBufferLocked
         ? 'LCK ' : '';
-    const scope=state.splitEnabled?((isSendPage(page)||isSetupPage(page))?'':state.sharedDual&&page===SAMPLE_PAGE?'SRC ':page.global?'FX ':((partName()+' '))):'';
+    const scope=state.splitEnabled?((isSendPage(page)||isSetupPage(page))?'':state.sharedDual&&page===SAMPLE_PAGE?'SRC ':page.global?(page.scopeLabel??'FX '):((partName()+' '))):'';
     const pageTitle = target + lockTarget + scope + page.title + takeSuffix + ' '
         + (state.settingsPage + 1)
         + '/' + pages.length;
@@ -2457,18 +2756,20 @@ function drawSettings() {
         return;
     }
     const notice=saveNotice();
-    const hasFooter = Boolean(notice) || (state.splitEnabled && (isSendPage(page)
+    const drawPath=page.title===STACK_PATH_PAGE.title&&Math.round(PARAMS.lane_path.value)===8;
+    const hasFooter = drawPath || Boolean(notice) || (state.splitEnabled && (isSendPage(page)
         || page===DELAY_RETURN_PAGE || page.title===REVERB_PAGE.title));
     for (let index = 0; index < 8; index++) {
         const key = page.keys[index];
         if (!key) {
-            drawReservedParameterCell(index, hasFooter);
+            if(page.title==='MORPH'&&index===7){print(98,34,'PAIR',1);print(98,46,String(getParam('morph_pair','1>2')).slice(0,5),1);}else drawReservedParameterCell(index, hasFooter);
             continue;
         }
         const control = controlForKey(key);
         drawParameterCell(index, control, hasFooter);
     }
     if(notice)print(1,57,notice.slice(0,21),1);
+    else if(drawPath)print(1,57,'CLICK: EDIT PATH',1);
     else if (state.splitEnabled && isSendPage(page)) print(1,57,splitSendFooter(),1);
     else if (state.splitEnabled && !isQuad() && (page===DELAY_RETURN_PAGE || page.title===REVERB_PAGE.title))
         print(1,57,'RETURN: FX SENDS',1);
@@ -2491,14 +2792,15 @@ function drawHelp() {
     clearDisplay();
     if (state.helpPage === 0) {
         print(1, 0, 'SYSTEM REPORT 1/3 <>', 1);
-        print(1, 13, helpReportRow('RENDER PEAK',
+        print(1, 11, helpReportRow('RENDER PEAK',
             compactReportCount(state.maximumRenderMicros) + ' us'), 1);
-        print(1, 25, helpReportRow('RENDER MISSES',
+        print(1, 21, helpReportRow('RENDER MISSES',
             compactReportCount(state.renderOverruns)), 1);
-        print(1, 37, helpReportRow('LIMIT CURRENT',
+        print(1, 31, helpReportRow('LIMIT CURRENT',
             state.limiterReductionDb.toFixed(1) + ' dB'), 1);
-        print(1, 49, helpReportRow('LIMIT MAX',
+        print(1, 41, helpReportRow('LIMIT MAX',
             state.limiterMaximumReductionDb.toFixed(1) + ' dB'), 1);
+        print(1,51,helpReportRow('FADE BUF MISSES',compactReportCount(state.patternFade.underflows)),1);
         return;
     }
     if (state.helpPage === 1) {
@@ -2563,6 +2865,7 @@ function pageEntries() {
 }
 
 function openPagePicker() {
+    endPerformanceLayer();
     if(state.view==='pages')return;
     if(state.fxRouteGrabbed||state.fxRoutePending)cancelFxOrder(false);
     state.pageReturn={view:state.view,page:state.settingsPage,focus:state.splitFocus,fx:state.fxMenuReturn};
@@ -2590,6 +2893,7 @@ function activatePagePicker() {
             if(state.splitEnabled)state.splitPages[state.splitFocus]=entry.index;
         }
         resetParameterEncoderMotion();
+        if(state.view==='settings'&&currentSettingsPage().pathEditor)readStackPath();
     }
     state.pageReturn=null;
 }
@@ -2614,6 +2918,7 @@ function drawModePicker() {
 }
 
 function applyModePicker() {
+    endPerformanceLayer();
     const wanted=state.modeSelection;
     setParamBlocking('split_mode',wanted);parseSplitState(getParam('split_state','{}'));
     if(Math.round(getNumber('split_mode',PARAMS.split_mode.value))!==wanted) {
@@ -2681,7 +2986,7 @@ function triggerSafetyUndo() {
         const error=String(getParam('last_error','')).toLowerCase();
         undoFeedback(error.includes('archive')?'WAIT FOR TAKE TO SAVE':error.includes('prepar')?'WAIT FOR CLIP LOAD':'UNDO NOT READY');
     } else {
-        refreshEditorSnapshot();
+        refreshEditorSnapshot();refreshChainEditors();
         if(state.fxRouteGrabbed||state.fxRoutePending)cancelFxOrder(false);
         undoFeedback('UNDONE');
     }
@@ -2712,34 +3017,110 @@ function drawClips() {
         if (clip === state.queuedClip) marker = '+';
         print(x, y, marker + String(index + 1).padStart(2, '0'), 1);
     }
-    print(1, 57, errorFooter('TRK BANK SHIFT=COPY'), 1);
+    print(1, 57, errorFooter(state.messageTicks>0?state.message:'COPY: HOLD + STEP'), 1);
 }
 
 function drawChain() {
     clearDisplay();
-    const selected = state.chainEntries[state.chainSlot];
-    const selection = selected && selected.enabled
-        ? String(selected.clip + 1).padStart(2, '0') + 'x' + selected.repeats
-        : 'EMPTY';
-    print(1, 0, ('CHAIN ' + (state.chainEnabled ? 'ON ' : 'OFF ')
-        + String(state.chainSlot + 1).padStart(2, '0') + ' ' + selection)
-        .slice(0, 21), 1);
-    drawRect(0, 8, 128, 1, 1);
-    for (let index = 0; index < 16; index++) {
-        const entry = state.chainEntries[index];
-        const column = index % 4;
-        const row = Math.floor(index / 4);
-        const x = column * 32;
-        const y = 13 + row * 11;
-        let marker = index === state.chainSlot ? ':' : ' ';
-        if (index === state.chainPosition && state.chainEnabled) marker = '>';
-        if (index === state.chainQueuedSlot) marker = '+';
-        const repeat = entry.repeats > 9 ? '+' : String(entry.repeats);
-        const body = entry.enabled
-            ? String(entry.clip + 1).padStart(2, '0') + 'x' + repeat : '--';
-        print(x + 1, y, (marker + body).slice(0, 5), 1);
+    const selected=state.chainEntries[state.chainSlot];
+    const detail=selected.enabled?clipLabel(selected.clip)+(selected.repeats===0?' W':'x'+selected.repeats):'EMPTY';
+    print(1,0,('C'+String(state.chainBank+1).padStart(2,'0')+' '+(state.chainEnabled?'RUN'+String(state.chainPlayBank+1).padStart(2,'0'):'OFF')+' E'+String(state.chainSlot+1).padStart(2,'0')+' '+detail).slice(0,21),1);
+    drawRect(0,8,128,1,1);
+    for(let i=0;i<16;i++) {
+        const index=state.chainPage*16+i,entry=state.chainEntries[index],x=i%4*32,y=13+Math.floor(i/4)*11;
+        let marker=index===state.chainSlot?':':' ';
+        if(index===state.chainPosition&&state.chainEnabled&&state.chainBank===state.chainPlayBank)marker='>';
+        if((state.chainLaunchBank===state.chainBank&&index===state.chainLaunchSlot)||(state.chainLaunchBank<0&&state.chainPlayBank===state.chainBank&&index===state.chainQueuedSlot))marker='+';
+        const repeat=entry.repeats===0?'W':entry.repeats>9?'+':String(entry.repeats);
+        const body=entry.enabled?String(entry.clip+1).padStart(2,'0')+'x'+repeat:'--';
+        if(index===state.chainSlot)drawRect(x,y-1,32,9,1);
+        print(x+1,y,(marker+body).slice(0,5),index===state.chainSlot?0:1);
     }
-    print(1, 57, errorFooter('DEL STEP SH=MV CLICK+'), 1);
+    print(1,57,errorFooter(state.messageTicks>0?state.message:(state.chainLaunchBank>=0?'QUEUED C'+String(state.chainLaunchBank+1).padStart(2,'0')+' E'+String(state.chainLaunchSlot+1).padStart(2,'0'):'P'+(state.chainPage+1)+'/4 <> MENU:PARAMS')),1);
+}
+function refreshChainEditors() {
+    parseChainState(getParam('chain_state',''));parseChainEntries(getParam('chain_entries',''));readChainFades();
+    state.undoAvailable=getNumber('undo_available',0)!==0;rebuildLedQueue();
+}
+function chainAction(key,message,value=1) {
+    setParamBlocking(key,value);
+    const error=String(getParam('last_error',''));
+    refreshChainEditors();const text=error||(typeof message==='function'?message():message);showMessage(text);showActionMessage(text);
+}
+function effectiveFadeSummary(scope) {
+    const v=String(getParam(scope==='entry'?'entry_effective_fade':'chain_effective_fade','0,0,0,2000,12000,0')).split(',').map(Number);
+    if(v.length!==6||!v.every(Number.isFinite))return 'FADE NOT READY';
+    const timing=v[1]?'R '+formatFadeTime(v[3])+'-'+formatFadeTime(v[4]):formatFadeTime(v[2]);
+    const summary=['GLBL','CHAIN','ENTRY'][v[0]]+' '+timing+' '+FADE_CURVES[v[5]];
+    if(summary.length<=21)return summary;
+    const seconds=ms=>String(Number((ms/1000).toPrecision(3))).replace(/^0\./,'.');
+    const range=v[4]<1000?Math.round(v[3])+'-'+Math.round(v[4])+'ms':seconds(v[3])+'-'+seconds(v[4])+'s';
+    return ['GLBL','CHN','ENT'][v[0]]+' R'+range+' '+FADE_CURVES[v[5]];
+}
+function drawChainTools() {
+    const feedback=state.actionMessageTicks>0;
+    print(1,0,feedback?state.actionMessage.slice(0,21):'CHAIN TOOLS',1);
+    if(!feedback)print(102,0,'C'+String(state.chainBank+1).padStart(2,'0'),1);
+    drawRect(0,8,128,1,1);
+    print(17,11,'CHAIN',1);print(81,11,'ENTRY',1);
+    drawRect(63,11,1,28,1);
+    print(3,21,'1 COPY',1);print(3,31,'2 PASTE',1);
+    print(67,21,'3 COPY',1);print(67,31,'4 PASTE',1);
+    drawRect(0,41,128,1,1);
+    const controls=[['BANK',String(state.chainBank+1).padStart(2,'0')],
+        ['SLOT',String(state.chainSlot+1).padStart(2,'0')],['CUE','HERE'],['CNCL','QUEU']];
+    controls.forEach((c,i)=>{print(i*32+2,44,c[0],1);print(i*32+2,54,c[1],1);});
+}
+function selectEditSlot(index,delta) {
+    delta=parameterEncoderDelta(index,'chain_slot',delta);if(!delta)return;
+    setParamBlocking('chain_slot',clamp(state.chainSlot+delta,0,63)+1);
+    refreshChainEditors();resetParameterEncoderMotion(index);draw();
+}
+function adjustChainTools(index,delta) {
+    if(!delta)return;
+    if(index===4){delta=parameterEncoderDelta(index,'chain_bank',delta);if(delta){setParamBlocking('chain_bank',clamp(state.chainBank+delta,0,15)+1);refreshChainEditors();resetParameterEncoderMotion(index);}return;}
+    if(index===5){selectEditSlot(index,delta);return;}
+    if(delta<0)return;
+    const keys=['chain_copy','chain_paste','entry_copy','entry_paste',null,null,'chain_launch','chain_launch_cancel'];
+    const labels=['CHAIN COPIED','CHAIN PASTED','ENTRY COPIED','ENTRY PASTED','','','CHAIN QUEUED','QUEUE CANCELLED'];
+    chainAction(keys[index],labels[index]);draw();
+}
+function drawChainFade(scope) {
+    readChainFades();const offset=scope==='entry'?5:0,v=state.chainFades.slice(offset,offset+5),mode=v[0];
+    const fixed=scope==='entry'?mode===2:mode===1,random=scope==='entry'?mode===3:mode===2;
+    print(1,0,scope==='entry'?'ENTRY FADE':'CHAIN FADE',1);drawRect(0,8,128,1,1);
+    print(78,0,('C'+String(state.chainBank+1).padStart(2,'0')+(scope==='entry'?':'+String(state.chainSlot+1).padStart(2,'0'):'')),1);
+    print(1,11,effectiveFadeSummary(scope).slice(0,21),1);
+    const selected=scope==='entry'?state.chainEntries[state.chainSlot]:null;
+    const controls=[fixed?['TIME',formatFadeTime(v[1])]:null,fixed||random?['CURVE',FADE_CURVES[v[4]]]:null,
+        scope==='entry'?['SLOT',String(state.chainSlot+1).padStart(2,'0')]:null,
+        scope==='entry'?['PATT',selected?.enabled?clipLabel(selected.clip):'-']:null,
+        random?['LOW',formatFadeTime(v[2])]:null,random?['HIGH',formatFadeTime(v[3])]:null,
+        ['MODE',(scope==='entry'?['DEF','CUT','FIX','RAND']:['GLBL','FIX','RAND'])[mode]],null];
+    controls.forEach((c,i)=>{const x=i%4*32,y=i<4?21:44;
+        if(c){print(x+1,y,c[0],1);print(x+1,y+10,c[1],1);}
+        else{drawRect(x+14,y+8,4,4,1);drawRect(x+15,y+9,2,2,0);}});
+}
+function adjustChainFade(scope,index,delta) {
+    if(scope==='entry'&&index===2) {
+        delta=parameterEncoderDelta(index,'chain_slot',delta);if(!delta)return;
+        const slot=clamp(state.chainSlot+delta,0,63);if(slot===state.chainSlot)return;
+        setParamBlocking('chain_slot',slot+1);
+        state.chainSlot=slot;state.chainPage=Math.floor(slot/16);PARAMS.chain_slot.value=slot+1;
+        parseChainEntries(getParam('chain_entries',''));readChainFades();
+        resetParameterEncoderMotion(index);rebuildLedQueue();draw();return;
+    }
+    readChainFades();const v=state.chainFades.slice(scope==='entry'?5:0),mode=v[0];
+    const fixed=scope==='entry'?mode===2:mode===1,random=scope==='entry'?mode===3:mode===2;
+    if(index!==6 && !(index===0&&fixed) && !(index===1&&(fixed||random)) && !([4,5].includes(index)&&random))return;
+    delta=parameterEncoderDelta(index,scope+'_fade_'+index,delta);if(!delta)return;
+    const prefix=scope+'_fade_';
+    if(index===6)setParamBlocking(prefix+'mode',clamp(mode+delta,0,scope==='entry'?3:2));
+    else if(index===1)setParamBlocking(prefix+'curve',clamp(v[4]+delta,0,4));
+    else {const current=index===0?v[1]:index===4?v[2]:v[3];let nearest=0;
+        FADE_TIMES.forEach((x,i)=>{if(Math.abs(x-current)<Math.abs(FADE_TIMES[nearest]-current))nearest=i;});
+        setParamBlocking(prefix+(index===0?'ms':index===4?'low_ms':'high_ms'),FADE_TIMES[clamp(nearest+delta,0,FADE_TIMES.length-1)]);}
+    readChainFades();draw();
 }
 
 function libraryLeaf(path) {
@@ -2780,8 +3161,47 @@ function drawLibrary() {
     print(1, 57, footer.slice(0, 21), 1);
 }
 
+function performancePressureAmount(pad,value) {
+    const pressure=clamp(value/64,0,1),curve=pressure*(2-pressure),floor=pad<4?0.2:0.65;
+    return floor+(1-floor)*curve;
+}
+function performanceLaneEnabled(lane) {
+    return !isQuad() && (state.mask & (1<<lane))!==0
+        && (!state.splitEnabled || state.sharedDual || Math.floor(lane/2)===state.performanceOwner);
+}
+function endPerformanceLayer(send = true) {
+    if(state.focusButtonHeld)state.focusButtonUsed=true;
+    state.performanceArmed=false;
+    state.performanceVisible=false;
+    state.performanceValues.fill(0);state.performancePadLive.clear();
+    splitDisplay.valid=false;
+    if(send)setParam('performance_cancel',1);
+    rebuildLedQueue();
+}
+function drawPerformanceLayer() {
+    clearDisplay();
+    print(1,0,'PERFORM'+(state.splitEnabled?' '+String.fromCharCode(65+state.performanceOwner):'')+' BOTTOM 8',1);
+    drawRect(0,8,128,1,1);
+    const names=['L1','L2','L3','L4','DARK','CRSH','ECHO','SPCE'];
+    for(let index=0;index<8;++index) {
+        const x=(index%4)*32,y=11+Math.floor(index/4)*21;
+        const enabled=index>=4||performanceLaneEnabled(index);
+        const pressed=state.performancePadLive.has(MovePads[index]);
+        if(enabled&&pressed)drawRect(x,y,31,18,1);
+        print(x+2,y,names[index],enabled&&pressed?0:1);
+        let amount=state.performanceValues[index];
+        if(index<4 && pressed && enabled) {
+            let sum=0;
+            for(let lane=0;lane<4;++lane)if(performanceLaneEnabled(lane)&&state.performancePadLive.has(MovePads[lane]))sum+=state.performanceValues[lane];
+            amount=sum>0?amount/sum:0;
+        }
+        print(x+2,y+9,enabled?Math.round(amount*100)+'%':'--',enabled&&pressed?0:1);
+    }
+    print(1,57,'RELEASE TO RETURN',1);
+}
 function draw() {
-    if(state.view==='mode')drawModePicker();
+    if(state.performanceVisible)drawPerformanceLayer();
+    else if(state.view==='mode')drawModePicker();
     else if(state.view==='pages')drawPagePicker();
     else if(state.view==='mixStatus')drawMixStatus();
     else if (state.view === 'help') drawHelp();
@@ -2794,6 +3214,7 @@ function draw() {
 }
 
 function selectLane(lane) {
+    endPerformanceLayer();
     if (state.recording) return;
     state.lane = clamp(lane | 0, 1, 4);
     setParamBlocking('record_lane', state.lane);
@@ -2865,6 +3286,7 @@ function scanLibrary(path) {
 }
 
 function openLibrary(lane) {
+    endPerformanceLayer();
     if (state.recording) return;
     state.libraryLane = clamp(lane | 0, 1, 4);
     state.lane = state.libraryLane;
@@ -2951,12 +3373,13 @@ function toggleClipView() {
 }
 
 function selectChainSlot(step) {
-    const destination = clamp(step | 0, 0, 15);
+    resetParameterEncoderMotion();
+    const destination = state.chainPage*16+clamp(step | 0, 0, 15);
     if (state.deleteHeld) {
         setParamBlocking('chain_delete', destination);
         state.chainEntries.splice(destination, 1);
         state.chainEntries.push({ enabled: false, clip: 0, repeats: 1 });
-        state.chainSlot = clamp(destination, 0, 15);
+        state.chainSlot = clamp(destination, 0, 63);
         showMessage('DELETED CHAIN ' + (destination + 1));
     } else if (state.shiftHeld && destination !== state.chainSlot) {
         const source = state.chainSlot;
@@ -2998,7 +3421,7 @@ function adjustChainRepeats(delta) {
         entry.enabled = true;
         entry.clip = state.activeClip;
     }
-    entry.repeats = clamp(entry.repeats + (delta > 0 ? 1 : -1), 1, 16);
+    entry.repeats = clamp(entry.repeats + (delta > 0 ? 1 : -1), 0, 16);
     setParamBlocking('chain_slot', state.chainSlot + 1);
     setParamBlocking('chain_clip', entry.clip + 1);
     setParamBlocking('chain_repeats', entry.repeats);
@@ -3012,7 +3435,7 @@ function insertActiveClipInChain() {
     state.chainEntries.splice(state.chainSlot, 0, {
         enabled: true, clip: state.activeClip, repeats: 1,
     });
-    state.chainEntries.length = 16;
+    state.chainEntries.length = 64;
     PARAMS.chain_slot.value = state.chainSlot + 1;
     PARAMS.chain_clip.value = state.activeClip + 1;
     PARAMS.chain_repeats.value = 1;
@@ -3135,6 +3558,8 @@ function adjustSettingsPage(delta) {
     state.settingsPage = (state.settingsPage + (delta > 0 ? 1 : -1)
         + pages.length) % pages.length;
     state.actionMessageTicks = 0;
+    if(currentSettingsPage().pathEditor)readStackPath();
+    if(currentSettingsPage().patternFade)readPatternFade();
 }
 
 function applyMomentaryControl(control) {
@@ -3179,13 +3604,19 @@ function applyMomentaryControl(control) {
 
 function adjustControl(index, delta) {
     if(!state.editorReady){showMessage('UPDATING EDITOR');return;}
+    if(state.view==='settings'&&currentSettingsPage().chainTools){adjustChainTools(index,delta);return;}
+    if(state.view==='settings'&&currentSettingsPage().pathEditor){adjustPathEditor(index,delta);return;}
+    if(state.view==='settings'&&currentSettingsPage().patternFade){adjustPatternFade(index,delta);return;}
+    if(state.view==='settings'&&currentSettingsPage().chainFade){adjustChainFade(currentSettingsPage().chainFade,index,delta);return;}
     if (state.view === 'settings' && currentSettingsPage().route) {
         if (delta !== 0) adjustFxOrder(index, delta);
         return;
     }
-    const keys = activeControlKeys();
+    const keys = state.view==='chain'?CHAIN_PAGE.keys:activeControlKeys();
     const control = controlForKey(keys[index]);
     if (!control || delta === 0) return;
+    if(control.key==='chain_advance'&&state.shiftHeld){if(delta>0)chainAction('chain_launch','CHAIN ENTRY QUEUED');return;}
+    if(control.key==='chain_advance'){if(delta>0&&state.chainEnabled)setParamBlocking('chain_advance',1);showActionMessage(state.chainEnabled?'NEXT AT LOOP END':'CHAIN OFF');return;}
     if (control.key === 'chain_clear') {
         parameterEncoderMotion[index].key = control.key;
         parameterEncoderMotion[index].remainder = 0;
@@ -3235,13 +3666,15 @@ function adjustControl(index, delta) {
         return;
     }
     if(['split_mode','split_focus','part_mute'].includes(control.key)){setParamBlocking(control.key,value);parseSplitState(getParam('split_state','{}'));}
+    else if(control.key.startsWith('chain_'))setParamBlocking(control.key,value.toFixed(control.integer?0:4));
     else setParam(control.key, value.toFixed(control.integer ? 0 : 4));
+    if(control.key==='chain_bank'){parseChainState(getParam('chain_state','0,0,0,0,-1,0,0,0'));parseChainEntries(getParam('chain_entries',''));readChainFades();resetParameterEncoderMotion(index);}
     if (control.key === 'chain_enabled') {
         state.chainEnabled = value !== 0;
     } else if (control.key === 'chain_slot') {
-        state.chainSlot = clamp(Math.round(value) - 1, 0, 15);
+        state.chainSlot = clamp(Math.round(value) - 1, 0, 63);state.chainPage=Math.floor(state.chainSlot/16);
         PARAMS.chain_clip.value = clamp(getNumber('chain_clip', 1), 1, 64);
-        PARAMS.chain_repeats.value = clamp(getNumber('chain_repeats', 1), 1, 16);
+        PARAMS.chain_repeats.value = clamp(getNumber('chain_repeats', 1), 0, 16);
     } else if (control.key === 'pad_mode') {
         state.padMode = clamp(Math.round(value), 0, 3);
         rebuildLedQueue();
@@ -3252,7 +3685,7 @@ function adjustControl(index, delta) {
     } else if (control.key === 'root_note') {
         rebuildLedQueue();
     } else if (control.key === 'record_source') {
-        state.recordSource = clamp(Math.round(value), 0, 1);
+        state.recordSource = clamp(Math.round(value), 0, state.splitEnabled?(isQuad()?5:3):1);
     } else if (control.key === 'clip_rate') {
         state.clipRate = value;
     }
@@ -3268,6 +3701,7 @@ function adjustControl(index, delta) {
 }
 
 function pollDiagnostics() {
+    readPatternFade();
     const performance = String(getParam('performance_state', '0,0'))
         .split(',').map((item) => Number(item));
     state.maximumRenderMicros = Number.isFinite(performance[0])
@@ -3290,6 +3724,8 @@ function pollDiagnostics() {
 }
 
 function pollDsp() {
+    const previousPage=state.view==='settings'?parameterPages()[state.settingsPage]:null;
+    const keepPage=previousPage&&(previousPage.scopeLabel===''||previousPage.patternFade||previousPage.chainFade||previousPage.chainTools||previousPage===CHAIN_PAGE)?previousPage:null;
     if(!state.editorReady)refreshEditorSnapshot();
     if ((state.fxRouteGrabbed || state.fxRoutePending)
         && !(state.view === 'settings' && currentSettingsPage().route)) cancelFxOrder(false);
@@ -3309,6 +3745,7 @@ function pollDsp() {
     parsePlayheads(getParam('playheads', ''));
     parseWavesetState(getParam('waveset_state', ''));
     parseCutupsState(getParam('cutups_state', ''));
+    state.spectralPending=Number(String(getParam('spectral_analysis_state','0,0')).split(',')[1])||0;
     state.wavesetAnalysisPending = Number(String(getParam(
         'waveset_analysis_state', '0,0,0')).split(',')[1]) || 0;
     parseStackPositions(getParam('voice_lanes', ''));
@@ -3338,6 +3775,7 @@ function pollDsp() {
         state.activePads.clear();
         rebuildLedQueue();
     }
+    readPatternFade();
     parseClipPrepareState(getParam('clip_prepare_state', '0,-1'));
     parseChainState(getParam('chain_state', '0,0,0,0,-1'));
     parseChainEntries(getParam('chain_entries', ''));
@@ -3352,11 +3790,13 @@ function pollDsp() {
         state.glitchLockLatched = false;
     }
     if (state.ticks % 60 === 0) pollDiagnostics();
+    if(keepPage){const index=parameterPages().findIndex(page=>page.title===keepPage.title);if(index>=0)state.settingsPage=index;}
+    if(state.view==='settings'&&currentSettingsPage().pathEditor)readStackPath();
     parseWaveforms(getParam('waveforms', ''));
 }
 
 globalThis.init = function() {
-    splitDisplay.valid=false;state.waveText=null;
+    splitDisplay.valid=false;state.waveText=null;state.patternFaderTouched=false;
     // Schwung may clear or restore the physical surface between takeover sessions.
     if (typeof moveInputFilter.invalidateLedCache === 'function') {
         moveInputFilter.invalidateLedCache();
@@ -3364,15 +3804,18 @@ globalThis.init = function() {
     state.ticks = 0;
     state.view = 'main';
     state.settingsPage = 0;
+    state.pathReady=false;state.pathPoint=0;
     state.helpPage = 0;
     state.splitEnabled = false; state.sharedDual=false;state.quadMode=false;state.modeSelection=0;state.splitFocus = 0; state.splitPages = [0,0,0,0];
     state.focusButtonHeld = false; state.focusButtonUsed = false;
+    state.performanceVisible=false;state.performanceArmed=false;state.performancePads.clear();state.performancePadLive.clear();state.performanceValues.fill(0);
     state.iconPressed.clear();
     state.fxMenuSelection=0;state.fxMenuReturn=false;
     state.message = 'REC CAPTURES PERFORMANCE';
     state.messageTicks = 80;
     state.actionMessage = '';
     state.actionMessageTicks = 0;
+    state.copyShortcut=null;
     state.shiftHeld = false;
     state.deleteHeld = false;
     state.glitchLockLatched = false;
@@ -3395,6 +3838,7 @@ globalThis.init = function() {
     parsePlayheads(getParam('playheads', ''));
     parseWavesetState(getParam('waveset_state', ''));
     parseCutupsState(getParam('cutups_state', ''));
+    state.spectralPending=Number(String(getParam('spectral_analysis_state','0,0')).split(',')[1])||0;
     state.wavesetAnalysisPending = Number(String(getParam(
         'waveset_analysis_state', '0,0,0')).split(',')[1]) || 0;
     parseStackPositions(getParam('voice_lanes', ''));
@@ -3444,6 +3888,10 @@ globalThis.init = function() {
 
 globalThis.tick = function() {
     state.ticks++;
+    if(state.focusButtonHeld && state.performanceArmed && !state.shiftHeld && !state.focusButtonUsed
+        && state.ticks-state.captureStartTick>=10) {
+        state.focusButtonUsed=true;state.performanceVisible=true;rebuildLedQueue();
+    }
     if (state.ticks % 3 === 0) pollDsp();
     if (state.ticks % 180 === 0) setParam('maintenance', 1);
     if(state.savedTicks>0)state.savedTicks--;
@@ -3462,16 +3910,37 @@ globalThis.onMidiMessageInternal = function(data) {
 
     if (status === 0x90 || status === 0x80) {
         const pressed = status === 0x90 && value > 0;
+        if(number===MoveCrossfaderTouch) {
+            const firstTouch=pressed&&!state.patternFaderTouched;
+            state.patternFaderTouched=pressed;
+            if(firstTouch&&state.view==='settings'&&currentSettingsPage().patternFade) {
+                engagePatternFader();draw();
+            }
+            return;
+        }
         const step = MoveSteps.indexOf(number);
         if (step >= 0) {
             if (pressed) {
-                if (state.view === 'chain') selectChainSlot(step);
+                if(state.copyShortcut)copyShortcutStep(step);
+                else if (chainEditorActive()) selectChainSlot(step);
                 else selectClipSlot(step);
             }
             return;
         }
         const pad = MovePads.indexOf(number);
         if (pad >= 0) {
+            if(state.performancePads.has(number)) {
+                if(!pressed) {
+                    state.performancePads.delete(number);state.performancePadLive.delete(number);state.performanceValues[pad]=0;
+                    rebuildLedQueue();
+                }
+                return;
+            }
+            if(pressed && pad<8 && state.focusButtonHeld && state.performanceArmed && !state.shiftHeld && !state.activePads.has(number)) {
+                state.focusButtonUsed=true;state.performanceVisible=true;
+                state.performancePads.add(number);state.performancePadLive.add(number);state.performanceValues[pad]=0.75;
+                rebuildLedQueue();draw();return;
+            }
             const owner=padSettings(pad),mode=owner.mode;
             if (pressed) {
                 state.activePads.add(number);
@@ -3513,6 +3982,10 @@ globalThis.onMidiMessageInternal = function(data) {
     }
 
     if (status === 0xA0 && MovePads.indexOf(number) >= 0) {
+        if(state.performancePads.has(number)) {
+            if(state.performancePadLive.has(number))state.performanceValues[MovePads.indexOf(number)]=performancePressureAmount(MovePads.indexOf(number),value);
+            return;
+        }
         // Raw pad pressure also reaches the DSP, where it is associated with
         // the exact polyphonic voice. Do not collapse it to a global value.
         return;
@@ -3524,14 +3997,33 @@ globalThis.onMidiMessageInternal = function(data) {
         rebuildIconLedQueue();
     }
     if(number===MoveUndo&&value>0){triggerSafetyUndo();return;}
-    if(number===MoveCopy&&value>0){
+    if(number===MoveCopy){
+        if(value<=0){
+            const gesture=state.copyShortcut;state.copyShortcut=null;
+            if(gesture&&!gesture.used&&copyShortcutScope()===gesture.scope)runCopyShortcut(gesture.scope,gesture.paste);
+            return;
+        }
+        if(state.copyShortcut)return;
+        const scope=copyShortcutScope();
+        if(scope){
+            state.copyShortcut={scope,paste:state.shiftHeld,used:state.recording||state.clipRecording};
+            showMessage(state.copyShortcut.used?'STOP RECORDING FIRST':state.shiftHeld?'PASTE: STEP / RELEASE':'COPY: STEP / RELEASE');return;
+        }
         if(state.shiftHeld&&state.splitEnabled){setParamBlocking('split_copy',1);showMessage('COPIED TO OTHER PART');}
         else toggleSplitMode();return;
     }
     if(number===MoveCapture){
-        if(value>0){state.focusButtonHeld=true;state.focusButtonUsed=false;
-            if(state.shiftHeld&&state.splitEnabled){state.focusButtonUsed=true;openSplitSends();}}
-        else {if(state.splitEnabled&&!state.focusButtonUsed)setSplitFocus((state.splitFocus+1)%partCount());state.focusButtonHeld=false;}
+        if(value>0) {
+            if(state.shiftHeld) {state.focusButtonUsed=true;setParam('performance_capture',0);return;}
+            state.focusButtonHeld=true;state.focusButtonUsed=false;
+            state.performanceArmed=true;
+            state.captureStartTick=state.ticks;state.performanceOwner=state.splitEnabled?state.splitFocus:0;
+            setParam('performance_capture',1);
+        } else {
+            const tap=state.focusButtonHeld&&state.splitEnabled&&!state.focusButtonUsed&&!state.shiftHeld;
+            state.focusButtonHeld=false;endPerformanceLayer();
+            if(tap)setSplitFocus((state.splitFocus+1)%partCount());
+        }
         return;
     }
     if(number===MoveMute&&value>0&&state.splitEnabled){
@@ -3540,8 +4032,11 @@ globalThis.onMidiMessageInternal = function(data) {
         setParamBlocking('part_mute',muted?1:0);parseSplitState(getParam('split_state','{}'));showMessage(muted?'PART MUTED':'PART UNMUTED');return;
     }
     if(number===MoveKnob1+7&&state.splitEnabled&&state.focusButtonHeld){state.focusButtonUsed=true;adjustSplitBlend(decodeDelta(value));return;}
+    if(state.focusButtonHeld && number>=MoveKnob1 && number<MoveKnob1+8)return;
     if (number === MoveShift) {
+        if(value>0 && state.focusButtonHeld) {state.focusButtonUsed=true;endPerformanceLayer();}
         state.shiftHeld = value > 0;
+        if(state.view==='settings'&&currentSettingsPage().patternFade)draw();
         setParam('shift_held', state.shiftHeld ? 1 : 0);
         if (!state.shiftHeld && state.glitchLockMomentary
             && !state.glitchLockLatched) {
@@ -3619,8 +4114,9 @@ globalThis.onMidiMessageInternal = function(data) {
 
     const track = MoveTracks.indexOf(number);
     if (track >= 0 && value > 0) {
-        if (state.view === 'clips') {
+        if (state.view === 'clips'||state.copyShortcut?.scope==='clip') {
             state.clipBank = track;
+            if(state.copyShortcut)state.copyShortcut.used=true;
             rebuildLedQueue();
         } else if (state.shiftHeld) {
             openLibrary(track + 1);
@@ -3648,6 +4144,11 @@ globalThis.onMidiMessageInternal = function(data) {
         setParamBlocking('clear_lane', 'Clear');
         showMessage('CLEARED LANE ' + state.lane);
         return;
+    }
+    if((number===MoveLeft||number===MoveRight)&&value>0&&chainEditorActive()){
+        state.chainPage=clamp(state.chainPage+(number===MoveRight?1:-1),0,3);
+        state.chainSlot=state.chainPage*16+state.chainSlot%16;setParamBlocking('chain_slot',state.chainSlot+1);
+        rebuildLedQueue();return;
     }
     if ((number === MoveLeft || number === MoveRight) && value > 0
         && state.view === 'help') {
@@ -3707,6 +4208,8 @@ globalThis.onMidiMessageInternal = function(data) {
         if(state.view==='mode')applyModePicker();
         else if(state.view==='pages')activatePagePicker();
         else if (state.view === 'fxMenu') activateSplitFxPage();
+        else if(state.view==='settings'&&currentSettingsPage().patternFade){readPatternFade();setParamBlocking('pattern_fade_hold',state.patternFade.held?0:1);readPatternFade();draw();}
+        else if(state.view==='settings'&&currentSettingsPage().title===STACK_PATH_PAGE.title&&Math.round(PARAMS.lane_path.value)===8)openPathEditor();
         else if (state.splitEnabled && state.view==='settings' && isSendPage(currentSettingsPage()) && !state.shiftHeld) openSplitFxMenu();
         else if (state.view === 'settings' && currentSettingsPage().route) clickFxOrder();
         else if (state.view === 'library') activateLibraryItem();
@@ -3714,7 +4217,7 @@ globalThis.onMidiMessageInternal = function(data) {
             if (state.shiftHeld) {
                 insertActiveClipInChain();
             } else {
-                state.chainEnabled = !state.chainEnabled;
+                state.chainEnabled = state.chainBank!==state.chainPlayBank || !state.chainEnabled;
                 PARAMS.chain_enabled.value = state.chainEnabled ? 1 : 0;
                 setParamBlocking('chain_enabled', state.chainEnabled ? 1 : 0);
                 showMessage(state.chainEnabled ? 'CHAIN ON' : 'CHAIN OFF');
@@ -3726,7 +4229,7 @@ globalThis.onMidiMessageInternal = function(data) {
         return;
     }
     if (number >= MoveKnob1 && number < MoveKnob1 + 8) {
-        if (state.view === 'main' || state.view === 'settings' || state.view==='library') {
+        if (state.view === 'main' || state.view === 'settings' || state.view==='library' || state.view==='chain') {
             adjustControl(number - MoveKnob1, decodeDelta(value));
         }
         return;
@@ -3736,6 +4239,8 @@ globalThis.onMidiMessageInternal = function(data) {
         if(state.view==='mode'){state.view='pages';return;}
         if(state.view==='pages'){closePagePicker();return;}
         if(state.view==='mixStatus'){state.view='main';return;}
+        if(!state.shiftHeld&&state.view==='chain'){state.chainEditorReturn=true;state.view='settings';state.settingsPage=parameterPages().indexOf(CHAIN_PAGE);resetParameterEncoderMotion();return;}
+        if(!state.shiftHeld&&state.view==='settings'&&state.chainEditorReturn){state.chainEditorReturn=false;state.view='chain';return;}
         if (state.view === 'settings' && currentSettingsPage().route) cancelFxOrder(false);
         if (state.shiftHeld) {
             if (state.view === 'help') {
@@ -3754,6 +4259,8 @@ globalThis.onMidiMessageInternal = function(data) {
         return;
     }
     if (number === MoveBack && value > 0) {
+        if(state.view==='settings'&&state.chainEditorReturn){state.chainEditorReturn=false;state.view='chain';return;}
+        if(state.view==='settings'&&currentSettingsPage().pathEditor){state.settingsPage=parameterPages().findIndex(p=>p.title===STACK_PATH_PAGE.title);resetParameterEncoderMotion();return;}
         if(state.view==='mode'){state.view='pages';return;}
         if(state.view==='pages'){closePagePicker();return;}
         if (state.view === 'settings' && currentSettingsPage().route
@@ -3777,6 +4284,7 @@ globalThis.onMidiMessageInternal = function(data) {
 };
 
 globalThis.onUnload = function() {
+    endPerformanceLayer();state.performancePads.clear();
     if (state.recording) setParamBlocking('record_gate', 0);
     if (state.clipRecording) setParamBlocking('clip_record', 1);
     setParamBlocking('all_notes_off', 1);

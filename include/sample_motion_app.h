@@ -1,6 +1,9 @@
 #pragma once
 
+#include "thru_stack_path.h"
 #include "thru_waveset_map.h"
+#include "thru_spectral.h"
+#include "thru_formant.h"
 
 #include <algorithm>
 #include <cmath>
@@ -39,9 +42,10 @@ public:
         glitch,
         longGrains,
         wavesets,
+        prism, morph, texture, formant,
     };
 
-    static constexpr std::size_t kPlaybackAlgorithmCount = 9u;
+    static constexpr std::size_t kPlaybackAlgorithmCount = 13u;
 
     enum class SampleMode : std::uint8_t {
         forward,
@@ -164,9 +168,10 @@ public:
         stepsUp,
         manual,
         random,
+        custom,
     };
 
-    static constexpr std::size_t kLanePathCount = 8u;
+    static constexpr std::size_t kLanePathCount = 9u;
 
     enum class MotorShape : std::uint8_t {
         triangle,
@@ -425,6 +430,7 @@ public:
         float lanePathOffset = 0.0f;
         float lanePathSkew = 0.5f;
         float lanePathCurve = 0.0f;
+        s3g_daisy::ThruStackPath stackPath {};
         float laneSlewMs = 20.0f;
         float laneGains[kStackLanes] { 1.0f, 1.0f, 1.0f, 1.0f };
         bool lanesStretch = true;
@@ -465,6 +471,17 @@ public:
         float longGrainLevelVariation = 0.0f;
         float longGrainPhaseSpread = 0.0f;
         GrainAdvance longGrainAdvance = GrainAdvance::scan;
+        float prismMode=0,prismBlurMs=80,prismDecayMs=2000,prismPitch=0,prismTilt=0,prismSmear=0;
+        float formantPitch=0, formantShift=0, formantSmoothingMs=30;
+        float formantTune=0, formantFreeze=0, formantKeytrack=0, formantRough=0, formantSub=0;
+        float formantFreezePosition=.5f;
+        // Per-note absolute frequency, supplied by the native keyboard/MIDI
+        // mapping. Program/state storage holds the musical controls above.
+        float formantNoteHz=261.625565f;
+        float morphMode=0;
+        float morphAmplitude=.5f,morphFrequency=.5f,morphOffset=0,morphBlurMs=40,morphPitch=0;
+        float textureMode=0,textureRate=4,textureLengthMs=250,textureScatter=.2f,textureRange=7,textureGroup=4,textureSpread=.5f,textureSeed=1;
+        std::uint16_t textureScaleMask=4095;
         CutClock cutClock = CutClock::tempo;
         CutDivision cutDivision = CutDivision::sixteenth;
         float cutRateHz = 8.0f;
@@ -524,6 +541,10 @@ public:
         float effectMix = 0.0f;
         // Post-delay stereo field and rotary-speaker controls. Cross-pan uses
         // -1 for the original image, 0 for a mono sum, and +1 for swapped L/R.
+        // Unsaved Capture controls leave the autonomous scan clock running.
+        float performanceLaneFixed = -1.0f;
+        float performanceLanePosition = 0.0f;
+        float performanceLaneAmount = 0.0f;
         float effectCrossPan = -1.0f;
         float effectRotaryRateHz = 0.8f;
         float effectRotaryDepth = 0.7f;
@@ -587,6 +608,7 @@ public:
         storage_[3] = channel3;
         capacityFrames_ = capacityFrames;
         laneCapacityFrames_ = capacityFrames_ / kLaneChannels;
+        (void)s3g_daisy::ThruSpectralPlan::get();
         outputSampleRate_ = outputSampleRate;
         windowFadeFrames_ = std::max<std::size_t>(
             32u, static_cast<std::size_t>(outputSampleRate_ * 0.030f));
@@ -689,6 +711,7 @@ public:
         stackMode_ = false;
         referenceLane_ = 0u;
         lanePosition_ = 0.0f;
+        performanceEventAmount_=performanceEventTarget_=0;
         lanePhase_ = 0.0f;
         lanePhaseIncrement_ = 0.0f;
         laneFrozenPhase_ = 0.0f;
@@ -1102,6 +1125,7 @@ public:
             preparedControls.motionSound = MotionSound::continuous;
         }
         prepareMotionSoundBlock(preparedControls);
+        prepareFormantControls(controls);
         prepareGrainControls(controls);
         prepareLongGrainControls(controls);
         prepareWavesetControlsBlock(controls, frames, preparedControls);
@@ -1184,6 +1208,10 @@ public:
                 case PlaybackAlgorithm::longGrains:
                     renderLongGrainsFrame(preparedControls, wetOutput);
                     break;
+                case PlaybackAlgorithm::prism:
+                case PlaybackAlgorithm::morph: renderSpectralFrame(preparedControls,wetOutput);break;
+                case PlaybackAlgorithm::formant: renderFormantFrame(preparedControls, wetOutput); break;
+                case PlaybackAlgorithm::texture: renderTextureFrame(preparedControls,wetOutput);break;
                 case PlaybackAlgorithm::wavesets:
                     // Wavesets glides continuous controls without rebuilding
                     // readers; structural edits own their boundary/overlap
@@ -1291,6 +1319,8 @@ public:
         return laneRegionBoundaries_[lane][boundary];
     }
 
+    void setPreparedSpectralBank(std::size_t lane,const s3g_daisy::ThruSpectralBank* bank){if(lane<kStackLanes)spectralBanks_[lane]=bank;}
+    float morphSecondaryPosition() const {return morphSecondaryPosition_;}
     PlaybackAlgorithm playbackAlgorithm() const { return currentAlgorithm_; }
     bool prepared() const { return prepared_; }
     bool playing() const { return playing_; }
@@ -1373,6 +1403,9 @@ public:
 
     float normalizedLanePosition() const
     {
+        if((currentAlgorithm_==PlaybackAlgorithm::sample || currentAlgorithm_==PlaybackAlgorithm::slices)
+            && currentSampleConfig_.lane<kStackLanes)
+            return static_cast<float>(currentSampleConfig_.lane)/3.0f;
         if (currentAlgorithm_ == PlaybackAlgorithm::cutups) {
             const auto state = cutupsDisplayState();
             const int lane = state.lane >= 0 ? state.lane : state.outgoingLane;
@@ -1985,6 +2018,8 @@ private:
         for (auto& grain : longGrains_) {
             grain = {};
         }
+        for (auto &voice : formantVoices_) voice.reset();
+        spectralVoice_.reset();imprintInitialized_=false;imprintMix_=0;for(auto& event:textureEvents_)event={};textureCountdown_=0;textureStep_=0;textureSeed_=-1;morphSecondaryPosition_=-1;
         grainCountdown_ = 0.0;
         grainSerial_ = 0u;
         grainProcessIndex_ = 0u;
@@ -2872,6 +2907,7 @@ private:
         while (phase < 0.0f) {
             phase += 1.0f;
         }
+        if(controls.lanePath!=LanePath::custom) {
         const float skew = clamp(controls.lanePathSkew, 0.02f, 0.98f);
         phase = phase < skew
             ? 0.5f * phase / skew
@@ -2883,8 +2919,12 @@ private:
             const float inverse = 1.0f - (1.0f - phase) * (1.0f - phase);
             phase = phase + (inverse - phase) * -curve;
         }
+        }
         float unit = phase;
         switch (controls.lanePath) {
+            case LanePath::custom:
+                unit=controls.stackPath.evaluate(phase);
+                break;
             case LanePath::up:
                 unit = 1.0f - phase;
                 break;
@@ -2918,7 +2958,7 @@ private:
             case LanePath::down:
                 break;
         }
-        switch (controls.lanePathShape) {
+        if(controls.lanePath!=LanePath::custom) switch (controls.lanePathShape) {
             case LanePathShape::smooth:
                 unit = smoothStep(unit);
                 break;
@@ -2935,6 +2975,9 @@ private:
         }
         result.position = controls.stackFirstLane
             + unit * (controls.stackLastLane - controls.stackFirstLane);
+        if(controls.performanceLaneFixed>=0) result.position=clamp(controls.performanceLaneFixed,controls.stackFirstLane,controls.stackLastLane);
+        result.position+=(clamp(controls.performanceLanePosition,controls.stackFirstLane,controls.stackLastLane)-result.position)
+            *clamp01(controls.performanceLaneAmount);
 
         int lower = -1;
         int upper = -1;
@@ -2981,8 +3024,18 @@ private:
         return result;
     }
 
+    LaneBlend makeNaturalEventLaneBlend(float phase, const Controls& controls) const
+    {
+        Controls natural=controls;
+        natural.performanceLaneFixed=-1;
+        natural.performanceLaneAmount=0;
+        return makeLaneBlend(phase,natural);
+    }
+
     void prepareLaneScanBlock(const Controls& controls, std::size_t frames)
     {
+        performanceEventTarget_=controls.performanceLaneFixed>=0 || (controls.lanePath==LanePath::manual || controls.lanePath==LanePath::custom) ? 1.0f
+            : clamp01(controls.performanceLaneAmount);
         if (!stackMode_ || currentAlgorithm_ == PlaybackAlgorithm::cutups) {
             lanePhaseIncrement_ = 0.0f;
             return;
@@ -3044,6 +3097,9 @@ private:
 
     void advanceLaneWeights()
     {
+        performanceEventAmount_+=laneSlew_*(performanceEventTarget_-performanceEventAmount_);
+        if(std::abs(performanceEventTarget_-performanceEventAmount_)<1e-5f)
+            performanceEventAmount_=performanceEventTarget_;
         for (std::size_t lane = 0u; lane < kStackLanes; ++lane) {
             laneWeights_[lane] += laneSlew_
                 * (laneWeightTargets_[lane] - laneWeights_[lane]);
@@ -3092,12 +3148,28 @@ private:
                             const ReadHead& head,
                             const LaneBlend& lanes) const
     {
-        const float first = readLaneBlendAt(channel, head.a, lanes);
-        if (head.mix <= 0.0f) {
-            return first;
+        // Merge weights before reading: existing grains/packets follow the
+        // live target without restarting or reading any source lane twice.
+        if(performanceEventAmount_>0) {
+            float result=0;
+            for(std::size_t lane=0;lane<kStackLanes;++lane) {
+                float original=0;
+                if(lanes.first==lanes.second || lanes.secondGain<=0)
+                    original=lane==lanes.first ? 1.0f : 0.0f;
+                else {
+                    if(lane==lanes.first)original+=lanes.firstGain;
+                    if(lane==lanes.second)original+=lanes.secondGain;
+                }
+                const float weight=original+(laneWeights_[lane]-original)*performanceEventAmount_;
+                if(weight<=1e-5f)continue;
+                float sample=sampleLaneAt(lane,channel,head.a);
+                if(head.mix>0)sample+=(sampleLaneAt(lane,channel,head.b)-sample)*head.mix;
+                result+=sample*weight*activeControlsLaneGains_[lane];
+            }
+            return result;
         }
-        return first
-            + (readLaneBlendAt(channel, head.b, lanes) - first) * head.mix;
+        const float first=readLaneBlendAt(channel,head.a,lanes);
+        return head.mix>0 ? first+(readLaneBlendAt(channel,head.b,lanes)-first)*head.mix : first;
     }
 
     ReadHead makeEventReadHead(double position,
@@ -3710,7 +3782,7 @@ private:
         segment->low = low;
         segment->high = std::max(low + 1.0, high);
         segment->lanes = stackMode_
-            ? makeLaneBlend(lanePhase_, controls) : LaneBlend {};
+            ? makeNaturalEventLaneBlend(lanePhase_, controls) : LaneBlend {};
         segment->forward = motionPathForward_;
         const float semitones = (randomUnit() * 2.0f - 1.0f)
             * clamp(controls.segmentPitchScatter, 0.0f, 12.0f);
@@ -4303,7 +4375,7 @@ private:
         }
 
         const LaneBlend eventLanes = stackMode_
-            ? makeLaneBlend(lanePhase_, controls) : LaneBlend {};
+            ? makeNaturalEventLaneBlend(lanePhase_, controls) : LaneBlend {};
         const float processAmount = clamp01(controls.grainProcessAmount);
         if (controls.grainProcess == GrainProcess::sorter) {
             position = sorterPosition(position, window, controls, eventLanes);
@@ -4578,7 +4650,7 @@ private:
         slot->high = window.high;
         slot->seam = joinFrames(window, controls.join);
         slot->lanes = stackMode_
-            ? makeLaneBlend(lanePhase_, controls) : LaneBlend {};
+            ? makeNaturalEventLaneBlend(lanePhase_, controls) : LaneBlend {};
         slot->gain = 1.0f - randomUnit()
             * clamp01(controls.longGrainLevelVariation);
         slot->shape = controls.longGrainShape;
@@ -4784,7 +4856,15 @@ private:
         cutLaneAdvance_ = advance;
         cutOverrideValid_ = paused && controls.lanePhaseOverride;
         cutLastOverride_ = controls.lanePhaseOverrideValue;
-        return selected;
+        float position=controls.performanceLaneFixed>=0 ? controls.performanceLaneFixed : static_cast<float>(selected);
+        position+=(controls.performanceLanePosition-position)*clamp01(controls.performanceLaneAmount);
+        std::size_t steered=selected;
+        float distance=100;
+        for(std::size_t i=0;i<count;++i) {
+            const float next=std::abs(static_cast<float>(loaded[i])-position);
+            if(next<distance) {steered=loaded[i];distance=next;}
+        }
+        return steered;
     }
 
     void beginCut(const Controls& controls,
@@ -4876,8 +4956,10 @@ private:
 
     std::size_t requestedSampleLane(const Controls& controls) const
     {
+        float position=controls.performanceLaneFixed>=0 ? controls.performanceLaneFixed : controls.sampleLane;
+        position+=(controls.performanceLanePosition-position)*clamp01(controls.performanceLaneAmount);
         const std::size_t requested = static_cast<std::size_t>(clamp(
-            std::floor(controls.sampleLane + 0.5f), 0.0f,
+            std::floor(position + 0.5f), 0.0f,
             static_cast<float>(kStackLanes - 1u)));
         if (stackMode_ && laneFrames_[requested] != 0u) return requested;
         if (stackMode_) {
@@ -6356,6 +6438,8 @@ private:
     float* storage_[kChannels] { nullptr, nullptr, nullptr, nullptr };
     std::size_t capacityFrames_ = 0u;
     std::size_t laneCapacityFrames_ = 0u;
+#include "thru_new_engines.inc"
+
     float outputSampleRate_ = 48000.0f;
     std::size_t sourceFrames_ = 0u;
     std::size_t sourceChannels_ = 0u;
@@ -6383,6 +6467,7 @@ private:
     std::size_t laneRegionCounts_[kStackLanes] {};
     std::size_t referenceLane_ = 0u;
     float lanePosition_ = 0.0f;
+    float performanceEventAmount_=0, performanceEventTarget_=0;
     float laneWeights_[kStackLanes] {};
     float laneWeightTargets_[kStackLanes] {};
     float activeControlsLaneGains_[kStackLanes] {

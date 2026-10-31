@@ -60,6 +60,7 @@ void testBoundedBackgroundPersistence()
             clip.clipPoints[point].parameter = static_cast<std::uint16_t>(LockParameter::effectDrive);
         }
     }
+    instance->chainBanks[15].entries[63].enabled=true;instance->chainBanks[15].entries[63].clip=6;
     setParam(instance.get(), "effect_drive", "0.25");
     setParam(instance.get(), "maintenance", "1");
     std::array<std::int16_t, kBlockFrames * 2u> output {};
@@ -73,10 +74,11 @@ void testBoundedBackgroundPersistence()
         assert(access((clips + ".tmp").c_str(), F_OK) != 0);
     }
     assert(instance->persistenceJob.load() == ThruInstance::backgroundRequested);
-    assert(instance->persistenceCopyOffset == sizeof(instance->clipSlots));
+    assert(instance->persistenceCopyOffset == sizeof(instance->clipSlots)+sizeof(instance->chainBanks));
 
     // The worker must save only its published image, even if live data is
     // edited before it begins. Its acknowledgement cannot clear newer edits.
+    instance->chainBanks[15].entries[63].clip=7;
     setParam(instance.get(), "effect_drive", "0.75");
     instance->clipSlots[1u].clipPoints[0u].value = 0.75f;
     resumeTestBackgroundWorker(*instance);
@@ -88,6 +90,7 @@ void testBoundedBackgroundPersistence()
     auto restored = std::make_unique<ThruInstance>();
     assert(restored->prepare(path));
     assert(restored->controls.effectDrive == 0.25f);
+    assert(restored->chainBanks[15].entries[63].clip==6);
     assert(restored->clipSlots[1u].clipPointCount == 4000u);
     assert(restored->clipSlots[1u].clipPoints[0u].value == 0.25f);
     restored.reset();
@@ -97,6 +100,7 @@ void testBoundedBackgroundPersistence()
     restored = std::make_unique<ThruInstance>();
     assert(restored->prepare(path));
     assert(restored->controls.effectDrive == 0.75f);
+    assert(restored->chainBanks[15].entries[63].clip==7);
     assert(restored->clipSlots[1u].clipPoints[0u].value == 0.75f);
     assert(restored->persistenceGeneration == 2u);
     restored.reset();

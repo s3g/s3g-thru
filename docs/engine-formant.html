@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Formant engine - s3g Thru manual</title>
+    <meta name="description" content="Complete parameter reference for the s3g Thru Formant playback engine.">
+    <link rel="stylesheet" href="assets/styles.css">
+  </head>
+  <body>
+    <header class="site-header"><a class="brand" href="index.html">s3g Thru <span>manual</span></a><nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav></header>
+
+    <div class="page-shell">
+      <main class="content" id="content">
+        <p class="eyebrow">Playback engine 13 of 13</p>
+        <h1>Formant</h1>
+        <p class="lead">Pitch-synchronous sampling turns a voiced recording into a playable instrument. Keyboard notes move its pitch while Formant Shift moves its resonant character independently. Speed controls travel through the recording.</p>
+        <div class="callout"><p><strong>Good for:</strong> voices, vowels, reeds, bowed tones, and other recordings with one clear changing pitch. Try a sung phrase before using a chord or a noisy texture.</p></div>
+        <h2 id="pages">Pages and navigation</h2>
+        <p>Choose Formant with Algorithm on the shared Engine page. Up/Down reaches Pads &amp; Scale, Amp Envelope, Stack Path, and Formant. Quad omits Stack Path because each part owns one lane. Read the <a href="engines.html#shared">shared Engine table</a> and <a href="engines.html#stack-path">Stack Path reference</a> for the common controls.</p>
+        <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/formant.svg" aria-label="Open Formant page"><img src="assets/screens/formant.svg" alt="Formant page showing all eight pitch, freeze, tracking, roughness, and subharmonic controls."></button></div><figcaption>Knobs 1–4 match the top row; 5–8 match the bottom row. This example has TUNE at 100% and FRZE on for playing a captured vowel from the keyboard.</figcaption></figure>
+        <h2 id="parameters">Formant — every parameter</h2>
+        <table class="readout-table parameter-table"><thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>What it controls</th></tr></thead><tbody>
+          <tr><td>1</td><td>PIT</td><td>−24 to +24 st</td><td>Pitch transpose adds semitones to the played note. With TUNE at zero, the root note plays the recording’s original pitch contour and an octave higher doubles its pitch. With TUNE at 100%, PIT transposes the played MIDI note directly.</td></tr>
+          <tr><td>2</td><td>FORM</td><td>−24 to +24 st</td><td>Formant shift moves the resonant color independently of the note. With KEYT at zero, this keeps the original formant regions as pitch changes. Negative values lower and darken the resonances; positive values raise and brighten them. This also appears on waveform-view knob 7.</td></tr>
+          <tr><td>3</td><td>SMTH</td><td>5–200 ms</td><td>Smoothing sets how quickly live pitch/formant changes and the detected pitch contour settle. Start at 30 ms; increase it for gentler changes or reduce it for quicker articulation. Existing grains finish with their captured settings. TUNE, KEYT, ROUG, and SUB changes also settle smoothly.</td></tr>
+          <tr><td>4</td><td>TUNE</td><td>0–100%</td><td>Pitch lock blends from the recording’s original pitch contour to the played note. Zero preserves source bends and vibrato; 100% tunes confidently voiced regions to the MIDI note, including PIT transposition. Intermediate values reduce the source’s pitch movement. Uncertain or unpitched regions keep the granular fallback.</td></tr>
+          <tr><td>5</td><td>FRZE</td><td>Off / On</td><td>Freeze captures the oldest held playhead’s source position for this part. If none is held, it uses an active release tail; with no active note, it uses Position. Existing and new notes sustain that source area. Stack scanning continues, so other lanes can color the held fragment. Off resumes travel from the frozen point. To recapture, turn Off and On again. The point is saved and captured with performance automation. Cue recall moves the frozen point to the cue. Position and Field continue to bound the usable area.</td></tr>
+          <tr><td>6</td><td>KEYT</td><td>−100 to +100%</td><td>Formant key tracking moves resonances with keyboard transposition relative to Root, plus PIT. Zero keeps the formant register steady; +100% raises formants by one octave for each octave of transposition; negative settings move them in the opposite direction. FORM adds a fixed offset. Extreme combined shifts remain bounded.</td></tr>
+          <tr><td>7</td><td>ROUG</td><td>0–100%</td><td>Voicing roughness introduces bounded, correlated variation into the pitch-synchronous pulse timing. Raise it for hoarseness and growling motion. Zero restores regular timing. It uses reproducible variation per note and lane, with stereo channels kept together.</td></tr>
+          <tr><td>8</td><td>SUB</td><td>0–100%</td><td>Subharmonic amount smoothly emphasizes alternate synthesis cycles, introducing an octave below the grain clock. Zero keeps the original pulse emphasis. Higher values give deeper, hollow voicing; level can fall as alternate cycles are reduced. It adds no extra note voices or synthetic noise.</td></tr>
+        </tbody></table>
+        <p><strong>MIDI:</strong> CCs 40–45 control PIT, FORM, SMTH, TUNE, FRZE, and KEYT. CC 28 controls ROUG; CC 29 controls SUB. FRZE uses 0–63 for Off and 64–127 for On. Values are absolute 0–127, scaled to the displayed range. The MIDI channel selects the part as described in <a href="shortcuts.html#midi">External MIDI</a>. All eight parameters can be captured in performance clips and saved independently for each part.</p>
+        <h2 id="playing">Playing, lanes, and preparation</h2>
+        <p>The engine detects pitch periods and aligns overlapping stereo grains to marks in the recording. Changing note pitch changes their spacing; Formant Shift changes the speed inside each grain. The shared Amp Envelope controls note attack and release. Join broadens the overlapping grain windows for smoother blends. Existing grains finish their captured windows; grain overlap is bounded at extreme ratios.</p>
+        <p>Each lane is analyzed in the background after loading or recording. <strong>PITCH PREPARING</strong> means this preparation is pending. Sound remains available through a granular fallback; the engine adopts the pitch marks as they become ready. Unpitched regions, silence, and uncertain detections use the same fallback. Formant Shift works most predictably in clearly voiced regions. Chords and noisy material can produce deliberately grainy results.</p>
+        <p>Stack Start, Scan Rate, authored stack paths, pressure, and Loop’s stack hold work as on the other scanning engines. Each lane uses its own detected periods and stereo-linked marks. Single provides eight note voices; Split and Shared Dual provide four per part; Quad provides two per part. Source changes and clip fades use the same background preparation. Tuning, freezing, tracking, roughness, and subharmonics have independent settings for each part in the dual and Quad modes.</p>
+        <p>Position and Field select the portion of the recording to scan. Speed changes that travel independently of note pitch. The waveform cursor shows the scanning position; it does not show every small overlapping grain.</p>
+        <h2 id="starts">Starting points</h2>
+        <p>Load a sung vowel or a monophonic phrase. Choose Formant, set PIT and FORM to zero and SMTH to 30 ms, then wait for preparation to finish. Play the root and a note one octave higher: the pitch rises while the vowel character stays in a similar register. Hold the root and turn FORM to hear the character move independently. Use two related vocal recordings in adjacent lanes and a slow stack scan for changing articulation. For a keyboard vowel instrument, set TUNE to 100%, play a note until the desired vowel is reached, then turn FRZE on. New notes reuse that vowel position. Keep KEYT at zero for steady vowel color, or raise it for a brighter upper register. Try ROUG at 15–25% and SUB at 20–40% for a rougher, deeper voice.</p>
+        <p>This is a real-time adaptation of pitch-synchronous overlap-add ideas related to <a href="https://www.composersdesktop.com/docs/guide/cdpsnd.html">CDP’s PSOW processes</a>.</p>
+        <nav class="page-nav" aria-label="Page navigation"><a class="page-nav-link" href="engine-texture.html"><span>Previous</span>Texture</a><a class="page-nav-link next" href="effects.html"><span>Next</span>Effects</a></nav>
+      </main>
+      <aside class="toc" aria-label="Page navigation">
+        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
+        <div class="toc-section"><h2>Instrument modes</h2><a href="playing.html">Single · Basic playing</a><a href="modes.html">Compare modes</a><a href="split.html">Split</a><a href="shared-dual.html">Shared Dual</a><a href="quad.html">Quad</a></div>
+        <div class="toc-section"><h2>Engine guides</h2><a href="engine-motion.html">Motion</a><a href="engine-lanes.html">Lanes</a><a href="engine-grains.html">Grains</a><a href="engine-cutups.html">Cutups</a><a href="engine-sample.html">Sample</a><a href="engine-slices.html">Slices</a><a href="engine-glitch.html">Glitch</a><a href="engine-weave.html">Weave</a><a href="engine-wavesets.html">Wavesets</a><a href="engine-prism.html">Prism</a><a href="engine-morph.html">Morph</a><a href="engine-texture.html">Texture</a><a href="engine-formant.html">Formant</a></div>
+        <div class="toc-section"><h2>On this page</h2><a href="#pages">Pages</a><a href="#parameters">Parameters</a><a href="#playing">Playing</a><a href="#starts">Starting points</a></div>
+      </aside>
+    </div>
+    <footer class="manual-footer">Formant: pitch-synchronous sampling with independent pitch and resonant color.</footer>
+    <script src="assets/lightbox.js"></script>
+  </body>
+</html>

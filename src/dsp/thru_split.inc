@@ -29,6 +29,7 @@
     static bool splitPartParameter(std::size_t index)
     {
         const auto p = static_cast<LockParameter>(index);
+        if(index>=kVersion19LockParameterCount)return true;
         if (p == LockParameter::outputGain || index >= static_cast<std::size_t>(LockParameter::splitBlend)) return false;
         if (index >= static_cast<std::size_t>(LockParameter::effectTone)
             && index <= static_cast<std::size_t>(LockParameter::effectMix))
@@ -85,6 +86,7 @@
     void loadPartEditor(int part)
     {
         const auto& source = splitParts[static_cast<std::size_t>(part)];
+        controls.stackPath=source.controls.stackPath;
         for (std::size_t p=0;p<kLockParameterCount;++p)
             if (splitPartParameter(p)) applyLockedValue(controls,outputGain,p,lockedValue(source.controls,outputGain,p));
         applyPartSettings(source.settings);
@@ -116,8 +118,9 @@
     {
         part = clampValue(part,0,partCount()-1);
         if (!splitEnabled || part == splitFocus) return;
+        if(notify) cancelPerformanceGestures();
         storeFocusedPart(); splitFocus = part; loadPartEditor(part);
-        if (notify && !engine.recording() && !sharedDual) selectedLane = static_cast<std::size_t>(firstLaneForPart(part));
+        if (notify && !audioRecording() && !sharedDual) selectedLane = static_cast<std::size_t>(firstLaneForPart(part));
         if (notify) markPersistentStateDirty();
     }
 
@@ -129,7 +132,7 @@
     {
         const bool enabled=mode!=0,shared=mode==2,quad=mode==3;
         if(enabled==splitEnabled&&(!enabled||(shared==sharedDual&&quad==quadMode)))return;
-        if(engine.recording()||clipRecording){setError("Stop recording before changing mode");return;}
+        if(audioRecording()||partCapturePublishing||clipRecording){setError("Stop recording before changing mode");return;}
         const bool wasMulti=splitEnabled,wasQuad=quadMode;
         captureActiveClip(false);clipPlaying=false;releaseClipVoices();
         splitMixerOverrides.fill(false);beginPreviewTransitionTail();previewActive=false;
@@ -180,6 +183,15 @@
         for (std::size_t p=0;p<kLockParameterCount;++p)
             if (splitPartParameter(p)) applyLockedValue(to.controls,outputGain,p,lockedValue(from.controls,outputGain,p));
         if(!sharedDual)for(int lane=0;lane<(isQuad()?1:2);++lane)to.controls.laneGains[firstLaneForPart(target)+lane]=from.controls.laneGains[firstLaneForPart(source)+lane];
+        if(clipRecording)for(std::size_t p=0;p<StackPath::valueCount;++p)
+            if(to.controls.stackPath.value(p)!=from.controls.stackPath.value(p)) {
+                if(clipLastPointIndices[kClipStackPathOffset+(target+1)*50u+25u+p]<0)
+                    captureClipPoint(ClipPointType::stackPath,25u+p,target+1,to.controls.stackPath.value(p),0);
+                if(clipReplacing && clipCaptureTimeMs()>0 && clipLastPointIndices[kClipStackPathOffset+(target+1)*50u+p]<0)
+                    captureClipPoint(ClipPointType::stackPath,p,target+1,to.controls.stackPath.value(p),0);
+                captureClipPoint(ClipPointType::stackPath,p,target+1,from.controls.stackPath.value(p));
+            }
+        to.controls.stackPath=from.controls.stackPath;
         // Copy the sound, preserving the destination's intentional mute.
         const int destinationMute = to.settings.muted;
         to.settings = from.settings;
@@ -211,6 +223,7 @@
     void captureSplitClip(ClipSlot& clip)
     {
         storeFocusedPart();
+        captureCurrentStackPaths(clip);
         clip.splitEnabled = splitEnabled; clip.sharedDual=sharedDual;clip.quadMode=quadMode;clip.quadInitialized=quadInitialized; clip.splitInitialized = splitInitialized; clip.splitFocus = splitFocus;
         clip.singleSettings = splitEnabled ? splitSingleSettings : currentPartSettings();
         if (!splitEnabled) splitSingleControls = controls;
@@ -227,10 +240,13 @@
 
     void restoreSplitClip(const ClipSlot& clip)
     {
-        splitSingleControls = controls; splitSingleSettings = clip.singleSettings;
+        stackPathLastEdit=-1;
+        cancelPerformanceGestures();
+        for(auto& values:performanceLive)values[8]=0;
+        splitSingleControls = controls;splitSingleControls.stackPath=clip.stackPaths[0];splitSingleSettings = clip.singleSettings;
         splitEnabled = clip.splitEnabled; sharedDual=clip.sharedDual;quadMode=clip.quadMode;quadInitialized=clip.quadInitialized; splitInitialized = clip.splitInitialized; splitFocus = clampValue(clip.splitFocus,0,partCount()-1);
         for (int part=0;part<4;++part) {
-            auto& target = splitParts[static_cast<std::size_t>(part)]; target.controls = controls;
+            auto& target = splitParts[static_cast<std::size_t>(part)]; target.controls = controls;target.controls.stackPath=clip.stackPaths[part+1];
             float ignoredGain=outputGain;
             for (std::size_t p=0;p<kLockParameterCount;++p)
                 applyLockedValue(target.controls,ignoredGain,p,clip.splitValues[static_cast<std::size_t>(part)][p]);
@@ -241,7 +257,7 @@
             for (std::size_t p=0;p<kLockParameterCount;++p) if (!splitPartParameter(p))
                 applyLockedValue(controls,outputGain,p,clip.splitValues[0][p]);
             loadPartEditor(splitFocus);
-        } else applyPartSettings(clip.singleSettings);
+        } else {controls.stackPath=clip.stackPaths[0];applyPartSettings(clip.singleSettings);}
         for(int part=0;part<4;++part)splitClipControls[part]=liveControlsForPart(part);
     }
 
@@ -321,7 +337,7 @@
     void touchSplitMixerParameter(std::size_t parameter)
     {
         const auto first = static_cast<std::size_t>(LockParameter::splitBlend);
-        if (splitEnabled && clipPlaying && parameter >= first && parameter < kLockParameterCount)
+        if (splitEnabled && clipPlaying && parameter >= first && parameter < kVersion19LockParameterCount)
             splitMixerOverrides[parameter-first] = true;
     }
 
@@ -341,7 +357,8 @@
     void processSplitBuses(std::size_t frames, const std::array<Engine::Controls,N>& live,
                            const Engine::Controls& recorded)
     {
-        const Engine::Controls mixer = effectiveSplitMixer(recorded);
+        Engine::Controls mixer = effectiveSplitMixer(recorded);
+        applyPerformanceSends(mixer);
         for (std::size_t part=0;part<static_cast<std::size_t>(partCount());++part) {
             for (std::size_t frame=0;frame<frames;++frame) {
                 const float power = splitEnvelopePower[part][frame];
@@ -352,7 +369,12 @@
             }
             rememberSplitRollHistory(part,frames);
             processAudioRolls(frames,static_cast<int>(part));
-            splitInserts[part].process(frames,splitBus[part],clipPlaying?splitClipControls[part]:live[part]);
+            auto insertControls=clipPlaying?splitClipControls[part]:live[part];
+            applyPerformanceInsert(insertControls,static_cast<int>(part));
+            splitInserts[part].process(frames,splitBus[part],insertControls);
+            if(partCaptureRecording && recordSource==static_cast<int>(part)+2)
+                for(std::size_t channel=0;channel<2;++channel)
+                    std::copy_n(splitBus[part][channel].data(),frames,partCaptureBus[channel].data());
         }
         const float targetBlend = mixer.splitBlend;
         const float levels[4] {mixer.splitLevelA,mixer.splitLevelB,mixer.splitLevelC,mixer.splitLevelD};
@@ -436,6 +458,7 @@
             case LockParameter::longGrainAdvance: case LockParameter::wavesetGroup: case LockParameter::wavesetRepeats:
             case LockParameter::wavesetStride: case LockParameter::wavesetAdvance: case LockParameter::wavesetDirection:
             case LockParameter::wavesetProcess: case LockParameter::wavesetDetail: case LockParameter::splitCurve:
+            case LockParameter::formantFreeze: case LockParameter::formantFreezePosition:
                 return false;
             default:return true;
         }
@@ -469,7 +492,7 @@
             if(!writeU32(file,(clip.splitEnabled?1u:0u)|(clip.sharedDual?2u:0u)|(clip.quadMode?4u:0u)|(clip.quadInitialized?8u:0u))||!writeU32(file,clip.splitInitialized?1u:0u)
                ||!writeU32(file,static_cast<std::uint32_t>(clip.splitFocus))||!writePartSettings(file,clip.singleSettings))return false;
             for(std::size_t part=0;part<4;++part) {
-                for(float value:clip.splitValues[part])if(!writeF32(file,value))return false;
+                for(std::size_t p=0;p<kVersion19LockParameterCount;++p)if(!writeF32(file,clip.splitValues[part][p]))return false;
                 if(!writePartSettings(file,clip.splitSettings[part]))return false;
             }
         }
@@ -485,7 +508,7 @@
             clip.splitEnabled=mode&1u;clip.sharedDual=mode&2u;clip.quadMode=mode&4u;clip.quadInitialized=mode&8u;clip.splitInitialized=initialized!=0;clip.splitFocus=focus;
             for(std::size_t part=0;part<(quadFormat?4u:2u);++part) {
                 clip.splitValues[part]=clip.baseValues;
-                for(std::size_t p=0;p<(quadFormat?kLockParameterCount:kVersion14LockParameterCount);++p)if(!readF32(file,clip.splitValues[part][p]))return false;
+                for(std::size_t p=0;p<(quadFormat?kVersion19LockParameterCount:kVersion14LockParameterCount);++p)if(!readF32(file,clip.splitValues[part][p]))return false;
                 if(!readPartSettings(file,clip.splitSettings[part]))return false;
             }
             if(!quadFormat)for(int part=2;part<4;++part){clip.splitValues[part]=clip.splitValues[0];clip.splitSettings[part]=clip.splitSettings[0];}
@@ -503,7 +526,7 @@
             if(n<0||n>=capacity-at)at=capacity;else at+=n;
         };
         append(",\"split_enabled\":%d,\"split_shared\":%d,\"split_initialized\":%d,\"split_focus\":%d",splitEnabled?1:0,sharedDual?1:0,splitInitialized?1:0,splitFocus);
-        append(",\"split_parts\":4,\"split_quad\":%d,\"quad_initialized\":%d",quadMode?1:0,quadInitialized?1:0);
+        append(",\"split_params_count\":205,\"split_parts\":4,\"split_quad\":%d,\"quad_initialized\":%d",quadMode?1:0,quadInitialized?1:0);
         const char* names[]{"split_single","split_a","split_b","split_c","split_d"};
         for(int group=0;group<5;++group) {
             append(",\"%s\":[",names[group]);
@@ -516,6 +539,14 @@
             for(int value:settingsValues(ui))append(",%d",value);
             append("%s","]");
         }
+        const char* pathNames[]{"stack_path_single","stack_path_a","stack_path_b","stack_path_c","stack_path_d"};
+        for(int group=0;group<5;++group) {
+            const auto& path=group==0?(splitEnabled?splitSingleControls.stackPath:controls.stackPath)
+                :(splitEnabled?liveControlsForPart(group-1).stackPath:splitParts[group-1].controls.stackPath);
+            append(",\"%s\":[",pathNames[group]);
+            for(std::size_t p=0;p<StackPath::valueCount;++p)append(p?",%.9g":"%.9g",static_cast<double>(path.value(p)));
+            append("%s","]");
+        }
         append("%s","}");return at;
     }
 
@@ -525,7 +556,8 @@
         if(!jsonNumber(json,"split_enabled",enabled))return true;
         jsonNumber(json,"split_shared",shared);jsonNumber(json,"split_quad",quad);jsonNumber(json,"quad_initialized",quadInit);jsonNumber(json,"split_parts",parts);
         if((parts!=2&&parts!=4)||(quad>=.5f&&shared>=.5f))return false;
-        const std::size_t storedCount=parts==4?kLockParameterCount:kVersion14LockParameterCount;
+        float parameterCount=0;jsonNumber(json,"split_params_count",parameterCount);
+        const std::size_t storedCount=parts==4?(parameterCount==205?kLockParameterCount:parameterCount==199?kVersion22LockParameterCount:parameterCount==196?kVersion21LockParameterCount:parameterCount==195?kVersion20LockParameterCount:kVersion19LockParameterCount):kVersion14LockParameterCount;
         jsonNumber(json,"split_initialized",initialized);jsonNumber(json,"split_focus",focus);
         std::array<Engine::Controls,5> restored{};std::array<PartSettings,5> settings{};
         const char* names[]{"\"split_single\":[","\"split_a\":[","\"split_b\":[","\"split_c\":[","\"split_d\":["};
@@ -546,10 +578,13 @@
             if(!decodeSettings(v,settings[group]))return false;
         }
         if(parts==2)for(int group=3;group<5;++group){restored[group]=restored[1];settings[group]=settings[1];}
+        const char* pathNames[]{"stack_path_single","stack_path_a","stack_path_b","stack_path_c","stack_path_d"};
+        for(int group=0;group<5;++group)if(!readStackPathJson(json,pathNames[group],restored[group].stackPath))return false;
         splitMixerOverrides.fill(false);
         splitSingleControls=restored[0];splitSingleSettings=settings[0];
         for(std::size_t p=0;p<4;++p){splitParts[p].controls=restored[p+1];splitParts[p].settings=settings[p+1];}
         splitEnabled=enabled>=.5f;sharedDual=shared>=.5f;quadMode=quad>=.5f;quadInitialized=quadInit>=.5f;splitInitialized=initialized>=.5f;splitFocus=clampValue(static_cast<int>(focus),0,partCount()-1);
+        if(!splitEnabled){controls.stackPath=restored[0].stackPath;for(std::size_t p=kVersion19LockParameterCount;p<kLockParameterCount;++p)applyLockedValue(controls,outputGain,p,lockedValue(restored[0],outputGain,p));}
         if(splitEnabled) {
             float ignored=outputGain;
             for(std::size_t p=0;p<kLockParameterCount;++p)if(!splitPartParameter(p))applyLockedValue(controls,ignored,p,lockedValue(restored[1],outputGain,p));

@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Morph engine - s3g Thru manual</title>
+    <meta name="description" content="Complete parameter reference for the s3g Thru Morph playback engine.">
+    <link rel="stylesheet" href="assets/styles.css">
+  </head>
+  <body>
+    <header class="site-header"><a class="brand" href="index.html">s3g Thru <span>manual</span></a><nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav></header>
+
+    <div class="page-shell">
+      <main class="content" id="content">
+        <p class="eyebrow">Playback engine 11 of 13</p>
+        <h1>Morph</h1><p class="lead">Blend the spectral amplitudes and frequencies of a source with those of the next lane. The two controls move independently, making hybrid sounds that go beyond a volume crossfade. Imprint mode lets the next lane’s changing spectral envelope articulate the carrier while notes control its pitch.</p>
+        <div class="callout"><p><strong>Good for:</strong> Hybrid voices, moving spectral colors, independent amplitude and frequency transformations, and a circular four-lane instrument in Quad.</p></div>
+        <h2 id="pages">Pages and navigation</h2>
+        <p>Choose Morph with Algorithm on the shared Engine page. Up/Down reaches Pads &amp; Scale, Amp Envelope, Stack Path, and the Morph page. Quad omits Stack Path because each part owns one lane. The remaining shared pages work as described in the <a href="engines.html#shared">shared Engine table</a> and <a href="engines.html#stack-path">Stack Path reference</a>.</p>
+        <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/morph.svg" aria-label="Open Morph page"><img src="assets/screens/morph.svg" alt="Morph parameter page with knob labels and values."></button></div><figcaption>Knobs 1–4 match the top row; 5–8 match the bottom row. Small boxes mark reserved controls.</figcaption></figure>
+        <h2 id="parameters">Morph — every parameter</h2>
+        <table class="readout-table parameter-table"><thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>What it controls</th></tr></thead><tbody>
+          <tr><td>1</td><td>AMP / IMPR</td><td>0–100%</td><td>In Imprint, this is envelope strength: zero keeps the carrier; 100% gives full shaping and follows the shaper’s articulation. In Morph, amplitude morph blends the loudness of each spectral band. Zero uses the current stack source; 100% uses its next-lane partner. This is independent of Frequency.</td></tr>
+          <tr><td>2</td><td>FREQ</td><td>0–100%</td><td>Reserved in Imprint, which retains carrier frequencies. In Morph, frequency morph interpolates the measured frequencies inside corresponding spectral bands. Zero uses the current source’s frequencies; 100% uses its partner’s frequencies. It transforms spectral components rather than matching musical fundamentals automatically.</td></tr>
+          <tr><td>3</td><td>OFST</td><td>-100–100%</td><td>Partner time offset moves the partner’s source position by a fraction of the Field, wrapping within that Field. Zero aligns both positions; ±100% is one complete Field and returns to that alignment.</td></tr>
+          <tr><td>4</td><td>BLUR</td><td>0–2000 ms</td><td>Morph smoothing slows changes in spectral amplitudes and frequencies, including parameter edits and movement between stack sources. A short safety smoothing time remains active at zero.</td></tr>
+          <tr><td>5</td><td>PIT</td><td>-24–24 st</td><td>Morph transpose shifts the resulting spectrum in semitones in addition to the played note. Morph transposes the hybrid spectrum. Imprint pitches only the carrier; the shaping envelope keeps its frequency regions.</td></tr>
+          <tr><td>6</td><td>MODE</td><td>Morph / Imprint</td><td>Morph interpolates spectral amplitudes and frequencies. Imprint transfers the next lane’s changing spectral envelope onto the carrier, retaining its pitched partials and stereo phase.</td></tr>
+          <tr><td>7</td><td>□</td><td>Reserved</td><td>Reserved for a future control.</td></tr>
+          <tr><td>8</td><td>PAIR</td><td>Readout</td><td>Shows the current source lane and its next-lane partner; it is not a knob assignment.</td></tr>
+        </tbody></table>
+        <p><strong>MIDI:</strong> CCs 40–45 address the six engine-page knobs; CC 45 selects Morph / Imprint. FREQ / CC 41 is reserved while Imprint is active. Texture Spread and Seed use CCs 28 and 29. Values are absolute 0–127, scaled to the displayed range. Unused slots are reserved; the MIDI channel selects the part as described in <a href="shortcuts.html#midi">External MIDI</a>.</p>
+        <h2 id="imprint">Imprint — one sample articulates another</h2>
+        <p>Select IMPR with knob 6 and raise knob 1 / IMPR toward 100%. A rich sustained recording in the carrier lane can take on the articulation of speech or percussion in the next lane. Keyboard notes and PIT transpose the carrier; the shaping envelope stays in its original frequency regions. Stack travel changes the carrier/shaper pair. Quad keeps each carrier on its own lane and uses the next lane as shaper, wrapping 4 → 1.</p>
+        <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/morph-imprint.svg" aria-label="Open Morph Imprint"><img src="assets/screens/morph-imprint.svg" alt="Morph in Imprint mode with IMPR strength and a reserved Frequency cell."></button></div><figcaption>IMPR controls strength; MODE chooses Imprint. FREQ is reserved so the shaping sample cannot retune the carrier.</figcaption></figure>
+        <p>OFST chooses a different point in the shaping recording; BLUR smooths its articulation. At full strength, a silent shaping recording closes the carrier. A missing or unprepared shaping lane temporarily leaves the carrier unshaped. A sine carrier has few partials to shape; a harmonically rich or noisy carrier gives a clearer result. Imprint preserves the carrier’s stereo image with linked envelope control and limits boosts in weak bands.</p>
+        <p>This adapts the envelope-transfer approach described in <a href="https://www.composersdesktop.com/docs/html/cformant.htm">CDP FORMANTS VOCODE / SPECENV</a> for Thru’s prepared spectral framework.</p>
+        <h2 id="playing">Playing, lanes, and preparation</h2>
+<p>Notes set pitch. Speed controls movement through the source independently. The shared Amp Envelope sets note attack and release. Single provides eight note voices; both dual modes provide four per part; Quad provides two per part. Each note follows its own stack path and phase. Loop holds stack travel in Single and dual modes.</p>
+<p>Source analysis runs in the background after loading, recording, or editing a lane. <code>SPECTRAL PREPARING</code> means the spectral source is not ready yet; wait for preparation to finish. Newly prepared data is shared by all notes. These engines resynthesize spectral frames, so they can sound softer or more diffuse than direct Sample playback. They do not pass through the unprocessed sample.</p>
+<p>Live edits smooth spectral amplitudes and frequencies while synthesis continues with overlapping windows. Join sets a short minimum smoothing time underneath Blur. Stack travel moves the main source and its next-lane partner together.</p>
+<table class="readout-table"><thead><tr><th>Mode</th><th>Source pairing</th></tr></thead><tbody><tr><td>Single / Shared Dual</td><td>Lane 1 → 2, 2 → 3, 3 → 4, 4 → 1. An in-between stack position blends the corresponding source pairs.</td></tr><tr><td>Split</td><td>A wraps between lanes 1 and 2; B wraps between lanes 3 and 4.</td></tr><tr><td>Quad</td><td>A uses 1 → 2, B uses 2 → 3, C uses 3 → 4, D uses 4 → 1.</td></tr></tbody></table>
+        <p>The partner is the neighboring lane’s recording before that other part’s engine, mute, level, or effects. It does not consume another note voice. If no partner source is ready, Morph uses the main source for both sides. Load the neighboring lane and wait for preparation to hear the full morph.</p>
+<h2 id="starts">Starting points</h2><p>Load contrasting recordings into neighboring lanes. Start with Amplitude 50%, Frequency 50%, Offset 0%, Blur 40 ms, and Pitch 0. Move Amplitude and Frequency separately, then try Quad to play all four cyclic pairings.</p>
+<nav class="page-nav" aria-label="Page navigation"><a class="page-nav-link" href="engine-prism.html"><span>Previous</span>Prism</a><a class="page-nav-link next" href="engine-texture.html"><span>Next</span>Texture</a></nav>
+      </main>
+      <aside class="toc" aria-label="Page navigation">
+        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
+        <div class="toc-section"><h2>Instrument modes</h2><a href="playing.html">Single · Basic playing</a><a href="modes.html">Compare modes</a><a href="split.html">Split</a><a href="shared-dual.html">Shared Dual</a><a href="quad.html">Quad</a></div>
+        <div class="toc-section"><h2>Engine guides</h2><a href="engine-motion.html">Motion</a><a href="engine-lanes.html">Lanes</a><a href="engine-grains.html">Grains</a><a href="engine-cutups.html">Cutups</a><a href="engine-sample.html">Sample</a><a href="engine-slices.html">Slices</a><a href="engine-glitch.html">Glitch</a><a href="engine-weave.html">Weave</a><a href="engine-wavesets.html">Wavesets</a><a href="engine-prism.html">Prism</a><a href="engine-morph.html">Morph</a><a href="engine-texture.html">Texture</a><a href="engine-formant.html">Formant</a></div>
+        <div class="toc-section"><h2>On this page</h2><a href="#pages">Pages</a><a href="#parameters">Parameters</a><a href="#imprint">Imprint</a><a href="#playing">Playing</a><a href="#starts">Starting points</a></div>
+      </aside>
+    </div>
+    <footer class="manual-footer">Morph: Hybrid voices, moving spectral colors, independent amplitude and frequency transformations, and a circular four-lane instrument in Quad.</footer>
+    <script src="assets/lightbox.js"></script>
+  </body>
+</html>

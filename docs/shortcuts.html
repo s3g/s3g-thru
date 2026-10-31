@@ -19,11 +19,11 @@
         <h1>Shortcut reference</h1>
         <p class="lead">The same control can change meaning by view, but recording gestures remain deliberately distinct: Record captures performance data; Shift+Record captures stereo audio.</p>
 
-        <h2 id="known-issues">Known issues in 0.28.0</h2>
+        <h2 id="known-issues">Schwung Skipback</h2>
 
         <div class="callout">
-          <p><strong>Shift + Capture conflicts with Schwung Skipback.</strong> Schwung uses this shortcut to save recent audio from its rolling buffer as a WAV. It remains active during takeover, so pressing it can show “Skipback saved” instead of opening Thru’s FX Sends. The conflicting Thru shortcut is planned to change in a future release.</p>
-          <p><strong>Workaround:</strong> in Split, Shared Dual, or Quad, hold <kbd>Capture</kbd> and press <kbd>Menu</kbd>, choose <strong>FX SENDS</strong>, then click the main encoder.</p>
+          <p><strong>Shift + Capture saves Schwung Skipback audio.</strong> This shortcut belongs to Schwung and remains available during takeover. A “Skipback saved” message means Schwung saved recent audio from its rolling buffer as a WAV.</p>
+          <p><strong>FX Sends:</strong> in Split, Shared Dual, or Quad, hold <kbd>Capture</kbd> and press <kbd>Menu</kbd>, release Capture, choose <strong>FX SENDS</strong>, then click the main encoder.</p>
         </div>
 
         <div class="screen-gallery">
@@ -41,6 +41,7 @@
             <tr><td>RENDER MISSES</td><td>Number of render calls that exceeded one audio-block period.</td><td><code>0</code> is healthy. If it rises while clicks or gaps occur, reduce costly grain/event settings or active polyphony. This count excludes control and query work.</td></tr>
             <tr><td>CONTROL PEAK</td><td>Longest live parameter or MIDI operation, in microseconds.</td><td>Watch this while changing controls or playing. A rise helps distinguish control work from engine rendering.</td></tr>
             <tr><td>QUERY PEAK</td><td>Longest display/status query, in microseconds.</td><td>A large value points to work associated with reading or updating instrument information.</td></tr>
+            <tr><td>FADE BUF MISSES</td><td>Outgoing pattern audio-buffer underruns during a crossfade.</td><td>A rising count can explain a gap or dip during a transition: the outgoing performance was not ready in time. This is separate from RENDER MISSES and WORK MISSES. The count is history and can remain after audio recovers. Timed fades and DONE keep advancing through an underrun; the outgoing audio is bridged smoothly while waiting for its next block. Reset the diagnostic counters to clear it.</td></tr>
             <tr><td>WORK PEAK</td><td>Largest combined time for rendering and the preceding Thru control/query calls.</td><td>Compare it with RENDER PEAK to see the additional cost of interaction. It excludes work performed elsewhere in Move or Schwung.</td></tr>
             <tr><td>WORK MISSES</td><td>Number of combined-work intervals that exceeded one audio-block period.</td><td>Watch this as well as RENDER MISSES. A rise with no render misses indicates that control/query work contributed to overload. Zero cannot rule out an interruption elsewhere in the device.</td></tr>
             <tr><td>LIMIT CURRENT</td><td>Gain reduction being applied by the final stereo safety limiter, in decibels.</td><td><code>0.0 dB</code> means no current limiting. Brief low values on peaks are normal; a sustained or large value means the summed level should be reduced.</td></tr>
@@ -54,23 +55,28 @@
         <table class="readout-table">
           <thead><tr><th>Control</th><th>Action</th></tr></thead>
           <tbody>
+            <tr><td>Touch knob 3 on Pattern Fade</td><td>Hold the blend for manual crossfading. Touch before selecting a destination to arm a change held at 0%; finger release leaves Hold on.</td></tr>
+            <tr><td>Click main encoder on Pattern Fade</td><td>Toggle Hold or resume the pattern transition. While idle, toggle manual arming for the next destination.</td></tr>
             <tr><td>Pads</td><td>Play the current Keys, Slices, Cues, or Rolls layout. Keys and Slices use up to eight source voices; Rolls capture and stutter the combined stereo history of all active playheads at a pad-specific division without stealing those voices.</td></tr>
             <tr><td>Pad pressure</td><td>Move that voice's continuous stack offset when Pressure is Offset. Quad remains on its assigned lane.</td></tr>
             <tr><td>Shift + pad</td><td>Latch that pad's note or captured roll; repeat to release it. In Cues, stores the displayed playhead instead.</td></tr>
             <tr><td>Knobs 1–8</td><td>On the waveform page, control POS, FLD, SPD, STAK, RATE, JOIN, the engine’s MODE/PLAY/ORDR, and LEVL. Cutups replaces STAK/RATE with LANE/ADV. Quad reserves both positions. In either dual mode, knob 8 is BLND. On parameter pages, they edit the eight displayed positions.</td></tr>
-            <tr><td>Capture + Menu</td><td>Open <a href="interface.html#page-picker">Pages</a>. Main turn or Up/Down selects; main click opens; Back cancels.</td></tr>
+            <tr><td>Hold Capture + bottom-row pad</td><td>Lane rides on pads 1–4 and momentary effects on pads 5–8. Pressure changes strength; release restores the current path/settings. Available from 0.29.0-test.2.</td></tr>
+            <tr><td>Main click on Stack Path with DRAW</td><td>Open <a href="engines.html#path-editor">Path Editor</a>. Knobs 1–4 select and edit a point; knob 5 changes the point count. Back returns to Stack Path.</td></tr>
+            <tr><td>Shift + knob 8 in Path Editor</td><td>Turn clockwise to reset the path to a four-point triangle.</td></tr>
+            <tr><td>Capture + Menu</td><td>Open <a href="interface.html#page-picker">Pages</a>. Main turn or Up/Down selects; main click opens; Back cancels. Choose FX SENDS for the multi-instrument send and return controls.</td></tr>
             <tr><td>Delete + Play</td><td><a href="performance.html#panic">Panic</a>: stop the data loop, finish an active performance take, and release notes, latches, Rolls, and audition. Effect tails decay naturally.</td></tr>
-            <tr><td>Copy</td><td>Toggle Single / last multi-instrument mode. Choose Split, Shared Dual, or Quad via Capture + Menu → Instrument Mode. See <a href="modes.html">Modes</a>.</td></tr>
-            <tr><td>Capture in multi-instrument modes</td><td>Switch editing focus on release. Split highlights lane numbers 1–2 or 3–4; Shared Dual highlights A/B in the waveform header. Quad cycles A–D and highlights its lane and header letter. See <a href="interface.html#split-buttons">the physical button guide</a>.</td></tr>
+            <tr><td>Copy</td><td>Outside the clip and chain editors, toggle Single / last multi-instrument mode. Choose Split, Shared Dual, or Quad via Capture + Menu → Instrument Mode. See <a href="modes.html">Modes</a>.</td></tr>
+            <tr><td>Capture in multi-instrument modes</td><td>A quick tap switches editing focus on release. Hold Capture for the <a href="playing.html#capture-performance">bottom-row performance controls</a>. Split highlights lane numbers 1–2 or 3–4; Shared Dual highlights A/B in the waveform header. Quad cycles A–D and highlights its lane and header letter. See <a href="interface.html#split-buttons">the physical button guide</a>.</td></tr>
             <tr><td>Capture + knob 8</td><td>Adjust Blend in either dual mode, or the focused part’s level in Quad, from any page; release keeps focus.</td></tr>
-            <tr><td>Shift + Capture</td><td>Intended FX Sends shortcut; <a href="#known-issues">conflicts with Schwung Skipback in 0.28.0</a>. Use Capture + Menu → FX SENDS instead. Dual modes show A/B sends, return levels, Curve, and Blend. Quad shows all eight A–D sends; its returns are on Delay Return and Reverb.</td></tr>
-            <tr><td>Shift + Copy</td><td>Copy engine, pad, envelope, lane-gain, and private insert settings to the other part in dual modes, or the next A–D part in Quad. Keep its samples, cues, notes, and mute state; shared mixing stays in place.</td></tr>
+            <tr><td>Shift + Capture</td><td><a href="#known-issues">Schwung Skipback</a>: saves recent host audio as a WAV.</td></tr>
+            <tr><td>Shift + Copy</td><td>Outside the clip and chain editors, copy engine, pad, envelope, lane-gain, and private insert settings to the other part in dual modes, or the next A–D part in Quad. Keep its samples, cues, notes, and mute state; shared mixing stays in place.</td></tr>
             <tr><td>Mute in multi-instrument modes</td><td>Fade the focused part out/in, including Part-mode preview; playheads keep running. Mute persists across mode changes. See <a href="split.html#silent">silent-part recovery</a>.</td></tr>
             <tr><td>Track 1–4</td><td>Select the lane used by audio record, load, clear, and sample edit. Split also focuses the owning A/B part. Shared Dual keeps focus unchanged. Quad focuses the corresponding A–D part.</td></tr>
             <tr><td>Main encoder turn</td><td>Select the previous/next lane.</td></tr>
             <tr><td>Up / Down</td><td>Transpose the chromatic or folded-scale pad grid by octave on the waveform page.</td></tr>
-            <tr><td>Left / Right</td><td>Select performance-clip bank A–D.</td></tr>
-            <tr><td>Step 1–16</td><td>Select or queue that clip in the current bank.</td></tr>
+            <tr><td>Left / Right</td><td>Select performance-clip bank A–D. In the Chain grid or Chain parameter pages, select entry pages 1–4 instead.</td></tr>
+            <tr><td>Step 1–16</td><td>Select or queue that clip in the current bank. In the Chain grid or Chain parameter pages, select an entry on the current page.</td></tr>
             <tr><td>Record or main click</td><td>Start/stop performance-data recording.</td></tr>
             <tr><td>Shift + Record or Shift + main click</td><td>Start/stop stereo audio capture into the selected lane.</td></tr>
             <tr><td>Play</td><td>Stop/start performance-loop playback.</td></tr>
@@ -78,7 +84,7 @@
             <tr><td>Shift + Loop</td><td>In Glitch, hold for temporary Buffer Lock; tap twice quickly to latch; press once while latched to return to live history.</td></tr>
             <tr><td>Menu</td><td>Toggle waveform and parameter pages.</td></tr>
             <tr><td>Shift + Menu</td><td>Open or close the three-page System Report / Shortcuts view.</td></tr>
-            <tr><td>Shift + Play</td><td>Cycle Main → Clip Overview → Chain → Main.</td></tr>
+            <tr><td>Shift + Play</td><td>Cycle Main → Clip Overview → Chain → Main. In Chain, knob 6 selects saved chains; knob 8 requests NEXT. See <a href="performance.html#chain">Chain controls</a>.</td></tr>
             <tr><td>Back</td><td>Close a secondary view; from Main, save and exit Overtake.</td></tr>
           </tbody>
         </table>
@@ -90,9 +96,14 @@
           <tbody>
             <tr><td>Shift + Track 1–4</td><td>Open Move Samples and the Thru Recordings archive for that lane.</td></tr>
             <tr><td>Shift + Delete</td><td>Clear the selected audio lane.</td></tr>
-            <tr><td>Undo (curved arrow)</td><td>Undo the most recent destructive clip, source, clear, or sample-edit action. Stop audio or performance recording first. Back handles navigation and exit.</td></tr>
+            <tr><td>Undo (curved arrow)</td><td>Undo the most recent clip, source, sample-edit or chain-edit action, including saved transition changes. Stop audio or performance recording first. Back handles navigation and exit.</td></tr>
+            <tr><td>Shift + knob 8 on Pattern Fade</td><td>Return smoothly to the source and commit it; automatic chaining turns off.</td></tr>
+            <tr><td>Shift + knob 8 / NEXT in Chain</td><td>Queue the selected entry of the chain being edited, without interrupting current playback.</td></tr>
             <tr><td>Delete + Record</td><td>After finishing recording with Record, remove the newest Overdub take while playback can continue. The base remains protected. See <a href="performance.html#takes">Overdub undo</a>.</td></tr>
             <tr><td>Shift + Step</td><td>Copy the current clip to the destination Step slot.</td></tr>
+            <tr><td>Copy tap / Shift + Copy tap</td><td>In Clip Overview, Performance Loop, Overdub Takes, or Pattern Fade: copy/paste the current clip. In the Chain grid and chain pages: copy the selected entry’s recorded clip; paste an independent duplicate into an unused clip slot and assign it to the selected destination entry. Whole-chain copying stays on Chain Tools. Tap actions run when Copy is released.</td></tr>
+            <tr><td>Copy + Step</td><td>In those clip pages, copy the addressed clip to a temporary clipboard without launching it. In chain editors, copy the recorded clip referenced by that entry.</td></tr>
+            <tr><td>Shift + Copy + Step</td><td>Paste to the addressed clip or chain position without launching it. A chain paste creates a new independent clip. Keep Copy held and add Shift for each paste; releasing Copy after a Step does not perform another action. Undo restores the last destination; stop playback to replace the current clip. See <a href="performance.html#clip-copy">Clip copy/paste</a>.</td></tr>
             <tr><td>Delete + Step</td><td>Reset the destination clip and its four source assignments.</td></tr>
             <tr><td>Shift + pad in Cues</td><td>Store the displayed playhead in a local Cue (eight in Single, four per dual side, two per Quad part), snapped to the safest nearby stereo zero crossing on the selected lane.</td></tr>
             <tr><td>Delete + pad in Cues</td><td>Clear that pad’s local Cue.</td></tr>
@@ -137,6 +148,7 @@
 
         <h2 id="midi">External MIDI</h2>
         <p>In Single, notes share one instrument. Split and Shared Dual use MIDI channels 1–2 for A/B; Quad uses channels 1–4 for A–D. Other channels address A. Engine parameter CCs follow that channel without moving edit focus.</p>
+        <p><strong>Prism / Morph / Texture / Formant:</strong> CCs 40–45 address the selected engine’s first six parameter-page controls; Morph CC 45 selects Morph / Imprint and its FREQ control is reserved in Imprint; Texture uses CC 28 for Spread and CC 29 for Seed. Unused engine-page slots are reserved. Formant uses CCs 40–45 for PIT, FORM, SMTH, TUNE, FRZE, and KEYT; CC 28 controls ROUG and CC 29 controls SUB. FRZE is Off at 0–63 and On at 64–127. Other engines retain their existing mapping.</p>
         <p><strong>Quad mixing:</strong> CC 13 controls the addressed part’s level, CC 15 its Delay send, and CC 17 its Reverb send. CCs 14, 16, and 18 retain their fixed B assignments. Quad ignores Blend and Curve and stays on one lane per part, so its stack-scan CCs have no lane-selection role.</p>
 
         <p>Shared controls remain global. External/host MIDI accepts notes, note-off, polyphonic aftertouch, All Sound Off (CC 120), and All Notes Off (CC 123). Parameter CC values are 7-bit absolute.</p>
@@ -218,7 +230,7 @@
       <aside class="toc" aria-label="Page navigation">
         <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
         <div class="toc-section"><h2>Instrument modes</h2><a href="playing.html">Single · Basic playing</a><a href="modes.html">Compare modes</a><a href="split.html">Split</a><a href="shared-dual.html">Shared Dual</a><a href="quad.html">Quad</a></div>
-        <div class="toc-section"><h2>On this page</h2><a href="#known-issues">Known issues</a><a href="#global">Global</a><a href="#editing">Editing</a><a href="#context">By view</a><a href="#leds">LEDs</a><a href="#midi">External MIDI</a></div>
+        <div class="toc-section"><h2>On this page</h2><a href="#known-issues">Schwung Skipback</a><a href="#global">Global</a><a href="#editing">Editing</a><a href="#context">By view</a><a href="#leds">LEDs</a><a href="#midi">External MIDI</a></div>
       </aside>
     </div>
     <footer class="manual-footer">Keep monitoring at zero unless input pass-through is intentional.</footer>

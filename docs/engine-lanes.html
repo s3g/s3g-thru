@@ -12,7 +12,7 @@
 
     <div class="page-shell">
       <main class="content" id="content">
-        <p class="eyebrow">Playback engine 2 of 9</p>
+        <p class="eyebrow">Playback engine 2 of 13</p>
         <h1>Lanes</h1>
         <p class="lead">Lanes separates motion through time from motion through the source stack. Each voice reads Forward, Reverse, or Ping Pong while its own shaped stack path chooses a lane or crossfade.</p>
         <p>Controls edit the focused instrument. <a href="modes.html">Instrument mode</a> sets its lane and voice budget: eight voices in Single, four per part in either dual mode, or two per part in Quad. Quad omits stack controls because each part has one lane.</p>
@@ -32,7 +32,7 @@
         <table class="readout-table parameter-table">
           <thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>Detail</th></tr></thead>
           <tbody>
-            <tr><td>1</td><td>PATH</td><td>8 choices</td><td>Chooses how stack position moves: Down, Up, Triangle, Sine, Steps Down, Steps Up, Manual, or Random.</td></tr>
+            <tr><td>1</td><td>PATH</td><td>9 choices</td><td>Chooses how stack position moves: Down, Up, Triangle, Sine, Steps Down, Steps Up, Manual, Random, or Draw.</td></tr>
             <tr><td>2</td><td>BLND</td><td>Crossfade / Jump</td><td>Crossfade blends adjacent loaded lanes with a smooth curve. Jump chooses the nearer loaded lane.</td></tr>
             <tr><td>3</td><td>SHAP</td><td>Linear / Smooth / Exponential / Plateau</td><td>Remaps the path before it becomes a 1–4 lane position. Plateau quantizes the result into four levels.</td></tr>
             <tr><td>4</td><td>OFST</td><td>0.00–1.00</td><td>Rotates the whole stack path and wraps at 1.00, shifting every breakpoint without changing speed.</td></tr>
@@ -56,6 +56,7 @@
             <tr><td>Steps Up</td><td>The reverse four-step sequence.</td></tr>
             <tr><td>Manual</td><td>Stops automatic lane travel and reads Stack Start as a continuous lane/crossfade position.</td></tr>
             <tr><td>Random</td><td>Uses a deterministic 16-step random path, repeatable when the same state is recalled.</td></tr>
+            <tr><td>Draw</td><td>Uses four to eight authored breakpoints, with individual times, lane positions, and segment curves. See <a href="engines.html#path-editor">Path Editor</a>.</td></tr>
           </tbody>
         </table>
 
@@ -81,7 +82,7 @@
       <aside class="toc" aria-label="Page navigation">
         <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
         <div class="toc-section"><h2>Instrument modes</h2><a href="playing.html">Single · Basic playing</a><a href="modes.html">Compare modes</a><a href="split.html">Split</a><a href="shared-dual.html">Shared Dual</a><a href="quad.html">Quad</a></div>
-        <div class="toc-section"><h2>Engine guides</h2><a href="engine-motion.html">Motion</a><a href="engine-lanes.html">Lanes</a><a href="engine-grains.html">Grains</a><a href="engine-cutups.html">Cutups</a><a href="engine-sample.html">Sample</a><a href="engine-slices.html">Slices</a><a href="engine-glitch.html">Glitch</a><a href="engine-weave.html">Weave</a><a href="engine-wavesets.html">Wavesets</a></div>
+        <div class="toc-section"><h2>Engine guides</h2><a href="engine-motion.html">Motion</a><a href="engine-lanes.html">Lanes</a><a href="engine-grains.html">Grains</a><a href="engine-cutups.html">Cutups</a><a href="engine-sample.html">Sample</a><a href="engine-slices.html">Slices</a><a href="engine-glitch.html">Glitch</a><a href="engine-weave.html">Weave</a><a href="engine-wavesets.html">Wavesets</a><a href="engine-prism.html">Prism</a><a href="engine-morph.html">Morph</a><a href="engine-texture.html">Texture</a><a href="engine-formant.html">Formant</a></div>
         <div class="toc-section"><h2>On this page</h2><a href="#pages">Pages</a><a href="engines.html#shared">Shared Engine table</a><a href="#path">Stack Path</a><a href="#paths">Path choices</a><a href="#play">Lanes Play</a></div>
       </aside>
     </div>

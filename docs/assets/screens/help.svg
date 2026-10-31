@@ -5,10 +5,11 @@
   <rect width="128" height="64" fill="#050706"/>
   <g shape-rendering="crispEdges" font-family="DejaVu Sans Mono, IBM Plex Mono, monospace" font-size="6" font-style="normal" font-weight="400" text-rendering="geometricPrecision">
     <text x="1" y="5.5" fill="#dce8e1">SYSTEM REPORT 1/3 &lt;&gt;</text>
-    <text x="1" y="18.5" fill="#dce8e1">RENDER PEAK    724 us</text>
-    <text x="1" y="30.5" fill="#dce8e1">RENDER MISSES       0</text>
-    <text x="1" y="42.5" fill="#dce8e1">LIMIT CURRENT  0.0 dB</text>
-    <text x="1" y="54.5" fill="#dce8e1">LIMIT MAX      3.2 dB</text>
+    <text x="1" y="16.5" fill="#dce8e1">RENDER PEAK    724 us</text>
+    <text x="1" y="26.5" fill="#dce8e1">RENDER MISSES       0</text>
+    <text x="1" y="36.5" fill="#dce8e1">LIMIT CURRENT  0.0 dB</text>
+    <text x="1" y="46.5" fill="#dce8e1">LIMIT MAX      3.2 dB</text>
+    <text x="1" y="56.5" fill="#dce8e1">FADE BUF MISSES     0</text>
   </g>
   <rect x="0.25" y="0.25" width="127.5" height="63.5" fill="none" stroke="#5b6661" stroke-width="0.5"/>
 </svg>

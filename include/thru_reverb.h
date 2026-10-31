@@ -70,6 +70,11 @@ public:
         feedback_ = .65f; roomGains_.fill(.85f); sin_ = 0; cos_ = 1;
         resetNetwork(); return true;
     }
+    void reset() {
+        resetNetwork();mix_=targetMix_=0;active_=requested_=0;
+        algorithmPhase_=1;algorithmTransition_=0;preCurrent_=preFrom_=preTo_=prePending_=0;
+        preRemaining_=0;sin_=0;cos_=1;sleeping_=true;
+    }
     void beginBlock(int algorithm, float seconds, float preMs, float dampHz,
                     float diffusion, float modulation, float width, float mix) {
         requested_ = std::clamp(algorithm, 0, 1);

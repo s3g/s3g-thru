@@ -2,7 +2,8 @@
                          backgroundWorking, backgroundComplete };
     struct PersistenceSnapshot {
         std::array<ClipSlot, kClipSlotCount> clips;
-        std::array<ClipChainEntry, kClipChainLength> chain;
+        SavedChainBanks banks;
+        int chainBank=0,chainPlayBank=0;
         std::array<char, kStateTextSize> json {};
         std::uint64_t revision = 0u, generation = 0u;
         float tempo = 120.0f, swing = 0.5f;
@@ -242,20 +243,20 @@
         auto saveState = persistenceJob.load(std::memory_order_acquire);
         if (saveState == backgroundCopying
             && (persistenceSnapshot->revision != persistentRevision
-                || clipRecording || engine.recording() || pendingCaptureSaveMask != 0u)) {
+                || clipRecording || audioRecording() || pendingCaptureSaveMask != 0u)) {
             persistenceJob.store(backgroundIdle, std::memory_order_release);
             saveState = backgroundIdle;
         }
         const auto clock = renderClockSamples.load(std::memory_order_relaxed);
         if (saveState == backgroundIdle && persistenceSnapshot && maintenanceRequested
-            && persistentStateDirty && !clipRecording && !engine.recording()
+            && persistentStateDirty && !clipRecording && !audioRecording()
             && pendingCaptureSaveMask == 0u
             && clock >= saveRetryFrame
             && clock - lastPersistentEditFrame >= static_cast<std::uint64_t>(sampleRate * 0.100f)) {
             captureActiveClip(false);
             auto& job = *persistenceSnapshot;
             job.revision = persistentRevision; job.generation = reservePersistenceGeneration();
-            job.chain = clipChain; job.tempo = tempoBpm; job.swing = tempoSwing;
+            job.chainPlayBank=chainPlayBank;job.chainBank=chainBankIndex; job.tempo = tempoBpm; job.swing = tempoSwing;
             job.quantize = launchQuantize; job.grainLimit = grainVoiceLimit;
             job.active = activeClip; job.chainPosition = chainPosition; job.chainEdit = chainEditSlot;
             const int length = serializeState(job.json.data(), job.json.size(), job.generation);
@@ -270,13 +271,15 @@
                 "background clip snapshots require plain owned value storage");
             // Fixed 16 KiB maximum per render callback, independent of how
             // many clips/points are stored. No allocation, locks or file I/O.
-            const std::size_t count = std::min<std::size_t>(16384u,
-                sizeof(clipSlots) - persistenceCopyOffset);
-            std::memcpy(reinterpret_cast<char*>(persistenceSnapshot->clips.data()) + persistenceCopyOffset,
-                reinterpret_cast<const char*>(clipSlots.data()) + persistenceCopyOffset, count);
-            persistenceCopyOffset += count;
-            if (persistenceCopyOffset == sizeof(clipSlots))
-                persistenceJob.store(backgroundRequested, std::memory_order_release);
+            const std::size_t total=sizeof(clipSlots)+sizeof(chainBanks);
+            const bool copyingClips=persistenceCopyOffset<sizeof(clipSlots);
+            const std::size_t offset=copyingClips?persistenceCopyOffset:persistenceCopyOffset-sizeof(clipSlots);
+            const std::size_t size=copyingClips?sizeof(clipSlots):sizeof(chainBanks);
+            const std::size_t count=std::min<std::size_t>(16384u,size-offset);
+            auto* destination=copyingClips?reinterpret_cast<char*>(persistenceSnapshot->clips.data()):reinterpret_cast<char*>(persistenceSnapshot->banks.data());
+            const auto* source=copyingClips?reinterpret_cast<const char*>(clipSlots.data()):reinterpret_cast<const char*>(chainBanks.data());
+            std::memcpy(destination+offset,source+offset,count);persistenceCopyOffset+=count;
+            if(persistenceCopyOffset==total)persistenceJob.store(backgroundRequested,std::memory_order_release);
         }
         if(saveFailed && pendingCaptureSaveMask==0u && !persistentStateDirty
             && persistenceJob.load(std::memory_order_acquire)==backgroundIdle)saveFailed=false;
@@ -292,8 +295,8 @@
     {
         if(!persistenceEnabled)return 0; // No persistent data directory.
         if(saveFailed || !backgroundStarted)return 4;
-        if(engine.recording() || clipRecording)return 1;
-        if(pendingCaptureSaveMask || persistentStateDirty || recordStartPending
+        if(audioRecording() || clipRecording)return 1;
+        if(partCapturePublishing || pendingCaptureSaveMask || persistentStateDirty || recordStartPending
             || persistenceJob.load(std::memory_order_acquire)!=backgroundIdle)return 2;
         return 3; // All referenced audio and the latest metadata are committed.
     }

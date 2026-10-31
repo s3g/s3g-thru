@@ -496,31 +496,7 @@
     <rect x="0" y="53" width="128" height="1" fill="#050706"/>
     <rect x="0" y="53" width="54" height="1" fill="#dce8e1"/>
     <rect x="0" y="55" width="128" height="9" fill="#050706"/>
-    <text x="1" y="60.5" fill="#dce8e1">THRU 0.28.0</text>
-    <rect x="0" y="55" width="128" height="9" fill="#050706"/>
     <text x="1" y="60.5" fill="#dce8e1">STOP 13.6b SYNC 1.00x</text>
-    <rect x="0" y="10" width="12" height="40" fill="#050706"/>
-    <text x="3" y="16.5" fill="#dce8e1">1</text>
-    <rect x="9" y="12" width="2" height="7" fill="#dce8e1"/>
-    <text x="3" y="26.5" fill="#dce8e1">2</text>
-    <rect x="0" y="31" width="2" height="8" fill="#dce8e1"/>
-    <rect x="2" y="31" width="7" height="8" fill="#dce8e1"/>
-    <text x="3" y="36.5" fill="#050706">3</text>
-    <rect x="9" y="32" width="2" height="7" fill="#dce8e1"/>
-    <rect x="2" y="41" width="7" height="8" fill="#dce8e1"/>
-    <text x="3" y="46.5" fill="#050706">4</text>
-    <rect x="0" y="30" width="12" height="1" fill="#dce8e1"/>
-    <rect x="0" y="10" width="12" height="40" fill="#050706"/>
-    <rect x="0" y="11" width="2" height="8" fill="#dce8e1"/>
-    <rect x="2" y="11" width="7" height="8" fill="#dce8e1"/>
-    <text x="3" y="16.5" fill="#050706">1</text>
-    <rect x="9" y="12" width="2" height="7" fill="#dce8e1"/>
-    <rect x="2" y="21" width="7" height="8" fill="#dce8e1"/>
-    <text x="3" y="26.5" fill="#050706">2</text>
-    <text x="3" y="36.5" fill="#dce8e1">3</text>
-    <rect x="9" y="32" width="2" height="7" fill="#dce8e1"/>
-    <text x="3" y="46.5" fill="#dce8e1">4</text>
-    <rect x="0" y="30" width="12" height="1" fill="#dce8e1"/>
     <rect x="0" y="0" width="128" height="9" fill="#050706"/>
     <text x="1" y="5.5" fill="#dce8e1">A:SAM1 B:MUT1 50%</text>
     <rect x="0" y="8" width="128" height="1" fill="#050706"/>

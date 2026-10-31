@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Prism engine - s3g Thru manual</title>
+    <meta name="description" content="Complete parameter reference for the s3g Thru Prism playback engine.">
+    <link rel="stylesheet" href="assets/styles.css">
+  </head>
+  <body>
+    <header class="site-header"><a class="brand" href="index.html">s3g Thru <span>manual</span></a><nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav></header>
+
+    <div class="page-shell">
+      <main class="content" id="content">
+        <p class="eyebrow">Playback engine 10 of 13</p>
+        <h1>Prism</h1><p class="lead">Spectral frames become a playable instrument. Scan the recording, sustain a selected frame, hold only its amplitudes or frequencies, or accumulate a slowly changing spectral memory.</p>
+        <div class="callout"><p><strong>Good for:</strong> Sustained tones from short recordings, spectral drones, softened sample travel, and playable freezes.</p></div>
+        <h2 id="pages">Pages and navigation</h2>
+        <p>Choose Prism with Algorithm on the shared Engine page. Up/Down reaches Pads &amp; Scale, Amp Envelope, Stack Path, and the Prism page. Quad omits Stack Path because each part owns one lane. The remaining shared pages work as described in the <a href="engines.html#shared">shared Engine table</a> and <a href="engines.html#stack-path">Stack Path reference</a>.</p>
+        <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/prism.svg" aria-label="Open Prism page"><img src="assets/screens/prism.svg" alt="Prism parameter page with knob labels and values."></button></div><figcaption>Knobs 1–4 match the top row; 5–8 match the bottom row. Small boxes mark reserved controls.</figcaption></figure>
+        <h2 id="parameters">Prism — every parameter</h2>
+        <table class="readout-table parameter-table"><thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>What it controls</th></tr></thead><tbody>
+          <tr><td>1</td><td>MODE</td><td>Scan / Freeze / Amplitude Hold / Frequency Hold / Accumulate</td><td>Mode selects Scan, Freeze, Amplitude Hold, Frequency Hold, or Accumulate. Scan follows the source cursor. Freeze reads the center of the current Field. Amplitude Hold uses that frame’s loudness spectrum with moving frequencies; Frequency Hold does the reverse. Accumulate retains spectral energy as new source frames arrive.</td></tr>
+          <tr><td>2</td><td>BLUR</td><td>0–2000 ms</td><td>Spectral blur smooths changes in spectral amplitudes and frequencies. Raise it for slow, softened movement. Low values retain more of the source articulation; a short safety smoothing time remains active.</td></tr>
+          <tr><td>3</td><td>DCAY</td><td>50–20000 ms</td><td>Accumulation decay sets how long retained spectral energy takes to fall away in Accumulate mode. This cell is reserved in other modes. It is separate from the note’s Amp Envelope release.</td></tr>
+          <tr><td>4</td><td>PIT</td><td>-24–24 st</td><td>Prism transpose shifts the resynthesized spectrum in semitones in addition to the played note. Speed controls source travel independently.</td></tr>
+          <tr><td>5</td><td>TILT</td><td>-100–100%</td><td>Spectral tilt changes the balance of low and high frequencies. Negative values darken the sound; positive values brighten it. Zero keeps a neutral tilt.</td></tr>
+          <tr><td>6</td><td>SMER</td><td>0–100%</td><td>Frequency smear spreads spectral amplitude across neighboring frequency bands. Increase it for a broader, less sharply defined spectrum.</td></tr>
+          <tr><td>7</td><td>□</td><td>Reserved</td><td>Reserved for a future control.</td></tr>
+          <tr><td>8</td><td>□</td><td>Reserved</td><td>Reserved for a future control.</td></tr>
+        </tbody></table>
+        <p><strong>MIDI:</strong> CCs 40–45 address the first six engine-page knobs. Texture Spread and Seed use CCs 28 and 29. Values are absolute 0–127, scaled to the displayed range. Unused slots are reserved; the MIDI channel selects the part as described in <a href="shortcuts.html#midi">External MIDI</a>.</p>
+        <h2 id="playing">Playing, lanes, and preparation</h2>
+<p>Notes set pitch. Speed controls movement through the source independently. The shared Amp Envelope sets note attack and release. Single provides eight note voices; both dual modes provide four per part; Quad provides two per part. Each note follows its own stack path and phase. Loop holds stack travel in Single and dual modes.</p>
+<p>Source analysis runs in the background after loading, recording, or editing a lane. <code>SPECTRAL PREPARING</code> means the spectral source is not ready yet; wait for preparation to finish. Newly prepared data is shared by all notes. These engines resynthesize spectral frames, so they can sound softer or more diffuse than direct Sample playback. They do not pass through the unprocessed sample.</p>
+<p>Live edits smooth amplitudes and frequencies while synthesis continues with overlapping windows. Join sets a short minimum transition smoothing time underneath Blur. Stack position blends spectra; Freeze keeps its source frame fixed but can still move between lanes.</p>
+<h2 id="starts">Starting points</h2><p>Start with Freeze, Blur 80 ms, Pitch 0, Tilt 0, and Smear 0. Adjust Position and Field to find a sustained frame. Then try Accumulate with a 2-second Decay and slow stack travel.</p>
+<nav class="page-nav" aria-label="Page navigation"><a class="page-nav-link" href="engine-wavesets.html"><span>Previous</span>Wavesets</a><a class="page-nav-link next" href="engine-morph.html"><span>Next</span>Morph</a></nav>
+      </main>
+      <aside class="toc" aria-label="Page navigation">
+        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
+        <div class="toc-section"><h2>Instrument modes</h2><a href="playing.html">Single · Basic playing</a><a href="modes.html">Compare modes</a><a href="split.html">Split</a><a href="shared-dual.html">Shared Dual</a><a href="quad.html">Quad</a></div>
+        <div class="toc-section"><h2>Engine guides</h2><a href="engine-motion.html">Motion</a><a href="engine-lanes.html">Lanes</a><a href="engine-grains.html">Grains</a><a href="engine-cutups.html">Cutups</a><a href="engine-sample.html">Sample</a><a href="engine-slices.html">Slices</a><a href="engine-glitch.html">Glitch</a><a href="engine-weave.html">Weave</a><a href="engine-wavesets.html">Wavesets</a><a href="engine-prism.html">Prism</a><a href="engine-morph.html">Morph</a><a href="engine-texture.html">Texture</a><a href="engine-formant.html">Formant</a></div>
+        <div class="toc-section"><h2>On this page</h2><a href="#pages">Pages</a><a href="#parameters">Parameters</a><a href="#playing">Playing</a><a href="#starts">Starting points</a></div>
+      </aside>
+    </div>
+    <footer class="manual-footer">Prism: Sustained tones from short recordings, spectral drones, softened sample travel, and playable freezes.</footer>
+    <script src="assets/lightbox.js"></script>
+  </body>
+</html>

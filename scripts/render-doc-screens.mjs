@@ -299,6 +299,8 @@ ${elements}
 
 let mismatches = 0;
 function capture(filename, title, expectedHeading = '') {
+    if(frame.some(item=>item.type==='text'&&item.value==='UPDATING EDITOR'))
+        throw new Error('Editor snapshot is incomplete for '+filename);
     if (expectedHeading) {
         const heading = frame.find((item) => item.type === 'text'
             && item.x === 1 && item.y === 0)?.value || '';
@@ -598,7 +600,8 @@ const fxDoc=globalThis.__docSplit;
 fxDoc.state.view='settings';fxDoc.state.settingsPage=fxDoc.pages().findIndex((page)=>page.title==='FX SENDS');
 cc(3);tick();capture('split-fx-menu.svg','Split FX Pages menu');
 cc(51);params.effect_mix='0';params.effect_reverb_mix='0';
-cc(49);cc(52);cc(52,0);cc(49,0);tick();
+fxDoc.state.view='settings';fxDoc.state.settingsPage=fxDoc.pages().findIndex(p=>p.title==='FX SENDS');
+fxDoc.params.effect_mix.value=0;fxDoc.params.effect_reverb_mix.value=0;fxDoc.redraw();
 capture('split-sends-off.svg','Split sends with return-level hints');
 
 // Shared Dual zoom follows the focused program across all four source rows.
@@ -645,6 +648,65 @@ for(const [heading,file] of [['FX SENDS','quad-sends.svg'],['QUAD SETUP','quad-s
     tick();capture(file,'Quad '+heading);
 }
 quadDoc.state.view='mixStatus';tick();capture('quad-status.svg','Quad activity and voice counts');
+
+// Temporary performance controls on the bottom eight hardware pads.
+Object.assign(quadDoc.state,{splitEnabled:false,sharedDual:false,quadMode:false,
+    performanceVisible:true,performanceOwner:0,mask:15});
+quadDoc.state.performancePads=new Set([69,72]);quadDoc.state.performancePadLive=new Set([69,72]);
+quadDoc.state.performanceValues=[0,0.2,0,0,0.8,0,0,0];
+quadDoc.redraw();capture('capture-performance.svg','Capture lane rides and momentary effects');
+
+// Compact source names retain the part letter in a four-character value.
+Object.assign(quadDoc.state,{splitEnabled:true,sharedDual:false,quadMode:true,
+    performanceVisible:false,view:'settings',recordSource:5});
+quadDoc.state.settingsPage=quadDoc.pages().findIndex(p=>p.title==='MIX / REC');
+quadDoc.params.record_source.value=5;quadDoc.redraw();
+capture('part-capture-source.svg','Mix and Record with Part D selected');
+
+// A closed six-point route with two pauses and unequal travel times.
+params.algorithm='1';params.lane_path='8';
+params.split_state=JSON.stringify({enabled:0,shared:0,quad:0,focus:0,blend:.5,parts:[{algorithm:1},{algorithm:1}]});
+const authoredTimes=[0,.15,.35,.55,.7,.9,.94,.97];
+const authoredLanes=[0,0,.75,.75,.25,1,.5,.25];
+const authoredCurves=[0,.8,0,-.5,.6,-.8,0,0];
+params.stack_path_state=[6,2,...authoredTimes.flatMap((time,i)=>[time,authoredLanes[i],authoredCurves[i]])].join(',');
+globalThis.init();tick(82);
+const pathDoc=globalThis.__docSplit;pathDoc.state.view='settings';
+pathDoc.state.settingsPage=pathDoc.pages().findIndex(p=>p.title==='STACK PATH');
+pathDoc.redraw();capture('stack-path-draw.svg','Stack Path with DRAW selected');
+cc(3);tick();capture('stack-path-editor.svg','Editable path with six points and pauses');
+
+// A paused blend between independent performance clips.
+params.pattern_fade_state='1,1,0,1,5000,30000,3,0,0,2000,12000,30000,0';tick(3);
+pathDoc.state.view='settings';pathDoc.state.settingsPage=pathDoc.pages().findIndex(p=>p.patternFade);
+pathDoc.redraw();capture('pattern-fade.svg','Pattern Fade held at a smooth midpoint');
+params.pattern_fade_state='1,1,0,1,5000,30000,3,0,1,2000,12000,6374,0';tick(3);
+pathDoc.redraw();capture('pattern-fade-random.svg','Random Pattern Fade with a chosen duration and low/high bounds');
+
+// Stored chain defaults and a destination entry override.
+params.chain_effective_fade='1,1,8000,2000,12000,3';params.entry_effective_fade='2,0,8000,2000,12000,3';params.chain_state='1,0,1,1,2,0,2,0';params.chain_end='2';params.chain_fades_state='2,8000,2000,12000,3,2,8000,2000,12000,3';
+tick(3);pathDoc.state.view='settings';pathDoc.state.settingsPage=pathDoc.pages().findIndex(p=>p.title==='CHAIN');
+pathDoc.state.actionMessageTicks=0;pathDoc.redraw();capture('chain-controls.svg','Saved Chain controls with Bank, End and Next');
+pathDoc.state.settingsPage=pathDoc.pages().findIndex(p=>p.chainFade==='chain');
+pathDoc.redraw();capture('chain-fade.svg','Chain 01 with saved random fade defaults');
+pathDoc.state.settingsPage=pathDoc.pages().findIndex(p=>p.chainFade==='entry');
+pathDoc.redraw();capture('entry-fade.svg','Entry 02 with a saved fixed smooth fade');
+
+// Chain copy/launch with full-width action labels and encoder numbers.
+params.chain_state='1,0,1,1,2,0,2,0,0,-1,-1';params.chain_effective_fade='0,1,0,2000,12000,3';params.entry_effective_fade='2,0,8000,0,0,3';
+pathDoc.state.view='settings';pathDoc.state.settingsPage=pathDoc.pages().findIndex(p=>p.chainTools);
+pathDoc.state.actionMessageTicks=0;pathDoc.redraw();capture('chain-tools.svg','Chain and Entry Copy/Paste with numbered encoders and wider text spacing');
+
+for(const [algorithm,title,filename] of [[9,'PRISM','prism'],[10,'MORPH','morph'],[11,'TEXTURE','texture'],[12,'FORMANT','formant']]) {
+    Object.assign(params,{algorithm:String(algorithm),prism_mode:'4',texture_mode:'2',pattern_fade_state:'0,0,-1,-1,0,0,0,0,0,0,0,0,0',
+        spectral_analysis_state:'15,0',morph_pair:'1>2',split_state:JSON.stringify({enabled:0,shared:0,quad:0,focus:0,parts:Array.from({length:2},()=>({algorithm,root:60,octave:0,scale:0,mode:0,mute:0}))})});
+    if(algorithm===12)Object.assign(params,{formant_tune:'100',formant_freeze:'1',formant_keytrack:'0',formant_rough:'0',formant_sub:'0'});
+    globalThis.init();tick(82);const ui=globalThis.__docSplit;ui.state.view='settings';
+    ui.state.settingsPage=ui.pages().findIndex(p=>p.title===title);if(ui.state.settingsPage<0)throw new Error('Missing '+title+' page');ui.state.actionMessageTicks=0;ui.redraw();capture(filename+'.svg',title+' engine parameters',title);
+}
+
+Object.assign(params,{algorithm:'10',morph_mode:'1',morph_amplitude:'100',morph_pair:'1>2',split_state:JSON.stringify({enabled:0,shared:0,quad:0,focus:0,parts:Array.from({length:2},()=>({algorithm:10,root:60,octave:0,scale:0,mode:0,mute:0}))})});
+globalThis.init();tick(82);const imprintDoc=globalThis.__docSplit;imprintDoc.state.view='settings';imprintDoc.state.settingsPage=imprintDoc.pages().findIndex(p=>p.title==='MORPH');imprintDoc.state.actionMessageTicks=0;imprintDoc.redraw();capture('morph-imprint.svg','Morph Imprint envelope transfer','MORPH');
 
 if (checkOnly && mismatches !== 0) process.exit(1);
 if (checkOnly) console.log('s3g Thru documentation screens: current');

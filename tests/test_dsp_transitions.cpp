@@ -273,10 +273,76 @@ void testPreviewIsolation()
 #include "test_performance_tools.inc"
 #include "test_shared_dual.inc"
 #include "test_quad.inc"
+#include "test_capture_gestures.inc"
+#include "test_stack_paths.inc"
+#include "test_pattern_fades.inc"
+#include "test_chain_banks.inc"
+#include "test_chain_workflow.inc"
+#include "test_spectral_engines.inc"
+#include "test_clipboard.inc"
+#include "test_imprint.inc"
+#include "test_formant.inc"
+#include "test_formant_controls.inc"
 } // namespace
 
 int main()
 {
+    testFormantArticulationAllLayouts();
+    testFormantTuneAndTracking();
+    testFormantFreezeAcrossNotes();
+    testFormantSingleFreezeCurveEdges();
+    testFormantRoughSubAndEdits();
+    testFormantFormat22AndRecall();
+    testFormantPitchMarks();
+    testFormantKeyboardAndEnvelope();
+    testFormantLiveSafety();
+    testFormantPersistenceAndFormat21();
+    testSpectralSourceSampleRates();
+    testImprintEnvelopeAndCarrier();
+    testImprintPitchAndArticulation();
+    testImprintStateAndFormat20();
+    testChainRecordedClipDuplication();
+    testAllEnginesAfterSpectralSwitching();
+    testPatternFadeStarvationCanFinish();
+    testClipClipboardSnapshotsAndUndo();
+    testPerformanceLoopGlobalsAndPartPressure();
+    testSpectralReleaseAndDecay();
+    testSpectralSnapshotWorker();
+    testSpectralPatternSources();
+    testSpectralFFTAndKeyboard();
+    testMorphQuadAndEmptyPartner();
+    testNewEngineEditsAndTextureSeed();
+    testNewEngineParametersAndBanks();
+    testChainEditingUndoAndCopies();
+    testChainBrowsingAndQueuedLaunch();
+    testPatternReturnSourceContinuity();
+    testFormerTransitionTakeMigration();
+    testChainStopTransport();
+    testSavedChainPlaybackBoundaries();
+    testSavedChainBanksAndFadeRecall();
+    testChainLaunchAndManualHandoff();
+    testLegacyChainMigration();
+    testRandomPatternTimingBoundsAndRecall();
+    testRandomPatternTimingChosenOnce();
+    testThirtySecondPatternFadeClock();
+    testManualPatternCrossfader();
+    testPatternFadePreparedWavesetBanks();
+    testPatternFadeUnderrunBridge();
+    testPatternFadeAudioAndReleases();
+    testPatternFadeCurvesAndRecall();
+    testPatternFadePlaybackAndHeldMidpoint();
+    testAuthoredPathTakeUndoAfterReload();
+    testAuthoredPathsStayWithTheirPart();
+    testAuthoredPathMath();
+    testAuthoredPathVoicesAndRecording();
+    testAuthoredPathPartsAndPersistence();
+    testPerformancePunchStrength();
+    testLaneGrabAndCueManualControl();
+    testSustainedEventsFollowLaneGrab();
+    testCapturePersistenceAndRawMidi();
+    testCaptureGestureOwnership();
+    testCaptureGestureCurvesAndCues();
+    testPartCaptureAndQuadRollOwnership();
     testQuadGeometryAndAudio();
     testQuadMixerAndMidi();
     testQuadRollsAndPublication();

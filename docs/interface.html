@@ -38,7 +38,7 @@
           <li><strong>Play.</strong> Stops or resumes performance-loop playback. Shift+Play cycles Main → Clip Overview → Chain → Main.</li>
           <li><strong>Record.</strong> Starts or stops performance-data capture. Shift+Record records stereo audio into the selected lane; Delete+Record removes the newest overdub take.</li>
           <li><strong>Loop.</strong> Holds or resumes stack scanning for the whole Single instrument or the focused part in a multi-instrument mode. Shift+Loop controls Glitch Buffer Lock. Quad has no stack scan; Loop is available for Glitch or an enabled Tape Inertia transport gesture.</li>
-          <li><strong>Back and Menu.</strong> Menu toggles the waveform and parameter pages; Shift+Menu opens System Report / Shortcuts. Back closes a secondary view or saves and exits from Main. The separate curved-arrow Undo key performs the one-level safety undo.</li>
+          <li><strong>Back and Menu.</strong> Menu toggles the waveform and parameter pages; Shift+Menu opens System Report / Shortcuts. Back closes a secondary view or saves and exits from Main. The separate curved-arrow Undo key performs the one-level safety undo for clip, sample and chain edits.</li>
           <li><strong>Left / Right arrows.</strong> Select performance-clip bank A–D from the waveform and parameter pages.</li>
           <li><strong>+ / − keys (Up / Down).</strong> Transpose the pad grid by octave on the waveform page, move through parameter pages, set Chain repeats, or browse lists according to the current view.</li>
           <li><strong>Delete.</strong> Delete+Step resets a clip or removes a Chain entry; Delete+Record removes the newest overdub take; Delete+pad clears a cue. Shift+Delete clears the selected audio lane.</li>
@@ -48,8 +48,8 @@
         <h3 id="split-buttons">Find the icon controls</h3>
         <p>The icon buttons to the right of the pad grid provide mode, focus, mute, and undo control:</p>
         <table class="readout-table"><thead><tr><th>Control</th><th>Where to find it</th><th>Action</th></tr></thead><tbody>
-          <tr><td>Copy</td><td>Overlapping squares, right of Delete and below Mute.</td><td>Toggle Single / last multi-instrument mode. Choose Split, Shared Dual, or Quad in Capture + Menu → Instrument Mode. Shift + Copy copies sound settings to the other side in dual modes, or the next A–D part in Quad; sources and the destination mute stay in place.</td></tr>
-          <tr><td>Capture</td><td>Four broken-corner brackets, directly right of the pads and above Loop.</td><td>Switch A/B focus in dual modes, or cycle A–D in Quad. Open FX Sends with Capture + Menu → FX SENDS; <a href="shortcuts.html#known-issues">Shift + Capture conflicts with Schwung Skipback in 0.28.0</a>. Capture + knob 8 adjusts Blend in dual modes or the focused part’s level in Quad.</td></tr>
+          <tr><td>Copy</td><td>Overlapping squares, right of Delete and below Mute.</td><td>In clip and chain editors, Copy / Shift + Copy copies and pastes; hold the combination with a Step to address a slot without launching it. See <a href="performance.html#clip-copy">Clip copy</a> and <a href="performance.html#chain-tools">Chain copy</a>. Outside those editors, Copy toggles Single / last multi-instrument mode and Shift + Copy copies sound settings to the other or next part. Capture + Menu → Instrument Mode always opens the mode chooser.</td></tr>
+          <tr><td>Capture</td><td>Four broken-corner brackets, directly right of the pads and above Loop.</td><td>Tap to switch A/B focus in dual modes, or cycle A–D in Quad. Hold for <a href="playing.html#capture-performance">bottom-row performance controls</a> from 0.29.0-test.2. Open FX Sends with Capture + Menu → FX SENDS. Capture + knob 8 adjusts Blend in dual modes or the focused part’s level in Quad.</td></tr>
           <tr><td>Undo</td><td>Curved reverse arrow, below Delete and directly left of Shift.</td><td>Restore the most recent destructive clip or sample action. It lights when an undo is available. Stop audio or performance recording first.</td></tr>
           <tr><td>Mute</td><td>M-marked button, right of Loop and above Copy.</td><td>Mute or unmute the focused part in a multi-instrument mode. Its playheads keep moving; Part-mode sample preview follows its mute; Direct preview is independent.</td></tr>
         </tbody></table>
@@ -150,6 +150,7 @@
           <figcaption>Stack Path appears unchanged for Motion, Lanes, Grains, Glitch, Weave, and Wavesets. The small hollow box at knob 8 marks an inactive position reserved for a future parameter.</figcaption>
         </figure>
 
+        <p>Parameter dials use a fine response for small adjustments. Chain BANK uses an even finer response to make individual bank selections easier.</p>
         <div class="callout"><p><strong>Reserved positions:</strong> an unlabelled hollow box means that encoder has no assignment on this page. Turning it has no effect.</p></div>
 
         <div class="callout">
@@ -160,7 +161,7 @@
 
         <div class="screen-gallery">
           <figure><div class="doc-graphic move-screen"><img src="assets/screens/clips.svg" alt="Performance clip bank screen"></div><figcaption><strong>Clip overview.</strong> Shift+Play opens the active 16-slot bank. A marker distinguishes current, queued, occupied, and empty slots.</figcaption></figure>
-          <figure><div class="doc-graphic move-screen"><img src="assets/screens/chain.svg" alt="Performance clip chain screen"></div><figcaption><strong>Chain editor.</strong> A 16-entry list gives each clip a repeat count and shows the selected/current entry.</figcaption></figure>
+          <figure><div class="doc-graphic move-screen"><img src="assets/screens/chain.svg" alt="Performance clip chain screen"></div><figcaption><strong>Chain editor.</strong> Each of 16 saved chains holds up to 64 entries, shown in four pages. The grid distinguishes the selected, playing and queued entries. See <a href="performance.html#chain">saved chains and transitions</a>.</figcaption></figure>
           <figure><div class="doc-graphic move-screen"><img src="assets/screens/library.svg" alt="Sample source browser screen"></div><figcaption><strong>Sample browser.</strong> Shift+Track opens Move Samples and Thru Recordings for that lane. The main encoder browses and clicks to enter or load.</figcaption></figure>
           <figure><div class="doc-graphic move-screen"><img src="assets/screens/help.svg" alt="On-device system report"></div><figcaption><strong>System Report.</strong> Shift+Menu opens readable, separately aligned render, control/query-work, and limiter reports. See <a href="shortcuts.html#report">Reading the System Report</a>.</figcaption></figure>
           <figure><div class="doc-graphic move-screen"><img src="assets/screens/help-shortcuts.svg" alt="On-device shortcut reminder"></div><figcaption><strong>Shortcuts.</strong> Left/Right, Up/Down, or the main encoder moves through System Report 1/3, Callback Work 2/3, and the compact gesture reminder on page 3/3.</figcaption></figure>

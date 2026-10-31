@@ -86,7 +86,7 @@
             <tr><td>7–8</td><td>Reserved</td><td>—</td><td>Inactive positions available for future pad-layout controls.</td></tr>
           </tbody>
         </table>
-        <p>From 0.29.0-test.2, storing a cue also remembers the owning part's latest playhead lane/blend. Recall holds that blend and aligns the Stack Start value with it. Turn Stack Start to move the held blend; this leaves the stored cue unchanged. Loop resumes the scan. Delete + cue pad clears it. Cues saved by older releases remain time-only until stored again.</p>
+        <p>Storing a cue also remembers the owning part's latest playhead lane/blend. Recall holds that blend and aligns the Stack Start value with it. Turn Stack Start to move the held blend; this leaves the stored cue unchanged. Loop resumes the scan. Delete + cue pad clears it. Cues saved by older releases remain time-only until stored again.</p>
 
         <p>Named scales retain an overlapping isomorphic shape: each row begins three scale degrees above the row below. Up/Down moves the complete layout by octaves. Scale affects the Move pads only; external MIDI and notes already stored in a performance clip are not quantized or rewritten.</p>
 
@@ -165,7 +165,7 @@
         </table>
 
         <h2 id="path-editor">Editable stack paths</h2>
-        <p><strong>Requires 0.29.0-test.3 or newer.</strong> On Stack Path, turn PATH to <strong>DRAW</strong>, then click the main encoder to open Path Editor. You can also reach it as the next parameter page or through Capture + Menu. It appears only while DRAW is selected.</p>
+        <p>On Stack Path, turn PATH to <strong>DRAW</strong>, then click the main encoder to open Path Editor. You can also reach it as the next parameter page or through Capture + Menu. It appears only while DRAW is selected.</p>
         <div class="screen-gallery">
           <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/stack-path-draw.svg" aria-label="Open Draw path selection"><img src="assets/screens/stack-path-draw.svg" alt="Stack Path with DRAW selected and named-shape controls reserved"></button></div><figcaption>DRAW uses your points and segment curves. SHAP, SKEW, and the named-path CURV are reserved. BLND, OFST, and SLEW still apply.</figcaption></figure>
           <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/stack-path-editor.svg" aria-label="Open the path editor"><img src="assets/screens/stack-path-editor.svg" alt="Six-point stack path with pauses, uneven travel, a selected breakpoint, and editing controls"></button></div><figcaption>Time runs left to right; lane numbers run top to bottom. The outlined point is selected. The final segment returns to the first point at the end of the cycle.</figcaption></figure>

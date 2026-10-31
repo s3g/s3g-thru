@@ -19,6 +19,9 @@
         <h1>Shortcut reference</h1>
         <p class="lead">The same control can change meaning by view, but recording gestures remain deliberately distinct: Record captures performance data; Shift+Record captures stereo audio.</p>
 
+        <h2 id="device-help">On-device help</h2>
+        <p>After leaving takeover, hold <kbd>Shift</kbd>, touch the volume knob without turning it, and press <kbd>Step 2</kbd> to open Schwung Global Settings. Hold Shift and click the main encoder for its section picker, choose <strong>System</strong>, then open <strong>Help → Modules → s3g Thru</strong> for the quick reference. Choose a topic with the main encoder, click to open, and turn to scroll. Back returns to the topic list. The reference covers samples, lanes and engines, instrument modes, performance loops, and safety shortcuts. Inside Thru, Shift + Menu continues to open the diagnostic reports shown below.</p>
+
         <h2 id="known-issues">Schwung Skipback</h2>
 
         <div class="callout">
@@ -28,8 +31,9 @@
 
         <div class="screen-gallery">
           <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/help.svg" aria-label="Open the on-device system report"><img src="assets/screens/help.svg" alt="System report with render peak, render misses, current limiting, and maximum limiting"></button></div><figcaption><kbd>Shift</kbd> + <kbd>Menu</kbd> opens the System Report first. Each value has its own right-aligned field, so a growing counter cannot overwrite another report.</figcaption></figure>
-          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/help-callbacks.svg" aria-label="Open the callback work report"><img src="assets/screens/help-callbacks.svg" alt="Callback report with control peak, query peak, total work peak, and work misses"></button></div><figcaption><strong>Callback Work 2/3.</strong> Includes live control changes and display queries alongside rendering, helping identify interruptions that the render report alone cannot show.</figcaption></figure>
-          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/help-shortcuts.svg" aria-label="Open the on-device shortcut page"><img src="assets/screens/help-shortcuts.svg" alt="Compact shortcut reminder for recording, undo, note hold, and Glitch lock"></button></div><figcaption>Use Left/Right, Up/Down, or the main encoder to move between System Report 1/3, Callback Work 2/3, and Shortcuts 3/3. Back, Menu, or Shift+Menu closes the view.</figcaption></figure>
+          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/help-callbacks.svg" aria-label="Open the callback work report"><img src="assets/screens/help-callbacks.svg" alt="Callback report with control peak, query peak, total work peak, and work misses"></button></div><figcaption><strong>Callback Work 2/4.</strong> Includes live control changes and display queries alongside rendering, helping identify interruptions that the render report alone cannot show.</figcaption></figure>
+          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/help-timing.svg" aria-label="Open the render CPU and wait report"><img src="assets/screens/help-timing.svg" alt="Render Timing report showing CPU peak, wall peak, wait peak, and CPU misses."></button></div><figcaption><strong>Render Timing 3/4.</strong> Separates time spent running on the CPU from elapsed time while the rendering thread was not running. Shift+Delete resets the diagnostic counters while a report view is open.</figcaption></figure>
+          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/help-shortcuts.svg" aria-label="Open the on-device shortcut page"><img src="assets/screens/help-shortcuts.svg" alt="Compact shortcut reminder for recording, undo, note hold, and Glitch lock"></button></div><figcaption>Use Left/Right, Up/Down, or the main encoder to move between System Report 1/4, Callback Work 2/4, Render Timing 3/4, and Shortcuts 4/4. Back, Menu, or Shift+Menu closes the view.</figcaption></figure>
         </div>
 
         <h2 id="report">Reading the System Report</h2>
@@ -38,7 +42,11 @@
           <thead><tr><th>Display</th><th>What it reports</th><th>How to read it</th></tr></thead>
           <tbody>
             <tr><td>RENDER PEAK</td><td>Longest audio-block render time since takeover started, in microseconds.</td><td>Lower leaves more time for the rest of the device. Compare it with WORK PEAK on the next report page; rendering is only part of the work needed for playback.</td></tr>
-            <tr><td>RENDER MISSES</td><td>Number of render calls that exceeded one audio-block period.</td><td><code>0</code> is healthy. If it rises while clicks or gaps occur, reduce costly grain/event settings or active polyphony. This count excludes control and query work.</td></tr>
+            <tr><td>RENDER MISSES</td><td>Number of render calls that exceeded one audio-block period.</td><td><code>0</code> is healthy. If it rises while clicks or gaps occur, reduce costly grain/event settings or active polyphony. This count includes time waiting during the render call and excludes control and query calls. Check Render Timing to distinguish CPU cost from waiting.</td></tr>
+            <tr><td>CPU PEAK</td><td>Longest CPU time used by the rendering thread for one audio block.</td><td>Compare it with the roughly 2,902 µs block period. A rising CPU MISSES count indicates that rendering itself consumed more CPU time than one block allows.</td></tr>
+            <tr><td>WALL PEAK</td><td>The same elapsed render-time peak shown as RENDER PEAK.</td><td>Includes running and waiting time. Each peak is a separate historical maximum; subtracting displayed peaks does not reconstruct one particular block.</td></tr>
+            <tr><td>WAIT PEAK</td><td>Largest per-block difference between elapsed render time and rendering-thread CPU time.</td><td>A rise with CPU MISSES at zero points toward descheduling or blocking during rendering. It does not identify the cause or measure work outside the render call.</td></tr>
+            <tr><td>CPU MISSES</td><td>Number of render calls whose measured CPU time exceeded one audio-block period.</td><td>Use this to distinguish DSP load from a high elapsed-time peak. CPU fields show N/A when the CPU clock is unavailable or no fresh reading has been taken.</td></tr>
             <tr><td>CONTROL PEAK</td><td>Longest live parameter or MIDI operation, in microseconds.</td><td>Watch this while changing controls or playing. A rise helps distinguish control work from engine rendering.</td></tr>
             <tr><td>QUERY PEAK</td><td>Longest display/status query, in microseconds.</td><td>A large value points to work associated with reading or updating instrument information.</td></tr>
             <tr><td>FADE BUF MISSES</td><td>Outgoing pattern audio-buffer underruns during a crossfade.</td><td>A rising count can explain a gap or dip during a transition: the outgoing performance was not ready in time. This is separate from RENDER MISSES and WORK MISSES. The count is history and can remain after audio recovers. Timed fades and DONE keep advancing through an underrun; the outgoing audio is bridged smoothly while waiting for its next block. Reset the diagnostic counters to clear it.</td></tr>
@@ -48,7 +56,7 @@
             <tr><td>LIMIT MAX</td><td>Largest limiter reduction observed since takeover started.</td><td>Use it as peak history. A large maximum with a near-zero current value describes an earlier transient, not continuous limiting.</td></tr>
           </tbody>
         </table>
-        <p>Large counts are shortened with <code>M</code> or <code>G</code> suffixes so every value remains visible. The report is diagnostic history for the current takeover session; opening or closing it does not reset the counters. One 128-frame block at 44.1 kHz lasts about 2,902 µs, and Move and Schwung also need part of that time. Neither report measures every cause of a missed device deadline.</p>
+        <p>Large counts are shortened with <code>M</code> or <code>G</code> suffixes so every value remains visible. The report is diagnostic history for the current takeover session; opening or closing it does not reset the counters. In any report view, press Shift+Delete to reset diagnostic peaks and miss counters for a fresh test. This report shortcut preserves samples, clips, and the running performance. One 128-frame block at 44.1 kHz lasts about 2,902 µs, and Move and Schwung also need part of that time. Peaks are displayed in whole microseconds; miss counters compare the original nanosecond timings with the block period, so display rounding cannot create a miss. The reports do not measure every cause of a missed device deadline.</p>
 
         <h2 id="global">Global and waveform controls</h2>
 
@@ -61,7 +69,7 @@
             <tr><td>Pad pressure</td><td>Move that voice's continuous stack offset when Pressure is Offset. Quad remains on its assigned lane.</td></tr>
             <tr><td>Shift + pad</td><td>Latch that pad's note or captured roll; repeat to release it. In Cues, stores the displayed playhead instead.</td></tr>
             <tr><td>Knobs 1–8</td><td>On the waveform page, control POS, FLD, SPD, STAK, RATE, JOIN, the engine’s MODE/PLAY/ORDR, and LEVL. Cutups replaces STAK/RATE with LANE/ADV. Quad reserves both positions. In either dual mode, knob 8 is BLND. On parameter pages, they edit the eight displayed positions.</td></tr>
-            <tr><td>Hold Capture + bottom-row pad</td><td>Lane rides on pads 1–4 and momentary effects on pads 5–8. Pressure changes strength; release restores the current path/settings. Available from 0.29.0-test.2.</td></tr>
+            <tr><td>Hold Capture + bottom-row pad</td><td>Lane rides on pads 1–4 and momentary effects on pads 5–8. Pressure changes strength; release restores the current path/settings.</td></tr>
             <tr><td>Main click on Stack Path with DRAW</td><td>Open <a href="engines.html#path-editor">Path Editor</a>. Knobs 1–4 select and edit a point; knob 5 changes the point count. Back returns to Stack Path.</td></tr>
             <tr><td>Shift + knob 8 in Path Editor</td><td>Turn clockwise to reset the path to a four-point triangle.</td></tr>
             <tr><td>Capture + Menu</td><td>Open <a href="interface.html#page-picker">Pages</a>. Main turn or Up/Down selects; main click opens; Back cancels. Choose FX SENDS for the multi-instrument send and return controls.</td></tr>
@@ -83,7 +91,8 @@
             <tr><td>Loop</td><td>Hold/resume lane-stack scanning at its exact crossfade for Single, or the focused part in either dual mode. A released pad recalls its frozen position when retriggered until Run resumes. During performance recording, Hold/Run and each active voice's position are written into the clip. In Cutups, Loop pauses cut-count lane advancement while cuts continue; explicit Lane edits remain live. Sample playheads continue. When Tape <code>INRT</code> is above OFF, the tape wet path also slows to rest and accelerates on release.</td></tr>
             <tr><td>Shift + Loop</td><td>In Glitch, hold for temporary Buffer Lock; tap twice quickly to latch; press once while latched to return to live history.</td></tr>
             <tr><td>Menu</td><td>Toggle waveform and parameter pages.</td></tr>
-            <tr><td>Shift + Menu</td><td>Open or close the three-page System Report / Shortcuts view.</td></tr>
+            <tr><td>Shift + Menu</td><td>Open or close the four-page System Report / Shortcuts view.</td></tr>
+            <tr><td>Shift + Delete</td><td>In a report view: reset diagnostic peaks and miss counters.</td></tr>
             <tr><td>Shift + Play</td><td>Cycle Main → Clip Overview → Chain → Main. In Chain, knob 6 selects saved chains; knob 8 requests NEXT. See <a href="performance.html#chain">Chain controls</a>.</td></tr>
             <tr><td>Back</td><td>Close a secondary view; from Main, save and exit Overtake.</td></tr>
           </tbody>
@@ -123,7 +132,7 @@
             <tr><td>FX Sends (dual modes)</td><td>Main click opens the FX Pages menu. Turn and click to open a named page. Back returns to the menu, then FX Sends. The Record button remains available for performance recording.</td></tr>
             <tr><td>FX Order</td><td>Main turn selects an effect; click lifts it; turn moves it; click drops and applies. Back cancels a move. Knob 7 stages a preset, confirmed with main click. Record captures performance data.</td></tr>
             <tr><td>Sample Library</td><td>Main turn or Up/Down browses; main click enters/loads; Back goes up or closes. Knob 7 selects Part/Direct preview; knob 8 adjusts Preview Level.</td></tr>
-            <tr><td>System Report / Shortcuts</td><td>Left/Right, Up/Down, or main turn selects one of the three pages; Back, Menu, or Shift+Menu closes the view.</td></tr>
+            <tr><td>System Report / Shortcuts</td><td>Left/Right, Up/Down, or main turn selects one of the four pages; Back, Menu, or Shift+Menu closes the view.</td></tr>
           </tbody>
         </table>
 

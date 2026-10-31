@@ -2997,6 +2997,8 @@ int main()
         tapeLoadState = stateField(
             get(api, instance, "sample_load_state"), 0);
     }
+    if(tapeLoadState!=6)std::fprintf(stderr,"Tape load did not finish: state=%s error=%s\n",
+        get(api,instance,"sample_load_state").c_str(),get(api,instance,"last_error").c_str());
     assert(tapeLoadState == 6);
 
     /* Continuous effect motion must not turn block-rate clip automation into

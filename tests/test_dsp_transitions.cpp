@@ -36,6 +36,44 @@ struct CoreFixture {
     }
 };
 
+void testRotaryCircularBoundary()
+{
+    auto instance=std::make_unique<ThruInstance>();
+    for(const std::size_t capacity : {1105u,1107u,1202u,1204u}) {
+        // The extra sentinel makes the former invalid read fail numerically
+        // even without ASan, independent of the allocator's neighboring data.
+        std::vector<float> buffer(capacity+1u);
+        for(std::size_t i=0;i<capacity;++i)
+            buffer[i]=static_cast<float>(i)/capacity-.5f;
+        buffer[capacity]=123.0f;
+        instance->rotaryDelayCapacity=capacity;
+        for(const std::size_t write : {1u,100u,static_cast<unsigned>(capacity-2u)}) {
+            instance->rotaryDelayWrite=write;
+            const float at=static_cast<float>(write);
+            for(const float lag : {at,std::nextafter(at,INFINITY),
+                                  std::nextafter(at,0.0f),at+.125f,
+                                  static_cast<float>(capacity-1u)}) {
+                const double delay=std::clamp(static_cast<double>(lag),1.0,
+                                             static_cast<double>(capacity-1u));
+                double position=static_cast<double>(write)-delay;
+                if(position<0)position+=capacity;
+                const auto first=static_cast<std::size_t>(position);
+                const auto second=(first+1u)%capacity;
+                const float expected=buffer[first]+(buffer[second]-buffer[first])*
+                    static_cast<float>(position-first);
+                assert(std::abs(instance->readRotaryDelay(buffer.data(),lag)-expected)<.001f);
+                // Per-part rotary calls this same reader after its startup guard.
+                assert(std::abs(s3g_daisy::readRotaryDelaySample(
+                    buffer.data(),capacity,write,lag)-expected)<.001f);
+            }
+        }
+        instance->rotaryDelayWrite=100u;
+        assert(instance->readRotaryDelay(buffer.data(),NAN)==
+               instance->readRotaryDelay(buffer.data(),static_cast<float>(capacity-1u)));
+    }
+    std::puts("s3g Thru rotary circular-boundary regression: PASS");
+}
+
 void testRetargetedReaders()
 {
     auto f = std::make_unique<CoreFixture>();
@@ -287,6 +325,8 @@ void testPreviewIsolation()
 
 int main()
 {
+    testRotaryCircularBoundary();
+    testRenderCpuAndWaitTelemetry();
     testFormantArticulationAllLayouts();
     testFormantTuneAndTracking();
     testFormantFreezeAcrossNotes();

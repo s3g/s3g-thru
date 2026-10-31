@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="768" height="384" viewBox="0 0 128 64" role="img" aria-labelledby="title desc">
+  <title id="title">On-device render CPU and wait report</title>
+  <desc id="desc">On-device render CPU and wait report shown as it appears on Ableton Move.</desc>
+  <rect width="128" height="64" fill="#050706"/>
+  <g shape-rendering="crispEdges" font-family="DejaVu Sans Mono, IBM Plex Mono, monospace" font-size="6" font-style="normal" font-weight="400" text-rendering="geometricPrecision">
+    <text x="1" y="5.5" fill="#dce8e1">RENDER TIMING 3/4 &lt;&gt;</text>
+    <text x="1" y="16.5" fill="#dce8e1">CPU PEAK       720 us</text>
+    <text x="1" y="28.5" fill="#dce8e1">WALL PEAK      724 us</text>
+    <text x="1" y="40.5" fill="#dce8e1">WAIT PEAK      110 us</text>
+    <text x="1" y="52.5" fill="#dce8e1">CPU MISSES          0</text>
+    <text x="1" y="62.5" fill="#dce8e1">SHIFT+DEL RESET</text>
+  </g>
+  <rect x="0.25" y="0.25" width="127.5" height="63.5" fill="none" stroke="#5b6661" stroke-width="0.5"/>
+</svg>

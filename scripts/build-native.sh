@@ -60,6 +60,7 @@ fi
 
 cp "$repo_dir/src/module.json" "$module_dir/module.json"
 cp "$repo_dir/src/ui.js" "$module_dir/ui.js"
+cp "$repo_dir/src/help.json" "$module_dir/help.json"
 cp "$repo_dir/LICENSE" "$module_dir/LICENSE"
 cp "$repo_dir/THIRD_PARTY_NOTICES.md" "$module_dir/THIRD_PARTY_NOTICES.md"
 

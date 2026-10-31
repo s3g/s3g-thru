@@ -315,3 +315,28 @@ void testAntialiasedDrive()
         previous = output;
     }
 }
+
+void testRenderCpuAndWaitTelemetry()
+{
+    auto t=std::make_unique<ThruInstance>();assert(t->prepare(nullptr));
+    setParam(t.get(),"performance_reset","1");
+    recordRenderTiming(*t,kBlockFrames,3304000,39000,true,1800000);
+    assert(t->maximumRenderMicros.load()==3304&&t->maximumWorkMicros.load()==3343);
+    assert(t->renderOverruns.load()==1&&t->workOverruns.load()==1&&t->renderCpuOverruns.load()==0);
+    assert(t->maximumRenderCpuMicros.load()==1800&&t->maximumRenderWaitMicros.load()==1504);
+    char text[128]{};assert(getParam(t.get(),"render_timing_state",text,sizeof(text))>0);
+    assert(std::strcmp(text,"1,1800,1504,0")==0);
+    recordRenderTiming(*t,kBlockFrames,3400000,0,true,3200000);
+    assert(t->renderCpuOverruns.load()==1&&t->maximumRenderCpuMicros.load()==3200);
+    setParam(t.get(),"performance_reset","1");
+    assert(t->maximumRenderCpuMicros.load()==0&&t->maximumRenderWaitMicros.load()==0&&t->renderCpuOverruns.load()==0&&!t->renderCpuClockAvailable.load());
+    // The displayed ceil(2902.494 us) must not create a false WORK MISS.
+    const auto below=static_cast<std::uint64_t>(kBlockFrames*1000000000.0/t->sampleRate);
+    recordRenderTiming(*t,kBlockFrames,below,0,true,below);
+    assert(t->renderOverruns.load()==0&&t->workOverruns.load()==0&&t->renderCpuOverruns.load()==0);
+    recordRenderTiming(*t,kBlockFrames,below,1,false,0);
+    assert(t->renderOverruns.load()==0&&t->workOverruns.load()==1&&!t->renderCpuClockAvailable.load());
+    setParam(t.get(),"performance_reset","1");
+    std::array<std::int16_t,kBlockFrames*2> audio{};renderBlock(t.get(),audio.data(),kBlockFrames);
+    timespec cpu{};assert(t->renderCpuClockAvailable.load()==readRenderCpuClock(cpu));
+}

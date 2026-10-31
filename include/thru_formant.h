@@ -42,14 +42,21 @@ class ThruFormantVoice {
             jitter_ = 0;
             subPhase_ = 0;
             clockInterval_ = std::max(1.0, period_ * outputRate / sourceRate / pitch_);
+            subStep_ = .5 / clockInterval_;
             initialized_ = true;
         }
-        slew(pitch_, pitch, alpha);
-        slew(formant_, formant, alpha);
-        slew(tune_, articulation.tune, alpha);
-        slew(frequency_, articulation.frequency, alpha);
-        slew(rough_, articulation.rough, alpha);
-        slew(sub_, articulation.sub, alpha);
+        // Most held notes have settled controls. Avoid six repeated
+        // smoothing calculations and stores on every sample in that case.
+        if (pitch_ != pitch || formant_ != formant || tune_ != articulation.tune ||
+            frequency_ != articulation.frequency || rough_ != articulation.rough ||
+            sub_ != articulation.sub) {
+            slew(pitch_, pitch, alpha);
+            slew(formant_, formant, alpha);
+            slew(tune_, articulation.tune, alpha);
+            slew(frequency_, articulation.frequency, alpha);
+            slew(rough_, articulation.rough, alpha);
+            slew(sub_, articulation.sub, alpha);
+        }
         if (countdown_ <= 0) {
             const auto p =
                 bank ? bank->sample(position) : ThruPitchBank::Point{sourceRate / 150, 0};
@@ -81,12 +88,14 @@ class ThruFormantVoice {
                                    outputRate / 20.0);
             }
             clockInterval_ = clock;
+            subStep_ = .5 / clock;
             for (auto &g : grains_)
                 if (!g.active) {
                     const double ratio = pitch_ + (formant_ - pitch_) * voiced;
                     g.increment = sourceRate / outputRate * ratio;
                     const double duration = std::min(overlap * period_ / g.increment, 6 * interval);
                     g.duration = std::max(4.0, duration);
+                    g.inverseDuration = 1 / g.duration;
                     const double mark =
                         bank ? bank->nearestMark(position, desiredPeriod) : position;
                     const double center = position + (mark - position) * voiced;
@@ -94,6 +103,7 @@ class ThruFormantVoice {
                     g.low = low;
                     g.high = high;
                     g.edge = std::max(1.0, std::min((high - low) * .25, sourceRate * .001));
+                    g.inverseEdge = 1 / g.edge;
                     g.age = 0;
                     g.active = true;
                     break;
@@ -105,15 +115,18 @@ class ThruFormantVoice {
         const auto &plan = ThruSpectralPlan::get();
         for (auto &g : grains_)
             if (g.active) {
-                const float u = static_cast<float>(g.age / g.duration);
+                const float u = static_cast<float>(g.age * g.inverseDuration);
                 const float envelope = .5f - .5f * plan.sinCycle(u + .25f);
                 const double at = g.position + g.age * g.increment;
-                float edge = static_cast<float>(
-                    std::clamp(std::min(at - g.low, g.high - at) / g.edge, 0.0, 1.0));
-                edge = edge * edge * (3 - 2 * edge);
-                const auto sample = read(at, g.increment);
-                out.left += sample.left * envelope * edge;
-                out.right += sample.right * envelope * edge;
+                const double distance = std::min(at - g.low, g.high - at);
+                if (envelope > 0 && distance > 0) {
+                    float edge =
+                        distance >= g.edge ? 1.f : static_cast<float>(distance * g.inverseEdge);
+                    edge = edge * edge * (3 - 2 * edge);
+                    const auto sample = read(at, g.increment);
+                    out.left += sample.left * envelope * edge;
+                    out.right += sample.right * envelope * edge;
+                }
                 sum += envelope;
                 if (++g.age >= g.duration)
                     g.active = false;
@@ -125,7 +138,7 @@ class ThruFormantVoice {
             sub_ > 1e-6f
                 ? 1 - .5f * sub_ * (1 - plan.sinCycle(static_cast<float>(subPhase_) + .25f))
                 : 1;
-        subPhase_ += 1 / (2 * clockInterval_);
+        subPhase_ += subStep_;
         if (subPhase_ >= 1)
             subPhase_ -= 1;
         const float gain = emphasis / std::max(1.f, sum);
@@ -141,13 +154,14 @@ class ThruFormantVoice {
     }
     struct Grain {
         double position = 0, increment = 0, age = 0, duration = 0, low = 0, high = 0, edge = 1;
+        double inverseDuration = 0, inverseEdge = 1;
         bool active = false;
     };
     std::array<Grain, 12> grains_{};
     double countdown_ = 0, period_ = 294;
     float pitch_ = 1, formant_ = 1;
     float tune_ = 0, frequency_ = 261.625565f, rough_ = 0, sub_ = 0, jitter_ = 0;
-    double subPhase_ = 0, clockInterval_ = 294;
+    double subPhase_ = 0, clockInterval_ = 294, subStep_ = .5 / 294;
     std::uint32_t random_ = 1;
     bool initialized_ = false;
 };

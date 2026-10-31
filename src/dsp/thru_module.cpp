@@ -939,6 +939,7 @@ constexpr const char kChainParams[] = R"json([
 {"key":"recording","name":"Recording","type":"int","min":0,"max":1,"access":"read","live":true},
 {"key":"ui_state","name":"UI State","type":"string","access":"read","live":true},
 {"key":"performance_state","name":"Realtime Performance","type":"string","access":"read","live":true},
+{"key":"render_timing_state","name":"Render CPU and Wait Report","type":"string","access":"read","live":true},
 {"key":"callback_performance_state","name":"Callback Work Report","type":"string","access":"read","live":true},
 {"key":"effect_order_state","name":"Effects Routing State","type":"string","access":"read","live":true},
 {"key":"background_state","name":"Background Save State","type":"string","access":"read","live":true},
@@ -2508,15 +2509,8 @@ struct ThruInstance : PlaybackEffectsState {
 
     float readRotaryDelay(const float* buffer, float delayFrames) const
     {
-        if (!buffer || rotaryDelayCapacity < 2u) return 0.0f;
-        const float bounded = clampValue(
-            delayFrames, 1.0f, static_cast<float>(rotaryDelayCapacity - 1u));
-        float position = static_cast<float>(rotaryDelayWrite) - bounded;
-        if (position < 0.0f) position += static_cast<float>(rotaryDelayCapacity);
-        const std::size_t first = static_cast<std::size_t>(position);
-        const std::size_t second = (first + 1u) % rotaryDelayCapacity;
-        const float fraction = position - static_cast<float>(first);
-        return buffer[first] + (buffer[second] - buffer[first]) * fraction;
+        return s3g_daisy::readRotaryDelaySample(
+            buffer, rotaryDelayCapacity, rotaryDelayWrite, delayFrames);
     }
 
     float readTapeDelay(std::size_t channel, float delayFrames) const
@@ -9583,6 +9577,10 @@ void setParam(void* opaque, const char* key, const char* value)
         instance->maximumWorkMicros.store(0u, std::memory_order_relaxed);
         instance->workOverruns.store(0u, std::memory_order_relaxed);
         instance->pendingCallbackNanos.store(0u, std::memory_order_relaxed);
+        instance->maximumRenderCpuMicros.store(0u,std::memory_order_relaxed);
+        instance->maximumRenderWaitMicros.store(0u,std::memory_order_relaxed);
+        instance->renderCpuOverruns.store(0u,std::memory_order_relaxed);
+        instance->renderCpuClockAvailable.store(false,std::memory_order_relaxed);
     } return; }
     if (std::strcmp(key, "chain_enabled") == 0) { instance->setChainEnabled(isTruthy(value)); return; }
     if (std::strcmp(key, "chain_slot") == 0) { instance->chainEditSlot = clampValue(parseInteger(value, instance->chainEditSlot + 1) - 1, 0, static_cast<int>(kClipChainLength) - 1); return; }
@@ -9938,6 +9936,11 @@ int getParamValue(void* opaque, const char* key, char* buffer, int bufferLength)
             std::memory_order_relaxed)),
         static_cast<unsigned long long>(instance->renderOverruns.load(
             std::memory_order_relaxed)));
+    if(std::strcmp(key,"render_timing_state")==0)return std::snprintf(buffer,bufferLength,"%d,%llu,%llu,%llu",
+        instance->renderCpuClockAvailable.load(std::memory_order_relaxed)?1:0,
+        static_cast<unsigned long long>(instance->maximumRenderCpuMicros.load(std::memory_order_relaxed)),
+        static_cast<unsigned long long>(instance->maximumRenderWaitMicros.load(std::memory_order_relaxed)),
+        static_cast<unsigned long long>(instance->renderCpuOverruns.load(std::memory_order_relaxed)));
     if (std::strcmp(key, "callback_performance_state") == 0) return std::snprintf(
         buffer, bufferLength, "%llu,%llu,%llu,%llu",
         static_cast<unsigned long long>(instance->maximumControlMicros.load(std::memory_order_relaxed)),
@@ -10322,39 +10325,56 @@ int getError(void* opaque, char* buffer, int bufferLength)
     return copyText(instance->lastError.data(), buffer, bufferLength);
 }
 
-void renderBlock(void* opaque, int16_t* output, int frames)
-{
-    auto* instance = static_cast<ThruInstance*>(opaque);
-    if (!output || frames <= 0) return;
+bool readRenderCpuClock(timespec &value) {
+#if defined(CLOCK_THREAD_CPUTIME_ID)
+    return clock_gettime(CLOCK_THREAD_CPUTIME_ID, &value) == 0;
+#else
+    (void)value;
+    return false;
+#endif
+}
+std::uint64_t elapsedNanos(const timespec &before, const timespec &after) {
+    return static_cast<std::uint64_t>((after.tv_sec - before.tv_sec) * 1000000000ll +
+                                      after.tv_nsec - before.tv_nsec);
+}
+void recordRenderTiming(ThruInstance &instance, int frames, std::uint64_t wallNanos,
+                        std::uint64_t callbackNanos, bool cpuAvailable, std::uint64_t cpuNanos) {
+    recordMaximum(instance.maximumRenderMicros, wallNanos / 1000u);
+    recordMaximum(instance.maximumWorkMicros, (wallNanos + callbackNanos + 999u) / 1000u);
+    const double deadline =
+        static_cast<double>(frames) * 1000000000.0 / std::max(1.f, instance.sampleRate);
+    // Compare nanoseconds directly: rounding a displayed microsecond upward
+    // must not turn an on-time interval into a reported work miss.
+    if (static_cast<double>(wallNanos) > deadline)
+        instance.renderOverruns.fetch_add(1u, std::memory_order_relaxed);
+    if (static_cast<double>(wallNanos + callbackNanos) > deadline)
+        instance.workOverruns.fetch_add(1u, std::memory_order_relaxed);
+    instance.renderCpuClockAvailable.store(cpuAvailable, std::memory_order_relaxed);
+    if (cpuAvailable) {
+        recordMaximum(instance.maximumRenderCpuMicros, (cpuNanos + 999u) / 1000u);
+        recordMaximum(instance.maximumRenderWaitMicros,
+                      (wallNanos > cpuNanos ? wallNanos - cpuNanos + 999u : 0u) / 1000u);
+        if (static_cast<double>(cpuNanos) > deadline)
+            instance.renderCpuOverruns.fetch_add(1u, std::memory_order_relaxed);
+    }
+}
+void renderBlock(void *opaque, int16_t *output, int frames) {
+    auto *instance = static_cast<ThruInstance *>(opaque);
+    if (!output || frames <= 0)
+        return;
     if (!instance) {
         std::memset(output, 0, static_cast<std::size_t>(frames) * 2u * sizeof(int16_t));
         return;
     }
-    timespec before {};
-    timespec after {};
-    const auto callbackNanos = instance->pendingCallbackNanos.exchange(0u, std::memory_order_relaxed);
+    timespec before{}, after{}, cpuBefore{}, cpuAfter{};
+    const auto callbacks = instance->pendingCallbackNanos.exchange(0u, std::memory_order_relaxed);
     clock_gettime(CLOCK_MONOTONIC, &before);
+    const bool cpuStarted = readRenderCpuClock(cpuBefore);
     instance->render(output, frames);
+    const bool cpuAvailable = cpuStarted && readRenderCpuClock(cpuAfter);
     clock_gettime(CLOCK_MONOTONIC, &after);
-    const std::uint64_t micros = static_cast<std::uint64_t>(
-        (after.tv_sec - before.tv_sec) * 1000000ll
-        + (after.tv_nsec - before.tv_nsec) / 1000ll);
-    std::uint64_t maximum = instance->maximumRenderMicros.load(
-        std::memory_order_relaxed);
-    while (micros > maximum
-           && !instance->maximumRenderMicros.compare_exchange_weak(
-               maximum, micros, std::memory_order_relaxed)) {}
-    const auto renderNanos = static_cast<std::uint64_t>(
-        (after.tv_sec - before.tv_sec) * 1000000000ll + after.tv_nsec - before.tv_nsec);
-    const auto workMicros = (renderNanos + callbackNanos + 999u) / 1000u;
-    recordMaximum(instance->maximumWorkMicros, workMicros);
-    const double deadline = static_cast<double>(frames) * 1000000.0
-        / std::max(1.0f, instance->sampleRate);
-    if (static_cast<double>(workMicros) > deadline)
-        instance->workOverruns.fetch_add(1u, std::memory_order_relaxed);
-    if (static_cast<double>(micros) > deadline) {
-        instance->renderOverruns.fetch_add(1u, std::memory_order_relaxed);
-    }
+    recordRenderTiming(*instance, frames, elapsedNanos(before, after), callbacks, cpuAvailable,
+                       cpuAvailable ? elapsedNanos(cpuBefore, cpuAfter) : 0u);
 }
 
 plugin_api_v2_t g_pluginApi {

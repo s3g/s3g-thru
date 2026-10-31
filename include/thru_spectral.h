@@ -1,11 +1,11 @@
 #pragma once
+#include "thru_pitch_bank.h"
 #include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <vector>
-#include "thru_pitch_bank.h"
 
 namespace s3g_daisy {
 // Shared fixed-size FFT and oscillator tables are prepared before audio starts.
@@ -131,30 +131,42 @@ struct ThruSpectralBank {
             }
         }
     }
-    ThruSpectralFeature sample(float unit, float bin) const {
-        if (frames.empty() || !std::isfinite(unit) || !std::isfinite(bin) || bin < 0 ||
-            bin > Plan::size / 2)
+    using Frame = std::array<Bin, Plan::bins>;
+    struct ReadFrame {
+        const Frame *a = nullptr, *b = nullptr;
+        float u = 0;
+        ThruSpectralFeature sample(float bin) const {
+            if (!a || !b || !std::isfinite(bin) || bin < 0 || bin > Plan::size / 2)
+                return {};
+            const auto k = static_cast<std::size_t>(bin), next = std::min(Plan::bins - 1, k + 1);
+            const float v = bin - k;
+            const auto convert = [](const Bin &x) {
+                return ThruSpectralFeature{x.left, x.right, x.hz, x.phase / 65534.0f,
+                                           x.delta / 65534.0f};
+            };
+            const auto blend = [](ThruSpectralFeature x, const ThruSpectralFeature &y, float t) {
+                x.left += (y.left - x.left) * t;
+                x.right += (y.right - x.right) * t;
+                x.hz += (y.hz - x.hz) * t;
+                x.phase += Plan::wrap(y.phase - x.phase) * t;
+                x.delta += Plan::wrap(y.delta - x.delta) * t;
+                return x;
+            };
+            return blend(blend(convert((*a)[k]), convert((*a)[next]), v),
+                         blend(convert((*b)[k]), convert((*b)[next]), v), u);
+        }
+    };
+    ReadFrame prepareRead(float unit) const {
+        if (frames.empty() || sourceFrames == 0 || !std::isfinite(unit))
             return {};
         const float at =
-            std::clamp(unit, 0.0f, 1.0f) * static_cast<float>(sourceFrames - 1) / Plan::analysisHop;
+            std::clamp(unit, 0.f, 1.f) * static_cast<float>(sourceFrames - 1) / Plan::analysisHop;
         const auto a = std::min(frames.size() - 1, static_cast<std::size_t>(at)),
                    b = std::min(frames.size() - 1, a + 1);
-        const auto k = static_cast<std::size_t>(bin), next = std::min(Plan::bins - 1, k + 1);
-        const float u = at - a, v = bin - k;
-        const auto convert = [](const Bin &x) {
-            return ThruSpectralFeature{x.left, x.right, x.hz, x.phase / 65534.0f,
-                                       x.delta / 65534.0f};
-        };
-        const auto blend = [](ThruSpectralFeature x, const ThruSpectralFeature &y, float t) {
-            x.left += (y.left - x.left) * t;
-            x.right += (y.right - x.right) * t;
-            x.hz += (y.hz - x.hz) * t;
-            x.phase += Plan::wrap(y.phase - x.phase) * t;
-            x.delta += Plan::wrap(y.delta - x.delta) * t;
-            return x;
-        };
-        return blend(blend(convert(frames[a][k]), convert(frames[a][next]), v),
-                     blend(convert(frames[b][k]), convert(frames[b][next]), v), u);
+        return {&frames[a], &frames[b], at - a};
+    }
+    ThruSpectralFeature sample(float unit, float bin) const {
+        return prepareRead(unit).sample(bin);
     }
 };
 // One stereo phase-vocoder voice: cached spectra in, fixed-memory WOLA out.

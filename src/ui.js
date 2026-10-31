@@ -1,4 +1,4 @@
-/* s3g Thru 0.29.0-test.18 — polyphonic sampler/performance-looper takeover for Move. */
+/* s3g Thru 0.29.0 — polyphonic sampler/performance-looper takeover for Move. */
 
 import * as moveConstants from '/data/UserData/schwung/shared/constants.mjs';
 import * as moveInputFilter from '/data/UserData/schwung/shared/input_filter.mjs';
@@ -88,7 +88,8 @@ const setButtonLED = typeof moveInputFilter.setButtonLED === 'function'
         }
     };
 
-const UI_VERSION = '0.29.0-test.18';
+const UI_VERSION = '0.29.0';
+const HELP_PAGE_COUNT=4;
 const WAVE_BINS = 112;
 const ALGORITHMS = ['MOTION', 'LANES', 'GRAINS', 'CUTUPS', 'SAMPLE', 'SLICES',
     'GLITCH', 'WEAVE', 'WAVESETS', 'PRISM', 'MORPH', 'TEXTURE', 'FORMANT'];
@@ -808,6 +809,7 @@ const state = {
     limiterReductionDb: 0,
     limiterMaximumReductionDb: 0,
     helpPage: 0,
+    renderCpuAvailable:false, renderCpuPeakMicros:0, renderWaitPeakMicros:0, renderCpuOverruns:0,
     sampleLoadState: 0,
     sampleLoadProgress: 0,
     sampleLoadName: '',
@@ -2791,7 +2793,7 @@ function helpReportRow(label, value) {
 function drawHelp() {
     clearDisplay();
     if (state.helpPage === 0) {
-        print(1, 0, 'SYSTEM REPORT 1/3 <>', 1);
+        print(1, 0, 'SYSTEM REPORT 1/4 <>', 1);
         print(1, 11, helpReportRow('RENDER PEAK',
             compactReportCount(state.maximumRenderMicros) + ' us'), 1);
         print(1, 21, helpReportRow('RENDER MISSES',
@@ -2804,14 +2806,23 @@ function drawHelp() {
         return;
     }
     if (state.helpPage === 1) {
-        print(1, 0, 'CALLBACK WORK 2/3 <>', 1);
+        print(1, 0, 'CALLBACK WORK 2/4 <>', 1);
         print(1, 13, helpReportRow('CONTROL PEAK', compactReportCount(state.controlPeakMicros) + ' us'), 1);
         print(1, 25, helpReportRow('QUERY PEAK', compactReportCount(state.queryPeakMicros) + ' us'), 1);
         print(1, 37, helpReportRow('WORK PEAK', compactReportCount(state.workPeakMicros) + ' us'), 1);
         print(1, 49, helpReportRow('WORK MISSES', compactReportCount(state.workOverruns)), 1);
         return;
     }
-    print(1, 0, 'SHORTCUTS 3/3 <>', 1);
+    if(state.helpPage===2) {
+        print(1,0,'RENDER TIMING 3/4 <>',1);
+        const cpu=state.renderCpuAvailable;
+        print(1,11,helpReportRow('CPU PEAK',cpu?compactReportCount(state.renderCpuPeakMicros)+' us':'N/A'),1);
+        print(1,23,helpReportRow('WALL PEAK',compactReportCount(state.maximumRenderMicros)+' us'),1);
+        print(1,35,helpReportRow('WAIT PEAK',cpu?compactReportCount(state.renderWaitPeakMicros)+' us':'N/A'),1);
+        print(1,47,helpReportRow('CPU MISSES',cpu?compactReportCount(state.renderCpuOverruns):'N/A'),1);
+        print(1,57,'SHIFT+DEL RESET',1);return;
+    }
+    print(1, 0, 'SHORTCUTS 4/4 <>', 1);
     print(1, 9, 'REC        data loop', 1);
     print(1, 17, 'SHIFT+REC  audio lane', 1);
     print(1, 25, 'UNDO      sample/clip', 1);
@@ -3715,6 +3726,9 @@ function pollDiagnostics() {
     state.queryPeakMicros = bounded(callback[1]);
     state.workPeakMicros = bounded(callback[2]);
     state.workOverruns = bounded(callback[3]);
+    const timing=String(getParam('render_timing_state','0,0,0,0')).split(',').map(Number);
+    state.renderCpuAvailable=timing[0]===1;
+    state.renderCpuPeakMicros=bounded(timing[1]);state.renderWaitPeakMicros=bounded(timing[2]);state.renderCpuOverruns=bounded(timing[3]);
     const limiter = String(getParam('limiter_state', '0,0'))
         .split(',').map((item) => Number(item));
     state.limiterReductionDb = Number.isFinite(limiter[0])
@@ -4049,6 +4063,11 @@ globalThis.onMidiMessageInternal = function(data) {
         }
         return;
     }
+    if(number===MoveDelete && state.view==='help' && state.shiftHeld) {
+        state.deleteHeld=false;
+        if(value>0){setParamBlocking('performance_reset',1);pollDiagnostics();draw();}
+        return;
+    }
     if (number === MoveDelete) {
         state.deleteHeld = value > 0;
         if (state.view === 'clips' || state.view === 'chain') return;
@@ -4152,7 +4171,7 @@ globalThis.onMidiMessageInternal = function(data) {
     }
     if ((number === MoveLeft || number === MoveRight) && value > 0
         && state.view === 'help') {
-        state.helpPage = clamp(state.helpPage + (number === MoveRight ? 1 : -1), 0, 2);
+        state.helpPage = clamp(state.helpPage + (number === MoveRight ? 1 : -1), 0, HELP_PAGE_COUNT-1);
         return;
     }
     if ((number === MoveLeft || number === MoveRight) && value > 0
@@ -4179,7 +4198,7 @@ globalThis.onMidiMessageInternal = function(data) {
         if(state.view==='mode')state.modeSelection=clamp(state.modeSelection+1,0,3);
         else if(state.view==='pages')movePagePicker(1);
         else if (state.view === 'fxMenu') moveSplitFxMenu(1);
-        else if (state.view === 'help') state.helpPage = Math.min(2, state.helpPage + 1);
+        else if (state.view === 'help') state.helpPage = Math.min(HELP_PAGE_COUNT-1, state.helpPage + 1);
         else if (state.view === 'chain') adjustChainRepeats(-1);
         else if (state.shiftHeld
             && (state.view === 'main' || state.view === 'settings')) {
@@ -4196,7 +4215,7 @@ globalThis.onMidiMessageInternal = function(data) {
         else if(state.view==='pages')movePagePicker(delta);
         else if (state.view === 'fxMenu') moveSplitFxMenu(delta);
         else if (state.view === 'help' && delta !== 0) {
-            state.helpPage = clamp(state.helpPage + (delta > 0 ? 1 : -1), 0, 2);
+            state.helpPage = clamp(state.helpPage + (delta > 0 ? 1 : -1), 0, HELP_PAGE_COUNT-1);
         }
         else if (state.view === 'settings' && currentSettingsPage().route) turnFxOrder(delta);
         else if (state.view === 'library') moveLibrarySelection(delta);

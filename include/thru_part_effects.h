@@ -7,6 +7,21 @@
 #include "thru_lofi.h"
 
 namespace s3g_daisy {
+// Both the shared rotary and per-part inserts use this circular reader.
+inline float readRotaryDelaySample(const float* buffer, std::size_t capacity,
+                                  std::size_t write, float delayFrames) {
+    if (!buffer || capacity < 2u) return 0.0f;
+    const float bounded = std::max(1.0f, std::min(static_cast<float>(capacity - 1u), delayFrames));
+    float position = static_cast<float>(write) - bounded;
+    if (position < 0.0f) position += static_cast<float>(capacity);
+    // A tiny negative position can round to capacity when wrapped in float.
+    // Wrap the integer index too; retain raw for the interpolation fraction.
+    const auto raw = static_cast<std::size_t>(position);
+    const auto first = raw < capacity ? raw : 0u;
+    const auto second = (first + 1u) % capacity;
+    const float fraction = position - static_cast<float>(raw);
+    return buffer[first] + (buffer[second] - buffer[first]) * fraction;
+}
 // Split's per-instrument inserts. Buffers are allocated once in prepare;
 // all live edits use the same smoothing/oversampled drive as the main rack.
 class ThruPartEffects {
@@ -79,9 +94,7 @@ private:
     float read(std::size_t band,float lag) const {
         lag=std::clamp(lag,1.0f,static_cast<float>(size_-2));
         if(lag>static_cast<float>(valid_))return 0;
-        float position=static_cast<float>(write_)-lag;if(position<0)position+=size_;
-        const auto first=static_cast<std::size_t>(position),second=(first+1)%size_;
-        const auto* data=history_.get()+band*size_;return data[first]+(data[second]-data[first])*(position-first);
+        return readRotaryDelaySample(history_.get()+band*size_,size_,write_,lag);
     }
     float rate_=44100,slew_=0,mixSlew_=0;
     std::unique_ptr<float[]> history_;std::size_t size_=0,write_=0,valid_=0;

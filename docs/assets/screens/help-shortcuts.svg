@@ -4,7 +4,7 @@
   <desc id="desc">On-device shortcut help shown as it appears on Ableton Move.</desc>
   <rect width="128" height="64" fill="#050706"/>
   <g shape-rendering="crispEdges" font-family="DejaVu Sans Mono, IBM Plex Mono, monospace" font-size="6" font-style="normal" font-weight="400" text-rendering="geometricPrecision">
-    <text x="1" y="5.5" fill="#dce8e1">SHORTCUTS 3/3 &lt;&gt;</text>
+    <text x="1" y="5.5" fill="#dce8e1">SHORTCUTS 4/4 &lt;&gt;</text>
     <text x="1" y="14.5" fill="#dce8e1">REC        data loop</text>
     <text x="1" y="22.5" fill="#dce8e1">SHIFT+REC  audio lane</text>
     <text x="1" y="30.5" fill="#dce8e1">UNDO      sample/clip</text>

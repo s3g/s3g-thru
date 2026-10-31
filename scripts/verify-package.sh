@@ -10,13 +10,14 @@ test -f "$archive"
 tar -xzf "$archive" -C "$verify_dir"
 test -f "$verify_dir/s3g-thru/module.json"
 test -f "$verify_dir/s3g-thru/ui.js"
+test -f "$verify_dir/s3g-thru/help.json"
 test -f "$verify_dir/s3g-thru/dsp.so"
 test -f "$verify_dir/s3g-thru/LICENSE"
 test -f "$verify_dir/s3g-thru/THIRD_PARTY_NOTICES.md"
 test ! -e "$verify_dir/s3g-thru/canvas.js"
 
 file_count="$(find "$verify_dir/s3g-thru" -maxdepth 1 -type f | wc -l | tr -d ' ')"
-test "$file_count" = "5"
+test "$file_count" = "6"
 
 entry_count="$(find "$verify_dir" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')"
 test "$entry_count" = "1"
@@ -32,6 +33,7 @@ assert module["name"] == "s3g Thru"
 assert module["author"] == "s3g"
 PY
 node --check "$verify_dir/s3g-thru/ui.js"
+node "$repo_dir/scripts/validate-help.mjs" "$verify_dir/s3g-thru/help.json"
 
 echo "s3g Thru package verification: PASS"
 

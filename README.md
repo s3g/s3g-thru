@@ -2,7 +2,7 @@
 
 s3g Thru is a four-lane stereo sampler and performance-data looper for
 [Ableton Move](https://www.ableton.com/move/). It runs as a
-[Schwung](https://github.com/charlesvestal/schwung) takeover module, with eight
+[Schwung](https://github.com/charlesvestal/schwung) takeover module, with thirteen playback engines and eight
 polyphonic voices. Single uses one four-lane stack; Split and Shared Dual offer
 two independent instruments; Quad offers four instruments with one lane each.
 
@@ -21,6 +21,11 @@ performance loops, and shortcuts.
 
 The installer reads [`release.json`](release.json) and downloads the matching
 ARM64 package from [GitHub Releases](https://github.com/s3g/s3g-thru/releases).
+
+For on-device help, leave takeover, hold **Shift**, touch the volume knob and
+press **Step 2** for Global Settings. **Shift + main encoder click** opens its
+section picker: choose **System → Help → Modules → s3g Thru**. Inside Thru,
+**Shift + Menu** opens the diagnostic reports and shortcut reminder.
 
 ## Build from source
 

@@ -39,6 +39,8 @@
     std::atomic<std::uint64_t> maximumControlMicros {0u}, maximumQueryMicros {0u};
     std::atomic<std::uint64_t> maximumWorkMicros {0u}, workOverruns {0u};
     std::atomic<std::uint64_t> pendingCallbackNanos {0u};
+    std::atomic<std::uint64_t> maximumRenderCpuMicros {0u}, maximumRenderWaitMicros {0u}, renderCpuOverruns {0u};
+    std::atomic<bool> renderCpuClockAvailable {false};
 
     void observePersistenceGeneration(std::uint64_t generation)
     {

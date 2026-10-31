@@ -192,7 +192,7 @@ const params = {
     captures_directory: '/data/s3g-thru/captures',
     undo_available: '1',
     performance_state: '724,0',
-    callback_performance_state: '28,16,760,0',
+    callback_performance_state: '28,16,760,0',render_timing_state:'1,720,110,0',
     limiter_state: '0.0,3.2',
     last_error: '',
     waveforms: [0, 1, 2, 3].map(waveform).join('|'),
@@ -549,6 +549,8 @@ tick();
 capture('help-callbacks.svg', 'On-device callback work report');
 cc(63);
 tick();
+capture('help-timing.svg','On-device render CPU and wait report','RENDER TIMING');
+cc(63);tick(3);
 capture('help-shortcuts.svg', 'On-device shortcut help');
 
 // Split examples use the same live draw code and parameter pages as the device.

@@ -249,15 +249,21 @@ void renderSpectralFrame(const Controls &controls, float *wet) {
         const auto first = static_cast<std::size_t>(clamp(controls.stackFirstLane, 0.0f, 3.0f));
         const auto last = static_cast<std::size_t>(
             clamp(controls.stackLastLane, static_cast<float>(first), 3.0f));
+        const float pitchGain=1/std::sqrt(std::max(.25f,pitch));
+        std::array<s3g_daisy::ThruSpectralBank::ReadFrame,kStackLanes> primary{},secondary{},heldFrames{};
         std::array<float, kStackLanes> binScales{};
         for (std::size_t lane = 0; lane < kStackLanes; ++lane)
-            if (spectralBanks_[lane])
+            if (spectralBanks_[lane]) {
                 binScales[lane] = outputSampleRate_ / std::max(1.0f, spectralBanks_[lane]->rate);
-        const auto sample = [&](std::size_t lane, float at, float bin) {
+                primary[lane]=spectralBanks_[lane]->prepareRead(position);
+                if(morph)secondary[lane]=spectralBanks_[lane]->prepareRead(second);
+                if(!morph&&(mode==2||mode==3))heldFrames[lane]=spectralBanks_[lane]->prepareRead(held);
+            }
+        const auto sample = [&](std::size_t lane, const auto& view, float bin) {
             Feature f;
             if (lane >= kStackLanes || !spectralBanks_[lane])
                 return f;
-            f = spectralBanks_[lane]->sample(at, bin * binScales[lane]);
+            f = view.sample(bin * binScales[lane]);
             f.left *= activeControlsLaneGains_[lane];
             f.right *= activeControlsLaneGains_[lane];
             return f;
@@ -273,7 +279,7 @@ void renderSpectralFrame(const Controls &controls, float *wet) {
             out.delta += Plan::wrap(in.delta - out.delta) * mix;
             totalGain += gain;
         };
-        const auto stack = [&](float at, float bin, bool next) {
+        const auto stack = [&](const auto& views, float bin, bool next) {
             Feature out;
             float weight = 0;
             for (std::size_t lane = first; lane <= last; ++lane) {
@@ -281,9 +287,9 @@ void renderSpectralFrame(const Controls &controls, float *wet) {
                     next ? (first == last ? (lane + 1) % 4
                                           : first + (lane - first + 1) % (last - first + 1))
                          : lane;
-                if (!spectralBanks_[source])
+                if (!spectralBanks_[source] || laneWeights_[lane]<=1e-5f)
                     continue;
-                combine(out, sample(source, at, bin), laneWeights_[lane], weight);
+                combine(out, sample(source, views[source], bin), laneWeights_[lane], weight);
             }
             if (weight > 0) {
                 out.left /= weight;
@@ -301,13 +307,13 @@ void renderSpectralFrame(const Controls &controls, float *wet) {
             }
         for (std::size_t k = 1; k + 1 < Plan::bins; ++k) {
             const float bin = k / std::max(.001f, pitch);
-            Feature a = stack(position, bin, false);
+            Feature a = stack(primary, bin, false);
             if (imprintMix_ > 0) {
                 carrier[k] = a;
-                shaper[k] = partner ? stack(second, static_cast<float>(k), true) : a;
+                shaper[k] = partner ? stack(secondary, static_cast<float>(k), true) : a;
             }
             if (morph && imprintMix_ < 1) {
-                const auto b = partner ? stack(second, bin, true) : a;
+                const auto b = partner ? stack(secondary, bin, true) : a;
                 const float amp = clamp01(controls.morphAmplitude),
                             freq = clamp01(controls.morphFrequency);
                 a.left += (b.left - a.left) * amp;
@@ -316,7 +322,7 @@ void renderSpectralFrame(const Controls &controls, float *wet) {
                 a.delta += Plan::wrap(b.delta - a.delta) * amp;
             } else if (!morph) {
                 if (mode == 2 || mode == 3) {
-                    const auto frozen = stack(held, bin, false);
+                    const auto frozen = stack(heldFrames, bin, false);
                     if (mode == 2) {
                         a.left = frozen.left;
                         a.right = frozen.right;
@@ -325,20 +331,18 @@ void renderSpectralFrame(const Controls &controls, float *wet) {
                 }
             }
             a.hz *= pitch;
-            const float gain = 1 / std::sqrt(std::max(.25f, pitch));
-            a.left *= gain;
-            a.right *= gain;
+            a.left *= pitchGain;
+            a.right *= pitchGain;
             spectrum[k] = a;
         }
 
         if (imprintMix_ > 0) {
             s3g_daisy::ThruSpectralImprint::apply(carrier, shaper,
                                                   partner ? clamp01(controls.morphAmplitude) : 0);
-            const float gain = 1 / std::sqrt(std::max(.25f, pitch));
             for (std::size_t k = 1; k + 1 < Plan::bins; ++k) {
                 carrier[k].hz *= pitch;
-                carrier[k].left *= gain;
-                carrier[k].right *= gain;
+                carrier[k].left *= pitchGain;
+                carrier[k].right *= pitchGain;
                 spectrum[k].left += (carrier[k].left - spectrum[k].left) * imprintMix_;
                 spectrum[k].right += (carrier[k].right - spectrum[k].right) * imprintMix_;
                 spectrum[k].hz += (carrier[k].hz - spectrum[k].hz) * imprintMix_;

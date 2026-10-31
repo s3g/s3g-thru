@@ -1,6 +1,6 @@
 {
   "name": "s3g-thru",
-  "version": "0.29.0-test.18",
+  "version": "0.29.0",
   "private": true,
   "type": "module",
   "description": "s3g Thru takeover sampler for Ableton Move and Schwung.",
@@ -8,6 +8,7 @@
     "test": "bash scripts/test-native.sh",
     "validate": "bash scripts/validate-native.sh",
     "release:check": "node scripts/validate-release.mjs",
+    "help:check": "node scripts/validate-help.mjs",
     "docs:render": "node scripts/render-doc-screens.mjs",
     "docs:check": "node scripts/render-doc-screens.mjs --check && node scripts/check-docs.mjs",
     "docs:serve": "python3 -m http.server 8080 --directory docs",

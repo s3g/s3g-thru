@@ -1,0 +1,598 @@
+{
+  "title": "s3g Thru",
+  "children": [
+    {
+      "title": "Getting started",
+      "children": [
+        {
+          "title": "First sound",
+          "lines": [
+            "Track 1-4 selects a",
+            "lane. Shift + Track",
+            "opens its sample",
+            "browser. Turn the",
+            "main encoder to",
+            "browse; click to load",
+            "a WAV.",
+            "",
+            "Press note pads to",
+            "play. Fill other lanes",
+            "before scanning",
+            "across them: an empty",
+            "lane is silent."
+          ]
+        },
+        {
+          "title": "Pages and knobs",
+          "lines": [
+            "Menu opens parameter",
+            "pages. The eight",
+            "screen cells match",
+            "knobs 1-8. Up/Down",
+            "changes pages.",
+            "",
+            "Hold Capture and",
+            "press Menu for the",
+            "Pages picker. Release",
+            "Capture, choose a",
+            "page, and click to",
+            "open. Back returns."
+          ]
+        },
+        {
+          "title": "Pads and hold",
+          "lines": [
+            "In Keys mode, Up/Down",
+            "changes octave on the",
+            "waveform page. Pads &",
+            "Scale sets Root, Scale",
+            "and pad mode.",
+            "",
+            "Shift + pad toggles a",
+            "held note. Hold Off",
+            "chooses manual",
+            "release or an",
+            "automatic delay. In",
+            "Cues mode, Shift +",
+            "pad stores a cue",
+            "instead.",
+            "",
+            "Amp Envelope sets",
+            "attack, decay, sustain",
+            "and release. Pad",
+            "velocity does not set",
+            "sample volume."
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Samples",
+      "children": [
+        {
+          "title": "Load a WAV",
+          "lines": [
+            "Shift + Track 1-4",
+            "opens the browser",
+            "for that lane. Choose",
+            "Move Samples or Thru",
+            "Recordings.",
+            "",
+            "Main turn or Up/Down",
+            "selects. A highlighted",
+            "WAV auditions at",
+            "Preview Level. Click",
+            "to load; Back goes up",
+            "or closes the",
+            "browser.",
+            "",
+            "Mono and stereo WAVs",
+            "load. The lane",
+            "capacity is 12",
+            "seconds; longer files",
+            "are truncated."
+          ]
+        },
+        {
+          "title": "Stereo recording",
+          "lines": [
+            "Choose Move mic or",
+            "line input and its",
+            "hardware input gain",
+            "first. Use headphones",
+            "for mic recording.",
+            "",
+            "Track 1-4 selects the",
+            "destination. Shift +",
+            "Record starts and",
+            "stops stereo audio",
+            "capture. The take",
+            "becomes that lane",
+            "source.",
+            "",
+            "Mix / Rec sets SRC,",
+            "Record Gain and",
+            "Monitor. Keep Monitor",
+            "at zero unless direct",
+            "monitoring is wanted.",
+            "SRC can also resample",
+            "the mix or a part."
+          ]
+        },
+        {
+          "title": "Saved takes",
+          "lines": [
+            "Completed captures",
+            "and sample edits",
+            "create new WAVs in",
+            "Thru Recordings. A",
+            "later recording",
+            "replaces the lane",
+            "assignment and keeps",
+            "the older file.",
+            "",
+            "Each clip recalls its",
+            "own source",
+            "assignments. Undo can",
+            "restore the latest",
+            "source change. Wait",
+            "for saving to finish",
+            "before powering off."
+          ]
+        },
+        {
+          "title": "Sample editing",
+          "lines": [
+            "Select the lane with",
+            "Track, then open its",
+            "Sample page. Trim,",
+            "Reverse, Normalize",
+            "and Fade act on that",
+            "lane.",
+            "",
+            "Turn an action",
+            "encoder to apply it.",
+            "Each committed edit",
+            "saves a new WAV. Stop",
+            "recording before",
+            "using Undo to restore",
+            "the latest edit."
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Lanes and engines",
+      "children": [
+        {
+          "title": "Waveform controls",
+          "lines": [
+            "POS moves the source",
+            "window; FLD sets its",
+            "width. The waveforms",
+            "zoom to that region.",
+            "SPD sets transport",
+            "speed; note pitch is",
+            "additional.",
+            "",
+            "Where available, STAK",
+            "sets the stack start",
+            "and RATE its scan",
+            "speed. Cutups uses",
+            "LANE and ADV instead.",
+            "Quad reserves these",
+            "stack controls."
+          ]
+        },
+        {
+          "title": "Stack movement",
+          "lines": [
+            "Each voice follows its",
+            "own path through the",
+            "available lanes.",
+            "Pressure offsets",
+            "that voice when",
+            "Pressure is Offset.",
+            "",
+            "Loop holds the",
+            "current lane",
+            "positions, including",
+            "blends. Press again",
+            "to resume. Note",
+            "release keeps a held",
+            "position for",
+            "retriggering.",
+            "",
+            "Stack Path offers the",
+            "route. For DRAW, click",
+            "the main encoder to",
+            "edit its points. Back",
+            "returns. Cutups",
+            "advances lanes by",
+            "cuts; Loop pauses",
+            "that advancement."
+          ]
+        },
+        {
+          "title": "Engine guide",
+          "lines": [
+            "Choose an engine on",
+            "the Engine page. Its",
+            "parameter pages",
+            "follow the current",
+            "editing focus.",
+            "",
+            "MOTION: moving stacks.",
+            "LANES: layer blends.",
+            "GRAINS: short grains.",
+            "CUTUPS: cut and",
+            "repeat. SAMPLE: direct",
+            "playback. SLICES:",
+            "playable slices.",
+            "GLITCH: buffer",
+            "stutters. WEAVE: long",
+            "grains. WAVESETS:",
+            "zero-crossing",
+            "segments. PRISM:",
+            "spectral playback.",
+            "MORPH: spectral blends",
+            "and Imprint. TEXTURE:",
+            "grouped grains.",
+            "FORMANT:",
+            "pitch-synchronous",
+            "grains.",
+            "",
+            "Use the online manual",
+            "for each engine",
+            "parameter."
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Instrument modes",
+      "children": [
+        {
+          "title": "Choose a mode",
+          "lines": [
+            "Hold Capture and",
+            "press Menu. Release",
+            "Capture, choose",
+            "Instrument Mode, then",
+            "click the desired mode",
+            "to apply. Stop",
+            "recording first.",
+            "",
+            "Outside clip and chain",
+            "editors, Copy toggles",
+            "Single and the last",
+            "selected",
+            "multi-instrument mode."
+          ]
+        },
+        {
+          "title": "Single and Split",
+          "lines": [
+            "Single: all four lanes",
+            "form one stack, with",
+            "up to eight voices.",
+            "",
+            "Split: left and right",
+            "pad halves play A and",
+            "B. A uses lanes 1-2; B",
+            "uses 3-4. Each side",
+            "has four voices and",
+            "its own engine",
+            "settings.",
+            "",
+            "Tap Capture to",
+            "change editing focus.",
+            "Waveform knob 8 is",
+            "BLND in dual modes;",
+            "its midpoint includes",
+            "both parts."
+          ]
+        },
+        {
+          "title": "Shared Dual / Quad",
+          "lines": [
+            "Shared Dual: A and B",
+            "use the same four",
+            "source lanes with",
+            "independent engines",
+            "and settings. Each",
+            "side has four voices.",
+            "",
+            "Quad: four pad",
+            "quadrants play A-D,",
+            "with two voices each",
+            "and one lane per",
+            "part. Track 1-4",
+            "selects the part and",
+            "lane.",
+            "",
+            "Tap Capture to cycle",
+            "focus. Playing another",
+            "part does not change",
+            "editing focus."
+          ]
+        },
+        {
+          "title": "Levels and effects",
+          "lines": [
+            "In multi modes, each",
+            "part has its own",
+            "level, mute and",
+            "private processing.",
+            "Delay and Reverb use",
+            "shared sends and",
+            "returns. Tape and",
+            "mastering are shared.",
+            "",
+            "Capture + Menu opens",
+            "Pages. Choose FX",
+            "SENDS for send and",
+            "return levels. Both",
+            "must be raised for a",
+            "shared effect to",
+            "sound.",
+            "",
+            "Mute toggles the",
+            "focused part. In dual",
+            "modes, check Blend and",
+            "the part level if a",
+            "side becomes silent."
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Performance loops",
+      "children": [
+        {
+          "title": "Record and play",
+          "lines": [
+            "Record captures",
+            "notes, pressure, stack",
+            "holds and knob",
+            "movements as data.",
+            "Shift + Record",
+            "captures audio",
+            "instead.",
+            "",
+            "Choose Replace or",
+            "Overdub on",
+            "Performance Loop.",
+            "Press Record to",
+            "start and again to",
+            "finish. Notes already",
+            "held are included.",
+            "Play stops or starts",
+            "the loop.",
+            "",
+            "All parts share one",
+            "recorder. Rate",
+            "changes performance",
+            "speed; the source",
+            "samples remain",
+            "separate."
+          ]
+        },
+        {
+          "title": "Undo an overdub",
+          "lines": [
+            "Overdub adds a take",
+            "to the existing loop",
+            "without changing its",
+            "length.",
+            "",
+            "Finish recording with",
+            "Record. Hold Delete",
+            "and press Record to",
+            "remove the newest",
+            "overdub. Repeat for",
+            "earlier passes. The",
+            "base take is",
+            "protected.",
+            "",
+            "The curved-arrow",
+            "Undo key handles the",
+            "latest protected",
+            "sample, clip or chain",
+            "edit instead."
+          ]
+        },
+        {
+          "title": "Clips and chains",
+          "lines": [
+            "Step 1-16 selects a",
+            "clip in the current",
+            "bank. From waveform",
+            "or parameter views,",
+            "Left/Right selects",
+            "banks A-D. Each clip",
+            "owns its performance,",
+            "settings and four",
+            "sample assignments.",
+            "",
+            "Shift + Play cycles",
+            "Clip Overview, Chain",
+            "and waveform. In",
+            "Chain, Step keys",
+            "select chain entries;",
+            "Left/Right selects",
+            "entry pages.",
+            "",
+            "Chain entries choose",
+            "clips, repeats and",
+            "fade behavior. Chain",
+            "bank stores multiple",
+            "chains. End can Loop,",
+            "Stay or Stop",
+            "transport."
+          ]
+        },
+        {
+          "title": "Pattern fades",
+          "lines": [
+            "Pattern Fade blends",
+            "two playing clips,",
+            "including their",
+            "samples and settings.",
+            "TIME reaches 30",
+            "seconds; CUT changes",
+            "immediately.",
+            "",
+            "FIX sets one",
+            "duration. RAND",
+            "chooses between LOW",
+            "and HIGH. CURVE",
+            "shapes the blend.",
+            "",
+            "Touch knob 3 to",
+            "engage Hold; turn",
+            "XFADE to move",
+            "manually. Releasing",
+            "touch keeps Hold on.",
+            "Main click resumes.",
+            "DONE commits the",
+            "destination."
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Shortcuts / safety",
+      "children": [
+        {
+          "title": "Capture gestures",
+          "lines": [
+            "Hold Capture for",
+            "bottom-row",
+            "performance pads.",
+            "Pads 1-4 grab lanes;",
+            "pads 5-8 apply DARK,",
+            "CRSH, ECHO and SPCE.",
+            "Pressure changes",
+            "strength. Release",
+            "restores the current",
+            "settings.",
+            "",
+            "Available lanes follow",
+            "the part; Quad has no",
+            "lane rides. Shift +",
+            "Capture saves",
+            "Schwung Skipback",
+            "audio."
+          ]
+        },
+        {
+          "title": "Copy and clear",
+          "lines": [
+            "Shift + Step copies",
+            "the current clip to",
+            "that destination.",
+            "Delete + Step resets",
+            "the destination clip",
+            "and its sources.",
+            "",
+            "In clip and chain",
+            "views, Copy copies a",
+            "recorded clip; Shift +",
+            "Copy pastes. In Chain,",
+            "paste creates an",
+            "independent clip for",
+            "the selected entry.",
+            "",
+            "Outside the reports,",
+            "Shift + Delete clears",
+            "the selected audio",
+            "lane. Stop recording",
+            "before Undo.",
+            "",
+            "Stop playback before",
+            "pasting over the",
+            "current clip."
+          ]
+        },
+        {
+          "title": "Undo and panic",
+          "lines": [
+            "The curved-arrow",
+            "Undo key restores",
+            "the latest protected",
+            "sample, clip or chain",
+            "edit. Stop recording",
+            "first.",
+            "",
+            "Hold Delete and press",
+            "Play for Panic. It",
+            "stops the",
+            "performance and",
+            "releases notes,",
+            "latches, Rolls and",
+            "preview. Effect tails",
+            "decay. Audio-lane",
+            "recording continues."
+          ]
+        },
+        {
+          "title": "Timing reports",
+          "lines": [
+            "Shift + Menu opens",
+            "System Report.",
+            "Left/Right, Up/Down",
+            "or main turn selects",
+            "the four report",
+            "pages.",
+            "",
+            "Render Timing shows",
+            "CPU PEAK, WALL PEAK,",
+            "WAIT PEAK and CPU",
+            "MISSES. CPU time",
+            "measures work; wall",
+            "time includes waiting.",
+            "",
+            "While a report is",
+            "open, Shift + Delete",
+            "resets its counters.",
+            "Back or Menu closes",
+            "the reports."
+          ]
+        },
+        {
+          "title": "Leave and save",
+          "lines": [
+            "Back closes a",
+            "secondary view. From",
+            "the main waveform,",
+            "Back saves and exits",
+            "takeover. Let pending",
+            "saving finish before",
+            "powering off.",
+            "",
+            "For this help, leave",
+            "takeover and open",
+            "Schwung Global",
+            "Settings, System,",
+            "Help, Modules, s3g",
+            "Thru."
+          ]
+        },
+        {
+          "title": "Full manual",
+          "lines": [
+            "Illustrated manual:",
+            "",
+            "s3g.github.io/",
+            "s3g-thru/",
+            "",
+            "Complete engine",
+            "parameters, diagrams",
+            "and the MIDI map."
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -37,6 +37,7 @@ ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 \
   "$test_dir/test-transitions-sanitize"
 
 node "$repo_dir/tests/test_ui.mjs" "$repo_dir/src/ui.js"
+node "$repo_dir/scripts/validate-help.mjs"
 
 set_dir="$test_dir/set data"
 set_archive="$test_dir/exported set.tar.gz"

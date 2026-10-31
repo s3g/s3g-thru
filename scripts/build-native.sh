@@ -30,6 +30,7 @@ mkdir -p "$module_dir"
   -static-libstdc++ -static-libgcc \
   -I"$repo_dir/include" \
   -shared -Wl,-soname,dsp.so -Wl,--no-undefined -Wl,--exclude-libs,ALL \
+  -Wl,--version-script="$repo_dir/src/dsp/thru_exports.map" \
   "$repo_dir/src/dsp/thru_module.cpp" \
   -lm -pthread \
   -o "$module_dir/dsp.so"

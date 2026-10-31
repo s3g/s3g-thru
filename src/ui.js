@@ -1,4 +1,4 @@
-/* s3g Thru 0.29.0 — polyphonic sampler/performance-looper takeover for Move. */
+/* s3g Thru 0.29.1 — polyphonic sampler/performance-looper takeover for Move. */
 
 import * as moveConstants from '/data/UserData/schwung/shared/constants.mjs';
 import * as moveInputFilter from '/data/UserData/schwung/shared/input_filter.mjs';
@@ -88,7 +88,7 @@ const setButtonLED = typeof moveInputFilter.setButtonLED === 'function'
         }
     };
 
-const UI_VERSION = '0.29.0';
+const UI_VERSION = '0.29.1';
 const HELP_PAGE_COUNT=4;
 const WAVE_BINS = 112;
 const ALGORITHMS = ['MOTION', 'LANES', 'GRAINS', 'CUTUPS', 'SAMPLE', 'SLICES',

@@ -1,4 +1,5 @@
 #pragma once
+#include "thru_sample_pyramid.h"
 
 #include <algorithm>
 #include <array>
@@ -20,6 +21,7 @@ struct ThruWavesetCrossing {
 
 struct ThruWavesetBank {
     std::array<std::vector<ThruWavesetCrossing>, 5u> crossings;
+    ThruSamplePyramid pyramid;
     std::size_t frames = 0u;
     float sampleRate = 44100.0f;
     std::uint64_t revision = 0u;
@@ -50,6 +52,7 @@ struct ThruWavesetBank {
     void analyze(const float* left, const float* right, std::size_t size,
                  float rate, std::uint64_t sourceRevision = 1u)
     {
+        pyramid = {};
         frames = size;
         sampleRate = rate;
         revision = sourceRevision;
@@ -73,6 +76,9 @@ struct ThruWavesetBank {
             filtered[detail] = reference[0u];
             crossings[detail].reserve(size / 32u + 2u);
         }
+        // Prepared stereo low-pass levels serve extreme time deformation.
+        // Construction and all allocation stay with this background analysis.
+        if (energy[0u]>0 || energy[1u]>0) pyramid.analyze(left,right,size);
         for (std::size_t frame = 1u; frame < size; ++frame) {
             ++analyzedFrames;
             const float raw = reference[frame];

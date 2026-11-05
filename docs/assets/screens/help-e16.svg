@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="768" height="384" viewBox="0 0 128 64" role="img" aria-labelledby="title desc">
+  <title id="title">On-device E16 connection and recovery report</title>
+  <desc id="desc">On-device E16 connection and recovery report shown as it appears on Ableton Move.</desc>
+  <rect width="128" height="64" fill="#050706"/>
+  <g shape-rendering="crispEdges" font-family="DejaVu Sans Mono, IBM Plex Mono, monospace" font-size="6" font-style="normal" font-weight="400" text-rendering="geometricPrecision">
+    <text x="1" y="5.5" fill="#dce8e1">E16 LINK 5/5 &lt;&gt;</text>
+    <text x="1" y="16.5" fill="#dce8e1">STATE          SEARCH</text>
+    <text x="1" y="26.5" fill="#dce8e1">LAST             NONE</text>
+    <text x="1" y="36.5" fill="#dce8e1">ACK/NACK          0/0</text>
+    <text x="1" y="46.5" fill="#dce8e1">RETRY/RECON       0/0</text>
+    <text x="1" y="56.5" fill="#dce8e1">PENDING PX      0/320</text>
+  </g>
+  <rect x="0.25" y="0.25" width="127.5" height="63.5" fill="none" stroke="#5b6661" stroke-width="0.5"/>
+</svg>

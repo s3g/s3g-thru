@@ -7,7 +7,7 @@ repo_dir="$(cd "$(dirname "$0")/.." && pwd)"
 node --check "$repo_dir/src/ui.js"
 python3 -m json.tool "$repo_dir/src/module.json" >/dev/null
 python3 -m json.tool "$repo_dir/release.json" >/dev/null
-node "$repo_dir/scripts/validate-release.mjs"
+node "$repo_dir/scripts/validate-release.mjs" --local
 node "$repo_dir/scripts/render-doc-screens.mjs" --check
 node "$repo_dir/scripts/check-docs.mjs"
 

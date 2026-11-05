@@ -73,6 +73,7 @@ void testFormerTransitionTakeMigration() {
     auto* file=std::fopen(path.c_str(),"rb");assert(file);assert(std::fseek(file,0,SEEK_END)==0);
     const long length=std::ftell(file);std::rewind(file);std::vector<unsigned char> bytes(static_cast<std::size_t>(length)-4u);
     assert(std::fread(bytes.data(),1,bytes.size(),file)==bytes.size());std::fclose(file);
+    stripVoiceEngineExtension(bytes);
     bytes.resize(bytes.size()-37128);bytes[8]=19;
     constexpr std::size_t footer=4104u;assert(bytes.size()>footer);
     const auto countAt=bytes.size()-footer+8u+4u; // Chain 01, entry 02.
@@ -92,9 +93,11 @@ void testFormerTransitionTakeMigration() {
     // Invalid obsolete records still reject the complete bank transactionally.
     bytes[countAt]=1u;writeFixture();assert(!t->readClipFileFromPath(path.c_str()));
     assert(t->clipChain()[1].clip==5&&t->clipChain()[1].fade.time==8000);
-    // A new save drops obsolete gesture records and keeps the zeroed format-19 footer inside format 21.
+    // A new save drops obsolete gesture records and keeps the zeroed format-19 footer inside the current format.
     assert(t->savePersistentState());file=std::fopen(path.c_str(),"rb");assert(file);
-    assert(std::fseek(file,-(4100+37128),SEEK_END)==0);std::uint32_t count=99;
+    constexpr long engineTailBytes=4+64*5*11*4+4+64*5*18*4+4+64*5*8*4;
+    assert(std::fseek(file,-8-engineTailBytes,SEEK_END)==0);std::uint32_t voicePlayBytes=0;assert(readU32(file,voicePlayBytes));
+    assert(std::fseek(file,-static_cast<long>(4100+37128+15364+voicePlayBytes+engineTailBytes),SEEK_END)==0);std::uint32_t count=99;
     for(std::size_t i=0;i<kSavedChainCount*kClipChainLength;++i){assert(readU32(file,count));assert(count==0u);}
     std::fclose(file);t.reset();removeBackgroundTestDirectory(directory);
 }

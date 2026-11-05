@@ -1,0 +1,2075 @@
+{
+  "layout": "rows",
+  "pages": [
+    "ENGINE",
+    "STACK",
+    "ENG 1",
+    "ENG 2",
+    "ENG 3",
+    "ENG 4",
+    "SENDS",
+    "COLOR",
+    "ROTARY",
+    "DELAY",
+    "REVERB",
+    "TAPE"
+  ],
+  "rows": [
+    {
+      "name": "ENGINE",
+      "keys": [
+        "algorithm",
+        "locus",
+        "field",
+        "speed",
+        "manual_lane",
+        "lane_cycles",
+        "join",
+        "output_gain"
+      ]
+    },
+    {
+      "name": "STACK PATH",
+      "keys": [
+        "lane_path",
+        "lane_blend",
+        "lane_path_shape",
+        "lane_path_offset",
+        "lane_path_skew",
+        "lane_path_curve",
+        "lane_slew",
+        null
+      ]
+    },
+    {
+      "name": "MOTION PATH",
+      "keys": [
+        "motion_mode",
+        "motion_travel",
+        "motion_jitter",
+        "motion_rate_basis",
+        "motion_path_rate",
+        "motion_step",
+        "motion_seed",
+        null
+      ]
+    },
+    {
+      "name": "MOTION SOUND",
+      "keys": [
+        "motion_sound",
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "name": "LANES PLAY",
+      "keys": [
+        "lanes_mode",
+        "lanes_stretch",
+        "stretch_ratio",
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "name": "GRAINS MAIN",
+      "keys": [
+        "grain_mode",
+        "grain_size",
+        "grain_density",
+        "grain_pitch",
+        "grain_window",
+        "grain_spread",
+        null,
+        null
+      ]
+    },
+    {
+      "name": "GRAINS CLOUD",
+      "keys": [
+        "grain_spray",
+        "grain_bias",
+        "grain_pitch_spray",
+        "grain_reverse",
+        "grain_size_variation",
+        "grain_level_variation",
+        "grain_timing",
+        "grain_timing_scatter"
+      ]
+    },
+    {
+      "name": "GRAINS PROCESS",
+      "keys": [
+        "grain_process",
+        "grain_process_amount",
+        "grain_envelope_skew",
+        "grain_regions",
+        "grain_advance",
+        "grain_quality",
+        null,
+        null
+      ]
+    },
+    {
+      "name": "CUTUPS CLOCK",
+      "keys": [
+        "cutups_mode",
+        "cut_clock",
+        "cut_division",
+        "cut_rate",
+        "cut_time_variation",
+        "cut_gate",
+        "cut_join",
+        "cut_region_mode"
+      ]
+    },
+    {
+      "name": "CUTUPS PATH",
+      "keys": [
+        "cut_repeats",
+        "cut_reverse",
+        "cut_pitch_variation",
+        "cut_level_variation",
+        "cut_lane_order",
+        "cut_poly_path",
+        "cut_regions",
+        null
+      ]
+    },
+    {
+      "name": "DIRECT PLAY",
+      "keys": [
+        "sample_mode",
+        "lane_variation",
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "name": "DIRECT PLAY",
+      "keys": [
+        "sample_mode",
+        "lane_variation",
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "name": "SLICE SOURCE",
+      "keys": [
+        "slice_region_mode",
+        "slice_regions",
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "name": "GLITCH CLOCK",
+      "keys": [
+        "glitch_mode",
+        "glitch_clock",
+        "glitch_division",
+        "glitch_rate",
+        "glitch_slice",
+        "glitch_repeats",
+        "glitch_chance",
+        "glitch_mix"
+      ]
+    },
+    {
+      "name": "GLITCH PATTERN",
+      "keys": [
+        "glitch_steps",
+        "glitch_pulses",
+        "glitch_rotate",
+        "glitch_jump",
+        "glitch_pitch",
+        "glitch_reverse",
+        "glitch_decay",
+        "glitch_seed"
+      ]
+    },
+    {
+      "name": "WEAVE",
+      "keys": [
+        "long_grain_mode",
+        "long_grain_length",
+        "long_grain_layers",
+        "long_grain_pitch",
+        "long_grain_shape",
+        "long_grain_edge",
+        "long_grain_spread",
+        "long_grain_reverse"
+      ]
+    },
+    {
+      "name": "WEAVE MOTION",
+      "keys": [
+        "long_grain_spray",
+        "long_grain_bias",
+        "long_grain_duration_variation",
+        "long_grain_pitch_spray",
+        "long_grain_level_variation",
+        "long_grain_phase",
+        "long_grain_advance",
+        null
+      ]
+    },
+    {
+      "name": "WAVESETS",
+      "keys": [
+        "waveset_group",
+        "waveset_repeats",
+        "waveset_stride",
+        "waveset_advance",
+        "waveset_direction",
+        "waveset_process",
+        "waveset_amount",
+        "waveset_detail"
+      ]
+    },
+    {
+      "name": "PRISM",
+      "keys": [
+        "prism_mode",
+        "prism_blur",
+        "prism_decay",
+        "prism_pitch",
+        "prism_tilt",
+        "prism_smear",
+        null,
+        null
+      ]
+    },
+    {
+      "name": "MORPH",
+      "keys": [
+        "morph_amplitude",
+        "morph_frequency",
+        "morph_offset",
+        "morph_blur",
+        "morph_pitch",
+        "morph_mode",
+        null,
+        null
+      ]
+    },
+    {
+      "name": "TEXTURE",
+      "keys": [
+        "texture_mode",
+        "texture_rate",
+        "texture_length",
+        "texture_scatter",
+        "texture_range",
+        "texture_group",
+        "texture_spread",
+        "texture_seed"
+      ]
+    },
+    {
+      "name": "FORMANT",
+      "keys": [
+        "formant_pitch",
+        "formant_shift",
+        "formant_smoothing",
+        "formant_tune",
+        "formant_freeze",
+        "formant_keytrack",
+        "formant_rough",
+        "formant_sub"
+      ]
+    },
+    {
+      "name": "STOCHASTIC",
+      "keys": [
+        "stochastic_size",
+        "stochastic_amplitude",
+        "stochastic_timing",
+        "stochastic_evolution",
+        "stochastic_memory",
+        "stochastic_pull",
+        "stochastic_law",
+        "stochastic_drift"
+      ]
+    },
+    {
+      "name": "PULSAR",
+      "keys": [
+        "pulsar_rate",
+        "pulsar_form",
+        "pulsar_size",
+        "pulsar_window",
+        "pulsar_skew",
+        "pulsar_omit",
+        "pulsar_burst",
+        "pulsar_jitter"
+      ]
+    },
+    {
+      "name": "PULSAR MOD",
+      "keys": [
+        "pulsar_emit_mod_rate",
+        "pulsar_emit_mod_depth",
+        "pulsar_form_mod_rate",
+        "pulsar_form_mod_depth",
+        "pulsar_spray",
+        "pulsar_form_variation",
+        "pulsar_reverse",
+        "pulsar_keytrack"
+      ]
+    },
+    {
+      "name": "PACKETS",
+      "keys": [
+        "motion_rate",
+        "packet_duty",
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "name": "MOTOR",
+      "keys": [
+        "motion_rate",
+        "packet_duty",
+        "motor_rate",
+        "motor_symmetry",
+        "motor_shape",
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "name": "EVENT CLOCK",
+      "keys": [
+        "segment_trigger",
+        "segment_rate",
+        "segment_repeats",
+        "segment_step",
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "name": "EVENT SHAPE",
+      "keys": [
+        "segment_overlap",
+        "segment_layers",
+        "segment_pitch",
+        "segment_level",
+        "segment_curve",
+        "motor_symmetry",
+        "motor_shape",
+        "packet_duty"
+      ]
+    },
+    {
+      "name": "PART COLOR",
+      "keys": [
+        "effect_tone",
+        "effect_drive",
+        "effect_bits",
+        "effect_rate",
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "name": "STEREO ROTARY",
+      "keys": [
+        "effect_cross_pan",
+        "effect_rotary_rate",
+        "effect_rotary_depth",
+        "effect_rotary_spread",
+        "effect_rotary_ramp",
+        "effect_rotary_balance",
+        "effect_rotary_crossover",
+        "effect_rotary_mix"
+      ]
+    },
+    {
+      "name": "FX SENDS",
+      "keys": [
+        "split_delay_a",
+        "split_reverb_a",
+        "split_delay_b",
+        "split_reverb_b",
+        "split_priority",
+        "split_duck_threshold",
+        "split_curve",
+        "split_blend"
+      ]
+    },
+    {
+      "name": "FX SENDS",
+      "keys": [
+        "split_delay_a",
+        "split_reverb_a",
+        "split_delay_b",
+        "split_reverb_b",
+        "split_delay_c",
+        "split_reverb_c",
+        "split_delay_d",
+        "split_reverb_d"
+      ]
+    },
+    {
+      "name": "DELAY RETURN",
+      "keys": [
+        "effect_delay",
+        "effect_feedback",
+        "effect_width",
+        null,
+        null,
+        null,
+        null,
+        "effect_mix"
+      ]
+    },
+    {
+      "name": "REVERB",
+      "keys": [
+        "effect_reverb_algo",
+        "effect_reverb_decay",
+        "effect_reverb_pre",
+        "effect_reverb_damp",
+        "effect_reverb_diff",
+        "effect_reverb_mod",
+        "effect_reverb_width",
+        "effect_reverb_mix"
+      ]
+    },
+    {
+      "name": "TAPE",
+      "keys": [
+        "effect_tape_format",
+        "effect_tape_drive",
+        "effect_tape_age",
+        "effect_tape_crinkle",
+        "effect_tape_mechanics",
+        "effect_tape_inertia",
+        "effect_tape_hiss",
+        "effect_tape_mix"
+      ]
+    }
+  ],
+  "engineRows": [
+    [
+      3,
+      4
+    ],
+    [
+      5
+    ],
+    [
+      6,
+      7,
+      8
+    ],
+    [
+      9,
+      10
+    ],
+    [
+      11
+    ],
+    [
+      12,
+      13
+    ],
+    [
+      14,
+      15
+    ],
+    [
+      16,
+      17
+    ],
+    [
+      18
+    ],
+    [
+      19
+    ],
+    [
+      20
+    ],
+    [
+      21
+    ],
+    [
+      22
+    ],
+    [
+      23
+    ],
+    [
+      24,
+      25
+    ]
+  ],
+  "engine": 1,
+  "stack": 2,
+  "extraStart": 26,
+  "color": 30,
+  "rotary": 31,
+  "sends": 32,
+  "quadSends": 33,
+  "delay": 34,
+  "reverb": 35,
+  "tape": 36,
+  "ids": {
+    "algorithm": 4,
+    "locus": 0,
+    "field": 1,
+    "speed": 2,
+    "manual_lane": 3,
+    "lane_cycles": 384,
+    "join": 5,
+    "output_gain": 2432,
+    "lane_path": 386,
+    "lane_blend": 388,
+    "lane_path_shape": 389,
+    "lane_path_offset": 390,
+    "lane_path_skew": 391,
+    "lane_path_curve": 392,
+    "lane_slew": 393,
+    "motion_mode": 512,
+    "motion_travel": 519,
+    "motion_jitter": 520,
+    "motion_rate_basis": 515,
+    "motion_path_rate": 516,
+    "motion_step": 517,
+    "motion_seed": 518,
+    "motion_sound": 513,
+    "lanes_mode": 385,
+    "lanes_stretch": 394,
+    "stretch_ratio": 395,
+    "grain_mode": 640,
+    "grain_size": 641,
+    "grain_density": 642,
+    "grain_pitch": 644,
+    "grain_window": 645,
+    "grain_spread": 646,
+    "grain_spray": 647,
+    "grain_bias": 648,
+    "grain_pitch_spray": 649,
+    "grain_reverse": 650,
+    "grain_size_variation": 651,
+    "grain_level_variation": 652,
+    "grain_timing": 653,
+    "grain_timing_scatter": 654,
+    "grain_process": 656,
+    "grain_process_amount": 657,
+    "grain_envelope_skew": 655,
+    "grain_regions": 658,
+    "grain_advance": 659,
+    "grain_quality": 643,
+    "cutups_mode": 897,
+    "cut_clock": 898,
+    "cut_division": 899,
+    "cut_rate": 900,
+    "cut_time_variation": 901,
+    "cut_gate": 902,
+    "cut_join": 903,
+    "cut_region_mode": 911,
+    "cut_repeats": 905,
+    "cut_reverse": 906,
+    "cut_pitch_variation": 907,
+    "cut_level_variation": 908,
+    "cut_lane_order": 909,
+    "cut_poly_path": 910,
+    "cut_regions": 904,
+    "sample_mode": 1030,
+    "lane_variation": 133,
+    "slice_region_mode": 1031,
+    "slice_regions": 1032,
+    "glitch_mode": 1152,
+    "glitch_clock": 1153,
+    "glitch_division": 1154,
+    "glitch_rate": 1155,
+    "glitch_slice": 1156,
+    "glitch_repeats": 1157,
+    "glitch_chance": 1158,
+    "glitch_mix": 1159,
+    "glitch_steps": 1160,
+    "glitch_pulses": 1161,
+    "glitch_rotate": 1162,
+    "glitch_jump": 1163,
+    "glitch_pitch": 1164,
+    "glitch_reverse": 1165,
+    "glitch_decay": 1166,
+    "glitch_seed": 1167,
+    "long_grain_mode": 768,
+    "long_grain_length": 769,
+    "long_grain_layers": 770,
+    "long_grain_pitch": 771,
+    "long_grain_shape": 772,
+    "long_grain_edge": 773,
+    "long_grain_spread": 774,
+    "long_grain_reverse": 775,
+    "long_grain_spray": 776,
+    "long_grain_bias": 777,
+    "long_grain_duration_variation": 778,
+    "long_grain_pitch_spray": 779,
+    "long_grain_level_variation": 780,
+    "long_grain_phase": 781,
+    "long_grain_advance": 782,
+    "waveset_group": 1280,
+    "waveset_repeats": 1281,
+    "waveset_stride": 1282,
+    "waveset_advance": 1283,
+    "waveset_direction": 1284,
+    "waveset_process": 1285,
+    "waveset_amount": 1286,
+    "waveset_detail": 1287,
+    "prism_mode": 1408,
+    "prism_blur": 1409,
+    "prism_decay": 1410,
+    "prism_pitch": 1411,
+    "prism_tilt": 1412,
+    "prism_smear": 1413,
+    "morph_amplitude": 1537,
+    "morph_frequency": 1538,
+    "morph_offset": 1539,
+    "morph_blur": 1540,
+    "morph_pitch": 1541,
+    "morph_mode": 1536,
+    "texture_mode": 1664,
+    "texture_rate": 1665,
+    "texture_length": 1666,
+    "texture_scatter": 1667,
+    "texture_range": 1668,
+    "texture_group": 1669,
+    "texture_spread": 1670,
+    "texture_seed": 1671,
+    "formant_pitch": 1792,
+    "formant_shift": 1793,
+    "formant_smoothing": 1794,
+    "formant_tune": 1795,
+    "formant_freeze": 1796,
+    "formant_keytrack": 1797,
+    "formant_rough": 1798,
+    "formant_sub": 1799,
+    "stochastic_size": 3200,
+    "stochastic_amplitude": 3201,
+    "stochastic_timing": 3202,
+    "stochastic_evolution": 3203,
+    "stochastic_memory": 3204,
+    "stochastic_pull": 3205,
+    "stochastic_law": 3206,
+    "stochastic_drift": 3207,
+    "pulsar_rate": 3328,
+    "pulsar_form": 3329,
+    "pulsar_size": 3330,
+    "pulsar_window": 3331,
+    "pulsar_skew": 3332,
+    "pulsar_omit": 3333,
+    "pulsar_burst": 3334,
+    "pulsar_jitter": 3335,
+    "pulsar_emit_mod_rate": 3338,
+    "pulsar_emit_mod_depth": 3339,
+    "pulsar_form_mod_rate": 3340,
+    "pulsar_form_mod_depth": 3341,
+    "pulsar_spray": 3342,
+    "pulsar_form_variation": 3343,
+    "pulsar_reverse": 3344,
+    "pulsar_keytrack": 3345,
+    "motion_rate": 514,
+    "packet_duty": 521,
+    "motor_rate": 522,
+    "motor_symmetry": 523,
+    "motor_shape": 524,
+    "segment_trigger": 525,
+    "segment_rate": 528,
+    "segment_repeats": 529,
+    "segment_step": 530,
+    "segment_overlap": 526,
+    "segment_layers": 527,
+    "segment_pitch": 531,
+    "segment_level": 532,
+    "segment_curve": 533,
+    "effect_tone": 1921,
+    "effect_drive": 1922,
+    "effect_bits": 1923,
+    "effect_rate": 1924,
+    "effect_cross_pan": 1929,
+    "effect_rotary_rate": 2048,
+    "effect_rotary_depth": 2049,
+    "effect_rotary_spread": 2054,
+    "effect_rotary_ramp": 2051,
+    "effect_rotary_balance": 2052,
+    "effect_rotary_crossover": 2053,
+    "effect_rotary_mix": 2050,
+    "split_delay_a": 2441,
+    "split_reverb_a": 2443,
+    "split_delay_b": 2442,
+    "split_reverb_b": 2444,
+    "split_priority": 2453,
+    "split_duck_threshold": 2454,
+    "split_curve": 2445,
+    "split_blend": 2438,
+    "split_delay_c": 2448,
+    "split_reverb_c": 2450,
+    "split_delay_d": 2449,
+    "split_reverb_d": 2451,
+    "effect_delay": 1925,
+    "effect_feedback": 1926,
+    "effect_width": 1927,
+    "effect_mix": 1928,
+    "effect_reverb_algo": 2304,
+    "effect_reverb_decay": 2305,
+    "effect_reverb_pre": 2306,
+    "effect_reverb_damp": 2307,
+    "effect_reverb_diff": 2308,
+    "effect_reverb_mod": 2309,
+    "effect_reverb_width": 2310,
+    "effect_reverb_mix": 2311,
+    "effect_tape_format": 2176,
+    "effect_tape_drive": 2177,
+    "effect_tape_age": 2184,
+    "effect_tape_crinkle": 2185,
+    "effect_tape_mechanics": 2186,
+    "effect_tape_inertia": 2187,
+    "effect_tape_hiss": 2182,
+    "effect_tape_mix": 2183,
+    "part_level": 6,
+    "cut_lane_advance": 896,
+    "stochastic_capture": 3210
+  },
+  "meta": [
+    {
+      "id": 4,
+      "label": "ENG ",
+      "steps": 14,
+      "scope": "part"
+    },
+    {
+      "id": 0,
+      "label": "POS ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 1,
+      "label": "FLD ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 2,
+      "label": "SPD ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 3,
+      "label": "STK ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 384,
+      "label": "SCAN",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 5,
+      "label": "JOIN",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 2432,
+      "label": "OUT ",
+      "steps": 0,
+      "scope": "global"
+    },
+    {
+      "id": 386,
+      "label": "PATH",
+      "steps": 8,
+      "scope": "part"
+    },
+    {
+      "id": 388,
+      "label": "BLND",
+      "steps": 1,
+      "scope": "part"
+    },
+    {
+      "id": 389,
+      "label": "SHAP",
+      "steps": 3,
+      "scope": "part"
+    },
+    {
+      "id": 390,
+      "label": "OFST",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 391,
+      "label": "SKEW",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 392,
+      "label": "CURV",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 393,
+      "label": "SLEW",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 512,
+      "label": "MODE",
+      "steps": 7,
+      "scope": "part"
+    },
+    {
+      "id": 519,
+      "label": "TRVL",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 520,
+      "label": "JITR",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 515,
+      "label": "BAS ",
+      "steps": 1,
+      "scope": "part"
+    },
+    {
+      "id": 516,
+      "label": "PATH",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 517,
+      "label": "STEP",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 518,
+      "label": "SEED",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 513,
+      "label": "SND ",
+      "steps": 7,
+      "scope": "part"
+    },
+    {
+      "id": 385,
+      "label": "MODE",
+      "steps": 2,
+      "scope": "part"
+    },
+    {
+      "id": 394,
+      "label": "STR ",
+      "steps": 1,
+      "scope": "part"
+    },
+    {
+      "id": 395,
+      "label": "RATI",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 640,
+      "label": "MODE",
+      "steps": 3,
+      "scope": "part"
+    },
+    {
+      "id": 641,
+      "label": "SIZE",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 642,
+      "label": "DENS",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 644,
+      "label": "PIT ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 645,
+      "label": "WIN ",
+      "steps": 5,
+      "scope": "part"
+    },
+    {
+      "id": 646,
+      "label": "SPRD",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 647,
+      "label": "SPRY",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 648,
+      "label": "BIAS",
+      "steps": 2,
+      "scope": "part"
+    },
+    {
+      "id": 649,
+      "label": "PSPR",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 650,
+      "label": "REV%",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 651,
+      "label": "SVAR",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 652,
+      "label": "LVAR",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 653,
+      "label": "TIME",
+      "steps": 1,
+      "scope": "part"
+    },
+    {
+      "id": 654,
+      "label": "TSC ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 656,
+      "label": "PROC",
+      "steps": 4,
+      "scope": "part"
+    },
+    {
+      "id": 657,
+      "label": "PAMT",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 655,
+      "label": "ESKW",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 658,
+      "label": "REGN",
+      "steps": 63,
+      "scope": "part"
+    },
+    {
+      "id": 659,
+      "label": "ADVN",
+      "steps": 1,
+      "scope": "part"
+    },
+    {
+      "id": 643,
+      "label": "QUAL",
+      "steps": 2,
+      "scope": "global"
+    },
+    {
+      "id": 897,
+      "label": "MODE",
+      "steps": 5,
+      "scope": "part"
+    },
+    {
+      "id": 898,
+      "label": "CLCK",
+      "steps": 1,
+      "scope": "part"
+    },
+    {
+      "id": 899,
+      "label": "DIV ",
+      "steps": 5,
+      "scope": "part"
+    },
+    {
+      "id": 900,
+      "label": "RATE",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 901,
+      "label": "TVAR",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 902,
+      "label": "GATE",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 903,
+      "label": "JOIN",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 911,
+      "label": "RSRC",
+      "steps": 1,
+      "scope": "part"
+    },
+    {
+      "id": 905,
+      "label": "REPT",
+      "steps": 15,
+      "scope": "part"
+    },
+    {
+      "id": 906,
+      "label": "REV%",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 907,
+      "label": "PVAR",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 908,
+      "label": "LVAR",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 909,
+      "label": "LORD",
+      "steps": 6,
+      "scope": "part"
+    },
+    {
+      "id": 910,
+      "label": "POLY",
+      "steps": 3,
+      "scope": "part"
+    },
+    {
+      "id": 904,
+      "label": "REGN",
+      "steps": 63,
+      "scope": "part"
+    },
+    {
+      "id": 1030,
+      "label": "PLAY",
+      "steps": 3,
+      "scope": "part"
+    },
+    {
+      "id": 133,
+      "label": "VARI",
+      "steps": 4,
+      "scope": "part"
+    },
+    {
+      "id": 1031,
+      "label": "SSRC",
+      "steps": 1,
+      "scope": "part"
+    },
+    {
+      "id": 1032,
+      "label": "SLIC",
+      "steps": 63,
+      "scope": "part"
+    },
+    {
+      "id": 1152,
+      "label": "MODE",
+      "steps": 4,
+      "scope": "part"
+    },
+    {
+      "id": 1153,
+      "label": "CLCK",
+      "steps": 1,
+      "scope": "part"
+    },
+    {
+      "id": 1154,
+      "label": "DIV ",
+      "steps": 5,
+      "scope": "part"
+    },
+    {
+      "id": 1155,
+      "label": "RATE",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 1156,
+      "label": "BUFF",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 1157,
+      "label": "REPT",
+      "steps": 15,
+      "scope": "part"
+    },
+    {
+      "id": 1158,
+      "label": "CHNC",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 1159,
+      "label": "OVRD",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 1160,
+      "label": "STEP",
+      "steps": 15,
+      "scope": "part"
+    },
+    {
+      "id": 1161,
+      "label": "PULS",
+      "steps": 16,
+      "scope": "part"
+    },
+    {
+      "id": 1162,
+      "label": "ROTA",
+      "steps": 15,
+      "scope": "part"
+    },
+    {
+      "id": 1163,
+      "label": "JUMP",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 1164,
+      "label": "PITC",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 1165,
+      "label": "REV%",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 1166,
+      "label": "DCAY",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 1167,
+      "label": "SEED",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 768,
+      "label": "MODE",
+      "steps": 3,
+      "scope": "part"
+    },
+    {
+      "id": 769,
+      "label": "LEN ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 770,
+      "label": "LAYR",
+      "steps": 3,
+      "scope": "part"
+    },
+    {
+      "id": 771,
+      "label": "PIT ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 772,
+      "label": "SHAP",
+      "steps": 3,
+      "scope": "part"
+    },
+    {
+      "id": 773,
+      "label": "EDGE",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 774,
+      "label": "SPRD",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 775,
+      "label": "REV%",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 776,
+      "label": "SPRY",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 777,
+      "label": "BIAS",
+      "steps": 2,
+      "scope": "part"
+    },
+    {
+      "id": 778,
+      "label": "DVAR",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 779,
+      "label": "PSPR",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 780,
+      "label": "LVAR",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 781,
+      "label": "PHAS",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 782,
+      "label": "ADVN",
+      "steps": 1,
+      "scope": "part"
+    },
+    {
+      "id": 1280,
+      "label": "GRUP",
+      "steps": 5,
+      "scope": "part"
+    },
+    {
+      "id": 1281,
+      "label": "REPT",
+      "steps": 15,
+      "scope": "part"
+    },
+    {
+      "id": 1282,
+      "label": "STRD",
+      "steps": 15,
+      "scope": "part"
+    },
+    {
+      "id": 1283,
+      "label": "ADVN",
+      "steps": 2,
+      "scope": "part"
+    },
+    {
+      "id": 1284,
+      "label": "ORDR",
+      "steps": 3,
+      "scope": "part"
+    },
+    {
+      "id": 1285,
+      "label": "PROC",
+      "steps": 9,
+      "scope": "part"
+    },
+    {
+      "id": 1286,
+      "label": "DPTH",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 1287,
+      "label": "DTAL",
+      "steps": 4,
+      "scope": "part"
+    },
+    {
+      "id": 1408,
+      "label": "MODE",
+      "steps": 4,
+      "scope": "part"
+    },
+    {
+      "id": 1409,
+      "label": "BLUR",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 1410,
+      "label": "DCAY",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 1411,
+      "label": "PIT ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 1412,
+      "label": "TILT",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 1413,
+      "label": "SMER",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 1537,
+      "label": "AMP ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 1538,
+      "label": "FREQ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 1539,
+      "label": "OFST",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 1540,
+      "label": "BLUR",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 1541,
+      "label": "PIT ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 1536,
+      "label": "MODE",
+      "steps": 1,
+      "scope": "part"
+    },
+    {
+      "id": 1664,
+      "label": "MODE",
+      "steps": 3,
+      "scope": "part"
+    },
+    {
+      "id": 1665,
+      "label": "RATE",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 1666,
+      "label": "LEN ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 1667,
+      "label": "SCAT",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 1668,
+      "label": "RNGE",
+      "steps": 24,
+      "scope": "part"
+    },
+    {
+      "id": 1669,
+      "label": "GRUP",
+      "steps": 6,
+      "scope": "part"
+    },
+    {
+      "id": 1670,
+      "label": "SPRD",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 1671,
+      "label": "SEED",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 1792,
+      "label": "PIT ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 1793,
+      "label": "FORM",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 1794,
+      "label": "SMTH",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 1795,
+      "label": "TUNE",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 1796,
+      "label": "FRZE",
+      "steps": 1,
+      "scope": "part"
+    },
+    {
+      "id": 1797,
+      "label": "KEYT",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 1798,
+      "label": "ROUG",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 1799,
+      "label": "SUB ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 3200,
+      "label": "SIZE",
+      "steps": 63,
+      "scope": "part"
+    },
+    {
+      "id": 3201,
+      "label": "AMUT",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 3202,
+      "label": "TMUT",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 3203,
+      "label": "EVOL",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 3204,
+      "label": "MEM ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 3205,
+      "label": "PULL",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 3206,
+      "label": "LAW ",
+      "steps": 3,
+      "scope": "part"
+    },
+    {
+      "id": 3207,
+      "label": "DRFT",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 3328,
+      "label": "RATE",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 3329,
+      "label": "FORM",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 3330,
+      "label": "SIZE",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 3331,
+      "label": "WIN ",
+      "steps": 4,
+      "scope": "part"
+    },
+    {
+      "id": 3332,
+      "label": "SKEW",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 3333,
+      "label": "OMIT",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 3334,
+      "label": "BRST",
+      "steps": 8,
+      "scope": "part"
+    },
+    {
+      "id": 3335,
+      "label": "JITT",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 3338,
+      "label": "ERAT",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 3339,
+      "label": "EDEP",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 3340,
+      "label": "FRAT",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 3341,
+      "label": "FDEP",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 3342,
+      "label": "SPRY",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 3343,
+      "label": "FVAR",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 3344,
+      "label": "REV%",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 3345,
+      "label": "KEYT",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 514,
+      "label": "RATE",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 521,
+      "label": "DUTY",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 522,
+      "label": "MRAT",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 523,
+      "label": "MSYM",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 524,
+      "label": "MSHP",
+      "steps": 4,
+      "scope": "part"
+    },
+    {
+      "id": 525,
+      "label": "TRIG",
+      "steps": 2,
+      "scope": "part"
+    },
+    {
+      "id": 528,
+      "label": "ERAT",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 529,
+      "label": "REPT",
+      "steps": 15,
+      "scope": "part"
+    },
+    {
+      "id": 530,
+      "label": "ESTP",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 526,
+      "label": "OVLP",
+      "steps": 1,
+      "scope": "part"
+    },
+    {
+      "id": 527,
+      "label": "LAYR",
+      "steps": 3,
+      "scope": "part"
+    },
+    {
+      "id": 531,
+      "label": "PITC",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 532,
+      "label": "LEVL",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 533,
+      "label": "CURV",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 1921,
+      "label": "TONE",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 1922,
+      "label": "DRIV",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 1923,
+      "label": "BITS",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 1924,
+      "label": "RATE",
+      "steps": 15,
+      "scope": "part"
+    },
+    {
+      "id": 1929,
+      "label": "X-PN",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 2048,
+      "label": "RATE",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 2049,
+      "label": "DPTH",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 2054,
+      "label": "SPRD",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 2051,
+      "label": "RAMP",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 2052,
+      "label": "BAL ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 2053,
+      "label": "XOVR",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 2050,
+      "label": "MIX ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 2441,
+      "label": "ADLY",
+      "steps": 0,
+      "scope": "global"
+    },
+    {
+      "id": 2443,
+      "label": "AREV",
+      "steps": 0,
+      "scope": "global"
+    },
+    {
+      "id": 2442,
+      "label": "BDLY",
+      "steps": 0,
+      "scope": "global"
+    },
+    {
+      "id": 2444,
+      "label": "BREV",
+      "steps": 0,
+      "scope": "global"
+    },
+    {
+      "id": 2453,
+      "label": "PRIO",
+      "steps": 0,
+      "scope": "global"
+    },
+    {
+      "id": 2454,
+      "label": "THR ",
+      "steps": 0,
+      "scope": "global"
+    },
+    {
+      "id": 2445,
+      "label": "CURV",
+      "steps": 1,
+      "scope": "global"
+    },
+    {
+      "id": 2438,
+      "label": "BLND",
+      "steps": 0,
+      "scope": "global"
+    },
+    {
+      "id": 2448,
+      "label": "CDLY",
+      "steps": 0,
+      "scope": "global"
+    },
+    {
+      "id": 2450,
+      "label": "CREV",
+      "steps": 0,
+      "scope": "global"
+    },
+    {
+      "id": 2449,
+      "label": "DDLY",
+      "steps": 0,
+      "scope": "global"
+    },
+    {
+      "id": 2451,
+      "label": "DREV",
+      "steps": 0,
+      "scope": "global"
+    },
+    {
+      "id": 1925,
+      "label": "DLY ",
+      "steps": 0,
+      "scope": "global"
+    },
+    {
+      "id": 1926,
+      "label": "FDBK",
+      "steps": 0,
+      "scope": "global"
+    },
+    {
+      "id": 1927,
+      "label": "WDTH",
+      "steps": 0,
+      "scope": "global"
+    },
+    {
+      "id": 1928,
+      "label": "MIX ",
+      "steps": 0,
+      "scope": "global"
+    },
+    {
+      "id": 2304,
+      "label": "ALGO",
+      "steps": 1,
+      "scope": "global"
+    },
+    {
+      "id": 2305,
+      "label": "DECY",
+      "steps": 0,
+      "scope": "global"
+    },
+    {
+      "id": 2306,
+      "label": "PRE ",
+      "steps": 0,
+      "scope": "global"
+    },
+    {
+      "id": 2307,
+      "label": "DAMP",
+      "steps": 0,
+      "scope": "global"
+    },
+    {
+      "id": 2308,
+      "label": "DIFF",
+      "steps": 0,
+      "scope": "global"
+    },
+    {
+      "id": 2309,
+      "label": "MOD ",
+      "steps": 0,
+      "scope": "global"
+    },
+    {
+      "id": 2310,
+      "label": "WDTH",
+      "steps": 0,
+      "scope": "global"
+    },
+    {
+      "id": 2311,
+      "label": "MIX ",
+      "steps": 0,
+      "scope": "global"
+    },
+    {
+      "id": 2176,
+      "label": "FMT ",
+      "steps": 4,
+      "scope": "global"
+    },
+    {
+      "id": 2177,
+      "label": "REC ",
+      "steps": 0,
+      "scope": "global"
+    },
+    {
+      "id": 2184,
+      "label": "AGE ",
+      "steps": 0,
+      "scope": "global"
+    },
+    {
+      "id": 2185,
+      "label": "CRNK",
+      "steps": 0,
+      "scope": "global"
+    },
+    {
+      "id": 2186,
+      "label": "MECH",
+      "steps": 0,
+      "scope": "global"
+    },
+    {
+      "id": 2187,
+      "label": "INRT",
+      "steps": 0,
+      "scope": "global"
+    },
+    {
+      "id": 2182,
+      "label": "HISS",
+      "steps": 0,
+      "scope": "global"
+    },
+    {
+      "id": 2183,
+      "label": "MIX ",
+      "steps": 0,
+      "scope": "global"
+    },
+    {
+      "id": 6,
+      "label": "LVL ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 896,
+      "label": "ADV ",
+      "steps": 6,
+      "scope": "part"
+    },
+    {
+      "id": 3210,
+      "label": "CAPT",
+      "steps": 0,
+      "scope": "part"
+    }
+  ]
+}

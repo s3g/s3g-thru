@@ -2,7 +2,7 @@
 
 s3g Thru is a four-lane stereo sampler and performance-data looper for
 [Ableton Move](https://www.ableton.com/move/). It runs as a
-[Schwung](https://github.com/charlesvestal/schwung) takeover module, with thirteen playback engines and eight
+[Schwung](https://github.com/charlesvestal/schwung) takeover module, with fifteen playback engines and eight
 polyphonic voices. Single uses one four-lane stack; Split and Shared Dual offer
 two independent instruments; Quad offers four instruments with one lane each.
 
@@ -27,9 +27,32 @@ press **Step 2** for Global Settings. **Shift + main encoder click** opens its
 section picker: choose **System → Help → Modules → s3g Thru**. Inside Thru,
 **Shift + Menu** opens the diagnostic reports and shortcut reminder.
 
+The next release adds high-resolution MIDI and the readable
+[OXI E16 Remote interface](controllers/oxi-e16/), with A/B and Quad C/D engine
+and effect pages. The local 0.30.0-test.39 build also provides a lighter
+[script-free native NRPN scene](controllers/oxi-e16-nrpn/) that lets E16 merge
+Monolit TRS input into its direct USB connection to Move. The published
+installer remains 0.29.1. See the [MIDI guide](docs/midi.html); rebuild the
+Remote ZIP with `npm run controllers:package` or the combined native bundle
+with `npm run controllers:nrpn:package`.
+
+When moving from test.38 to test.39, install the new module and replace the
+THRU NM scene on E16. Test.39 prevents an uninitialized native scene from
+forcing the Engine page to minimum values and repairs the exact saved
+test.38 zero-sweep state on first load.
+
+The same test build adds selectable NRPN, eight-knob Generic CC, MNLT, E16
+Remote and combined NRPN + MNLT parameter modes, plus stereo-linked
+[Priority Duck](docs/effects.html#priority-duck) for Split and Shared
+Dual. A Light Reft Monolit Split / Shared Dual preset and programming checklist are in
+[controllers/lightreft-monolit](controllers/lightreft-monolit/). Import the
+supplied preset with the official Monolit Web-Editor. Its faders place A and B
+side by side; all paired buttons remain local Motion controls.
+
 ## Build from source
 
-Requirements are Node.js 18 or newer, a native C++17 compiler for tests, and an
+Requirements are Node.js 18 or newer and a native C++17 compiler
+for tests, and an
 AArch64 Linux C++ cross-compiler for the Move package.
 
 On macOS:

@@ -4,20 +4,20 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Playback engines - s3g Thru manual</title>
-    <meta name="description" content="Choose among the thirteen playback engines in s3g Thru, including Motion, Grains, Weave, Wavesets, Cutups, and Glitch.">
+    <meta name="description" content="Choose among the fifteen playback engines in s3g Thru, including Motion, Grains, Weave, Wavesets, Cutups, and Glitch.">
     <link rel="stylesheet" href="assets/styles.css">
   </head>
   <body>
     <header class="site-header">
       <a class="brand" href="index.html">s3g Thru <span>manual</span></a>
-      <nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav>
+      <nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="midi.html">MIDI</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav>
     </header>
 
     <div class="page-shell">
       <main class="content" id="content">
         <p class="eyebrow">Sound layer</p>
         <h1>Playback engines</h1>
-        <p class="lead">Thirteen engines reinterpret the same four stereo lanes. Start here to compare them, then open an engine guide for every parameter, option, range, and interaction on its contextual pages.</p>
+        <p class="lead">Fifteen engines reinterpret the same four stereo lanes. Start here to compare them, then open an engine guide for every parameter, option, range, and interaction on its contextual pages.</p>
 
         <figure>
           <div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/engine-page.svg" aria-label="Open the Engine page figure"><img src="assets/screens/engine-page.svg" alt="Engine page with algorithm and seven shared playback controls"></button></div>
@@ -43,6 +43,8 @@
 <a class="manual-card engine-card" href="engine-morph.html"><h3>Morph</h3><p>Blend the spectral amplitudes and frequencies of a source with those of the next lane, or use Imprint for envelope-driven articulation. The two controls move independently, making hybrid sounds that go beyond a volume crossfade.</p><span>Stack Path + 1 unique page · 19 total</span></a>
 <a class="manual-card engine-card" href="engine-texture.html"><h3>Texture</h3><p>A held note becomes a small sample phrase: scattered events, grouped bursts, repeated pitch contours, or ornaments. Each note keeps its own source path and a bounded set of overlapping stereo events.</p><span>Stack Path + 1 unique page · 19 total</span></a>
         <a class="manual-card engine-card" href="engine-formant.html"><h3>Formant</h3><p>Play pitch-synchronous sample grains with keyboard pitch and resonant character controlled independently.</p><span>Stack Path + 1 unique page · 19 total</span></a>
+        <a class="manual-card engine-card" href="engine-stochastic.html"><h3>Stochastic</h3><p>Evolving timing and gain deformations keep recorded audio moving through bounded random walks.</p><span>Stack Path + 1 unique page · 19 total</span></a>
+<a class="manual-card engine-card" href="engine-pulsar.html"><h3>Pulsar</h3><p>Windowed sample fragments form pitched pulse trains, with independent pulse duration, omission, burst groups and timing jitter, modulation, scatter and reverse probability.</p><span>Stack Path + 2 unique pages</span></a>
         </div>
 
         <p>Page totals describe Single mode with a named Stack Path. Selecting Draw adds the Path Editor page for engines that use Stack Path.</p>
@@ -52,7 +54,7 @@
         <table class="readout-table parameter-table">
           <thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>What it controls</th></tr></thead>
           <tbody>
-            <tr><td>1</td><td>ALG</td><td>13 choices</td><td>Algorithm selects Motion, Lanes, Grains, Cutups, Sample, Slices, Glitch, Weave, Wavesets, Prism, Morph, Texture, or Formant. Up/Down then shows the pages for that engine.</td></tr>
+            <tr><td>1</td><td>ALG</td><td>15 choices</td><td>Algorithm selects Motion, Lanes, Grains, Cutups, Sample, Slices, Glitch, Weave, Wavesets, Prism, Morph, Texture, Formant, Stochastic, or Pulsar. Up/Down then shows the pages for that engine.</td></tr>
             <tr><td>2</td><td>POS</td><td>0.00–1.00</td><td>Position centers the active source window. Near either end, the window is clamped so it never extends beyond the sample.</td></tr>
             <tr><td>3</td><td>FLD</td><td>0.02–1.00</td><td>Field sets the active window width as a fraction of the sample. See <a href="interface.html#zoom">Waveform zoom</a>. Single zooms all four lanes together; Split gives each part its own window. Shared Dual zooms all four lanes to the focused instrument’s POS/FLD, including during playback; the other side does not widen that view.</td></tr>
             <tr><td>4</td><td>SPD</td><td>0.05–4.00×</td><td>Speed sets base source transport. In Grains and Weave it moves grain origins independently of keyboard pitch; the other engines, including Wavesets, combine it with note pitch as described in their guides.</td></tr>
@@ -70,7 +72,7 @@
         <p>This page follows Engine for every playback algorithm. It chooses what the 32 pads do and, in Keys mode, whether they use the original chromatic layout or a folded scale layout.</p>
 
         <figure>
-          <div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/pads-scale.svg" aria-label="Open the shared Pads and Scale page figure"><img src="assets/screens/pads-scale.svg" alt="Shared Pads and Scale page with Pad Mode, Root, Scale, Hold Off, Poly Comp, Pressure, and two reserved encoder positions"></button></div>
+          <div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/pads-scale.svg" aria-label="Open the shared Pads and Scale page figure"><img src="assets/screens/pads-scale.svg" alt="Shared Pads and Scale page with Pad Mode, Root, Scale, Hold Off, Poly Comp, Pressure, Engine List controls, and pressure depth in ONE mode"></button></div>
           <figcaption>Named scales illuminate the playable grid dark neutral grey and mark every tonic pad full white. Active voices use their voice-slot colors; a latch turns to the matching dim color when its stored pitch is outside the current pad mapping.</figcaption>
         </figure>
 
@@ -82,17 +84,91 @@
             <tr><td>3</td><td>SCAL</td><td>Chromatic + 24 scales</td><td>Chromatic preserves the original semitone grid. A named scale removes out-of-scale pitches and maps adjacent columns to consecutive scale degrees.</td></tr>
             <tr><td>4</td><td>HOLD</td><td>Manual / 50 ms–60 s</td><td>Keeps Shift+pad latches active until toggled, or schedules their release with one delay per instrument: shared across Single, independent for A and B in either dual mode.</td></tr>
             <tr><td>5</td><td>POLY</td><td>Off / On</td><td>Polyphony Compensation smoothly controls summed energy as simultaneous source voices and Rolls increase. One voice remains unchanged. Turn it off only when intentional additive buildup is part of the sound.</td></tr>
-            <tr><td>6</td><td>PRES</td><td>Off / Offset</td><td>Pressure enables per-pad pressure offsets through the stack for the focused instrument. A and B keep independent settings. Reserved in Quad, where each part has only one lane.</td></tr>
-            <tr><td>7–8</td><td>Reserved</td><td>—</td><td>Inactive positions available for future pad-layout controls.</td></tr>
+            <tr><td>6</td><td>PRES</td><td>Off / Offset / Brake / Char / Both</td><td>Pressure behavior for each note: stack offset, temporary scan braking, engine character, or offset and character together. Quad offers Off and Char. See <a href="#pressure">Pressure expression</a>.</td></tr>
+            <tr><td>7</td><td>ENGS</td><td>One / List</td><td>Engine assignment: One uses one algorithm for the part. List selects each new note’s engine from the saved entries using the assignment chosen on Voice Setup.</td></tr>
+            <tr><td>8</td><td>ORDR / DPTH</td><td>6 orders / 0–100%</td><td>List order in Touch assignment: Up, Down, Rand, Cycle Up, Cycle Down or Shuffle. With ENGS One, this cell sets pressure depth when pressure is enabled. With a keyboard assignment, order is reserved. In List mode, depth appears on Voice Setup.</td></tr>
           </tbody>
         </table>
         <p>Storing a cue also remembers the owning part's latest playhead lane/blend. Recall holds that blend and aligns the Stack Start value with it. Turn Stack Start to move the held blend; this leaves the stored cue unchanged. Loop resumes the scan. Delete + cue pad clears it. Cues saved by older releases remain time-only until stored again.</p>
 
         <p>Named scales retain an overlapping isomorphic shape: each row begins three scale degrees above the row below. Up/Down moves the complete layout by octaves. Scale affects the Move pads only; external MIDI and notes already stored in a performance clip are not quantized or rewritten.</p>
 
+        <h2 id="engine-list">Engine List: different engines in one chord</h2>
+        <p>On Pads &amp; Scale, set <strong>ENGS</strong> to <strong>LIST</strong>. The Voice Engines and Voice Setup pages appear immediately after it. Each encoder assigns an algorithm to one entry: eight in Single, four per part in Split or Shared Dual, and two per part in Quad. Unavailable entries show reserved boxes. Each part keeps its own list and order.</p>
+        <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/voice-engines.svg" aria-label="Open the Voice Engines page"><img src="assets/screens/voice-engines.svg" alt="Eight engine entries with E2 selected for editing"></button></div><figcaption>Knobs 1–8 assign algorithms. Turn the main encoder to select an entry; its label is underlined. Click to open its engine controls. Back returns to the list.</figcaption></figure>
+        <table class="readout-table parameter-table"><thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>What it controls</th></tr></thead><tbody>
+          <tr><td>1–8</td><td>E1–E8</td><td>13 engines</td><td>Algorithm for that list entry. Only entries within the part's voice budget are available.</td></tr>
+          <tr><td>Main encoder</td><td>Underline</td><td>Available entries</td><td>Turn to choose the entry whose engine pages you want to edit; click to open them. Their titles show E1, E2, and so on.</td></tr>
+        </tbody></table>
+        <p><strong>UP</strong> chooses the lowest free entry; <strong>DOWN</strong> chooses the highest. <strong>RAND</strong> chooses uniformly among the currently free entries. With all four entries free, Grains, Grains, Sample, Weave gives Grains a 50% chance and each other engine 25%. Holding a note removes its entry from subsequent Touch choices until note-off. Keyboard assignments can give more than one note the same entry.</p>
+        <p>Each note keeps its assigned engine through its release, even if you edit that entry. Note-off makes the list entry available again while its old tail continues where voice capacity permits. The total remains eight source voices: four per part in either dual mode or two per part in Quad. Normal voice stealing and its fade safeguards still apply. Rolls capture the active audio rather than choosing a new source engine.</p>
+        <p>Click into an entry to use the existing engine pages. Changing ALG there changes that entry. Entries using the same engine share that part's engine-specific controls. Voice Setup adds four independent offsets for each entry; these are captured by new notes, rather than changing notes already sounding. Position, Field, stack controls, envelope, scale, sources and effects also remain shared within the part. The waveform header shows LIST or LST, and each playhead uses its actual engine's cursor behavior. Playhead LED colors continue to identify physical voices.</p>
+        <p>Lists, order and selected edit entry save with clips and follow part/clip copies. Performance recording stores the resolved engine, list entry and four entry offsets of each note, including notes held before recording starts. RAND therefore replays the captured choices. Changing a list does not rewrite recorded note assignments; record a new performance to capture a different distribution. Returning ENGS to ONE applies the edited algorithm to new live notes; already active notes retain their assignments.</p>
+        <p>Use Move to set up the list. ALG on the E16 Remote Engine page edits the selected entry's algorithm for each part. E16’s engine-specific pages edit the selected entry’s parameters. For a custom controller, use the <a href="midi.html#engine-list-midi">Engine List NRPN addresses</a>.</p>
+
+        <h3 id="keyboard-engines">Play engines by keyboard position</h3>
+        <p>Degree and Register assignment give notes consistent engine roles. Assignment follows note pitch, so overlapping pads that play the same note select the same entry. Each part can use its own assignment.</p>
+        <ol>
+          <li>In a multi-part mode, tap Capture to focus the part you want to set up. Press Menu and open <strong>Pads &amp; Scale</strong>.</li>
+          <li>Set knob 1, <strong>PADS</strong>, to <strong>KEYS</strong>, and knob 7, <strong>ENGS</strong>, to <strong>LIST</strong>. Choose Root and Scale with knobs 2 and 3.</li>
+          <li>Open the next page, <strong>Voice Engines</strong>. Assign an engine to each available entry with its corresponding knob: eight entries in Single, four per part in either dual mode, or two per part in Quad.</li>
+          <li>Open <strong>Voice Setup</strong>. Turn knob 2, <strong>ASSN</strong>, to <strong>DEGR</strong> or <strong>REG</strong>.</li>
+          <li>Press Menu to return to the waveform and play. The same note selects the same entry regardless of playing order or which other notes are held.</li>
+        </ol>
+        <p><strong>DEGR — scale degree:</strong> with C Major in Single mode, C selects E1, D selects E2, E selects E3, and so on through B at E7. C in another octave returns to E1. Assign Sample to E1, Grains to E2 and Weave to E3 to hear the first three degrees use those engines. When a part has fewer entries than scale degrees, the mapping wraps through its available entries.</p>
+        <p><strong>REG — register:</strong> the part’s current keyboard pitch range is divided into bands across its available entries. Lower notes select earlier entries and higher notes select later entries. The bands follow the keyboard octave and scale layout. Incoming MIDI notes beyond that range select its first or last entry.</p>
+        <p>Several notes can use the same entry while keeping separate playheads within the part’s voice budget. ORDR becomes reserved during Degree or Register assignment. Choose <strong>TOUCH</strong> on Voice Setup to use Up, Down, Random, Cycle or Shuffle again. Use EDIT on Voice Setup to choose an entry before adjusting its octave, source start, stack offset or pan; those offsets apply after engine assignment.</p>
+
+        <h3 id="voice-orders">Orders and keyboard assignment</h3>
+        <table class="readout-table parameter-table"><thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>What it controls</th></tr></thead><tbody>
+          <tr><td>Pads &amp; Scale 8</td><td>ORDR</td><td>UP / DOWN</td><td>Choose the lowest or highest free list entry for each new note. Playing one note at a time normally reuses the same entry.</td></tr>
+          <tr><td>Pads &amp; Scale 8</td><td>ORDR</td><td>RAND</td><td>Choose uniformly among free entries. Repeated algorithms increase their chance of selection.</td></tr>
+          <tr><td>Pads &amp; Scale 8</td><td>ORDR</td><td>CYC+ / CYC-</td><td>Cycle Up or Down: continue to the next free entry on every new note. A single-note phrase travels through the list. Held entries are skipped.</td></tr>
+          <tr><td>Pads &amp; Scale 8</td><td>ORDR</td><td>SHUF</td><td>Shuffle the available entries, visiting each before another pass. Held entries are unavailable; if all remaining entries are held, a new pass starts among the free ones. Repeated algorithms remain separate entries.</td></tr>
+          <tr><td>Voice Setup 2</td><td>ASSN</td><td>TOUCH</td><td>Use ORDR to assign each note. Traversal is independent for each part and restarts on clip recall or an instrument-mode change.</td></tr>
+          <tr><td>Voice Setup 2</td><td>ASSN</td><td>DEGR</td><td>Degree: map scale degrees to entries, starting at E1 for the root and wrapping when there are more degrees than entries. The same degree uses the same entry in every octave. Chromatic uses twelve semitone degrees. Out-of-scale MIDI notes choose the nearest degree for engine assignment while retaining their original pitch.</td></tr>
+          <tr><td>Voice Setup 2</td><td>ASSN</td><td>REG</td><td>Register: divide the current part's keyboard pitch range into equal-width note bands. Low bands use lower entries, high bands use higher entries. Root, Scale and keyboard octave determine that range; external notes beyond it use the end entries.</td></tr>
+        </tbody></table>
+        <p>Degree and Register use the incoming note before its entry octave offset. They do not depend on which other keys are held; several simultaneous notes may use the same entry. They are intended for Keys playing or pitched MIDI input. Pad modes that use one fixed note also select one fixed keyboard entry. ORDR is reserved while a keyboard assignment is selected.</p>
+        <h3 id="voice-setup">Voice Setup: entry variations</h3>
+        <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/voice-setup.svg" aria-label="Open Voice Setup"><img src="assets/screens/voice-setup.svg" alt="Entry 2 setup with assignment, octave, source offset, stack offset, pan and pressure depth"></button></div><figcaption>Turn the main encoder or knob 1 to select an entry. Click the main encoder to open its engine pages; Back returns here. Knobs 3–6 belong to the selected entry. ASSN and DPTH belong to the whole part.</figcaption></figure>
+        <table class="readout-table parameter-table"><thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>What it controls</th></tr></thead><tbody>
+          <tr><td>1</td><td>EDIT</td><td>Available entries</td><td>Entry selected for variation and engine editing.</td></tr>
+          <tr><td>2</td><td>ASSN</td><td>Touch / Degree / Register</td><td>How incoming notes select entries; see the table above.</td></tr>
+          <tr><td>3</td><td>OCTV</td><td>−2 to +2</td><td>Octave offset added to keyboard pitch before the engine's normal pitch limits. This does not change which entry Degree or Register selects.</td></tr>
+          <tr><td>4</td><td>SPOS</td><td>−100 to +100%</td><td>Source launch offset through the selected playback region or path. Negative values wrap backward; a full turn returns to the starting phase. It works with a full-width Field and leaves POS/FLD unchanged. Grain modes apply it to their source origins; Cutups starts later in its region-order cycle. An explicit frozen source can retain its captured position.</td></tr>
+          <tr><td>5</td><td>STAK</td><td>−100 to +100%</td><td>Stack phase offset for scanning engines. Cutups applies a bounded lane-selection offset; Sample and Slices shift their chosen loaded lane within the part. Reserved in Quad, which has one lane per part.</td></tr>
+          <tr><td>6</td><td>PAN</td><td>−100 to +100%</td><td>Place the entry toward left or right. Centre preserves the original stereo image; either extreme folds both channels to that side without adding gain.</td></tr>
+          <tr><td>7</td><td>DPTH</td><td>0–100%</td><td>Pressure depth for the part, shared by all entries. Scales Offset and Character; in Brake it adjusts the pressure needed to catch the scan.</td></tr>
+          <tr><td>8</td><td>Reserved</td><td>—</td><td>Available for a future control.</td></tr>
+        </tbody></table>
+        <p>Changing OCTV, SPOS, STAK or PAN affects new notes. Existing notes keep their launch values through release, and recorded notes keep the values captured during their performance. A useful starting point is two entries of the same engine with different octaves, start phases and pan positions. No extra source voices or per-entry effects are added.</p>
+        <h3 id="pressure">Pressure expression</h3>
+        <p>Choose PRES on Pads &amp; Scale. Pressure affects each pressed note independently and never uses strike velocity as a volume control. DPTH is on that page in One mode, or on Voice Setup in List mode. Choose pressure mode and depth before recording: they save with the clip as setup, while the pressure gestures themselves are recorded.</p>
+        <p><strong>Character and Voice Setup:</strong> PRES chooses the pressure behavior for the whole part. With CHAR selected, every pressed note uses its assigned engine’s character treatment. Voice Setup’s EDIT selection chooses the entry whose settings you are editing; pressure expression follows each played note. DPTH sets the strength for all notes in that part.</p>
+        <table class="readout-table"><thead><tr><th>Display</th><th>What it controls</th></tr></thead><tbody>
+          <tr><td>OFF</td><td>Ignore pressure expression.</td></tr>
+          <tr><td>OFFSET</td><td>The existing pressure offset through the stack, scaled by DPTH.</td></tr>
+          <tr><td>BRAKE</td><td>Keep a note pad held and increase pressure to catch its current lane or between-lane blend. Relax pressure to resume scanning from the caught point. The audio playhead keeps moving, and other notes keep their own scans. Higher DPTH makes the catch easier. Loop holds the whole part’s scan.</td></tr>
+          <tr><td>CHAR</td><td>Apply the engine character treatment below, with a short smoothing time. Each voice responds separately.</td></tr>
+          <tr><td>BOTH</td><td>Combine Offset and Character with the same pressure gesture.</td></tr>
+        </tbody></table>
+        <table class="readout-table"><thead><tr><th>Engine</th><th>Character treatment</th></tr></thead><tbody>
+          <tr><td>Grains</td><td>Increase grain density, up to the normal density and grain-voice limits.</td></tr>
+          <tr><td>Weave</td><td>Widen grain stereo spread toward its maximum.</td></tr>
+          <tr><td>Prism</td><td>Increase spectral smear.</td></tr>
+          <tr><td>Morph</td><td>Increase amplitude-envelope blending or Imprint amount, according to its mode.</td></tr>
+          <tr><td>Texture</td><td>Increase event scatter.</td></tr>
+          <tr><td>Pulsar</td><td>Raise FORM for a shorter, more compressed pulsaret.</td></tr>
+          <tr><td>Stochastic</td><td>Increase amplitude and timing mutation toward their maximum for that note.</td></tr>
+          <tr><td>Formant</td><td>Raise formant shift by up to one octave, within the existing shift limits; keyboard pitch stays separate.</td></tr>
+          <tr><td>Motion, Lanes, Cutups, Sample, Slices, Glitch, Wavesets</td><td>Darken that voice with a smooth low-pass color. This avoids repeatedly changing discrete reader settings.</td></tr>
+        </tbody></table>
+        <p>Character is per-voice modulation: engine pages and MIDI feedback continue to show the saved base settings. Quad offers OFF and CHAR because its parts do not have a multi-lane scan to offset or brake. Move polyphonic pressure and external MIDI polyphonic aftertouch are supported. The recorder includes pressure already held when recording starts and captures later MIDI pressure by note and part. Recorded engine choices and entry offsets remain fixed; pressure continues to shape each replayed voice.</p>
+
         <h2 id="amp-envelope">Shared Amp Envelope page</h2>
 
-        <p>Amp Envelope follows Pads &amp; Scale for every playback algorithm. It shapes the amplitude of each of the eight source voices independently after that voice's playback engine. Pad velocity does not change amplitude.</p>
+        <p>Amp Envelope follows Pads &amp; Scale, or Voice Engines when LIST is enabled, for every playback algorithm. It shapes the amplitude of each of the eight source voices independently after that voice's playback engine. Pad velocity does not change amplitude.</p>
 
         <figure>
           <div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/amp-envelope.svg" aria-label="Open the shared Amp Envelope page figure"><img src="assets/screens/amp-envelope.svg" alt="Breakpoint Amp Envelope page showing attack, decay, sustain, gate boundary, and release"></button></div>
@@ -153,7 +229,7 @@
         <table class="readout-table parameter-table">
           <thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>What it controls</th></tr></thead>
           <tbody>
-            <tr><td>1</td><td>PATH</td><td>13 choices</td><td>Chooses Down, Up, Triangle, Sine, Steps Down, Steps Up, Manual, Random, or an editable Draw route through the stack.</td></tr>
+            <tr><td>1</td><td>PATH</td><td>15 choices</td><td>Chooses Down, Up, Triangle, Sine, Steps Down, Steps Up, Manual, Random, or an editable Draw route through the stack.</td></tr>
             <tr><td>2</td><td>BLND</td><td>Crossfade / Jump</td><td>Crossfade blends adjacent loaded lanes; Jump selects the nearer loaded lane.</td></tr>
             <tr><td>3</td><td>SHAP</td><td>Linear / Smooth / Exponential / Plateau</td><td>Changes the contour of the path before it becomes a lane position.</td></tr>
             <tr><td>4</td><td>OFST</td><td>0.00–1.00</td><td>Rotates the path through one complete cycle without changing Scan Rate.</td></tr>
@@ -243,9 +319,9 @@
       </main>
 
       <aside class="toc" aria-label="Page navigation">
-        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
+        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="midi.html">MIDI</a><a href="shortcuts.html">Shortcuts</a></div>
         <div class="toc-section"><h2>Instrument modes</h2><a href="playing.html">Single · Basic playing</a><a href="modes.html">Compare modes</a><a href="split.html">Split</a><a href="shared-dual.html">Shared Dual</a><a href="quad.html">Quad</a></div>
-        <div class="toc-section"><h2>Engine guides</h2><a href="engine-motion.html">Motion</a><a href="engine-lanes.html">Lanes</a><a href="engine-grains.html">Grains</a><a href="engine-cutups.html">Cutups</a><a href="engine-sample.html">Sample</a><a href="engine-slices.html">Slices</a><a href="engine-glitch.html">Glitch</a><a href="engine-weave.html">Weave</a><a href="engine-wavesets.html">Wavesets</a><a href="engine-prism.html">Prism</a><a href="engine-morph.html">Morph</a><a href="engine-texture.html">Texture</a><a href="engine-formant.html">Formant</a></div>
+        <div class="toc-section"><h2>Engine guides</h2><a href="engine-motion.html">Motion</a><a href="engine-lanes.html">Lanes</a><a href="engine-grains.html">Grains</a><a href="engine-cutups.html">Cutups</a><a href="engine-sample.html">Sample</a><a href="engine-slices.html">Slices</a><a href="engine-glitch.html">Glitch</a><a href="engine-weave.html">Weave</a><a href="engine-wavesets.html">Wavesets</a><a href="engine-prism.html">Prism</a><a href="engine-morph.html">Morph</a><a href="engine-texture.html">Texture</a><a href="engine-formant.html">Formant</a><a href="engine-stochastic.html">Stochastic</a><a href="engine-pulsar.html">Pulsar</a></div>
         <div class="toc-section"><h2>On this page</h2><a href="#choose">Choose</a><a href="#shared">Engine page</a><a href="#pads-scale">Pads &amp; Scale</a><a href="#amp-envelope">Amp Envelope</a><a href="#stack-path">Stack Path</a><a href="#path-editor">Path Editor</a><a href="#direct-play">Direct Play</a><a href="#compare">Compare</a><a href="#voices">Shared behavior</a></div>
       </aside>
     </div>

@@ -12,6 +12,7 @@
 #include <cstring>
 #include <string>
 #include <vector>
+#include "test_clip_format_helpers.h"
 #include <dirent.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -1059,10 +1060,10 @@ void recordLane(plugin_api_v2_t* api, void* instance,
     waitForBackgroundAudio(api, instance);
     api->set_param(instance, "record_lane", std::to_string(lane).c_str());
     fillInput(level);
-    midi(api, instance, 0xB0, 52, 127, MOVE_MIDI_SOURCE_EXTERNAL);
+    api->set_param(instance, "record_gate", "1");
     assert(get(api, instance, "recording") == "1");
     render(api, instance, blocks);
-    midi(api, instance, 0xB0, 52, 0, MOVE_MIDI_SOURCE_EXTERNAL);
+    api->set_param(instance, "record_gate", "0");
     assert(get(api, instance, "recording") == "0");
     render(api, instance, 6);
     waitForBackgroundAudio(api, instance);
@@ -1156,6 +1157,7 @@ void downgradeClipBankToV17(const std::string& path)
     std::vector<std::uint8_t> bytes(static_cast<std::size_t>(st.st_size)-4u);
     auto* file=std::fopen(path.c_str(),"rb");assert(file);
     assert(std::fread(bytes.data(),1,bytes.size(),file)==bytes.size());std::fclose(file);
+    stripVoiceEngineExtension(bytes);
     if(littleU32(bytes,8)==23u){assert(bytes.size()>37128);bytes.resize(bytes.size()-37128);bytes[8]=19;}
     if(littleU32(bytes,8)==22u){assert(bytes.size()>29448);bytes.resize(bytes.size()-29448);bytes[8]=19;}
     if(littleU32(bytes,8)==21u){assert(bytes.size()>25608);bytes.resize(bytes.size()-25608);bytes[8]=19;}
@@ -1786,7 +1788,7 @@ int main()
     const CcCheck ccChecks[] {
         {20, "locus", "1.0000"}, {21, "field", "1.0000"},
         {22, "speed", "4.0000"}, {23, "manual_lane", "4.0000"},
-        {24, "lane_cycles", "16.0000"}, {25, "algorithm", "12"},
+        {24, "lane_cycles", "16.0000"}, {25, "algorithm", "14"},
         {26, "join", "1.0000"}, {27, "output_gain", "2.0000"},
         {28, "motion_mode", "7"}, {29, "motion_sound", "7"},
         {30, "motion_rate", "20.0000"}, {31, "lanes_mode", "2"},
@@ -1840,22 +1842,19 @@ int main()
         {126, "segment_curve", "1.0000"},
     };
     for (const auto& check : ccChecks) {
-        api->set_param(instance,"algorithm","Motion"); // Legacy map; contextual new-engine CCs have separate coverage.
+        const std::string before = get(api, instance, check.key);
         midi(api, instance, 0xB0, static_cast<std::uint8_t>(check.cc), 127,
              MOVE_MIDI_SOURCE_EXTERNAL);
         const std::string actual = get(api, instance, check.key);
-        if (actual != check.high) {
-            std::fprintf(stderr, "CC %d %s: expected %s, got %s\n",
-                check.cc, check.key, check.high, actual.c_str());
+        if (actual != before) {
+            std::fprintf(stderr, "obsolete CC %d changed %s: before %s, got %s\n",
+                check.cc, check.key, before.c_str(), actual.c_str());
         }
-        assert(actual == check.high);
+        assert(actual == before);
     }
+    const std::string internalLocus = get(api, instance, "locus");
     midi(api, instance, 0xB0, 20, 0, MOVE_MIDI_SOURCE_INTERNAL);
-    assert(get(api, instance, "locus") == "1.0000");
-    assert(get(api, instance, "midi_map").find("53 clear_lane") != std::string::npos);
-    assert(get(api, instance, "midi_map").find("54 tempo_bpm") != std::string::npos);
-    assert(get(api, instance, "midi_map").find("56 clip_playing") != std::string::npos);
-    assert(get(api, instance, "midi_map").find("58 chain_clear") != std::string::npos);
+    assert(get(api, instance, "locus") == internalLocus);
     api->set_param(instance, "clip_playing", "0");
     api->set_param(instance, "state", defaultState.c_str());
     api->set_param(instance, "monitor_level", "0");
@@ -2142,7 +2141,7 @@ int main()
     api->set_param(instance, "clip_record", "1");
     assert(stateField(get(api, instance, "clip_state"), 5) == 4);
     assert(stateField(get(api, instance, "clip_state"), 6)
-        == pointsBeforeSecondTake + 1);
+        == pointsBeforeSecondTake + 2); // Initial pad pressure plus the Field gesture.
     assert(stateField(get(api, instance, "clip_take_state"), 0) == 3);
 
     /* Chains are a persistent ordered list with independent repeat counts. */
@@ -2164,7 +2163,7 @@ int main()
     assert(get(api, instance, "chain_entries").rfind(
         "1:1:2,1:2:1,0:0:1", 0u) == 0u);
     api->set_param(instance, "chain_slot", "2");
-    midi(api, instance, 0xB0, 58, 127, MOVE_MIDI_SOURCE_EXTERNAL);
+    api->set_param(instance, "chain_clear", "1");
     assert(get(api, instance, "chain_entries").rfind("1:1:2,0:0:1", 0u)
         == 0u);
     api->set_param(instance, "chain_clip", "3");
@@ -2727,7 +2726,7 @@ int main()
     const std::string capacity = get(api, instance, "clip_capacity_state");
     assert(stateField(capacity, 0) == 1024);
     assert(stateField(capacity, 1) == 1024);
-    assert(stateField(capacity, 2) == 2);
+    assert(stateField(capacity, 2) == 3); // Locus, stack hold, and one coalesced initial pressure endpoint.
     assert(stateField(capacity, 3) == 8192);
     assert(stateField(capacity, 4) == 1);
     api->set_param(instance, "clip_reset", "63");
@@ -2826,7 +2825,7 @@ int main()
     midi(api, instance, 0x80, 64, 0);
     render(api, instance, 40);
     const std::string longGrainState = get(api, instance, "state");
-    assert(longGrainState.find("\"version\":17") != std::string::npos);
+    assert(longGrainState.find("\"version\":19") != std::string::npos);
     assert(longGrainState.find("\"long_grain_length\":12000.00000")
         != std::string::npos);
 
@@ -3458,7 +3457,7 @@ int main()
 
     /* Clearing is a bounded engine transition and does not disturb lane 1. */
     api->set_param(instance, "record_lane", "4");
-    midi(api, instance, 0xB0, 53, 127, MOVE_MIDI_SOURCE_EXTERNAL);
+    api->set_param(instance, "clear_lane", "1");
     render(api, instance, 8);
     ui = get(api, instance, "ui_state");
     assert((stateField(ui, 1) & 0x8) == 0);
@@ -3517,7 +3516,7 @@ int main()
     api->set_param(instance, "algorithm", "Motion");
     api->set_param(instance, "cue_store", "2,0.625");
     const std::string state = get(api, instance, "state");
-    assert(state.find("\"version\":17") != std::string::npos);
+    assert(state.find("\"version\":19") != std::string::npos);
     assert(state.find("\"scale\":20") != std::string::npos);
     assert(state.find("\"clip_record_mode\":1") != std::string::npos);
     assert(state.find("\"monitor_level\"") == std::string::npos);
@@ -3641,7 +3640,7 @@ int main()
         == sizeof(clipMagic));
     assert(std::memcmp(clipMagic, "S3GTHR3", 7u) == 0);
     assert(std::fread(&clipVersion, sizeof(clipVersion), 1u, clipFile) == 1u);
-    assert(clipVersion == 23u);
+    assert(clipVersion == 31u);
     std::fclose(stateFile);
     std::fclose(laneFile);
     std::fclose(clipFile);
@@ -3839,7 +3838,7 @@ int main()
     assert(std::fread(clipMagic, 1u, sizeof(clipMagic), clipFile)
         == sizeof(clipMagic));
     assert(std::fread(&clipVersion, sizeof(clipVersion), 1u, clipFile) == 1u);
-    assert(clipVersion == 23u);
+    assert(clipVersion == 31u);
     assert(std::fclose(clipFile) == 0);
 
     std::remove(statePath.c_str());

@@ -106,7 +106,8 @@ void testImprintStateAndFormat20() {
     std::vector<unsigned char> bytes(static_cast<std::size_t>(size) - 4);
     assert(std::fread(bytes.data(), 1, bytes.size(), file) == bytes.size());
     std::fclose(file);
-    constexpr std::size_t extension = 8 + 64 * 5 * (kLockParameterCount-kVersion19LockParameterCount) * 4;
+    stripVoiceEngineExtension(bytes);
+    constexpr std::size_t extension = 8 + 64 * 5 * (kVersion25LockParameterCount-kVersion19LockParameterCount) * 4;
     assert(bytes.size() > extension);
     const auto at = bytes.size() - extension;
     std::vector<unsigned char> old(bytes.begin(), bytes.begin() + at);
@@ -118,7 +119,7 @@ void testImprintStateAndFormat20() {
     append(0x4e455731u);
     append(19);
     for (std::size_t group = 0; group < 64 * 5; ++group) {
-        const auto offset = at + 8 + group * (kLockParameterCount-kVersion19LockParameterCount) * 4;
+        const auto offset = at + 8 + group * (kVersion25LockParameterCount-kVersion19LockParameterCount) * 4;
         old.insert(old.end(), bytes.begin() + offset, bytes.begin() + offset + 19 * 4);
     }
     std::uint32_t checksum = 2166136261u;

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="740" viewBox="0 0 1200 740" role="img" aria-labelledby="title desc">
   <title id="title">s3g Thru Split audio signal flow</title>
-  <desc id="desc">A and B each have two stereo lanes, four source voices, private Color and Rotary inserts, and independent level and mute. Blend sets their contributions to the dry sum and parallel Delay and Reverb sends. Shared returns join the dry sum. This example places Tape after both returns, before the program compressor and final limiter.</desc>
+  <desc id="desc">A and B each have two stereo lanes, four source voices, private Color and Rotary inserts, independent level and mute, and optional priority duck gain. Blend sets their contributions to the dry sum and parallel Delay and Reverb sends. Shared returns join the dry sum. This example places Tape after both returns, before the program compressor and final limiter.</desc>
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" markerWidth="8" markerHeight="8" refX="9" refY="5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0L10 5L0 10Z" fill="#202020"/></marker>
     <style>
@@ -16,7 +16,7 @@
     </style>
   </defs>
   <rect width="1200" height="740" fill="#fff"/>
-  <text x="40" y="48" class="legend" font-weight="700">SPLIT AUDIO PATH · TAPE AFTER BOTH RETURNS</text>
+  <text x="40" y="48" class="legend" font-weight="700">SPLIT AUDIO PATH · PRIORITY DUCK · TAPE AFTER BOTH RETURNS</text>
   <line x1="40" y1="63" x2="1150" y2="63" stroke="#202020" stroke-width="1.5"/>
 
   <g aria-hidden="true">
@@ -46,8 +46,8 @@
   <text x="412" y="180" class="sub">→ Stereo / Rotary</text>
   <rect x="595" y="100" width="170" height="95" class="box"/>
   <text x="680" y="132" class="title">A PART MIX</text>
-  <text x="680" y="158" class="small">LEVL · MUTE</text>
-  <text x="680" y="180" class="sub">A share of Blend</text>
+  <text x="680" y="158" class="small">LEVL · MUTE · BLEND</text>
+  <text x="680" y="180" class="sub">duck gain when B &gt; A</text>
 
   <rect x="40" y="290" width="190" height="95" class="soft"/>
   <text x="135" y="322" class="title">B · LANES 3–4</text>
@@ -59,8 +59,8 @@
   <text x="412" y="370" class="sub">→ Stereo / Rotary</text>
   <rect x="595" y="290" width="170" height="95" class="box"/>
   <text x="680" y="322" class="title">B PART MIX</text>
-  <text x="680" y="348" class="small">LEVL · MUTE</text>
-  <text x="680" y="370" class="sub">B share of Blend</text>
+  <text x="680" y="348" class="small">LEVL · MUTE · BLEND</text>
+  <text x="680" y="370" class="sub">duck gain when A &gt; B</text>
 
   <rect x="815" y="85" width="330" height="345" class="group"/>
   <text x="980" y="116" class="title">DRY + PARALLEL SENDS</text>
@@ -73,15 +73,16 @@
   <rect x="835" y="305" width="290" height="65" class="box"/>
   <text x="980" y="331" class="title">REVERB SEND</text>
   <text x="980" y="355" class="small">AREV × A + BREV × B</text>
-  <text x="980" y="405" class="sub">Sends follow part level, mute, and Blend.</text>
+  <text x="980" y="395" class="sub">ROUT Dry + Sends applies duck gain here.</text>
+  <text x="980" y="414" class="sub">ROUT Dry leaves sends unducked.</text>
 
   <text x="757" y="421" class="small">DRY</text>
   <rect x="815" y="470" width="150" height="70" class="soft"/>
   <text x="890" y="498" class="title">DELAY</text>
-  <text x="890" y="523" class="small">DRTN return</text>
+  <text x="890" y="523" class="small">MIX return</text>
   <rect x="995" y="470" width="150" height="70" class="soft"/>
   <text x="1070" y="498" class="title">REVERB</text>
-  <text x="1070" y="523" class="small">RRTN return</text>
+  <text x="1070" y="523" class="small">MIX return</text>
 
   <circle cx="700" cy="610" r="14" class="box"/>
   <text x="700" y="616" class="title">+</text>

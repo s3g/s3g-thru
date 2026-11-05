@@ -11,7 +11,8 @@ const releaseMetadata = readJson('release.json');
 
 const version = moduleMetadata.version;
 const expectedTag = `v${version}`;
-const suppliedTag = process.argv[2] || expectedTag;
+const localTest = process.argv.includes('--local') && /-test\.\d+$/.test(version);
+const suppliedTag = process.argv.find((arg,index)=>index>1&&!arg.startsWith('--')) || expectedTag;
 const assetName = 's3g-thru-module.tar.gz';
 const expectedUrl = `https://github.com/s3g/s3g-thru/releases/download/${expectedTag}/${assetName}`;
 const releaseNotes = path.join(
@@ -23,11 +24,13 @@ assert(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(version),
     `src/module.json has an invalid semantic version: ${version}`);
 assert(packageMetadata.version === version,
     `package.json version ${packageMetadata.version} does not match module version ${version}`);
-assert(releaseMetadata.version === version,
+assert(localTest || releaseMetadata.version === version,
     `release.json version ${releaseMetadata.version} does not match module version ${version}`);
 assert(suppliedTag === expectedTag,
     `release tag ${suppliedTag} does not match module version ${version}; expected ${expectedTag}`);
-assert(releaseMetadata.download_url === expectedUrl,
+const installerUrl = localTest ? `https://github.com/s3g/s3g-thru/releases/download/v${releaseMetadata.version}/${assetName}` : expectedUrl;
+assert(!localTest || /^\d+\.\d+\.\d+$/.test(releaseMetadata.version), 'Local test builds must keep a stable installer manifest');
+assert(releaseMetadata.download_url === installerUrl,
     `release.json download_url must be ${expectedUrl}`);
 assert(fs.existsSync(releaseNotes),
     `missing release notes: ${path.relative(repoDir, releaseNotes)}`);

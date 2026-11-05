@@ -1,0 +1,63 @@
+section,bank,control,midi_channel,cc,assignment,notes
+part,A,1,9 A / 10 B / 11 C / 12 D,16,Algorithm,Same CC on each dedicated part channel
+part,A,2,9 A / 10 B / 11 C / 12 D,17,Position,Same CC on each dedicated part channel
+part,A,3,9 A / 10 B / 11 C / 12 D,18,Field,Same CC on each dedicated part channel
+part,A,4,9 A / 10 B / 11 C / 12 D,19,Speed,Same CC on each dedicated part channel
+part,A,5,9 A / 10 B / 11 C / 12 D,20,Stack Start or Lane,Part and engine aware
+part,A,6,9 A / 10 B / 11 C / 12 D,21,Stack Rate or Cutups Advance,Part and engine aware
+part,A,7,9 A / 10 B / 11 C / 12 D,22,Join,Same CC on each dedicated part channel
+part,A,8,9 A / 10 B / 11 C / 12 D,23,Part Level or Output,Part Level in multi-part modes
+part,B,1,9 A / 10 B / 11 C / 12 D,24,Stack Path,Unavailable cells are reserved
+part,B,2,9 A / 10 B / 11 C / 12 D,25,Stack Blend,Unavailable cells are reserved
+part,B,3,9 A / 10 B / 11 C / 12 D,26,Stack Shape,Unavailable cells are reserved
+part,B,4,9 A / 10 B / 11 C / 12 D,27,Stack Offset,Unavailable cells are reserved
+part,B,5,9 A / 10 B / 11 C / 12 D,28,Stack Skew,Unavailable cells are reserved
+part,B,6,9 A / 10 B / 11 C / 12 D,29,Stack Curve,Unavailable cells are reserved
+part,B,7,9 A / 10 B / 11 C / 12 D,30,Stack Slew,Unavailable cells are reserved
+part,B,8,9 A / 10 B / 11 C / 12 D,31,Reserved,No action
+part,C,1-8,9 A / 10 B / 11 C / 12 D,32-39,Engine detail page 1,Adaptive to the addressed part algorithm
+part,D,1-8,9 A / 10 B / 11 C / 12 D,40-47,Engine detail page 2,Adaptive to the addressed part algorithm
+part,E,1-8,9 A / 10 B / 11 C / 12 D,48-55,Engine detail page 3,Adaptive to the addressed part algorithm
+part,F,1-8,9 A / 10 B / 11 C / 12 D,56-63,Engine detail page 4,Adaptive to the addressed part algorithm
+part,G,1,9 A / 10 B / 11 C / 12 D,64,Part Level,Same CC on each dedicated part channel
+part,G,2,9 A / 10 B / 11 C / 12 D,65,Delay Send,Same CC on each dedicated part channel
+part,G,3,9 A / 10 B / 11 C / 12 D,66,Reverb Send,Same CC on each dedicated part channel
+part,G,4,9 A / 10 B / 11 C / 12 D,67,Part Mute,Same CC on each dedicated part channel
+part,G,5,9 A / 10 B / 11 C / 12 D,68,Tone,Same CC on each dedicated part channel
+part,G,6,9 A / 10 B / 11 C / 12 D,69,Drive,Same CC on each dedicated part channel
+part,G,7,9 A / 10 B / 11 C / 12 D,70,Bits,Same CC on each dedicated part channel
+part,G,8,9 A / 10 B / 11 C / 12 D,71,Rate,Same CC on each dedicated part channel
+part,H,1,9 A / 10 B / 11 C / 12 D,72,Stereo Cross Pan,Same CC on each dedicated part channel
+part,H,2,9 A / 10 B / 11 C / 12 D,73,Rotary Rate,Same CC on each dedicated part channel
+part,H,3,9 A / 10 B / 11 C / 12 D,74,Rotary Depth,Same CC on each dedicated part channel
+part,H,4,9 A / 10 B / 11 C / 12 D,75,Rotary Spread,Same CC on each dedicated part channel
+part,H,5,9 A / 10 B / 11 C / 12 D,76,Rotary Ramp,Same CC on each dedicated part channel
+part,H,6,9 A / 10 B / 11 C / 12 D,77,Rotary Balance,Same CC on each dedicated part channel
+part,H,7,9 A / 10 B / 11 C / 12 D,78,Rotary Crossover,Same CC on each dedicated part channel
+part,H,8,9 A / 10 B / 11 C / 12 D,79,Rotary Mix,Same CC on each dedicated part channel
+shared,Crossfade,1,13,24,A/B Crossfade,0 A / 64 center / 127 B; Split and Shared Dual
+shared,Crossfade,2,13,25,A/B Crossfade Curve,0-63 Linear / 64-127 Equal Power; Split and Shared Dual
+shared,Priority,1,13,26,Priority Direction / Depth,0 A ducks B 24 dB / 64 Off / 127 B ducks A 24 dB
+shared,Priority,2,13,27,Priority Threshold,-60 to 0 dBFS
+shared,Priority,3,13,28,Priority Attack,1 to 250 ms; logarithmic
+shared,Priority,4,13,29,Priority Hold,0 to 1000 ms
+shared,Priority,5,13,30,Priority Release,10 to 3000 ms; logarithmic
+shared,Priority,6,13,31,Priority Detector HPF,20 to 2000 Hz; logarithmic
+shared,Priority,7,13,32,Priority Knee,0 to 24 dB
+shared,Priority,8,13,33,Priority Route,0-63 Dry / 64-127 Dry + Sends
+shared,H,1,13,72,Clip Rate,Shared
+shared,H,2,13,73,Record Mode,Shared
+shared,H,3,13,74,Clip Timing,Shared
+shared,H,4,13,75,Launch Quantize,Shared
+shared,H,5,13,76,Tempo BPM,Shared
+shared,H,6,13,77,Tempo Swing,Shared
+shared,H,7,13,78,Pattern Fade Time,Shared
+shared,H,8,13,79,Pattern Fade Curve,Shared
+command,Actions,1,13,16,Toggle Stack Hold A,Momentary 0/127
+command,Actions,2,13,17,Toggle Stack Hold B,Momentary 0/127
+command,Actions,3,13,18,Toggle Stack Hold C,Momentary 0/127
+command,Actions,4,13,19,Toggle Stack Hold D,Momentary 0/127
+command,Actions,5,13,20,Toggle Clip Record,Momentary 0/127
+command,Actions,6,13,21,Toggle Pattern Fade Hold,Momentary 0/127
+command,Actions,7,13,22,Panic,Momentary 0/127
+command,Actions,8,13,23,Reserved,No action

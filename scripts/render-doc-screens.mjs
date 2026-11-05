@@ -255,7 +255,9 @@ globalThis.fill_rect = (x, y, width, height, color) => {
     frame.push({ type: 'rect', x, y, width, height, color });
 };
 
+globalThis.__thruMidi=await import('../src/midi-map.mjs');
 let source = fs.readFileSync(path.join(repoRoot, 'src', 'ui.js'), 'utf8');
+source = source.replace(/import \* as thruMidi[^;]+;/,'const thruMidi=globalThis.__thruMidi;');
 source = source.replace(
     /import \* as moveConstants[^;]+;/,
     'const moveConstants = globalThis.__moveConstants;');
@@ -365,6 +367,7 @@ function selectCurrentIntegerParam(key, target, control = 71) {
 function captureEnginePages(algorithm, pages) {
     selectAlgorithm(algorithm);
     moveSettingsPage(1); // Shared Pads & Scale page.
+    moveSettingsPage(1); // Shared MIDI Control page.
     moveSettingsPage(1); // Shared Amp Envelope page.
     for (const page of pages) {
         moveSettingsPage(1);
@@ -372,7 +375,7 @@ function captureEnginePages(algorithm, pages) {
             capture(page.filename, page.title, page.heading);
         }
     }
-    moveSettingsPage(-(pages.length + 2));
+    moveSettingsPage(-(pages.length + 3));
 }
 
 globalThis.init();
@@ -427,17 +430,35 @@ moveSettingsPage(1);
 capture('pads-scale.svg', 'Shared Pads and Scale parameter page',
     'PADS & SCALE');
 moveSettingsPage(1);
+capture('midi-control.svg', 'Selectable MIDI controller mode page',
+    'MIDI CONTROL');
+moveSettingsPage(1);
 capture('amp-envelope.svg', 'Shared breakpoint amplitude envelope page',
     'AMP ENVELOPE');
-moveSettingsPage(-1);
-moveSettingsPage(-1);
+moveSettingsPage(-3);
+
+// Engine List is an optional page; restore ONE before the standard engine examples.
+{
+    const doc=globalThis.__docSplit,oldPage=doc.state.settingsPage,oldAlgorithm=doc.state.algorithm,oldAlgorithmValue=doc.params.algorithm.value;
+    doc.params.voice_engine_mode.value=1;doc.params.voice_engine_edit.value=2;doc.state.algorithm=2;doc.params.algorithm.value=2;
+    [4,2,7,3,8,9,10,12].forEach((a,i)=>doc.params['voice_engine_'+(i+1)].value=a);
+    doc.state.settingsPage=doc.pages().findIndex(p=>p.voiceEngines);doc.redraw();
+    capture('voice-engines.svg','Engine List with eight assignments and entry 2 selected','VOICE ENGINES');
+    Object.assign(doc.params.voice_engine_octave,{value:-1});doc.params.voice_engine_assign.value=1;
+    doc.params.voice_engine_position.value=25;doc.params.voice_engine_stack.value=20;doc.params.voice_engine_pan.value=-60;doc.params.voice_engine_depth.value=75;
+    doc.state.settingsPage=doc.pages().findIndex(p=>p.voiceSetup);doc.redraw();
+    capture('voice-setup.svg','Voice Setup for entry 2 with keyboard assignment and launch variations','E2 VOICE SETUP');
+    doc.params.voice_engine_assign.value=0;doc.params.voice_engine_octave.value=0;doc.params.voice_engine_position.value=0;doc.params.voice_engine_stack.value=0;doc.params.voice_engine_pan.value=0;doc.params.voice_engine_depth.value=100;
+
+    doc.params.voice_engine_mode.value=0;doc.params.voice_engine_edit.value=1;doc.state.settingsPage=oldPage;doc.state.algorithm=oldAlgorithm;doc.params.algorithm.value=oldAlgorithmValue;
+}
 
 captureEnginePages(0, [
     { filename: 'stack-path.svg', title: 'Shared Stack Path parameter page', heading: 'STACK PATH' },
     { filename: 'motion-path.svg', title: 'Motion Path parameter page', heading: 'MOTION PATH' },
     { filename: 'motion-sound.svg', title: 'Motion Sound parameter page', heading: 'MOTION SOUND' },
 ]);
-moveSettingsPage(5);
+moveSettingsPage(6);
 selectCurrentIntegerParam('motion_sound', 1);
 moveSettingsPage(1);
 capture('motion-packets.svg', 'Motion Packets parameter page', 'PACKETS');
@@ -453,7 +474,7 @@ capture('motion-event-clock.svg', 'Motion Event Clock parameter page',
 moveSettingsPage(1);
 capture('motion-event-shape.svg', 'Motion Event Shape parameter page',
     'EVENT SHAPE');
-moveSettingsPage(-7);
+moveSettingsPage(-8);
 captureEnginePages(1, [
     {},
     { filename: 'lanes-play.svg', title: 'Lanes Play parameter page', heading: 'LANES PLAY' },
@@ -492,7 +513,7 @@ captureEnginePages(8, [
 ]);
 
 selectAlgorithm(1);
-moveSettingsPage(6);
+moveSettingsPage(7);
 capture('effects.svg', 'Effects parameter page', 'EFFECTS');
 moveSettingsPage(1);
 capture('effects-stereo-rotary.svg', 'Stereo and Rotary effects parameter page',
@@ -552,12 +573,17 @@ tick();
 capture('help-timing.svg','On-device render CPU and wait report','RENDER TIMING');
 cc(63);tick(3);
 capture('help-shortcuts.svg', 'On-device shortcut help');
+cc(63);tick(3);
+capture('help-e16.svg','On-device E16 connection and recovery report','E16 LINK');
 
 // Split examples use the same live draw code and parameter pages as the device.
 Object.assign(params, {
     algorithm:'4', record_lane:'1', manual_lane:'1.4',
     split_blend:'0.5', split_level_a:'1', split_level_b:'0.85',
     split_delay_a:'0.2', split_delay_b:'0.45', split_reverb_a:'0.6', split_reverb_b:'0.3', split_curve:'1',
+    split_priority:'-12',split_duck_threshold:'-24',split_duck_attack:'12',
+    split_duck_hold:'40',split_duck_release:'220',split_duck_hpf:'100',
+    split_duck_knee:'6',split_duck_route:'1',
     effect_order:'7', effect_order_state:'7,7,0', effect_mix:'100',effect_reverb_mix:'100',
     split_state:JSON.stringify({enabled:1,focus:0,blend:.5,parts:[
         {algorithm:4,root:60,octave:0,scale:1,mode:0,hold:0,mute:0,position:.25,window:[.1,.5]},
@@ -587,6 +613,7 @@ const splitExamples=[
     ['ENGINE','split-engine.svg','A Engine and Part Level'],
     ['DUAL SETUP','split-setup.svg','Dual Setup'],
     ['PART COLOR','split-color.svg','A Part Color'],
+    ['PRIORITY DUCK','split-priority.svg','Shared Priority Duck'],
     ['DELAY RETURN','split-delay.svg','Shared Delay Return'],
     ['REVERB','split-reverb.svg','Shared Reverb parameters'],
     ['FX ORDER','split-order.svg','Shared Split FX Order']
@@ -699,13 +726,21 @@ params.chain_state='1,0,1,1,2,0,2,0,0,-1,-1';params.chain_effective_fade='0,1,0,
 pathDoc.state.view='settings';pathDoc.state.settingsPage=pathDoc.pages().findIndex(p=>p.chainTools);
 pathDoc.state.actionMessageTicks=0;pathDoc.redraw();capture('chain-tools.svg','Chain and Entry Copy/Paste with numbered encoders and wider text spacing');
 
-for(const [algorithm,title,filename] of [[9,'PRISM','prism'],[10,'MORPH','morph'],[11,'TEXTURE','texture'],[12,'FORMANT','formant']]) {
+for(const [algorithm,title,filename] of [[9,'PRISM','prism'],[10,'MORPH','morph'],[11,'TEXTURE','texture'],[12,'FORMANT','formant'],[13,'STOCHASTIC','stochastic'],[14,'PULSAR','pulsar']]) {
     Object.assign(params,{algorithm:String(algorithm),prism_mode:'4',texture_mode:'2',pattern_fade_state:'0,0,-1,-1,0,0,0,0,0,0,0,0,0',
         spectral_analysis_state:'15,0',morph_pair:'1>2',split_state:JSON.stringify({enabled:0,shared:0,quad:0,focus:0,parts:Array.from({length:2},()=>({algorithm,root:60,octave:0,scale:0,mode:0,mute:0}))})});
+    if(algorithm===14)Object.assign(params,{pulsar_rate:'261.625565',pulsar_form:'500',pulsar_size:'4',pulsar_window:'0',pulsar_skew:'50',pulsar_omit:'0',pulsar_burst:'0',pulsar_jitter:'0',pulsar_source_hold:'0'});
+    if(algorithm===13)Object.assign(params,{stochastic_source_hold:'0',stochastic_size:'2',stochastic_amplitude:'65',stochastic_timing:'70',stochastic_evolution:'100',stochastic_memory:'80',stochastic_pull:'10',stochastic_law:'2',stochastic_drift:'0'});
     if(algorithm===12)Object.assign(params,{formant_tune:'100',formant_freeze:'1',formant_keytrack:'0',formant_rough:'0',formant_sub:'0'});
     globalThis.init();tick(82);const ui=globalThis.__docSplit;ui.state.view='settings';
     ui.state.settingsPage=ui.pages().findIndex(p=>p.title===title);if(ui.state.settingsPage<0)throw new Error('Missing '+title+' page');ui.state.actionMessageTicks=0;ui.redraw();capture(filename+'.svg',title+' engine parameters',title);
 }
+
+Object.assign(params,{algorithm:'14',pulsar_emit_mod_rate:'0.13',pulsar_emit_mod_depth:'6',pulsar_form_mod_rate:'1.7',pulsar_form_mod_depth:'12',pulsar_spray:'20',pulsar_form_variation:'3',pulsar_reverse:'50',pulsar_keytrack:'100'});globalThis.init();tick(82);const pulsarModDoc=globalThis.__docSplit;pulsarModDoc.state.view='settings';pulsarModDoc.state.settingsPage=pulsarModDoc.pages().findIndex(p=>p.title==='PULSAR MOD');pulsarModDoc.state.actionMessageTicks=0;pulsarModDoc.redraw();capture('pulsar-mod.svg','Pulsar modulation and source variation example','PULSAR MOD');
+
+Object.assign(params,{algorithm:'13',stochastic_source_hold:'1',stochastic_evolution:'1024'});globalThis.init();tick(82);const stochasticDoc=globalThis.__docSplit;stochasticDoc.state.view='settings';stochasticDoc.state.settingsPage=stochasticDoc.pages().findIndex(p=>p.title==='STOCHASTIC');stochasticDoc.state.actionMessageTicks=0;stochasticDoc.redraw();capture('stochastic-held.svg','Stochastic source hold and Cycle evolution','STOCHASTIC');
+
+Object.assign(params,{algorithm:'13',stochastic_law:'3',stochastic_capture:'65',stochastic_source_hold:'1'});globalThis.init();tick(82);const listenerDoc=globalThis.__docSplit;listenerDoc.state.view='settings';listenerDoc.state.settingsPage=listenerDoc.pages().findIndex(p=>p.stochastic);listenerDoc.state.actionMessageTicks=0;listenerDoc.redraw();capture('stochastic-listener.svg','Stochastic listener capture with conditional CAPT knob','STOCHASTIC');
 
 Object.assign(params,{algorithm:'10',morph_mode:'1',morph_amplitude:'100',morph_pair:'1>2',split_state:JSON.stringify({enabled:0,shared:0,quad:0,focus:0,parts:Array.from({length:2},()=>({algorithm:10,root:60,octave:0,scale:0,mode:0,mute:0}))})});
 globalThis.init();tick(82);const imprintDoc=globalThis.__docSplit;imprintDoc.state.view='settings';imprintDoc.state.settingsPage=imprintDoc.pages().findIndex(p=>p.title==='MORPH');imprintDoc.state.actionMessageTicks=0;imprintDoc.redraw();capture('morph-imprint.svg','Morph Imprint envelope transfer','MORPH');

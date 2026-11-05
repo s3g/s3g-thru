@@ -8,11 +8,11 @@
     <link rel="stylesheet" href="assets/styles.css">
   </head>
   <body>
-    <header class="site-header"><a class="brand" href="index.html">s3g Thru <span>manual</span></a><nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav></header>
+    <header class="site-header"><a class="brand" href="index.html">s3g Thru <span>manual</span></a><nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="midi.html">MIDI</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav></header>
 
     <div class="page-shell">
       <main class="content" id="content">
-        <p class="eyebrow">Playback engine 10 of 13</p>
+        <p class="eyebrow">Playback engine 10 of 15</p>
         <h1>Prism</h1><p class="lead">Spectral frames become a playable instrument. Scan the recording, sustain a selected frame, hold only its amplitudes or frequencies, or accumulate a slowly changing spectral memory.</p>
         <div class="callout"><p><strong>Good for:</strong> Sustained tones from short recordings, spectral drones, softened sample travel, and playable freezes.</p></div>
         <h2 id="pages">Pages and navigation</h2>
@@ -29,7 +29,7 @@
           <tr><td>7</td><td>□</td><td>Reserved</td><td>Reserved for a future control.</td></tr>
           <tr><td>8</td><td>□</td><td>Reserved</td><td>Reserved for a future control.</td></tr>
         </tbody></table>
-        <p><strong>MIDI:</strong> CCs 40–45 address the first six engine-page knobs. Texture Spread and Seed use CCs 28 and 29. Values are absolute 0–127, scaled to the displayed range. Unused slots are reserved; the MIDI channel selects the part as described in <a href="shortcuts.html#midi">External MIDI</a>.</p>
+        <p><strong>MIDI:</strong> NRPN control follows the Prism parameters. These controls are available on E16’s engine-specific pages and through NRPN. Its mode determines which controls are available, including Decay in Accumulate mode. The fixed NRPN addresses use channels 5–8 for A–D; note pitches use channels 1–4. See <a href="midi.html">MIDI control</a> for the current map, setup and feedback.</p>
         <h2 id="playing">Playing, lanes, and preparation</h2>
 <p>Notes set pitch. Speed controls movement through the source independently. The shared Amp Envelope sets note attack and release. Single provides eight note voices; both dual modes provide four per part; Quad provides two per part. Each note follows its own stack path and phase. Loop holds stack travel in Single and dual modes.</p>
 <p>Source analysis runs in the background after loading, recording, or editing a lane. <code>SPECTRAL PREPARING</code> means the spectral source is not ready yet; wait for preparation to finish. Newly prepared data is shared by all notes. These engines resynthesize spectral frames, so they can sound softer or more diffuse than direct Sample playback. They do not pass through the unprocessed sample.</p>
@@ -38,9 +38,9 @@
 <nav class="page-nav" aria-label="Page navigation"><a class="page-nav-link" href="engine-wavesets.html"><span>Previous</span>Wavesets</a><a class="page-nav-link next" href="engine-morph.html"><span>Next</span>Morph</a></nav>
       </main>
       <aside class="toc" aria-label="Page navigation">
-        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
+        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="midi.html">MIDI</a><a href="shortcuts.html">Shortcuts</a></div>
         <div class="toc-section"><h2>Instrument modes</h2><a href="playing.html">Single · Basic playing</a><a href="modes.html">Compare modes</a><a href="split.html">Split</a><a href="shared-dual.html">Shared Dual</a><a href="quad.html">Quad</a></div>
-        <div class="toc-section"><h2>Engine guides</h2><a href="engine-motion.html">Motion</a><a href="engine-lanes.html">Lanes</a><a href="engine-grains.html">Grains</a><a href="engine-cutups.html">Cutups</a><a href="engine-sample.html">Sample</a><a href="engine-slices.html">Slices</a><a href="engine-glitch.html">Glitch</a><a href="engine-weave.html">Weave</a><a href="engine-wavesets.html">Wavesets</a><a href="engine-prism.html">Prism</a><a href="engine-morph.html">Morph</a><a href="engine-texture.html">Texture</a><a href="engine-formant.html">Formant</a></div>
+        <div class="toc-section"><h2>Engine guides</h2><a href="engine-motion.html">Motion</a><a href="engine-lanes.html">Lanes</a><a href="engine-grains.html">Grains</a><a href="engine-cutups.html">Cutups</a><a href="engine-sample.html">Sample</a><a href="engine-slices.html">Slices</a><a href="engine-glitch.html">Glitch</a><a href="engine-weave.html">Weave</a><a href="engine-wavesets.html">Wavesets</a><a href="engine-prism.html">Prism</a><a href="engine-morph.html">Morph</a><a href="engine-texture.html">Texture</a><a href="engine-formant.html">Formant</a><a href="engine-stochastic.html">Stochastic</a><a href="engine-pulsar.html">Pulsar</a></div>
         <div class="toc-section"><h2>On this page</h2><a href="#pages">Pages</a><a href="#parameters">Parameters</a><a href="#playing">Playing</a><a href="#starts">Starting points</a></div>
       </aside>
     </div>

@@ -1,8 +1,9 @@
-/* s3g Thru 0.29.1 — polyphonic sampler/performance-looper takeover for Move. */
+/* s3g Thru 0.30.0-test.39 — polyphonic sampler/performance-looper takeover for Move. */
 
 import * as moveConstants from '/data/UserData/schwung/shared/constants.mjs';
 import * as moveInputFilter from '/data/UserData/schwung/shared/input_filter.mjs';
 import * as os from 'os';
+import * as thruMidi from './midi-map.mjs';
 
 function constant(name, fallback) {
     const value = moveConstants[name];
@@ -88,11 +89,11 @@ const setButtonLED = typeof moveInputFilter.setButtonLED === 'function'
         }
     };
 
-const UI_VERSION = '0.29.1';
-const HELP_PAGE_COUNT=4;
+const UI_VERSION = '0.30.0-test.39';
+const HELP_PAGE_COUNT=5;
 const WAVE_BINS = 112;
 const ALGORITHMS = ['MOTION', 'LANES', 'GRAINS', 'CUTUPS', 'SAMPLE', 'SLICES',
-    'GLITCH', 'WEAVE', 'WAVESETS', 'PRISM', 'MORPH', 'TEXTURE', 'FORMANT'];
+    'GLITCH', 'WEAVE', 'WAVESETS', 'PRISM', 'MORPH', 'TEXTURE', 'FORMANT', 'STOCH', 'PULSAR'];
 const ROLL_DIVISIONS = ['1/4', '1/8', '1/8T', '1/16', '1/16T', '1/32'];
 const SCALE_LABELS = [
     'CHROMATIC', 'MAJOR', 'MINOR', 'DORIAN', 'MIXOLYDIAN', 'LYDIAN',
@@ -139,6 +140,21 @@ const parameterEncoderMotion = Array.from({ length: 8 }, () => ({
 }));
 
 const PARAMS = {
+    midi_control_mode:{key:'midi_control_mode',label:'MIDI MODE',shortLabel:'MODE',min:0,max:6,step:1,value:0,integer:true,labels:['AUTO','NRPN','CC','MNLT','E16','N+M','OFF']},
+    midi_cc_channel:{key:'midi_cc_channel',label:'CC CHANNEL',shortLabel:'CCCH',min:1,max:16,step:1,value:9,integer:true},
+    midi_cc_base:{key:'midi_cc_base',label:'CC BASE',shortLabel:'BASE',min:0,max:120,step:1,value:20,integer:true},
+    midi_takeover:{key:'midi_takeover',label:'TAKEOVER',shortLabel:'TAKE',min:0,max:1,step:1,value:0,integer:true,labels:['PICK','JUMP']},
+    midi_control_part:{key:'midi_control_part',label:'CONTROL PART',shortLabel:'PART',min:0,max:3,step:1,value:0,integer:true,labels:['A','B','C','D']},
+    voice_engine_assign:{key:'voice_engine_assign',label:'ASSIGNMENT',shortLabel:'ASSN',min:0,max:2,step:1,value:0,integer:true,labels:['TOUCH','DEGREE','REGISTER']},
+    voice_engine_octave:{key:'voice_engine_octave',label:'ENTRY OCTAVE',shortLabel:'OCTV',min:-2,max:2,step:1,value:0,integer:true},
+    voice_engine_position:{key:'voice_engine_position',label:'SOURCE OFFSET',shortLabel:'SPOS',min:-100,max:100,step:2,value:0,integer:false},
+    voice_engine_stack:{key:'voice_engine_stack',label:'STACK OFFSET',shortLabel:'STAK',min:-100,max:100,step:2,value:0,integer:false},
+    voice_engine_pan:{key:'voice_engine_pan',label:'ENTRY PAN',shortLabel:'PAN',min:-100,max:100,step:2,value:0,integer:false},
+    voice_engine_depth:{key:'voice_engine_depth',label:'PRESSURE DEPTH',shortLabel:'DPTH',min:0,max:100,step:2,value:100,integer:false},
+    voice_engine_mode:{key:'voice_engine_mode',label:'ENGINES',shortLabel:'ENGS',min:0,max:1,step:1,value:0,integer:true,labels:['ONE','LIST']},
+    voice_engine_order:{key:'voice_engine_order',label:'LIST ORDER',shortLabel:'ORDR',min:0,max:5,step:1,value:0,integer:true,labels:['UP','DOWN','RAND','CYC+','CYC-','SHUF']},
+    voice_engine_edit:{key:'voice_engine_edit',label:'EDIT SLOT',min:1,max:8,step:1,value:1,integer:true},
+    ...Object.fromEntries(Array.from({length:8},(_,i)=>['voice_engine_'+(i+1),{key:'voice_engine_'+(i+1),label:'SLOT '+(i+1),shortLabel:'E'+(i+1),min:0,max:14,step:1,value:0,integer:true,labels:ALGORITHMS}])),
     split_mode: {key:'split_mode',label:'MODE',min:0,max:3,step:1,value:0,integer:true,labels:['SINGLE','SPLIT','SHARED','QUAD']},
     split_focus: {key:'split_focus',label:'EDIT PART',min:0,max:3,step:1,value:0,integer:true,labels:['A','B','C','D']},
     split_copy: {key:'split_copy',label:'COPY OTHER',min:0,max:1,step:1,value:0,integer:true,labels:['TURN','COPY'],momentary:true,result:'COPIED OTHER PART'},
@@ -157,6 +173,14 @@ const PARAMS = {
     split_reverb_a: {key:'split_reverb_a',label:'A REVERB',min:0,max:1,step:.01,value:0},
     split_reverb_b: {key:'split_reverb_b',label:'B REVERB',min:0,max:1,step:.01,value:0},
     split_curve: {key:'split_curve',label:'CURVE',min:0,max:1,step:1,value:1,integer:true,labels:['LINEAR','POWER']},
+    split_priority: {key:'split_priority',label:'A B PRIORITY',min:-24,max:24,step:.5,value:0,unit:'dB'},
+    split_duck_threshold: {key:'split_duck_threshold',label:'THRESHOLD',min:-60,max:0,step:.5,value:-24,unit:'dBFS'},
+    split_duck_attack: {key:'split_duck_attack',label:'ATTACK',min:1,max:250,step:1,value:12,unit:'ms'},
+    split_duck_hold: {key:'split_duck_hold',label:'HOLD',min:0,max:1000,step:5,value:40,unit:'ms'},
+    split_duck_release: {key:'split_duck_release',label:'RELEASE',min:10,max:3000,step:10,value:220,unit:'ms'},
+    split_duck_hpf: {key:'split_duck_hpf',label:'DETECTOR HPF',min:20,max:2000,step:10,value:100,unit:'Hz'},
+    split_duck_knee: {key:'split_duck_knee',label:'KNEE',min:0,max:24,step:.5,value:6,unit:'dB'},
+    split_duck_route: {key:'split_duck_route',label:'ROUTE',min:0,max:1,step:1,value:1,integer:true,labels:['DRY','DRY + SENDS']},
     locus: { key: 'locus', label: 'POSITION', min: 0, max: 1, step: 0.01, value: 0.5 },
     field: { key: 'field', label: 'FIELD', min: 0.02, max: 1, step: 0.01, value: 1 },
     speed: { key: 'speed', label: 'SPEED', min: 0.05, max: 4, step: 0.02, value: 1 },
@@ -169,6 +193,35 @@ const PARAMS = {
     prism_pitch: {"key":"prism_pitch","min":-24,"max":24,"step":1,"label":"PRISM TRANSPOSE","value":0},
     prism_tilt: {"key":"prism_tilt","min":-100,"max":100,"step":2,"label":"SPECTRAL TILT","value":0},
     prism_smear: {"key":"prism_smear","min":0,"max":100,"step":2,"label":"FREQUENCY SMEAR","value":0},
+    pulsar_emit_mod_rate: {"key":"pulsar_emit_mod_rate","label":"ERAT","min":0.01,"max":20,"value":0.13,"step":0.01,"unit":"Hz"},
+    pulsar_emit_mod_depth: {"key":"pulsar_emit_mod_depth","label":"EDEP","min":0,"max":24,"value":0,"step":0.25,"unit":"st"},
+    pulsar_form_mod_rate: {"key":"pulsar_form_mod_rate","label":"FRAT","min":0.01,"max":20,"value":1.7,"step":0.01,"unit":"Hz"},
+    pulsar_form_mod_depth: {"key":"pulsar_form_mod_depth","label":"FDEP","min":0,"max":24,"value":0,"step":0.25,"unit":"st"},
+    pulsar_spray: {"key":"pulsar_spray","label":"SPRY","min":0,"max":100,"value":0,"step":2,"unit":"%"},
+    pulsar_form_variation: {"key":"pulsar_form_variation","label":"FVAR","min":0,"max":24,"value":0,"step":0.25,"unit":"st"},
+    pulsar_reverse: {"key":"pulsar_reverse","label":"REV%","min":0,"max":100,"value":0,"step":2,"unit":"%"},
+    pulsar_keytrack: {"key":"pulsar_keytrack","label":"KEYT","min":0,"max":100,"value":0,"step":2,"unit":"%"},
+    pulsar_rate: {"key":"pulsar_rate","label":"RATE","min":0.1,"max":2000,"value":261.625565,"step":0.1,"unit":"Hz"},
+    pulsar_form: {"key":"pulsar_form","label":"FORM","min":20,"max":2000,"value":500,"step":0.1,"unit":"Hz"},
+    pulsar_size: {"key":"pulsar_size","label":"SIZE","min":0.5,"max":100,"value":4,"step":0.01,"unit":"ms"},
+    pulsar_window: {"key":"pulsar_window","label":"WIN","min":0,"max":4,"value":0,"step":1,"integer":true,"labels":["HANN","BELL","TAPR","PERC","REV"]},
+    pulsar_skew: {"key":"pulsar_skew","label":"SKEW","min":0,"max":100,"value":50,"step":2,"unit":"%"},
+    pulsar_omit: {"key":"pulsar_omit","label":"OMIT","min":0,"max":100,"value":0,"step":2,"unit":"%"},
+    pulsar_burst: {"key":"pulsar_burst","label":"BRST","min":0,"max":8,"value":0,"step":1,"integer":true,"labels":["CONT","2:1","3:1","4:1","1:1","2:2","3:3","4:4","8:8"]},
+    pulsar_jitter: {"key":"pulsar_jitter","label":"JITT","min":0,"max":100,"value":0,"step":2,"unit":"%"},
+    pulsar_source_hold: {"key":"pulsar_source_hold","label":"SOURCE HOLD","min":0,"max":1,"value":0,"step":1,"integer":true,"labels":["OFF","ON"]},
+    pulsar_hold_position: {"key":"pulsar_hold_position","label":"HELD POSITION","min":0,"max":1,"value":0.5,"step":0.1},
+    stochastic_source_hold: {key:"stochastic_source_hold",label:"SOURCE HOLD",min:0,max:1,step:1,value:0,integer:true},
+    stochastic_hold_position: {key:"stochastic_hold_position",label:"HELD SOURCE POSITION",min:0,max:1,step:0.001,value:.5},
+    stochastic_size: {"key":"stochastic_size","label":"SIZE","min":1,"max":64,"step":1,"value":2,"integer":true},
+    stochastic_amplitude: {"key":"stochastic_amplitude","label":"AMPLITUDE MUTATION","min":0,"max":100,"step":2,"value":65,"unit":"%"},
+    stochastic_timing: {"key":"stochastic_timing","label":"TIMING MUTATION","min":0,"max":100,"step":2,"value":70,"unit":"%"},
+    stochastic_evolution: {"key":"stochastic_evolution","label":"EVOLUTION RATE","min":0,"max":1024,"step":0.25,"value":100},
+    stochastic_memory: {"key":"stochastic_memory","label":"WALK MEMORY","min":0,"max":100,"step":2,"value":80,"unit":"%"},
+    stochastic_capture: {key:"stochastic_capture",label:"LISTENER CAPTURE",min:0,max:100,step:2,value:65,unit:"%"},
+    stochastic_pull: {"key":"stochastic_pull","label":"SOURCE ATTRACTION","min":0,"max":100,"step":2,"value":10,"unit":"%"},
+    stochastic_law: {"key":"stochastic_law","label":"WALK LAW","min":0,"max":3,"step":1,"value":2,"integer":true,"labels":["SMTH","FLAT","WIDE","LSTN"]},
+    stochastic_drift: {"key":"stochastic_drift","label":"PERIOD DRIFT","min":0,"max":100,"step":2,"value":0,"unit":"%"},
     formant_pitch: {key:'formant_pitch',label:'FORMANT TRANSPOSE',min:-24,max:24,step:1,value:0},
     formant_shift: {key:'formant_shift',label:'FORMANT SHIFT',min:-24,max:24,step:1,value:0},
     formant_smoothing: {key:'formant_smoothing',label:'FORMANT SMOOTHING',min:5,max:200,step:5,value:30},
@@ -191,7 +244,7 @@ const PARAMS = {
     texture_group: {"key":"texture_group","min":2,"max":8,"step":1,"label":"TEXTURE GROUP SIZE","value":4,"integer":true},
     texture_spread: {"key":"texture_spread","min":0,"max":100,"step":2,"label":"TEXTURE STEREO SPREAD","value":50},
     texture_seed: {"key":"texture_seed","min":1,"max":9999,"step":1,"label":"TEXTURE SEED","value":1,"integer":true},
-    algorithm: { key: 'algorithm', label: 'ALGORITHM', min: 0, max: 12, step: 1, value: 0, integer: true, labels: ALGORITHMS },
+    algorithm: { key: 'algorithm', label: 'ALGORITHM', min: 0, max: 14, step: 1, value: 0, integer: true, labels: ALGORITHMS },
     join: { key: 'join', label: 'JOIN', min: 0, max: 1, step: 0.01, value: 1 },
     output_gain: { key: 'output_gain', label: 'LEVEL', min: 0, max: 2, step: 0.02, value: 1 },
     polyphony_comp: { key: 'polyphony_comp', label: 'POLY COMP', min: 0, max: 1, step: 1, value: 1, integer: true, labels: ['OFF', 'ON'] },
@@ -353,7 +406,7 @@ const PARAMS = {
     lane_2_gain: { key: 'lane_2_gain', label: 'LANE 2', min: 0, max: 2, step: 0.02, value: 1 },
     lane_3_gain: { key: 'lane_3_gain', label: 'LANE 3', min: 0, max: 2, step: 0.02, value: 1 },
     lane_4_gain: { key: 'lane_4_gain', label: 'LANE 4', min: 0, max: 2, step: 0.02, value: 1 },
-    pressure_mode: { key: 'pressure_mode', label: 'PRESSURE', min: 0, max: 1, step: 1, value: 1, integer: true, labels: ['OFF', 'OFFSET'] },
+    pressure_mode: { key: 'pressure_mode', label: 'PRESSURE', min: 0, max: 4, step: 1, value: 1, integer: true, labels: ['OFF', 'OFFSET', 'BRAKE', 'CHAR', 'BOTH'] },
     root_note: { key: 'root_note', label: 'ROOT', min: 24, max: 96, step: 1, value: 60, integer: true, note: true },
     scale: { key: 'scale', label: 'SCALE', min: 0, max: 24, step: 1, value: 0, integer: true, labels: SCALE_LABELS },
     record_gain: { key: 'record_gain', label: 'REC GAIN', min: 0, max: 4, step: 0.05, value: 1 },
@@ -385,7 +438,7 @@ const PARAMS = {
 
 const MAIN_ENGINE_MODES = ['motion_mode', 'lanes_mode', 'grain_mode',
     'cutups_mode', 'sample_mode', 'sample_mode', 'glitch_mode',
-    'long_grain_mode', 'waveset_direction','prism_mode','morph_amplitude','texture_mode','formant_shift'];
+    'long_grain_mode', 'waveset_direction','prism_mode','morph_amplitude','texture_mode','formant_shift','stochastic_timing','pulsar_form'];
 const MAIN_ENGINE_CONTROLS = MAIN_ENGINE_MODES.map((mode) => [
     'locus', 'field', 'speed', 'manual_lane',
     'lane_cycles', 'join', mode, 'output_gain',
@@ -401,7 +454,12 @@ const PATH_EDITOR_PAGE = {title:'PATH EDITOR',pathEditor:true,keys:['path_point'
 const DIRECT_PLAY_PAGE = { title: 'DIRECT PLAY', keys: ['sample_mode',
     'lane_variation'] };
 const PADS_SCALE_PAGE = { title: 'PADS & SCALE', keys: ['pad_mode',
-    'root_note', 'scale', 'hold_release_ms', 'polyphony_comp','pressure_mode'] };
+    'root_note', 'scale', 'hold_release_ms', 'polyphony_comp','pressure_mode','voice_engine_mode','voice_engine_order'] };
+const MIDI_CONTROL_PAGE = {title:'MIDI CONTROL',global:true,keys:[
+    'midi_control_mode','midi_cc_channel','midi_cc_base','midi_takeover',
+    null,null,null,null]};
+const VOICE_ENGINES_PAGE={title:'VOICE ENGINES',voiceEngines:true,keys:Array.from({length:8},(_,i)=>'voice_engine_'+(i+1))};
+const VOICE_SETUP_PAGE={title:'VOICE SETUP',voiceSetup:true,keys:['voice_engine_edit','voice_engine_assign','voice_engine_octave','voice_engine_position','voice_engine_stack','voice_engine_pan','voice_engine_depth',null]};
 const AMP_ENVELOPE_PAGE = { title: 'AMP ENVELOPE', breakpoint: true,
     keys: ['amp_attack', 'amp_decay', 'amp_sustain', 'amp_release'] };
 const MOTION_SOUND_PAGE = { title: 'MOTION SOUND', keys: ['motion_sound'] };
@@ -480,12 +538,15 @@ const PLAYBACK_PAGES = [
     [STACK_PATH_PAGE,{title:'PRISM',keys:['prism_mode','prism_blur','prism_decay','prism_pitch','prism_tilt','prism_smear']}],
     [STACK_PATH_PAGE,{title:'MORPH',keys:['morph_amplitude','morph_frequency','morph_offset','morph_blur','morph_pitch','morph_mode']}],
     [STACK_PATH_PAGE,{title:'TEXTURE',keys:['texture_mode','texture_rate','texture_length','texture_scatter','texture_range','texture_group','texture_spread','texture_seed']}],
-    [STACK_PATH_PAGE,{title:'FORMANT',keys:['formant_pitch','formant_shift','formant_smoothing','formant_tune','formant_freeze','formant_keytrack','formant_rough','formant_sub']} ]
+    [STACK_PATH_PAGE,{title:'FORMANT',keys:['formant_pitch','formant_shift','formant_smoothing','formant_tune','formant_freeze','formant_keytrack','formant_rough','formant_sub']} ],
+    [STACK_PATH_PAGE,{title:'STOCHASTIC',stochastic:true,keys:["stochastic_size","stochastic_amplitude","stochastic_timing","stochastic_evolution","stochastic_memory","stochastic_pull","stochastic_law","stochastic_drift"]}],
+    [STACK_PATH_PAGE,{title:'PULSAR',pulsar:true,keys:["pulsar_rate","pulsar_form","pulsar_size","pulsar_window","pulsar_skew","pulsar_omit","pulsar_burst","pulsar_jitter"]},{title:'PULSAR MOD',pulsar:true,keys:["pulsar_emit_mod_rate","pulsar_emit_mod_depth","pulsar_form_mod_rate","pulsar_form_mod_depth","pulsar_spray","pulsar_form_variation","pulsar_reverse","pulsar_keytrack"]}]
 
 ];
 
 function playbackPagesForAlgorithm(algorithm, motionSound) {
     const pages = [...(PLAYBACK_PAGES[algorithm] || PLAYBACK_PAGES[0])];
+    if(algorithm===13 && typeof PARAMS!=='undefined' && PARAMS.stochastic_law.value>=2.5) return pages.map(p=>p.stochastic?{...p,keys:p.keys.map(k=>k==='stochastic_pull'?'stochastic_capture':k)}:p);
     if (algorithm !== 0) return pages;
     if (motionSound === 1) pages.push(PACKETS_PAGE);
     else if (motionSound === 2) pages.push(MOTOR_PAGE);
@@ -496,7 +557,8 @@ const QUAD_SEND_PAGE={title:'FX SENDS',global:true,keys:['split_delay_a','split_
 const QUAD_SETUP_PAGE={title:'QUAD SETUP',global:true,keys:['split_mode','split_focus','split_copy','part_mute']};
 const SPLIT_SETUP_PAGE = {title:'DUAL SETUP',global:true,keys:['split_mode','split_focus','split_copy','part_mute']};
 const SPLIT_SEND_KEYS = ['split_delay_a','split_reverb_a','split_delay_b','split_reverb_b'];
-const SPLIT_MIX_PAGE = {title:'FX SENDS',global:true,keys:[...SPLIT_SEND_KEYS,'effect_mix','effect_reverb_mix','split_curve','split_blend']};
+const SPLIT_MIX_PAGE = {title:'FX SENDS',global:true,keys:[...SPLIT_SEND_KEYS,'split_priority','split_duck_threshold','split_curve','split_blend']};
+const PRIORITY_PAGE = {title:'PRIORITY DUCK',global:true,keys:['split_duck_attack','split_duck_hold','split_duck_release','split_duck_hpf','split_duck_knee','split_duck_route']};
 const PART_COLOR_PAGE = {title:'PART COLOR',keys:['effect_tone','effect_drive','effect_bits','effect_rate']};
 const DELAY_RETURN_PAGE = {title:'DELAY RETURN',global:true,keys:['effect_delay','effect_feedback','effect_width']};
 const MIX_REC_PAGE = { title: 'MIX / REC', keys: ['lane_1_gain', 'lane_2_gain',
@@ -585,12 +647,15 @@ const LOCKABLE_KEYS = [
     'waveset_group', 'waveset_repeats', 'waveset_stride',
     'waveset_advance', 'waveset_direction', 'waveset_process',
     'waveset_amount', 'waveset_detail',
-    'effect_reverb_algo', 'effect_reverb_decay', 'effect_reverb_pre', 'effect_reverb_damp', 'effect_reverb_diff', 'effect_reverb_mod', 'effect_reverb_width', 'effect_reverb_mix', 'effect_order', 'cut_lane_advance', 'split_blend','split_level_a','split_level_b','split_delay_a','split_delay_b','split_reverb_a','split_reverb_b','split_curve',
+    'effect_reverb_algo', 'effect_reverb_decay', 'effect_reverb_pre', 'effect_reverb_damp', 'effect_reverb_diff', 'effect_reverb_mod', 'effect_reverb_width', 'effect_reverb_mix', 'effect_order', 'cut_lane_advance', 'split_blend','split_level_a','split_level_b','split_delay_a','split_delay_b','split_reverb_a','split_reverb_b','split_curve','split_priority','split_duck_threshold','split_duck_attack','split_duck_hold','split_duck_release','split_duck_hpf','split_duck_knee','split_duck_route',
 ];
-const NEW_ENGINE_KEYS=["prism_mode", "prism_blur", "prism_decay", "prism_pitch", "prism_tilt", "prism_smear", "morph_amplitude", "morph_frequency", "morph_offset", "morph_blur", "morph_pitch", "texture_mode", "texture_rate", "texture_length", "texture_scatter", "texture_range", "texture_group", "texture_spread", "texture_seed","morph_mode","formant_pitch","formant_shift","formant_smoothing","formant_tune","formant_freeze","formant_keytrack","formant_rough","formant_sub"];
+const NEW_ENGINE_KEYS=["pulsar_emit_mod_rate","pulsar_emit_mod_depth","pulsar_form_mod_rate","pulsar_form_mod_depth","pulsar_spray","pulsar_form_variation","pulsar_reverse","pulsar_keytrack","pulsar_rate","pulsar_form","pulsar_size","pulsar_window","pulsar_skew","pulsar_omit","pulsar_burst","pulsar_jitter","stochastic_capture","stochastic_size","stochastic_amplitude","stochastic_timing","stochastic_evolution","stochastic_memory","stochastic_pull","stochastic_law","stochastic_drift","prism_mode", "prism_blur", "prism_decay", "prism_pitch", "prism_tilt", "prism_smear", "morph_amplitude", "morph_frequency", "morph_offset", "morph_blur", "morph_pitch", "texture_mode", "texture_rate", "texture_length", "texture_scatter", "texture_range", "texture_group", "texture_spread", "texture_seed","morph_mode","formant_pitch","formant_shift","formant_smoothing","formant_tune","formant_freeze","formant_keytrack","formant_rough","formant_sub"];
 const LOCKABLE_PARAMS = new Set([...NEW_ENGINE_KEYS,...LOCKABLE_KEYS,'split_level_c','split_level_d','split_delay_c','split_delay_d','split_reverb_c','split_reverb_d']);
 
 const SHORT_LABELS = {
+    pulsar_emit_mod_rate:"ERAT",pulsar_emit_mod_depth:"EDEP",pulsar_form_mod_rate:"FRAT",pulsar_form_mod_depth:"FDEP",pulsar_spray:"SPRY",pulsar_form_variation:"FVAR",pulsar_reverse:"REV%",pulsar_keytrack:"KEYT",
+    pulsar_rate:"RATE",pulsar_form:"FORM",pulsar_size:"SIZE",pulsar_window:"WIN",pulsar_skew:"SKEW",pulsar_omit:"OMIT",pulsar_burst:"BRST",pulsar_jitter:"JITT",pulsar_source_hold:"SOURCE HOLD",pulsar_hold_position:"HELD POSITION",
+    stochastic_size:"SIZE",stochastic_amplitude:"AMUT",stochastic_timing:"TMUT",stochastic_evolution:"EVOL",stochastic_memory:"MEM",stochastic_pull:"PULL",stochastic_capture:"CAPT",stochastic_law:"LAW",stochastic_drift:"DRFT",
     prism_mode: "MODE",
     prism_blur: "BLUR",
     prism_decay: "DCAY",
@@ -613,7 +678,7 @@ const SHORT_LABELS = {
     texture_spread: "SPRD",
     texture_seed: "SEED",
 
-    split_blend:'BLND',split_level_a:'ALVL',split_level_b:'BLVL',split_delay_a:'ADLY',split_delay_b:'BDLY',split_reverb_a:'AREV',split_reverb_b:'BREV',split_curve:'CURV',split_copy:'COPY',split_focus:'EDIT',part_mute:'MUTE',
+    split_blend:'BLND',split_level_a:'ALVL',split_level_b:'BLVL',split_delay_a:'ADLY',split_delay_b:'BDLY',split_reverb_a:'AREV',split_reverb_b:'BREV',split_curve:'CURV',split_priority:'PRIO',split_duck_threshold:'THR',split_duck_attack:'ATK',split_duck_hold:'HOLD',split_duck_release:'REL',split_duck_hpf:'HPF',split_duck_knee:'KNEE',split_duck_route:'ROUT',split_copy:'COPY',split_focus:'EDIT',part_mute:'MUTE',
     effect_reverb_algo: 'ALGO', effect_reverb_decay: 'DECY', effect_reverb_pre: 'PRE', effect_reverb_damp: 'DAMP', effect_reverb_diff: 'DIFF', effect_reverb_mod: 'MOD', effect_reverb_width: 'WDTH', effect_reverb_mix: 'MIX', effect_order: 'ORDR',
     cut_lane_advance: 'ADV',
     split_delay_c:'CDLY',split_reverb_c:'CREV',split_delay_d:'DDLY',split_reverb_d:'DREV',
@@ -699,7 +764,7 @@ const state = {
     splitEnabled:false,sharedDual:false,quadMode:false,modeSelection:0,splitFocus:0,splitBlend:.5,splitParts:[{},{}],splitPages:[0,0,0,0],
     pathReady:false,pathCount:4,pathPoint:0,pathPoints:Array.from({length:8},(_,i)=>({time:[0,.25,.5,.75,.8,.85,.9,.95][i],lane:[0,.5,1,.5,.4,.3,.2,.1][i],curve:0})),
     focusButtonHeld:false,focusButtonUsed:false,captureStartTick:0,performanceVisible:false,performanceArmed:false,performanceOwner:0,performancePads:new Set(),performancePadLive:new Set(),performanceValues:Array(8).fill(0),voiceAlgorithms:Array(8).fill(-1),
-    editorReady:false,
+    editorReady:false,engineListReturn:false,engineListVoices:false,
     fxMenuSelection:0,fxMenuReturn:false,
     pageSelection:0,pageReturn:null,
     mixPeaks:[0,0],mixVoices:[0,0],mixReasons:[5,5],
@@ -712,6 +777,7 @@ const state = {
     fieldStart: 0,
     fieldEnd: 1,
     weights: [0, 0, 0, 0],
+    pulsarVoices:Array(8).fill(null),
     playheads: Array(8).fill(-1),
     wavesetVoices: Array(8).fill(null),
     cutupsVoices: Array(8).fill(null),
@@ -908,6 +974,13 @@ function logarithmicControlAt(control, index) {
     return control.min * Math.pow(control.max / control.min, detent / 96);
 }
 
+function stochasticEvolutionAt(index) {
+    const i=clamp(Math.round(index),0,193);return i===0?0:Math.min(1024,.25*Math.pow(2,(i-1)/16));
+}
+function stochasticEvolutionIndex(value) {
+    return value<=0?0:clamp(1+Math.round(Math.log2(Math.max(.25,value)/.25)*16),1,193);
+}
+
 function holdReleaseAt(index) {
     const detent = clamp(Math.round(index), 0, 67);
     if (detent === 0) return 0;
@@ -1045,6 +1118,7 @@ function refreshEditorSnapshot() {
     for(const [key,control] of Object.entries(PARAMS))
         control.value=control.momentary?0:clamp(values[key],control.min,control.max);
     parseSplitState(split,false);
+    state.engineListVoices=Number(values.voice_engine_active)===1;
     state.algorithm=Math.round(PARAMS.algorithm.value);
     state.padMode=Math.round(PARAMS.pad_mode.value);state.scale=Math.round(PARAMS.scale.value);
     state.octave=clamp(values.pad_octave,-3,3);
@@ -1130,6 +1204,7 @@ function parseSplitState(text, refresh=true) {
     }
     PARAMS.split_mode.value=enabled?(quad?3:shared?2:1):0;PARAMS.split_focus.value=focus;
     if(changed) {
+        state.engineListReturn=false;
         state.algorithm=Math.round(PARAMS.algorithm.value);
         state.padMode=Math.round(PARAMS.pad_mode.value);state.scale=Math.round(PARAMS.scale.value);
         state.octave=clamp(Number(data.parts?.[focus]?.octave)||0,-3,3);
@@ -1173,7 +1248,20 @@ function adjustSplitBlend(delta) {
     showMessage('BLEND A '+Math.round((1-control.value)*100)+' B '+Math.round(control.value*100));
 }
 
+function parsePulsarState(text) {
+    state.pulsarVoices=Array(8).fill(null);
+    for(const item of String(text||'').split(';')) {
+        const v=item.split(',').map(Number);if(v.length!==7||!v.every(Number.isFinite)||!Number.isInteger(v[0])||v[0]<0||v[0]>7)continue;
+        state.pulsarVoices[v[0]]={start:clamp(v[1]/1000,0,1),end:clamp(v[2]/1000,0,1),active:v[3],limited:v[4]>0,frequency:v[5],pulse:v[6]};
+    }
+}
+function drawPulsarFragment(slot,lane,window) {
+    const p=state.pulsarVoices[slot];if(!p||p.active<=0||lane<0||lane>3||p.end<window[0]||p.start>window[1])return;
+    const a=waveformX(clamp(p.start,window[0],window[1]),window),b=waveformX(clamp(p.end,window[0],window[1]),window);
+    if(a<0||b<a)return;const y=11+Math.round(lane)*10;drawRect(a,y,Math.max(1,b-a+1),1,1);drawRect(a,y,1,2,1);drawRect(b,y,1,2,1);if(p.frequency>20||p.pulse)drawRect(a,y+2,2,2,1);
+}
 function parsePlayheads(text) {
+    parsePulsarState(getParam('pulsar_state',''));
     const values = String(text || '').split(',').map((item) => Number(item));
     state.playheads = Array.from({ length: 8 }, (_, index) => {
         const value = values[index];
@@ -1732,6 +1820,7 @@ function drawSplitWavePixels(windows) {
         const head=algorithm===3?(cut?.gain>0?cut.position:-1):algorithm===8?(ws?.sourcePosition??-1):state.playheads[slot];
         const lane=algorithm===3?(cut?.lane??-1):(state.stackPositions[slot]>=0?(isQuad()?Math.round(state.stackPositions[slot]*3):state.stackPositions[slot]*3):-1);
         const x=waveformX(head,window);
+        if(algorithm===14)drawPulsarFragment(slot,lane,window);
         if(x>=0&&lane>=first&&lane<=last){drawRect(x,top,1,height,1);cap(x);markers.push([x,15+lane*10]);}
         if(algorithm===3&&cut?.outgoingLane>=first&&cut.outgoingLane<=last&&cut.outgoingGain>0) {
             const outgoing=waveformX(cut.outgoingPosition,window);
@@ -1752,7 +1841,7 @@ function drawSplitMain() {
         clearDisplay();splitDisplay.painted.fill(0);
         splitDisplay.header=splitDisplay.gutter=splitDisplay.rail=splitDisplay.footer=splitDisplay.meters=null;
     }
-    const name=(part)=>state.splitParts[part]?.mute?'MUT':(ALGORITHMS[state.splitParts[part]?.algorithm]||'---').slice(0,3);
+    const name=(part)=>state.splitParts[part]?.mute?'MUT':state.splitParts[part]?.engine_list?'LST':(ALGORITHMS[state.splitParts[part]?.algorithm]||'---').slice(0,3);
     const title=(isQuad()?'Q'+state.splitFocus+state.mixVoices.join(',')+state.splitParts.map(p=>p.algorithm+':'+p.mute).join(','):state.sharedDual?'SH ':'')+'A:'+name(0)+state.mixVoices[0]+' B:'+name(1)+state.mixVoices[1]+' '+Math.round(state.splitBlend*100)+'%';
     const header=title+(state.sharedDual?':'+state.splitFocus:'');
     if(header!==splitDisplay.header) {
@@ -1899,7 +1988,7 @@ function drawMain() {
     const algorithm = ALGORITHMS[state.algorithm] || ALGORITHMS[0];
     const recordTag = state.clipRecording ? ' DATA REC'
         : (state.recording ? (state.limited ? ' LIM' : ' AUDIO') : '');
-    const displayedAlgorithm = state.algorithm === 6 && state.glitchBufferLocked
+    const displayedAlgorithm = voiceEngineListEnabled()?'LIST':state.algorithm === 6 && state.glitchBufferLocked
         ? 'GLCH LOCK' : algorithm;
     const title='THRU '+displayedAlgorithm+' '+clipLabel(state.activeClip)+' V'+state.voiceCount+recordTag;
     print(1,0,title.slice(0,21),1);
@@ -1929,13 +2018,28 @@ function drawMain() {
         }
     }
 
-    const wavesetFocus = state.algorithm === 8 ? focusedWavesetVoice() : null;
+    const wavesetFocus = !voiceEngineListEnabled()&&state.algorithm === 8 ? focusedWavesetVoice() : null;
     const displayedPlayheads = wavesetFocus
         ? state.wavesetVoices.map((voice) => voice
             ? voice.sourcePosition : -1)
         : state.playheads;
     if (state.mask !== 0) {
-        if (state.algorithm === 3) {
+        if(voiceEngineListEnabled()||state.engineListVoices) {
+            const markers=[];
+            for(let slot=0;slot<8;++slot) {
+                const algorithm=state.voiceAlgorithms[slot],cut=state.cutupsVoices[slot],ws=state.wavesetVoices[slot];
+                const head=algorithm===3?(cut?.gain>0?cut.position:-1):algorithm===8?(ws?.sourcePosition??-1):state.playheads[slot];
+                const lane=algorithm===3?(cut?.lane??-1):state.stackPositions[slot]*3;
+                const x=waveformX(head,window);
+                if(algorithm===14)drawPulsarFragment(slot,lane,window);
+                if(x>=0&&lane>=0&&lane<=3){drawRect(x,top,1,40,1);markers.push([x,top+5+lane*rowHeight]);}
+                const outgoing=algorithm===3&&cut?.outgoingGain>0?cut.outgoingPosition:algorithm===8?ws?.secondarySourcePosition:-1;
+                const ox=waveformX(outgoing??-1,window);
+                if(ox>=0){drawDashedPlayhead(ox,top,40);if(algorithm===3&&cut.outgoingLane>=0)markers.push([ox,top+5+cut.outgoingLane*rowHeight]);}
+            }
+            for(const [x,y] of markers)clearStackMarker(x,y);
+            for(const [x,y] of markers)drawStackMarker(x,y);
+        } else if (state.algorithm === 3) {
             // Match the shared full-height playheads and hollow stack
             // markers, using the actual source readers for each cut.
             const markers = [];
@@ -1966,6 +2070,7 @@ function drawMain() {
                     drawDashedPlayhead(playX, top, 40);
                 }
             }
+            if(state.algorithm===14)for(let slot=0;slot<8;++slot)drawPulsarFragment(slot,state.stackPositions[slot]*3,window);
             for (const playhead of displayedPlayheads) {
                 if (playhead < 0) continue;
                 const playX=waveformX(playhead,window);
@@ -2149,7 +2254,8 @@ function drawFxOrder() {
 function splitFxPages() {
     const part=partName();
     return [
-        {title:isQuad()?'ALL PART SENDS':'SENDS + RETURNS',page:isQuad()?QUAD_SEND_PAGE:SPLIT_MIX_PAGE},
+        {title:isQuad()?'ALL PART SENDS':'PART SENDS + PRIORITY',page:isQuad()?QUAD_SEND_PAGE:SPLIT_MIX_PAGE},
+        ...(!isQuad()?[{title:'PRIORITY DUCK',page:PRIORITY_PAGE}]:[]),
         {title:'DELAY',page:DELAY_RETURN_PAGE},
         {title:'REVERB',page:REVERB_PAGE},
         {title:part+' COLOR INSERT',page:PART_COLOR_PAGE},
@@ -2160,7 +2266,7 @@ function splitFxPages() {
 }
 
 function syncSplitFxValues() {
-    for(const key of [...SPLIT_MIX_PAGE.keys,...QUAD_SEND_PAGE.keys,'split_level_a','split_level_b','split_level_c','split_level_d']) {
+    for(const key of [...SPLIT_MIX_PAGE.keys,...PRIORITY_PAGE.keys,...QUAD_SEND_PAGE.keys,'split_level_a','split_level_b','split_level_c','split_level_d']) {
         const control=PARAMS[key];
         control.value=clamp(getNumber(key,control.value),control.min,control.max);
     }
@@ -2193,9 +2299,9 @@ function splitSendFooter() {
     if(isQuad())return 'RETURNS: DELAY/REVERB';
     const delayOff=PARAMS.effect_mix.value<=0 && (PARAMS.split_delay_a.value>0||PARAMS.split_delay_b.value>0);
     const reverbOff=PARAMS.effect_reverb_mix.value<=0 && (PARAMS.split_reverb_a.value>0||PARAMS.split_reverb_b.value>0);
-    if(delayOff&&reverbOff)return 'RETURNS OFF: KNOBS 5/6';
-    if(delayOff)return 'DELAY OFF: KNOB 5';
-    if(reverbOff)return 'REVERB OFF: KNOB 6';
+    if(delayOff&&reverbOff)return 'RETURNS OFF: CLICK';
+    if(delayOff)return 'DLY RETURN OFF: CLICK';
+    if(reverbOff)return 'REV RETURN OFF: CLICK';
     return 'CLICK: FX PAGES';
 }
 
@@ -2219,6 +2325,33 @@ function currentSettingsPage() {
     return pages[state.settingsPage];
 }
 
+function voiceEngineCount(){return state.splitEnabled?(isQuad()?2:4):8;}
+function voiceEngineListEnabled(){return PARAMS.voice_engine_mode.value!==0;}
+function parseVoiceEngineState(raw){
+    const values=String(raw).split(',').map(Number);
+    if(values.length!==18||values.some(v=>!Number.isFinite(v))||values.slice(0,13).some(v=>!Number.isInteger(v))||values[0]<0||values[0]>1||values[1]<0||values[1]>5||values[2]<1||values[2]>8||values.slice(3,11).some(v=>v<0||v>=ALGORITHMS.length)||values[11]<0||values[11]>1||values[12]<0||values[12]>2||values[13]<0||values[13]>100||!Number.isInteger(values[14])||values[14]<-2||values[14]>2||values.slice(15).some(v=>v< -100||v>100))return;
+    const previous=state.view==='settings'&&values[0]!==PARAMS.voice_engine_mode.value?parameterPages()[state.settingsPage]?.title:null;
+    for(const [i,key] of ['voice_engine_mode','voice_engine_order','voice_engine_edit',...VOICE_ENGINES_PAGE.keys].entries())PARAMS[key].value=values[i];
+    state.engineListVoices=values[11]===1;
+    ['voice_engine_assign','voice_engine_depth','voice_engine_octave','voice_engine_position','voice_engine_stack','voice_engine_pan'].forEach((k,i)=>PARAMS[k].value=values[i+12]);
+    if(!voiceEngineListEnabled())state.engineListReturn=false;
+    if(previous){const index=parameterPages().findIndex(p=>p.title===previous);state.settingsPage=index>=0?index:0;}
+}
+function editVoiceEngineSlot(delta){
+    if(!delta)return;
+    const title=currentSettingsPage().title;
+    setParamBlocking('voice_engine_edit',clamp(Math.round(PARAMS.voice_engine_edit.value)+(delta>0?1:-1),1,voiceEngineCount()));
+    refreshEditorSnapshot();
+    state.settingsPage=parameterPages().findIndex(p=>p.title===title);
+    resetParameterEncoderMotion();
+}
+function openVoiceEngineEditor(){
+    state.engineListReturn=true;state.engineListReturnPage=currentSettingsPage().title;
+    const detail=playbackPagesForAlgorithm(state.algorithm,Math.round(PARAMS.motion_sound.value)).find(p=>p.title!==STACK_PATH_PAGE.title);
+    const index=parameterPages().findIndex(p=>p.title===detail?.title);
+    state.settingsPage=Math.max(0,index);
+    resetParameterEncoderMotion();
+}
 function parameterPages() {
     let enginePages=playbackPagesForAlgorithm(state.algorithm,Math.round(PARAMS.motion_sound.value));
     if(!isQuad() && Math.round(PARAMS.lane_path.value)===8)
@@ -2227,29 +2360,36 @@ function parameterPages() {
             : [page]);
     enginePages=enginePages.map(p=>p.title==='PRISM'?{...p,keys:p.keys.map(k=>k==='prism_decay'&&Math.round(PARAMS.prism_mode.value)!==4?null:k)}:p.title==='MORPH'?{...p,keys:p.keys.map(k=>k==='morph_frequency'&&Math.round(PARAMS.morph_mode.value)===1?null:k)}:p.title==='TEXTURE'?{...p,keys:p.keys.map(k=>k==='texture_group'&&Math.round(PARAMS.texture_mode.value)===0?null:k)}:p);
     const engine=state.algorithm===3?CUTUPS_ENGINE_PAGE:ENGINE_PAGE;
-    if(!state.splitEnabled)return [engine,PADS_SCALE_PAGE,AMP_ENVELOPE_PAGE,...enginePages,
+    const pads={...PADS_SCALE_PAGE,keys:PADS_SCALE_PAGE.keys.map(k=>k==='voice_engine_order'?(voiceEngineListEnabled()?(PARAMS.voice_engine_assign.value===0?k:null):((isQuad()?PARAMS.pressure_mode.value===3:PARAMS.pressure_mode.value!==0)?'voice_engine_depth':null)):k)};
+    const lists=voiceEngineListEnabled()?[{...VOICE_ENGINES_PAGE,keys:VOICE_ENGINES_PAGE.keys.map((k,i)=>i<voiceEngineCount()?k:null)},
+        {...VOICE_SETUP_PAGE,keys:VOICE_SETUP_PAGE.keys.map(k=>isQuad()&&k==='voice_engine_stack'?null:k)}]:[];
+    if(!state.splitEnabled)return [engine,pads,MIDI_CONTROL_PAGE,...lists,AMP_ENVELOPE_PAGE,...enginePages,
         MIX_REC_PAGE,EFFECTS_PAGE,STEREO_ROTARY_PAGE,TAPE_PAGE,REVERB_PAGE,FX_ORDER_PAGE,SAMPLE_PAGE,LOOP_PAGE,PATTERN_FADE_PAGE,TAKE_PAGE,CHAIN_PAGE,CHAIN_FADE_PAGE,ENTRY_FADE_PAGE,CHAIN_TOOLS_PAGE];
-    const pads=isQuad()?{...PADS_SCALE_PAGE,keys:PADS_SCALE_PAGE.keys.map(k=>k==='pressure_mode'?null:k)}:PADS_SCALE_PAGE;
     const engineSplit={...engine,keys:engine.keys.map((key)=>key==='output_gain'?partLevelKey():isQuad()&&['manual_lane','lane_cycles','cut_lane_advance'].includes(key)?null:key)};
     if(isQuad()) {
         const pages=enginePages.filter(p=>p.title!==STACK_PATH_PAGE.title).map(p=>({...p,keys:p.keys.map(k=>['manual_lane','lane_cycles','cut_lane_advance','cut_lane_order','cut_poly_path'].includes(k)?null:k)}));
         const rec={...MIX_REC_PAGE,keys:['lane_'+(state.splitFocus+1)+'_gain',null,null,null,...MIX_REC_PAGE.keys.slice(4)]};
-        return [engineSplit,pads,AMP_ENVELOPE_PAGE,...pages,QUAD_SEND_PAGE,QUAD_SETUP_PAGE,rec,PART_COLOR_PAGE,STEREO_ROTARY_PAGE,
+        return [engineSplit,pads,MIDI_CONTROL_PAGE,...lists,AMP_ENVELOPE_PAGE,...pages,QUAD_SEND_PAGE,QUAD_SETUP_PAGE,rec,PART_COLOR_PAGE,STEREO_ROTARY_PAGE,
             {...DELAY_RETURN_PAGE,keys:['effect_delay','effect_feedback','effect_width',null,null,null,null,'effect_mix']},
             {...TAPE_PAGE,global:true},{...REVERB_PAGE,global:true},FX_ORDER_PAGE,SAMPLE_PAGE,
             LOOP_PAGE,PATTERN_FADE_PAGE,TAKE_PAGE,CHAIN_PAGE,CHAIN_FADE_PAGE,ENTRY_FADE_PAGE,CHAIN_TOOLS_PAGE];
     }
     const rec=state.sharedDual?MIX_REC_PAGE:{...MIX_REC_PAGE,keys:[state.splitFocus?'lane_3_gain':'lane_1_gain',state.splitFocus?'lane_4_gain':'lane_2_gain',null,null,...MIX_REC_PAGE.keys.slice(4)]};
-    return [engineSplit,pads,AMP_ENVELOPE_PAGE,...enginePages,SPLIT_MIX_PAGE,SPLIT_SETUP_PAGE,
+    return [engineSplit,pads,MIDI_CONTROL_PAGE,...lists,AMP_ENVELOPE_PAGE,...enginePages,SPLIT_MIX_PAGE,PRIORITY_PAGE,SPLIT_SETUP_PAGE,
         rec,PART_COLOR_PAGE,STEREO_ROTARY_PAGE,DELAY_RETURN_PAGE,{...TAPE_PAGE,global:true},
         {...REVERB_PAGE,global:true,keys:REVERB_PAGE.keys.map((key)=>key==='effect_reverb_mix'?null:key)},FX_ORDER_PAGE,SAMPLE_PAGE,LOOP_PAGE,PATTERN_FADE_PAGE,TAKE_PAGE,CHAIN_PAGE,CHAIN_FADE_PAGE,ENTRY_FADE_PAGE,CHAIN_TOOLS_PAGE];
 }
 
 function controlForKey(key) {
     const control = PARAMS[key];
+    if(control&&key==='voice_engine_edit')return {...control,max:voiceEngineCount(),shortLabel:'EDIT'};
+    if(control&&key==='voice_engine_assign')return {...control,shortLabel:'ASSN'};
+    if(control&&key==='pressure_mode'&&isQuad())return {...control,value:control.value===3?3:0,min:0,max:3,step:3};
+    if(control&&key==='algorithm'&&voiceEngineListEnabled())return {...control,shortLabel:'E'+Math.round(PARAMS.voice_engine_edit.value)};
     if(control&&key==='morph_amplitude'&&state.algorithm===10&&Math.round(PARAMS.morph_mode.value)===1)return {...control,label:'IMPRINT AMOUNT',shortLabel:'IMPR'};
     if(control&&key==='record_source')return {...control,max:state.splitEnabled?(isQuad()?5:3):1};
     if(control&&key==='split_focus')return {...control,max:isQuad()?3:1};
+    if(control&&key==='midi_control_part')return {...control,max:isQuad()?3:state.splitEnabled?1:0};
     if (control && state.splitEnabled) {
         if (key==='effect_mix') return {...control,shortLabel:'DRTN',label:'DELAY RETURN %'};
         if (key==='effect_reverb_mix') return {...control,shortLabel:'RRTN',label:'REVERB RETURN %'};
@@ -2311,10 +2451,28 @@ function noteName(value) {
 
 function formatControlValue(control) {
     if (!control) return '';
+    if(['voice_engine_position','voice_engine_stack','voice_engine_pan','voice_engine_depth'].includes(control.key))return (control.value>0&&control.key!=='voice_engine_depth'?'+':'')+Math.round(control.value)+'%';
+    if(/^voice_engine_[1-8]$/.test(control.key))return ['MOTN','LANE','GRNS','CUTS','SMPL','SLIC','GLCH','WEAV','WSET','PRSM','MORF','TXTR','FORM','STOC','PLSR'][Math.round(control.value)]||'';
+    if(/^(pattern|chain|entry)_fade_.*ms$/.test(control.key))return formatFadeTime(control.value);
+    if(control.key==='pattern_fade_position')return control.value.toFixed(1)+'%';
     if(['prism_blur','prism_decay','morph_blur','texture_length','formant_smoothing'].includes(control.key))return formatFadeTime(control.value);
     if(['formant_tune','formant_keytrack','formant_rough','formant_sub','morph_amplitude','morph_frequency','morph_offset','prism_tilt','prism_smear','texture_scatter','texture_spread'].includes(control.key))return Math.round(control.value)+'%';
+    if(control.key.startsWith('pulsar_')&&control.unit==='st')return control.value===0?'0':control.value.toFixed(control.value<10?2:1);
+    if(control.key.startsWith('pulsar_')&&control.unit==='%')return Math.round(control.value)+'%';
+    if(['pulsar_rate','pulsar_form','pulsar_size','pulsar_emit_mod_rate','pulsar_form_mod_rate'].includes(control.key))return control.value<10?control.value.toFixed(2):control.value<100?control.value.toFixed(1):String(Math.round(control.value));
+    if(control.key.startsWith('stochastic_')&&control.unit==='%')return Math.round(control.value)+'%';
+    if(control.key==='stochastic_evolution')return control.value===0?'HOLD':control.value>=1024?'CYC':control.value<10?control.value.toFixed(2):control.value<100?control.value.toFixed(1):String(Math.round(control.value));
     if(control.key==='chain_repeats'&&control.value===0)return 'WAIT';
     if([...SPLIT_SEND_KEYS,...QUAD_SEND_PAGE.keys].includes(control.key))return Math.round(control.value*100)+'%';
+    if(control.key==='split_priority') {
+        if(Math.abs(control.value)<.25)return 'OFF';
+        return (control.value<0?'A > B ':'B > A ')+Math.abs(control.value).toFixed(1)+' dB';
+    }
+    if(control.key==='split_duck_threshold')return control.value.toFixed(1)+' dBFS';
+    if(['split_duck_attack','split_duck_hold','split_duck_release'].includes(control.key))
+        return control.value>=1000?(control.value/1000).toFixed(2)+' s':Math.round(control.value)+' ms';
+    if(control.key==='split_duck_hpf')return Math.round(control.value)+' Hz';
+    if(control.key==='split_duck_knee')return control.value.toFixed(1)+' dB';
     if(control.key==='split_blend')return 'A '+Math.round((1-control.value)*100)+' B '+Math.round(control.value*100);
     if (control.key === 'cut_lane_advance') {
         const n = Math.round(control.value);
@@ -2391,6 +2549,11 @@ function formatControlValue(control) {
 }
 
 function compactControlValue(control) {
+    if(control&&control.key.startsWith('pulsar_'))return formatControlValue(control).slice(0,5);
+    if(control&&control.key.startsWith('stochastic_')&&(control.unit==='%'||control.key==='stochastic_evolution'))return formatControlValue(control).slice(0,4);
+    if(control&&control.key==='voice_engine_assign')return ['TOUCH','DEGR','REG'][Math.round(control.value)];
+    if(control&&['voice_engine_position','voice_engine_stack','voice_engine_pan','voice_engine_depth'].includes(control.key))return String(Math.round(control.value));
+    if(control&&/^voice_engine_[1-8]$/.test(control.key))return formatControlValue(control);
     if(control&&control.key==='record_source')return ['IN','MIX','PT A','PT B','PT C','PT D'][clamp(Math.round(control.value),0,5)];
 
     if (control && control.key === 'effect_reverb_algo') return control.value < .5 ? 'PLAT' : 'ROOM';
@@ -2400,6 +2563,11 @@ function compactControlValue(control) {
         : String(Math.round(control.value));
     if (!control) return '';
     if([...SPLIT_SEND_KEYS,...QUAD_SEND_PAGE.keys].includes(control.key))return Math.round(control.value*100)+'%';
+    if(control.key==='split_priority')return Math.abs(control.value)<.25?'OFF':(control.value<0?'A>B':'B>A')+Math.round(Math.abs(control.value));
+    if(control.key==='split_duck_threshold')return String(Math.round(control.value));
+    if(['split_duck_attack','split_duck_hold','split_duck_release'].includes(control.key))return control.value>=1000?(control.value/1000).toFixed(1)+'s':String(Math.round(control.value));
+    if(control.key==='split_duck_hpf'||control.key==='split_duck_knee')return String(Math.round(control.value));
+    if(control.key==='split_duck_route')return control.value<.5?'DRY':'D+S';
     if(state.splitEnabled&&(control.key==='effect_mix'||control.key==='effect_reverb_mix'))return Math.round(control.value)+'%';
     if(control.key==='split_blend')return Math.round(control.value*100)+'%';
     if (control.key === 'waveset_direction') {
@@ -2745,7 +2913,8 @@ function drawSettings() {
     const lockTarget = state.algorithm === 6 && state.glitchBufferLocked
         ? 'LCK ' : '';
     const scope=state.splitEnabled?((isSendPage(page)||isSetupPage(page))?'':state.sharedDual&&page===SAMPLE_PAGE?'SRC ':page.global?(page.scopeLabel??'FX '):((partName()+' '))):'';
-    const pageTitle = target + lockTarget + scope + page.title + takeSuffix + ' '
+    const engineTitle=voiceEngineListEnabled()&&(page.title==='ENGINE'||playbackPagesForAlgorithm(state.algorithm,Math.round(PARAMS.motion_sound.value)).some(p=>p.title===page.title)||page.pathEditor||page.voiceSetup)?'E'+Math.round(PARAMS.voice_engine_edit.value)+' ':'';
+    const pageTitle = target + lockTarget + scope + engineTitle + page.title + takeSuffix + ' '
         + (state.settingsPage + 1)
         + '/' + pages.length;
     const title = state.actionMessageTicks > 0
@@ -2759,7 +2928,7 @@ function drawSettings() {
     }
     const notice=saveNotice();
     const drawPath=page.title===STACK_PATH_PAGE.title&&Math.round(PARAMS.lane_path.value)===8;
-    const hasFooter = drawPath || Boolean(notice) || (state.splitEnabled && (isSendPage(page)
+    const hasFooter = page.pulsar || page.stochastic || page.voiceEngines || page.voiceSetup || drawPath || Boolean(notice) || (state.splitEnabled && (isSendPage(page)
         || page===DELAY_RETURN_PAGE || page.title===REVERB_PAGE.title));
     for (let index = 0; index < 8; index++) {
         const key = page.keys[index];
@@ -2769,8 +2938,13 @@ function drawSettings() {
         }
         const control = controlForKey(key);
         drawParameterCell(index, control, hasFooter);
+        if(page.voiceEngines&&index===Math.round(PARAMS.voice_engine_edit.value)-1)
+            drawRect((index%4)*32+3,Math.floor(index/4)*24+19,12,1,1);
     }
     if(notice)print(1,57,notice.slice(0,21),1);
+    else if(page.pulsar){const limited=state.pulsarVoices.some((p,i)=>p?.limited&&(!state.splitEnabled||Math.floor(i/(isQuad()?2:4))===state.splitFocus));print(1,57,limited?'LIMIT: RATE / WIDTH':PARAMS.pulsar_source_hold.value>=.5?'SRC HELD CLICK: RUN':'CLICK: HOLD SOURCE',1);}
+    else if(page.stochastic)print(1,57,PARAMS.stochastic_source_hold.value>=.5?'SRC HELD CLICK: RUN':'CLICK: HOLD SOURCE',1);
+    else if(page.voiceEngines||page.voiceSetup)print(1,57,'TURN SLOT CLICK EDIT',1);
     else if(drawPath)print(1,57,'CLICK: EDIT PATH',1);
     else if (state.splitEnabled && isSendPage(page)) print(1,57,splitSendFooter(),1);
     else if (state.splitEnabled && !isQuad() && (page===DELAY_RETURN_PAGE || page.title===REVERB_PAGE.title))
@@ -2793,7 +2967,7 @@ function helpReportRow(label, value) {
 function drawHelp() {
     clearDisplay();
     if (state.helpPage === 0) {
-        print(1, 0, 'SYSTEM REPORT 1/4 <>', 1);
+        print(1, 0, 'SYSTEM REPORT 1/5 <>', 1);
         print(1, 11, helpReportRow('RENDER PEAK',
             compactReportCount(state.maximumRenderMicros) + ' us'), 1);
         print(1, 21, helpReportRow('RENDER MISSES',
@@ -2806,7 +2980,7 @@ function drawHelp() {
         return;
     }
     if (state.helpPage === 1) {
-        print(1, 0, 'CALLBACK WORK 2/4 <>', 1);
+        print(1, 0, 'CALLBACK WORK 2/5 <>', 1);
         print(1, 13, helpReportRow('CONTROL PEAK', compactReportCount(state.controlPeakMicros) + ' us'), 1);
         print(1, 25, helpReportRow('QUERY PEAK', compactReportCount(state.queryPeakMicros) + ' us'), 1);
         print(1, 37, helpReportRow('WORK PEAK', compactReportCount(state.workPeakMicros) + ' us'), 1);
@@ -2814,7 +2988,7 @@ function drawHelp() {
         return;
     }
     if(state.helpPage===2) {
-        print(1,0,'RENDER TIMING 3/4 <>',1);
+        print(1,0,'RENDER TIMING 3/5 <>',1);
         const cpu=state.renderCpuAvailable;
         print(1,11,helpReportRow('CPU PEAK',cpu?compactReportCount(state.renderCpuPeakMicros)+' us':'N/A'),1);
         print(1,23,helpReportRow('WALL PEAK',compactReportCount(state.maximumRenderMicros)+' us'),1);
@@ -2822,7 +2996,16 @@ function drawHelp() {
         print(1,47,helpReportRow('CPU MISSES',cpu?compactReportCount(state.renderCpuOverruns):'N/A'),1);
         print(1,57,'SHIFT+DEL RESET',1);return;
     }
-    print(1, 0, 'SHORTCUTS 4/4 <>', 1);
+    if(state.helpPage===4){
+        const d=remoteE16.diagnostics;
+        print(1,0,'E16 LINK 5/5 <>',1);
+        print(1,11,helpReportRow('STATE',d.state),1);
+        print(1,21,helpReportRow('LAST',d.issue),1);
+        print(1,31,helpReportRow('ACK/NACK',compactReportCount(d.acks)+'/'+compactReportCount(d.nacks)),1);
+        print(1,41,helpReportRow('RETRY/RECON',compactReportCount(d.retries)+'/'+compactReportCount(d.reconnects)),1);
+        print(1,51,helpReportRow('PENDING PX',d.pixels+'/'+d.pixelWindow),1);return;
+    }
+    print(1, 0, 'SHORTCUTS 4/5 <>', 1);
     print(1, 9, 'REC        data loop', 1);
     print(1, 17, 'SHIFT+REC  audio lane', 1);
     print(1, 25, 'UNDO      sample/clip', 1);
@@ -3481,6 +3664,7 @@ function selectClipSlot(step) {
 function selectAlgorithm(index) {
     state.algorithm = clamp(index | 0, 0, ALGORITHMS.length - 1);
     PARAMS.algorithm.value = state.algorithm;
+    if(voiceEngineListEnabled())PARAMS['voice_engine_'+Math.round(PARAMS.voice_engine_edit.value)].value=state.algorithm;
     setParamBlocking('algorithm', state.algorithm);
     if (state.clipRecording) setParam('clip_automation', 'algorithm');
     showMessage(ALGORITHMS[state.algorithm]);
@@ -3613,6 +3797,46 @@ function applyMomentaryControl(control) {
     showActionMessage((control.result || 'APPLIED') + ' L' + state.lane);
 }
 
+function nextControlValue(control,delta,fine=false) {
+    if(fine&&!control.labels)return clamp(control.value+delta*(control.integer?Math.max(1,control.step):control.step*.1),control.min,control.max);
+    let value;
+    if(['pulsar_rate','pulsar_form','pulsar_size','pulsar_emit_mod_rate','pulsar_form_mod_rate'].includes(control.key)) {
+        const i=Math.round(240*Math.log(control.value/control.min)/Math.log(control.max/control.min))+delta;
+        value=Number((control.min*Math.pow(control.max/control.min,clamp(i,0,240)/240)).toFixed(4));
+    } else if(control.key==='stochastic_evolution') {
+        value=stochasticEvolutionAt(stochasticEvolutionIndex(control.value)+delta);
+    } else if (control.key === 'effect_reverb_decay' || control.key === 'effect_reverb_damp') {
+        value = logarithmicControlAt(control, logarithmicControlIndex(control) + delta);
+    } else if (control.key === 'long_grain_length') {
+        value = longGrainLengthAt(longGrainLengthIndex(control.value) + delta);
+    } else if (control.key === 'effect_rotary_ramp') {
+        value = rotaryRampAt(rotaryRampIndex(control.value) + delta);
+    } else if (control.key === 'effect_rotary_crossover') {
+        value = rotaryCrossoverAt(
+            rotaryCrossoverIndex(control.value) + delta);
+    } else if (control.key === 'effect_tape_wow_rate'
+        || control.key === 'effect_tape_flutter_rate') {
+        value = logarithmicControlAt(control,
+            logarithmicControlIndex(control) + delta);
+    } else if (control.key === 'split_duck_attack'
+        || control.key === 'split_duck_release'
+        || control.key === 'split_duck_hpf') {
+        value = logarithmicControlAt(control,
+            logarithmicControlIndex(control) + delta);
+    } else if (control.key === 'hold_release_ms') {
+        value = holdReleaseAt(holdReleaseIndex(control.value) + delta);
+    } else if (control.key === 'amp_attack'
+        || control.key === 'amp_decay' || control.key === 'amp_release') {
+        value = envelopeTimeAt(envelopeTimeIndex(
+            control.value, control.max) + delta, control.max);
+    } else {
+        value = clamp(control.value + delta * control.step,
+            control.min, control.max);
+    }
+    if (control.integer) value = Math.round(value);
+    return value;
+}
+
 function adjustControl(index, delta) {
     if(!state.editorReady){showMessage('UPDATING EDITOR');return;}
     if(state.view==='settings'&&currentSettingsPage().chainTools){adjustChainTools(index,delta);return;}
@@ -3645,36 +3869,18 @@ function adjustControl(index, delta) {
     }
     delta = parameterEncoderDelta(index, control.key, delta);
     if (delta === 0) return;
-    let value;
-    if (control.key === 'effect_reverb_decay' || control.key === 'effect_reverb_damp') {
-        value = logarithmicControlAt(control, logarithmicControlIndex(control) + delta);
-    } else if (control.key === 'long_grain_length') {
-        value = longGrainLengthAt(longGrainLengthIndex(control.value) + delta);
-    } else if (control.key === 'effect_rotary_ramp') {
-        value = rotaryRampAt(rotaryRampIndex(control.value) + delta);
-    } else if (control.key === 'effect_rotary_crossover') {
-        value = rotaryCrossoverAt(
-            rotaryCrossoverIndex(control.value) + delta);
-    } else if (control.key === 'effect_tape_wow_rate'
-        || control.key === 'effect_tape_flutter_rate') {
-        value = logarithmicControlAt(control,
-            logarithmicControlIndex(control) + delta);
-    } else if (control.key === 'hold_release_ms') {
-        value = holdReleaseAt(holdReleaseIndex(control.value) + delta);
-    } else if (control.key === 'amp_attack'
-        || control.key === 'amp_decay' || control.key === 'amp_release') {
-        value = envelopeTimeAt(envelopeTimeIndex(
-            control.value, control.max) + delta, control.max);
-    } else {
-        value = clamp(control.value + delta * control.step,
-            control.min, control.max);
-    }
-    if (control.integer) value = Math.round(value);
+    const value=nextControlValue(control,delta);
     control.value = value;
     PARAMS[control.key].value = value;
     if (control.key === 'algorithm') {
         selectAlgorithm(value);
         return;
+    }
+    if(control.key.startsWith('voice_engine_')){
+        const title=currentSettingsPage().title;
+        setParamBlocking(control.key,value);refreshEditorSnapshot();
+        const index=parameterPages().findIndex(p=>p.title===title);if(index>=0)state.settingsPage=index;
+        showMessage(control.label+' '+formatControlValue(control));return;
     }
     if(['split_mode','split_focus','part_mute'].includes(control.key)){setParamBlocking(control.key,value);parseSplitState(getParam('split_state','{}'));}
     else if(control.key.startsWith('chain_'))setParamBlocking(control.key,value.toFixed(control.integer?0:4));
@@ -3707,7 +3913,7 @@ function adjustControl(index, delta) {
     if(state.splitEnabled && [...SPLIT_SEND_KEYS,...QUAD_SEND_PAGE.keys].includes(control.key) && value>0) {
         const delay=control.key.includes('delay');
         if(PARAMS[delay?'effect_mix':'effect_reverb_mix'].value<=0)
-            showActionMessage(isQuad()?(delay?'RAISE DRTN: DELAY':'RAISE RRTN: REVERB'):(delay?'RAISE DRTN: KNOB 5':'RAISE RRTN: KNOB 6'));
+            showActionMessage(delay?'RAISE DRTN: DELAY':'RAISE RRTN: REVERB');
     }
 }
 
@@ -3751,6 +3957,7 @@ function pollDsp() {
         state.settingsPage = clamp(state.settingsPage, 0, parameterPages().length - 1);
     }
     parseSplitState(getParam('split_state','{}'));
+    parseVoiceEngineState(getParam('voice_engine_state',''));
     state.voiceAlgorithms=String(getParam('voice_algorithms','')).split(',').map(Number);
     parseSaveStatus(getParam('save_status',''));
     parseMixStatus(getParam('mix_status',''));
@@ -3809,6 +4016,7 @@ function pollDsp() {
     parseWaveforms(getParam('waveforms', ''));
 }
 
+// MIDI and E16 integration is appended below; functions are initialized before init runs.
 globalThis.init = function() {
     splitDisplay.valid=false;state.waveText=null;state.patternFaderTouched=false;
     // Schwung may clear or restore the physical surface between takeover sessions.
@@ -3816,6 +4024,7 @@ globalThis.init = function() {
         moveInputFilter.invalidateLedCache();
     }
     state.ticks = 0;
+    resetMidiSurface();
     state.view = 'main';
     state.settingsPage = 0;
     state.pathReady=false;state.pathPoint=0;
@@ -3906,7 +4115,8 @@ globalThis.tick = function() {
         && state.ticks-state.captureStartTick>=10) {
         state.focusButtonUsed=true;state.performanceVisible=true;rebuildLedQueue();
     }
-    if (state.ticks % 3 === 0) pollDsp();
+    if (state.ticks % 3 === 0) {pollDsp();pollMidiControls();}
+    tickMidiFeedback();
     if (state.ticks % 180 === 0) setParam('maintenance', 1);
     if(state.savedTicks>0)state.savedTicks--;
     if (state.messageTicks > 0) state.messageTicks--;
@@ -4217,6 +4427,7 @@ globalThis.onMidiMessageInternal = function(data) {
         else if (state.view === 'help' && delta !== 0) {
             state.helpPage = clamp(state.helpPage + (delta > 0 ? 1 : -1), 0, HELP_PAGE_COUNT-1);
         }
+        else if(state.view==='settings'&&(currentSettingsPage().voiceEngines||currentSettingsPage().voiceSetup))editVoiceEngineSlot(delta);
         else if (state.view === 'settings' && currentSettingsPage().route) turnFxOrder(delta);
         else if (state.view === 'library') moveLibrarySelection(delta);
         else if (state.view === 'chain') adjustChainClip(delta);
@@ -4227,6 +4438,9 @@ globalThis.onMidiMessageInternal = function(data) {
         if(state.view==='mode')applyModePicker();
         else if(state.view==='pages')activatePagePicker();
         else if (state.view === 'fxMenu') activateSplitFxPage();
+        else if(state.view==='settings'&&(currentSettingsPage().voiceEngines||currentSettingsPage().voiceSetup))openVoiceEngineEditor();
+        else if(state.view==='settings'&&currentSettingsPage().pulsar){setParamBlocking('pulsar_source_hold',PARAMS.pulsar_source_hold.value>=.5?0:1);PARAMS.pulsar_source_hold.value=getNumber('pulsar_source_hold',PARAMS.pulsar_source_hold.value>=.5?0:1);showMessage(PARAMS.pulsar_source_hold.value>=.5?'SOURCE HELD':'SOURCE RUNNING');draw();}
+        else if(state.view==='settings'&&currentSettingsPage().stochastic){setParamBlocking('stochastic_source_hold',PARAMS.stochastic_source_hold.value>=.5?0:1);PARAMS.stochastic_source_hold.value=getNumber('stochastic_source_hold',PARAMS.stochastic_source_hold.value>=.5?0:1);showMessage(PARAMS.stochastic_source_hold.value>=.5?'SOURCE HELD':'SOURCE RUNNING');draw();}
         else if(state.view==='settings'&&currentSettingsPage().patternFade){readPatternFade();setParamBlocking('pattern_fade_hold',state.patternFade.held?0:1);readPatternFade();draw();}
         else if(state.view==='settings'&&currentSettingsPage().title===STACK_PATH_PAGE.title&&Math.round(PARAMS.lane_path.value)===8)openPathEditor();
         else if (state.splitEnabled && state.view==='settings' && isSendPage(currentSettingsPage()) && !state.shiftHeld) openSplitFxMenu();
@@ -4278,6 +4492,9 @@ globalThis.onMidiMessageInternal = function(data) {
         return;
     }
     if (number === MoveBack && value > 0) {
+        if(state.view==='settings'&&state.engineListReturn&&voiceEngineListEnabled()){
+            state.engineListReturn=false;state.settingsPage=parameterPages().findIndex(p=>p.title===(state.engineListReturnPage||VOICE_ENGINES_PAGE.title));resetParameterEncoderMotion();return;
+        }
         if(state.view==='settings'&&state.chainEditorReturn){state.chainEditorReturn=false;state.view='chain';return;}
         if(state.view==='settings'&&currentSettingsPage().pathEditor){state.settingsPage=parameterPages().findIndex(p=>p.title===STACK_PATH_PAGE.title);resetParameterEncoderMotion();return;}
         if(state.view==='mode'){state.view='pages';return;}
@@ -4303,6 +4520,7 @@ globalThis.onMidiMessageInternal = function(data) {
 };
 
 globalThis.onUnload = function() {
+    remoteE16.stop();
     endPerformanceLayer();state.performancePads.clear();
     if (state.recording) setParamBlocking('record_gate', 0);
     if (state.clipRecording) setParamBlocking('clip_record', 1);
@@ -4316,3 +4534,466 @@ globalThis.onUnload = function() {
     for(const id of ICON_BUTTONS)setButtonLED(id,Black,true);
 };
 
+
+
+// BEGIN GENERATED MIDI ADAPTER
+// Generated by controllers/oxi-e16/generate-layout.mjs.
+const E16_LABELS={"0":"POS ","1":"FLD ","2":"SPD ","3":"STK ","4":"ENG ","5":"JOIN","6":"LVL ","133":"VARI","384":"SCAN","385":"MODE","386":"PATH","388":"BLND","389":"SHAP","390":"OFST","391":"SKEW","392":"CURV","393":"SLEW","394":"STR ","395":"RATI","512":"MODE","513":"SND ","514":"RATE","515":"BAS ","516":"PATH","517":"STEP","518":"SEED","519":"TRVL","520":"JITR","521":"DUTY","522":"MRAT","523":"MSYM","524":"MSHP","525":"TRIG","526":"OVLP","527":"LAYR","528":"ERAT","529":"REPT","530":"ESTP","531":"PITC","532":"LEVL","533":"CURV","640":"MODE","641":"SIZE","642":"DENS","643":"QUAL","644":"PIT ","645":"WIN ","646":"SPRD","647":"SPRY","648":"BIAS","649":"PSPR","650":"REV%","651":"SVAR","652":"LVAR","653":"TIME","654":"TSC ","655":"ESKW","656":"PROC","657":"PAMT","658":"REGN","659":"ADVN","768":"MODE","769":"LEN ","770":"LAYR","771":"PIT ","772":"SHAP","773":"EDGE","774":"SPRD","775":"REV%","776":"SPRY","777":"BIAS","778":"DVAR","779":"PSPR","780":"LVAR","781":"PHAS","782":"ADVN","896":"ADV ","897":"MODE","898":"CLCK","899":"DIV ","900":"RATE","901":"TVAR","902":"GATE","903":"JOIN","904":"REGN","905":"REPT","906":"REV%","907":"PVAR","908":"LVAR","909":"LORD","910":"POLY","911":"RSRC","1030":"PLAY","1031":"SSRC","1032":"SLIC","1152":"MODE","1153":"CLCK","1154":"DIV ","1155":"RATE","1156":"BUFF","1157":"REPT","1158":"CHNC","1159":"OVRD","1160":"STEP","1161":"PULS","1162":"ROTA","1163":"JUMP","1164":"PITC","1165":"REV%","1166":"DCAY","1167":"SEED","1280":"GRUP","1281":"REPT","1282":"STRD","1283":"ADVN","1284":"ORDR","1285":"PROC","1286":"DPTH","1287":"DTAL","1408":"MODE","1409":"BLUR","1410":"DCAY","1411":"PIT ","1412":"TILT","1413":"SMER","1536":"MODE","1537":"AMP ","1538":"FREQ","1539":"OFST","1540":"BLUR","1541":"PIT ","1664":"MODE","1665":"RATE","1666":"LEN ","1667":"SCAT","1668":"RNGE","1669":"GRUP","1670":"SPRD","1671":"SEED","1792":"PIT ","1793":"FORM","1794":"SMTH","1795":"TUNE","1796":"FRZE","1797":"KEYT","1798":"ROUG","1799":"SUB ","1921":"TONE","1922":"DRIV","1923":"BITS","1924":"RATE","1925":"DLY ","1926":"FDBK","1927":"WDTH","1928":"MIX ","1929":"X-PN","2048":"RATE","2049":"DPTH","2050":"MIX ","2051":"RAMP","2052":"BAL ","2053":"XOVR","2054":"SPRD","2176":"FMT ","2177":"REC ","2182":"HISS","2183":"MIX ","2184":"AGE ","2185":"CRNK","2186":"MECH","2187":"INRT","2304":"ALGO","2305":"DECY","2306":"PRE ","2307":"DAMP","2308":"DIFF","2309":"MOD ","2310":"WDTH","2311":"MIX ","2432":"OUT ","2438":"BLND","2441":"ADLY","2442":"BDLY","2443":"AREV","2444":"BREV","2445":"CURV","2448":"CDLY","2449":"DDLY","2450":"CREV","2451":"DREV","2453":"PRIO","2454":"THR ","3200":"SIZE","3201":"AMUT","3202":"TMUT","3203":"EVOL","3204":"MEM ","3205":"PULL","3206":"LAW ","3207":"DRFT","3210":"CAPT","3328":"RATE","3329":"FORM","3330":"SIZE","3331":"WIN ","3332":"SKEW","3333":"OMIT","3334":"BRST","3335":"JITT","3338":"ERAT","3339":"EDEP","3340":"FRAT","3341":"FDEP","3342":"SPRY","3343":"FVAR","3344":"REV%","3345":"KEYT"};
+const E16_ROW_TITLES=["ENGINE","STACK PATH","MOTION PATH","MOTION SOUND","LANES PLAY","GRAINS MAIN","GRAINS CLOUD","GRAINS PROCESS","CUTUPS CLOCK","CUTUPS PATH","DIRECT PLAY","DIRECT PLAY","SLICE SOURCE","GLITCH CLOCK","GLITCH PATTERN","WEAVE","WEAVE MOTION","WAVESETS","PRISM","MORPH","TEXTURE","FORMANT","STOCHASTIC","PULSAR","PULSAR MOD","PACKETS","MOTOR","EVENT CLOCK","EVENT SHAPE","PART COLOR","STEREO ROTARY","FX SENDS","FX SENDS","DELAY RETURN","REVERB","TAPE"];
+const E16_PAGES=["ENGINE","STACK","ENG 1","ENG 2","ENG 3","ENG 4","SENDS","COLOR","ROTARY","DELAY","REVERB","TAPE"];
+const E16_ENGINES=["MOTN","LANS","GRNS","CUTS","SAMP","SLIC","GLCH","WEAV","WSET","PRSM","MORP","TEXT","FORM","STOC","PLSR"];
+// Small Remote-only transport and renderer. No Lua runs on E16.
+// OXI protocol: https://docs.google.com/spreadsheets/d/1Yccnrluv10QL_PauMmtCt64EtYjfSeZEXKrlrw8P24w/edit
+const e16RemoteProtocol=(()=>{
+ const HEADER=[0,33,91,2,1];
+ const FONT={'"':[5,5,0,0,0],"0":[7,5,5,5,7],"1":[2,6,2,2,7],"2":[6,1,2,4,7],"3":[6,1,2,1,6],"4":[5,5,7,1,1],"5":[7,4,6,1,6],"6":[3,4,7,5,7],"7":[7,1,2,2,2],"8":[7,5,7,5,7],"9":[7,5,7,1,6],"A":[2,5,7,5,5],"B":[6,5,6,5,6],"C":[3,4,4,4,3],"D":[6,5,5,5,6],"E":[7,4,6,4,7],"F":[7,4,6,4,4],"G":[3,4,5,5,3],"H":[5,5,7,5,5],"I":[7,2,2,2,7],"J":[1,1,1,5,2],"K":[5,5,6,5,5],"L":[4,4,4,4,7],"M":[5,7,7,5,5],"N":[5,7,7,7,5],"O":[2,5,5,5,2],"P":[6,5,6,4,4],"Q":[2,5,5,7,3],"R":[6,5,6,5,5],"S":[3,4,2,1,6],"T":[7,2,2,2,2],"U":[5,5,5,5,7],"V":[5,5,5,5,2],"W":[5,5,7,7,5],"X":[5,5,2,5,5],"Y":[5,5,2,2,2],"Z":[7,1,2,4,7]," ":[0,0,0,0,0],".":[0,0,0,0,2],"-":[0,0,7,0,0],"%":[5,1,2,4,5],"/":[1,1,2,4,4],":":[0,2,0,2,0],"+":[0,2,7,2,0],"?":[6,1,2,0,2]};
+ const ascii=s=>String(s??'').toUpperCase().replace(/[^\x20-\x7e]/g,'?');
+ const pack=bytes=>{const out=[];for(let at=0;at<bytes.length;at+=7){const part=bytes.slice(at,at+7);out.push(part.reduce((v,b,i)=>v|((b>>7)<<i),0),...part.map(b=>b&127));}return out;};
+ const unpack=bytes=>{const out=[];for(let at=0;at<bytes.length;){const bits=bytes[at++];for(let i=0;i<7&&at<bytes.length;i++)out.push(bytes[at++]|(((bits>>i)&1)<<7));}return out;};
+ const sysex=(op,data=[])=>[240,...HEADER,...op,...pack(data),247];
+ const packetize=bytes=>{const out=[];for(let at=0;at<bytes.length;at+=3){const n=Math.min(3,bytes.length-at);out.push(at+n===bytes.length?n+4:4,...bytes.slice(at,at+n));while(out.length%4)out.push(0);}return out;};
+ const tiles=Array.from({length:36},(_,i)=>i<4?{x:i*32,y:0,w:32,h:5}:{x:Math.floor((i-4)/2)%4*32,y:8+Math.floor(Math.floor((i-4)/2)/4)*14+(i%2?6:0),w:32,h:5});
+ function render(view){
+  const frame=new Uint8Array(8192);
+  const text=(x,y,str,limit)=>{for(const ch of ascii(str).slice(0,limit)){const glyph=FONT[ch]||FONT['?'];for(let row=0;row<5;row++)for(let col=0;col<3;col++)if(glyph[row]&(4>>col))frame[(y+row)*128+x+col]=1;x+=4;}};
+  text(1,0,view.title,31);
+  for(let i=0;i<16;i++){const c=view.cells[i];if(!c)continue;const x=i%4*32,y=8+Math.floor(i/4)*14;if(c.reserved){for(let dy=0;dy<3;dy++)for(let dx=0;dx<3;dx++)if(dx!==1||dy!==1)frame[(y+6+dy)*128+x+14+dx]=1;continue;}text(x+1,y,c.label,7);text(x+1,y+6,c.text,7);}
+  return tiles.map(t=>{const b=Array(20).fill(0);for(let y=0;y<5;y++)for(let x=0;x<32;x++)if(frame[(t.y+y)*128+t.x+x])b[y*4+(x>>3)]|=1<<(7-(x&7));return b;});
+ }
+ function create(options){
+  // Bound OLED work by acknowledged pixels and a packet-rate budget. Each
+  // complete message fits one host write (12 USB packets); never split SysEx.
+  const ACK_MS=1000,RETRY_LIMIT=2,HEARTBEAT_MS=2000,MAX_FLIGHT=8;
+  const now=options.now||(()=>Date.now());
+  let leased=false,enabled=true,pendingExit=false,active=false,ready=false;
+  let lastProbe=-10000,lastAck=0,reconnectAt=0,probePending=false,clearAt=null,clearTries=0;
+  let cursor=0,ringCursor=0,touched=-1,shift=false,buttons=0,window=320,preferText=false;
+  let packetCredit=12,budgetAt=now();
+  let pageKey=null,assembler=null,midiStatus=0,midiData=[];
+  let view={title:'ENGINE',cells:Array(16).fill(null)},signature='',desired=render(view);
+  let acks=0,nacks=0,retries=0,reconnects=0,issue='NONE';
+  const sent=Array(36).fill(null),flight=Array(36).fill(null),retryAt=Array(36).fill(0),failures=Array(36).fill(0);
+  const rings=Array(16).fill(''),zero=Array(20).fill(0).join(',');
+  const transmit=(b,metered=false)=>{
+   const p=packetize(b),cost=p.length/4;if(p.length>48)throw Error('Remote write exceeds 12 USB-MIDI packets');
+   if(metered&&cost>packetCredit)return false;
+   if(options.send(p)===false)return false;
+   if(metered)packetCredit-=cost;return true;
+  };
+  const pendingPixels=()=>flight.reduce((n,f)=>n+(f?.pixels||0),0);
+  const ownership=(a,r)=>{const ok=options.onOwnership?.(a,r)!==false;if(ok)leased=r;return ok;};
+  function stop(){
+   if(active)pendingExit=!transmit(sysex([6,0]));
+   active=ready=false;probePending=false;clearAt=null;flight.fill(null);
+   shift=false;buttons=0;options.onButtons?.(0);assembler=null;midiStatus=0;midiData=[];
+   if(pendingExit)ownership(false,true);else if(leased)ownership(false,false);
+  }
+  function recover(reason){
+   issue=reason;reconnects++;stop();reconnectAt=now()+1000;lastProbe=-10000;
+   options.onError?.('E16 RECONNECTING');
+  }
+  function sendClear(){if(transmit(sysex([7]))){clearAt=now();clearTries++;return true;}return false;}
+  function receive(body){
+   if(pendingExit||!HEADER.every((v,i)=>body[i]===v))return;
+   const tail=body.slice(5),off=tail[0]===6?1:0,op=tail[off],payload=unpack(tail.slice(off+1));
+   if(op===83&&payload.length===0){
+    // A heartbeat confirms presence, without repainting or clearing the view.
+    if(!probePending)return;probePending=false;lastAck=now();
+    if(!active){
+     if(!ownership(false,true)){transmit(sysex([6,0]));lastProbe=now();return;}
+     active=true;ready=false;clearAt=null;clearTries=0;sendClear();
+    }else if(ready)ownership(true,true);
+    return;
+   }
+   if(!active||payload.length!==6)return;
+   if(payload[0]===7&&!ready&&clearAt!==null){
+    if(op===83&&payload[1]===0){
+     if(!ownership(true,true))return;
+     lastAck=now();ready=true;clearAt=null;sent.fill(zero);flight.fill(null);
+     retryAt.fill(0);failures.fill(0);rings.fill('');cursor=ringCursor=0;window=320;preferText=false;packetCredit=12;budgetAt=now();
+     options.onReady?.();
+    }else if(op===84){recover('CLEAR NACK');}
+    return;
+   }
+   if(!ready||payload[0]!==8)return;
+   const i=flight.findIndex(f=>f&&f.rect.every((v,j)=>v===payload[j+2]));
+   const f=flight[i];if(!f)return; // Ignore another surface's or late replies.
+   if(op===83&&payload[1]===0){
+    lastAck=now();acks++;sent[i]=f.sig;flight[i]=null;failures[i]=0;
+    // ACKs carry geometry, not a sequence number. Let duplicate replies from
+    // a retransmission drain before sending a newer value at that geometry.
+    retryAt[i]=f.tries?now()+ACK_MS:0;
+    if(acks%8===0)window=Math.min(320,window+80);
+   }else if(op===84){
+    lastAck=now();nacks++;issue='TILE NACK';flight[i]=null;sent[i]=null;window=Math.max(160,Math.floor(window/2));
+    retryAt[i]=now()+Math.min(800,100*(1+failures[i]));
+    if(payload[1]===4||++failures[i]>=3)recover('TILE NACK');
+   }
+  }
+  function message(status,n,value){
+   if(!active||(status&15)!==0)return;
+   const type=status&240;
+   if(type===176&&n>=1&&n<=16){if(!shift)touched=n-1;return;}
+   if((type===144||type===128)&&n<=16){
+    const down=type===144&&value>0,bit=1<<n,fresh=down&&!(buttons&bit),next=down?buttons|bit:buttons&~bit;
+    if(next!==buttons){buttons=next;options.onButtons?.(buttons);}
+    if(n===16)shift=down;
+    else if(fresh&&shift&&n===0)options.onPair?.();
+    else if(fresh&&shift&&n===15){stop();enabled=false;}
+   }
+  }
+  function sendRings(){
+   const changed=[],order=touched>=0?[touched,...Array.from({length:16},(_,i)=>(ringCursor+i)%16).filter(i=>i!==touched)]:Array.from({length:16},(_,i)=>(ringCursor+i)%16);
+   for(const i of order){
+    const c=view.cells[i],amount=Math.max(0,Math.min(16383,Math.round(c?.raw||0)));
+    const raw=[i,...(c?.rgb||[0,0,0]),amount>>7,amount&127,c?.bipolar?1:0],sig=raw.join(',');
+    if(rings[i]!==sig)changed.push({i,raw,sig});if(changed.length===3)break;
+   }
+   if(!changed.length)return null;
+   if(!transmit(sysex([6,4],changed.flatMap(c=>c.raw)),true))return false;
+   for(const c of changed)rings[c.i]=c.sig;
+   ringCursor=(changed[changed.length-1].i+1)%16;return true;
+  }
+  function headingPending(){
+   for(let i=0;i<4;i++)if(flight[i]||sent[i]!==desired[i].join(','))return true;
+   return false;
+  }
+  // Trim a tile to changed pixels, including pixels that must turn OFF.
+  // Rows remain byte-aligned in the wire payload even at a non-byte x/width.
+  function patch(i,raw){
+   const before=sent[i]===null?null:sent[i].split(',').map(Number);
+   let x0=32,y0=5,x1=-1,y1=-1;
+   for(let y=0;y<5;y++)for(let x=0;x<32;x++)if(!before||((raw[y*4+(x>>3)]^before[y*4+(x>>3)])&(128>>(x&7)))){
+    x0=Math.min(x0,x);x1=Math.max(x1,x);y0=Math.min(y0,y);y1=Math.max(y1,y);
+   }
+   if(x1<0)return null;
+   const w=x1-x0+1,h=y1-y0+1,stride=Math.ceil(w/8),bits=Array(stride*h).fill(0),t=tiles[i];
+   for(let y=0;y<h;y++)for(let x=0;x<w;x++)if(raw[(y+y0)*4+((x+x0)>>3)]&(128>>((x+x0)&7)))bits[y*stride+(x>>3)]|=128>>(x&7);
+   return {rect:[t.x+x0,t.y+y0,w,h],raw:bits,pixels:w*h};
+  }
+  function sendText(time,headerOnly=false){
+   if(flight.filter(Boolean).length>=MAX_FLIGHT)return null;
+   const urgent=touched>=0?5+touched*2:-1,pending=pendingPixels();
+   for(let pass=0;pass<(headerOnly?4:37);pass++){
+    const i=headerOnly?pass:pass===0&&urgent>=0?urgent:(cursor+pass-(urgent>=0?1:0)+36)%36;
+    if(flight[i]||time<retryAt[i])continue;
+    const raw=desired[i],sig=raw.join(',');if(sent[i]===sig)continue;
+    const region=patch(i,raw);if(!region||pending+region.pixels>window)continue;
+    if(!transmit(sysex([8],[...region.rect,...region.raw]),true))return false;
+    flight[i]={...region,sig,at:time,tries:0};cursor=(i+1)%36;return true;
+   }
+   return null;
+  }
+  const api={
+   get active(){return active;},get ready(){return ready;},
+   get diagnostics(){return {state:!enabled?'OFF':pendingExit||now()<reconnectAt?'RECONNECT':!active?'SEARCH':ready?'LIVE':'WAIT CLEAR',issue,acks,nacks,retries,reconnects,inflight:flight.filter(Boolean).length,window:MAX_FLIGHT,pixels:pendingPixels(),pixelWindow:window};},
+   stop,enable(v){if(!v)stop();enabled=!!v;if(enabled){lastProbe=-10000;reconnectAt=0;}},
+   resume(){stop();enabled=true;lastProbe=-10000;reconnectAt=0;},
+   setView(next){
+    if(next.pageKey!==pageKey){pageKey=next.pageKey;cursor=0;touched=-1;}
+    view=next;
+    const nextSig=view.title+'|'+view.cells.map(c=>c?c.label+':'+c.text+':'+!!c.reserved:'').join('|');
+    if(nextSig!==signature){signature=nextSig;desired=render(view);}
+   },
+   feed(bytes){
+    if(!enabled)return;
+    for(const v of bytes||[]){const b=v&255;if(b>=248)continue;
+     if(b===240){assembler=[];midiStatus=0;midiData=[];continue;}
+     if(b===247){if(assembler)receive(assembler);assembler=null;continue;}
+     if(assembler){if(b<128&&assembler.length<128){assembler.push(b);continue;}assembler=null;}
+     if(b>=128){midiStatus=b;midiData=[];continue;}
+     if(!midiStatus)continue;midiData.push(b);
+     const n=[192,208].includes(midiStatus&240)?1:2;
+     if(midiData.length===n){if(n===2)message(midiStatus,midiData[0],midiData[1]);midiData=[];}
+    }
+   },
+   tick(){
+    if(pendingExit){if(transmit(sysex([6,0]))){pendingExit=false;if(leased)ownership(false,false);}return;}
+    if(!enabled)return;const time=now();
+    // Below the shim's default drain (~1 packet/ms). An idle tick may spend
+    // at most 24 packets; it cannot accumulate a large reconnect/page burst.
+    packetCredit=Math.min(24,packetCredit+Math.max(0,time-budgetAt)*.75);budgetAt=time;
+    if(time<reconnectAt)return;
+    if(active&&time-lastAck>6500){recover('LINK TIMEOUT');return;}
+    if(active&&!ready){
+     if(clearAt===null){sendClear();return;}
+     if(time-clearAt>=ACK_MS){
+      if(clearTries>RETRY_LIMIT){recover('CLEAR TIMEOUT');return;}
+      if(sendClear())retries++;
+     }
+     return;
+    }
+    if(time-lastProbe>=(active?HEARTBEAT_MS:1500)){
+     if(active&&!ownership(ready,true))return;
+     if(transmit(sysex([6,85]))){lastProbe=time;probePending=true;}return;
+    }
+    if(!active||!ready)return;
+    for(let i=0;i<flight.length;i++){
+     const f=flight[i];if(!f||time-f.at<ACK_MS)continue;
+     if(f.tries>=RETRY_LIMIT){recover('TILE TIMEOUT');return;}
+     if(transmit(sysex([8],[...f.rect,...f.raw]),true)){f.tries++;f.at=time;retries++;window=160;issue='TILE TIMEOUT';}
+     return;
+    }
+    // Complete the heading before the new body/rings. Within that priority,
+    // spend a packet budget instead of waiting one UI tick for every message.
+    for(let pass=0;pass<8;pass++){
+     if(headingPending()){
+      if(sendText(time,true)===true)continue;
+      return;
+     }
+     let result;
+     if(preferText){
+      result=sendText(time);
+      if(result!==null){if(!result)return;preferText=false;continue;}
+     }
+     result=sendRings();
+     if(result!==null){if(!result)return;preferText=true;continue;}
+     result=sendText(time);if(result!==true)return;preferText=false;
+    }
+   }
+  };return api;
+ }
+ return {create,pack,unpack,sysex,packetize,render,tiles};
+})();
+// MIDI view feedback plus the official E16 Remote adapter. Remote uses the
+// current high-resolution parameter map while rendering readable names and
+// formatted values on E16 itself.
+const midiSurface={query:'',epoch:null};
+const E16_PAGE_JUMP_MASK=1<<17;
+const remoteButtons={mask:0,sent:null,physical:0,pair:0,target:null,mode:0,pageJump:false,data:null};
+function sendExternal(packets) {
+    return typeof move_midi_external_send==='function' && move_midi_external_send(packets);
+}
+function createNrpnFeedback(send) {
+    const pending=new Map(),urgent=new Map(),sent=new Map();
+    return {
+        reset(){pending.clear();urgent.clear();sent.clear();},
+        update(values){
+            for(const entry of values){
+                if(!Array.isArray(entry)||(entry.length!==3&&entry.length!==4))continue;
+                const [channel,id,value,priority=0]=entry;
+                if(![channel,id,value].every(Number.isInteger)||channel<1||channel>16||id<0||id>=16383||value<0||value>16383)continue;
+                const key=channel+':'+id;
+                if(sent.get(key)===value){pending.delete(key);urgent.delete(key);}
+                else if(priority===1){pending.delete(key);urgent.set(key,{channel,id,value});}
+                else if(urgent.has(key))urgent.set(key,{channel,id,value});
+                else pending.set(key,{channel,id,value});
+            }
+        },
+        tick(){
+            // Three complete NRPNs fit the host's 12-packet output bound.
+            for(let i=0;i<3;++i){
+                const queue=urgent.size?urgent:pending;
+                const first=queue.entries().next();if(first.done)return;
+                const[key,{channel,id,value}]=first.value,status=0xb0|(channel-1);
+                const packets=[];
+                for(const[cc,v]of [[99,id>>7],[98,id&127],[6,value>>7],[38,value&127]])packets.push(0x0b,status,cc,v);
+                if(send(packets)===false)return;
+                sent.set(key,value);queue.delete(key);
+            }
+        },
+    };
+}
+const midiFeedback=createNrpnFeedback(sendExternal);
+let remoteModeAllowed=false;
+function syncRemoteTransport(readDsp=false,force=false){
+    if(readDsp){
+        const raw=Number(getParam('midi_control_mode',PARAMS.midi_control_mode.value));
+        if(Number.isFinite(raw))PARAMS.midi_control_mode.value=clamp(Math.round(raw),0,6);
+    }
+    const mode=Math.round(PARAMS.midi_control_mode.value);
+    const allowed=mode===0||mode===4;
+    if(force||allowed!==remoteModeAllowed){
+        remoteModeAllowed=allowed;
+        if(allowed)remoteE16.resume();else remoteE16.enable(false);
+    }
+    return allowed;
+}
+function resetMidiSurface(){
+    midiSurface.query='';midiSurface.epoch=null;midiFeedback.reset();
+    syncRemoteTransport(true,true);
+}
+function pollMidiControls(){
+    // Move's eight visible controls use midi_view. E16 has a separate
+    // page snapshot and never changes Move's part or editing page.
+    const keys=state.view==='chain'?CHAIN_PAGE.keys:activeControlKeys();
+    const selection=[];
+    for(const key of keys){
+        const p=thruMidi.MIDI_BY_KEY.get(key);
+        if(p&&!p.action)selection.push((p.scope==='part'?state.splitFocus:-1)+':'+p.id);
+    }
+    const query=selection.slice(0,8).join(';');
+    if(query!==midiSurface.query){
+        try{
+            const result=typeof host_module_set_param_blocking==='function'
+                ?host_module_set_param_blocking('midi_view',query,10):host_module_set_param('midi_view',query);
+            if(result===false||result===0)return;
+            midiSurface.query=query;
+        }catch(_){return;}
+    }
+    let data;
+    try{data=JSON.parse(String(getParam('midi_state','')));}catch(_){return;}
+    if(data?.v!==1||!Array.isArray(data.values))return;
+    if(Number.isInteger(data.epoch)&&data.epoch!==midiSurface.epoch){
+        midiSurface.epoch=data.epoch;midiFeedback.reset();
+    }
+    for(const[part,id,value]of data.values){
+        const p=thruMidi.MIDI_BY_ID.get(id);
+        if(!p||!Number.isFinite(value)||!selection.includes(part+':'+id))continue;
+        if(PARAMS[p.key]&&(part<0||part===state.splitFocus)){
+            const control=controlForKey(p.key);
+            if(control)PARAMS[p.key].value=clamp(value,control.min,control.max);
+        }
+    }
+}
+function tickMidiFeedback(){
+    if(typeof move_midi_external_send!=='function')return;
+    const remoteAllowed=syncRemoteTransport();
+    if(remoteAllowed&&remoteE16.ready)flushRemoteButtons();
+    if(remoteAllowed&&remoteE16.ready)try{updateRemoteE16(JSON.parse(String(getParam('e16_remote_state','{}'))));}catch(_){}
+    remoteE16.tick();
+    if(remoteE16.active)return;
+    try{const values=JSON.parse(String(getParam('midi_feedback','[]')));if(Array.isArray(values))midiFeedback.update(values);}catch(_){}
+    midiFeedback.tick();
+}
+function e16Number(value,places=2){return String(Number(value.toFixed(places)));}
+function e16Time(ms){return ms>=1000?e16Number(ms/1000,2)+'S':e16Number(ms,ms<10?2:0)+'MS';}
+function e16Value(p,value){
+    const key=p.key;
+    if(key==='algorithm')return E16_ENGINES[Math.round(value)]||'?';
+    if(key==='effect_cross_pan')return value<=-99.5?'NORMAL':value>=99.5?'SWAP':Math.abs(value)<.5?'MONO':Math.round(value)+'%';
+    if(key==='effect_rotary_rate'&&value<.05)return 'STOP';
+    if(key==='effect_rotary_balance')return value<=-99.5?'DRUM':value>=99.5?'HORN':Math.abs(value)<.5?'EVEN':(value>0?'H':'D')+Math.abs(Math.round(value));
+    if(key==='effect_tape_hiss')return value<=p.min+.5?'OFF':Math.round(value)+'DB';
+    if(key==='effect_tape_inertia')return value<=0?'OFF':e16Time(tapeInertiaSeconds(value)*1000);
+    if(key==='stochastic_evolution')return value<=0?'HOLD':value>=1023.5?'CYC':e16Number(value,value<10?2:value<100?1:0);
+    if(p.options)return String(p.options[Math.round(value-p.min)]??Math.round(value)).toUpperCase();
+    if(['speed','stretch_ratio','grain_pitch','long_grain_pitch'].includes(key))return value.toFixed(2)+'X';
+    const unit=({prism_blur:'ms',prism_decay:'ms',morph_blur:'ms',texture_length:'ms',
+        effect_reverb_decay:'s',effect_reverb_pre:'ms',effect_reverb_damp:'Hz',
+        prism_pitch:'st',morph_pitch:'st'})[key]||p.unit;
+    if(unit==='ms')return e16Time(value);
+    if(unit==='s')return e16Number(value,2)+'S';
+    if(unit==='Hz')return value>=1000?e16Number(value/1000,1)+'KHZ':e16Number(value,value<10?2:1)+'HZ';
+    if(unit==='st')return e16Number(value,1)+'ST';
+    if(unit==='%')return Math.round(value)+'%';
+    if(p.integer)return String(Math.round(value));
+    if(p.min>=-1&&p.max<=2)return Math.round(value*100)+'%';
+    if(p.max===100&&p.min>=-100)return Math.round(value)+'%';
+    return e16Number(value,value<10?2:value<100?1:0);
+}
+function e16PartFamily(mode,part){return part===0?0:part===1?(mode===2?3:1):part===2?2:3;}
+function e16PageView(data){
+    if(data?.v!==2||data.active!==1||!Array.isArray(data.values)||!Array.isArray(data.alg)
+        ||!Array.isArray(data.pages)||!Array.isArray(data.rows))return null;
+    const shared=data.shared===1,multi=data.mode!==0;
+    const cells=Array.from({length:16},(_,i)=>i<(shared||!multi?8:16)?{reserved:true}:null);
+    for(const[index,raw,id,part,steps,max]of data.values){
+        const p=thruMidi.MIDI_BY_ID.get(id);if(!p||!Number.isInteger(index)||index<0||index>15||!Number.isInteger(raw)||raw<0||raw>16383||!Number.isFinite(max)||max<p.min)continue;
+        const ratio=raw/16383,value=p.curve==='log'?p.min*Math.pow(max/p.min,ratio):p.min+(max-p.min)*ratio;
+        let label=E16_LABELS[id]||p.name.slice(0,4),text;
+        if(p.key==='algorithm')label='ALG';
+        if(p.key==='manual_lane'){label=data.alg[part]===3?'LANE':'STK';text=steps?String(Math.round(value)):value.toFixed(2);}
+        else text=e16Value(p,value);
+        const namedPart=/^split_(delay|reverb)_([abcd])$/.exec(p.key);
+        const colorPart=namedPart?namedPart[2].charCodeAt(0)-97:part;
+        cells[index]={label:label.trim(),text:String(text).slice(0,7),raw,bipolar:p.min<0&&max>0,family:colorPart<0&&shared?4:e16PartFamily(data.mode,Math.max(0,colorPart))};
+    }
+    const pair=data.mode===3?data.pair:0,left=pair===2?'C':'A',right=pair===2?'D':'B';
+    const number=(data.page+1)+'/12';
+    const page=E16_PAGES[data.page]||'ENGINE';let title;
+    if(data.shift)title='TURN1 '+number+' '+page;
+    else if(data.page>=2&&data.page<=5){
+        const name=i=>data.rows[i]>0?(E16_ROW_TITLES[data.rows[i]-1]||page).slice(0,9):'---';
+        title=number+' '+left+':'+name(0)+(multi?' / '+right+':'+name(1):'');
+    }else title=number+' '+page+(shared?(data.page===6?(data.mode===3?' A-D':' A/B'):''):' '+left+(multi?'/'+right:''));
+    return {title:title.slice(0,31),pageKey:data.mode+':'+pair+':'+data.page,cells};
+}
+const E16_REMOTE_RGB=[[28,28,24],[2,26,22],[30,28,4],[22,8,20],[24,8,34]];
+function remoteOwnership(active,requested){
+    if(requested&&!remoteModeAllowed)return false;
+    try{
+        const value=(active?1:0)+','+(requested?1:0);
+        const result=typeof host_module_set_param_blocking==='function'
+            ?host_module_set_param_blocking('e16_remote',value,10):host_module_set_param('e16_remote',value);
+        return result!==false&&result!==0;
+    }catch(_){return false;}
+}
+function setRemoteControl(key,value){
+    try{
+        const result=typeof host_module_set_param_blocking==='function'
+            ?host_module_set_param_blocking(key,String(value),10):host_module_set_param(key,String(value));
+        return result!==false&&result!==0&&result!==null;
+    }catch(_){return false;}
+}
+function flushRemoteButtons(){
+    if(!remoteE16.ready)return false;
+    if(remoteButtons.sent!==remoteButtons.mask){
+        if(!setRemoteControl('e16_remote_buttons',remoteButtons.mask))return false;
+        remoteButtons.sent=remoteButtons.mask;
+    }
+    if(remoteButtons.target!==null&&setRemoteControl('e16_remote_pair',remoteButtons.target)){
+        remoteButtons.pair=remoteButtons.target;remoteButtons.target=null;
+    }
+    return true;
+}
+function remoteButtonState(mask){
+    const previous=remoteButtons.physical,fresh=mask&~previous,shifted=(mask&(1<<16))!==0;
+    remoteButtons.physical=mask;
+    // Shift + encoder 2 toggles a local index. Releasing Shift and pressing
+    // encoders 1-12 selects a page; encoder 16 cancels without changing page.
+    if(shifted&&(fresh&(1<<1))){
+        remoteButtons.pageJump=!remoteButtons.pageJump;
+        remoteButtons.mask=remoteButtons.pageJump?E16_PAGE_JUMP_MASK:0;
+        if(!flushRemoteButtons()){remoteButtons.pageJump=false;remoteButtons.mask=mask;flushRemoteButtons();return;}
+        if(remoteButtons.data)remoteE16.setView(remoteButtons.pageJump
+            ?remotePageJumpView(remoteButtons.data):remoteE16View(remoteButtons.data));
+        return;
+    }
+    if(remoteButtons.pageJump){
+        remoteButtons.mask=E16_PAGE_JUMP_MASK;flushRemoteButtons();
+        if(!shifted){
+            let page=-1;for(let i=0;i<12;++i)if(fresh&(1<<i)){page=i;break;}
+            if(page>=0&&setRemoteControl('e16_remote_page',page)){
+                remoteButtons.pageJump=false;remoteButtons.mask=0;flushRemoteButtons();
+            }else if(fresh&(1<<15)){
+                remoteButtons.pageJump=false;remoteButtons.mask=0;flushRemoteButtons();
+                if(remoteButtons.data)remoteE16.setView(remoteE16View(remoteButtons.data));
+            }
+        }
+        return;
+    }
+    remoteButtons.mask=mask;flushRemoteButtons();
+}
+function remotePairSwitch(){
+    if(remoteButtons.mode!==3)return;
+    remoteButtons.target=(remoteButtons.target??remoteButtons.pair)===0?2:0;
+    flushRemoteButtons();
+}
+const remoteE16=e16RemoteProtocol.create({send:sendExternal,onOwnership:(active,requested)=>{
+    const ok=remoteOwnership(active,requested);
+    if(ok&&active)remoteButtons.sent=null;
+    if(!requested)Object.assign(remoteButtons,{mask:0,sent:null,physical:0,pair:0,target:null,mode:0,pageJump:false,data:null});
+    return ok;
+},onButtons:remoteButtonState,onPair:remotePairSwitch,onError:message=>showActionMessage(message)});
+function remoteE16View(data){
+    const view=e16PageView(data);if(!view)return null;
+    return {...view,cells:view.cells.map(c=>c&&!c.reserved?{...c,rgb:E16_REMOTE_RGB[c.family]||E16_REMOTE_RGB[0]}:c)};
+}
+function remotePageJumpView(data){
+    const cells=Array(16).fill(null);
+    for(let i=0;i<12;++i)cells[i]={label:E16_PAGES[i],text:i===data.page?'CURRENT':'OPEN',
+        raw:i===data.page?16383:3072,rgb:E16_REMOTE_RGB[0],bipolar:false};
+    cells[15]={label:'BACK',text:'CANCEL',raw:0,rgb:E16_REMOTE_RGB[4],bipolar:false};
+    return {title:'PAGE JUMP - PRESS 1-12',pageKey:'jump:'+data.mode+':'+data.pair+':'+data.page,cells};
+}
+function updateRemoteE16(data){
+    const view=remoteE16View(data);if(!view)return;
+    remoteButtons.data=data;
+    remoteButtons.mode=data.mode;
+    if(remoteButtons.target===null)remoteButtons.pair=data.pair;
+    else if(data.pair===remoteButtons.target){remoteButtons.pair=data.pair;remoteButtons.target=null;}
+    remoteE16.setView(remoteButtons.pageJump?remotePageJumpView(data):view);
+}
+globalThis.onMidiMessageExternal=bytes=>{if(syncRemoteTransport())remoteE16.feed(bytes);};
+globalThis.onResume=function(){resetMidiSurface();};

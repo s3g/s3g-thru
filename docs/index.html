@@ -10,7 +10,7 @@
   <body>
     <header class="site-header">
       <a class="brand" href="index.html">s3g Thru <span>manual</span></a>
-      <nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav>
+      <nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="midi.html">MIDI</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav>
     </header>
 
     <div class="page-shell">
@@ -20,8 +20,8 @@
         <hr class="home-title-rule">
         <p class="lead">A stereo sample instrument with four audio lanes and eight independent voices. Play them as one stack, two independently configured instruments, or four instruments in Quad mode. A performance recorder captures notes, pressure, stack holds, and parameter motion as loopable data.</p>
         <p>s3g Thru is an adaptation and extension of the <a href="https://s3g.github.io/s3g-dsp/">s3g-dsp</a> Sample family, rebuilt around Move’s pads, controls, display, live input, and performance workflow.</p>
-        <span class="version-chip">manual · 0.29.1</span>
-        <p>This manual describes <strong>s3g Thru 0.29.1</strong>. The installed version appears briefly when takeover opens. See <a href="https://github.com/s3g/s3g-thru/releases">GitHub releases</a> for published downloads and release notes.</p>
+        <span class="version-chip">manual · next-release draft</span>
+        <p>This local manual describes <strong>0.30.0-test.39</strong>, including the next release’s <a href="midi.html">selectable MIDI modes, Light Reft Monolit Split / Shared Dual mapping, OXI E16 Remote controls and the script-free E16 NRPN + Monolit route</a>, <a href="engines.html#engine-list">per-note Engine Lists, entry variations and pressure expression</a>, <a href="engine-stochastic.html">Stochastic sample deformation</a>, <a href="engine-pulsar.html">Pulsar sample trains</a>, <a href="effects.html#priority-duck">dual-mode Priority Duck</a>, and <a href="effects.html#tape">aligned Tape mixing</a>. The published installer remains at <strong>0.29.1</strong>. The installed version appears briefly when takeover opens; see <a href="https://github.com/s3g/s3g-thru/releases">GitHub releases</a> for published downloads and release notes.</p>
 
 
         <figure class="screen-figure">
@@ -35,6 +35,18 @@
 
         <p><a href="modes.html">Choose Single, Split, Shared Dual, or Quad</a> for different source layouts and voice budgets. All use the same four stereo source lanes and performance recorder.</p>
 
+        <h2 id="next-release">New in the next release</h2>
+        <ul>
+          <li><a href="midi.html#control-mode">Selectable controller modes</a> provide fixed NRPN, current-page Generic CC, Light Reft Monolit and OXI E16 Remote paths without overlapping parameter messages.</li>
+          <li>The <a href="midi.html#direct-cc">Monolit example preset</a> places Part A on faders 1–4 and Part B on 5–8 across LIVE, two engine pages, sends, color and rotary banks while retaining every paired button as a local MOTION control.</li>
+          <li>The script-free <a href="midi.html#e16-nrpn-monolit">E16 NRPN + Monolit route</a> now protects restored Engine values during scene startup. The exact silent test.38 zero-sweep state is repaired automatically on first load.</li>
+          <li><a href="effects.html#tape">Aligned Tape mixing</a> removes the fixed dry/wet timing mismatch and format/age-dependent channel delay while preserving the eight controls and intentional transport movement.</li>
+          <li><a href="effects.html#priority-duck">Priority Duck</a> lets A or B make space for the other with stereo-linked detection, detector filtering, timing and dry/send routing.</li>
+          <li><a href="midi.html#channels">High-resolution NRPN control</a> separates musical notes from part and shared parameters, with 342 fixed addresses and two-way value feedback.</li>
+          <li>The <a href="midi.html#e16-setup">OXI E16 Remote</a> provides engine and effect pages. A occupies the top two rows; B the bottom two. Single, Split, Shared Dual and Quad adapt automatically. Hold E16 Shift and turn encoder 1 to change pages.</li>
+          <li><a href="midi.html#e16-values">Live value displays</a> identify the edited part and parameter. E16 edits leave Move’s current editing focus and page selected.</li>
+        </ul>
+
         <h2 id="whats-new">New in 0.29.0</h2>
         <ul>
           <li>Four new engines: <a href="engine-prism.html">Prism</a> for spectral playback, <a href="engine-morph.html">Morph and Imprint</a> for combining sources, <a href="engine-texture.html">Texture</a> for grouped grains, and <a href="engine-formant.html">Formant</a> for pitch-synchronous sampling.</li>
@@ -42,7 +54,7 @@
           <li><a href="performance.html#pattern-fade">Pattern fades</a> blend complete performances and their sources for up to 30 seconds, with fixed or random timing, curves, Hold, and touch-controlled manual crossfading.</li>
           <li><a href="performance.html#chain">Sixteen saved chains</a> each hold up to 64 entries, with repeats, WAIT, per-entry fades and Loop, Stay or Stop endings. <a href="performance.html#clip-copy">Clip copy/paste</a> creates independent recorded performances.</li>
           <li><a href="recording.html#part-capture">Part capture</a> records an instrument into a lane. Cues remember lane blends, and parameter dials offer finer adjustments.</li>
-          <li><a href="shortcuts.html#device-help">On-device help</a> provides 24 topics. The <a href="shortcuts.html#report">timing reports</a> distinguish rendering CPU time from waiting and support a fresh counter reset.</li>
+          <li><a href="shortcuts.html#device-help">On-device help</a> provides 25 topics. The <a href="shortcuts.html#report">timing reports</a> distinguish rendering CPU time from waiting and support a fresh counter reset.</li>
         </ul>
 
         <p>For an on-device quick reference, leave takeover and open Schwung <strong>Global Settings → System → Help → Modules → s3g Thru</strong>. See <a href="shortcuts.html#device-help">On-device help</a> for navigation.</p>
@@ -87,11 +99,12 @@
           <li><a href="playing.html">Basic playing</a> introduces Single: load or record a sound, play and hold notes, shape the stack, and capture a performance.</li>
           <li><a href="interface.html">Interface tour</a> identifies every part of the waveform and parameter screens.</li>
           <li><a href="recording.html">Samples and recording</a> covers microphone/line capture, resampling, library loading, editing, saving, and recall.</li>
-          <li><a href="engines.html">Playback engines</a> compares all thirteen engines and links to an individual parameter-by-parameter guide for each one.</li>
+          <li><a href="engines.html">Playback engines</a> compares all fifteen engines and links to an individual parameter-by-parameter guide for each one.</li>
           <li><a href="effects.html">Effects</a> covers tone, drive, reduction, stereo delay, cross-pan, rotary speaker, tape, reverb, customizable order, parameter motion, and practical starting points.</li>
           <li><a href="modes.html">Instrument modes</a> compares the layouts, followed by separate <a href="split.html">Split</a>, <a href="shared-dual.html">Shared Dual</a>, and <a href="quad.html">Quad</a> guides.</li>
           <li><a href="performance.html">Performance loops</a> covers Replace, Overdub takes, clip banks, timing, launch, and chains.</li>
-          <li><a href="shortcuts.html">Shortcut reference</a> lists Move gestures, view-specific controls, LEDs, and the external MIDI map.</li>
+          <li><a href="midi.html">MIDI Control</a> covers musical input, Generic CC, the fixed 64-control map, NRPN, Remote setup and value feedback.</li>
+          <li><a href="shortcuts.html">Shortcut reference</a> lists Move gestures, view-specific controls, LEDs and MIDI channels.</li>
         </ul>
 
         <nav class="page-nav" aria-label="Page navigation">
@@ -101,18 +114,19 @@
       </main>
 
       <aside class="toc" aria-label="Page navigation">
-        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
+        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="midi.html">MIDI</a><a href="shortcuts.html">Shortcuts</a></div>
         <div class="toc-section"><h2>Instrument modes</h2><a href="playing.html">Single · Basic playing</a><a href="modes.html">Compare modes</a><a href="split.html">Split</a><a href="shared-dual.html">Shared Dual</a><a href="quad.html">Quad</a></div>
         <div class="toc-section">
           <h2>On this page</h2>
-          <a href="#whats-new">New in 0.28</a>
+          <a href="#next-release">Next-release features</a>
+          <a href="#whats-new">New in 0.29</a>
           <a href="#quick-start">Quick start</a>
           <a href="#mental-model">Mental model</a>
           <a href="#manual-map">Read next</a>
         </div>
       </aside>
     </div>
-    <footer class="manual-footer">s3g Thru · 0.29.1 manual · Takeover module for Ableton Move via Schwung</footer>
+    <footer class="manual-footer">s3g Thru · Next-release manual · Takeover module for Ableton Move via Schwung</footer>
     <script src="assets/lightbox.js"></script>
   </body>
 </html>

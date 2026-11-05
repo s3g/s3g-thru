@@ -10,7 +10,7 @@
   <body>
     <header class="site-header">
       <a class="brand" href="index.html">s3g Thru <span>manual</span></a>
-      <nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav>
+      <nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="midi.html">MIDI</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav>
     </header>
 
     <div class="page-shell">
@@ -31,10 +31,12 @@
 
         <div class="screen-gallery">
           <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/help.svg" aria-label="Open the on-device system report"><img src="assets/screens/help.svg" alt="System report with render peak, render misses, current limiting, and maximum limiting"></button></div><figcaption><kbd>Shift</kbd> + <kbd>Menu</kbd> opens the System Report first. Each value has its own right-aligned field, so a growing counter cannot overwrite another report.</figcaption></figure>
-          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/help-callbacks.svg" aria-label="Open the callback work report"><img src="assets/screens/help-callbacks.svg" alt="Callback report with control peak, query peak, total work peak, and work misses"></button></div><figcaption><strong>Callback Work 2/4.</strong> Includes live control changes and display queries alongside rendering, helping identify interruptions that the render report alone cannot show.</figcaption></figure>
-          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/help-timing.svg" aria-label="Open the render CPU and wait report"><img src="assets/screens/help-timing.svg" alt="Render Timing report showing CPU peak, wall peak, wait peak, and CPU misses."></button></div><figcaption><strong>Render Timing 3/4.</strong> Separates time spent running on the CPU from elapsed time while the rendering thread was not running. Shift+Delete resets the diagnostic counters while a report view is open.</figcaption></figure>
-          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/help-shortcuts.svg" aria-label="Open the on-device shortcut page"><img src="assets/screens/help-shortcuts.svg" alt="Compact shortcut reminder for recording, undo, note hold, and Glitch lock"></button></div><figcaption>Use Left/Right, Up/Down, or the main encoder to move between System Report 1/4, Callback Work 2/4, Render Timing 3/4, and Shortcuts 4/4. Back, Menu, or Shift+Menu closes the view.</figcaption></figure>
+          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/help-callbacks.svg" aria-label="Open the callback work report"><img src="assets/screens/help-callbacks.svg" alt="Callback report with control peak, query peak, total work peak, and work misses"></button></div><figcaption><strong>Callback Work 2/5.</strong> Includes live control changes and display queries alongside rendering, helping identify interruptions that the render report alone cannot show.</figcaption></figure>
+          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/help-timing.svg" aria-label="Open the render CPU and wait report"><img src="assets/screens/help-timing.svg" alt="Render Timing report showing CPU peak, wall peak, wait peak, and CPU misses."></button></div><figcaption><strong>Render Timing 3/5.</strong> Separates time spent running on the CPU from elapsed time while the rendering thread was not running. Shift+Delete resets the diagnostic counters while a report view is open.</figcaption></figure>
+          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/help-shortcuts.svg" aria-label="Open the on-device shortcut page"><img src="assets/screens/help-shortcuts.svg" alt="Compact shortcut reminder for recording, undo, note hold, and Glitch lock"></button></div><figcaption>Use Left/Right, Up/Down, or the main encoder to move between System Report 1/5, Callback Work 2/5, Render Timing 3/5, Shortcuts 4/5, and E16 Link 5/5. Back, Menu, or Shift+Menu closes the view.</figcaption></figure>
         </div>
+
+        <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/help-e16.svg" aria-label="Open the E16 link report"><img src="assets/screens/help-e16.svg" alt="E16 link report with connection state, last issue, acknowledged and rejected tiles, retries, reconnects, and pending tiles"></button></div><figcaption><strong>E16 Link 5/5.</strong> Keeps connection history visible after a brief reconnect message. See <a href="midi.html#e16-link">reading the E16 report</a>.</figcaption></figure>
 
         <h2 id="report">Reading the System Report</h2>
 
@@ -56,7 +58,7 @@
             <tr><td>LIMIT MAX</td><td>Largest limiter reduction observed since takeover started.</td><td>Use it as peak history. A large maximum with a near-zero current value describes an earlier transient, not continuous limiting.</td></tr>
           </tbody>
         </table>
-        <p>Large counts are shortened with <code>M</code> or <code>G</code> suffixes so every value remains visible. The report is diagnostic history for the current takeover session; opening or closing it does not reset the counters. In any report view, press Shift+Delete to reset diagnostic peaks and miss counters for a fresh test. This report shortcut preserves samples, clips, and the running performance. One 128-frame block at 44.1 kHz lasts about 2,902 µs, and Move and Schwung also need part of that time. Peaks are displayed in whole microseconds; miss counters compare the original nanosecond timings with the block period, so display rounding cannot create a miss. The reports do not measure every cause of a missed device deadline.</p>
+        <p>Large counts are shortened with <code>M</code> or <code>G</code> suffixes so every value remains visible. The report is diagnostic history for the current takeover session; opening or closing it does not reset the counters. In any report view, press Shift+Delete to reset audio diagnostic peaks and miss counters for a fresh test. This report shortcut preserves samples, clips, and the running performance. One 128-frame block at 44.1 kHz lasts about 2,902 µs, and Move and Schwung also need part of that time. Peaks are displayed in whole microseconds; miss counters compare the original nanosecond timings with the block period, so display rounding cannot create a miss. The reports do not measure every cause of a missed device deadline.</p>
 
         <h2 id="global">Global and waveform controls</h2>
 
@@ -156,90 +158,25 @@
         </table>
 
         <h2 id="midi">External MIDI</h2>
-        <p>In Single, notes share one instrument. Split and Shared Dual use MIDI channels 1–2 for A/B; Quad uses channels 1–4 for A–D. Other channels address A. Engine parameter CCs follow that channel without moving edit focus.</p>
-        <p><strong>Prism / Morph / Texture / Formant:</strong> CCs 40–45 address the selected engine’s first six parameter-page controls; Morph CC 45 selects Morph / Imprint and its FREQ control is reserved in Imprint; Texture uses CC 28 for Spread and CC 29 for Seed. Unused engine-page slots are reserved. Formant uses CCs 40–45 for PIT, FORM, SMTH, TUNE, FRZE, and KEYT; CC 28 controls ROUG and CC 29 controls SUB. FRZE is Off at 0–63 and On at 64–127. Other engines retain their existing mapping.</p>
-        <p><strong>Quad mixing:</strong> CC 13 controls the addressed part’s level, CC 15 its Delay send, and CC 17 its Reverb send. CCs 14, 16, and 18 retain their fixed B assignments. Quad ignores Blend and Curve and stays on one lane per part, so its stack-scan CCs have no lane-selection role.</p>
+        <p>Musical notes, note-offs and polyphonic aftertouch use channels 1–4 for A–D according to the instrument mode. All Sound Off (CC 120) and All Notes Off (CC 123) are also accepted. External notes keep the pitches sent by the keyboard; Move’s pad scale does not quantize them.</p>
+        <p>High-resolution parameters use separate channels: <strong>5–8 for A–D, 16 for shared controls</strong>. Part-control edits preserve Move’s selected part and page. Channels 5–8 and 16 also carry controller commands, so keep musical notes on 1–4. See <a href="midi.html">MIDI control</a> for setup, the current NRPN map and two-way feedback.</p>
 
-        <p>Shared controls remain global. External/host MIDI accepts notes, note-off, polyphonic aftertouch, All Sound Off (CC 120), and All Notes Off (CC 123). Parameter CC values are 7-bit absolute.</p>
+        <h2 id="oxi-e16">OXI E16 Remote</h2>
+        <p>The Remote interface provides Engine, Stack, engine-specific and effect pages. Hold E16 Shift and turn encoder 1 to change pages. A occupies the top two encoder rows; B occupies the bottom two. The layout follows Single, Split, Shared Dual and Quad. Hold an encoder while turning for fine adjustment. In Quad, Shift + encoder 1 switches A/B ↔ C/D; Shift + encoder 16 leaves Remote. Edits preserve Move’s current part and page. See <a href="midi.html#e16-setup">MIDI control</a> for setup and connection checks.</p>
 
-        <details>
-          <summary>Show complete CC map</summary>
-          <table class="readout-table">
-            <thead><tr><th>CC</th><th>Parameter</th><th>CC</th><th>Parameter</th></tr></thead>
-            <tbody>
-              <tr><td>11</td><td>Split curve: Linear / Power</td><td>12</td><td>Split Blend</td></tr>
-              <tr><td>13</td><td>A Level; addressed part in Quad</td><td>14</td><td>B Level</td></tr>
-              <tr><td>15</td><td>A Delay send; addressed part in Quad</td><td>16</td><td>B Delay send</td></tr>
-              <tr><td>17</td><td>A Reverb send; addressed part in Quad</td><td>18</td><td>B Reverb send</td></tr>
-              <tr><td>19</td><td>Cutups Advance: Hold / 1 / 2 / 3 / 4 / 8 / 16 cuts</td><td>—</td><td>—</td></tr>
-              <tr><td>20</td><td>Position</td><td>21</td><td>Field width</td></tr>
-              <tr><td>22</td><td>Speed</td><td>23</td><td>Stack Start; physical Lane in Cutups</td></tr>
-              <tr><td>24</td><td>Stack scan rate</td><td>25</td><td>Algorithm</td></tr>
-              <tr><td>26</td><td>Join</td><td>27</td><td>Output level</td></tr>
-              <tr><td>28</td><td>Motion mode</td><td>29</td><td>Motion sound</td></tr>
-              <tr><td>30</td><td>Packet rate</td><td>31</td><td>Lanes mode</td></tr>
-              <tr><td>32</td><td>Stack path</td><td>33</td><td>Stretch Off/On</td></tr>
-              <tr><td>34</td><td>Stretch ratio</td><td>35–38</td><td>Lane 1–4 gain</td></tr>
-              <tr><td>39</td><td>Grain mode</td><td>40</td><td>Grain size</td></tr>
-              <tr><td>41</td><td>Grain density</td><td>42</td><td>Grain pitch</td></tr>
-              <tr><td>43</td><td>Grain window</td><td>44</td><td>Grain stereo spread</td></tr>
-              <tr><td>45</td><td>Cutups mode</td><td>46</td><td>Pressure Off/Offset</td></tr>
-              <tr><td>47</td><td>Root note</td><td>48</td><td>Record lane</td></tr>
-              <tr><td>49</td><td>Record source</td><td>50</td><td>Record gain</td></tr>
-              <tr><td>51</td><td>Monitor level</td><td>52</td><td>Record gate</td></tr>
-              <tr><td>53</td><td>Clear lane</td><td>54</td><td>Tempo BPM</td></tr>
-              <tr><td>55</td><td>Tempo swing</td><td>56</td><td>Performance playback</td></tr>
-              <tr><td>57</td><td>Undo trigger</td><td>58</td><td>Clear chain slot</td></tr>
-              <tr><td>59</td><td>Motion path rate basis</td><td>60</td><td>Motion path rate</td></tr>
-              <tr><td>61</td><td>Moving Loop step</td><td>62</td><td>Motion seed</td></tr>
-              <tr><td>63</td><td>Motion event trigger</td><td>64</td><td>Motion event overlap</td></tr>
-              <tr><td>65</td><td>Chain Off/On</td><td>66</td><td>Chain slot</td></tr>
-              <tr><td>67</td><td>Chain clip</td><td>68</td><td>Chain repeats</td></tr>
-              <tr><td>69</td><td>Motion travel</td><td>70</td><td>Motion jitter</td></tr>
-              <tr><td>71</td><td>Packet duty</td><td>72</td><td>Motor rate</td></tr>
-              <tr><td>73</td><td>Motor symmetry</td><td>74</td><td>Motor shape</td></tr>
-              <tr><td>75</td><td>Lane transition</td><td>76</td><td>Lane path shape</td></tr>
-              <tr><td>77</td><td>Lane path offset</td><td>78</td><td>Lane path skew</td></tr>
-              <tr><td>79</td><td>Lane path curve</td><td>80</td><td>Lane transition slew</td></tr>
-              <tr><td>81</td><td>Grain position spray</td><td>82</td><td>Grain spray bias</td></tr>
-              <tr><td>83</td><td>Grain pitch spray</td><td>84</td><td>Grain reverse chance</td></tr>
-              <tr><td>85</td><td>Grain size variation</td><td>86</td><td>Grain level variation</td></tr>
-              <tr><td>87</td><td>Grain timing</td><td>88</td><td>Grain timing scatter</td></tr>
-              <tr><td>89</td><td>Grain envelope skew</td><td>90</td><td>Grain process</td></tr>
-              <tr><td>91</td><td>Grain process amount</td><td>92</td><td>Grain regions</td></tr>
-              <tr><td>93</td><td>Grain source advance</td><td>94</td><td>Cut clock</td></tr>
-              <tr><td>95</td><td>Cut division</td><td>96</td><td>Free cut rate</td></tr>
-              <tr><td>97</td><td>Cut timing variation</td><td>98</td><td>Cut gate</td></tr>
-              <tr><td>99</td><td>Cut join</td><td>100</td><td>Cut regions</td></tr>
-              <tr><td>101</td><td>Cut repeats</td><td>102</td><td>Cut reverse chance</td></tr>
-              <tr><td>103</td><td>Cut pitch variation</td><td>104</td><td>Cut level variation</td></tr>
-              <tr><td>105</td><td>Cut lane order</td><td>106</td><td>Cut poly path</td></tr>
-              <tr><td>107</td><td>Cut region source</td><td>108</td><td>Sample play mode</td></tr>
-              <tr><td>109</td><td>Slice region source</td><td>110</td><td>Equal slice count</td></tr>
-              <tr><td>111</td><td>Pad mode</td><td>112</td><td>Lane variation</td></tr>
-              <tr><td>113</td><td>Preview level</td><td>114</td><td>Performance rate</td></tr>
-              <tr><td>115</td><td>Replace/Overdub</td><td>116</td><td>Performance record</td></tr>
-              <tr><td>117</td><td>Clear performance</td><td>118</td><td>Motion event layers</td></tr>
-              <tr><td>119</td><td>Motion event rate</td><td>121</td><td>Motion event repeats</td></tr>
-              <tr><td>122</td><td>Motion event step</td><td>124</td><td>Motion event pitch scatter</td></tr>
-              <tr><td>125</td><td>Motion event level variation</td><td>126</td><td>Motion event interval curve</td></tr>
-              <tr><td>120 / 123</td><td>All sound / notes off</td><td></td><td></td></tr>
-            </tbody>
-          </table>
-        </details>
-
-        <div class="callout"><p><strong>Move and external CCs are handled separately.</strong> Move's plain Loop button controls Stack Hold (or Tape transport in Quad when INRT is enabled) and Shift+Loop controls Glitch Buffer Lock, while CC 58 from an external controller clears the selected chain slot. External CC 51 enables monitoring and can cause acoustic feedback.</p></div>
+        <h2 id="nrpn">High-resolution MIDI</h2>
+        <p>The next-release map has <strong>342 fixed NRPN addresses</strong>. Channels 5–8 control A–D; channel 16 controls shared parameters. Musical notes and polyphonic aftertouch use channels 1–4. See the <a href="midi.html#nrpn">high-resolution MIDI guide</a> for complete value messages, ranges and feedback.</p>
 
         <nav class="page-nav" aria-label="Page navigation">
-          <a class="page-nav-link" href="performance.html"><span>Previous</span>Performance Loops</a>
+          <a class="page-nav-link" href="midi.html"><span>Previous</span>MIDI Control</a>
           <a class="page-nav-link next" href="index.html"><span>Return</span>Manual Start</a>
         </nav>
       </main>
 
       <aside class="toc" aria-label="Page navigation">
-        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
+        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="midi.html">MIDI</a><a href="shortcuts.html">Shortcuts</a></div>
         <div class="toc-section"><h2>Instrument modes</h2><a href="playing.html">Single · Basic playing</a><a href="modes.html">Compare modes</a><a href="split.html">Split</a><a href="shared-dual.html">Shared Dual</a><a href="quad.html">Quad</a></div>
-        <div class="toc-section"><h2>On this page</h2><a href="#known-issues">Schwung Skipback</a><a href="#global">Global</a><a href="#editing">Editing</a><a href="#context">By view</a><a href="#leds">LEDs</a><a href="#midi">External MIDI</a></div>
+        <div class="toc-section"><h2>On this page</h2><a href="#known-issues">Schwung Skipback</a><a href="#global">Global</a><a href="#editing">Editing</a><a href="#context">By view</a><a href="#leds">LEDs</a><a href="#midi">External MIDI</a><a href="#oxi-e16">OXI E16</a><a href="#nrpn">High-resolution MIDI</a></div>
       </aside>
     </div>
     <footer class="manual-footer">Keep monitoring at zero unless input pass-through is intentional.</footer>

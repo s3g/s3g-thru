@@ -188,8 +188,9 @@ void testFormantPersistenceAndFormat21() {
     std::vector<unsigned char> bytes(size - 4);
     assert(std::fread(bytes.data(), 1, bytes.size(), file) == bytes.size());
     std::fclose(file);
+    stripVoiceEngineExtension(bytes);
     constexpr std::size_t extension =
-        8 + 64 * 5 * (kLockParameterCount - kVersion19LockParameterCount) * 4;
+        8 + 64 * 5 * (kVersion25LockParameterCount - kVersion19LockParameterCount) * 4;
     const auto at = bytes.size() - extension;
     std::vector<unsigned char> old(bytes.begin(), bytes.begin() + at);
     old[8] = 21;
@@ -200,7 +201,7 @@ void testFormantPersistenceAndFormat21() {
     append(0x4e455731u);
     append(20);
     for (std::size_t group = 0; group < 64 * 5; ++group) {
-        const auto offset = at + 8 + group * (kLockParameterCount-kVersion19LockParameterCount) * 4;
+        const auto offset = at + 8 + group * (kVersion25LockParameterCount-kVersion19LockParameterCount) * 4;
         old.insert(old.end(), bytes.begin() + offset, bytes.begin() + offset + 20 * 4);
     }
     std::uint32_t checksum = 2166136261u;
@@ -228,9 +229,9 @@ void testFormantPersistenceAndFormat21() {
     std::strcpy(json.data(), "{}");
     assert(t->appendSplitJson(json.data(), json.size(), 2) > 0);
     std::string text = json.data();
-    auto atCount = text.find("\"split_params_count\":205");
+    auto atCount = text.find("\"split_params_count\":242");
     assert(atCount != std::string::npos);
-    text.replace(atCount, std::strlen("\"split_params_count\":205"), "\"split_params_count\":196");
+    text.replace(atCount, std::strlen("\"split_params_count\":242"), "\"split_params_count\":196");
     for (const auto *name : {"split_single", "split_a", "split_b", "split_c", "split_d"}) {
         const auto begin = text.find(std::string("\"") + name + "\":[");
         assert(begin != std::string::npos);

@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>MIDI control - s3g Thru manual</title>
+    <meta name="description" content="MIDI notes, pressure, NRPN, ordinary CC, Light Reft Monolit, OXI E16 Remote and combined E16 NRPN routing for s3g Thru.">
+    <link rel="stylesheet" href="assets/styles.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="index.html">s3g Thru <span>manual</span></a>
+      <nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="midi.html">MIDI</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav>
+    </header>
+
+    <div class="page-shell">
+      <main class="content" id="content">
+        <p class="eyebrow">External control</p>
+        <h1>MIDI control</h1>
+        <p class="lead">Play notes and pressure independently from parameter control, then choose high-resolution NRPN, eight page-following CCs, the MNLT direct-CC bank, the dedicated OXI E16 Remote surface or a script-free E16 + Monolit route.</p>
+        <div class="callout"><p><strong>Next-release preview:</strong> selectable controller modes, MNLT and Priority Duck control require the local <strong>0.30.0-test.39 or newer</strong> build. The published 0.29.1 release predates this controller interface. Check the version shown when takeover opens.</p></div>
+
+        <h2 id="options">MIDI options at a glance</h2>
+        <div class="table-scroll"><table class="readout-table"><thead><tr><th>Option</th><th>Messages and channels</th><th>Best use</th></tr></thead><tbody>
+          <tr><td>Note input</td><td>Notes, note-offs and polyphonic aftertouch on channels 1–4</td><td>Play parts A–D from keys, pads or a sequencer. This remains active regardless of parameter mode.</td></tr>
+          <tr><td>NRPN</td><td>14-bit NRPN on channels 5–8 for A–D; channel 16 for shared controls</td><td>Full, stable parameter addressing and two-way feedback.</td></tr>
+          <tr><td>Generic CC</td><td>Eight consecutive absolute CCs on a configurable channel</td><td>A small controller that should follow the eight controls visible on Move.</td></tr>
+          <tr><td>MNLT direct-CC bank</td><td>Channels 9–12 for A–D; shared controls and commands on channel 13</td><td>Simultaneous part control from Light Reft Monolit or another multi-control surface.</td></tr>
+          <tr><td>OXI E16 Remote</td><td>Dedicated Schwung surface using E16’s display, encoders and RGB rings</td><td>Readable pages with formatted names, values and feedback.</td></tr>
+          <tr><td>E16 NRPN + MNLT</td><td>E16 native 14-bit aliases on channels 5–6; Monolit direct CC on 9–13</td><td>One direct USB connection to Move, with Monolit entering E16 over TRS MIDI.</td></tr>
+          <tr><td>Clock and transport</td><td>MIDI real-time messages</td><td>External synchronization; unaffected by parameter-mode selection.</td></tr>
+        </tbody></table></div>
+
+        <h2 id="control-mode">Choose a controller mode</h2>
+        <p>Open <strong>Menu → MIDI Control</strong>. This shared page appears once in Single, Split, Shared Dual and Quad. Controller messages do not change Move's current editing focus.</p>
+        <table class="readout-table"><thead><tr><th>Display</th><th>Setting</th><th>What it controls</th></tr></thead><tbody>
+          <tr><td>MODE</td><td>Auto</td><td>Accept NRPN, current-page Generic CC and E16 Remote. This is the default.</td></tr>
+          <tr><td>MODE</td><td>NRPN</td><td>Accept only the fixed 14-bit parameter map and its scene commands.</td></tr>
+          <tr><td>MODE</td><td>CC</td><td>Map eight consecutive absolute CCs to the visible Move parameter page.</td></tr>
+          <tr><td>MODE</td><td>MNLT</td><td>Use the fixed Light Reft Monolit bank and button layout.</td></tr>
+          <tr><td>MODE</td><td>E16</td><td>Accept only OXI E16 Remote parameter control.</td></tr>
+          <tr><td>MODE</td><td>N+M</td><td>Accept fixed NRPN, the script-free E16 native aliases and the MNLT direct-CC bank together.</td></tr>
+          <tr><td>MODE</td><td>Off</td><td>Disable external parameter control.</td></tr>
+          <tr><td>CCCH</td><td>1–16</td><td>Generic CC channel; default 9.</td></tr>
+          <tr><td>BASE</td><td>0–120</td><td>First of eight Generic CC numbers; default 20 for CC 20–27.</td></tr>
+          <tr><td>TAKE</td><td>Pick / Jump</td><td>Pick waits for an absolute control to meet the stored value. Jump applies it immediately.</td></tr>
+        </tbody></table>
+        <figure class="screen-figure"><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/midi-control.svg" aria-label="Open the MIDI Control page figure"><img src="assets/screens/midi-control.svg" alt="Move MIDI Control page with mode, channel, base CC and takeover"></button></div><figcaption>MIDI Control is a shared page. It changes external parameter routing without changing the instrument's note and pressure input.</figcaption></figure>
+        <p>These modes affect parameter messages only. Note input, note-offs, polyphonic aftertouch, clock and transport remain available. The previous hard-coded 7-bit CC assignments are no longer routed, preventing unrelated controller messages from changing sound settings.</p>
+
+        <h2 id="generic-cc">Eight-knob Generic CC</h2>
+        <p>Generic CC follows the parameter page shown on Move: its first eight available controls map to eight consecutive CCs. With the defaults, CC 20–27 on channel 9 correspond to knobs 1–8. Change page or engine and the assignments follow the visible controls. A reserved cell does nothing.</p>
+        <p>Use <strong>Pick</strong> when changing pages on a controller with absolute knobs or faders. Thru ignores a control until it crosses the current stored value, avoiding a jump. Use <strong>Jump</strong> when immediate response matters more. Generic CC follows the part and page currently shown on Move.</p>
+
+        <h2 id="channels">MIDI channels and CC ranges</h2>
+        <div class="table-scroll"><table class="readout-table">
+          <thead><tr><th>Mode or message</th><th>Channel</th><th>CC / data</th><th>What it controls</th></tr></thead>
+          <tbody>
+            <tr><td>Note input</td><td>1–4</td><td>Notes, note-offs, polyphonic aftertouch</td><td>Parts A–D according to the current instrument mode.</td></tr>
+            <tr><td>Safety</td><td>1–4</td><td>CC 120 / CC 123</td><td>All Sound Off / All Notes Off for the addressed part.</td></tr>
+            <tr><td>NRPN part control</td><td>5–8</td><td>CC 99, 98, 6 and 38</td><td>High-resolution parameters for A–D. The same NRPN address retains its meaning across part channels.</td></tr>
+            <tr><td>NRPN shared control</td><td>16</td><td>CC 99, 98, 6 and 38</td><td>Mixer, effect returns, Tape, transport, recording, performance loops, chains and fades.</td></tr>
+            <tr><td>Generic CC</td><td>CCCH, default 9</td><td>BASE through BASE + 7; default CC 20–27</td><td>The first eight available parameters on Move’s visible page.</td></tr>
+            <tr><td>MNLT part controls</td><td>9 A / 10 B / 11 C / 12 D</td><td>CC 16–79</td><td>Engine, Stack, adaptive engine-detail, Mix/Color and Stereo/Rotary controls. Parts can be changed simultaneously.</td></tr>
+            <tr><td>MNLT A/B crossfade</td><td>13</td><td>CC 24</td><td>Shared Split or Shared Dual crossfade: 0 = A, 64 = center and 127 = B.</td></tr>
+            <tr><td>MNLT crossfade curve</td><td>13</td><td>CC 25</td><td>Shared Split or Shared Dual curve: lower region = Linear, upper region = Equal Power.</td></tr>
+            <tr><td>MNLT Priority Duck</td><td>13</td><td>CC 26–33</td><td>Priority direction/depth, threshold, attack, hold, release, detector HPF, knee and routing.</td></tr>
+            <tr><td>MNLT shared controls</td><td>13</td><td>CC 72–79</td><td>Performance clip, tempo and pattern-fade controls.</td></tr>
+            <tr><td>MNLT commands</td><td>13</td><td>CC 16–23</td><td>Stack Hold A–D, clip record, pattern-fade Hold, Panic and one reserved command.</td></tr>
+            <tr><td>OXI E16 Remote</td><td>1 while Remote owns the surface</td><td>Relative CC 1–16; notes 0–16 for held encoders and shortcuts</td><td>The active E16 Remote page. This transport is reserved while the surface is live.</td></tr>
+            <tr><td>E16 native aliases</td><td>5 A / 6 B turns; 14 A / 15 B resets</td><td>Private NRPN 3456–3551; reset CC 0–95</td><td>The twelve script-free E16 pages in N+M mode. CC reset presses preserve the active turn address. Destinations follow each part's current engine.</td></tr>
+            <tr><td>Clock / transport</td><td>Channel-free</td><td>MIDI Clock, Start, Continue and Stop</td><td>External tempo and transport synchronization.</td></tr>
+          </tbody>
+        </table></div>
+        <p>Use channel 5 for Single; 5 and 6 for Split or Shared Dual; 5–8 for Quad. Unavailable parts and parameters sent on the wrong control channel are ignored. In Auto or NRPN mode, channels 5–8 and 16 also accept controller commands, so keep note input on channels 1–4.</p>
+        <p>Changing A or B from an external controller leaves Move’s editing focus and page in place. Move’s visible parameter values refresh when their controls change. External MIDI notes keep the pitches sent by the keyboard; the Move pad scale does not quantize them.</p>
+
+        <h2 id="direct-cc">All fixed direct-CC mappings</h2>
+        <p>The two tables below are the complete fixed ordinary-CC receiver map implemented by Thru. Parts use identical CC numbers on separate channels: <strong>channel 9 = A, 10 = B, 11 = C and 12 = D</strong>. Send A and B controls at the same time without selecting a controller target first.</p>
+        <p>Set MODE to <strong>MNLT</strong>, or <strong>N+M</strong> when Monolit is routed through the script-free E16 scene. The map can be used by Light Reft Monolit or any controller able to send these addresses. Values are absolute 0–127; Pick is the safer takeover setting while testing a layout.</p>
+        <p>The map defines what Thru receives, not where a control must live physically. Banks C–F are intentionally adaptive: each address follows one knob on the addressed part’s current engine-detail page. This makes them flexible, but their sound function changes when the engine changes.</p>
+        <p>Banks A–H use the part channels above and CC 16–79. Channel 13 CC 24 controls the shared A/B crossfade, CC 25 selects its curve, CC 26–33 control Priority Duck, and CC 72–79 form the shared Performance bank. An unavailable engine page or part that does not exist in the current instrument mode is ignored.</p>
+
+        <h3 id="monolit-example">Monolit Split / Shared Dual example preset</h3>
+        <p>The supplied preset keeps Part A on faders 1–4 and Part B on faders 5–8 wherever the controls are part-specific. Addresses below use <strong>channel / CC</strong>. ENG controls follow the playback engine selected for that part.</p>
+        <div class="table-scroll"><table class="readout-table"><thead><tr><th>Bank</th><th>Faders 1–4</th><th>Faders 5–8</th></tr></thead><tbody>
+          <tr><td>1 · LIVE</td><td>A POS <code>9/17</code><br>A FLD <code>9/18</code><br>A SPD <code>9/19</code><br>A LVL <code>9/23</code></td><td>B POS <code>10/17</code><br>B FLD <code>10/18</code><br>B SPD <code>10/19</code><br>B LVL <code>10/23</code></td></tr>
+          <tr><td>2 · ENG 1A</td><td>A ENG 1.1–1.4 <code>9/32–35</code></td><td>B ENG 1.1–1.4 <code>10/32–35</code></td></tr>
+          <tr><td>3 · ENG 1B</td><td>A ENG 1.5–1.8 <code>9/36–39</code></td><td>B ENG 1.5–1.8 <code>10/36–39</code></td></tr>
+          <tr><td>4 · ENG 2A</td><td>A ENG 2.1–2.4 <code>9/40–43</code></td><td>B ENG 2.1–2.4 <code>10/40–43</code></td></tr>
+          <tr><td>5 · ENG 2B</td><td>A ENG 2.5–2.8 <code>9/44–47</code></td><td>B ENG 2.5–2.8 <code>10/44–47</code></td></tr>
+          <tr><td>6 · MIX / SEND</td><td>A LVL <code>9/64</code><br>A DLY <code>9/65</code><br>A REV <code>9/66</code><br>X-CURVE <code>13/25</code></td><td>B LVL <code>10/64</code><br>B DLY <code>10/65</code><br>B REV <code>10/66</code><br>X-FADE <code>13/24</code></td></tr>
+          <tr><td>7 · COLOR</td><td>A TONE <code>9/68</code><br>A DRIVE <code>9/69</code><br>A BITS <code>9/70</code><br>A RATE <code>9/71</code></td><td>B TONE <code>10/68</code><br>B DRIVE <code>10/69</code><br>B BITS <code>10/70</code><br>B RATE <code>10/71</code></td></tr>
+          <tr><td>8 · ROTARY</td><td>A X-PN <code>9/72</code><br>A RATE <code>9/73</code><br>A DPTH <code>9/74</code><br>A MIX <code>9/79</code></td><td>B X-PN <code>10/72</code><br>B RATE <code>10/73</code><br>B DPTH <code>10/74</code><br>B MIX <code>10/79</code></td></tr>
+        </tbody></table></div>
+        <p>Every paired Monolit button remains a local <strong>MOTION</strong> control; the example does not assign Thru command CCs to those buttons. Download the <a href="https://github.com/s3g/s3g-thru/blob/main/controllers/lightreft-monolit/presets/s3g-thru">importable preset</a> or see the <a href="https://github.com/s3g/s3g-thru/blob/main/controllers/lightreft-monolit/mapping.csv">complete receiver CSV</a>.</p>
+
+        <h3 id="direct-cc-faders">Complete direct-CC fader map</h3>
+        <div class="table-scroll"><table class="readout-table"><thead><tr><th>Bank / fader</th><th>Channel</th><th>CC</th><th>Display</th><th>What it controls</th></tr></thead><tbody>
+          <tr><td>A1</td><td>9–12</td><td>16</td><td>ALG</td><td>Algorithm for the addressed part.</td></tr>
+          <tr><td>A2</td><td>9–12</td><td>17</td><td>POS</td><td>Position for the addressed part.</td></tr>
+          <tr><td>A3</td><td>9–12</td><td>18</td><td>FLD</td><td>Field for the addressed part.</td></tr>
+          <tr><td>A4</td><td>9–12</td><td>19</td><td>SPD</td><td>Speed for the addressed part.</td></tr>
+          <tr><td>A5</td><td>9–12</td><td>20</td><td>STK / LANE</td><td>Stack Start or Lane; meaning follows the current engine and mode.</td></tr>
+          <tr><td>A6</td><td>9–12</td><td>21</td><td>SCAN / ADV</td><td>Stack Rate or Cutups Advance; meaning follows the current engine.</td></tr>
+          <tr><td>A7</td><td>9–12</td><td>22</td><td>JOIN</td><td>Join for the addressed part.</td></tr>
+          <tr><td>A8</td><td>9–12</td><td>23</td><td>LVL / OUT</td><td>Part Level or Output, according to instrument mode.</td></tr>
+
+          <tr><td>B1</td><td>9–12</td><td>24</td><td>PATH</td><td>Stack Path.</td></tr>
+          <tr><td>B2</td><td>9–12</td><td>25</td><td>BLND</td><td>Stack Blend.</td></tr>
+          <tr><td>B3</td><td>9–12</td><td>26</td><td>SHAP</td><td>Stack Shape.</td></tr>
+          <tr><td>B4</td><td>9–12</td><td>27</td><td>OFFS</td><td>Stack Offset.</td></tr>
+          <tr><td>B5</td><td>9–12</td><td>28</td><td>SKEW</td><td>Stack Skew.</td></tr>
+          <tr><td>B6</td><td>9–12</td><td>29</td><td>CURV</td><td>Stack Curve.</td></tr>
+          <tr><td>B7</td><td>9–12</td><td>30</td><td>SLEW</td><td>Stack Slew.</td></tr>
+          <tr><td>B8</td><td>9–12</td><td>31</td><td>—</td><td>Reserved; no action.</td></tr>
+
+          <tr><td>C1</td><td>9–12</td><td>32</td><td>ENG 1.1</td><td>Engine-detail page 1, knob 1.</td></tr>
+          <tr><td>C2</td><td>9–12</td><td>33</td><td>ENG 1.2</td><td>Engine-detail page 1, knob 2.</td></tr>
+          <tr><td>C3</td><td>9–12</td><td>34</td><td>ENG 1.3</td><td>Engine-detail page 1, knob 3.</td></tr>
+          <tr><td>C4</td><td>9–12</td><td>35</td><td>ENG 1.4</td><td>Engine-detail page 1, knob 4.</td></tr>
+          <tr><td>C5</td><td>9–12</td><td>36</td><td>ENG 1.5</td><td>Engine-detail page 1, knob 5.</td></tr>
+          <tr><td>C6</td><td>9–12</td><td>37</td><td>ENG 1.6</td><td>Engine-detail page 1, knob 6.</td></tr>
+          <tr><td>C7</td><td>9–12</td><td>38</td><td>ENG 1.7</td><td>Engine-detail page 1, knob 7.</td></tr>
+          <tr><td>C8</td><td>9–12</td><td>39</td><td>ENG 1.8</td><td>Engine-detail page 1, knob 8.</td></tr>
+
+          <tr><td>D1</td><td>9–12</td><td>40</td><td>ENG 2.1</td><td>Engine-detail page 2, knob 1.</td></tr>
+          <tr><td>D2</td><td>9–12</td><td>41</td><td>ENG 2.2</td><td>Engine-detail page 2, knob 2.</td></tr>
+          <tr><td>D3</td><td>9–12</td><td>42</td><td>ENG 2.3</td><td>Engine-detail page 2, knob 3.</td></tr>
+          <tr><td>D4</td><td>9–12</td><td>43</td><td>ENG 2.4</td><td>Engine-detail page 2, knob 4.</td></tr>
+          <tr><td>D5</td><td>9–12</td><td>44</td><td>ENG 2.5</td><td>Engine-detail page 2, knob 5.</td></tr>
+          <tr><td>D6</td><td>9–12</td><td>45</td><td>ENG 2.6</td><td>Engine-detail page 2, knob 6.</td></tr>
+          <tr><td>D7</td><td>9–12</td><td>46</td><td>ENG 2.7</td><td>Engine-detail page 2, knob 7.</td></tr>
+          <tr><td>D8</td><td>9–12</td><td>47</td><td>ENG 2.8</td><td>Engine-detail page 2, knob 8.</td></tr>
+
+          <tr><td>E1</td><td>9–12</td><td>48</td><td>ENG 3.1</td><td>Engine-detail page 3, knob 1.</td></tr>
+          <tr><td>E2</td><td>9–12</td><td>49</td><td>ENG 3.2</td><td>Engine-detail page 3, knob 2.</td></tr>
+          <tr><td>E3</td><td>9–12</td><td>50</td><td>ENG 3.3</td><td>Engine-detail page 3, knob 3.</td></tr>
+          <tr><td>E4</td><td>9–12</td><td>51</td><td>ENG 3.4</td><td>Engine-detail page 3, knob 4.</td></tr>
+          <tr><td>E5</td><td>9–12</td><td>52</td><td>ENG 3.5</td><td>Engine-detail page 3, knob 5.</td></tr>
+          <tr><td>E6</td><td>9–12</td><td>53</td><td>ENG 3.6</td><td>Engine-detail page 3, knob 6.</td></tr>
+          <tr><td>E7</td><td>9–12</td><td>54</td><td>ENG 3.7</td><td>Engine-detail page 3, knob 7.</td></tr>
+          <tr><td>E8</td><td>9–12</td><td>55</td><td>ENG 3.8</td><td>Engine-detail page 3, knob 8.</td></tr>
+
+          <tr><td>F1</td><td>9–12</td><td>56</td><td>ENG 4.1</td><td>Engine-detail page 4, knob 1.</td></tr>
+          <tr><td>F2</td><td>9–12</td><td>57</td><td>ENG 4.2</td><td>Engine-detail page 4, knob 2.</td></tr>
+          <tr><td>F3</td><td>9–12</td><td>58</td><td>ENG 4.3</td><td>Engine-detail page 4, knob 3.</td></tr>
+          <tr><td>F4</td><td>9–12</td><td>59</td><td>ENG 4.4</td><td>Engine-detail page 4, knob 4.</td></tr>
+          <tr><td>F5</td><td>9–12</td><td>60</td><td>ENG 4.5</td><td>Engine-detail page 4, knob 5.</td></tr>
+          <tr><td>F6</td><td>9–12</td><td>61</td><td>ENG 4.6</td><td>Engine-detail page 4, knob 6.</td></tr>
+          <tr><td>F7</td><td>9–12</td><td>62</td><td>ENG 4.7</td><td>Engine-detail page 4, knob 7.</td></tr>
+          <tr><td>F8</td><td>9–12</td><td>63</td><td>ENG 4.8</td><td>Engine-detail page 4, knob 8.</td></tr>
+
+          <tr><td>G1</td><td>9–12</td><td>64</td><td>LVL</td><td>Part Level for the addressed part.</td></tr>
+          <tr><td>G2</td><td>9–12</td><td>65</td><td>DLY</td><td>Delay Send for the addressed part.</td></tr>
+          <tr><td>G3</td><td>9–12</td><td>66</td><td>REV</td><td>Reverb Send for the addressed part.</td></tr>
+          <tr><td>G4</td><td>9–12</td><td>67</td><td>MUTE</td><td>Part Mute for the addressed part.</td></tr>
+          <tr><td>G5</td><td>9–12</td><td>68</td><td>TONE</td><td>Tone for the addressed part.</td></tr>
+          <tr><td>G6</td><td>9–12</td><td>69</td><td>DRIVE</td><td>Drive for the addressed part.</td></tr>
+          <tr><td>G7</td><td>9–12</td><td>70</td><td>BITS</td><td>Bits for the addressed part.</td></tr>
+          <tr><td>G8</td><td>9–12</td><td>71</td><td>RATE</td><td>Rate for the addressed part.</td></tr>
+
+          <tr><td>H1</td><td>9–12</td><td>72</td><td>X-PN</td><td>Stereo Cross Pan for the addressed part.</td></tr>
+          <tr><td>H2</td><td>9–12</td><td>73</td><td>RATE</td><td>Rotary Rate for the addressed part.</td></tr>
+          <tr><td>H3</td><td>9–12</td><td>74</td><td>DPTH</td><td>Rotary Depth for the addressed part.</td></tr>
+          <tr><td>H4</td><td>9–12</td><td>75</td><td>SPRD</td><td>Rotary Spread for the addressed part.</td></tr>
+          <tr><td>H5</td><td>9–12</td><td>76</td><td>RAMP</td><td>Rotary Ramp for the addressed part.</td></tr>
+          <tr><td>H6</td><td>9–12</td><td>77</td><td>BAL</td><td>Rotor Balance for the addressed part.</td></tr>
+          <tr><td>H7</td><td>9–12</td><td>78</td><td>XOVR</td><td>Rotary Crossover for the addressed part.</td></tr>
+          <tr><td>H8</td><td>9–12</td><td>79</td><td>MIX</td><td>Rotary Mix for the addressed part.</td></tr>
+
+          <tr><td>Crossfade</td><td>13</td><td>24</td><td>X-FADE</td><td>A/B crossfade in Split or Shared Dual: 0 = A, 64 = center and 127 = B.</td></tr>
+          <tr><td>Crossfade</td><td>13</td><td>25</td><td>X-CURVE</td><td>A/B curve in Split or Shared Dual: 0–63 = Linear and 64–127 = Equal Power.</td></tr>
+          <tr><td>Priority</td><td>13</td><td>26</td><td>PRIO</td><td>Priority direction and maximum reduction: 0 = A ducks B by 24 dB, 64 = Off and 127 = B ducks A by 24 dB.</td></tr>
+          <tr><td>Priority</td><td>13</td><td>27</td><td>THR</td><td>Priority detector threshold, −60–0 dBFS.</td></tr>
+          <tr><td>Priority</td><td>13</td><td>28</td><td>ATK</td><td>Priority gain-reduction attack, 1–250 ms.</td></tr>
+          <tr><td>Priority</td><td>13</td><td>29</td><td>HOLD</td><td>Priority hold time, 0–1000 ms.</td></tr>
+          <tr><td>Priority</td><td>13</td><td>30</td><td>REL</td><td>Priority release, 10–3000 ms.</td></tr>
+          <tr><td>Priority</td><td>13</td><td>31</td><td>HPF</td><td>Stereo-linked detector high-pass frequency, 20–2000 Hz.</td></tr>
+          <tr><td>Priority</td><td>13</td><td>32</td><td>KNEE</td><td>Soft-knee width, 0–24 dB.</td></tr>
+          <tr><td>Priority</td><td>13</td><td>33</td><td>ROUT</td><td>0–63 = duck Dry only; 64–127 = duck Dry + Sends. Existing effect tails remain open.</td></tr>
+          <tr><td>Shared 1</td><td>13</td><td>72</td><td>CLIP RATE</td><td>Performance clip playback rate.</td></tr>
+          <tr><td>Shared 2</td><td>13</td><td>73</td><td>REC MODE</td><td>Performance clip record mode.</td></tr>
+          <tr><td>Shared 3</td><td>13</td><td>74</td><td>TIMING</td><td>Performance clip timing.</td></tr>
+          <tr><td>Shared 4</td><td>13</td><td>75</td><td>QUANT</td><td>Launch Quantize.</td></tr>
+          <tr><td>Shared 5</td><td>13</td><td>76</td><td>BPM</td><td>Tempo BPM.</td></tr>
+          <tr><td>Shared 6</td><td>13</td><td>77</td><td>SWING</td><td>Tempo Swing.</td></tr>
+          <tr><td>Shared 7</td><td>13</td><td>78</td><td>FADE TIME</td><td>Pattern Fade Time.</td></tr>
+          <tr><td>Shared 8</td><td>13</td><td>79</td><td>FADE CURV</td><td>Pattern Fade Curve.</td></tr>
+        </tbody></table></div>
+
+        <h3 id="monolit-buttons">Optional shared command map</h3>
+        <div class="table-scroll"><table class="readout-table"><thead><tr><th>Button</th><th>Channel</th><th>CC</th><th>What it controls</th></tr></thead><tbody>
+          <tr><td>1</td><td>13</td><td>16</td><td>Toggle Stack Hold for part A.</td></tr>
+          <tr><td>2</td><td>13</td><td>17</td><td>Toggle Stack Hold for part B.</td></tr>
+          <tr><td>3</td><td>13</td><td>18</td><td>Toggle Stack Hold for part C.</td></tr>
+          <tr><td>4</td><td>13</td><td>19</td><td>Toggle Stack Hold for part D.</td></tr>
+          <tr><td>5</td><td>13</td><td>20</td><td>Toggle performance clip recording.</td></tr>
+          <tr><td>6</td><td>13</td><td>21</td><td>Toggle Pattern Fade Hold.</td></tr>
+          <tr><td>7</td><td>13</td><td>22</td><td>Panic.</td></tr>
+          <tr><td>8</td><td>13</td><td>23</td><td>Reserved for a future global command.</td></tr>
+        </tbody></table></div>
+        <p>Send these optional commands as momentary 0/127 controls. Thru acts on the nonzero edge, so the release does not repeat the command.</p>
+        <p>The controller folder includes a <a href="https://github.com/s3g/s3g-thru/blob/main/controllers/lightreft-monolit/mapping.csv">downloadable receiver-map CSV</a> and generated <a href="https://github.com/s3g/s3g-thru/blob/main/controllers/lightreft-monolit/presets/s3g-thru">Split / Shared Dual example preset</a> for the official Monolit Web-Editor. Each bank places A on faders 1–4 and B on faders 5–8. The eight banks cover LIVE, both halves of ENG 1, both halves of ENG 2, MIX / SEND, COLOR and ROTARY. MIX / SEND places X-CURVE on fader 4 and X-FADE on fader 8. ROTARY keeps per-part X-PN and omits SPRD from the focused preset. All paired buttons remain local Monolit MOTION controls; the example does not use the optional command map above.</p>
+
+        <h2 id="e16-nrpn-monolit">E16 NRPN + Monolit · one USB connection</h2>
+        <p>This alternate local setup keeps E16 directly attached to Move and brings Monolit into E16's TRS MIDI input:</p>
+        <pre><code>Monolit TRS MIDI OUT → E16 TRS MIDI IN → E16 USB-C → Move USB-A</code></pre>
+        <p>Move powers E16 over USB. Power Monolit separately over USB-C; TRS MIDI does not carry power. Use a type-A-compatible TRS MIDI cable or adapter. E16 sends its own controls and the forwarded Monolit messages to Move through the same USB connection, so no USB hub or direction-switching adapter is involved.</p>
+        <h3 id="e16-nrpn-setup">Connection setup</h3>
+        <ol>
+          <li>Install the matching <strong>0.30.0-test.39</strong> tarball.</li>
+          <li>Leave takeover and set <strong>Schwung Global Settings → Surfaces → Surface → CC Only</strong>.</li>
+          <li>Before connecting E16 to Move, open Thru and set <strong>Menu → MIDI Control → MODE</strong> to <strong>N+M</strong>. Use Pick for safe Monolit fader pickup or Jump for immediate response. The selection is saved.</li>
+          <li>On E16, select USB1, turn USB Multi Port off and enable MIDI Thru in <strong>Conf / Settings → MIDI</strong>. OXI documents that an enabled input is echoed to the other MIDI outputs.</li>
+          <li>Transfer the matching <strong>Scenes/THRU NRPN MNLT.oxie16</strong> from <a href="https://github.com/s3g/s3g-thru/tree/main/controllers/oxi-e16-nrpn">controllers/oxi-e16-nrpn</a> with OXI App. Replace an older THRU NM scene rather than retaining the test.38 copy. The E16 scene appears as <strong>THRU NM</strong> and contains no Lua script.</li>
+          <li>Load the supplied Monolit preset or a custom channel 9–13 MNLT map. Select THRU NM, connect the devices in the order shown above, then open Thru.</li>
+        </ol>
+        <p>In N+M mode, Thru disables its E16 Remote discovery and ignores Remote handshakes, so the native THRU NM scene remains on the controller. If an older build has already replaced it with Remote, install test.39, disconnect E16, set Surface to CC Only and MODE to N+M, then reconnect and reselect THRU NM.</p>
+        <div class="callout"><p><strong>Updating from test.38:</strong> install the test.39-or-newer module and replace the THRU NM scene. The revised scene reserves raw zero for startup synchronization. Thru also repairs the exact saved zero-sweep state—Position 0, minimum Field, Speed and Scan, Join 0 and possibly Level 0—on first load. Individual controls intentionally set to a minimum are not reset.</p></div>
+        <p>E16 encoders 1–8 control A and 9–16 control B. Its twelve page positions match Engine, Stack, ENG 1–4, Sends, Color, Rotary, Delay, Reverb and Tape. Shared pages occupy encoders 1–8 once. ENG pages show P1–P8 because a stock scene cannot rename controls as the algorithm changes, but each destination and value follows that part's current engine. Full parameter names, option text and units remain visible on Move. <strong>Quick-press an active encoder to return its current parameter to the Thru default.</strong> The reset follows adaptive ENG assignments; PRIO returns to neutral Off, XFD to center, levels to unity and effect mixes to dry. A Monolit fader edit is returned to its matching E16 ring before the background page sweep, so the ring follows on the next feedback tick. Monolit remains a 7-bit source with 128 positions; turning E16 itself retains 14-bit resolution.</p>
+        <p>The scene uses private turn aliases 3456–3551 on channels 5 and 6. Reset presses use CC 0–95 on dedicated channels 14 (A) and 15 (B), preserving E16's selected NRPN turn address without colliding with Monolit on channels 9–13. These controls are not part of Thru's fixed public registry. Thru resolves them dynamically and returns values to E16. This native route controls A/B only and uses fixed ring colors. Use Move or the fixed NRPN registry for Quad C/D.</p>
+        <p>Rebuild the OXI App bundle with <code>npm run controllers:nrpn:package</code>. It writes <code>dist/s3g-thru-e16-nrpn-monolit.zip</code> and a ready storage folder at <code>dist/e16-nrpn-monolit</code>.</p>
+
+        <h3 id="e16-native-help">Native scene checks</h3>
+        <table class="readout-table"><thead><tr><th>Symptom</th><th>What it means</th><th>What to do</th></tr></thead><tbody>
+          <tr><td>Library preview works; pads light and playheads move, but performance audio is silent</td><td>A test.38 native scene may have saved the Engine page's startup minima.</td><td>Install test.39 or newer, replace THRU NM, and reopen takeover. Confirm FIELD is full, SPD and SCAN are 1, JOIN is full and LVL is unity.</td></tr>
+          <tr><td>THRU NM changes to Remote</td><td>Remote still owns the E16 connection.</td><td>Leave takeover, choose Schwung Surface CC Only, set Thru MODE to N+M, select THRU NM and reopen takeover.</td></tr>
+          <tr><td>Monolit changes Move but not the E16 rings</td><td>MIDI reaches Thru, but E16 feedback or MIDI Thru is not configured.</td><td>Use USB1, USB Multi Port Off and MIDI Thru On; confirm the matching THRU NM scene is selected.</td></tr>
+        </tbody></table>
+
+        <h2 id="e16">OXI E16 Remote</h2>
+        <p>The local test.39 build retains the script-free <strong>THRU RM</strong> scene as the more readable alternative. OXI Remote draws a compact name above each formatted value, while Thru retains its high-resolution parameter values internally. Remote is separate from the N+M route above and does not merge Monolit.</p>
+        <h3 id="e16-setup">Connection setup</h3>
+        <ol><li>Install the matching <strong>0.30.0-test.39</strong> tarball with Schwung Manager.</li><li>Leave takeover. Set <strong>Schwung Global Settings → Surfaces → Surface → E16</strong>.</li><li>Use current E16 firmware, USB1, USB Multi Port Off and USB MIDI Thru Off.</li><li>Extract <code>dist/s3g-thru-e16-remote.zip</code>, or select <code>dist/e16-remote</code> as OXI App's computer storage folder. Transfer <strong>Scenes/THRU REMOTE.oxie16</strong> to an unused slot. No Lua script is attached or required.</li><li>Connect E16 USB-C to Move USB-A. Select THRU RM before opening takeover. Remote replaces the blank starter screen automatically.</li></ol>
+        <p>The official integration is in <a href="https://github.com/s3g/s3g-thru/tree/main/controllers/oxi-e16">controllers/oxi-e16</a>. Run <code>npm run controllers:generate</code> and <code>npm run controllers:package</code> to rebuild it. Screen traffic is acknowledged and bounded; headings arrive before a changed page body. Ordinary value changes redraw only their value and ring. Engine changes preserve common cells, the other part and effects.</p>
+        <h3 id="e16-layout">Parts and modes</h3>
+        <p>A/C occupies the first two encoder rows, 1–8; B/D occupies the last two, 9–16. Single uses A; Split and Shared Dual use A/B. In Quad, hold <strong>E16 Shift and press encoder 1</strong> to switch A/B ↔ C/D. Shared SENDS always shows all four parts. E16 edits leave Move's current part and page selected.</p>
+        <p>Remote RGB rings use neutral A, teal Split B, plum Shared Dual B, yellow Quad C and plum D. Shared returns use purple. Inactive and reserved controls stay dark.</p>
+        <h3 id="e16-pages">Page navigation</h3>
+        <p>Hold <strong>E16 Shift</strong>, the round button inside the OXI O, and turn encoder 1 to move backward or forward. For direct access, press <strong>Shift + encoder 2</strong> to open <strong>PAGE JUMP</strong>, release Shift, then press encoder 1–12 under the page name you want. The current page reads CURRENT; encoder 16 cancels. Page Jump consumes turns while open, so it cannot accidentally edit a hidden sound parameter. All twelve page positions stay fixed. An unused page remains in place with reserved squares and dark rings; one instrument can use a page while the other half stays blank.</p>
+        <table class="readout-table"><thead><tr><th>Page</th><th>Display</th><th>Knob</th><th>What it controls</th></tr></thead><tbody>
+          <tr><td>1</td><td>ENGINE</td><td>1–8 A/C; 9–16 B/D</td><td>ALG, POS, FLD, SPD, STK/LANE, SCAN/ADV, JOIN and LVL/OUT.</td></tr>
+          <tr><td>2</td><td>STACK</td><td>1–8 A/C; 9–16 B/D</td><td>Path, Blend, Shape, Offset, Skew, Curve and Slew. Blank in Quad and for engines without Stack controls.</td></tr>
+          <tr><td>3–6</td><td>ENG 1–4</td><td>1–8 A/C; 9–16 B/D</td><td>Engine-specific controls in Move's order; Motion reveals its Packets, Motor or Event pages.</td></tr>
+          <tr><td>7</td><td>SENDS</td><td>1–8, once</td><td>Dual A/B sends, Priority direction/depth and threshold, curve and Blend; Quad A–D sends. Blank in Single.</td></tr>
+          <tr><td>8</td><td>COLOR</td><td>1–8 A/C; 9–16 B/D</td><td>Tone, Drive, Bits and Rate.</td></tr>
+          <tr><td>9</td><td>ROTARY</td><td>1–8 A/C; 9–16 B/D</td><td>Stereo Cross Pan and seven Rotary controls.</td></tr>
+          <tr><td>10</td><td>DELAY</td><td>1–8, once</td><td>Time, Feedback, Width and MIX.</td></tr>
+          <tr><td>11</td><td>REVERB</td><td>1–8, once</td><td>Algorithm, Decay, Pre-delay, Damping, Diffusion, Modulation, Width and MIX.</td></tr>
+          <tr><td>12</td><td>TAPE</td><td>1–8, once</td><td>Format, Record level, Age, Crinkle, Mechanics, Inertia, Hiss and MIX.</td></tr>
+        </tbody></table>
+        <p>Shared returns occupy the top eight controls once. SENDS does not duplicate return MIX. Blank controls show a small reserved square. Pads &amp; Scale, envelopes, Engine Lists, Path Editor points, browsing, recording, loops and chains remain on Move; open its page chooser with <strong>Capture + Menu</strong>.</p>
+        <h3 id="e16-values">Values and feedback</h3>
+        <p>Remote uses a compact 3×5 display font. Each cell places its abbreviated parameter name above a readable choice, percentage, ratio, millisecond, second, hertz or semitone value. Bipolar controls use centered rings.</p>
+        <p>Hold an encoder while turning for fine continuous adjustment. Choice controls advance one option per turn. Shift turns do not edit sound parameters. Move edits and clip recalls update the visible E16 page.</p>
+        <p>Remote sends relative turns, while Thru retains its full parameter precision. Ordinary NRPN feedback pauses while Remote owns the surface and resumes after it disconnects.</p>
+        <h3 id="e16-help">Connection checks</h3>
+        <table class="readout-table"><thead><tr><th>Display or symptom</th><th>What it means</th><th>What to do</th></tr></thead><tbody>
+          <tr><td>THRU RM–REMOTE remains</td><td>The starter scene is loaded, but Remote did not take ownership.</td><td>Check test.39, USB1 and Schwung Surface E16; select THRU RM and reopen takeover.</td></tr>
+          <tr><td>E16 RECONNECTING</td><td>A display patch was rejected or its acknowledgement was lost.</td><td>Thru retries automatically. If the display stays frozen, reconnect USB without closing takeover.</td></tr>
+          <tr><td>Reserved square; dark ring</td><td>The current engine or mode does not use that control.</td><td>Select a relevant page or Quad pair.</td></tr>
+        </tbody></table>
+        <h3 id="e16-link">Reading the E16 report</h3>
+        <p>Press <strong>Shift + Menu</strong> on Move and select E16 Link 5/5. STATE reports LIVE, SEARCH, WAIT CLEAR, RECONNECT or OFF. LAST retains the most recent transport issue. ACK/NACK and RETRY/RECON show display confirmations and recovery attempts. PENDING PX is unacknowledged display work against its 320-pixel window; these are not audio-load measurements.</p>
+        <h2 id="nrpn">High-resolution NRPN map</h2>
+        <p>Thru provides <strong>342 fixed NRPN addresses</strong> for playback, engines, effects, recording and performance. Channels 5–8 address parts A–D; channel 16 addresses shared controls. Each address keeps the same meaning when engines or pages change.</p>
+        <p>Use the downloadable <a href="https://github.com/s3g/s3g-thru/blob/main/controllers/midi/parameters.csv"><strong>complete NRPN CSV</strong></a> for every address, CC 99/98 selector byte, channel, range, curve and action flag. The <a href="https://github.com/s3g/s3g-thru/tree/main/controllers/midi">MIDI reference folder</a> also contains the source registry.</p>
+        <p id="engine-list-midi">Engine List, Voice Setup, Stochastic and Pulsar mappings are included in the same CSV rather than repeated as separate manual sections.</p>
+        <p>Send CC 99 and 98 to select an address, followed by CC 6 and 38 for its 14-bit value. Configure two-way feedback without retransmitting received values. Ordinary NRPN feedback pauses while THRU RM owns the E16 surface and resumes after it disconnects.</p>
+        <p>Note input also accepts All Sound Off (CC 120) and All Notes Off (CC 123) on channels 1–4.</p>
+
+        <nav class="page-nav" aria-label="Page navigation">
+          <a class="page-nav-link" href="performance.html"><span>Previous</span>Performance Loops</a>
+          <a class="page-nav-link next" href="shortcuts.html"><span>Next</span>Shortcut Reference</a>
+        </nav>
+      </main>
+      <aside class="toc" aria-label="Page navigation">
+        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="midi.html">MIDI</a><a href="shortcuts.html">Shortcuts</a></div>
+        <div class="toc-section"><h2>On this page</h2><a href="#options">MIDI options</a><a href="#control-mode">Controller mode</a><a href="#generic-cc">Generic CC</a><a href="#channels">Channels and CCs</a><a href="#direct-cc">All fixed direct CCs</a><a href="#monolit-buttons">Command CCs</a><a href="#e16-nrpn-monolit">E16 + Monolit</a><a href="#e16-native-help">Native checks</a><a href="#e16">OXI E16 Remote</a><a href="#nrpn">NRPN CSV</a></div>
+      </aside>
+    </div>
+    <footer class="manual-footer">s3g Thru · Next-release MIDI guide</footer>
+    <script src="assets/lightbox.js"></script>
+  </body>
+</html>

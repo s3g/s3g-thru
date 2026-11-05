@@ -4,6 +4,7 @@
 #include <cassert>
 #include <string>
 #include <vector>
+#include "test_clip_format_helpers.h"
 
 namespace {
 struct CoreFixture {
@@ -301,11 +302,14 @@ void testPreviewIsolation()
     assert(std::abs(instance->lastVoiceMixSample[0u] - performance) < 0.0001f);
     assert(instance->lastPreviewSample[0u] == 0.0f);
 }
+#include "test_tape_alignment.inc"
 #include "test_background.inc"
 #include "test_reverb_routing.inc"
 #include "test_cutups_scan.inc"
 #include "test_split.inc"
+#include "test_midi.inc"
 #include "test_split_sends.inc"
+#include "test_priority_duck.inc"
 #include "test_split_silence.inc"
 #include "test_editor_snapshot.inc"
 #include "test_performance_tools.inc"
@@ -321,10 +325,34 @@ void testPreviewIsolation()
 #include "test_imprint.inc"
 #include "test_formant.inc"
 #include "test_formant_controls.inc"
+#include "test_voice_engines.inc"
+#include "test_voice_play.inc"
+#include "test_stochastic.inc"
+#include "test_stochastic_listener.inc"
+#include "test_pulsar.inc"
+#include "test_pulsar_mod.inc"
 } // namespace
 
 int main()
 {
+    testPriorityDuckingControls();
+    testPriorityDuckingRoutingAndBypass();
+    testPriorityDuckingAudio();
+    testPulsarModulationSound();
+    testPulsarModulationPersistence();
+    testPulsarWindowsAndClock();
+    testPulsarEditsAndParts();
+    testPulsarPersistenceAndMidi();
+    testStochasticControlEdgesAndTransformation();
+    testStochasticExtremeFilteringAndHistory();
+    testStochasticHoldLatchAndRecording();
+    testStochasticFormat26Import();
+    testStochasticListenerMath();
+    testStochasticListenerRoutingAndRecall();
+    testStochasticWalk();
+    testStochasticSourceAndPitch();
+    testStochasticLiveEditsAndLayouts();
+    testStochasticPersistenceAndMidi();
     testRotaryCircularBoundary();
     testRenderCpuAndWaitTelemetry();
     testFormantArticulationAllLayouts();
@@ -345,6 +373,14 @@ int main()
     testAllEnginesAfterSpectralSwitching();
     testPatternFadeStarvationCanFinish();
     testClipClipboardSnapshotsAndUndo();
+    testVoicePlayOrdersAndKeyboard();
+    testVoicePlayVariationsAndPan();
+    testVoicePlayPressure();
+    testVoicePlayRecordingAndPersistence();
+    testVoiceEngineMixedRenderingAndFades();
+    testVoiceEngineAllocation();
+    testVoiceEngineCaptureAndRecall();
+    testVoiceEngineMidiAndWorkers();
     testPerformanceLoopGlobalsAndPartPressure();
     testSpectralReleaseAndDecay();
     testSpectralSnapshotWorker();
@@ -403,6 +439,11 @@ int main()
     testSplitPreviewDestination();
     testSplitSendReturns();
     testSplitBankRoundTrip();
+    testNrpnAndMidiViews();
+    testMidiScopeRegistryAndScene();
+    testE16RemoteControl();
+    testSelectableMidiModesAndMonolit();
+    testNativeE16AndMonolitMode();
     testSplitInstruments();
     testSplitCuesRollsAndLoad();
     testSplitMixer();
@@ -420,6 +461,9 @@ int main()
     testShortCutGates();
     testLoFiEditContinuity();
     testWavesetsIntoEffects();
+    testTapeAlignedMixResponse();
+    testTapeBypassTiming();
+    testTapeLinkedMotionAndEdits();
     testTapeGestureDuration();
     testPreviewIsolation();
     std::puts("s3g Thru DSP transition regressions: PASS");

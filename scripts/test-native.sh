@@ -37,6 +37,14 @@ ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 \
   "$test_dir/test-transitions-sanitize"
 
 node "$repo_dir/tests/test_ui.mjs" "$repo_dir/src/ui.js"
+node "$repo_dir/tests/test_e16.mjs"
+node "$repo_dir/tests/test_e16_remote.mjs"
+node "$repo_dir/tests/test_e16_nrpn.mjs"
+node "$repo_dir/controllers/oxi-e16/generate-remote-scene.mjs" --check
+node "$repo_dir/controllers/oxi-e16/generate-layout.mjs" --check
+node "$repo_dir/controllers/oxi-e16-nrpn/generate-scene.mjs" --check
+node "$repo_dir/scripts/generate-midi.mjs" --check
+node "$repo_dir/scripts/generate-midi-ui.mjs" --check
 node "$repo_dir/scripts/validate-help.mjs"
 
 set_dir="$test_dir/set data"

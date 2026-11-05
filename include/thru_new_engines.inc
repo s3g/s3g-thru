@@ -128,7 +128,7 @@ void renderTextureFrame(const Controls &controls, float *wet) {
                                             : static_cast<int>(std::lround(
                                                   (step & 1 ? 1.0f : -1.0f) * range * .5f));
             const int interval = textureInterval(raw, controls.textureScaleMask);
-            double origin = mode == 0 ? textureRandom() : phase_;
+            double origin = mode == 0 ? wrapPhase(textureRandom()+controls.noteStartOffset) : phase_;
             if (mode == 2)
                 origin = wrapPhase(phase_ + static_cast<double>(step) / group);
             else if (mode == 1)

@@ -4,6 +4,8 @@
 #include "thru_waveset_map.h"
 #include "thru_spectral.h"
 #include "thru_formant.h"
+#include "thru_stochastic.h"
+#include "thru_pulsar.h"
 
 #include <algorithm>
 #include <cmath>
@@ -42,10 +44,10 @@ public:
         glitch,
         longGrains,
         wavesets,
-        prism, morph, texture, formant,
+        prism, morph, texture, formant, stochastic, pulsar,
     };
 
-    static constexpr std::size_t kPlaybackAlgorithmCount = 13u;
+    static constexpr std::size_t kPlaybackAlgorithmCount = 15u;
 
     enum class SampleMode : std::uint8_t {
         forward,
@@ -380,6 +382,7 @@ public:
 
     struct Controls {
         float locus = 0.5f;
+        float noteStartOffset = 0.0f; // Cached per-note phase; never a live reader jump.
         float field = 1.0f;
         float speed = 1.0f;
         float mix = 1.0f;
@@ -478,6 +481,14 @@ public:
         // Per-note absolute frequency, supplied by the native keyboard/MIDI
         // mapping. Program/state storage holds the musical controls above.
         float formantNoteHz=261.625565f;
+        float stochasticSize=2,stochasticAmplitude=.65f,stochasticTiming=.7f,stochasticEvolution=100;
+        float stochasticMemory=.8f,stochasticPull=.1f,stochasticLaw=2,stochasticDrift=0;
+        float stochasticSourceHold=0,stochasticHoldPosition=.5f;
+        float pulsarRate=261.625565f,pulsarForm=500,pulsarSize=4,pulsarWindow=0,pulsarSkew=.5f,pulsarOmit=0,pulsarBurst=0,pulsarJitter=0;
+        float pulsarSourceHold=0,pulsarHoldPosition=.5f;
+        float pulsarEmitModRate=.13f,pulsarEmitModDepth=0,pulsarFormModRate=1.7f,pulsarFormModDepth=0;
+        float pulsarSpray=0,pulsarFormVariation=0,pulsarReverse=0,pulsarKeytrack=0;
+        float stochasticCapture=.65f, stochasticListenTarget=0; // Target is transient, not a program value.
         float morphMode=0;
         float morphAmplitude=.5f,morphFrequency=.5f,morphOffset=0,morphBlurMs=40,morphPitch=0;
         float textureMode=0,textureRate=4,textureLengthMs=250,textureScatter=.2f,textureRange=7,textureGroup=4,textureSpread=.5f,textureSeed=1;
@@ -586,6 +597,17 @@ public:
         float splitLevelC = 1.0f, splitLevelD = 1.0f;
         float splitDelayC = 0.0f, splitDelayD = 0.0f;
         float splitReverbC = 0.0f, splitReverbD = 0.0f;
+        // Shared dual-mode priority ducking. Negative priority makes A the
+        // key and ducks B; positive priority makes B the key and ducks A.
+        // Its magnitude is the maximum gain reduction in decibels.
+        float splitPriority = 0.0f;
+        float splitDuckThresholdDb = -24.0f;
+        float splitDuckAttackMs = 12.0f;
+        float splitDuckHoldMs = 40.0f;
+        float splitDuckReleaseMs = 220.0f;
+        float splitDuckHpfHz = 100.0f;
+        float splitDuckKneeDb = 6.0f;
+        int splitDuckRoute = 1; // 0 dry only, 1 dry and sends.
         float recordInputGain = 1.0f;
     };
 
@@ -1036,6 +1058,7 @@ public:
     void seekNormalized(float position)
     {
         if (sourceFrames_ == 0u) return;
+        noteStartPending_=false;
         const double normalized = static_cast<double>(clamp01(position));
         double target = normalized;
         if (currentAlgorithm_ == PlaybackAlgorithm::sample
@@ -1074,6 +1097,13 @@ public:
     }
 
     void stopPlayback() { playing_ = false; }
+
+    std::array<float,6> pulsarStatus() const {
+        float active=0;for(const auto& h:pulsarHeads_)if(h.active)++active;
+        return {pulsarFragmentStart_,pulsarFragmentEnd_,active,pulsarLimited_?1.f:0.f,pulsarFrequency_,static_cast<float>(pulsarEvent_%2)};
+    }
+
+    float stochasticListenerCapture() const { return stochasticListener_.effective(); }
 
     void process(const float* const* input,
                  float** output,
@@ -1126,6 +1156,8 @@ public:
         }
         prepareMotionSoundBlock(preparedControls);
         prepareFormantControls(controls);
+        prepareStochasticControls(controls,frames);
+        preparePulsarControls(controls);
         prepareGrainControls(controls);
         prepareLongGrainControls(controls);
         prepareWavesetControlsBlock(controls, frames, preparedControls);
@@ -1180,6 +1212,14 @@ public:
             const float motionSoundGain = motionSoundTransitionGain(controls);
             const float motionSeedGain = motionSeedTransitionGain();
             const float sampleTransition = sampleTransitionGain();
+            if(noteStartPending_&&currentAlgorithm_==controls.algorithm) {
+                noteStartPending_=false;
+                if(controls.noteStartOffset!=0) {
+                    phase_=wrapPhase(static_cast<double>(clamp(controls.noteStartOffset,-1.0f,1.0f)));
+                    grainSourcePhase_=longGrainSourcePhase_=phase_;
+                    cutStep_=cutWalkRegion_=static_cast<std::size_t>(phase_*clamp(std::round(controls.cutRegionCount),1.0f,static_cast<float>(kCutRegionCount)));
+                }
+            }
             float wetOutput[kChannels] {};
             switch (currentAlgorithm_) {
                 case PlaybackAlgorithm::motion:
@@ -1211,6 +1251,8 @@ public:
                 case PlaybackAlgorithm::prism:
                 case PlaybackAlgorithm::morph: renderSpectralFrame(preparedControls,wetOutput);break;
                 case PlaybackAlgorithm::formant: renderFormantFrame(preparedControls, wetOutput); break;
+                case PlaybackAlgorithm::stochastic: renderStochasticFrame(preparedControls,wetOutput);break;
+                case PlaybackAlgorithm::pulsar: renderPulsarFrame(preparedControls,wetOutput);break;
                 case PlaybackAlgorithm::texture: renderTextureFrame(preparedControls,wetOutput);break;
                 case PlaybackAlgorithm::wavesets:
                     // Wavesets glides continuous controls without rebuilding
@@ -2019,6 +2061,8 @@ private:
             grain = {};
         }
         for (auto &voice : formantVoices_) voice.reset();
+        resetStochastic();
+        resetPulsar();
         spectralVoice_.reset();imprintInitialized_=false;imprintMix_=0;for(auto& event:textureEvents_)event={};textureCountdown_=0;textureStep_=0;textureSeed_=-1;morphSecondaryPosition_=-1;
         grainCountdown_ = 0.0;
         grainSerial_ = 0u;
@@ -2315,6 +2359,7 @@ private:
 
     void resetPlaybackForAlgorithm()
     {
+        noteStartPending_=true;
         phase_ = 0.0;
         windowFadeRemaining_ = 0u;
         windowInitialized_ = false;
@@ -2402,6 +2447,7 @@ private:
 
     void resetReader()
     {
+        noteStartPending_=true;
         phase_ = 0.0;
         lanePhase_ = 0.0f;
         lanePhaseIncrement_ = 0.0f;
@@ -4362,6 +4408,8 @@ private:
                 break;
         }
 
+        if(!doublet&&(controls.grains==GrainMode::freeze||controls.grains==GrainMode::cloud)&&controls.noteStartOffset!=0)
+            position=window.low+wrapPhase((position-window.low)/width+controls.noteStartOffset)*width;
         if (!doublet) {
             const float spray = clamp01(controls.grainSpray);
             float direction = randomUnit() * 2.0f - 1.0f;
@@ -4609,6 +4657,7 @@ private:
             case GrainMode::scan:
                 break;
         }
+        if(controls.longGrainMode!=GrainMode::scan)origin=wrapPhase(origin+controls.noteStartOffset);
         origin = wrapPhase(origin
             + static_cast<double>(clamp01(controls.longGrainPhaseSpread))
                 * static_cast<double>(layer)
@@ -5017,6 +5066,7 @@ private:
         if (sampleTransitionRemaining_ == readerTransitionFrames_) {
             currentSampleConfig_ = pendingSampleConfig_;
             currentSampleMode_ = currentSampleConfig_.mode;
+            noteStartPending_=true;
             phase_ = 0.0;
             sampleDone_ = false;
             sampleConfigPending_ = false;
@@ -6439,6 +6489,8 @@ private:
     std::size_t capacityFrames_ = 0u;
     std::size_t laneCapacityFrames_ = 0u;
 #include "thru_new_engines.inc"
+#include "thru_stochastic_engine.inc"
+#include "thru_pulsar_engine.inc"
 
     float outputSampleRate_ = 48000.0f;
     std::size_t sourceFrames_ = 0u;
@@ -6476,6 +6528,7 @@ private:
     float targetControlsLaneGains_[kStackLanes] {
         1.0f, 1.0f, 1.0f, 1.0f,
     };
+    bool noteStartPending_=true;
     double phase_ = 0.0;
     double lanePhase_ = 0.0;
     double lanePhaseIncrement_ = 0.0;

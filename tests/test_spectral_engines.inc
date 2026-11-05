@@ -363,7 +363,7 @@ void testAllEnginesAfterSpectralSwitching() {
         for(std::size_t lane=0;lane<4;++lane){auto bank=std::make_unique<s3g_daisy::ThruSpectralBank>();bank->analyze(t->engine.laneData(lane,0),t->engine.laneData(lane,1),t->engine.laneFrames(lane),t->sampleRate,t->wavesetSourceRevisions[lane]);t->preparedSpectralBanks[lane]=std::move(bank);}
         t->spectralWorker.exchangePreparedBanks(t->preparedSpectralBanks);
         for(int part=0;part<t->partCount();++part)for(int n=0;n<t->voicesPerPart();++n)t->padNoteOn(68+t->padForPart(part,n),100);
-        for(int algorithm:{4,9,4,10,4,11,4,12,4,0,1,2,3,5,6,7,8}) {
+        for(int algorithm:{4,9,4,10,4,11,4,12,4,13,4,14,4,0,1,2,3,5,6,7,8}) {
             for(int part=0;part<t->partCount();++part){t->selectSplitPart(part);setParam(t.get(),"algorithm",std::to_string(algorithm).c_str());}
             std::array<float,kBlockFrames*2> audio{};float peak=0;
             for(int block=0;block<64;++block){t->render(nullptr,kBlockFrames,audio.data());if(block>16)for(float x:audio){assert(std::isfinite(x));peak=std::max(peak,std::abs(x));}}

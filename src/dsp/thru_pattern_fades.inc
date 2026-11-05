@@ -154,7 +154,7 @@
         if(patternDurationMs<=0 && !startHeld)return false;
         captureActiveClip(false);
         auto& s=*patternShadow;
-        s.engine=engine;s.voices=voices;
+        s.engine=engine;s.voices=voices;s.stochasticPartMeters=stochasticPartMeters;
         s.waveMinimum=waveMinimum;s.waveMaximum=waveMaximum;
         s.currentLaneSourceKinds=currentLaneSourceKinds;s.currentLaneSourcePaths=currentLaneSourcePaths;
         s.laneSourceLabels=laneSourceLabels;s.wavesetSourceRevisions=wavesetSourceRevisions;
@@ -175,7 +175,7 @@
         s.padMappedNotes=padMappedNotes;s.latchedPadNotes=latchedPadNotes;s.latchedPadDeadlines=latchedPadDeadlines;
         s.holdReleaseMs=holdReleaseMs;s.liveStackHoldPhases=liveStackHoldPhases;s.liveStackHoldPhaseValid=liveStackHoldPhaseValid;
         s.activeRegions=activeRegions;s.laneRegionRevisions=laneRegionRevisions;
-        s.splitEnabled=splitEnabled;s.sharedDual=sharedDual;s.quadMode=quadMode;s.splitFocus=splitFocus;
+        s.splitEnabled=splitEnabled;s.sharedDual=sharedDual;s.quadMode=quadMode;s.splitFocus=splitFocus;s.voiceEngineSettings=voiceEngineSettings;s.voiceEngineRandom=voiceEngineRandom;s.voiceEngineTraversal=voiceEngineTraversal;
         s.splitInitialized=splitInitialized;s.quadInitialized=quadInitialized;
         s.splitParts=splitParts;s.splitSingleControls=splitSingleControls;s.splitSingleSettings=splitSingleSettings;
         s.splitClipControls=splitClipControls;s.splitMixerOverrides=splitMixerOverrides;
@@ -217,7 +217,7 @@
         applyPatternCommands();
         auto& s=*patternShadow;
         storage.swap(preparedClipStorage);
-        std::swap(engine,s.engine);std::swap(voices,s.voices);
+        std::swap(engine,s.engine);std::swap(voices,s.voices);std::swap(stochasticPartMeters,s.stochasticPartMeters);
         for(auto& voice:voices)for(std::size_t ch=0;ch<kChannelCount;++ch)voice.outputPointers[ch]=voice.output[ch].data();
         waveMinimum=s.waveMinimum;
         waveMaximum=s.waveMaximum;
@@ -268,6 +268,9 @@
         sharedDual=s.sharedDual;
         quadMode=s.quadMode;
         splitFocus=s.splitFocus;
+        voiceEngineSettings=s.voiceEngineSettings;
+        voiceEngineRandom=s.voiceEngineRandom;
+        voiceEngineTraversal=s.voiceEngineTraversal;
         splitInitialized=s.splitInitialized;
         quadInitialized=s.quadInitialized;
         splitParts=s.splitParts;

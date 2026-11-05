@@ -24,6 +24,7 @@ void testEditorSnapshot()
                 "split_mode","split_focus","polyphony_comp","grain_quality","lane_variation",
                 "record_gain","record_source","monitor_level","clip_rate","clip_record_mode",
                 "clip_timing","launch_quantize","tempo_bpm","tempo_swing","chain_enabled",
+                "midi_control_mode","midi_cc_channel","midi_cc_base","midi_takeover","midi_control_part",
                 "chain_slot","chain_clip","chain_repeats","sample_trim_start","sample_trim_end"}) {
             char scalar[64] {};assert(getParam(t.get(),key,scalar,sizeof(scalar))>0);
             float value=0;assert(jsonNumber(text.data(),key,value));

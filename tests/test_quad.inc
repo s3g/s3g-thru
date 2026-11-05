@@ -54,7 +54,7 @@ void testQuadMixerAndMidi()
         onMidi(t.get(),on,3,MOVE_MIDI_SOURCE_EXTERNAL);
         assert(t->voices[p*2].held&&t->voices[p*2].note==60);
     }
-    const std::uint8_t cc[]{0xb2,13,32};onMidi(t.get(),cc,3,MOVE_MIDI_SOURCE_EXTERNAL);
+    nrpn(*t,7,"part_level",32*129);
     assert(std::abs(t->controls.splitLevelC-32.0f/127*2)<.00001f&&t->controls.splitLevelA==1);
     const std::uint8_t off[]{0x82,60,0};onMidi(t.get(),off,3,MOVE_MIDI_SOURCE_EXTERNAL);
     assert(!t->voices[4].held&&t->voices[0].held&&t->voices[6].held);

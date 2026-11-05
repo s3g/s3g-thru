@@ -14,8 +14,10 @@ COPYFILE_DISABLE=1 tar -C "$module_root" -czf "$archive" s3g-thru
 
 echo "Packaged $archive"
 if command -v shasum >/dev/null 2>&1; then
-  shasum -a 256 "$archive"
+  digest="$(shasum -a 256 "$archive" | awk '{print $1}')"
 else
-  sha256sum "$archive"
+  digest="$(sha256sum "$archive" | awk '{print $1}')"
 fi
+printf '%s  %s\n' "$digest" "$(basename "$archive")" > "$archive.sha256"
+printf '%s  %s\n' "$digest" "$archive"
 

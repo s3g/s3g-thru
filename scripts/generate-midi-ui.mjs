@@ -1,0 +1,14 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import assert from 'node:assert/strict';
+import { fileURLToPath } from 'node:url';
+const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
+const target=path.join(root,'src/ui.js');
+const marker='\n// BEGIN GENERATED MIDI ADAPTER\n';
+const source=fs.readFileSync(target,'utf8').split(marker)[0];
+const adapter=fs.readFileSync(path.join(root,'src/midi-ui.inc.js'),'utf8');
+const labels=fs.readFileSync(path.join(root,'src/e16-labels.inc.js'),'utf8');
+const remote=fs.readFileSync(path.join(root,'src/e16-remote.inc.js'),'utf8');
+const result=source+marker+labels+remote+adapter;
+if(process.argv.includes('--check'))assert.equal(fs.readFileSync(target,'utf8'),result,'MIDI UI adapter is stale');
+else fs.writeFileSync(target,result);

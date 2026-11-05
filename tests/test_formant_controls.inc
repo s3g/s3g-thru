@@ -252,8 +252,9 @@ void testFormantFormat22AndRecall() {
     std::vector<unsigned char> bytes(size - 4);
     assert(std::fread(bytes.data(), 1, bytes.size(), file) == bytes.size());
     std::fclose(file);
+    stripVoiceEngineExtension(bytes);
     constexpr std::size_t extension =
-        8 + 64 * 5 * (kLockParameterCount - kVersion19LockParameterCount) * 4;
+        8 + 64 * 5 * (kVersion25LockParameterCount - kVersion19LockParameterCount) * 4;
     const auto at = bytes.size() - extension;
     std::vector<unsigned char> old(bytes.begin(), bytes.begin() + at);
     old[8] = 22;
@@ -295,9 +296,9 @@ void testFormantFormat22AndRecall() {
     std::strcpy(json.data(), "{}");
     assert(t->appendSplitJson(json.data(), json.size(), 2) > 0);
     std::string text = json.data();
-    const auto atCount = text.find("\"split_params_count\":205");
+    const auto atCount = text.find("\"split_params_count\":242");
     assert(atCount != std::string::npos);
-    text.replace(atCount, std::strlen("\"split_params_count\":205"), "\"split_params_count\":199");
+    text.replace(atCount, std::strlen("\"split_params_count\":242"), "\"split_params_count\":199");
     for (const auto *name : {"split_single", "split_a", "split_b", "split_c", "split_d"}) {
         const auto begin = text.find(std::string("\"") + name + "\":[");
         assert(begin != std::string::npos);
@@ -305,7 +306,7 @@ void testFormantFormat22AndRecall() {
         for (std::size_t i = 0; i < kVersion22LockParameterCount; ++i)
             cut = text.find(',', cut) + 1;
         auto after = cut;
-        for (int i = 0; i < 6; ++i)
+        for (std::size_t i = 0; i < kLockParameterCount-kVersion22LockParameterCount; ++i)
             after = text.find(',', after) + 1;
         text.erase(cut, after - cut);
     }

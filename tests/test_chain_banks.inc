@@ -69,6 +69,7 @@ void testLegacyChainMigration()
     auto* file=std::fopen(path.c_str(),"rb");assert(file);assert(std::fseek(file,0,SEEK_END)==0);
     const long length=std::ftell(file);assert(length>0);std::rewind(file);
     std::vector<unsigned char> bytes(static_cast<std::size_t>(length));assert(std::fread(bytes.data(),1,bytes.size(),file)==bytes.size());std::fclose(file);
+    bytes.resize(bytes.size()-4);stripVoiceEngineExtension(bytes);bytes.resize(bytes.size()+4);
     constexpr std::size_t extension=16u+16u*(24u+64u*32u);
     assert(bytes.size()>extension+4);bytes.resize(bytes.size()-extension-4104-37128-4);bytes[8]=17;
     std::uint32_t checksum=2166136261u;for(auto byte:bytes){checksum^=byte;checksum*=16777619u;}

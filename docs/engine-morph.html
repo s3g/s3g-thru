@@ -8,11 +8,11 @@
     <link rel="stylesheet" href="assets/styles.css">
   </head>
   <body>
-    <header class="site-header"><a class="brand" href="index.html">s3g Thru <span>manual</span></a><nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav></header>
+    <header class="site-header"><a class="brand" href="index.html">s3g Thru <span>manual</span></a><nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="midi.html">MIDI</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav></header>
 
     <div class="page-shell">
       <main class="content" id="content">
-        <p class="eyebrow">Playback engine 11 of 13</p>
+        <p class="eyebrow">Playback engine 11 of 15</p>
         <h1>Morph</h1><p class="lead">Blend the spectral amplitudes and frequencies of a source with those of the next lane. The two controls move independently, making hybrid sounds that go beyond a volume crossfade. Imprint mode lets the next lane’s changing spectral envelope articulate the carrier while notes control its pitch.</p>
         <div class="callout"><p><strong>Good for:</strong> Hybrid voices, moving spectral colors, independent amplitude and frequency transformations, and a circular four-lane instrument in Quad.</p></div>
         <h2 id="pages">Pages and navigation</h2>
@@ -29,7 +29,7 @@
           <tr><td>7</td><td>□</td><td>Reserved</td><td>Reserved for a future control.</td></tr>
           <tr><td>8</td><td>PAIR</td><td>Readout</td><td>Shows the current source lane and its next-lane partner; it is not a knob assignment.</td></tr>
         </tbody></table>
-        <p><strong>MIDI:</strong> CCs 40–45 address the six engine-page knobs; CC 45 selects Morph / Imprint. FREQ / CC 41 is reserved while Imprint is active. Texture Spread and Seed use CCs 28 and 29. Values are absolute 0–127, scaled to the displayed range. Unused slots are reserved; the MIDI channel selects the part as described in <a href="shortcuts.html#midi">External MIDI</a>.</p>
+        <p><strong>MIDI:</strong> NRPN control includes the Morph / Imprint choice. These controls are available on E16’s engine-specific pages and through NRPN. FREQ is reserved in Imprint. The fixed NRPN addresses use channels 5–8 for A–D; note pitches use channels 1–4. See <a href="midi.html">MIDI control</a> for the current map, setup and feedback.</p>
         <h2 id="imprint">Imprint — one sample articulates another</h2>
         <p>Select IMPR with knob 6 and raise knob 1 / IMPR toward 100%. A rich sustained recording in the carrier lane can take on the articulation of speech or percussion in the next lane. Keyboard notes and PIT transpose the carrier; the shaping envelope stays in its original frequency regions. Stack travel changes the carrier/shaper pair. Quad keeps each carrier on its own lane and uses the next lane as shaper, wrapping 4 → 1.</p>
         <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/morph-imprint.svg" aria-label="Open Morph Imprint"><img src="assets/screens/morph-imprint.svg" alt="Morph in Imprint mode with IMPR strength and a reserved Frequency cell."></button></div><figcaption>IMPR controls strength; MODE chooses Imprint. FREQ is reserved so the shaping sample cannot retune the carrier.</figcaption></figure>
@@ -45,9 +45,9 @@
 <nav class="page-nav" aria-label="Page navigation"><a class="page-nav-link" href="engine-prism.html"><span>Previous</span>Prism</a><a class="page-nav-link next" href="engine-texture.html"><span>Next</span>Texture</a></nav>
       </main>
       <aside class="toc" aria-label="Page navigation">
-        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="shortcuts.html">Shortcuts</a></div>
+        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="midi.html">MIDI</a><a href="shortcuts.html">Shortcuts</a></div>
         <div class="toc-section"><h2>Instrument modes</h2><a href="playing.html">Single · Basic playing</a><a href="modes.html">Compare modes</a><a href="split.html">Split</a><a href="shared-dual.html">Shared Dual</a><a href="quad.html">Quad</a></div>
-        <div class="toc-section"><h2>Engine guides</h2><a href="engine-motion.html">Motion</a><a href="engine-lanes.html">Lanes</a><a href="engine-grains.html">Grains</a><a href="engine-cutups.html">Cutups</a><a href="engine-sample.html">Sample</a><a href="engine-slices.html">Slices</a><a href="engine-glitch.html">Glitch</a><a href="engine-weave.html">Weave</a><a href="engine-wavesets.html">Wavesets</a><a href="engine-prism.html">Prism</a><a href="engine-morph.html">Morph</a><a href="engine-texture.html">Texture</a><a href="engine-formant.html">Formant</a></div>
+        <div class="toc-section"><h2>Engine guides</h2><a href="engine-motion.html">Motion</a><a href="engine-lanes.html">Lanes</a><a href="engine-grains.html">Grains</a><a href="engine-cutups.html">Cutups</a><a href="engine-sample.html">Sample</a><a href="engine-slices.html">Slices</a><a href="engine-glitch.html">Glitch</a><a href="engine-weave.html">Weave</a><a href="engine-wavesets.html">Wavesets</a><a href="engine-prism.html">Prism</a><a href="engine-morph.html">Morph</a><a href="engine-texture.html">Texture</a><a href="engine-formant.html">Formant</a><a href="engine-stochastic.html">Stochastic</a><a href="engine-pulsar.html">Pulsar</a></div>
         <div class="toc-section"><h2>On this page</h2><a href="#pages">Pages</a><a href="#parameters">Parameters</a><a href="#imprint">Imprint</a><a href="#playing">Playing</a><a href="#starts">Starting points</a></div>
       </aside>
     </div>

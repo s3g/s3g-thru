@@ -17,7 +17,7 @@ test -f "$verify_dir/s3g-thru/THIRD_PARTY_NOTICES.md"
 test ! -e "$verify_dir/s3g-thru/canvas.js"
 
 file_count="$(find "$verify_dir/s3g-thru" -maxdepth 1 -type f | wc -l | tr -d ' ')"
-test "$file_count" = "6"
+test "$file_count" = "7"
 
 entry_count="$(find "$verify_dir" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')"
 test "$entry_count" = "1"
@@ -33,6 +33,11 @@ assert module["name"] == "s3g Thru"
 assert module["author"] == "s3g"
 PY
 node --check "$verify_dir/s3g-thru/ui.js"
+for helper in midi-map.mjs; do
+  test -f "$verify_dir/s3g-thru/$helper"
+  node --check "$verify_dir/s3g-thru/$helper"
+done
+node --input-type=module -e 'await import(process.argv[1])' "file://$verify_dir/s3g-thru/midi-map.mjs"
 node "$repo_dir/scripts/validate-help.mjs" "$verify_dir/s3g-thru/help.json"
 
 echo "s3g Thru package verification: PASS"

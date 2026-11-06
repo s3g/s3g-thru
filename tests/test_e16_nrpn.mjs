@@ -5,9 +5,13 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
-const scene=JSON.parse(fs.readFileSync(path.join(root,'controllers/oxi-e16-nrpn/Scenes/THRU NRPN MNLT.oxie16')));
-assert.equal(scene.title,'THRU NM');
-assert.deepEqual(scene.code,{code:'',fullScript:'',scriptName:''});
+const scene=JSON.parse(fs.readFileSync(path.join(root,'controllers/oxi-e16-monolit/Scenes/THRU E16 MNLT.oxie16')));
+assert.equal(scene.title,'THRU EM');
+assert.equal(scene.code.scriptName,'Thru Rings');
+assert(Buffer.byteLength(scene.code.code)<2000);
+assert(!scene.code.code.includes('onEncoderTurn'));
+assert(!scene.code.code.includes('controller.set'));
+assert(scene.code.code.includes('leds.updateByIndex'));
 assert.equal(scene.pages.length,12);
 assert.deepEqual(scene.pages.map(page=>page.title),
     ['ENGINE','STACK','ENG 1','ENG 2','ENG 3','ENG 4','SENDS','COLOR','ROTARY','DELAY','REVERB','TAPE']);
@@ -24,15 +28,15 @@ for(let page=0;page<scene.pages.length;++page) {
         if(!control.abbr) {
             assert.equal(control.turn_actions[0].type,0);assert.equal(control.push_action.type,0);continue;
         }
-        const action=control.turn_actions[0],slot=physical%8,id=3456+page*8+slot;
-        assert.equal(action.type,9);assert.equal(action.display,11);assert.equal(action.mode,3);
-        assert.equal(action.lower,1);assert.equal(action.upper,16383);
-        assert.equal(action.channel,physical<8?5:6);
-        assert.equal(action.nr1,id&127);assert.equal(action.nr2,id>>7);
+        const action=control.turn_actions[0],slot=physical%8,cc=page*8+slot;
+        assert.equal(action.type,1);assert.equal(action.display,0);assert.equal(action.mode,3);
+        assert.equal(action.lower,0);assert.equal(action.upper,127);
+        assert.equal(action.channel,physical<8?14:15);
+        assert.equal(action.nr1,cc);assert.equal(action.nr2,0);
         const push=control.push_action,resetCc=page*8+slot;
         assert.equal(push.type,2);assert.equal(push.mode,0);
         assert.equal(push.channel,physical<8?14:15);
-        assert.equal(push.nr1,resetCc);assert.equal(push.nr2,127);
+        assert.equal(push.nr1,127);assert.equal(push.nr2,resetCc+1);assert.equal(push.upper,resetCc+1);
     }
 }
-console.log('s3g Thru script-free E16 NRPN scene schema, guarded aliases and isolated CC default pushes: PASS');
+console.log('s3g Thru native E16 relative CC scene with display-only feedback schema, safe startup and default pushes: PASS');

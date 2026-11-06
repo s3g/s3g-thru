@@ -1,6 +1,6 @@
 # s3g Thru MIDI map, version 1
 
-The high-resolution interface for the next release has 342
+The high-resolution interface for the next release has 352
 fixed NRPN addresses. `parameters.csv` is the full channel/address/range
 reference; `parameters.json` is the editable source. Parameter addresses
 belong to their controls across all engines; selecting another engine does
@@ -8,7 +8,7 @@ not change an address's meaning.
 
 | MIDI channel | Purpose |
 | --- | --- |
-| 1–4 | Musical notes and polyphonic aftertouch for A–D, according to the instrument mode |
+| 1–4 | Note input and polyphonic aftertouch for A–D, according to the instrument mode |
 | 5–8 | NRPN controls for A–D; identical addresses on each part's channel |
 | 9–12 | MNLT direct CC for A–D; identical CC numbers on each part's channel |
 | 13 | MNLT shared Performance controls and commands |
@@ -33,7 +33,7 @@ clock and transport remain independent.
 | Generic CC | Eight consecutive absolute CCs for Move's visible page |
 | MNLT | Channel-addressed A–D banks and shared controls described in `../lightreft-monolit/` |
 | E16 Remote | OXI Remote relative turns only |
-| NRPN + MNLT | Script-free E16 native NRPN aliases plus the MNLT direct-CC bank |
+| E16 + MNLT | Native E16 relative CC turns plus the MNLT absolute-CC bank |
 | Off | No external parameter control |
 
 For Generic CC, **CC Channel** defaults to 9 and **CC Base** to 20, so CC
@@ -42,13 +42,12 @@ received value. The current Move part and page supply the eight assignments, so
 reserved or unavailable cells do nothing. Auto uses the same Generic CC settings.
 MNLT is a separate mode, so its use of channels 9–13 does not overlap Generic CC.
 
-**NRPN + MNLT** is the combined hardware route. Connect Monolit TRS MIDI Out
+**E16 + MNLT** is the combined hardware route. Connect Monolit TRS MIDI Out
 to E16 TRS MIDI In, enable E16 MIDI Thru, then connect E16 USB-C directly to
-Move USB-A. The stock E16 scene in `../oxi-e16-nrpn/` uses controller-private
-aliases 3456–3551 on channels 5–6; Thru resolves them against A and B's current
-engines and returns matching values. Monolit continues to use channels 9–13.
-Those aliases are not part of the public fixed registry and should not be used
-by other controllers.
+Move USB-A. The stock E16 scene in `../oxi-e16-monolit/` sends relative CC
+on channels 14/15, alongside Monolit's absolute CC on 9–13. Select E+M and
+Schwung Surface CC Only. See that folder for setup. Its small Thru Rings script
+mirrors actual values without taking over native turns. The fixed public NRPN map remains a separate interface.
 
 ## Sending a value
 

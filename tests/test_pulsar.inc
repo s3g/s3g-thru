@@ -76,7 +76,7 @@ void testPulsarWindowsAndClock() {
         c.algorithm = Engine::PlaybackAlgorithm::pulsar;
         c.pulsarRate = 2000;
         c.pulsarForm = 20;
-        c.pulsarSize = 100;
+        c.pulsarSize = 500;
         f->render(c, 200);
         for (const auto &ch : f->output)
             for (float x : ch)
@@ -182,7 +182,7 @@ void testPulsarEditsAndParts() {
     d.algorithm = Engine::PlaybackAlgorithm::pulsar;
     d.pulsarRate = 2000;
     d.pulsarForm = 20;
-    d.pulsarSize = 100;
+    d.pulsarSize = 500;
     a->render(d, 50);
     for (int lane = 0; lane < 4; ++lane)
         a->engine.setPreparedWavesetBank(lane, nullptr);
@@ -306,4 +306,54 @@ void testPulsarPersistenceAndMidi() {
     removeBackgroundTestDirectory(dir);
     std::puts("s3g Thru Pulsar per-part MIDI, independent state, list descriptors, automation "
               "and format-28 import: PASS");
+}
+
+
+void testPulsarExtendedSize() {
+    for(float rate:{22050.f,44100.f,48000.f,96000.f})for(bool prepared:{false,true})for(bool stack:{false,true}) {
+        const auto frames=static_cast<std::size_t>(rate);
+        std::array<std::vector<float>,4> pcm;
+        std::array<s3g_daisy::ThruWavesetBank,4> banks;
+        std::array<std::array<float,64>,4> input{},output{};
+        std::array<const float*,4> in{};std::array<float*,4> out{};
+        for(int lane=0;lane<4;++lane){
+            pcm[lane].resize(frames*2);
+            for(std::size_t f=0;f<frames;++f){const float x=.2f*std::sin(6.28318530718f*(80+lane*30)*f/rate);pcm[lane][f]=x;pcm[lane][frames+f]=-.5f*x;}
+            in[lane]=input[lane].data();out[lane]=output[lane].data();
+        }
+        auto engine=std::make_unique<Engine>();
+        assert(engine->prepare(44100,pcm[0].data(),pcm[1].data(),pcm[2].data(),pcm[3].data(),frames*2));
+        if(stack)for(int lane=0;lane<4;++lane)assert(engine->adoptLane(lane,frames,rate));
+        else {std::copy_n(pcm[0].data()+frames,frames,pcm[1].data());assert(engine->adoptSource(frames,2,rate));}
+        if(prepared)for(int lane=0;lane<(stack?4:1);++lane){banks[lane].analyze(pcm[lane].data(),pcm[lane].data()+frames,frames,rate);engine->setPreparedWavesetBank(lane,&banks[lane]);}
+        Engine::Controls c;c.algorithm=Engine::PlaybackAlgorithm::pulsar;c.lanePath=Engine::LanePath::manual;
+        c.pulsarRate=40;c.pulsarForm=20;c.pulsarSize=500;c.pulsarSourceHold=1;c.pulsarHoldPosition=.9f;
+        // Let the normal algorithm-entry crossfade finish before measuring a pulsaret.
+        for(int block=0;block<40;++block)engine->process(in.data(),out.data(),64,c);
+        const auto first=engine->pulsarStatus();
+        assert(std::abs(first[1]-first[0]-.5f)<.0001f); // reads a genuine 500 ms source span
+        for(int block=0;block<120;++block){
+            if(block==30)c.pulsarSize=.5f;
+            if(block==60)c.pulsarSize=500;
+            engine->process(in.data(),out.data(),64,c);
+            const auto status=engine->pulsarStatus();assert(status[0]>=0 && status[1]<=1 && status[2]<=4);
+            for(int f=0;f<64;++f){assert(std::isfinite(output[0][f]) && std::abs(output[0][f])<2);assert(std::abs(output[1][f]+.5f*output[0][f])<1e-5f);}
+        }
+        c.field=.02f;
+        for(int block=0;block<400;++block)engine->process(in.data(),out.data(),64,c);
+        const auto cropped=engine->pulsarStatus();assert(cropped[1]-cropped[0]<=.021f);
+    }
+    char folder[]="/tmp/thru-pulsar-500.XXXXXX";assert(mkdtemp(folder));
+    auto t=std::make_unique<ThruInstance>();assert(t->prepare(folder));t->stopBackgroundWork();
+    setParam(t.get(),"algorithm","Pulsar");const auto& size=midiParameter("pulsar_size");
+    assert(size.id==3330 && size.maximum==500 && size.initial==4 && size.logarithmic);
+    nrpn(*t,5,"pulsar_size",16383);assert(t->controls.pulsarSize==500);
+    nrpn(*t,5,"pulsar_size",0);assert(t->controls.pulsarSize==.5f);
+    setParam(t.get(),"midi_control_mode","E16 + MNLT");
+    midiCc(*t,14,127,19);assert(t->controls.pulsarSize==4);
+    midiCc(*t,14,18,127);assert(t->controls.pulsarSize>4 && t->controls.pulsarSize<4.08f);
+    setParam(t.get(),"pulsar_size","500");t->captureActiveClip(true);assert(t->savePersistentState());t.reset();
+    t=std::make_unique<ThruInstance>();assert(t->prepare(folder));assert(t->controls.pulsarSize==500);
+    t.reset();removeBackgroundTestDirectory(folder);
+    std::puts("s3g Thru Pulsar genuine 500 ms spans: source rates, stereo, fixed readers, live/crop safety, MIDI, fine E16 and restart recall: PASS");
 }

@@ -7,6 +7,7 @@
     <rect x="0" y="0" width="128" height="8" fill="#050706"/>
     <rect x="0" y="8" width="128" height="1" fill="#dce8e1"/>
     <text x="1" y="5.5" fill="#dce8e1">PATH EDIT 3/6</text>
+    <text x="110" y="5.5" fill="#dce8e1">6/7</text>
     <text x="0" y="14.5" fill="#dce8e1">1</text>
     <text x="0" y="27.5" fill="#dce8e1">4</text>
     <rect x="12" y="11" width="1" height="1" fill="#dce8e1"/>

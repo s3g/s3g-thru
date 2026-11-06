@@ -164,7 +164,7 @@ void renderPulsarFrame(const Controls &c, float *wet) {
         pulsarReverse_ = clamp01(c.pulsarReverse);
         pulsarKeytrack_ = clamp01(c.pulsarKeytrack);
         pulsarForm_ = clamp(c.pulsarForm, 20.f, 2000.f);
-        pulsarSize_ = clamp(c.pulsarSize, .5f, 100.f);
+        pulsarSize_ = clamp(c.pulsarSize, ThruPulsar::minimumSizeMs, ThruPulsar::maximumSizeMs);
         pulsarInitialized_ = true;
     }
     const auto smooth = [&](float &value, float target) {
@@ -196,7 +196,7 @@ void renderPulsarFrame(const Controls &c, float *wet) {
     // Preserve clock phase through a rate edit, including long silent periods.
     pulsarCountdown_ *= previousFrequency / pulsarFrequency_;
     pulsarForm_ += pulsarSlew_ * (clamp(c.pulsarForm, 20.f, 2000.f) - pulsarForm_);
-    pulsarSize_ += pulsarSlew_ * (clamp(c.pulsarSize, .5f, 100.f) - pulsarSize_);
+    pulsarSize_ += pulsarSlew_ * (clamp(c.pulsarSize, ThruPulsar::minimumSizeMs, ThruPulsar::maximumSizeMs) - pulsarSize_);
     const float interval = outputSampleRate_ / pulsarFrequency_,
                 jitter = clamp01(c.pulsarJitter) * .45f;
     if (pulsarCountdown_ <= 0) {

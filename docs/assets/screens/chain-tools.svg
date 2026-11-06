@@ -4,8 +4,8 @@
   <desc id="desc">Chain and Entry Copy/Paste with numbered encoders and wider text spacing shown as it appears on Ableton Move.</desc>
   <rect width="128" height="64" fill="#050706"/>
   <g shape-rendering="crispEdges" font-family="DejaVu Sans Mono, IBM Plex Mono, monospace" font-size="6" font-style="normal" font-weight="400" text-rendering="geometricPrecision">
-    <text x="1" y="5.5" fill="#dce8e1">CHAIN TOOLS</text>
-    <text x="102" y="5.5" fill="#dce8e1">C01</text>
+    <text x="1" y="5.5" fill="#dce8e1">CHAIN TOOLS C01</text>
+    <text x="110" y="5.5" fill="#dce8e1">7/7</text>
     <rect x="0" y="8" width="128" height="1" fill="#dce8e1"/>
     <text x="17" y="16.5" fill="#dce8e1">CHAIN</text>
     <text x="81" y="16.5" fill="#dce8e1">ENTRY</text>

@@ -128,7 +128,7 @@
 
         <p>Thru autosaves changed settings and completed captures, then saves again when <kbd>Back</kbd> exits from the main waveform page. It also keeps one recovery copy in case a metadata save is interrupted. Capture WAVs are append-only during normal use: rerecording, editing, clearing, and resetting do not delete older files.</p>
 
-        <p>The footer shows <code>SAVING...</code> while capture archives or the latest settings are pending, then briefly shows <code>SAVED</code> after both are committed. Recording has its usual capture indicators. A <code>SAVE FAILED: RETRYING</code> message stays visible until saving recovers; the current take stays in memory while Thru retries.</p>
+        <p>A small fixed footer overlay shows <code>saving</code> while capture archives or the latest settings are pending, then briefly shows <code>saved</code> after both are committed. Recording has its usual capture indicators. A <code>SAVE FAILED: RETRYING</code> message stays visible until saving recovers; the current take stays in memory while Thru retries.</p>
         <div class="screen-gallery"><figure><div class="doc-graphic move-screen"><img src="assets/screens/save-pending.svg" alt="Waveform footer showing Saving"></div><figcaption>Saving includes archive completion and the latest set metadata.</figcaption></figure><figure><div class="doc-graphic move-screen"><img src="assets/screens/save-complete.svg" alt="Waveform footer confirming Saved"></div><figcaption>Saved appears after the pending work is committed.</figcaption></figure></div>
         <h3 id="backup">Export a set backup</h3>
         <p>Uninstalling a module may remove its data. Before uninstalling or moving to another Move, export the module data with:</p>

@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Bank mode - s3g Thru manual</title>
+    <meta name="description" content="Play a four-lane engine and capture sixteen stereo samples in Bank mode.">
+    <link rel="stylesheet" href="assets/styles.css">
+  </head>
+  <body>
+    <header class="site-header"><a class="brand" href="index.html">s3g Thru <span>manual</span></a><nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="midi.html">MIDI</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav></header>
+
+    <div class="page-shell">
+      <main class="content" id="content">
+        <p class="eyebrow">One instrument · sixteen captured samples</p>
+        <h1>Bank mode</h1>
+        <p class="lead">Play A on the left half of the pad grid. Capture A, the Bank pads, the main mix or Move’s mic/line input into sixteen independent stereo pads on the right. A uses all four source lanes; each side has four playback voices.</p>
+        <h2 id="start">Choose Bank</h2>
+        <p>Open Capture + Menu, choose Mode, select Bank and click. Finish recording before changing mode. Tap Capture to switch A/B editing focus. Track 1–4 selects A’s source lanes while keeping that focus. A keeps its engine and waveform controls; B shows the selected sample, playback cursor and a four-by-four slot overview.</p>
+        <figure><img src="assets/screens/bank-waveform-a.svg" alt="Bank A shows four lane waveforms and four cursors with hollow stack markers."><figcaption>A’s four lane waveforms. Each cursor’s hollow square marks its current stack position.</figcaption></figure>
+        <figure><img src="assets/screens/bank-waveform.svg" alt="Bank B shows a selected sample waveform and sixteen-slot overview."><figcaption>The most recently pressed right pad selects the sample to view and edit. The grid follows the physical pad rows: slot 01 at bottom left, slot 16 at top right.</figcaption></figure>
+        <h2 id="capture">Capture a pad</h2>
+        <ol><li>On B’s Bank Pads page, choose SRC: IN, MIX, PT A or PT B. Play or latch the material to capture; for IN, select Move’s mic/line input and set its recording level.</li><li>Hold an empty right pad. Its LED turns red while recording.</li><li>Release the pad to finish. Capture ends silently; it does not start playback.</li><li>Wait for saving to finish, then hold the pad again to play its recording.</li></ol>
+        <p>Bank uses the same four source choices as Mix/Rec. The source is fixed when a take starts; changing SRC affects the next take. Touches shorter than 10 ms are ignored: the pad stays empty and no take is saved. Longer takes keep the audio from the initial press. Each recording is stereo, up to twelve seconds; a full pad finishes automatically. One capture/save runs at a time.</p>
+        <table><thead><tr><th>Display</th><th>What it records</th></tr></thead><tbody>
+          <tr><td>IN</td><td>Move’s selected mic/line input with Thru’s recording gain. Input monitoring can remain off.</td></tr>
+          <tr><td>MIX</td><td>The combined instrument mix, including part balance, levels, shared effects and Tape, at the same recording point as Mix/Rec. Input monitoring is excluded.</td></tr>
+          <tr><td>PT A</td><td>A after its private effects, before part level, mute and crossfade. This is the default and preserves the previous A source.</td></tr>
+          <tr><td>PT B</td><td>Bank’s own playing pads after B’s private effects, before part level, mute and crossfade. A and shared effect returns are excluded.</td></tr>
+        </tbody></table>
+        <h3 id="resample-bank">Record the Bank pads</h3>
+        <p>Set SRC to PT B, play or latch one or more filled right pads, then hold an empty right pad to record them. Release the empty pad to finish and wait for saving. The original pads keep playing; the new recording stays silent until you trigger it. Select MIX instead to include A and the shared effects.</p>
+        <h2 id="play">Play, latch and clear</h2>
+        <table><thead><tr><th>Control</th><th>Action</th></tr></thead><tbody>
+          <tr><td>Hold a filled right pad</td><td>With PLAY LOOP, play from the start and loop while held; release starts the envelope release. With PLAY ONE, play through once even after release, with a short fade at the end.</td></tr>
+          <tr><td>Shift + filled pad</td><td>Toggle latch. Shift + an empty pad does not start recording.</td></tr>
+          <tr><td>Delete (X) + right pad</td><td>Clear the slot. Sounding readers fade out; the archived WAV remains.</td></tr>
+          <tr><td>Curved Undo key</td><td>Restore the last capture or clear assignment.</td></tr>
+          <tr><td>Bank Pads</td><td>Select a pad, adjust its playback behavior, or choose the recording source.</td></tr>
+        </tbody></table>
+        <p>Empty pads are dark; filled pads are dim white; recording is red; saving is orange; playing is cyan. Purple indicates an assigned sample that is still being prepared. MIDI channel 2 notes 60–75 play slots 1–16.</p>
+        <h2 id="pads">Bank Pads controls</h2>
+        <figure><img src="assets/screens/bank-pads.svg" alt="Bank Pads shows Pad, Ratio, Pan, Play, Choke, Hold and Source."><figcaption>PAD selects which sample the per-pad controls edit. HOLD applies to all B pad latches; SRC selects the source for the next capture.</figcaption></figure>
+        <table><thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>What it controls</th></tr></thead><tbody>
+          <tr><td>1</td><td>PAD</td><td>1–16</td><td>Selected pad, without triggering it.</td></tr>
+          <tr><td>2</td><td>RTO</td><td>0.125–8×</td><td>Per-pad playback speed relative to the master RATE. At RATE 2×, a pad at RATIO 0.5× plays at its original speed. Pitch follows speed.</td></tr>
+          <tr><td>3</td><td>PAN</td><td>−100–100</td><td>Per-pad stereo balance: left, original stereo at centre, or right. Changes are smoothed.</td></tr>
+          <tr><td>4</td><td>PLAY</td><td>LOOP / ONE</td><td>Held or latched looping, or a one-shot that finishes after key release. Shift + pad can unlatch either.</td></tr>
+          <tr><td>5</td><td>CHOK</td><td>Off / 1–4</td><td>Choke group. A trigger releases other Bank voices in that group using their release envelopes.</td></tr>
+          <tr><td>6</td><td>HOLD</td><td>Manual / 50 ms–60 s</td><td>B-wide automatic latch release delay. Manual keeps a latch until it is toggled off.</td></tr>
+          <tr><td>7</td><td>SRC</td><td>IN / MIX / PT A / PT B</td><td>Bank recording source, matching Mix/Rec. PT B records the Bank pads themselves. The choice applies to the next capture; existing recordings are unchanged.</td></tr>
+          <tr><td>8</td><td>Reserved</td><td>—</td><td>Available for a future control.</td></tr>
+        </tbody></table>
+        <h2 id="sample">Bank Sample controls</h2>
+        <figure><img src="assets/screens/bank-sample.svg" alt="Eight Bank Sample controls."><figcaption>These controls edit the selected right-hand pad, except RATE, which applies to the whole B bank. They are also available on B’s waveform view.</figcaption></figure>
+        <table><thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>What it controls</th></tr></thead><tbody>
+          <tr><td>1</td><td>STRT</td><td>0–100%</td><td>Sample start. B’s waveform zoom follows the selected region.</td></tr>
+          <tr><td>2</td><td>END</td><td>0–100%</td><td>Sample end, after Start.</td></tr>
+          <tr><td>3</td><td>RATE</td><td>0.125–8×</td><td>Master playback speed for every B pad. Each pad’s RATIO multiplies this value. A’s engine speed is independent.</td></tr>
+          <tr><td>4</td><td>REV</td><td>Off / On</td><td>Reverse playback through the selected region.</td></tr>
+          <tr><td>5</td><td>LVL</td><td>0–200%</td><td>Sample level before B’s part mixer.</td></tr>
+          <tr><td>6</td><td>ATK</td><td>1 ms–10 s</td><td>Fade-in for each playback note.</td></tr>
+          <tr><td>7</td><td>REL</td><td>5 ms–10 s</td><td>Fade-out after release or unlatch.</td></tr>
+          <tr><td>8</td><td>FADE</td><td>2–100 ms</td><td>Stereo-linked overlap at the loop seam, shortened for small regions.</td></tr>
+        </tbody></table>
+        <p>Use A/B Blend and the part level, color and rotary controls as in Shared Dual. Capture + encoder 8 remains the global A/B crossfade shortcut.</p>
+        <h2 id="recall">Saved samples and performance clips</h2>
+        <p>Every capture creates a new WAV in Thru Recordings. Clip slots retain their own Bank sample assignments, per-pad settings, master rate and recording source; copying a clip keeps references to the same recordings. Clearing a pad leaves its archived take available to other clips and the sample library. Wait for the saved acknowledgement before powering off.</p>
+        <p>The performance recorder captures playing and latched Bank notes together with A. Holding an empty pad to capture audio is not recorded as a playback note. Existing clip and chain transitions can recall and fade Bank performances along with their sample assignments.</p>
+        <nav class="page-nav" aria-label="Page navigation"><a class="page-nav-link" href="quad.html"><span>Previous</span>Quad Mode</a><a class="page-nav-link next" href="performance.html"><span>Next</span>Performance Loops</a></nav>
+      </main>
+      <aside class="toc" aria-label="On this page"><div class="toc-section"><h2>On this page</h2><a href="#start">Choose Bank</a><a href="#capture">Capture</a><a href="#resample-bank">Record Bank pads</a><a href="#play">Play and clear</a><a href="#pads">Pad controls</a><a href="#sample">Sample controls</a><a href="#recall">Recall and clips</a></div></aside>
+    </div>
+    <footer class="manual-footer">s3g Thru · Bank mode</footer>
+    <script src="assets/lightbox.js"></script>
+  </body>
+</html>

@@ -78,6 +78,8 @@
     bool patternBusy() const {return patternActive||patternJob.load(std::memory_order_acquire)!=0;}
     void resetPatternHistories() {
         auto& scene=*patternShadow;
+        for(auto& voice:scene.voices){scene.releaseBankVoice(voice);voice.active=false;}
+        scene.releaseBankIndices(scene.bankAssets);scene.bankLoadedClip=-1;
         for(auto* buffer:{scene.effectDelayBuffer.get(),scene.rotaryDelayBuffer.get(),scene.tapeDelayBuffer.get()}) {
             const auto size=buffer==scene.effectDelayBuffer.get()?scene.effectDelayCapacity:
                 buffer==scene.rotaryDelayBuffer.get()?scene.rotaryDelayCapacity:scene.tapeDelayCapacity;
@@ -131,6 +133,7 @@
             patternTimingRandom^=static_cast<std::uint32_t>(now.tv_nsec)^static_cast<std::uint32_t>(now.tv_sec);
         patternShadow.reset(new(std::nothrow) ThruInstance);
         if(!patternShadow || !patternShadow->prepare(nullptr,true))return false;
+        patternShadow->bankPool=bankPool;
         patternRunning.store(true,std::memory_order_release);
         if(!s3g_daisy::startBackgroundThread(patternThread,patternThreadEntry,this,true)) {
             patternRunning.store(false,std::memory_order_release);return false;
@@ -154,7 +157,14 @@
         if(patternDurationMs<=0 && !startHeld)return false;
         captureActiveClip(false);
         auto& s=*patternShadow;
+        s.releaseBankIndices(s.bankAssets);
+        for(auto& voice:s.voices)s.releaseBankVoice(voice);
+        s.bankMasterRate=bankMasterRate;s.bankRecordSource=bankRecordSource;
+        s.bankMode=bankMode;s.bankSlots=bankSlots;s.bankAssets=bankAssets;s.bankLoadedClip=0;
+        s.bankSelected=bankSelected;s.voiceMode=voiceMode;s.heldKeys=heldKeys;
+        for(int index:s.bankAssets)if(index>=0)bankPool->assets[index].pins.fetch_add(1,std::memory_order_acq_rel);
         s.engine=engine;s.voices=voices;s.stochasticPartMeters=stochasticPartMeters;
+        for(const auto& voice:s.voices)if(voice.bankAsset>=0)bankPool->assets[voice.bankAsset].pins.fetch_add(1,std::memory_order_acq_rel);
         s.waveMinimum=waveMinimum;s.waveMaximum=waveMaximum;
         s.currentLaneSourceKinds=currentLaneSourceKinds;s.currentLaneSourcePaths=currentLaneSourcePaths;
         s.laneSourceLabels=laneSourceLabels;s.wavesetSourceRevisions=wavesetSourceRevisions;
@@ -216,6 +226,9 @@
         captureActiveClip(false);
         applyPatternCommands();
         auto& s=*patternShadow;
+        bankMasterRate=s.bankMasterRate;bankRecordSource=s.bankRecordSource;
+        bankMode=s.bankMode;bankSlots=s.bankSlots;bankAssets.swap(s.bankAssets);
+        bankLoadedClip=patternFrom;bankSelected=s.bankSelected;voiceMode=s.voiceMode;heldKeys=s.heldKeys;
         storage.swap(preparedClipStorage);
         std::swap(engine,s.engine);std::swap(voices,s.voices);std::swap(stochasticPartMeters,s.stochasticPartMeters);
         for(auto& voice:voices)for(std::size_t ch=0;ch<kChannelCount;++ch)voice.outputPointers[ch]=voice.output[ch].data();

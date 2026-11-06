@@ -4,9 +4,9 @@
   <desc id="desc">Entry 02 with a saved fixed smooth fade shown as it appears on Ableton Move.</desc>
   <rect width="128" height="64" fill="#050706"/>
   <g shape-rendering="crispEdges" font-family="DejaVu Sans Mono, IBM Plex Mono, monospace" font-size="6" font-style="normal" font-weight="400" text-rendering="geometricPrecision">
-    <text x="1" y="5.5" fill="#dce8e1">ENTRY FADE</text>
+    <text x="1" y="5.5" fill="#dce8e1">ENTRY FADE C01:02</text>
+    <text x="110" y="5.5" fill="#dce8e1">6/7</text>
     <rect x="0" y="8" width="128" height="1" fill="#dce8e1"/>
-    <text x="78" y="5.5" fill="#dce8e1">C01:02</text>
     <text x="1" y="16.5" fill="#dce8e1">ENTRY 8s SMTH</text>
     <text x="1" y="26.5" fill="#dce8e1">TIME</text>
     <text x="1" y="36.5" fill="#dce8e1">8s</text>

@@ -26,7 +26,7 @@
 
         <div class="callout">
           <p><strong>Shift + Capture saves Schwung Skipback audio.</strong> This shortcut belongs to Schwung and remains available during takeover. A “Skipback saved” message means Schwung saved recent audio from its rolling buffer as a WAV.</p>
-          <p><strong>FX Sends:</strong> in Split, Shared Dual, or Quad, hold <kbd>Capture</kbd> and press <kbd>Menu</kbd>, release Capture, choose <strong>FX SENDS</strong>, then click the main encoder.</p>
+          <p><strong>FX Sends:</strong> in Split, Shared Dual, or Quad, hold <kbd>Capture</kbd> and press <kbd>Track 3</kbd> to open Mix/FX, or use Capture + Menu → Mix/FX. Choose <strong>FX SENDS</strong> when using the hub list.</p>
         </div>
 
         <div class="screen-gallery">
@@ -74,9 +74,10 @@
             <tr><td>Hold Capture + bottom-row pad</td><td>Lane rides on pads 1–4 and momentary effects on pads 5–8. Pressure changes strength; release restores the current path/settings.</td></tr>
             <tr><td>Main click on Stack Path with DRAW</td><td>Open <a href="engines.html#path-editor">Path Editor</a>. Knobs 1–4 select and edit a point; knob 5 changes the point count. Back returns to Stack Path.</td></tr>
             <tr><td>Shift + knob 8 in Path Editor</td><td>Turn clockwise to reset the path to a four-point triangle.</td></tr>
-            <tr><td>Capture + Menu</td><td>Open <a href="interface.html#page-picker">Pages</a>. Main turn or Up/Down selects; main click opens; Back cancels. Choose FX SENDS for the multi-instrument send and return controls.</td></tr>
+            <tr><td>Capture + Menu</td><td>Open the <a href="interface.html#page-picker">Pages hub</a>. Its four banks are Voice, Lane, Mix/FX, and Perf; Mode, Setup, MIDI, and All occupy the lower row.</td></tr>
+            <tr><td>Capture + Track 1–4</td><td>Jump directly to Voice, Lane, Mix/FX, or Performance. Repeat the same chord to advance through that bank.</td></tr>
             <tr><td>Delete + Play</td><td><a href="performance.html#panic">Panic</a>: stop the data loop, finish an active performance take, and release notes, latches, Rolls, and audition. Effect tails decay naturally.</td></tr>
-            <tr><td>Copy</td><td>Outside the clip and chain editors, toggle Single / last multi-instrument mode. Choose Split, Shared Dual, or Quad via Capture + Menu → Instrument Mode. See <a href="modes.html">Modes</a>.</td></tr>
+            <tr><td>Copy</td><td>Outside the clip and chain editors, toggle Single / last multi-instrument mode. Choose Split, Shared Dual, or Quad via Capture + Menu → Mode. See <a href="modes.html">Modes</a>.</td></tr>
             <tr><td>Capture in multi-instrument modes</td><td>A quick tap switches editing focus on release. Hold Capture for the <a href="playing.html#capture-performance">bottom-row performance controls</a>. Split highlights lane numbers 1–2 or 3–4; Shared Dual highlights A/B in the waveform header. Quad cycles A–D and highlights its lane and header letter. See <a href="interface.html#split-buttons">the physical button guide</a>.</td></tr>
             <tr><td>Capture + knob 8</td><td>Adjust Blend in either dual mode, or the focused part’s level in Quad, from any page; release keeps focus.</td></tr>
             <tr><td>Shift + Capture</td><td><a href="#known-issues">Schwung Skipback</a>: saves recent host audio as a WAV.</td></tr>
@@ -84,7 +85,7 @@
             <tr><td>Mute in multi-instrument modes</td><td>Fade the focused part out/in, including Part-mode preview; playheads keep running. Mute persists across mode changes. See <a href="split.html#silent">silent-part recovery</a>.</td></tr>
             <tr><td>Track 1–4</td><td>Select the lane used by audio record, load, clear, and sample edit. Split also focuses the owning A/B part. Shared Dual keeps focus unchanged. Quad focuses the corresponding A–D part.</td></tr>
             <tr><td>Main encoder turn</td><td>Select the previous/next lane.</td></tr>
-            <tr><td>Up / Down</td><td>Transpose the chromatic or folded-scale pad grid by octave on the waveform page.</td></tr>
+            <tr><td>Up / Down</td><td>Transpose the pad grid by octave on the waveform page. On parameter pages, move within the current Voice, Lane, Mix/FX, or Performance bank.</td></tr>
             <tr><td>Left / Right</td><td>Select performance-clip bank A–D. In the Chain grid or Chain parameter pages, select entry pages 1–4 instead.</td></tr>
             <tr><td>Step 1–16</td><td>Select or queue that clip in the current bank. In the Chain grid or Chain parameter pages, select an entry on the current page.</td></tr>
             <tr><td>Record or main click</td><td>Start/stop performance-data recording.</td></tr>
@@ -126,9 +127,9 @@
         <table class="readout-table">
           <thead><tr><th>View</th><th>Controls</th></tr></thead>
           <tbody>
-            <tr><td>Pages picker</td><td>Main turn or Up/Down selects; main click opens; Back/Menu cancels. Capture changes instrument focus.</td></tr>
+            <tr><td>Pages hub</td><td>Main turn or Up/Down selects; main click enters. Track 1–4 opens the four banks. Back returns page → bank → hub → prior view; Menu also returns from a bank list to the hub.</td></tr>
             <tr><td>A/B or Quad Mix Status</td><td>Read post-level meters, voice counts, and silence reasons; A/B meters also follow Blend. Capture switches focus; Menu/Back returns to waveforms.</td></tr>
-            <tr><td>Parameters</td><td>Up/Down changes page; knobs 1–8 edit aligned cells; Left/Right still changes clip bank.</td></tr>
+            <tr><td>Parameters</td><td>Up/Down changes page within the current bank; knobs 1–8 edit aligned cells; Left/Right still changes clip bank.</td></tr>
             <tr><td>Clip Overview</td><td>Track 1–4 changes bank; Steps address clips; Shift+Step copies; Delete+Step resets.</td></tr>
             <tr><td>Chain</td><td>Step selects entry; main turn chooses clip; Up/Down sets repeats; main click toggles Chain; Shift+click inserts active clip; Delete+Step removes; Shift+Step moves.</td></tr>
             <tr><td>FX Sends (dual modes)</td><td>Main click opens the FX Pages menu. Turn and click to open a named page. Back returns to the menu, then FX Sends. The Record button remains available for performance recording.</td></tr>
@@ -151,21 +152,22 @@
             <tr><td>Undo</td><td>Bright when a one-level safety undo is available; off when unavailable or recording. The key is the curved reverse arrow beside Shift.</td></tr>
             <tr><td>Shift / Delete</td><td>Dim when available, bright while held.</td></tr>
             <tr><td>Arrows</td><td>Dim in views where they navigate, bright while pressed; otherwise off.</td></tr>
-            <tr><td>Copy / Capture / Mute</td><td>Copy bright in multi-instrument modes, dim in Single, off while recording blocks mode changes. Capture is dim in Single and A focus, bright for any non-A focus or the Pages picker. Mute is available only in multi-instrument modes and bright when its focused part is muted.</td></tr>
+            <tr><td>Copy / Capture / Mute</td><td>Copy bright in multi-instrument modes, dim in Single, off while recording blocks mode changes. Capture is dim in Single and A focus, bright for any non-A focus or the Pages hub. Mute is available only in multi-instrument modes and bright when its focused part is muted.</td></tr>
             <tr><td>Loop</td><td>Bright white for Glitch Buffer Lock or a live Stack Hold; medium white for a recorded Stack Hold; dim white while scans run. The footer identifies the hold. In Quad, Loop is dark unless Glitch or Tape Inertia gives it a role.</td></tr>
-            <tr><td>Tracks</td><td>Selected lane on ordinary pages; selected clip bank in Clip Overview.</td></tr>
+            <tr><td>Tracks</td><td>Selected lane on ordinary pages; selected clip bank in Clip Overview. While Capture or the Pages hub is active, they identify Voice, Lane, Mix/FX, and Performance.</td></tr>
           </tbody>
         </table>
 
+        <p>In <a href="bank.html">Bank mode</a>, hold an empty right pad to record A, release to finish, hold a filled pad to loop, Shift + pad to latch, Delete (X) + pad to clear, and Undo to restore the assignment.</p>
         <h2 id="midi">External MIDI</h2>
         <p>Musical notes, note-offs and polyphonic aftertouch use channels 1–4 for A–D according to the instrument mode. All Sound Off (CC 120) and All Notes Off (CC 123) are also accepted. External notes keep the pitches sent by the keyboard; Move’s pad scale does not quantize them.</p>
-        <p>High-resolution parameters use separate channels: <strong>5–8 for A–D, 16 for shared controls</strong>. Part-control edits preserve Move’s selected part and page. Channels 5–8 and 16 also carry controller commands, so keep musical notes on 1–4. See <a href="midi.html">MIDI control</a> for setup, the current NRPN map and two-way feedback.</p>
+        <p>High-resolution parameters use separate channels: <strong>5–8 for A–D, 16 for shared controls</strong>. Part-control edits preserve Move’s selected part and page. Channels 5–8 and 16 also carry controller commands, so keep note input on 1–4. See <a href="midi.html">MIDI control</a> for setup, the current NRPN map and two-way feedback.</p>
 
         <h2 id="oxi-e16">OXI E16 Remote</h2>
         <p>The Remote interface provides Engine, Stack, engine-specific and effect pages. Hold E16 Shift and turn encoder 1 to change pages. A occupies the top two encoder rows; B occupies the bottom two. The layout follows Single, Split, Shared Dual and Quad. Hold an encoder while turning for fine adjustment. In Quad, Shift + encoder 1 switches A/B ↔ C/D; Shift + encoder 16 leaves Remote. Edits preserve Move’s current part and page. See <a href="midi.html#e16-setup">MIDI control</a> for setup and connection checks.</p>
 
         <h2 id="nrpn">High-resolution MIDI</h2>
-        <p>The next-release map has <strong>342 fixed NRPN addresses</strong>. Channels 5–8 control A–D; channel 16 controls shared parameters. Musical notes and polyphonic aftertouch use channels 1–4. See the <a href="midi.html#nrpn">high-resolution MIDI guide</a> for complete value messages, ranges and feedback.</p>
+        <p>The next-release map has <strong>352 fixed NRPN addresses</strong>. Channels 5–8 control A–D; channel 16 controls shared parameters. Musical notes and polyphonic aftertouch use channels 1–4. See the <a href="midi.html#nrpn">high-resolution MIDI guide</a> for complete value messages, ranges and feedback.</p>
 
         <nav class="page-nav" aria-label="Page navigation">
           <a class="page-nav-link" href="midi.html"><span>Previous</span>MIDI Control</a>

@@ -223,7 +223,7 @@ globalThis.host_module_get_param = (key) => {
         const values=Object.fromEntries(Object.entries(globalThis.__docSplit.params)
             .filter(([,p])=>!p.momentary).map(([key,p])=>[key,Number(params[key]??p.value)]));
         const split=JSON.parse(params.split_state||'{"enabled":0,"focus":0,"blend":0.5,"parts":[{},{}]}');
-        values.split_mode=split.enabled?(split.quad?3:split.shared?2:1):0;values.split_focus=split.focus;
+        values.split_mode=split.bank?4:split.enabled?(split.quad?3:split.shared?2:1):0;values.split_focus=split.focus;
         values.part_mute=split.parts[split.focus]?.mute||0;
         for(const key of ['pad_octave','record_lane','stack_scan_paused','glitch_buffer_lock'])
             values[key]=Number(params[key]||0);
@@ -335,9 +335,12 @@ function tick(count = 1) {
 }
 
 function moveSettingsPage(delta) {
-    const control = delta > 0 ? 55 : 54;
-    for (let index = 0; index < Math.abs(delta); index++) cc(control);
-    tick();
+    // Documentation fixtures address the global parameter array directly.
+    // Runtime Up/Down stays within the current navigation category.
+    const doc=globalThis.__docSplit,pages=doc.pages();
+    doc.state.settingsPage=(doc.state.settingsPage+delta%pages.length+pages.length)%pages.length;
+    doc.state.actionMessageTicks=0;
+    doc.redraw();
 }
 
 function selectAlgorithm(algorithm) {
@@ -369,13 +372,14 @@ function captureEnginePages(algorithm, pages) {
     moveSettingsPage(1); // Shared Pads & Scale page.
     moveSettingsPage(1); // Shared MIDI Control page.
     moveSettingsPage(1); // Shared Amp Envelope page.
+    moveSettingsPage(1); // Shared Play Gain page.
     for (const page of pages) {
         moveSettingsPage(1);
         if (page.filename) {
             capture(page.filename, page.title, page.heading);
         }
     }
-    moveSettingsPage(-(pages.length + 3));
+    moveSettingsPage(-(pages.length + 4));
 }
 
 globalThis.init();
@@ -458,7 +462,7 @@ captureEnginePages(0, [
     { filename: 'motion-path.svg', title: 'Motion Path parameter page', heading: 'MOTION PATH' },
     { filename: 'motion-sound.svg', title: 'Motion Sound parameter page', heading: 'MOTION SOUND' },
 ]);
-moveSettingsPage(6);
+moveSettingsPage(7);
 selectCurrentIntegerParam('motion_sound', 1);
 moveSettingsPage(1);
 capture('motion-packets.svg', 'Motion Packets parameter page', 'PACKETS');
@@ -474,7 +478,7 @@ capture('motion-event-clock.svg', 'Motion Event Clock parameter page',
 moveSettingsPage(1);
 capture('motion-event-shape.svg', 'Motion Event Shape parameter page',
     'EVENT SHAPE');
-moveSettingsPage(-8);
+moveSettingsPage(-9);
 captureEnginePages(1, [
     {},
     { filename: 'lanes-play.svg', title: 'Lanes Play parameter page', heading: 'LANES PLAY' },
@@ -513,7 +517,7 @@ captureEnginePages(8, [
 ]);
 
 selectAlgorithm(1);
-moveSettingsPage(7);
+moveSettingsPage(8);
 capture('effects.svg', 'Effects parameter page', 'EFFECTS');
 moveSettingsPage(1);
 capture('effects-stereo-rotary.svg', 'Stereo and Rotary effects parameter page',
@@ -744,6 +748,19 @@ Object.assign(params,{algorithm:'13',stochastic_law:'3',stochastic_capture:'65',
 
 Object.assign(params,{algorithm:'10',morph_mode:'1',morph_amplitude:'100',morph_pair:'1>2',split_state:JSON.stringify({enabled:0,shared:0,quad:0,focus:0,parts:Array.from({length:2},()=>({algorithm:10,root:60,octave:0,scale:0,mode:0,mute:0}))})});
 globalThis.init();tick(82);const imprintDoc=globalThis.__docSplit;imprintDoc.state.view='settings';imprintDoc.state.settingsPage=imprintDoc.pages().findIndex(p=>p.title==='MORPH');imprintDoc.state.actionMessageTicks=0;imprintDoc.redraw();capture('morph-imprint.svg','Morph Imprint envelope transfer','MORPH');
+
+Object.assign(params,{algorithm:'4',voice_mode:'2',bank_slot:'1',bank_start:'0',bank_end:'1',bank_rate:'.5',bank_master_rate:'1',bank_pan:'-25',bank_play:'0',bank_choke:'1',bank_record_source:'3',bank_reverse:'0',bank_level:'1',bank_attack:'5',bank_release:'40',bank_fade:'8',
+    split_mode:'4',split_focus:'1',split_state:JSON.stringify({enabled:1,shared:1,quad:0,bank:1,focus:1,blend:.5,parts:Array.from({length:2},()=>({algorithm:4,root:60,octave:0,scale:0,mode:0,mute:0}))}),
+    bank_state:JSON.stringify({selected:0,slots:[4,1,0,1,0,1,1,0,1,0,0,1,0,0,1,0]}),
+    bank_waveform:Array.from({length:112},(_,i)=>{const a=Math.round(1+6*Math.exp(-i/50)*Math.abs(Math.sin(i*.19)));return [-a,a];}).flat().join(','),
+    voice_pads:'-1,-1,-1,-1,4,-1,-1,-1',playheads:'-1,-1,-1,-1,420,-1,-1,-1'});
+globalThis.init();tick(82);const bankDoc=globalThis.__docSplit;bankDoc.state.view='main';bankDoc.state.messageTicks=0;
+bankDoc.redraw();capture('bank-waveform.svg','Bank selected stereo sample and sixteen-slot overview');
+bankDoc.state.view='settings';bankDoc.state.settingsPage=bankDoc.pages().findIndex(p=>p.title==='BANK SAMPLE');bankDoc.state.actionMessageTicks=0;
+bankDoc.redraw();capture('bank-sample.svg','Bank sample playback controls','B BANK SAMPLE');
+bankDoc.state.settingsPage=bankDoc.pages().findIndex(p=>p.title==='BANK PADS');bankDoc.redraw();capture('bank-pads.svg','Bank per-pad controls and recording source','B BANK PADS');
+Object.assign(bankDoc.state,{view:'main',splitFocus:0,algorithm:4,mask:15,playheads:[.16,.38,.65,.85,-1,-1,-1,-1],stackPositions:[0,1/3,2/3,1,-1,-1,-1,-1]});
+bankDoc.state.splitParts[0].window=[0,1];bankDoc.redraw();capture('bank-waveform-a.svg','Bank A four-lane waveforms and hollow stack position markers');
 
 if (checkOnly && mismatches !== 0) process.exit(1);
 if (checkOnly) console.log('s3g Thru documentation screens: current');

@@ -18,6 +18,14 @@ feedback.update([[5,384,100]]);feedback.tick();assert.equal(sent.length,4);
 feedback.update([[5,384,101],[5,384,100]]);feedback.tick();assert.equal(sent.length,4,'returning to last sent value cancels stale output');
 feedback.update([[0,0,1],[17,0,1],[5,16383,1],[5,0,16384],[5,0,NaN],[5,0,0.5],null]);feedback.tick();assert.equal(sent.length,4);
 feedback.reset();feedback.update([[5,384,100]]);feedback.tick();assert.equal(sent.length,5);
+// A reconnect/pickup resync must survive output backpressure. A later normal
+// snapshot can equal the old cache even though the controller never received
+// the requested refresh. Active performance must not cancel that pending work.
+busy=true;
+feedback.update([[5,384,100,1]]);feedback.tick();assert.equal(sent.length,5);
+feedback.update([[5,384,100]]);busy=false;feedback.tick();
+assert.equal(sent.length,6,'ordinary snapshots must not cancel an unsent urgent resync');
+assert.deepEqual(Array.from(sent.at(-1)),Array.from(sent[0]).map((v,i)=>i===15?100:v));
 console.log('s3g Thru NRPN 14-bit wire format, coalescing, sync and backpressure: PASS');
 
 

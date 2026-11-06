@@ -1,29 +1,78 @@
 # s3g Thru 0.30.0 — draft
 
-Unreleased. These notes describe the current local 0.30.0-test.39 build.
+Unreleased. These notes describe the current local 0.30.0-test.52 build.
 The published installer remains at 0.29.1.
 
-## Native E16 ownership
+## Four-bank page navigation
 
-- Prevents an uninitialized E16 scene from transmitting raw zero across the
-  ENGINE page and silently replacing restored Position, Field, Speed, Scan,
-  Join and Level values. Real encoder turns now begin at raw one, while raw
-  zero requests immediate feedback instead of editing the instrument.
-- Migrates the exact zero-sweep state written by test.38 back to playable
-  defaults on first load; isolated intentional minimum values are preserved.
-- Adds quick-press default reset to every active encoder in the script-free
-  E16 NRPN + Monolit scene. Defaults are resolved inside Thru, so adaptive ENG
-  pages reset the parameter belonging to the current engine. PRIO returns to
-  neutral Off, XFD to center, levels to unity and effect mixes to dry.
-- Uses dedicated CC presses on isolated channels 14/15 for reset, preserving
-  each encoder's selected NRPN turn address while crossing Schwung's control
-  path reliably.
+- Replaces the long first-level Pages list with a compact hub: Voice, Lane,
+  Mix/FX and Performance on the first row; Mode, Setup, MIDI and All below.
+- Adds Capture + Track 1–4 shortcuts for the four working banks. The first
+  chord opens the bank's main page and repeated chords advance through it.
+- Keeps ordinary Track lane/part selection and Shift + Track sample browsing
+  unchanged. Track LEDs temporarily identify the page banks while Capture or
+  the hub is active.
+- Keeps Up/Down inside the current bank and places a consistent, right-aligned
+  current/total fraction on every parameter page. Counts are local to Voice,
+  Lane, Mix/FX, Performance, Setup, or MIDI. Back returns page → bank → hub → the original view; All
+  retains the complete contextual destination list.
 
-- Prevents the UI's Remote heartbeat from claiming E16 while MIDI Control is
-  set to NRPN, MNLT, N+M, Generic CC or Off. N+M now leaves the script-free
-  THRU NM scene intact from takeover startup onward.
-- Adds a second ownership guard around Remote handshakes and releases an active
-  Remote session immediately when its control mode is changed.
+## Pulsar size and Bank recording
+
+- Extends Pulsar SIZE to 500 ms with fine logarithmic adjustment and matching
+  MIDI ranges. Existing saved sizes and the 4 ms default are retained.
+- Bank discards touches shorter than 10 ms. Longer recordings include their
+  audio from the initial press, preserving the attack.
+
+## Bank controls and display refinements
+
+- Restores the black centre of Bank A’s hollow lane markers, including when
+  multiple playheads cross the same area of the waveform.
+
+- Corrects the physical X/Delete + pad shortcut and synchronizes its modifier
+  through the UI as well as direct hardware MIDI. Menu does not arm deletion.
+- Drawing follows Move’s physical pad rows without moving saved assignments.
+- Repeated deletion of an empty pad preserves the previous Undo.
+- Clarifies COMP on Play Gain as the former POLY gain compensation, and the
+  native E16 ring colors and synchronized feedback.
+
+- Adds B-wide master RATE with per-pad RATIO, smoothed stereo PAN, held loop
+  or one-shot PLAY and choke groups. Existing Bank rates retain their sound.
+- Bank Pads SRC matches Mix/Rec: IN, MIX, PT A and PT B. PT B resamples
+  the Bank pads; MIX includes both parts and shared effects. A take keeps
+  its source until it finishes. Settings save per clip, and older A/IN
+  selections retain their routing when upgrading.
+
+## Native E16 + Monolit
+
+- Corrects the native E16 turn direction: clockwise increases values and
+  counterclockwise decreases them, matching the rings. Update the Move module;
+  the test.48 scene and feedback script remain compatible.
+
+- Replaces experimental absolute NRPN encoder turns with explicit native
+  relative CC. MIDI Mode is E+M (E16 + Monolit), with OFF last.
+- Keeps A on encoders 1–8 and B on 9–16, twelve adaptive pages, Monolit’s
+  CC map and encoder-press default reset.
+- Native relative turns start at Thru’s current value and do not depend on
+  feedback timing. A small feedback-only script now mirrors actual values on
+  E16 rings, including Move/Monolit edits, default resets and clip recalls.
+- Requires the matching THRU EM scene. Remote remains a separate option.
+
+## Legato and Bank playing
+
+- Adds per-part Poly, Mono retrigger and Legato on Pads & Scale. Legato keeps
+  the playhead, envelope, stack phase and first engine during overlapping
+  notes, with last-note priority and return to a previous held key.
+- Adds Bank mode: left pads play A through all four lanes; sixteen right pads
+  hold independent stereo recordings. Four voices serve each side.
+- Hold an empty right pad to record A after private effects, before level/blend.
+  Release finishes silently. Hold a filled pad to loop; Shift + pad latches;
+  Delete + pad clears; Undo restores the assignment.
+- Saves immutable WAV takes in Thru Recordings and retains assignments per clip.
+  Bank playback notes can be captured in performance clips.
+- Adds a selected-pad waveform, slot overview, Start, End, Rate, Reverse, Level,
+  Attack, Release and Loop Fade. Maximum twelve seconds per pad; one save at a time.
+- Adds compact fixed-position saving/saved feedback without resizing pages.
 
 ## Dual-mode Priority Duck
 
@@ -59,11 +108,11 @@ The published installer remains at 0.29.1.
 - Fixes Pickup for bounded integer and enum controls. A fader now engages
   anywhere within the current choice's region and stays engaged across later
   choices, so adaptive engine selectors such as Texture MODE respond reliably.
-- Adds a combined **NRPN + MNLT** mode for Monolit TRS → E16 → Move. A
-  script-free E16 native scene uses twelve stable A/B pages and dynamic
-  high-resolution aliases, while E16 MIDI Thru merges Monolit's channel 9–13
-  CC controls into the same direct USB connection. No USB hub, Lua script or
-  Remote surface is required.
+- Adds combined **E16 + MNLT** mode for Monolit TRS → E16 → Move.
+  Native relative CC turns retain immediate response. A small Thru Rings
+  script draws actual parameter values while Monolit’s channel 9–13 CC
+  controls share the direct USB connection. No USB hub or Remote surface
+  is required.
 
 
 
@@ -211,25 +260,24 @@ matching module and script-free THRU RM scene, set USB Multi Port and USB MIDI
 Thru Off, use USB1 and Schwung Surface **E16**, then connect Move USB-A to E16
 USB-C. Select the scene before opening takeover; Remote starts automatically.
 
-For the script-free native E16 + Monolit route, install the matching module and
-THRU NM scene, use Schwung Surface **CC Only**, set Thru MIDI Control to
-**N+M**, and enable E16 MIDI Thru. Monolit connects to E16 over TRS MIDI while
-E16 remains connected directly to Move over USB. Users upgrading from test.38
-must replace the THRU NM scene as well as the module. Test.39 repairs the exact
-saved startup-zero signature on first load.
+For native E16 + Monolit, install the matching module and THRU EM scene
+with its Thru Rings script. Use Schwung Surface **CC Only**, Thru MIDI
+Control **E+M**, USB1 and E16 TRS-input MIDI Thru. Monolit connects to E16
+by TRS while E16 remains connected to Move by USB. E16 and Thru may start
+in either order; initial synchronization reads the project without replacing
+its values.
 
 The Remote example is **controllers/oxi-e16** and the native route is
-**controllers/oxi-e16-nrpn**. Build their settings with
+**controllers/oxi-e16-monolit**. Build their settings with
 `npm run controllers:generate`; package Remote with
 `npm run controllers:package` and the native E16 + Monolit bundle with
-`npm run controllers:nrpn:package`.
+`npm run controllers:monolit:package`.
 
-The new **MIDI and OXI E16** manual chapter covers setup, A/B layout, mode
+The **MIDI** manual chapter covers setup, A/B layout, mode
 handling, the page reference, reading values, connection checks and mapping
 another controller. The complete NRPN address/range table is in
 `controllers/midi/parameters.csv`.
 
-These are draft release notes. The test.39 module, native scene and package
-validation pass locally. Installation and listening acceptance on Move remain
-part of release preparation; no tag, GitHub release or installer-manifest
-change has been made.
+These are draft release notes for local testing. Device installation, listening
+and E16 ring acceptance remain part of release preparation. The public
+installer remains 0.29.1.

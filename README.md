@@ -27,27 +27,14 @@ press **Step 2** for Global Settings. **Shift + main encoder click** opens its
 section picker: choose **System → Help → Modules → s3g Thru**. Inside Thru,
 **Shift + Menu** opens the diagnostic reports and shortcut reminder.
 
-The next release adds high-resolution MIDI and the readable
-[OXI E16 Remote interface](controllers/oxi-e16/), with A/B and Quad C/D engine
-and effect pages. The local 0.30.0-test.39 build also provides a lighter
-[script-free native NRPN scene](controllers/oxi-e16-nrpn/) that lets E16 merge
-Monolit TRS input into its direct USB connection to Move. The published
-installer remains 0.29.1. See the [MIDI guide](docs/midi.html); rebuild the
-Remote ZIP with `npm run controllers:package` or the combined native bundle
-with `npm run controllers:nrpn:package`.
+The local 0.30.0 test build adds MIDI controller options, Legato keys, and
+[Bank mode](docs/bank.html): play an engine on the left and capture sixteen
+persistent stereo samples on the right. The published installer remains 0.29.1.
 
-When moving from test.38 to test.39, install the new module and replace the
-THRU NM scene on E16. Test.39 prevents an uninitialized native scene from
-forcing the Engine page to minimum values and repairs the exact saved
-test.38 zero-sweep state on first load.
-
-The same test build adds selectable NRPN, eight-knob Generic CC, MNLT, E16
-Remote and combined NRPN + MNLT parameter modes, plus stereo-linked
-[Priority Duck](docs/effects.html#priority-duck) for Split and Shared
-Dual. A Light Reft Monolit Split / Shared Dual preset and programming checklist are in
-[controllers/lightreft-monolit](controllers/lightreft-monolit/). Import the
-supplied preset with the official Monolit Web-Editor. Its faders place A and B
-side by side; all paired buttons remain local Motion controls.
+Controller examples are in [controllers/](controllers/). The readable
+[E16 Remote](controllers/oxi-e16/) and native
+[E16 + Monolit relative-CC scene](controllers/oxi-e16-monolit/) are separate
+options. See the [MIDI guide](docs/midi.html) for setup and the full address map.
 
 ## Build from source
 

@@ -21,7 +21,7 @@
         <p class="lead">A stereo sample instrument with four audio lanes and eight independent voices. Play them as one stack, two independently configured instruments, or four instruments in Quad mode. A performance recorder captures notes, pressure, stack holds, and parameter motion as loopable data.</p>
         <p>s3g Thru is an adaptation and extension of the <a href="https://s3g.github.io/s3g-dsp/">s3g-dsp</a> Sample family, rebuilt around Move’s pads, controls, display, live input, and performance workflow.</p>
         <span class="version-chip">manual · next-release draft</span>
-        <p>This local manual describes <strong>0.30.0-test.39</strong>, including the next release’s <a href="midi.html">selectable MIDI modes, Light Reft Monolit Split / Shared Dual mapping, OXI E16 Remote controls and the script-free E16 NRPN + Monolit route</a>, <a href="engines.html#engine-list">per-note Engine Lists, entry variations and pressure expression</a>, <a href="engine-stochastic.html">Stochastic sample deformation</a>, <a href="engine-pulsar.html">Pulsar sample trains</a>, <a href="effects.html#priority-duck">dual-mode Priority Duck</a>, and <a href="effects.html#tape">aligned Tape mixing</a>. The published installer remains at <strong>0.29.1</strong>. The installed version appears briefly when takeover opens; see <a href="https://github.com/s3g/s3g-thru/releases">GitHub releases</a> for published downloads and release notes.</p>
+        <p>This local manual describes <strong>0.30.0-test.47</strong>, including the next release’s four-bank Pages hub, consistently numbered parameter pages and Capture + Track navigation, <a href="midi.html">selectable MIDI modes, Light Reft Monolit Split / Shared Dual mapping, OXI E16 Remote controls and the native relative-CC E16 + Monolit route</a>, <a href="engines.html#engine-list">per-note Engine Lists, entry variations and pressure expression</a>, <a href="engine-stochastic.html">Stochastic sample deformation</a>, <a href="engine-pulsar.html">Pulsar sample trains</a>, <a href="effects.html#priority-duck">dual-mode Priority Duck</a>, and <a href="effects.html#tape">aligned Tape mixing</a>. The published installer remains at <strong>0.29.1</strong>. The installed version appears briefly when takeover opens; see <a href="https://github.com/s3g/s3g-thru/releases">GitHub releases</a> for published downloads and release notes.</p>
 
 
         <figure class="screen-figure">
@@ -39,10 +39,11 @@
         <ul>
           <li><a href="midi.html#control-mode">Selectable controller modes</a> provide fixed NRPN, current-page Generic CC, Light Reft Monolit and OXI E16 Remote paths without overlapping parameter messages.</li>
           <li>The <a href="midi.html#direct-cc">Monolit example preset</a> places Part A on faders 1–4 and Part B on 5–8 across LIVE, two engine pages, sends, color and rotary banks while retaining every paired button as a local MOTION control.</li>
-          <li>The script-free <a href="midi.html#e16-nrpn-monolit">E16 NRPN + Monolit route</a> now protects restored Engine values during scene startup. The exact silent test.38 zero-sweep state is repaired automatically on first load.</li>
+          <li><a href="midi.html#e16-monolit">E16 + Monolit</a> uses native relative encoder turns in E+M mode. Install the matching THRU EM scene; automatic native ring feedback is disabled.</li>
+          <li><a href="playing.html#legato">Legato</a> keeps one playhead running while overlapping keys change pitch. <a href="bank.html">Bank mode</a> pairs a four-lane instrument with sixteen saved stereo capture pads.</li>
           <li><a href="effects.html#tape">Aligned Tape mixing</a> removes the fixed dry/wet timing mismatch and format/age-dependent channel delay while preserving the eight controls and intentional transport movement.</li>
           <li><a href="effects.html#priority-duck">Priority Duck</a> lets A or B make space for the other with stereo-linked detection, detector filtering, timing and dry/send routing.</li>
-          <li><a href="midi.html#channels">High-resolution NRPN control</a> separates musical notes from part and shared parameters, with 342 fixed addresses and two-way value feedback.</li>
+          <li><a href="midi.html#channels">High-resolution NRPN control</a> separates musical notes from part and shared parameters, with 352 fixed addresses and two-way value feedback.</li>
           <li>The <a href="midi.html#e16-setup">OXI E16 Remote</a> provides engine and effect pages. A occupies the top two rows; B the bottom two. Single, Split, Shared Dual and Quad adapt automatically. Hold E16 Shift and turn encoder 1 to change pages.</li>
           <li><a href="midi.html#e16-values">Live value displays</a> identify the edited part and parameter. E16 edits leave Move’s current editing focus and page selected.</li>
         </ul>
@@ -60,7 +61,7 @@
         <p>For an on-device quick reference, leave takeover and open Schwung <strong>Global Settings → System → Help → Modules → s3g Thru</strong>. See <a href="shortcuts.html#device-help">On-device help</a> for navigation.</p>
 
         <h2 id="quick-start">Quick start · Single mode</h2>
-        <p>These first steps use Single, the default four-lane instrument. A saved clip can recall another mode; choose Single from Capture + Menu → Instrument Mode when following the <a href="playing.html">Basic Playing guide</a>.</p>
+        <p>These first steps use Single, the default four-lane instrument. A saved clip can recall another mode; choose Single from Capture + Menu → Mode when following the <a href="playing.html">Basic Playing guide</a>.</p>
 
         <ol>
           <li>Install Schwung 1.7.3 or newer. In Schwung Manager, choose <strong>Install Custom Module → GitHub URL</strong>, enter <code>https://github.com/s3g/s3g-thru</code>, and restart Move when prompted.</li>
@@ -103,7 +104,7 @@
           <li><a href="effects.html">Effects</a> covers tone, drive, reduction, stereo delay, cross-pan, rotary speaker, tape, reverb, customizable order, parameter motion, and practical starting points.</li>
           <li><a href="modes.html">Instrument modes</a> compares the layouts, followed by separate <a href="split.html">Split</a>, <a href="shared-dual.html">Shared Dual</a>, and <a href="quad.html">Quad</a> guides.</li>
           <li><a href="performance.html">Performance loops</a> covers Replace, Overdub takes, clip banks, timing, launch, and chains.</li>
-          <li><a href="midi.html">MIDI Control</a> covers musical input, Generic CC, the fixed 64-control map, NRPN, Remote setup and value feedback.</li>
+          <li><a href="midi.html">MIDI Control</a> covers note input, Generic CC, the fixed 64-control map, NRPN, Remote setup and value feedback.</li>
           <li><a href="shortcuts.html">Shortcut reference</a> lists Move gestures, view-specific controls, LEDs and MIDI channels.</li>
         </ul>
 
@@ -115,7 +116,7 @@
 
       <aside class="toc" aria-label="Page navigation">
         <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="midi.html">MIDI</a><a href="shortcuts.html">Shortcuts</a></div>
-        <div class="toc-section"><h2>Instrument modes</h2><a href="playing.html">Single · Basic playing</a><a href="modes.html">Compare modes</a><a href="split.html">Split</a><a href="shared-dual.html">Shared Dual</a><a href="quad.html">Quad</a></div>
+        <div class="toc-section"><h2>Instrument modes</h2><a href="playing.html">Single · Basic playing</a><a href="modes.html">Compare modes</a><a href="split.html">Split</a><a href="shared-dual.html">Shared Dual</a><a href="quad.html">Quad</a><a href="bank.html">Bank</a></div>
         <div class="toc-section">
           <h2>On this page</h2>
           <a href="#next-release">Next-release features</a>

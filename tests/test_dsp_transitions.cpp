@@ -308,6 +308,7 @@ void testPreviewIsolation()
 #include "test_cutups_scan.inc"
 #include "test_split.inc"
 #include "test_midi.inc"
+#include "test_bank_legato.inc"
 #include "test_split_sends.inc"
 #include "test_priority_duck.inc"
 #include "test_split_silence.inc"
@@ -333,13 +334,37 @@ void testPreviewIsolation()
 #include "test_pulsar_mod.inc"
 } // namespace
 
-int main()
+int main(int argc,char** argv)
 {
+    if(argc==2 && std::strcmp(argv[1],"--background")==0) {
+        testBoundedBackgroundPersistence();
+        std::puts("s3g Thru focused background persistence regression: PASS");
+        return 0;
+    }
+    if(argc==2 && std::strcmp(argv[1],"--midi")==0) {
+        testNrpnAndMidiViews();
+        testMidiScopeRegistryAndScene();
+        testE16RemoteControl();
+        testSelectableMidiModesAndMonolit();
+        testNativeE16AndMonolitMode();
+        testNativeE16HeldNoteResponse();
+        testNativeE16RingSnapshots();
+        std::puts("s3g Thru focused MIDI regressions: PASS");
+        return 0;
+    }
+    if(argc==2 && std::strcmp(argv[1],"--pulsar")==0) {
+        testPulsarExtendedSize();testPulsarWindowsAndClock();testPulsarEditsAndParts();testPulsarPersistenceAndMidi();return 0;
+    }
+    if(argc==2 && std::strcmp(argv[1],"--bank")==0) {
+        testLegatoKeys();testBankCaptureAndRecall();testBankSaveRecovery();testBankPadControlsAndSources();testBankFourRecordingSources();testBankMinimumTake();return 0;
+    }
+    testLegatoKeys();testBankCaptureAndRecall();testBankSaveRecovery();testBankPadControlsAndSources();testBankFourRecordingSources();testBankMinimumTake();
     testPriorityDuckingControls();
     testPriorityDuckingRoutingAndBypass();
     testPriorityDuckingAudio();
     testPulsarModulationSound();
     testPulsarModulationPersistence();
+    testPulsarExtendedSize();
     testPulsarWindowsAndClock();
     testPulsarEditsAndParts();
     testPulsarPersistenceAndMidi();
@@ -444,6 +469,8 @@ int main()
     testE16RemoteControl();
     testSelectableMidiModesAndMonolit();
     testNativeE16AndMonolitMode();
+    testNativeE16HeldNoteResponse();
+    testNativeE16RingSnapshots();
     testSplitInstruments();
     testSplitCuesRollsAndLoad();
     testSplitMixer();

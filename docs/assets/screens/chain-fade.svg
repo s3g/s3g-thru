@@ -4,9 +4,9 @@
   <desc id="desc">Chain 01 with saved random fade defaults shown as it appears on Ableton Move.</desc>
   <rect width="128" height="64" fill="#050706"/>
   <g shape-rendering="crispEdges" font-family="DejaVu Sans Mono, IBM Plex Mono, monospace" font-size="6" font-style="normal" font-weight="400" text-rendering="geometricPrecision">
-    <text x="1" y="5.5" fill="#dce8e1">CHAIN FADE</text>
+    <text x="1" y="5.5" fill="#dce8e1">CHAIN FADE C01</text>
+    <text x="110" y="5.5" fill="#dce8e1">5/7</text>
     <rect x="0" y="8" width="128" height="1" fill="#dce8e1"/>
-    <text x="78" y="5.5" fill="#dce8e1">C01</text>
     <text x="1" y="16.5" fill="#dce8e1">CHAIN R 2s-12s SMTH</text>
     <rect x="14" y="29" width="4" height="4" fill="#dce8e1"/>
     <rect x="15" y="30" width="2" height="2" fill="#050706"/>

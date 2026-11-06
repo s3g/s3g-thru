@@ -4,7 +4,8 @@
   <desc id="desc">On-device render CPU and wait report shown as it appears on Ableton Move.</desc>
   <rect width="128" height="64" fill="#050706"/>
   <g shape-rendering="crispEdges" font-family="DejaVu Sans Mono, IBM Plex Mono, monospace" font-size="6" font-style="normal" font-weight="400" text-rendering="geometricPrecision">
-    <text x="1" y="5.5" fill="#dce8e1">RENDER TIMING 3/5 &lt;&gt;</text>
+    <text x="1" y="5.5" fill="#dce8e1">RENDER TIMING &lt;&gt;</text>
+    <text x="110" y="5.5" fill="#dce8e1">3/5</text>
     <text x="1" y="16.5" fill="#dce8e1">CPU PEAK       720 us</text>
     <text x="1" y="28.5" fill="#dce8e1">WALL PEAK      724 us</text>
     <text x="1" y="40.5" fill="#dce8e1">WAIT PEAK      110 us</text>

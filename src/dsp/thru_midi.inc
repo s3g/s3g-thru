@@ -2,19 +2,12 @@
 // allocation, file I/O or focus notification is performed by audio rendering.
 using MidiParameter = s3g_thru_midi::Parameter;
 
-// The script-free E16 scene uses a compact bank of controller-private NRPN
-// aliases. Each of its twelve pages owns eight aliases; the MIDI channel
-// chooses A or B. Thru resolves the alias against the part's current engine,
-// so the native scene does not need Lua or a copy of the parameter registry.
+// Twelve native pages, eight destinations per part. The retired private
+// NRPN address range is recognized only to discard old scene packets.
 constexpr int kE16NativeAliasBase=3456;
 constexpr int kE16NativeAliasPages=12;
 constexpr int kE16NativeAliasSlots=8;
 constexpr int kE16NativeAliasCount=kE16NativeAliasPages*kE16NativeAliasSlots;
-// Encoder pushes use dedicated CCs 0-95 on control-only channels 14/15. This
-// survives the Move/Schwung MIDI path without replacing E16's selected NRPN
-// address. Thru resolves the current adaptive page parameter at press.
-constexpr int kE16NativeResetCcChannelA=14;
-constexpr int kE16NativeResetCcChannelB=15;
 const MidiParameter* e16PageSlotParameter(ThruInstance&,int,int,int&);
 
 bool e16NativeAlias(int id,int& page,int& slot) {
@@ -51,6 +44,10 @@ float midiRead(ThruInstance& t,const MidiParameter& p,int part) {
     if(std::strcmp(key,"part_level")==0)return lockedValue(t.controls,t.outputGain,t.partLevelParameter(part));
     if(std::strcmp(key,"part_delay")==0)return lockedValue(t.controls,t.outputGain,t.partDelayParameter(part));
     if(std::strcmp(key,"part_reverb")==0)return lockedValue(t.controls,t.outputGain,t.partReverbParameter(part));
+    // Saved automation retains retired Wavesets process IDs. MIDI and the
+    // visible menu use the dense ten-choice index, just like set_param.
+    if(std::strcmp(key,"waveset_process")==0)return static_cast<float>(
+        Engine::wavesetProcessIndex(t.liveControlsForPart(part).wavesetProcess));
     const int index=p.lock;
     if(index>=0)return lockedValue(p.part?t.liveControlsForPart(part):t.controls,t.outputGain,index);
     if(p.part) {
@@ -62,6 +59,7 @@ float midiRead(ThruInstance& t,const MidiParameter& p,int part) {
         if(std::strcmp(key,"voice_engine_edit")==0)return std::min(settings.engines.edit,t.engineSlotCount()-1)+1;
         const int slot=t.engineSlotKey(key);
         if(slot>=0)return settings.engines.configured?settings.engines.engines[slot]:static_cast<int>(t.liveControlsForPart(part).algorithm);
+        if(std::strcmp(key,"voice_mode")==0)return settings.voiceMode;
         if(std::strcmp(key,"pad_mode")==0)return settings.mode;
         if(std::strcmp(key,"root_note")==0)return settings.root;
         if(std::strcmp(key,"scale")==0)return settings.scale;
@@ -181,29 +179,10 @@ bool handleGenericCc(ThruInstance& t,int channel,int number,int value,int source
     return applyAbsoluteCc(t,*p,part,value,slot,source);
 }
 
-void applyNrpn(ThruInstance& t,int channel,int id,int raw) {
+void applyNrpn(ThruInstance& t,int channel,int id,int raw,int /*source*/) {
     int nativePage=0,nativeSlot=0;
-    if(t.midiControlMode==5 && e16NativeAlias(id,nativePage,nativeSlot)) {
-        int part=channel-5;
-        if(part<0 || part>1 || part>=(t.splitEnabled?t.partCount():1))return;
-        const auto* native=e16PageSlotParameter(t,nativePage,nativeSlot,part);
-        if(!native || native->action)return;
-        const int current=s3g_thru_midi::encode(
-            *native,midiRead(t,*native,part),midiMaximum(t,*native));
-        // The native E16 scene stores zero before it receives Thru's first
-        // feedback sweep. Some E16 transmit modes send that placeholder on
-        // scene entry, which previously forced FIELD, SPD, SCAN, JOIN and
-        // LVL to their minima. The generated scene starts real turns at one,
-        // leaving zero as an unambiguous uninitialized value.
-        if(raw==0 && current!=0) {
-            t.midiNativePriorityId=native->id;
-            t.midiNativePriorityPart=native->part?part:-1;
-            return;
-        }
-        if(current==raw)return;
-        midiWrite(t,*native,part,s3g_thru_midi::decode(*native,raw,midiMaximum(t,*native)));
-        return;
-    }
+    // Retired absolute aliases cannot replace a live project.
+    if(e16NativeAlias(id,nativePage,nativeSlot))return;
     const auto* p=s3g_thru_midi::find(id);if(!p)return;
     const int part=p->part?channel-5:-1;
     if(p->part?(part<0 || part>=(t.splitEnabled?t.partCount():1)):channel!=16)return;
@@ -217,22 +196,55 @@ void applyNrpn(ThruInstance& t,int channel,int id,int raw) {
     midiWrite(t,*p,part,s3g_thru_midi::decode(*p,raw,midiMaximum(t,*p)));
 }
 
-bool handleE16NativeResetCc(ThruInstance& t,int channel,int number,int value) {
-    if(t.midiControlMode!=5 || value==0
-        || (channel!=kE16NativeResetCcChannelA && channel!=kE16NativeResetCcChannelB)
-        || number<0 || number>=kE16NativeAliasCount)return false;
-    int part=channel-kE16NativeResetCcChannelA;
-    if(part>=(t.splitEnabled?t.partCount():1))return true;
-    const int page=number/kE16NativeAliasSlots,slot=number%kE16NativeAliasSlots;
-    const auto* native=e16PageSlotParameter(t,page,slot,part);
-    if(!native || native->action)return true;
-    const int before=s3g_thru_midi::encode(*native,midiRead(t,*native,part),midiMaximum(t,*native));
-    midiWrite(t,*native,part,native->initial);
-    const int after=s3g_thru_midi::encode(*native,midiRead(t,*native,part),midiMaximum(t,*native));
-    if(after!=before) {
-        t.midiNativePriorityId=native->id;
-        t.midiNativePriorityPart=native->part?part:-1;
+int e16HoldTime(int index) {
+    index=clampValue(index,0,67);
+    if(index<=20)return index*50;
+    if(index<=36)return 1000+(index-20)*250;
+    if(index<=61)return 5000+(index-36)*1000;
+    return 30000+(index-61)*5000;
+}
+int e16HoldIndex(float value) {
+    int nearest=0;float distance=std::abs(value);
+    for(int index=1;index<=67;++index) {
+        const float next=std::abs(value-e16HoldTime(index));
+        if(next<distance){nearest=index;distance=next;}
     }
+    return nearest;
+}
+bool handleE16NativeResetCc(ThruInstance& t,int channel,int number,int value) {
+    if(t.midiControlMode!=5 || (channel!=14 && channel!=15))return false;
+    // CC 127 carries a one-based destination for default pushes. CCs 0-95
+    // carry explicit signed turns (CC Rel1), independent of ring feedback.
+    if(channel==14 && number==125){t.e16NativeToken=value;return true;}
+    if(channel==14 && number==126){if(value>=1 && value<=12){t.e16NativePage=value-1;t.e16NativeLease=e16RemoteClock()+3000;}return true;}
+    if(number!=127 && (number<0 || number>=kE16NativeAliasCount))return true;
+    const bool reset=number==127;
+    if(reset && (value<1 || value>kE16NativeAliasCount))return true;
+    const int offset=reset?value-1:number;
+    int part=channel-14;
+    if(part>=(t.splitEnabled?t.partCount():1))return true;
+    const auto* p=e16PageSlotParameter(t,offset/8,offset%8,part);
+    if(!p || p->action)return true;
+    // Normalize THRU EM's hardware turn direction: clockwise arrives as
+    // 127 (or 120..126 for larger turns); counterclockwise as 1..8.
+    // Ring feedback remains an absolute reading and never changes this sign.
+    const int ticks=value>0 && value<64?-value:value>64?128-value:0;
+    if(!reset && (ticks==0 || std::abs(ticks)>8))return true;
+    const float current=midiRead(t,*p,part),maximum=midiMaximum(t,*p);
+    float next=p->initial;
+    if(!reset) {
+        const bool lane=std::strcmp(p->key,"manual_lane")==0
+            && t.liveControlsForPart(part).algorithm==Engine::PlaybackAlgorithm::cutups;
+        if(std::strcmp(p->key,"hold_release_ms")==0)next=static_cast<float>(e16HoldTime(e16HoldIndex(current)+ticks));
+        else if(p->integer || lane)next=clampValue(current+ticks,p->minimum,maximum);
+        else {
+            // Retain the small-size turn increment after extending SIZE to 500 ms.
+            const int step=std::strcmp(p->key,"pulsar_size")==0?37:48;
+            next=s3g_thru_midi::decode(*p,clampValue(
+                s3g_thru_midi::encode(*p,current,maximum)+ticks*step,0,16383),maximum);
+        }
+    }
+    if(next!=current)midiWrite(t,*p,part,next);
     return true;
 }
 
@@ -259,6 +271,7 @@ bool handleMidiControl(ThruInstance& t,const char* key,const char* value) {
         const int mode=clampValue(parseEnum(value,kMidiControlModeNames,t.midiControlMode),0,6);
         if(mode!=t.midiControlMode) {
             t.midiControlMode=mode;resetMidiControlPickups(t);
+            t.e16NativePage=-1;t.e16NativeLease=0;
             if(!midiModeAllowsE16(t)) {
                 t.e16RemoteRequested=t.e16RemoteActive=false;t.e16RemoteLease=0;
                 t.e16RemoteButtons=t.e16RemoteHeld=0;
@@ -375,71 +388,9 @@ int formatMidiFeedback(ThruInstance& t,char* buffer,int size) {
         }
         t.midiFeedbackInitialized=true;
     }
-    if(t.midiControlMode==5) {
-        int at=0,count=0;bool ok=true;
-        const auto append=[&](const char* f,auto... args) {
-            if(!ok)return;
-            const int n=std::snprintf(buffer+at,size-at,f,args...);
-            if(n<0 || n>=size-at){ok=false;return;}at+=n;
-        };
-        append("%s","[");
-        constexpr std::size_t total=2u*static_cast<std::size_t>(kE16NativeAliasCount);
-        std::array<std::size_t,6> prioritized{};int prioritizedCount=0;
-        // Direct-CC surfaces such as Monolit have only 7-bit input, but E16
-        // stores and displays a 14-bit value. Emit matching native aliases
-        // before the background sweep and tag them for the UI's urgent queue.
-        if(t.midiNativePriorityId>=0) {
-            for(std::size_t index=0;index<total && count<6;++index) {
-                const int channelPart=static_cast<int>(index/kE16NativeAliasCount);
-                if(channelPart>=(t.splitEnabled?std::min(t.partCount(),2):1))continue;
-                const int offset=static_cast<int>(index%kE16NativeAliasCount);
-                const int page=offset/kE16NativeAliasSlots,slot=offset%kE16NativeAliasSlots;
-                if(channelPart>0 && (page==6 || page>=9))continue;
-                int resolvedPart=channelPart;
-                const auto* p=e16PageSlotParameter(t,page,slot,resolvedPart);
-                if(!p || p->action || p->id!=t.midiNativePriorityId
-                    || (p->part && resolvedPart!=t.midiNativePriorityPart))continue;
-                append("%s[%d,%d,%d,1]",count?",":"",channelPart+5,
-                    kE16NativeAliasBase+offset,
-                    s3g_thru_midi::encode(*p,midiRead(t,*p,resolvedPart),midiMaximum(t,*p)));
-                prioritized[prioritizedCount++]=index;++count;
-            }
-            t.midiNativePriorityId=-1;t.midiNativePriorityPart=-2;
-        }
-        // Six alias values keep the E16 responsive while two ordinary NRPN
-        // slots preserve feedback for any additional fixed-map controller.
-        for(std::size_t scan=0;scan<total && count<6;++scan) {
-            const auto index=t.midiNativeFeedbackCursor;
-            t.midiNativeFeedbackCursor=(index+1u)%total;
-            bool duplicate=false;
-            for(int i=0;i<prioritizedCount;++i)duplicate|=prioritized[i]==index;
-            if(duplicate)continue;
-            const int channelPart=static_cast<int>(index/kE16NativeAliasCount);
-            if(channelPart>=(t.splitEnabled?std::min(t.partCount(),2):1))continue;
-            const int offset=static_cast<int>(index%kE16NativeAliasCount);
-            const int page=offset/kE16NativeAliasSlots,slot=offset%kE16NativeAliasSlots;
-            if(channelPart>0 && (page==6 || page>=9))continue;
-            int resolvedPart=channelPart;
-            const auto* p=e16PageSlotParameter(t,page,slot,resolvedPart);
-            if(!p || p->action)continue;
-            append("%s[%d,%d,%d]",count?",":"",channelPart+5,
-                kE16NativeAliasBase+offset,
-                s3g_thru_midi::encode(*p,midiRead(t,*p,resolvedPart),midiMaximum(t,*p)));
-            ++count;
-        }
-        for(std::size_t scan=0;scan<t.midiWatched.size() && count<8;++scan) {
-            const auto index=t.midiFeedbackCursor;
-            t.midiFeedbackCursor=(index+1u)%t.midiWatched.size();
-            if(!t.midiWatched[index])continue;
-            const auto& p=s3g_thru_midi::parameters[index%s3g_thru_midi::count];
-            const int part=static_cast<int>(index/s3g_thru_midi::count)-1;
-            if(part>=(t.splitEnabled?t.partCount():1))continue;
-            append("%s[%d,%d,%d]",count?",":"",part<0?16:part+5,p.id,
-                s3g_thru_midi::encode(p,midiRead(t,p,part),midiMaximum(t,p)));
-            ++count;
-        }
-        append("%s","]");if(!ok){buffer[0]=0;return -1;}return at;
-    }
+    // Never send absolute values onto relative turn CCs.
+    if(t.midiControlMode==5)return std::snprintf(buffer,size,"[]");
+
     int at=0,count=0;bool ok=true;
     const auto append=[&](const char* f,auto... args) {
         if(!ok)return;
@@ -482,6 +433,14 @@ int e16RowForPage(ThruInstance& t,int part,int page) {
 int e16Row(ThruInstance& t,int part) {return e16RowForPage(t,part,t.e16Page);}
 
 const MidiParameter* e16PageSlotParameter(ThruInstance& t,int page,int slot,int& part) {
+    if(t.bankMode && part==1 && page<=5) {
+        const char* sample[]{"bank_start","bank_end","bank_master_rate","bank_reverse","bank_level","bank_attack","bank_release","bank_fade"};
+        const char* pads[]{"bank_slot","bank_rate","bank_pan","bank_play","bank_choke","hold_release_ms","bank_record_source",nullptr};
+        const char* key=slot>=0 && slot<8?(page==2?sample[slot]:page==3?pads[slot]:nullptr):nullptr;
+        if(!key)return nullptr;
+        const auto* p=midiParameterForKey(key);if(p && !p->part)part=-1;
+        return p;
+    }
     const int row=e16RowForPage(t,part,page);if(row<1 || slot<0 || slot>=8)return nullptr;
     int id=s3g_thru_midi::e16Rows[row-1][slot];
     const auto& c=t.liveControlsForPart(part);const auto* k=s3g_thru_midi::e16Keys;
@@ -542,13 +501,7 @@ const MidiParameter* monolitParameter(ThruInstance& t,int bank,int slot,int& par
 
 bool applyMonolitCc(ThruInstance& t,const MidiParameter& p,int part,
     int value,int slot,int source) {
-    const int before=s3g_thru_midi::encode(p,midiRead(t,p,part),midiMaximum(t,p));
     const bool handled=applyAbsoluteCc(t,p,part,value,slot,source);
-    const int after=s3g_thru_midi::encode(p,midiRead(t,p,part),midiMaximum(t,p));
-    if(handled && after!=before && t.midiControlMode==5) {
-        t.midiNativePriorityId=p.id;
-        t.midiNativePriorityPart=p.part?part:-1;
-    }
     return handled;
 }
 
@@ -692,4 +645,32 @@ int formatE16RemoteState(ThruInstance& t,char* buffer,int size) {
     if(!e16RemoteLive(t))return std::snprintf(buffer,size,"{}");
     e16RemoteNormalizePage(t);
     return formatE16RemotePageState(t,buffer,size,t.e16RemoteActive);
+}
+
+// Snapshot only: no output or UI-focus changes on the DSP callback path.
+int formatE16NativeState(ThruInstance& t,char* buffer,int size) {
+    if(t.midiControlMode!=5 || t.e16NativePage<0 || e16RemoteClock()>t.e16NativeLease)return std::snprintf(buffer,size,"{}");
+    int at=0;bool ok=true;
+    const auto append=[&](const char* f,auto... args) {
+        if(!ok)return;
+        const int n=std::snprintf(buffer+at,size-at,f,args...);
+        if(n<0 || n>=size-at){ok=false;return;}at+=n;
+    };
+    const int page=t.e16NativePage;const bool shared=e16SharedPage(page);
+    append("{\"v\":1,\"page\":%d,\"token\":%d,\"values\":[",page,t.e16NativeToken);
+    for(int physical=0;physical<16;++physical) {
+        int part=physical/8,raw=0,color=0;
+        if(part<(t.splitEnabled?t.partCount():1) && (!shared || physical<8)) {
+            const auto* p=e16PageSlotParameter(t,page,physical%8,part);
+            if(p && !p->action) {
+                const float value=midiRead(t,*p,part);
+                raw=std::strcmp(p->key,"hold_release_ms")==0
+                    ?static_cast<int>(std::lround(e16HoldIndex(value)*16383.0/67))
+                    :s3g_thru_midi::encode(*p,value,midiMaximum(t,*p));
+                color=shared || physical<8?30:100;
+            }
+        }
+        append("%s[%d,%d,%d]",physical?",":"",physical,raw,color);
+    }
+    append("%s","]}");if(!ok){buffer[0]=0;return -1;}return at;
 }

@@ -17,9 +17,12 @@ function createNrpnFeedback(send) {
                 const [channel,id,value,priority=0]=entry;
                 if(![channel,id,value].every(Number.isInteger)||channel<1||channel>16||id<0||id>=16383||value<0||value>16383)continue;
                 const key=channel+':'+id;
-                if(sent.get(key)===value){pending.delete(key);urgent.delete(key);}
-                else if(priority===1){pending.delete(key);urgent.set(key,{channel,id,value});}
+                // Priority marks an explicit controller resync request. Send it
+                // even when the same value was delivered before disconnection;
+                // the newly connected E16 has not necessarily received it.
+                if(priority===1){pending.delete(key);urgent.set(key,{channel,id,value});}
                 else if(urgent.has(key))urgent.set(key,{channel,id,value});
+                else if(sent.get(key)===value)pending.delete(key);
                 else pending.set(key,{channel,id,value});
             }
         },
@@ -53,7 +56,7 @@ function syncRemoteTransport(readDsp=false,force=false){
     return allowed;
 }
 function resetMidiSurface(){
-    midiSurface.query='';midiSurface.epoch=null;midiFeedback.reset();
+    midiSurface.query='';midiSurface.epoch=null;midiFeedback.reset();e16NativeFeedback.reset();
     syncRemoteTransport(true,true);
 }
 function pollMidiControls(){
@@ -96,6 +99,11 @@ function tickMidiFeedback(){
     if(remoteAllowed&&remoteE16.ready)try{updateRemoteE16(JSON.parse(String(getParam('e16_remote_state','{}'))));}catch(_){}
     remoteE16.tick();
     if(remoteE16.active)return;
+    if(Math.round(PARAMS.midi_control_mode.value)===5){
+        try{e16NativeFeedback.update(JSON.parse(String(getParam('e16_native_state','{}'))));}catch(_){}
+        e16NativeFeedback.tick();return;
+    }
+    e16NativeFeedback.reset();
     try{const values=JSON.parse(String(getParam('midi_feedback','[]')));if(Array.isArray(values))midiFeedback.update(values);}catch(_){}
     midiFeedback.tick();
 }

@@ -13,6 +13,14 @@ let corruptEditorSnapshot = false;
 let rejectSafetyUndo = false;
 const blockingWrites = [];
 const drawWrites = [];
+const titleWrites=writes=>writes.filter(write=>write[0]==='print'&&write[2]===0)
+    .sort((a,b)=>a[1]-b[1]);
+const titleText=writes=>titleWrites(writes).map(write=>String(write[3])).join(' ');
+const hasRightFraction=(writes,fraction)=>titleWrites(writes).some(write=>
+    write[1]===128-String(fraction).length*6&&String(write[3])===String(fraction));
+const hasAnyRightFraction=writes=>titleWrites(writes).some(write=>
+    /^\d+\/\d+$/.test(String(write[3]))
+    &&write[1]===128-String(write[3]).length*6);
 const screenBits=new Uint8Array(128*64),screenText=new Map();
 const screenPixel=(x,y)=>screenBits[y*128+x];
 const forcedPadWrites = [];
@@ -203,6 +211,7 @@ globalThis.__testParseUi = parseUiState;
 globalThis.__testParams = PARAMS;
 globalThis.__testSplit = {pages:parameterPages,parse:parseSplitState,keys:activeControlKeys};
 globalThis.__testResetEncoders = resetParameterEncoderMotion;
+globalThis.__testNextControlValue = nextControlValue;
 globalThis.__testLongGrainLengthIndex = longGrainLengthIndex;
 globalThis.__testLongGrainLengthAt = longGrainLengthAt;
 globalThis.__testStochasticEvolutionIndex=stochasticEvolutionIndex;
@@ -222,7 +231,10 @@ globalThis.__testStereoRotaryPage = STEREO_ROTARY_PAGE.keys;
 globalThis.__testTapePage = TAPE_PAGE.keys;
 globalThis.__testWavesetProcess = PARAMS.waveset_process;
 globalThis.__testMidi={model:midiSurface,poll:pollMidiControls,tick:tickMidiFeedback,reset:resetMidiSurface,createFeedback:createNrpnFeedback,remoteAllowed:()=>remoteModeAllowed};
-globalThis.__testTools={entries:pageEntries,parseSave:parseSaveStatus,parseMix:parseMixStatus,drawMix:drawMixStatus};
+globalThis.__testTools={entries:pageEntries,categories:categoryPageEntries,
+    params:PARAMS,pages:parameterPages,drawAll:draw,led:padColor,
+    hub:pageHubEntries,picker:pagePickerEntries,categoryFor:pageCategoryForPage,
+    parseSave:parseSaveStatus,parseMix:parseMixStatus,drawMix:drawMixStatus};
 globalThis.__testFx = { adjust: adjustFxOrder, sync: syncFxOrder,
     encode: encodeFxOrder, decode: decodeFxOrder,
     state: () => state,
@@ -265,7 +277,7 @@ for (let sound = 3; sound < 8; sound++) {
         .map((page) => page.title), ['EVENT CLOCK', 'EVENT SHAPE']);
 }
 assert.deepEqual(globalThis.__testParameterPageSets[0][1],
-    ['pad_mode', 'root_note', 'scale', 'hold_release_ms', 'polyphony_comp','pressure_mode','voice_engine_mode','voice_engine_order']);
+    ['pad_mode', 'root_note', 'scale', 'hold_release_ms', 'voice_mode','pressure_mode','voice_engine_mode','voice_engine_order']);
 assert.deepEqual(globalThis.__testParameterPageSets[0][2],
     ['amp_attack', 'amp_decay', 'amp_sustain', 'amp_release']);
 assert.deepEqual(globalThis.__testParameterPageSets[0][3],
@@ -560,9 +572,9 @@ assert.deepEqual(blockingWrites.pop(), ['algorithm', '1']);
 globalThis.onMidiMessageInternal([0xB0, 55, 127]);
 const scalePageDrawStart = drawWrites.length;
 globalThis.tick();
-const scaleHeader = drawWrites.slice(scalePageDrawStart).find((write) =>
-    write[0] === 'print' && write[2] === 0);
-assert(String(scaleHeader?.[3]).includes('PADS & SCALE 2/20'));
+const scalePageWrites=drawWrites.slice(scalePageDrawStart);
+assert(titleText(scalePageWrites).includes('PADS & SCALE 2/6'));
+assert(hasRightFraction(scalePageWrites,'2/6'));
 assert(drawWrites.slice(scalePageDrawStart).some((write) =>
     write[0] === 'print' && String(write[3]).includes('POLY')));
 globalThis.onMidiMessageInternal([0xB0, 73, 2]);
@@ -574,12 +586,16 @@ assert.equal(globalThis.__testPadMidiNote(8), 65);
 
 /* The shared amp envelope is a breakpoint editor rather than eight generic
    cells. The first four encoders edit ADSR and draw its gate boundary. */
-globalThis.onMidiMessageInternal([0xB0, 55, 127]);
+globalThis.onMidiMessageInternal([0xB0,52,127]);
+globalThis.onMidiMessageInternal([0xB0,50,127]);
+globalThis.onMidiMessageInternal([0xB0,52,0]);
+globalThis.__testFx.state().pageSelection=6;
+globalThis.onMidiMessageInternal([0xB0,3,127]);
 const midiPageDrawStart = drawWrites.length;
 globalThis.tick();
 const midiPageWrites = drawWrites.slice(midiPageDrawStart);
-assert(midiPageWrites.some((write) => write[0] === 'print'
-    && String(write[3]).includes('MIDI CONTROL 3/20')));
+assert(titleText(midiPageWrites).includes('MIDI CONTROL 1/1'));
+assert(hasRightFraction(midiPageWrites,'1/1'));
 for (const label of ['MODE', 'CCCH', 'BASE', 'TAKE']) {
     assert(midiPageWrites.some((write) => write[0] === 'print'
         && write[3] === label));
@@ -590,8 +606,8 @@ globalThis.onMidiMessageInternal([0xB0, 55, 127]);
 const envelopePageDrawStart = drawWrites.length;
 globalThis.tick();
 const envelopeWrites = drawWrites.slice(envelopePageDrawStart);
-assert(envelopeWrites.some((write) => write[0] === 'print'
-    && String(write[3]).includes('AMP ENVELOPE 4/20')));
+assert(titleText(envelopeWrites).includes('AMP ENVELOPE 3/6'));
+assert(hasRightFraction(envelopeWrites,'3/6'));
 for (const label of ['ATK', 'DEC', 'SUS', 'REL']) {
     assert(envelopeWrites.some((write) => write[0] === 'print'
         && write[3] === label));
@@ -609,12 +625,13 @@ globalThis.onMidiMessageInternal([0xB0, 71, 2]);
 assert.deepEqual(paramWrites.at(-1), ['amp_attack', '5']);
 
 /* Only pages belonging to the chosen playback engine are exposed. */
+globalThis.onMidiMessageInternal([0xB0, 55, 127]); // Shared Play Gain.
 globalThis.onMidiMessageInternal([0xB0, 55, 127]);
 const lanesPageDrawStart = drawWrites.length;
 globalThis.tick();
-const lanesHeader = drawWrites.slice(lanesPageDrawStart).find((write) =>
-    write[0] === 'print' && write[2] === 0);
-assert(String(lanesHeader?.[3]).includes('STACK PATH 5/20'));
+const lanesHeaderWrites=drawWrites.slice(lanesPageDrawStart);
+assert(titleText(lanesHeaderWrites).includes('STACK PATH 5/6'));
+assert(hasRightFraction(lanesHeaderWrites,'5/6'));
 assert(!drawWrites.slice(lanesPageDrawStart).some((write) =>
     write[0] === 'print' && String(write[3]).includes('GRAIN')));
 const lanesPageWrites = drawWrites.slice(lanesPageDrawStart);
@@ -632,9 +649,11 @@ assert.equal(paramWrites.length, writesBeforeReservedTurn,
 
 /* The take page displays the layer count and provides the same action as
    Delete+Record. The following Chain page retains its explicit slot clear. */
-    for (let page = 0; page < 11; page++) {
-    globalThis.onMidiMessageInternal([0xB0, 55, 127]);
-}
+globalThis.onMidiMessageInternal([0xB0,52,127]);
+globalThis.onMidiMessageInternal([0xB0,40,127]);
+globalThis.onMidiMessageInternal([0xB0,52,0]);
+globalThis.onMidiMessageInternal([0xB0,55,127]);
+globalThis.onMidiMessageInternal([0xB0,55,127]);
 const takePageDrawStart = drawWrites.length;
 globalThis.tick();
 assert(drawWrites.slice(takePageDrawStart).some((write) => write[0] === 'print'
@@ -807,6 +826,7 @@ for (let tick = 0; tick < 60; tick++) globalThis.tick();
 const reportWrites = drawWrites.slice(helpDrawStart).filter((write) =>
     write[0] === 'print');
 assert(reportWrites.some((write) => String(write[3]).includes('SYSTEM REPORT')));
+assert(hasRightFraction(reportWrites,'1/5'));
 assert(reportWrites.some((write) => String(write[3]).includes('12.3M us')));
 assert(reportWrites.some((write) => String(write[3]).includes('987.7M')));
 assert(reportWrites.some((write) => String(write[3]).includes('12.3 dB')));
@@ -817,7 +837,8 @@ globalThis.onMidiMessageInternal([0xB0, 63, 127]);
 const callbackDrawStart = drawWrites.length;
 globalThis.tick();
 const callbackRows = drawWrites.slice(callbackDrawStart).filter((write) => write[0] === 'print');
-assert(callbackRows.some((write) => String(write[3]).includes('CALLBACK WORK 2/5')));
+assert(titleText(callbackRows).includes('CALLBACK WORK <> 2/5'));
+assert(hasRightFraction(callbackRows,'2/5'));
 assert(callbackRows.some((write) => String(write[3]).includes('12345 us')));
 assert(callbackRows.some((write) => String(write[3]).includes('1.2M')));
 assert(callbackRows.every((write) => String(write[3]).length <= 21));
@@ -826,7 +847,8 @@ globalThis.onMidiMessageInternal([0xB0, 63, 127]);
 const timingDrawStart=drawWrites.length;
 for(let n=0;n<65;++n)globalThis.tick();
 const timingRows=drawWrites.slice(timingDrawStart).filter(w=>w[0]==='print');
-assert(timingRows.some(w=>String(w[3]).includes('RENDER TIMING 3/5')));
+assert(titleText(timingRows).includes('RENDER TIMING <> 3/5'));
+assert(hasRightFraction(timingRows,'3/5'));
 assert(timingRows.some(w=>String(w[3]).includes('CPU PEAK')&&String(w[3]).includes('1800 us')));
 assert(timingRows.some(w=>String(w[3]).includes('WAIT PEAK')&&String(w[3]).includes('1504 us')));
 assert(timingRows.every(w=>String(w[3]).length<=21));
@@ -840,12 +862,14 @@ assert([...screenText.values()].some(w=>String(w[2]).includes('CPU PEAK')&&Strin
 globalThis.onMidiMessageInternal([0xB0, 63, 127]);
 const shortcutDrawStart = drawWrites.length;
 globalThis.tick();
-assert(drawWrites.slice(shortcutDrawStart).some((write) =>
-    write[0] === 'print' && String(write[3]).includes('SHORTCUTS 4/5')));
+const shortcutRows=drawWrites.slice(shortcutDrawStart).filter(write=>write[0]==='print');
+assert(titleText(shortcutRows).includes('SHORTCUTS <> 4/5'));
+assert(hasRightFraction(shortcutRows,'4/5'));
 globalThis.onMidiMessageInternal([0xB0,63,127]);
 const linkDrawStart=drawWrites.length;globalThis.tick();
 const linkRows=drawWrites.slice(linkDrawStart).filter(w=>w[0]==='print');
-assert(linkRows.some(w=>String(w[3]).includes('E16 LINK 5/5')));
+assert(titleText(linkRows).includes('E16 LINK <> 5/5'));
+assert(hasRightFraction(linkRows,'5/5'));
 for(const field of ['STATE','LAST','ACK/NACK','RETRY/RECON','PENDING PX'])assert(linkRows.some(w=>String(w[3]).includes(field)));
 assert(linkRows.every(w=>String(w[3]).length<=21),'E16 diagnostics remain legible');
 globalThis.onMidiMessageInternal([0xB0, 51, 127]);
@@ -1310,13 +1334,14 @@ Object.assign(params,{split_state:JSON.stringify(splitState),effect_mix:'0',effe
     split_delay_a:'0.2',split_delay_b:'0.25',split_reverb_a:'0.3',split_reverb_b:'0.4',
     split_level_a:'1',split_level_b:'0.9',split_curve:'1',split_blend:'0.5',
     split_priority:'0',split_duck_threshold:'-24',algorithm:'4'});
-globalThis.init();cc(52);cc(50);cc(52,0);fx.state().pageSelection=globalThis.__testTools.entries().findIndex(e=>e.title==='FX SENDS');cc(3);cc(3,0);
+globalThis.init();cc(52);cc(50);cc(52,0);fx.state().pageSelection=2;cc(3);cc(3,0);
+fx.state().pageSelection=globalThis.__testTools.categories(2).findIndex(e=>e.title==='FX SENDS');cc(3);cc(3,0);
 const sendsKeys=['split_delay_a','split_reverb_a','split_delay_b','split_reverb_b',
     'split_priority','split_duck_threshold','split_curve','split_blend'];
 assert.deepEqual(split.keys(),sendsKeys);
 let fxDrawStart=drawWrites.length;globalThis.tick();
 let fxText=drawWrites.slice(fxDrawStart).filter(([kind])=>kind==='print').map((w)=>String(w[3]));
-assert(fxText.some((text)=>text.includes('FX SENDS ')));
+assert(fxText.some(text=>text.includes('FX SENDS')));
 assert(fxText.includes('PRIO')&&fxText.includes('THR')&&fxText.includes('25%'));
 assert(fxText.includes('RETURNS OFF: CLICK'));
 globalThis.__testResetEncoders();cc(71,2);
@@ -1408,18 +1433,35 @@ let toolWrites=blockingWrites.length;
 cc(52);cc(50);cc(50,0);cc(52,0);
 assert.equal(ui.view,'pages');
 assert(!blockingWrites.slice(toolWrites).some(([k])=>['clip_record','record_gate','split_focus'].includes(k)));
+assert.equal(ui.pageTier,'hub');assert.equal(tools.hub().length,8);
+tapIcon(43);assert.equal(ui.view,'pages');assert.equal(ui.pageTier,'category');assert.equal(ui.pageCategory,0);
+ui.pageSelection=1;tapIcon(3);assert.equal(ui.view,'settings');
+assert.equal(globalThis.__testSplit.pages()[ui.settingsPage].title,'PADS & SCALE');
+tapIcon(51);assert.equal(ui.view,'pages');assert.equal(ui.pageTier,'category');
+assert.equal(ui.pageCategory,0);assert.equal(ui.pageSelection,1);
+tapIcon(51);assert.equal(ui.view,'pages');assert.equal(ui.pageTier,'hub');
 assert(tools.entries().some(e=>e.title==='AMP ENVELOPE'));
 assert(!tools.entries().some(e=>e.title.includes('A/B')),'Single hides Split status');
 let destination=tools.entries().findIndex(e=>e.title==='REVERB');
-ui.pageSelection=destination;cc(3);assert.equal(ui.view,'settings');
+assert(destination>=0);ui.pageSelection=2;cc(3);ui.pageSelection=tools.categories(2).findIndex(e=>e.title==='REVERB');cc(3);assert.equal(ui.view,'settings');
 assert.equal(globalThis.__testSplit.pages()[ui.settingsPage].title,'REVERB');
 cc(52);cc(50);cc(52,0);cc(51);assert.equal(ui.view,'settings');
 assert.equal(globalThis.__testSplit.pages()[ui.settingsPage].title,'REVERB');
-cc(60);assert(ui.splitEnabled);ui.view='main';
+// Capture + Tracks 1-4 are stable page banks; repeated chords advance within a bank.
+ui.view='main';ui.lane=2;const laneBeforeBank=ui.lane;
+cc(52);tapIcon(43);cc(52,0);assert.equal(globalThis.__testSplit.pages()[ui.settingsPage].title,'ENGINE');
+assert.equal(ui.lane,laneBeforeBank);
+cc(52);tapIcon(43);cc(52,0);assert.equal(globalThis.__testSplit.pages()[ui.settingsPage].title,'PADS & SCALE');
+cc(52);tapIcon(42);cc(52,0);assert.equal(globalThis.__testSplit.pages()[ui.settingsPage].title,'MIX / REC');
+cc(52);tapIcon(41);cc(52,0);assert.equal(globalThis.__testSplit.pages()[ui.settingsPage].title,'EFFECTS');
+cc(52);tapIcon(40);cc(52,0);assert.equal(globalThis.__testSplit.pages()[ui.settingsPage].title,'PERF LOOP');
+tapIcon(55);assert.equal(globalThis.__testSplit.pages()[ui.settingsPage].title,'PATTERN FADE');
+tapIcon(54);assert.equal(globalThis.__testSplit.pages()[ui.settingsPage].title,'PERF LOOP');
+ui.view='main';cc(60);assert(ui.splitEnabled);ui.view='main';
 const pickerFocus=ui.splitFocus;
 cc(52);cc(50);cc(52,0);assert.equal(ui.splitFocus,pickerFocus);
 destination=tools.entries().findIndex(e=>e.view==='mixStatus');assert(destination>=0);
-ui.pageSelection=destination;cc(3);assert.equal(ui.view,'mixStatus');
+ui.pageSelection=2;cc(3);ui.pageSelection=tools.categories(2).findIndex(e=>e.view==='mixStatus');cc(3);assert.equal(ui.view,'mixStatus');
 tools.parseMix('.12,0,2,3,0,3');tools.drawMix();
 assert.equal(ui.mixVoices[0],2);assert.equal(ui.mixVoices[1],3);
 assert([...screenText.values()].some(t=>t[2]==='FADED OUT'));
@@ -1468,7 +1510,7 @@ const idleClip=params.clip_state.split(',');idleClip[0]='0';params.clip_state=id
 globalThis.init();
 const lastButton=(id)=>buttonWrites.filter(w=>w[0]===id).at(-1)?.[1];
 const settleIcons=()=>{for(let i=0;i<6;++i)globalThis.tick();};
-const tapIcon=(id)=>{cc(id);cc(id,0);};
+function tapIcon(id){cc(id);cc(id,0);}
 for(const id of [49,50,51,52,54,55,58,60,62,63,119])assert.equal(lastButton(id),16,'available icon '+id);
 assert.equal(lastButton(88),0,'Mute is unassigned in Single');
 assert.equal(lastButton(56),0,'Undo is dark without a safety undo point');
@@ -1552,7 +1594,7 @@ splitState.enabled=0;splitState.shared=0;splitState.focus=0;
 for(const p of splitState.parts){p.mute=0;p.mode=0;p.scale=0;}
 params.split_state=JSON.stringify(splitState);params.split_mode='0';params.mix_status='0,0,0,0,5,5';
 globalThis.init();
-const pickInstrumentMode=()=>{cc(52);tapIcon(50);cc(52,0);ui.pageSelection=tools.entries().findIndex(e=>e.view==='mode');tapIcon(3);};
+const pickInstrumentMode=()=>{cc(52);tapIcon(50);cc(52,0);ui.pageSelection=4;tapIcon(3);};
 pickInstrumentMode();assert.equal(ui.view,'mode');assert.equal(ui.modeSelection,0);
 tapIcon(54);tapIcon(54);assert.equal(ui.modeSelection,2);
 tapIcon(3);settleIcons();assert(ui.sharedDual&&ui.splitEnabled);assert.equal(ui.view,'main');
@@ -1661,7 +1703,8 @@ assert.equal(quadPages.find(p=>p.title==='ENGINE').keys[7],'split_level_b');
 assert.equal(quadPages.find(p=>p.title==='FX SENDS').keys.length,8);
 assert.equal(quadPages.find(p=>p.title==='DELAY RETURN').keys[7],'effect_mix');
 const quadSkipbackPage=ui.settingsPage;cc(49);tapIcon(52);cc(49,0);assert.equal(ui.settingsPage,quadSkipbackPage);
-cc(52);cc(50);cc(52,0);ui.pageSelection=globalThis.__testTools.entries().findIndex(e=>e.title==='FX SENDS');tapIcon(3);
+cc(52);cc(50);cc(52,0);ui.pageSelection=2;tapIcon(3);
+ui.pageSelection=globalThis.__testTools.categories(2).findIndex(e=>e.title==='FX SENDS');tapIcon(3);
 tapIcon(3);assert.equal(ui.view,'fxMenu');ui.fxMenuSelection=1;tapIcon(3);
 assert.equal(split.pages()[ui.settingsPage].title,'DELAY RETURN');
 // C/D controls, focus indicators and one-lane cursors fit the display.
@@ -1894,12 +1937,16 @@ params.chain_fades_state='2,8000,2000,12000,3,2,3500,2000,12000,4';
 ui.view='settings';ui.settingsPage=split.pages().findIndex(p=>p.chainFade==='chain');ui.ticks=2;ui.actionMessageTicks=0;
 const chainFadeDraw=drawWrites.length;globalThis.tick();
 const chainFadeText=drawWrites.slice(chainFadeDraw).filter(w=>w[0]==='print');
-for(const word of ['CHAIN FADE','LOW','HIGH','RAND','2s','12s'])assert(chainFadeText.some(w=>w[3]===word));
+assert(titleText(chainFadeText).includes('CHAIN FADE'));
+assert(hasAnyRightFraction(chainFadeText));
+for(const word of ['LOW','HIGH','RAND','2s','12s'])assert(chainFadeText.some(w=>w[3]===word));
 const beforeRandomTime=blockingWrites.length;globalThis.__testResetEncoders();cc(71,2);assert.equal(blockingWrites.length,beforeRandomTime);
 globalThis.__testResetEncoders();cc(75,2);assert.deepEqual(blockingWrites.at(-1),['chain_fade_low_ms','2500']);
 ui.settingsPage=split.pages().findIndex(p=>p.chainFade==='entry');ui.ticks=2;const entryDraw=drawWrites.length;globalThis.tick();
 const entryText=drawWrites.slice(entryDraw).filter(w=>w[0]==='print');
-for(const word of ['ENTRY FADE','TIME','3.50s','PWR','FIX'])assert(entryText.some(w=>w[3]===word));
+assert(titleText(entryText).includes('ENTRY FADE'));
+assert(hasAnyRightFraction(entryText));
+for(const word of ['TIME','3.50s','PWR','FIX'])assert(entryText.some(w=>w[3]===word));
 for(const w of [...entryText,...chainFadeText])assert(w[1]+String(w[3]).length*6<=128&&w[2]+8<=64);
 const beforeEntryStep=blockingWrites.length;globalThis.onMidiMessageInternal([0x90,18,127]);
 assert.equal(blockingWrites.length,beforeEntryStep+1);assert.equal(blockingWrites.at(-1)[0],'chain_slot');
@@ -1970,7 +2017,9 @@ assert.equal(ui.chainSlot,1);assert.equal(ui.chainPage,0);assert.equal(ui.settin
 assert.equal(ui.chainPosition,12);assert(ui.chainEnabled&&ui.clipPlaying);assert.equal(ui.activeClip,playingEntryPattern);
 assert.equal(ui.chainFades[5],3,'The new entry immediately supplies its own fade mode');
 const selectorText=drawWrites.slice(selectorDraw).filter(w=>w[0]==='print');
-for(const word of ['ENTRY FADE','C01:02','SLOT','02','PATT','B05','RAND','1s','9s'])assert(selectorText.some(w=>w[3]===word));
+assert(titleText(selectorText).includes('ENTRY FADE C01:02'));
+assert(hasAnyRightFraction(selectorText));
+for(const word of ['SLOT','02','PATT','B05','RAND','1s','9s'])assert(selectorText.some(w=>w[3]===word));
 for(const w of selectorText)assert(w[1]+String(w[3]).length*6<=128&&w[2]+8<=64);
 const beforePatternReadout=blockingWrites.length;globalThis.__testResetEncoders();cc(74,2);
 assert.equal(blockingWrites.length,beforePatternReadout,'PATT identifies the entry without editing its assignment');
@@ -1995,7 +2044,9 @@ params.chain_effective_fade='0,1,0,2000,12000,3';params.entry_effective_fade='1,
 ui.view='settings';ui.settingsPage=split.pages().findIndex(p=>p.chainTools);ui.actionMessageTicks=0;
 let workflowDraw=drawWrites.length;globalThis.tick();
 let workflowText=drawWrites.slice(workflowDraw).filter(w=>w[0]==='print');
-for(const word of ['CHAIN TOOLS','1 COPY','2 PASTE','3 COPY','4 PASTE','CHAIN','ENTRY','BANK','SLOT','CUE','HERE','CNCL','QUEU'])assert(workflowText.some(w=>w[3]===word),word+' absent: '+workflowText.map(w=>w[3]).join('|'));
+assert(titleText(workflowText).includes('CHAIN TOOLS'));
+assert(hasAnyRightFraction(workflowText));
+for(const word of ['1 COPY','2 PASTE','3 COPY','4 PASTE','CHAIN','ENTRY','BANK','SLOT','CUE','HERE','CNCL','QUEU'])assert(workflowText.some(w=>w[3]===word),word+' absent: '+workflowText.map(w=>w[3]).join('|'));
 for(const [index,key] of [[0,'chain_copy'],[1,'chain_paste'],[2,'entry_copy'],[3,'entry_paste'],[6,'chain_launch'],[7,'chain_launch_cancel']]){
     cc(71+index,2);assert.deepEqual(blockingWrites.at(-1),[key,'1']);
 }
@@ -2060,7 +2111,9 @@ ui.settingsPage=split.pages().findIndex(p=>p.title==='PERF LOOP');
 params.algorithm='2';params.split_state=JSON.stringify({enabled:1,shared:0,quad:0,focus:1,blend:.5,parts:[{algorithm:4,root:60,octave:0,scale:0,mode:0,mute:0},{algorithm:2,root:60,octave:0,scale:0,mode:0,mute:0}]});
 assert(globalThis.__testRefreshEditor());assert.equal(ui.algorithm,2);assert.equal(ui.splitFocus,1);assert.equal(split.pages()[ui.settingsPage].title,'PERF LOOP');
 ui.actionMessageTicks=0;ui.clipRecording=false;ui.clipPlaying=false;const sharedPageDraw=drawWrites.length;fx.draw();
-assert(drawWrites.slice(sharedPageDraw).some(w=>w[0]==='print'&&/^PERF LOOP /.test(w[3])));
+const sharedPageWrites=drawWrites.slice(sharedPageDraw);
+assert(sharedPageWrites.some(w=>w[0]==='print'&&w[3]==='PERF LOOP'));
+assert(hasAnyRightFraction(sharedPageWrites));
 
 copyStart=blockingWrites.length;cc(60);cc(60,0);
 assert.deepEqual(blockingWrites.slice(copyStart),[['clip_clipboard_copy',String(ui.activeClip)]], 'Copy on PERF LOOP addresses the combined clip');
@@ -2109,6 +2162,7 @@ console.log('s3g Thru Formant controls: PASS');
     globalThis.move_midi_external_send=packets=>{sent.push(packets);return true;};
     globalThis.host_module_get_param=key=>{
         if(key==='midi_state')return JSON.stringify({v:1,epoch,values:[...values.values()]});
+        if(key==='e16_native_state')return params.e16_native_state||'{}';
         if(key==='midi_feedback')return JSON.stringify([[5,id('locus'),6000],[6,id('locus'),12000]]);
         return oldGet(key);
     };
@@ -2131,13 +2185,19 @@ console.log('s3g Thru Formant controls: PASS');
     // Remote discovery remains bounded without a controller response.
     const oldNow=Date.now;let remoteNow=oldNow()+10000;Date.now=()=>remoteNow;
     midi.tick();assert(sent.filter(p=>p[0]!==11).every(p=>p.length<=48));
-    // The script-free NRPN + MNLT mode must not probe or claim E16 Remote,
+    // The native E16 + MNLT mode must not probe or claim E16 Remote,
     // even when the host exposes the E16 surface transport callbacks.
     params.midi_control_mode='5';sent.length=0;midi.reset();
     assert.equal(midi.remoteAllowed(),false);
-    midi.tick();assert(!sent.some(p=>p[0]!==11),'N+M must send no Remote discovery traffic');
+    midi.tick();assert(!sent.some(p=>p[0]!==11),'E+M must send no Remote discovery traffic');
     globalThis.onMidiMessageExternal([240,0,33,91,2,1,83,247]);
-    midi.tick();assert(!sent.some(p=>p[0]!==11),'N+M must ignore Remote handshakes');
+    midi.tick();assert(!sent.some(p=>p[0]!==11),'E+M must ignore Remote handshakes');
+    params.e16_native_state=JSON.stringify({v:1,page:2,token:9,values:[[0,8192,30],[8,16383,100]]});
+    const soundWrites=paramWrites.length;
+    midi.tick();assert(sent.some(p=>p[0]===4),'Native ring feedback reaches USB without Remote ownership');
+    assert(!midi.remoteAllowed());assert.equal(paramWrites.length,soundWrites,'Ring snapshots never write sound');
+    assert.equal(ui.splitFocus,focus);assert.equal(ui.settingsPage,page);
+    delete params.e16_native_state;
     // A newly moved Monolit destination must jump ahead of the background
     // native-alias sweep rather than waiting behind several pages of rings.
     const urgentSent=[],feedback=midi.createFeedback(p=>{urgentSent.push(p);return true;});
@@ -2148,6 +2208,9 @@ console.log('s3g Thru Formant controls: PASS');
     assert.deepEqual(urgentSent[3].slice(0,4),[11,0xb4,99,27]);
     assert.deepEqual(urgentSent[3].slice(4,8),[11,0xb4,98,3]);
     assert.deepEqual(urgentSent[3].slice(8,12),[11,0xb4,6,3]);
+    feedback.update([[5,3459,401,1]]);feedback.tick();
+    assert.equal(urgentSent.length,7,'Priority resync must resend a value cached before reconnect');
+    assert.deepEqual(urgentSent[6].slice(0,8),[11,0xb4,99,27,11,0xb4,98,3]);
     params.midi_control_mode='0';midi.reset();
     assert.equal(ui.splitFocus,focus);assert.equal(ui.settingsPage,page);
     Date.now=oldNow;
@@ -2257,6 +2320,12 @@ console.log('s3g Thru Stochastic conditional CAPT/PULL knob and independent valu
  const before=blockingWrites.length;cc(3);assert.deepEqual(blockingWrites[before],['pulsar_source_hold','1']);
  cc(3);assert.deepEqual(blockingWrites.at(-1),['pulsar_source_hold','0']);
  const value=globalThis.__testCompactControlValue({...ps.pulsar_form,value:500});assert.equal(value,'500');
+ assert.equal(ps.pulsar_size.max,500);assert.equal(ps.pulsar_size.min,.5);
+ const next=globalThis.__testNextControlValue;
+ const low=next({...ps.pulsar_size,value:1},1);assert(low>1 && low<1.04);
+ let size=.5;for(let i=0;i<321;++i)size=next({...ps.pulsar_size,value:size},1);
+ assert.equal(size,500);assert(next({...ps.pulsar_size,value:500},-1)<500);
+ assert.equal(globalThis.__testCompactControlValue({...ps.pulsar_size,value:500}),'500');
 }
 console.log('s3g Thru Pulsar page, all layouts, labels, locks and source-hold click: PASS');
 
@@ -2275,3 +2344,114 @@ console.log('s3g Thru Pulsar page, all layouts, labels, locks and source-hold cl
  assert.equal(globalThis.__testCompactControlValue({...ps.pulsar_reverse,value:100}),'100%');
 }
 console.log('s3g Thru Pulsar MOD all-mode page, labels, precision and automation: PASS');
+
+// Every parameter page, including the custom path/fade/order/tools renderers,
+// keeps its group-local current/total marker at one fixed right edge.
+{
+ const ui=globalThis.__testSplit,state=globalThis.__testFx.state();
+ for(const mode of [0,1,2,3]){
+  Object.assign(state,{splitEnabled:mode>0,sharedDual:mode===2,quadMode:mode===3,
+   view:'settings',editorReady:true,actionMessageTicks:0,fxRoutePending:false});
+  const pages=ui.pages();
+  for(let index=0;index<pages.length;++index){
+   state.settingsPage=index;const at=drawWrites.length;globalThis.__testFx.draw();
+   const writes=drawWrites.slice(at);
+   assert(hasAnyRightFraction(writes),`missing right page fraction: mode ${mode} ${pages[index].title}`);
+  }
+ }
+}
+console.log('s3g Thru group-local, right-aligned parameter page positions: PASS');
+
+{
+ const tools=globalThis.__testTools,state=globalThis.__testFx.state();
+ Object.assign(state,{view:'settings',splitEnabled:false,bankMode:false,sharedDual:false,quadMode:false,editorReady:true,actionMessageTicks:0,saveStatus:0,savedTicks:0});
+ const ordinary=tools.pages().findIndex(p=>p.title==='GRNS MAIN'||p.title==='ENGINE');
+ state.settingsPage=Math.max(0,ordinary);
+ const rows=[];
+ for(const status of [0,2,3,4]) {
+  state.saveStatus=status;state.savedTicks=status===3?30:0;
+  const start=drawWrites.length;tools.drawAll();
+  rows.push(drawWrites.slice(start).filter(w=>w[0]==='print'&&w[2]>8&&w[2]<55));
+ }
+ assert.deepEqual(rows[1],rows[0],'saving must not move parameter names or values');
+ assert.deepEqual(rows[2],rows[0],'saved must not move parameter names or values');
+ assert.deepEqual(rows[3],rows[0],'save failure must not move parameter names or values');
+ Object.assign(state,{bankMode:true,splitEnabled:true,sharedDual:true,splitFocus:1,saveStatus:0,savedTicks:0,bank:{selected:0,slots:[0,1,2,3,4,...Array(11).fill(0)]}});
+ const pages=tools.pages();
+ assert.equal(pages[0].title,'BANK SAMPLE');assert.equal(pages[1].title,'BANK PADS');
+ assert.equal(pages[0].keys[2],'bank_master_rate');
+ assert.deepEqual(tools.params.bank_record_source.labels,['IN','MIX','PT A','PT B']);
+ assert.equal(tools.params.bank_record_source.max,3);assert.equal(tools.params.bank_record_source.value>=0,true);
+ assert.deepEqual(pages[1].keys,['bank_slot','bank_rate','bank_pan','bank_play','bank_choke','hold_release_ms','bank_record_source',null]);
+ tools.params.bank_start.value=.5;tools.params.bank_end.value=1;tools.params.bank_level.value=1;
+ state.settingsPage=0;const valueStart=drawWrites.length;tools.drawAll();
+ assert(drawWrites.slice(valueStart).some(w=>w[0]==='print'&&w[3]==='50%'));
+ assert(drawWrites.slice(valueStart).some(w=>w[0]==='print'&&w[3]==='100%'));
+ const keys=pages.flatMap(p=>p.keys||[]).filter(Boolean);
+ assert.equal(new Set(keys).size,keys.length,'Bank pages must not repeat parameters');
+ const colors=[4,5,6,7,12].map(pad=>tools.led(pad));assert.equal(new Set(colors).size,5,'Bank states need distinct pad colors');
+ for(let index=0;index<pages.length;++index) {
+  state.settingsPage=index;const start=drawWrites.length;tools.drawAll();
+  assert(hasAnyRightFraction(drawWrites.slice(start)),'Bank page needs a right-aligned group fraction');
+ }
+}
+console.log('s3g Thru fixed save geometry and Bank pages/LED states: PASS');
+
+{
+ const tools=globalThis.__testTools,state=globalThis.__testFx.state();
+ Object.assign(state,{bankMode:true,splitEnabled:true,sharedDual:true,quadMode:false,
+     splitFocus:1,view:'main',messageTicks:0,saveStatus:0,savedTicks:0,
+     voicePads:Array(8).fill(-1),bankWave:[]});
+ // Hardware index zero is the bottom row. Keep slot assignments unchanged
+ // and check actual screen pixels at all four corners of the Bank grid.
+ state.bank={selected:12,slots:Array(16).fill(0)};
+ state.bank.slots[12]=state.bank.slots[15]=1;tools.drawAll();
+ assert.equal(screenPixel(97,15),1);assert.equal(screenPixel(121,15),1);
+ assert.equal(screenPixel(97,42),0);assert.equal(screenPixel(121,42),0);
+ state.bank.slots.fill(0);state.bank.selected=0;
+ state.bank.slots[0]=state.bank.slots[3]=1;tools.drawAll();
+ assert.equal(screenPixel(97,15),0);assert.equal(screenPixel(121,15),0);
+ assert.equal(screenPixel(97,42),1);assert.equal(screenPixel(121,42),1);
+ const start=paramWrites.length;
+ globalThis.onMidiMessageInternal([0xb0,119,127]);assert(state.deleteHeld);
+ const heldStart=drawWrites.length;tools.drawAll();
+ assert(drawWrites.slice(heldStart).some(w=>w[0]==='print'&&w[3]==='X+PAD: CLEAR BANK'));
+ globalThis.onMidiMessageInternal([0xb0,119,0]);assert(!state.deleteHeld);
+ assert.deepEqual(paramWrites.slice(start).filter(([key])=>key==='delete_held'),[['delete_held','1'],['delete_held','0']]);
+ const pages=tools.pages(),gain=pages.findIndex(page=>page.title==='PLAY GAIN');
+ assert(gain>=0);state.view='settings';state.settingsPage=gain;state.actionMessageTicks=0;
+ const writes=drawWrites.length;tools.drawAll();
+ assert(titleText(drawWrites.slice(writes)).startsWith('PLAY GAIN '));
+ assert.deepEqual(pages[gain].keys,['polyphony_comp']);
+}
+console.log('s3g Thru physical X modifier, Bank pad orientation and gain-page naming: PASS');
+
+
+// Bank A's lane indicators must keep a black centre over dense waveforms,
+// including later playheads crossing the same marker and zoomed edge positions.
+{
+ const tools=globalThis.__testTools,state=globalThis.__testFx.state();
+ Object.assign(state,{bankMode:true,splitEnabled:true,sharedDual:true,quadMode:false,
+  splitFocus:0,view:'main',mask:15,algorithm:4,messageTicks:0,saveStatus:0,savedTicks:0,
+  waves:Array.from({length:4},()=>Array.from({length:112},()=>[-7,7])),
+  splitParts:[{window:[0,1]},{window:[0,1]}]});
+ const verify=(heads,positions,window=[0,1])=>{
+  state.splitParts[0].window=window;
+  state.playheads=[...heads,...Array(8-heads.length).fill(-1)];
+  state.stackPositions=[...positions,...Array(8-positions.length).fill(-1)];
+  tools.drawAll();
+  for(let i=0;i<heads.length;++i){
+   const x=Math.min(125,14+Math.round((heads[i]-window[0])/(window[1]-window[0])*113));
+   const y=Math.round(14+positions[i]*27);
+   for(let yy=y-1;yy<=y+1;++yy)for(let xx=x-1;xx<=x+1;++xx)
+    assert.equal(screenPixel(xx,yy),0,'Bank A marker centre must hide waveform and cursor pixels');
+   for(const [xx,yy]of [[x-2,y],[x+2,y],[x,y-2],[x,y+2]])
+    assert.equal(screenPixel(xx,yy),1,'Bank A marker keeps its visible white outline');
+  }
+ };
+ verify([.1,.35,.6,.9],[0,1/3,2/3,1]);
+ verify([.5,.5],[1/3,13/27]);
+ verify([.5,.5,.5,.5],[.5,.5,.5,.5]);
+ verify([.24,.28,.34,.4],[0,1/3,2/3,1],[.2,.4]);
+}
+console.log('s3g Thru Bank A hollow markers over waveforms, intersecting voices and zoom edges: PASS');

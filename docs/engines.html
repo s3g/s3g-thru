@@ -21,9 +21,9 @@
 
         <figure>
           <div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/engine-page.svg" aria-label="Open the Engine page figure"><img src="assets/screens/engine-page.svg" alt="Engine page with algorithm and seven shared playback controls"></button></div>
-          <figcaption>Press <kbd>Menu</kbd> to open Engine. Knobs 1–4 follow the top row; knobs 5–8 follow the bottom row. Up/Down then moves through only the pages used by the selected Algorithm.</figcaption>
+          <figcaption>Press <kbd>Menu</kbd> to open Engine. Knobs 1–4 follow the top row; knobs 5–8 follow the bottom row. Up/Down stays in the Voice bank and includes only pages used by the selected Algorithm.</figcaption>
         </figure>
-        <p>The title-row fraction shows the current parameter page and the number available for the selected engine. The examples describe Single mode; dual modes add setup and sends pages, while Quad omits stack controls and uses its own sends and setup. The total also changes with the engine: Sample has the shortest set, while Grains and the extended Motion modes have more contextual pages. The screen examples therefore show the correct fraction for the engine used in each figure rather than one global page count.</p>
+        <p>The right-aligned title fraction shows the page’s position within its current bank. Engine pages belong to Voice, so their total changes with the selected algorithm: Sample has the shortest Voice bank, while Grains and the extended Motion modes add contextual pages. Lane, Mix/FX, Performance, Setup, and MIDI use their own local counts rather than one global page total.</p>
 
         <div class="callout"><p><strong>Instrument modes:</strong> Single, Split, Shared Dual, and Quad use different lane layouts and voice budgets. <a href="modes.html">Compare the modes and choose a layout</a> before following the controls below.</p></div>
 
@@ -54,7 +54,7 @@
         <table class="readout-table parameter-table">
           <thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>What it controls</th></tr></thead>
           <tbody>
-            <tr><td>1</td><td>ALG</td><td>15 choices</td><td>Algorithm selects Motion, Lanes, Grains, Cutups, Sample, Slices, Glitch, Weave, Wavesets, Prism, Morph, Texture, Formant, Stochastic, or Pulsar. Up/Down then shows the pages for that engine.</td></tr>
+            <tr><td>1</td><td>ALG</td><td>15 choices</td><td>Algorithm selects Motion, Lanes, Grains, Cutups, Sample, Slices, Glitch, Weave, Wavesets, Prism, Morph, Texture, Formant, Stochastic, or Pulsar. Up/Down then moves among that engine’s Voice pages.</td></tr>
             <tr><td>2</td><td>POS</td><td>0.00–1.00</td><td>Position centers the active source window. Near either end, the window is clamped so it never extends beyond the sample.</td></tr>
             <tr><td>3</td><td>FLD</td><td>0.02–1.00</td><td>Field sets the active window width as a fraction of the sample. See <a href="interface.html#zoom">Waveform zoom</a>. Single zooms all four lanes together; Split gives each part its own window. Shared Dual zooms all four lanes to the focused instrument’s POS/FLD, including during playback; the other side does not widen that view.</td></tr>
             <tr><td>4</td><td>SPD</td><td>0.05–4.00×</td><td>Speed sets base source transport. In Grains and Weave it moves grain origins independently of keyboard pitch; the other engines, including Wavesets, combine it with note pitch as described in their guides.</td></tr>
@@ -83,7 +83,7 @@
             <tr><td>2</td><td>ROOT</td><td>C1–C7</td><td>Sets sample unison and the tonic of a named scale. Slices play this pitch; Rolls retain the pitches already present in their grouped capture. In a named Keys scale, the bottom-left pad begins one octave below Root before octave transposition.</td></tr>
             <tr><td>3</td><td>SCAL</td><td>Chromatic + 24 scales</td><td>Chromatic preserves the original semitone grid. A named scale removes out-of-scale pitches and maps adjacent columns to consecutive scale degrees.</td></tr>
             <tr><td>4</td><td>HOLD</td><td>Manual / 50 ms–60 s</td><td>Keeps Shift+pad latches active until toggled, or schedules their release with one delay per instrument: shared across Single, independent for A and B in either dual mode.</td></tr>
-            <tr><td>5</td><td>POLY</td><td>Off / On</td><td>Polyphony Compensation smoothly controls summed energy as simultaneous source voices and Rolls increase. One voice remains unchanged. Turn it off only when intentional additive buildup is part of the sound.</td></tr>
+            <tr><td>5</td><td>VOICE</td><td>Poly / Mono / Legato</td><td>Key voice mode. Poly starts independent playheads. Mono retriggers one voice. Legato changes pitch while keys overlap, preserving playback position, stack phase, envelope and the first engine assignment. The newest held key has priority; release it to return to the previous key.</td></tr>
             <tr><td>6</td><td>PRES</td><td>Off / Offset / Brake / Char / Both</td><td>Pressure behavior for each note: stack offset, temporary scan braking, engine character, or offset and character together. Quad offers Off and Char. See <a href="#pressure">Pressure expression</a>.</td></tr>
             <tr><td>7</td><td>ENGS</td><td>One / List</td><td>Engine assignment: One uses one algorithm for the part. List selects each new note’s engine from the saved entries using the assignment chosen on Voice Setup.</td></tr>
             <tr><td>8</td><td>ORDR / DPTH</td><td>6 orders / 0–100%</td><td>List order in Touch assignment: Up, Down, Rand, Cycle Up, Cycle Down or Shuffle. With ENGS One, this cell sets pressure depth when pressure is enabled. With a keyboard assignment, order is reserved. In List mode, depth appears on Voice Setup.</td></tr>
@@ -93,6 +93,9 @@
 
         <p>Named scales retain an overlapping isomorphic shape: each row begins three scale degrees above the row below. Up/Down moves the complete layout by octaves. Scale affects the Move pads only; external MIDI and notes already stored in a performance clip are not quantized or rewritten.</p>
 
+        <h2 id="play-gain">Play Gain</h2>
+        <p>Open Capture + Menu → Voice → Play Gain and use knob 1, COMP. This is the gain compensation previously labeled POLY. Polyphony Compensation adjusts summed energy as simultaneous voices and Rolls increase. It is global and separate from VOICE’s Poly, Mono and Legato choices.</p>
+        <table><thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>What it controls</th></tr></thead><tbody><tr><td>1</td><td>COMP</td><td>Off / On</td><td>Smooth compensation for multiple simultaneous voices. One voice remains unchanged. Off allows additive buildup.</td></tr></tbody></table>
         <h2 id="engine-list">Engine List: different engines in one chord</h2>
         <p>On Pads &amp; Scale, set <strong>ENGS</strong> to <strong>LIST</strong>. The Voice Engines and Voice Setup pages appear immediately after it. Each encoder assigns an algorithm to one entry: eight in Single, four per part in Split or Shared Dual, and two per part in Quad. Unavailable entries show reserved boxes. Each part keeps its own list and order.</p>
         <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/voice-engines.svg" aria-label="Open the Voice Engines page"><img src="assets/screens/voice-engines.svg" alt="Eight engine entries with E2 selected for editing"></button></div><figcaption>Knobs 1–8 assign algorithms. Turn the main encoder to select an entry; its label is underlined. Click to open its engine controls. Back returns to the list.</figcaption></figure>
@@ -241,7 +244,7 @@
         </table>
 
         <h2 id="path-editor">Editable stack paths</h2>
-        <p>On Stack Path, turn PATH to <strong>DRAW</strong>, then click the main encoder to open Path Editor. You can also reach it as the next parameter page or through Capture + Menu. It appears only while DRAW is selected.</p>
+        <p>On Stack Path, turn PATH to <strong>DRAW</strong>, then click the main encoder to open Path Editor. You can also reach it inside the Voice bank with Capture + Track 1 or Capture + Menu → Voice. It appears only while DRAW is selected.</p>
         <div class="screen-gallery">
           <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/stack-path-draw.svg" aria-label="Open Draw path selection"><img src="assets/screens/stack-path-draw.svg" alt="Stack Path with DRAW selected and named-shape controls reserved"></button></div><figcaption>DRAW uses your points and segment curves. SHAP, SKEW, and the named-path CURV are reserved. BLND, OFST, and SLEW still apply.</figcaption></figure>
           <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/stack-path-editor.svg" aria-label="Open the path editor"><img src="assets/screens/stack-path-editor.svg" alt="Six-point stack path with pauses, uneven travel, a selected breakpoint, and editing controls"></button></div><figcaption>Time runs left to right; lane numbers run top to bottom. The outlined point is selected. The final segment returns to the first point at the end of the cycle.</figcaption></figure>
@@ -304,13 +307,14 @@
 
         <p>Single shares eight voices across the clip’s four lanes. Split gives each instrument four voices across its own two lanes; Shared Dual gives each four voices across the same four sources, using the same or different engines with independent settings. Quad gives each of four parts one lane and two voices. Each voice has its own pitch, read position, release, and physical pad assignment. Motion, Lanes, Grains, Glitch, Weave, and Wavesets also give every voice its own movement through the stack; Cutups advances each voice’s discrete lane after a chosen number of cuts. Sample and Slices choose discrete lanes.</p>
 
-        <p>After the engine’s contextual pages, the shared pages appear in this order:</p>
-        <table class="readout-table"><thead><tr><th>Mode</th><th>Page order</th></tr></thead><tbody>
-          <tr><td>Single</td><td>Mix / Rec → Effects → Stereo / Rotary → Tape → Reverb → FX Order → Sample Edit → Performance Loop → Overdub Takes → Chain.</td></tr>
-          <tr><td>Split / Shared Dual</td><td>FX Sends → Dual Setup → Mix / Rec → Part Color → Stereo / Rotary → Delay Return → Tape → Reverb → FX Order → Sample Edit → Performance Loop → Overdub Takes → Chain.</td></tr>
-          <tr><td>Quad</td><td>FX Sends → Quad Setup → Mix / Rec → Part Color → Stereo / Rotary → Delay Return → Tape → Reverb → FX Order → Sample Edit → Performance Loop → Overdub Takes → Chain.</td></tr>
+        <p>The four navigation banks keep related pages together:</p>
+        <table class="readout-table"><thead><tr><th>Bank</th><th>Page order</th></tr></thead><tbody>
+          <tr><td>Voice</td><td>Engine → Pads &amp; Scale → Amp Envelope → the selected engine’s contextual pages. Engine Lists and Voice Setup appear when enabled.</td></tr>
+          <tr><td>Lane</td><td>Mix / Rec → Sample Edit → Sample Browser.</td></tr>
+          <tr><td>Mix/FX</td><td>Single: Effects → Stereo / Rotary → Tape → Reverb → FX Order. Multi modes begin with FX Sends and add their private inserts, shared returns, FX Order, and Mix Status.</td></tr>
+          <tr><td>Performance</td><td>Performance Loop → Clip Overview → Pattern Fade → Overdub Takes → Chain → Chain Fade → Entry Fade → Chain Tools.</td></tr>
         </tbody></table>
-        <p>Mix / Rec shows two lane gains for the focused part in Split, all four in Shared Dual, or its one lane gain in Quad. Its inserts are independent; shared effects are marked FX. <a href="effects.html#dual-fx-pages">Capture + Menu → FX SENDS and the FX Pages menu</a> provide a direct route to effects without stepping through every page.</p>
+        <p>Mode, Setup, MIDI, and the complete All list remain in the Capture + Menu hub. Mix / Rec shows two lane gains for the focused part in Split, all four in Shared Dual, or its one lane gain in Quad. Its inserts are independent; shared effects are marked FX. <a href="effects.html#dual-fx-pages">Capture + Track 3 and the FX Pages menu</a> provide a direct route to multi-instrument effects.</p>
 
         <nav class="page-nav" aria-label="Page navigation">
           <a class="page-nav-link" href="recording.html"><span>Previous</span>Samples and Recording</a>

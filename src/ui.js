@@ -1,4 +1,4 @@
-/* s3g Thru 0.30.0-test.39 — polyphonic sampler/performance-looper takeover for Move. */
+/* s3g Thru 0.30.0-test.52 — polyphonic sampler/performance-looper takeover for Move. */
 
 import * as moveConstants from '/data/UserData/schwung/shared/constants.mjs';
 import * as moveInputFilter from '/data/UserData/schwung/shared/input_filter.mjs';
@@ -89,7 +89,7 @@ const setButtonLED = typeof moveInputFilter.setButtonLED === 'function'
         }
     };
 
-const UI_VERSION = '0.30.0-test.39';
+const UI_VERSION = '0.30.0-test.52';
 const HELP_PAGE_COUNT=5;
 const WAVE_BINS = 112;
 const ALGORITHMS = ['MOTION', 'LANES', 'GRAINS', 'CUTUPS', 'SAMPLE', 'SLICES',
@@ -140,7 +140,22 @@ const parameterEncoderMotion = Array.from({ length: 8 }, () => ({
 }));
 
 const PARAMS = {
-    midi_control_mode:{key:'midi_control_mode',label:'MIDI MODE',shortLabel:'MODE',min:0,max:6,step:1,value:0,integer:true,labels:['AUTO','NRPN','CC','MNLT','E16','N+M','OFF']},
+    bank_slot:{key:'bank_slot',label:'BANK PAD',shortLabel:'PAD',min:1,max:16,step:1,value:1,integer:true},
+    bank_start:{key:'bank_start',label:'START',shortLabel:'STRT',min:0,max:1,step:.005,value:0,format:v=>Math.round(v*100)+'%'},
+    bank_end:{key:'bank_end',label:'END',min:0,max:1,step:.005,value:1,format:v=>Math.round(v*100)+'%'},
+    bank_rate:{key:'bank_rate',label:'PAD RATIO',shortLabel:'RTO',min:.125,max:8,step:.01,value:1,format:v=>v.toFixed(2)+'x'},
+    bank_master_rate:{key:'bank_master_rate',label:'BANK MASTER RATE',shortLabel:'RATE',min:.125,max:8,step:.01,value:1},
+    bank_pan:{key:'bank_pan',label:'PAD PAN',shortLabel:'PAN',min:-100,max:100,step:1,value:0},
+    bank_play:{key:'bank_play',label:'PAD PLAYBACK',shortLabel:'PLAY',min:0,max:1,step:1,value:0,integer:true,labels:['LOOP','ONE']},
+    bank_choke:{key:'bank_choke',label:'CHOKE GROUP',shortLabel:'CHOK',min:0,max:4,step:1,value:0,integer:true,labels:['OFF','1','2','3','4']},
+    bank_record_source:{key:'bank_record_source',label:'RECORD SOURCE',shortLabel:'SRC',min:0,max:3,step:1,value:2,integer:true,labels:['IN','MIX','PT A','PT B']},
+    bank_reverse:{key:'bank_reverse',label:'REVERSE',shortLabel:'REV',min:0,max:1,step:1,value:0,integer:true,labels:['OFF','ON']},
+    bank_level:{key:'bank_level',label:'LEVEL',shortLabel:'LVL',min:0,max:2,step:.01,value:1,format:v=>Math.round(v*100)+'%'},
+    bank_attack:{key:'bank_attack',label:'ATTACK',shortLabel:'ATK',min:1,max:10000,step:1,value:5,format:v=>Math.round(v)+'ms'},
+    bank_release:{key:'bank_release',label:'RELEASE',shortLabel:'REL',min:5,max:10000,step:1,value:40,format:v=>Math.round(v)+'ms'},
+    bank_fade:{key:'bank_fade',label:'LOOP FADE',shortLabel:'FADE',min:2,max:100,step:1,value:8,format:v=>Math.round(v)+'ms'},
+    voice_mode:{key:'voice_mode',label:'KEY VOICES',shortLabel:'VOICE',min:0,max:2,step:1,value:0,integer:true,labels:['POLY','MONO','LEGATO']},
+    midi_control_mode:{key:'midi_control_mode',label:'MIDI MODE',shortLabel:'MODE',min:0,max:6,step:1,value:0,integer:true,labels:['AUTO','NRPN','CC','MNLT','E16','E+M','OFF']},
     midi_cc_channel:{key:'midi_cc_channel',label:'CC CHANNEL',shortLabel:'CCCH',min:1,max:16,step:1,value:9,integer:true},
     midi_cc_base:{key:'midi_cc_base',label:'CC BASE',shortLabel:'BASE',min:0,max:120,step:1,value:20,integer:true},
     midi_takeover:{key:'midi_takeover',label:'TAKEOVER',shortLabel:'TAKE',min:0,max:1,step:1,value:0,integer:true,labels:['PICK','JUMP']},
@@ -155,7 +170,7 @@ const PARAMS = {
     voice_engine_order:{key:'voice_engine_order',label:'LIST ORDER',shortLabel:'ORDR',min:0,max:5,step:1,value:0,integer:true,labels:['UP','DOWN','RAND','CYC+','CYC-','SHUF']},
     voice_engine_edit:{key:'voice_engine_edit',label:'EDIT SLOT',min:1,max:8,step:1,value:1,integer:true},
     ...Object.fromEntries(Array.from({length:8},(_,i)=>['voice_engine_'+(i+1),{key:'voice_engine_'+(i+1),label:'SLOT '+(i+1),shortLabel:'E'+(i+1),min:0,max:14,step:1,value:0,integer:true,labels:ALGORITHMS}])),
-    split_mode: {key:'split_mode',label:'MODE',min:0,max:3,step:1,value:0,integer:true,labels:['SINGLE','SPLIT','SHARED','QUAD']},
+    split_mode: {key:'split_mode',label:'MODE',min:0,max:4,step:1,value:0,integer:true,labels:['SINGLE','SPLIT','SHARED','QUAD','BANK']},
     split_focus: {key:'split_focus',label:'EDIT PART',min:0,max:3,step:1,value:0,integer:true,labels:['A','B','C','D']},
     split_copy: {key:'split_copy',label:'COPY OTHER',min:0,max:1,step:1,value:0,integer:true,labels:['TURN','COPY'],momentary:true,result:'COPIED OTHER PART'},
     part_mute: {key:'part_mute',label:'MUTE',min:0,max:1,step:1,value:0,integer:true,labels:['OFF','ON']},
@@ -203,7 +218,7 @@ const PARAMS = {
     pulsar_keytrack: {"key":"pulsar_keytrack","label":"KEYT","min":0,"max":100,"value":0,"step":2,"unit":"%"},
     pulsar_rate: {"key":"pulsar_rate","label":"RATE","min":0.1,"max":2000,"value":261.625565,"step":0.1,"unit":"Hz"},
     pulsar_form: {"key":"pulsar_form","label":"FORM","min":20,"max":2000,"value":500,"step":0.1,"unit":"Hz"},
-    pulsar_size: {"key":"pulsar_size","label":"SIZE","min":0.5,"max":100,"value":4,"step":0.01,"unit":"ms"},
+    pulsar_size: {"key":"pulsar_size","label":"SIZE","min":0.5,"max":500,"value":4,"step":0.01,"unit":"ms"},
     pulsar_window: {"key":"pulsar_window","label":"WIN","min":0,"max":4,"value":0,"step":1,"integer":true,"labels":["HANN","BELL","TAPR","PERC","REV"]},
     pulsar_skew: {"key":"pulsar_skew","label":"SKEW","min":0,"max":100,"value":50,"step":2,"unit":"%"},
     pulsar_omit: {"key":"pulsar_omit","label":"OMIT","min":0,"max":100,"value":0,"step":2,"unit":"%"},
@@ -247,7 +262,7 @@ const PARAMS = {
     algorithm: { key: 'algorithm', label: 'ALGORITHM', min: 0, max: 14, step: 1, value: 0, integer: true, labels: ALGORITHMS },
     join: { key: 'join', label: 'JOIN', min: 0, max: 1, step: 0.01, value: 1 },
     output_gain: { key: 'output_gain', label: 'LEVEL', min: 0, max: 2, step: 0.02, value: 1 },
-    polyphony_comp: { key: 'polyphony_comp', label: 'POLY COMP', min: 0, max: 1, step: 1, value: 1, integer: true, labels: ['OFF', 'ON'] },
+    polyphony_comp: { key: 'polyphony_comp', label: 'POLYPHONY COMP', shortLabel:'COMP', min: 0, max: 1, step: 1, value: 1, integer: true, labels: ['OFF', 'ON'] },
     amp_attack: { key: 'amp_attack', label: 'ATTACK', min: 0, max: 10000, step: 1, value: 3, integer: true },
     amp_decay: { key: 'amp_decay', label: 'DECAY', min: 0, max: 10000, step: 1, value: 0, integer: true },
     amp_sustain: { key: 'amp_sustain', label: 'SUSTAIN', min: 0, max: 100, step: 1, value: 100, integer: true },
@@ -454,12 +469,15 @@ const PATH_EDITOR_PAGE = {title:'PATH EDITOR',pathEditor:true,keys:['path_point'
 const DIRECT_PLAY_PAGE = { title: 'DIRECT PLAY', keys: ['sample_mode',
     'lane_variation'] };
 const PADS_SCALE_PAGE = { title: 'PADS & SCALE', keys: ['pad_mode',
-    'root_note', 'scale', 'hold_release_ms', 'polyphony_comp','pressure_mode','voice_engine_mode','voice_engine_order'] };
+    'root_note', 'scale', 'hold_release_ms', 'voice_mode','pressure_mode','voice_engine_mode','voice_engine_order'] };
+const BANK_PADS_PAGE={title:'BANK PADS',keys:['bank_slot','bank_rate','bank_pan','bank_play','bank_choke','hold_release_ms','bank_record_source',null]};
+const BANK_SAMPLE_PAGE={title:'BANK SAMPLE',global:true,scopeLabel:'B ',keys:['bank_start','bank_end','bank_master_rate','bank_reverse','bank_level','bank_attack','bank_release','bank_fade']};
 const MIDI_CONTROL_PAGE = {title:'MIDI CONTROL',global:true,keys:[
     'midi_control_mode','midi_cc_channel','midi_cc_base','midi_takeover',
     null,null,null,null]};
 const VOICE_ENGINES_PAGE={title:'VOICE ENGINES',voiceEngines:true,keys:Array.from({length:8},(_,i)=>'voice_engine_'+(i+1))};
 const VOICE_SETUP_PAGE={title:'VOICE SETUP',voiceSetup:true,keys:['voice_engine_edit','voice_engine_assign','voice_engine_octave','voice_engine_position','voice_engine_stack','voice_engine_pan','voice_engine_depth',null]};
+const PLAY_GAIN_PAGE={title:'PLAY GAIN',global:true,scopeLabel:'',keys:['polyphony_comp']};
 const AMP_ENVELOPE_PAGE = { title: 'AMP ENVELOPE', breakpoint: true,
     keys: ['amp_attack', 'amp_decay', 'amp_sustain', 'amp_release'] };
 const MOTION_SOUND_PAGE = { title: 'MOTION SOUND', keys: ['motion_sound'] };
@@ -766,7 +784,7 @@ const state = {
     focusButtonHeld:false,focusButtonUsed:false,captureStartTick:0,performanceVisible:false,performanceArmed:false,performanceOwner:0,performancePads:new Set(),performancePadLive:new Set(),performanceValues:Array(8).fill(0),voiceAlgorithms:Array(8).fill(-1),
     editorReady:false,engineListReturn:false,engineListVoices:false,
     fxMenuSelection:0,fxMenuReturn:false,
-    pageSelection:0,pageReturn:null,
+    pageSelection:0,pageReturn:null,pageDestinationReturn:null,pageTier:'hub',pageCategory:0,
     mixPeaks:[0,0],mixVoices:[0,0],mixReasons:[5,5],
     saveStatus:0,savedTicks:0,
     lane: 1,
@@ -1189,10 +1207,11 @@ function parseSplitState(text, refresh=true) {
     const quad=Number(data.quad)===1;
     const focus=clamp(Number(data.focus)||0,0,enabled&&quad?3:1);
     const shared=Number(data.shared)===1;
-    const changed=enabled!==state.splitEnabled || shared!==state.sharedDual || quad!==state.quadMode || focus!==state.splitFocus;
+    const bank=Number(data.bank)===1;
+    const changed=bank!==Boolean(state.bankMode) || enabled!==state.splitEnabled || shared!==state.sharedDual || quad!==state.quadMode || focus!==state.splitFocus;
     if(changed && refresh && refreshEditorSnapshot())return;
     if(changed)state.splitPages[state.splitFocus]=state.settingsPage;
-    state.splitEnabled=enabled;state.sharedDual=shared;state.quadMode=quad;state.splitFocus=focus;
+    state.bankMode=bank;state.splitEnabled=enabled;state.sharedDual=shared;state.quadMode=quad;state.splitFocus=focus;
     if(!enabled && (state.view==='fxMenu'||state.view==='mixStatus')){state.view='main';state.fxMenuReturn=false;}
     state.splitBlend=clamp(Number(data.blend)||0,0,1);
     let padMapChanged = false;
@@ -1202,7 +1221,7 @@ function parseSplitState(text, refresh=true) {
                 part[key] !== state.splitParts[index]?.[key]));
         state.splitParts = data.parts;
     }
-    PARAMS.split_mode.value=enabled?(quad?3:shared?2:1):0;PARAMS.split_focus.value=focus;
+    PARAMS.split_mode.value=bank?4:enabled?(quad?3:shared?2:1):0;PARAMS.split_focus.value=focus;
     if(changed) {
         state.engineListReturn=false;
         state.algorithm=Math.round(PARAMS.algorithm.value);
@@ -1568,6 +1587,10 @@ function padColor(index) {
         if(index<4&&!performanceLaneEnabled(index))return Black;
         return state.performancePadLive.has(MovePads[index])?Cyan:(index<4?BrightOrange:WhiteLedDim);
     }
+    if(state.bankMode && index%8>=4) {
+        const slot=Math.floor(index/8)*4+index%4,status=state.bank?.slots?.[slot]||0;
+        return status===2?BrightRed:status===3?BrightOrange:status===4?Cyan:status===1?WhiteLedDim:status===5?Purple:Black;
+    }
     const owner=padSettings(index);
     for (let roll = 0; roll < state.rollPads.length; roll++) {
         if (state.rollPads[roll] === index) {
@@ -1684,10 +1707,19 @@ function rebuildLedQueue() {
         }
         queueLed('note', MoveSteps[i], color, urgent ? 0 : 1);
     }
+    const categoryNavigation=state.focusButtonHeld||state.view==='pages';
+    const categoryLed=state.view==='pages'
+        ?(state.pageTier==='category'?state.pageCategory
+            :state.pageTier==='hub'&&state.pageSelection<4?state.pageSelection
+            :currentPageCategory())
+        :currentPageCategory();
     for (let i = 0; i < MoveTracks.length; i++) {
-        queueLed('cc', MoveTracks[i], state.view === 'clips'
-            ? (i === state.clipBank ? WhiteLedBright : WhiteLedDim)
-            : (i + 1 === state.lane ? WhiteLedBright : WhiteLedDim), 2);
+        const color=categoryNavigation
+            ?(i===categoryLed?WhiteLedBright:WhiteLedDim)
+            :state.view === 'clips'
+                ?(i === state.clipBank ? WhiteLedBright : WhiteLedDim)
+                :(i + 1 === state.lane ? WhiteLedBright : WhiteLedDim);
+        queueLed('cc', MoveTracks[i],color,2);
     }
     queueLed('cc', MoveRecord,
         state.clipRecording ? BrightRed
@@ -1982,7 +2014,67 @@ function wavesetStatus(voice) {
         + ' R' + (voice.repeatIndex + 1) + '/' + voice.repeats;
 }
 
+function readBankState() {
+    if(!state.bankMode)return;
+    try {
+        const data=JSON.parse(String(getParam('bank_state','{}')));
+        if(Array.isArray(data.slots)&&data.slots.length===16) {
+            const changed=data.selected!==state.bank?.selected;
+            const statuses=String(data.slots)!==String(state.bank?.slots);
+            state.bank=data;
+            if(changed || state.splitFocus===1)for(const key of [...BANK_SAMPLE_PAGE.keys,...BANK_PADS_PAGE.keys].filter(Boolean))
+                PARAMS[key].value=getNumber(key,PARAMS[key].value);
+            if(statuses)rebuildLedQueue();
+        }
+    } catch(_){}
+    if(state.splitFocus===1)state.bankWave=String(getParam('bank_waveform','')).split(',').map(Number);
+}
+
+function drawBankMain() {
+    clearDisplay();const bank=state.bank||{selected:0,slots:Array(16).fill(0)};
+    print(1,0,(state.splitFocus===0?'A '+(ALGORITHMS[state.algorithm]||'ENGINE'):'B PAD '+String(bank.selected+1).padStart(2,'0'))+' BANK',1);
+    drawRect(0,8,128,1,1);
+    if(state.splitFocus===0) {
+        const window=splitWaveWindow(0);
+        for(let lane=0;lane<4;++lane) {
+            const y=14+lane*9;print(2,y-3,String(lane+1),1);drawWaveformLane(lane,window,y);
+        }
+        const markers=[];
+        for(let v=0;v<4;++v)if(state.playheads[v]>=0) {
+            const x=waveformX(state.playheads[v],window),position=state.stackPositions[v];
+            if(x>=0 && position>=0) {
+                const row=clamp(Math.round(position*3),0,3);
+                drawRect(x,10+row*9,1,8,1);markers.push([x,14+position*27]);
+            }
+        }
+        for(const [x,y] of markers)clearStackMarker(x,y);
+        for(const [x,y] of markers)drawStackMarker(x,y);
+    } else {
+        const wave=state.bankWave||[],bins=Math.floor(wave.length/2);
+        const region=[PARAMS.bank_start.value,PARAMS.bank_end.value];
+        for(let x=0;x<90;++x) {
+            const bin=Math.min(bins-1,Math.floor((region[0]+x/89*(region[1]-region[0]))*(bins-1)));
+            const low=wave[bin*2]||0,high=wave[bin*2+1]||0;
+            const y1=30-Math.round(high*2),y2=30-Math.round(low*2);
+            drawRect(1+x,y1,1,Math.max(1,y2-y1+1),1);
+        }
+        for(let v=4;v<8;++v)if(state.voicePads[v]>=0&&padLocal(state.voicePads[v])===bank.selected&&state.playheads[v]>=0)
+            drawRect(1+Math.round(clamp((state.playheads[v]-region[0])/(region[1]-region[0]),0,1)*89),12,1,35,1);
+        for(let slot=0;slot<16;++slot) {
+            const x=95+(slot%4)*8,y=13+(3-Math.floor(slot/4))*9,status=bank.slots[slot];
+            drawRect(x,y,6,6,status?1:0);
+            if(!status){drawRect(x,y,6,1,1);drawRect(x,y+5,6,1,1);drawRect(x,y,1,6,1);drawRect(x+5,y,1,6,1);}
+            if(slot===bank.selected)drawRect(x,y+7,6,1,1);
+            if(status===4)drawRect(x+2,y+2,2,2,0);
+        }
+    }
+    const status=bank.slots[bank.selected]||0;
+    const hint=state.deleteHeld?'X+PAD: CLEAR BANK':status===2?'RELEASE TO FINISH':status===3?'SAVING BANK TAKE':status===0?'HOLD EMPTY PAD: REC':'HOLD PLAY; SH:LATCH';
+    print(1,55,errorFooter(state.messageTicks>0?state.message:hint).slice(0,21),1);
+}
+
 function drawMain() {
+    if(state.bankMode){drawBankMain();return;}
     if(state.splitEnabled){drawSplitMain();return;}
     clearDisplay();
     const algorithm = ALGORITHMS[state.algorithm] || ALGORITHMS[0];
@@ -2130,11 +2222,10 @@ function mainFooter(railFocus) {
         : '';
     const silent=state.splitEnabled&&state.mixReasons[state.splitFocus]>=2&&state.mixReasons[state.splitFocus]<=3
         ? (partName()+' ')+(state.mixReasons[state.splitFocus]===2?'LEVEL 0: ENGINE KNOB8':'FADED OUT: BLND KNOB8') : '';
-    const saving=saveNotice();
-    if(state.saveStatus===4)return saving.slice(0,21);
+    if(state.saveStatus===4)return saveNotice().slice(0,21);
     const footer = state.messageTicks > 0
         ? state.message
-        : (([9,10,12].includes(state.algorithm)&&state.spectralPending?(state.algorithm===12?'PITCH PREPARING':'SPECTRAL PREPARING'):'') || muteHint || silent || saving || (state.algorithm === 6 && state.glitchBufferLocked
+        : (([9,10,12].includes(state.algorithm)&&state.spectralPending?(state.algorithm===12?'PITCH PREPARING':'SPECTRAL PREPARING'):'') || muteHint || silent || (state.algorithm === 6 && state.glitchBufferLocked
             ? 'GLITCH BUFFER LOCKED'
             : (state.laneSourceState.startsWith('MISSING')
             ? 'MISSING SHIFT+TRK FIX'
@@ -2234,10 +2325,9 @@ function drawFxOrder() {
     const preset = routePresets().findIndex((order) =>
         routeCode(order) === routeCode(state.fxOrder));
     const presetName = preset < 0 ? 'CUST' : FX_ROUTE_NAMES[preset];
-    const page = (state.settingsPage + 1) + '/' + parameterPages().length;
     const heading = (state.clipRecording ? 'REC FX' : (state.clipPlaying ? '> FX ORD' : 'FX ORDER'))
-        + ' ' + page + ' 7:' + presetName;
-    print(1, 0, (state.actionMessageTicks > 0 ? state.actionMessage : heading).slice(0, 21), 1);
+        + ' 7:' + presetName;
+    drawSettingsTitle(state.actionMessageTicks > 0 ? state.actionMessage : heading);
     drawRect(0, 8, 128, 1, 1);
     for (let index = 0; index < state.fxOrder.length; ++index) {
         const y = state.splitEnabled?12+index*14:9+index*8;
@@ -2308,7 +2398,8 @@ function splitSendFooter() {
 function drawSplitFxMenu() {
     clearDisplay();
     const entries=splitFxPages();
-    print(1,0,'FX PAGES '+(state.fxMenuSelection+1)+'/'+entries.length+' EDIT '+partName(),1);
+    drawTitleWithFraction('FX PAGES EDIT '+partName(),
+        (state.fxMenuSelection+1)+'/'+entries.length);
     drawRect(0,8,128,1,1);
     const start=clamp(state.fxMenuSelection-4,0,entries.length-5);
     for(let row=0;row<5;++row) {
@@ -2363,19 +2454,20 @@ function parameterPages() {
     const pads={...PADS_SCALE_PAGE,keys:PADS_SCALE_PAGE.keys.map(k=>k==='voice_engine_order'?(voiceEngineListEnabled()?(PARAMS.voice_engine_assign.value===0?k:null):((isQuad()?PARAMS.pressure_mode.value===3:PARAMS.pressure_mode.value!==0)?'voice_engine_depth':null)):k)};
     const lists=voiceEngineListEnabled()?[{...VOICE_ENGINES_PAGE,keys:VOICE_ENGINES_PAGE.keys.map((k,i)=>i<voiceEngineCount()?k:null)},
         {...VOICE_SETUP_PAGE,keys:VOICE_SETUP_PAGE.keys.map(k=>isQuad()&&k==='voice_engine_stack'?null:k)}]:[];
-    if(!state.splitEnabled)return [engine,pads,MIDI_CONTROL_PAGE,...lists,AMP_ENVELOPE_PAGE,...enginePages,
+    if(!state.splitEnabled)return [engine,pads,MIDI_CONTROL_PAGE,...lists,AMP_ENVELOPE_PAGE,PLAY_GAIN_PAGE,...enginePages,
         MIX_REC_PAGE,EFFECTS_PAGE,STEREO_ROTARY_PAGE,TAPE_PAGE,REVERB_PAGE,FX_ORDER_PAGE,SAMPLE_PAGE,LOOP_PAGE,PATTERN_FADE_PAGE,TAKE_PAGE,CHAIN_PAGE,CHAIN_FADE_PAGE,ENTRY_FADE_PAGE,CHAIN_TOOLS_PAGE];
     const engineSplit={...engine,keys:engine.keys.map((key)=>key==='output_gain'?partLevelKey():isQuad()&&['manual_lane','lane_cycles','cut_lane_advance'].includes(key)?null:key)};
     if(isQuad()) {
         const pages=enginePages.filter(p=>p.title!==STACK_PATH_PAGE.title).map(p=>({...p,keys:p.keys.map(k=>['manual_lane','lane_cycles','cut_lane_advance','cut_lane_order','cut_poly_path'].includes(k)?null:k)}));
         const rec={...MIX_REC_PAGE,keys:['lane_'+(state.splitFocus+1)+'_gain',null,null,null,...MIX_REC_PAGE.keys.slice(4)]};
-        return [engineSplit,pads,MIDI_CONTROL_PAGE,...lists,AMP_ENVELOPE_PAGE,...pages,QUAD_SEND_PAGE,QUAD_SETUP_PAGE,rec,PART_COLOR_PAGE,STEREO_ROTARY_PAGE,
+        return [engineSplit,pads,MIDI_CONTROL_PAGE,...lists,AMP_ENVELOPE_PAGE,PLAY_GAIN_PAGE,...pages,QUAD_SEND_PAGE,QUAD_SETUP_PAGE,rec,PART_COLOR_PAGE,STEREO_ROTARY_PAGE,
             {...DELAY_RETURN_PAGE,keys:['effect_delay','effect_feedback','effect_width',null,null,null,null,'effect_mix']},
             {...TAPE_PAGE,global:true},{...REVERB_PAGE,global:true},FX_ORDER_PAGE,SAMPLE_PAGE,
             LOOP_PAGE,PATTERN_FADE_PAGE,TAKE_PAGE,CHAIN_PAGE,CHAIN_FADE_PAGE,ENTRY_FADE_PAGE,CHAIN_TOOLS_PAGE];
     }
+    if(state.bankMode && state.splitFocus===1)return [BANK_SAMPLE_PAGE,BANK_PADS_PAGE,PLAY_GAIN_PAGE,MIDI_CONTROL_PAGE,SPLIT_MIX_PAGE,PRIORITY_PAGE,SPLIT_SETUP_PAGE,PART_COLOR_PAGE,STEREO_ROTARY_PAGE,DELAY_RETURN_PAGE,{...TAPE_PAGE,global:true},{...REVERB_PAGE,global:true},FX_ORDER_PAGE,LOOP_PAGE,PATTERN_FADE_PAGE,TAKE_PAGE,CHAIN_PAGE,CHAIN_FADE_PAGE,ENTRY_FADE_PAGE,CHAIN_TOOLS_PAGE];
     const rec=state.sharedDual?MIX_REC_PAGE:{...MIX_REC_PAGE,keys:[state.splitFocus?'lane_3_gain':'lane_1_gain',state.splitFocus?'lane_4_gain':'lane_2_gain',null,null,...MIX_REC_PAGE.keys.slice(4)]};
-    return [engineSplit,pads,MIDI_CONTROL_PAGE,...lists,AMP_ENVELOPE_PAGE,...enginePages,SPLIT_MIX_PAGE,PRIORITY_PAGE,SPLIT_SETUP_PAGE,
+    return [engineSplit,pads,MIDI_CONTROL_PAGE,...lists,AMP_ENVELOPE_PAGE,PLAY_GAIN_PAGE,...enginePages,SPLIT_MIX_PAGE,PRIORITY_PAGE,SPLIT_SETUP_PAGE,
         rec,PART_COLOR_PAGE,STEREO_ROTARY_PAGE,DELAY_RETURN_PAGE,{...TAPE_PAGE,global:true},
         {...REVERB_PAGE,global:true,keys:REVERB_PAGE.keys.map((key)=>key==='effect_reverb_mix'?null:key)},FX_ORDER_PAGE,SAMPLE_PAGE,LOOP_PAGE,PATTERN_FADE_PAGE,TAKE_PAGE,CHAIN_PAGE,CHAIN_FADE_PAGE,ENTRY_FADE_PAGE,CHAIN_TOOLS_PAGE];
 }
@@ -2439,6 +2531,7 @@ function activeControlKeys() {
     if(state.view==='library')return [null,null,null,null,null,null,'preview_route','preview_level'];
     return state.view === 'settings'
         ? currentSettingsPage().keys
+        : state.bankMode&&state.splitFocus===1?BANK_SAMPLE_PAGE.keys
         : (MAIN_ENGINE_CONTROLS[state.algorithm] || MAIN_ENGINE_CONTROLS[0]).map((key,index)=>isQuad()?([3,4].includes(index)?null:index===7?partLevelKey():key):state.splitEnabled&&index===7?'split_blend':key);
 }
 
@@ -2451,6 +2544,8 @@ function noteName(value) {
 
 function formatControlValue(control) {
     if (!control) return '';
+    if(control.key==='bank_pan')return Math.abs(control.value)<.5?'CENTRE':(control.value<0?'L ':'R ')+Math.round(Math.abs(control.value))+'%';
+    if(['bank_start','bank_end','bank_level'].includes(control.key))return Math.round(control.value*100)+'%';
     if(['voice_engine_position','voice_engine_stack','voice_engine_pan','voice_engine_depth'].includes(control.key))return (control.value>0&&control.key!=='voice_engine_depth'?'+':'')+Math.round(control.value)+'%';
     if(/^voice_engine_[1-8]$/.test(control.key))return ['MOTN','LANE','GRNS','CUTS','SMPL','SLIC','GLCH','WEAV','WSET','PRSM','MORF','TXTR','FORM','STOC','PLSR'][Math.round(control.value)]||'';
     if(/^(pattern|chain|entry)_fade_.*ms$/.test(control.key))return formatFadeTime(control.value);
@@ -2523,7 +2618,8 @@ function formatControlValue(control) {
         if (seconds < 1) return Math.round(seconds * 1000) + ' ms';
         return seconds.toFixed(seconds < 2 ? 2 : 1) + ' s';
     }
-    if (control.key === 'amp_attack' || control.key === 'amp_decay'
+    if(control.key==='bank_rate'||control.key==='bank_master_rate')return control.value.toFixed(control.value<1?2:1);
+    if (control.key === 'bank_attack' || control.key === 'bank_release' || control.key === 'bank_fade' || control.key === 'amp_attack' || control.key === 'amp_decay'
         || control.key === 'amp_release') {
         if (control.value < 1000) return Math.round(control.value) + ' ms';
         return (control.value / 1000).toFixed(
@@ -2549,6 +2645,7 @@ function formatControlValue(control) {
 }
 
 function compactControlValue(control) {
+    if(control?.key==='bank_pan')return Math.abs(control.value)<.5?'C':(control.value<0?'L':'R')+Math.round(Math.abs(control.value));
     if(control&&control.key.startsWith('pulsar_'))return formatControlValue(control).slice(0,5);
     if(control&&control.key.startsWith('stochastic_')&&(control.unit==='%'||control.key==='stochastic_evolution'))return formatControlValue(control).slice(0,4);
     if(control&&control.key==='voice_engine_assign')return ['TOUCH','DEGR','REG'][Math.round(control.value)];
@@ -2562,6 +2659,7 @@ function compactControlValue(control) {
         ? (control.value / 1000).toFixed(control.value < 10000 ? 1 : 0) + 'k'
         : String(Math.round(control.value));
     if (!control) return '';
+    if(['bank_start','bank_end','bank_level'].includes(control.key))return Math.round(control.value*100)+'%';
     if([...SPLIT_SEND_KEYS,...QUAD_SEND_PAGE.keys].includes(control.key))return Math.round(control.value*100)+'%';
     if(control.key==='split_priority')return Math.abs(control.value)<.25?'OFF':(control.value<0?'A>B':'B>A')+Math.round(Math.abs(control.value));
     if(control.key==='split_duck_threshold')return String(Math.round(control.value));
@@ -2620,7 +2718,8 @@ function compactControlValue(control) {
         }
         return seconds.toFixed(seconds < 2 ? 1 : 0) + 's';
     }
-    if (control.key === 'amp_attack' || control.key === 'amp_decay'
+    if(control.key==='bank_rate'||control.key==='bank_master_rate')return control.value.toFixed(control.value<1?2:1);
+    if (control.key === 'bank_attack' || control.key === 'bank_release' || control.key === 'bank_fade' || control.key === 'amp_attack' || control.key === 'amp_decay'
         || control.key === 'amp_release') {
         if (control.value < 1000) return String(Math.round(control.value));
         const seconds = control.value / 1000;
@@ -2773,7 +2872,7 @@ function engagePatternFader() {
 }
 function drawPatternFade() {
     const f=state.patternFade;
-    print(1,0,state.actionMessageTicks>0?state.actionMessage.slice(0,21):'PATTERN FADE',1);drawRect(0,8,128,1,1);
+    drawSettingsTitle(state.actionMessageTicks>0?state.actionMessage:'PATTERN FADE');drawRect(0,8,128,1,1);
     const name=i=>'ABCD'[Math.floor(clamp(i,0,63)/16)]+String(clamp(i,0,63)%16+1).padStart(2,'0');
     if(f.active) {
         print(1,11,name(f.from)+'>'+name(f.to)+(f.held?' H':''),1);
@@ -2848,8 +2947,8 @@ function pathEditorControls() {
 }
 function drawPathEditor() {
     drawRect(0,0,128,8,0);drawRect(0,8,128,1,1);
-    print(1,0,(state.actionMessageTicks>0?state.actionMessage:
-        ((state.splitEnabled?partName()+' ':'')+'PATH EDIT '+(state.pathPoint+1)+'/'+state.pathCount+(saveNotice()?' *':''))).slice(0,21),1);
+    drawSettingsTitle(state.actionMessageTicks>0?state.actionMessage:
+        ((state.splitEnabled?partName()+' ':'')+'PATH EDIT '+(state.pathPoint+1)+'/'+state.pathCount));
     if(!state.pathReady){print(1,19,'LOADING PATH',1);return;}
     const left=12,right=125,top=11,bottom=26,bounds=pathLaneBounds();
     print(0,9,String(bounds[0]),1);print(0,22,String(bounds[1]),1);
@@ -2914,21 +3013,17 @@ function drawSettings() {
         ? 'LCK ' : '';
     const scope=state.splitEnabled?((isSendPage(page)||isSetupPage(page))?'':state.sharedDual&&page===SAMPLE_PAGE?'SRC ':page.global?(page.scopeLabel??'FX '):((partName()+' '))):'';
     const engineTitle=voiceEngineListEnabled()&&(page.title==='ENGINE'||playbackPagesForAlgorithm(state.algorithm,Math.round(PARAMS.motion_sound.value)).some(p=>p.title===page.title)||page.pathEditor||page.voiceSetup)?'E'+Math.round(PARAMS.voice_engine_edit.value)+' ':'';
-    const pageTitle = target + lockTarget + scope + engineTitle + page.title + takeSuffix + ' '
-        + (state.settingsPage + 1)
-        + '/' + pages.length;
+    const pageTitle = target + lockTarget + scope + engineTitle + page.title + takeSuffix;
     const title = state.actionMessageTicks > 0
         ? state.actionMessage : pageTitle;
-    print(1, 0, title.slice(0, 21), 1);
+    drawSettingsTitle(title,pages);
     drawRect(0, 8, 128, 1, 1);
     if (page.breakpoint) {
         drawAmpEnvelopePage();
-        if(saveNotice()){drawRect(0,56,128,8,0);print(1,57,saveNotice().slice(0,21),1);}
         return;
     }
-    const notice=saveNotice();
     const drawPath=page.title===STACK_PATH_PAGE.title&&Math.round(PARAMS.lane_path.value)===8;
-    const hasFooter = page.pulsar || page.stochastic || page.voiceEngines || page.voiceSetup || drawPath || Boolean(notice) || (state.splitEnabled && (isSendPage(page)
+    const hasFooter = page.pulsar || page.stochastic || page.voiceEngines || page.voiceSetup || drawPath || (state.splitEnabled && (isSendPage(page)
         || page===DELAY_RETURN_PAGE || page.title===REVERB_PAGE.title));
     for (let index = 0; index < 8; index++) {
         const key = page.keys[index];
@@ -2941,8 +3036,7 @@ function drawSettings() {
         if(page.voiceEngines&&index===Math.round(PARAMS.voice_engine_edit.value)-1)
             drawRect((index%4)*32+3,Math.floor(index/4)*24+19,12,1,1);
     }
-    if(notice)print(1,57,notice.slice(0,21),1);
-    else if(page.pulsar){const limited=state.pulsarVoices.some((p,i)=>p?.limited&&(!state.splitEnabled||Math.floor(i/(isQuad()?2:4))===state.splitFocus));print(1,57,limited?'LIMIT: RATE / WIDTH':PARAMS.pulsar_source_hold.value>=.5?'SRC HELD CLICK: RUN':'CLICK: HOLD SOURCE',1);}
+    if(page.pulsar){const limited=state.pulsarVoices.some((p,i)=>p?.limited&&(!state.splitEnabled||Math.floor(i/(isQuad()?2:4))===state.splitFocus));print(1,57,limited?'LIMIT: RATE / WIDTH':PARAMS.pulsar_source_hold.value>=.5?'SRC HELD CLICK: RUN':'CLICK: HOLD SOURCE',1);}
     else if(page.stochastic)print(1,57,PARAMS.stochastic_source_hold.value>=.5?'SRC HELD CLICK: RUN':'CLICK: HOLD SOURCE',1);
     else if(page.voiceEngines||page.voiceSetup)print(1,57,'TURN SLOT CLICK EDIT',1);
     else if(drawPath)print(1,57,'CLICK: EDIT PATH',1);
@@ -2967,7 +3061,7 @@ function helpReportRow(label, value) {
 function drawHelp() {
     clearDisplay();
     if (state.helpPage === 0) {
-        print(1, 0, 'SYSTEM REPORT 1/5 <>', 1);
+        drawTitleWithFraction('SYSTEM REPORT <>','1/5');
         print(1, 11, helpReportRow('RENDER PEAK',
             compactReportCount(state.maximumRenderMicros) + ' us'), 1);
         print(1, 21, helpReportRow('RENDER MISSES',
@@ -2980,7 +3074,7 @@ function drawHelp() {
         return;
     }
     if (state.helpPage === 1) {
-        print(1, 0, 'CALLBACK WORK 2/5 <>', 1);
+        drawTitleWithFraction('CALLBACK WORK <>','2/5');
         print(1, 13, helpReportRow('CONTROL PEAK', compactReportCount(state.controlPeakMicros) + ' us'), 1);
         print(1, 25, helpReportRow('QUERY PEAK', compactReportCount(state.queryPeakMicros) + ' us'), 1);
         print(1, 37, helpReportRow('WORK PEAK', compactReportCount(state.workPeakMicros) + ' us'), 1);
@@ -2988,7 +3082,7 @@ function drawHelp() {
         return;
     }
     if(state.helpPage===2) {
-        print(1,0,'RENDER TIMING 3/5 <>',1);
+        drawTitleWithFraction('RENDER TIMING <>','3/5');
         const cpu=state.renderCpuAvailable;
         print(1,11,helpReportRow('CPU PEAK',cpu?compactReportCount(state.renderCpuPeakMicros)+' us':'N/A'),1);
         print(1,23,helpReportRow('WALL PEAK',compactReportCount(state.maximumRenderMicros)+' us'),1);
@@ -2998,20 +3092,20 @@ function drawHelp() {
     }
     if(state.helpPage===4){
         const d=remoteE16.diagnostics;
-        print(1,0,'E16 LINK 5/5 <>',1);
+        drawTitleWithFraction('E16 LINK <>','5/5');
         print(1,11,helpReportRow('STATE',d.state),1);
         print(1,21,helpReportRow('LAST',d.issue),1);
         print(1,31,helpReportRow('ACK/NACK',compactReportCount(d.acks)+'/'+compactReportCount(d.nacks)),1);
         print(1,41,helpReportRow('RETRY/RECON',compactReportCount(d.retries)+'/'+compactReportCount(d.reconnects)),1);
         print(1,51,helpReportRow('PENDING PX',d.pixels+'/'+d.pixelWindow),1);return;
     }
-    print(1, 0, 'SHORTCUTS 4/5 <>', 1);
+    drawTitleWithFraction('SHORTCUTS <>','4/5');
     print(1, 9, 'REC        data loop', 1);
     print(1, 17, 'SHIFT+REC  audio lane', 1);
     print(1, 25, 'UNDO      sample/clip', 1);
     print(1, 33, 'SHIFT+PAD  note hold', 1);
     print(1, 41, 'SH+LOOP glitch lock', 1);
-    print(1, 49, 'CAP+MENU   pages', 1);
+    print(1, 49, 'CAP+MENU/TRK page nav', 1);
     print(1, 57, 'DEL+PLAY   panic', 1);
 }
 
@@ -3054,31 +3148,157 @@ function pageEntries() {
         const scope=state.splitEnabled&&!shared?(state.sharedDual&&page===SAMPLE_PAGE?'SRC ':partName()+' '):'';
         result.push({title:scope+page.title,view:'settings',index});
     }
+    result.push({title:'CLIP OVERVIEW',view:'clips'});
     result.push({title:'SAMPLE BROWSER L'+state.lane,view:'library'});
     return result;
 }
 
+const PAGE_CATEGORY_NAMES=['VOICE','LANE','MIX / FX','PERF'];
+const PAGE_CATEGORY_LABELS=['VOICE','LANE','MIXFX','PERF'];
+const LANE_PAGE_TITLES=new Set(['MIX / REC','SAMPLE EDIT']);
+const MIX_PAGE_TITLES=new Set(['FX SENDS','PRIORITY DUCK','PART COLOR',
+    'EFFECTS','STEREO / ROTARY','DELAY RETURN','TAPE','REVERB','FX ORDER']);
+const PERF_PAGE_TITLES=new Set(['PERF LOOP','PATTERN FADE','OVERDUB TAKES',
+    'CHAIN','CHAIN FADE','ENTRY FADE','CHAIN TOOLS']);
+
+function pageCategoryForPage(page) {
+    if(!page||page===MIDI_CONTROL_PAGE||isSetupPage(page))return -1;
+    if(LANE_PAGE_TITLES.has(page.title))return 1;
+    if(MIX_PAGE_TITLES.has(page.title))return 2;
+    if(PERF_PAGE_TITLES.has(page.title))return 3;
+    return 0;
+}
+
+function categorySettingsIndices(category,pages=parameterPages()) {
+    const indices=[];
+    for(let index=0;index<pages.length;++index) {
+        if(pageCategoryForPage(pages[index])===category)indices.push(index);
+    }
+    return indices;
+}
+
+function settingsPagePosition(pages=parameterPages()) {
+    const page=pages[state.settingsPage],category=pageCategoryForPage(page);
+    const indices=category>=0?categorySettingsIndices(category,pages)
+        :page===MIDI_CONTROL_PAGE?pages.map((p,i)=>p===MIDI_CONTROL_PAGE?i:-1).filter(i=>i>=0)
+        :isSetupPage(page)?pages.map((p,i)=>isSetupPage(p)?i:-1).filter(i=>i>=0)
+        :[state.settingsPage];
+    return String(Math.max(0,indices.indexOf(state.settingsPage))+1)+'/'+indices.length;
+}
+
+function drawTitleWithFraction(left,fraction) {
+    const right=String(fraction),rightX=Math.max(1,128-right.length*6);
+    const leftCharacters=Math.max(0,Math.floor((rightX-2)/6));
+    print(1,0,String(left).slice(0,leftCharacters),1);
+    print(rightX,0,right,1);
+}
+
+function drawSettingsTitle(left,pages=parameterPages()) {
+    drawTitleWithFraction(left,settingsPagePosition(pages));
+}
+
+function pageEntryForSettings(index,page) {
+    const shared=page.global||isSendPage(page)||isSetupPage(page);
+    const scope=state.splitEnabled&&!shared
+        ?(state.sharedDual&&page===SAMPLE_PAGE?'SRC ':partName()+' '):'';
+    return {title:scope+page.title,view:'settings',index,
+        category:pageCategoryForPage(page)};
+}
+
+function categoryPageEntries(category) {
+    const result=[];
+    for(const [index,page] of parameterPages().entries()) {
+        if(pageCategoryForPage(page)===category)result.push(pageEntryForSettings(index,page));
+    }
+    if(category===1)result.push({title:'SAMPLE BROWSER L'+state.lane,
+        view:'library',category});
+    if(category===2&&state.splitEnabled)result.push({
+        title:isQuad()?'QUAD MIX STATUS':'A/B MIX STATUS',view:'mixStatus',category});
+    if(category===3)result.splice(Math.min(1,result.length),0,
+        {title:'CLIP OVERVIEW',view:'clips',category});
+    return result;
+}
+
+function setupPageEntry() {
+    const pages=parameterPages();
+    const wanted=state.splitEnabled?(isQuad()?QUAD_SETUP_PAGE:SPLIT_SETUP_PAGE):PADS_SCALE_PAGE;
+    const index=pages.findIndex(page=>page===wanted||page.title===wanted.title);
+    return {title:state.splitEnabled?wanted.title:'PADS & SCALE',view:'settings',index};
+}
+
+function midiPageEntry() {
+    return {title:'MIDI CONTROL',view:'settings',
+        index:parameterPages().findIndex(page=>page===MIDI_CONTROL_PAGE)};
+}
+
+function pageHubEntries() {
+    return [
+        ...PAGE_CATEGORY_NAMES.map((title,category)=>({title,category,hub:'category'})),
+        {title:'MODE',view:'mode',hub:'mode'},
+        {...setupPageEntry(),title:'SETUP',hub:'setup'},
+        {...midiPageEntry(),title:'MIDI',hub:'midi'},
+        {title:'ALL',hub:'all'},
+    ];
+}
+
+function currentPageCategory() {
+    if(state.view==='settings')return pageCategoryForPage(currentSettingsPage());
+    if(state.view==='library')return 1;
+    if(state.view==='mixStatus'||state.view==='fxMenu')return 2;
+    if(state.view==='clips'||state.view==='chain')return 3;
+    return -1;
+}
+
+function currentEntryIndex(entries) {
+    if(state.view==='settings')return entries.findIndex(entry=>
+        entry.view==='settings'&&entry.index===state.settingsPage);
+    return entries.findIndex(entry=>entry.view===state.view);
+}
+
+function pagePickerEntries() {
+    if(state.pageTier==='category')return categoryPageEntries(state.pageCategory);
+    if(state.pageTier==='all')return pageEntries();
+    return pageHubEntries();
+}
+
 function openPagePicker() {
     endPerformanceLayer();
-    if(state.view==='pages')return;
+    if(state.view==='pages') {
+        const category=state.pageTier==='category'?state.pageCategory
+            :state.pageTier==='hub'&&state.pageSelection<4?state.pageSelection:-1;
+        state.pageSelection=category>=0?category:state.pageTier==='all'?7:0;
+        state.pageTier='hub';rebuildLedQueue();return;
+    }
     if(state.fxRouteGrabbed||state.fxRoutePending)cancelFxOrder(false);
     state.pageReturn={view:state.view,page:state.settingsPage,focus:state.splitFocus,fx:state.fxMenuReturn};
-    const entries=pageEntries();
-    state.pageSelection=state.view==='settings'
-        ? entries.findIndex(e=>e.view==='settings'&&e.index===state.settingsPage)
-        : Math.max(0,entries.findIndex(e=>e.view===state.view));
+    state.pageDestinationReturn=null;
+    state.pageTier='hub';
+    const category=currentPageCategory();
+    state.pageSelection=category>=0?category
+        :state.view==='mode'?4
+        :state.view==='settings'&&currentSettingsPage()===MIDI_CONTROL_PAGE?6
+        :state.view==='settings'&&isSetupPage(currentSettingsPage())?5
+        :0;
     state.view='pages';state.actionMessageTicks=0;
+    rebuildLedQueue();
 }
 
 function movePagePicker(delta) {
-    state.pageSelection=clamp(state.pageSelection+delta,0,pageEntries().length-1);
+    state.pageSelection=clamp(state.pageSelection+delta,0,pagePickerEntries().length-1);
+    rebuildLedQueue();
 }
 
-function activatePagePicker() {
-    const entry=pageEntries()[clamp(state.pageSelection,0,pageEntries().length-1)];
+function activatePageEntry(entry,returnToPicker=false) {
     if(!entry)return;
-    if(entry.view==='mode'){state.modeSelection=Math.round(PARAMS.split_mode.value);state.view='mode';return;}
-    if(state.pageReturn?.view==='library')setParamBlocking('preview_stop',1);
+    const destinationReturn=returnToPicker?{
+        tier:state.pageTier,category:state.pageCategory,selection:state.pageSelection,
+    }:null;
+    if(entry.view==='mode'){
+        state.pageDestinationReturn=destinationReturn;
+        state.modeSelection=Math.round(PARAMS.split_mode.value);state.view='mode';return;
+    }
+    if((state.pageReturn?.view==='library'||state.view==='library')&&entry.view!=='library')
+        setParamBlocking('preview_stop',1);
     if(entry.view==='library')openLibrary(state.lane);
     else {
         state.view=entry.view;state.fxMenuReturn=false;
@@ -3086,10 +3306,66 @@ function activatePagePicker() {
             state.settingsPage=entry.index;
             if(state.splitEnabled)state.splitPages[state.splitFocus]=entry.index;
         }
+        if(entry.view==='clips')state.clipBank=Math.floor(state.activeClip/16);
         resetParameterEncoderMotion();
         if(state.view==='settings'&&currentSettingsPage().pathEditor)readStackPath();
+        rebuildLedQueue();
     }
-    state.pageReturn=null;
+    state.pageDestinationReturn=destinationReturn;
+    if(!returnToPicker)state.pageReturn=null;
+}
+
+function openPageCategory(category) {
+    endPerformanceLayer();
+    if(state.fxRouteGrabbed||state.fxRoutePending)cancelFxOrder(false);
+    const entries=categoryPageEntries(category);
+    if(!entries.length)return;
+    const current=currentPageCategory()===category?currentEntryIndex(entries):-1;
+    state.pageCategory=category;
+    activatePageEntry(entries[(current+1)%entries.length]);
+}
+
+function enterPageCategory(category) {
+    state.pageTier='category';state.pageCategory=category;
+    const entries=categoryPageEntries(category);
+    state.pageSelection=Math.max(0,currentEntryIndex(entries));
+    rebuildLedQueue();
+}
+
+function activatePagePicker() {
+    const entries=pagePickerEntries();
+    const entry=entries[clamp(state.pageSelection,0,entries.length-1)];
+    if(!entry)return;
+    if(state.pageTier==='hub') {
+        if(entry.hub==='category'){enterPageCategory(entry.category);return;}
+        if(entry.hub==='all'){
+            state.pageTier='all';
+            state.pageSelection=Math.max(0,currentEntryIndex(pageEntries()));
+            return;
+        }
+    }
+    activatePageEntry(entry,true);
+}
+
+function returnToPagePicker() {
+    const destination=state.pageDestinationReturn;
+    if(!destination)return false;
+    if(state.view==='library')setParamBlocking('preview_stop',1);
+    state.view='pages';state.pageTier=destination.tier;
+    state.pageCategory=destination.category;
+    state.pageSelection=destination.selection;
+    state.pageDestinationReturn=null;state.fxMenuReturn=false;
+    resetParameterEncoderMotion();rebuildLedQueue();
+    return true;
+}
+
+function pagePickerBack() {
+    if(state.pageTier!=='hub') {
+        const category=state.pageTier==='category'?state.pageCategory:currentPageCategory();
+        state.pageTier='hub';state.pageSelection=category>=0?category:7;
+        rebuildLedQueue();return;
+    }
+    closePagePicker();
 }
 
 function closePagePicker() {
@@ -3097,14 +3373,14 @@ function closePagePicker() {
     state.view=previous?.view||'main';
     if(previous){if(!state.splitEnabled||previous.focus===state.splitFocus)state.settingsPage=previous.page;state.fxMenuReturn=previous.fx;}
     if(!state.splitEnabled&&(state.view==='mixStatus'||state.view==='fxMenu')){state.view='main';state.fxMenuReturn=false;}
-    state.pageReturn=null;
+    state.pageReturn=null;state.pageDestinationReturn=null;
 }
 
 function drawModePicker() {
     clearDisplay();print(1,0,'INSTRUMENT MODE',1);drawRect(0,8,128,1,1);
-    const names=['SINGLE','SPLIT','SHARED DUAL','QUAD'];
-    for(let i=0;i<4;++i) {
-        const selected=i===state.modeSelection,y=11+i*11;
+    const names=['SINGLE','SPLIT','SHARED DUAL','QUAD','BANK'];
+    for(let i=0;i<5;++i) {
+        const selected=i===state.modeSelection,y=10+i*9;
         if(selected)drawRect(0,y,128,9,1);
         print(1,y,((i===Math.round(PARAMS.split_mode.value)?'* ':'  ')+names[i]),selected?0:1);
     }
@@ -3118,15 +3394,29 @@ function applyModePicker() {
     if(Math.round(getNumber('split_mode',PARAMS.split_mode.value))!==wanted) {
         showMessage('STOP RECORD FIRST');showActionMessage('STOP RECORD FIRST');return;
     }
-    state.view='main';state.pageReturn=null;state.fxMenuReturn=false;
-    showMessage(['SINGLE STACK','SPLIT A / B','SHARED DUAL A B','QUAD A B C D'][wanted]);
+    state.view='main';state.pageReturn=null;state.pageDestinationReturn=null;state.fxMenuReturn=false;
+    showMessage(['SINGLE STACK','SPLIT A / B','SHARED DUAL A B','QUAD A B C D','BANK A + 16 SAMPLES'][wanted]);
     primePadLeds();rebuildLedQueue();
 }
 
 function drawPagePicker() {
-    clearDisplay();const entries=pageEntries();
+    clearDisplay();const entries=pagePickerEntries();
     state.pageSelection=clamp(state.pageSelection,0,entries.length-1);
-    print(1,0,('PAGES '+(state.pageSelection+1)+'/'+entries.length+(state.splitEnabled?' EDIT '+partName():'')).slice(0,21),1);
+    if(state.pageTier==='hub') {
+        print(1,0,('PAGES'+(state.splitEnabled?' EDIT '+partName():'')+'  TRACK 1-4').slice(0,21),1);
+        drawRect(0,8,128,1,1);
+        for(let index=0;index<8;++index) {
+            const selected=index===state.pageSelection,column=index%4,row=Math.floor(index/4);
+            const x=column*32,y=11+row*20;
+            if(selected)drawRect(x,y,31,16,1);
+            const label=index<4?PAGE_CATEGORY_LABELS[index]:entries[index].title;
+            print(x+2,y+4,label.slice(0,5),selected?0:1);
+        }
+        print(1,57,errorFooter('TURN PICK CLICK ENTER'),1);return;
+    }
+    const heading=state.pageTier==='category'?PAGE_CATEGORY_NAMES[state.pageCategory]:'ALL PAGES';
+    drawTitleWithFraction(heading+(state.splitEnabled?' '+partName():''),
+        (state.pageSelection+1)+'/'+entries.length);
     drawRect(0,8,128,1,1);
     const start=clamp(state.pageSelection-2,0,Math.max(0,entries.length-5));
     for(let row=0;row<5;++row){
@@ -3135,7 +3425,7 @@ function drawPagePicker() {
         if(selected)drawRect(0,y,128,8,1);
         print(1,y,((selected?'>':' ')+entry.title).slice(0,21),selected?0:1);
     }
-    print(1,57,errorFooter('TURN PICK CLICK OPEN'),1);
+    print(1,57,errorFooter('CLICK OPEN  BACK HUB'),1);
 }
 
 function meterWidth(peak,width) {
@@ -3148,7 +3438,7 @@ function drawMixStatus() {
         print(1,0,'QUAD MIX EDIT '+partName(),1);drawRect(0,8,128,1,1);
         const reasons=['ACTIVE','MUTED','LEVEL 0','FADED OUT','NO AUDIO','IDLE'];
         for(let p=0;p<4;++p){const y=12+p*10;print(1,y,partName(p)+(state.mixVoices[p]||0),1);print(19,y,(ALGORITHMS[state.splitParts[p]?.algorithm]||'---').slice(0,3),1);drawRect(43,y+2,24,3,0);const w=meterWidth(state.mixPeaks[p]||0,24);if(w)drawRect(43,y+2,w,3,1);print(73,y,reasons[state.mixReasons[p]??5],1);}
-        print(1,57,errorFooter(saveNotice()||'TRACK / CAPTURE: EDIT'),1);return;
+        print(1,57,errorFooter('TRACK / CAPTURE: EDIT'),1);return;
     }
     print(1,0,(state.sharedDual?'SHARED MIX EDIT ':'MIX STATUS EDIT ')+partName(),1);drawRect(0,8,128,1,1);
     const reasons=['ACTIVE','MUTED','LEVEL 0','FADED OUT','NO AUDIO','IDLE'];
@@ -3159,7 +3449,7 @@ function drawMixStatus() {
         const width=meterWidth(state.mixPeaks[part],41);if(width)drawRect(2,y+11,width,4,1);
         print(49,y+9,reasons[state.mixReasons[part]],1);
     }
-    print(1,57,errorFooter(('BLND '+Math.round(state.splitBlend*100)+'% '+(saveNotice()||'')).slice(0,21)),1);
+    print(1,57,errorFooter(('BLND '+Math.round(state.splitBlend*100)+'% '+'').slice(0,21)),1);
 }
 
 function undoFeedback(text) {showMessage(text);showActionMessage(text);}
@@ -3253,8 +3543,8 @@ function effectiveFadeSummary(scope) {
 }
 function drawChainTools() {
     const feedback=state.actionMessageTicks>0;
-    print(1,0,feedback?state.actionMessage.slice(0,21):'CHAIN TOOLS',1);
-    if(!feedback)print(102,0,'C'+String(state.chainBank+1).padStart(2,'0'),1);
+    drawSettingsTitle(feedback?state.actionMessage:
+        'CHAIN TOOLS C'+String(state.chainBank+1).padStart(2,'0'));
     drawRect(0,8,128,1,1);
     print(17,11,'CHAIN',1);print(81,11,'ENTRY',1);
     drawRect(63,11,1,28,1);
@@ -3282,8 +3572,9 @@ function adjustChainTools(index,delta) {
 function drawChainFade(scope) {
     readChainFades();const offset=scope==='entry'?5:0,v=state.chainFades.slice(offset,offset+5),mode=v[0];
     const fixed=scope==='entry'?mode===2:mode===1,random=scope==='entry'?mode===3:mode===2;
-    print(1,0,scope==='entry'?'ENTRY FADE':'CHAIN FADE',1);drawRect(0,8,128,1,1);
-    print(78,0,('C'+String(state.chainBank+1).padStart(2,'0')+(scope==='entry'?':'+String(state.chainSlot+1).padStart(2,'0'):'')),1);
+    drawSettingsTitle((scope==='entry'?'ENTRY FADE ':'CHAIN FADE ')
+        +'C'+String(state.chainBank+1).padStart(2,'0')
+        +(scope==='entry'?':'+String(state.chainSlot+1).padStart(2,'0'):''));drawRect(0,8,128,1,1);
     print(1,11,effectiveFadeSummary(scope).slice(0,21),1);
     const selected=scope==='entry'?state.chainEntries[state.chainSlot]:null;
     const controls=[fixed?['TIME',formatFadeTime(v[1])]:null,fixed||random?['CURVE',FADE_CURVES[v[4]]]:null,
@@ -3394,6 +3685,8 @@ function drawPerformanceLayer() {
     print(1,57,'RELEASE TO RETURN',1);
 }
 function draw() {
+    const overlay=state.saveStatus===2?'saving':state.savedTicks>0&&state.saveStatus===3?'saved':'';
+    if(overlay!==state.saveOverlayLast){splitDisplay.footer=null;state.saveOverlayLast=overlay;}
     if(state.performanceVisible)drawPerformanceLayer();
     else if(state.view==='mode')drawModePicker();
     else if(state.view==='pages')drawPagePicker();
@@ -3405,6 +3698,24 @@ function draw() {
     else if (state.view === 'library') drawLibrary();
     else if (state.view === 'fxMenu') drawSplitFxMenu();
     else drawMain();
+    drawSaveIndicator();
+}
+
+function drawSaveIndicator() {
+    // Fixed footer overlay: parameter cells and waveform coordinates stay put.
+    if(state.saveStatus===4) {
+        if(state.view!=='main'||state.performanceVisible) {
+            drawRect(0,57,128,7,0);print(1,57,saveNotice(),1);
+        }
+        return;
+    }
+    const text=state.saveStatus===2?'saving':state.savedTicks>0&&state.saveStatus===3?'saved':'';
+    if(!text)return;
+    const glyphs={s:[7,4,7,1,7],a:[0,7,5,7,5],v:[0,5,5,5,2],i:[2,0,2,2,2],n:[0,6,5,5,5],g:[0,7,5,7,1],e:[0,7,6,4,7],d:[1,1,7,5,7]};
+    const x=127-text.length*4;
+    drawRect(x-2,57,text.length*4+3,7,0);
+    for(let i=0;i<text.length;++i)for(let row=0;row<5;++row)
+        for(let col=0;col<3;++col)if(glyphs[text[i]][row]&(4>>col))drawRect(x+i*4+col,58+row,1,1,1);
 }
 
 function selectLane(lane) {
@@ -3517,6 +3828,7 @@ function previewLibraryItem() {
 
 function libraryBack() {
     if (state.libraryDir === LIBRARY_HOME) {
+        if(returnToPagePicker())return;
         setParam('preview_stop', 1);
         state.view = 'main';
         rebuildLedQueue();
@@ -3549,7 +3861,7 @@ function activateLibraryItem() {
     state.sampleLoadProgress = 0;
     state.sampleLoadName = item.name;
     state.laneSource = item.name;
-    state.view = 'main';
+    state.view = 'main';state.pageReturn=null;state.pageDestinationReturn=null;
     showMessage('LOADING L' + state.libraryLane + ' ' + item.name, 90);
     rebuildLedQueue();
 }
@@ -3750,8 +4062,15 @@ function adjustClipBank(delta) {
 function adjustSettingsPage(delta) {
     if (currentSettingsPage().route) cancelFxOrder(false);
     const pages = parameterPages();
-    state.settingsPage = (state.settingsPage + (delta > 0 ? 1 : -1)
-        + pages.length) % pages.length;
+    const category=pageCategoryForPage(pages[state.settingsPage]);
+    if(category>=0) {
+        const indices=categorySettingsIndices(category,pages);
+        const current=Math.max(0,indices.indexOf(state.settingsPage));
+        state.settingsPage=indices[(current+(delta>0?1:-1)+indices.length)%indices.length];
+    } else {
+        state.settingsPage = (state.settingsPage + (delta > 0 ? 1 : -1)
+            + pages.length) % pages.length;
+    }
     state.actionMessageTicks = 0;
     if(currentSettingsPage().pathEditor)readStackPath();
     if(currentSettingsPage().patternFade)readPatternFade();
@@ -3801,8 +4120,10 @@ function nextControlValue(control,delta,fine=false) {
     if(fine&&!control.labels)return clamp(control.value+delta*(control.integer?Math.max(1,control.step):control.step*.1),control.min,control.max);
     let value;
     if(['pulsar_rate','pulsar_form','pulsar_size','pulsar_emit_mod_rate','pulsar_form_mod_rate'].includes(control.key)) {
-        const i=Math.round(240*Math.log(control.value/control.min)/Math.log(control.max/control.min))+delta;
-        value=Number((control.min*Math.pow(control.max/control.min,clamp(i,0,240)/240)).toFixed(4));
+        // Keep small SIZE changes as fine as before across its wider range.
+        const steps=control.key==='pulsar_size'?320:240;
+        const i=Math.round(steps*Math.log(control.value/control.min)/Math.log(control.max/control.min))+delta;
+        value=Number((control.min*Math.pow(control.max/control.min,clamp(i,0,steps)/steps)).toFixed(4));
     } else if(control.key==='stochastic_evolution') {
         value=stochasticEvolutionAt(stochasticEvolutionIndex(control.value)+delta);
     } else if (control.key === 'effect_reverb_decay' || control.key === 'effect_reverb_damp') {
@@ -4014,6 +4335,7 @@ function pollDsp() {
     if(keepPage){const index=parameterPages().findIndex(page=>page.title===keepPage.title);if(index>=0)state.settingsPage=index;}
     if(state.view==='settings'&&currentSettingsPage().pathEditor)readStackPath();
     parseWaveforms(getParam('waveforms', ''));
+    readBankState();
 }
 
 // MIDI and E16 integration is appended below; functions are initialized before init runs.
@@ -4029,11 +4351,12 @@ globalThis.init = function() {
     state.settingsPage = 0;
     state.pathReady=false;state.pathPoint=0;
     state.helpPage = 0;
-    state.splitEnabled = false; state.sharedDual=false;state.quadMode=false;state.modeSelection=0;state.splitFocus = 0; state.splitPages = [0,0,0,0];
+    state.bankMode=false;state.bank=null;state.bankWave=[];state.splitEnabled = false; state.sharedDual=false;state.quadMode=false;state.modeSelection=0;state.splitFocus = 0; state.splitPages = [0,0,0,0];
     state.focusButtonHeld = false; state.focusButtonUsed = false;
     state.performanceVisible=false;state.performanceArmed=false;state.performancePads.clear();state.performancePadLive.clear();state.performanceValues.fill(0);
     state.iconPressed.clear();
     state.fxMenuSelection=0;state.fxMenuReturn=false;
+    state.pageSelection=0;state.pageReturn=null;state.pageDestinationReturn=null;state.pageTier='hub';state.pageCategory=0;
     state.message = 'REC CAPTURES PERFORMANCE';
     state.messageTicks = 80;
     state.actionMessage = '';
@@ -4053,6 +4376,7 @@ globalThis.init = function() {
     state.fxRouteClip = -1; state.fxRoutePending = false;
     state.fxRouteSelected = 0; state.fxRouteGrabbed = false;
     setParam('shift_held', 0);
+    setParam('delete_held', 0);
     refreshEditorSnapshot();
     parseSaveStatus(getParam('save_status',''));
     parseMixStatus(getParam('mix_status',''));
@@ -4092,6 +4416,7 @@ globalThis.init = function() {
     state.scale = clamp(Math.round(getNumber('scale', 0)),
         0, SCALE_LABELS.length - 1);
     parseWaveforms(getParam('waveforms', ''));
+    readBankState();
     if (state.recalled) {
         state.message = 'RECALLED ' + state.mask.toString(2).replace(/0/g, '').length
             + ' STEREO LANES';
@@ -4153,6 +4478,11 @@ globalThis.onMidiMessageInternal = function(data) {
         }
         const pad = MovePads.indexOf(number);
         if (pad >= 0) {
+            if(state.bankMode&&pad%8>=4) {
+                if(pressed)state.activePads.add(number);else state.activePads.delete(number);
+                readBankState();rebuildLedQueue();return;
+            }
+
             if(state.performancePads.has(number)) {
                 if(!pressed) {
                     state.performancePads.delete(number);state.performancePadLive.delete(number);state.performanceValues[pad]=0;
@@ -4243,6 +4573,7 @@ globalThis.onMidiMessageInternal = function(data) {
             state.performanceArmed=true;
             state.captureStartTick=state.ticks;state.performanceOwner=state.splitEnabled?state.splitFocus:0;
             setParam('performance_capture',1);
+            rebuildLedQueue();
         } else {
             const tap=state.focusButtonHeld&&state.splitEnabled&&!state.focusButtonUsed&&!state.shiftHeld;
             state.focusButtonHeld=false;endPerformanceLayer();
@@ -4275,11 +4606,13 @@ globalThis.onMidiMessageInternal = function(data) {
     }
     if(number===MoveDelete && state.view==='help' && state.shiftHeld) {
         state.deleteHeld=false;
+        setParam('delete_held',0);
         if(value>0){setParamBlocking('performance_reset',1);pollDiagnostics();draw();}
         return;
     }
     if (number === MoveDelete) {
         state.deleteHeld = value > 0;
+        setParam('delete_held',state.deleteHeld?1:0);
         if (state.view === 'clips' || state.view === 'chain') return;
     }
     if (number === MovePlay && value > 0) {
@@ -4343,7 +4676,12 @@ globalThis.onMidiMessageInternal = function(data) {
 
     const track = MoveTracks.indexOf(number);
     if (track >= 0 && value > 0) {
-        if (state.view === 'clips'||state.copyShortcut?.scope==='clip') {
+        if(state.focusButtonHeld) {
+            state.focusButtonUsed=true;
+            openPageCategory(track);
+        } else if(state.view==='pages') {
+            enterPageCategory(track);
+        } else if (state.view === 'clips'||state.copyShortcut?.scope==='clip') {
             state.clipBank = track;
             if(state.copyShortcut)state.copyShortcut.used=true;
             rebuildLedQueue();
@@ -4390,7 +4728,7 @@ globalThis.onMidiMessageInternal = function(data) {
         return;
     }
     if (number === MoveUp && value > 0) {
-        if(state.view==='mode')state.modeSelection=clamp(state.modeSelection-1,0,3);
+        if(state.view==='mode')state.modeSelection=clamp(state.modeSelection-1,0,4);
         else if(state.view==='pages')movePagePicker(-1);
         else if (state.view === 'fxMenu') moveSplitFxMenu(-1);
         else if (state.view === 'help') state.helpPage = Math.max(0, state.helpPage - 1);
@@ -4405,7 +4743,7 @@ globalThis.onMidiMessageInternal = function(data) {
         return;
     }
     if (number === MoveDown && value > 0) {
-        if(state.view==='mode')state.modeSelection=clamp(state.modeSelection+1,0,3);
+        if(state.view==='mode')state.modeSelection=clamp(state.modeSelection+1,0,4);
         else if(state.view==='pages')movePagePicker(1);
         else if (state.view === 'fxMenu') moveSplitFxMenu(1);
         else if (state.view === 'help') state.helpPage = Math.min(HELP_PAGE_COUNT-1, state.helpPage + 1);
@@ -4421,7 +4759,7 @@ globalThis.onMidiMessageInternal = function(data) {
     }
     if (number === MoveMainKnob) {
         const delta = decodeDelta(value);
-        if(state.view==='mode')state.modeSelection=clamp(state.modeSelection+delta,0,3);
+        if(state.view==='mode')state.modeSelection=clamp(state.modeSelection+delta,0,4);
         else if(state.view==='pages')movePagePicker(delta);
         else if (state.view === 'fxMenu') moveSplitFxMenu(delta);
         else if (state.view === 'help' && delta !== 0) {
@@ -4469,13 +4807,17 @@ globalThis.onMidiMessageInternal = function(data) {
     }
     if (number === MoveMenu && value > 0) {
         if(state.focusButtonHeld){state.focusButtonUsed=true;openPagePicker();return;}
-        if(state.view==='mode'){state.view='pages';return;}
-        if(state.view==='pages'){closePagePicker();return;}
-        if(state.view==='mixStatus'){state.view='main';return;}
+        if(state.view==='mode'){
+            if(!returnToPagePicker()){state.view='pages';state.pageTier='hub';state.pageSelection=4;rebuildLedQueue();}
+            return;
+        }
+        if(state.view==='pages'){pagePickerBack();return;}
+        if(state.view==='mixStatus'){state.view='main';state.pageReturn=null;state.pageDestinationReturn=null;return;}
         if(!state.shiftHeld&&state.view==='chain'){state.chainEditorReturn=true;state.view='settings';state.settingsPage=parameterPages().indexOf(CHAIN_PAGE);resetParameterEncoderMotion();return;}
         if(!state.shiftHeld&&state.view==='settings'&&state.chainEditorReturn){state.chainEditorReturn=false;state.view='chain';return;}
         if (state.view === 'settings' && currentSettingsPage().route) cancelFxOrder(false);
         if (state.shiftHeld) {
+            state.pageReturn=null;state.pageDestinationReturn=null;
             if (state.view === 'help') {
                 state.view = 'main';
             } else {
@@ -4484,8 +4826,9 @@ globalThis.onMidiMessageInternal = function(data) {
                 state.view = 'help';
             }
         } else if (state.view === 'help' || state.view === 'fxMenu') {
-            state.view = 'main';state.fxMenuReturn=false;
+            state.view = 'main';state.fxMenuReturn=false;state.pageReturn=null;state.pageDestinationReturn=null;
         } else {
+            state.pageReturn=null;state.pageDestinationReturn=null;
             state.fxMenuReturn=false;
             state.view = state.view === 'settings' ? 'main' : 'settings';
         }
@@ -4497,8 +4840,11 @@ globalThis.onMidiMessageInternal = function(data) {
         }
         if(state.view==='settings'&&state.chainEditorReturn){state.chainEditorReturn=false;state.view='chain';return;}
         if(state.view==='settings'&&currentSettingsPage().pathEditor){state.settingsPage=parameterPages().findIndex(p=>p.title===STACK_PATH_PAGE.title);resetParameterEncoderMotion();return;}
-        if(state.view==='mode'){state.view='pages';return;}
-        if(state.view==='pages'){closePagePicker();return;}
+        if(state.view==='mode'){
+            if(!returnToPagePicker()){state.view='pages';state.pageTier='hub';state.pageSelection=4;rebuildLedQueue();}
+            return;
+        }
+        if(state.view==='pages'){pagePickerBack();return;}
         if (state.view === 'settings' && currentSettingsPage().route
             && (state.fxRouteGrabbed || state.fxRoutePending)) {
             cancelFxOrder();
@@ -4508,6 +4854,8 @@ globalThis.onMidiMessageInternal = function(data) {
             openSplitSends();
         } else if (state.view==='settings' && state.fxMenuReturn && state.splitEnabled) {
             openSplitFxMenu();
+        } else if (state.view!=='library' && returnToPagePicker()) {
+            // A page opened from the hierarchy returns to its owning list.
         } else if (state.view === 'library') {
             libraryBack();
         } else if (state.view !== 'main') {
@@ -4526,6 +4874,7 @@ globalThis.onUnload = function() {
     if (state.clipRecording) setParamBlocking('clip_record', 1);
     setParamBlocking('all_notes_off', 1);
     setParam('shift_held', 0);
+    setParam('delete_held', 0);
     setParamBlocking('glitch_buffer_lock', 0);
     setButtonLED(MoveRecord, Black);
     if (MoveRecordAlt !== MoveRecord) setButtonLED(MoveRecordAlt, Black);
@@ -4774,9 +5123,12 @@ function createNrpnFeedback(send) {
                 const [channel,id,value,priority=0]=entry;
                 if(![channel,id,value].every(Number.isInteger)||channel<1||channel>16||id<0||id>=16383||value<0||value>16383)continue;
                 const key=channel+':'+id;
-                if(sent.get(key)===value){pending.delete(key);urgent.delete(key);}
-                else if(priority===1){pending.delete(key);urgent.set(key,{channel,id,value});}
+                // Priority marks an explicit controller resync request. Send it
+                // even when the same value was delivered before disconnection;
+                // the newly connected E16 has not necessarily received it.
+                if(priority===1){pending.delete(key);urgent.set(key,{channel,id,value});}
                 else if(urgent.has(key))urgent.set(key,{channel,id,value});
+                else if(sent.get(key)===value)pending.delete(key);
                 else pending.set(key,{channel,id,value});
             }
         },
@@ -4810,7 +5162,7 @@ function syncRemoteTransport(readDsp=false,force=false){
     return allowed;
 }
 function resetMidiSurface(){
-    midiSurface.query='';midiSurface.epoch=null;midiFeedback.reset();
+    midiSurface.query='';midiSurface.epoch=null;midiFeedback.reset();e16NativeFeedback.reset();
     syncRemoteTransport(true,true);
 }
 function pollMidiControls(){
@@ -4853,6 +5205,11 @@ function tickMidiFeedback(){
     if(remoteAllowed&&remoteE16.ready)try{updateRemoteE16(JSON.parse(String(getParam('e16_remote_state','{}'))));}catch(_){}
     remoteE16.tick();
     if(remoteE16.active)return;
+    if(Math.round(PARAMS.midi_control_mode.value)===5){
+        try{e16NativeFeedback.update(JSON.parse(String(getParam('e16_native_state','{}'))));}catch(_){}
+        e16NativeFeedback.tick();return;
+    }
+    e16NativeFeedback.reset();
     try{const values=JSON.parse(String(getParam('midi_feedback','[]')));if(Array.isArray(values))midiFeedback.update(values);}catch(_){}
     midiFeedback.tick();
 }
@@ -4997,3 +5354,38 @@ function updateRemoteE16(data){
 }
 globalThis.onMidiMessageExternal=bytes=>{if(syncRemoteTransport())remoteE16.feed(bytes);};
 globalThis.onResume=function(){resetMidiSurface();};
+// One direction controls sound (native relative CC); this direction draws rings.
+function createE16NativeFeedback(send) {
+    let identity='';const pending=new Map(),sent=new Map();
+    return {
+        reset(){identity='';pending.clear();sent.clear();},
+        update(data){
+            if(data?.v!==1||!Number.isInteger(data.page)||data.page<0||data.page>11
+                ||!Number.isInteger(data.token)||data.token<0||data.token>127||!Array.isArray(data.values))return;
+            const next=data.page+':'+data.token;
+            if(next!==identity){identity=next;pending.clear();sent.clear();}
+            for(const entry of data.values){
+                if(!Array.isArray(entry)||entry.length!==3)continue;
+                const [index,raw,color]=entry;
+                if(!entry.every(Number.isInteger)||index<0||index>15||raw<0||raw>16383||color<0||color>100)continue;
+                const value=raw+':'+color;
+                if(sent.get(index)===value)pending.delete(index);
+                else pending.set(index,{index,raw,color,value,page:data.page,token:data.token});
+            }
+        },
+        tick(){
+            const entries=[...pending.values()].slice(0,6);if(!entries.length)return;
+            const first=entries[0],bytes=[240,125,83,84,1,first.page,first.token];
+            for(const e of entries)bytes.push(e.index,e.raw>>7,e.raw&127,e.color);
+            bytes.push(247);
+            const packets=[];
+            for(let i=0;i<bytes.length;i+=3){
+                const remaining=bytes.length-i,cin=remaining>3?4:4+remaining;
+                packets.push(cin,bytes[i],bytes[i+1]??0,bytes[i+2]??0);
+            }
+            if(send(packets)===false)return;
+            for(const e of entries){sent.set(e.index,e.value);pending.delete(e.index);}
+        },
+    };
+}
+const e16NativeFeedback=createE16NativeFeedback(sendExternal);

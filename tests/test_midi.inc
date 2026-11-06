@@ -237,7 +237,7 @@ void testSelectableMidiModesAndMonolit() {
     midiCc(*t,13,24,127);assert(t->controls.splitBlend==1.0f);
     midiCc(*t,13,25,0);assert(t->controls.splitCurve==0);
     midiCc(*t,13,25,127);assert(t->controls.splitCurve==1);
-    setParam(t.get(),"midi_control_mode","NRPN + MNLT");
+    setParam(t.get(),"midi_control_mode","E16 + MNLT");
     midiCc(*t,13,26,0);assert(t->controls.splitPriority==-24);
     midiCc(*t,13,26,127);assert(t->controls.splitPriority==24);
     midiCc(*t,13,27,0);assert(t->controls.splitDuckThresholdDb==-60);
@@ -290,127 +290,99 @@ void testSelectableMidiModesAndMonolit() {
 
 void testNativeE16AndMonolitMode() {
     auto t=splitFixture();t->setPerformanceMode(2);t->selectSplitPart(0,false);
-    setParam(t.get(),"midi_control_mode","NRPN + MNLT");
-    setParam(t.get(),"midi_takeover","Jump");
-    assert(t->midiControlMode==5&&midiModeAllowsNrpn(*t)&&midiModeAllowsMonolit(*t)
-        &&!midiModeAllowsGenericCc(*t)&&!midiModeAllowsE16(*t));
-    setParam(t.get(),"e16_remote","1,1");
-    assert(!t->e16RemoteRequested&&!t->e16RemoteActive);
+    setParam(t.get(),"midi_control_mode","E16 + MNLT");
+    assert(t->midiControlMode==5 && !midiModeAllowsE16(*t) && midiModeAllowsMonolit(*t));
+    setParam(t.get(),"e16_remote","1,1");assert(!t->e16RemoteRequested && !t->e16RemoteActive);
     const int focus=t->splitFocus;const auto lane=t->selectedLane;
-
-    // ENGINE aliases address A and B independently and retain Move focus.
-    nrpnId(*t,5,kE16NativeAliasBase+1,4096);
-    nrpnId(*t,6,kE16NativeAliasBase+1,12288);
-    assert(std::abs(t->liveControlsForPart(0).locus-4096.f/16383.f)<.00001f);
-    assert(std::abs(t->liveControlsForPart(1).locus-12288.f/16383.f)<.00001f);
-    assert(t->splitFocus==focus&&t->selectedLane==lane);
-
-    // E16's raw-zero scene placeholder must not replace restored controls.
-    t->controls.locus=.5f;t->controls.field=1.0f;t->controls.speed=1.0f;
-    t->controls.laneCycles=1.0f;t->controls.join=1.0f;
-    t->controls.splitLevelA=1.0f;
-    for(int slot=1;slot<8;++slot)
-        nrpnId(*t,5,kE16NativeAliasBase+slot,0);
-    assert(t->controls.locus==.5f&&t->controls.field==1.0f
-        &&t->controls.speed==1.0f&&t->controls.laneCycles==1.0f
-        &&t->controls.join==1.0f&&t->controls.splitLevelA==1.0f);
-    // Raw one is a real turn and remains available after rejecting startup.
-    nrpnId(*t,5,kE16NativeAliasBase+1,1);
-    assert(t->controls.locus>0.0f&&t->controls.locus<0.001f);
-
-    // ENG 1 follows each part's selected algorithm without remapping E16.
-    t->controls.algorithm=Engine::PlaybackAlgorithm::texture;
-    t->splitParts[1].controls.algorithm=Engine::PlaybackAlgorithm::grains;
-    const auto& texture=midiParameter("texture_mode");
-    const auto& grains=midiParameter("grain_mode");
-    const int detailAlias=kE16NativeAliasBase+2*kE16NativeAliasSlots;
-    nrpnId(*t,5,detailAlias,s3g_thru_midi::encode(texture,3,texture.maximum));
-    nrpnId(*t,6,detailAlias,s3g_thru_midi::encode(grains,2,grains.maximum));
-    assert(t->controls.textureMode==3&&static_cast<int>(t->splitParts[1].controls.grains)==2);
-
-    // Encoder pushes reset the currently resolved parameter, rather than a
-    // hard-coded raw value. This works independently for adaptive A/B pages.
-    const int detailReset=2*kE16NativeAliasSlots;
-    midiCc(*t,kE16NativeResetCcChannelA,detailReset,127);
-    midiCc(*t,kE16NativeResetCcChannelB,detailReset,127);
-    assert(t->controls.textureMode==static_cast<int>(texture.initial));
-    assert(static_cast<int>(t->splitParts[1].controls.grains)==static_cast<int>(grains.initial));
-    assert(t->splitFocus==focus&&t->selectedLane==lane);
-
-    // Reset notes must not replace E16's selected NRPN. E16 may continue a
-    // turn by sending Data Entry only, so reproduce that exact sequence.
-    const int continued=s3g_thru_midi::encode(texture,2,texture.maximum);
-    midiCc(*t,5,6,continued>>7);midiCc(*t,5,38,continued&127);
-    assert(t->controls.textureMode==2);
-
-    // PRIO is shared: pressing SENDS encoder 5 returns it to neutral / Off.
-    t->controls.splitPriority=17.0f;
-    const int priorityReset=6*kE16NativeAliasSlots+4;
-    midiCc(*t,kE16NativeResetCcChannelA,priorityReset,127);
-    assert(t->controls.splitPriority==0.0f);
-    char resetFeedback[4096]{};
-    assert(getParam(t.get(),"midi_feedback",resetFeedback,sizeof(resetFeedback))>0);
-    char resetPriority[64]{};std::snprintf(resetPriority,sizeof(resetPriority),"[5,%d,8192,1]",
-        kE16NativeAliasBase+6*kE16NativeAliasSlots+4);
-    assert(std::strstr(resetFeedback,resetPriority));
-
-    // Monolit's direct-CC path remains live through the E16 MIDI-Thru merge.
-    midiCc(*t,9,17,127);midiCc(*t,10,17,0);
-    assert(t->liveControlsForPart(0).locus==1.0f&&t->liveControlsForPart(1).locus==0.0f);
-
-    // The most recent Monolit edit bypasses the complete 192-alias sweep so
-    // E16 can move its ring on the next UI feedback tick.
-    char immediate[4096]{};assert(getParam(t.get(),"midi_feedback",immediate,sizeof(immediate))>0);
-    char priorityB[64]{};std::snprintf(priorityB,sizeof(priorityB),"[6,%d,0,1]",
-        kE16NativeAliasBase+1);
-    assert(std::strstr(immediate,priorityB));
-
-    // The native scene receives its alias addresses, including independent
-    // feedback for the two different ENG 1 parameter meanings.
-    char feedback[4096]{};bool gotA=false,gotB=false;
-    char expectedA[48]{},expectedB[48]{};
-    std::snprintf(expectedA,sizeof(expectedA),"[5,%d,",detailAlias);
-    std::snprintf(expectedB,sizeof(expectedB),"[6,%d,",detailAlias);
-    for(int batch=0;batch<40 && !(gotA&&gotB);++batch) {
-        assert(getParam(t.get(),"midi_feedback",feedback,sizeof(feedback))>0);
-        gotA|=std::strstr(feedback,expectedA)!=nullptr;
-        gotB|=std::strstr(feedback,expectedB)!=nullptr;
+    t->controls.locus=.5f;t->splitParts[1].controls.locus=.25f;
+    midiCc(*t,14,1,127);const float first=t->controls.locus;
+    midiCc(*t,14,1,127);assert(t->controls.locus>first);
+    const float second=t->controls.locus;
+    // Larger hardware turns keep their magnitude, while 0/64 stay neutral.
+    midiCc(*t,14,1,120);assert(t->controls.locus>second);
+    midiCc(*t,14,1,8);assert(std::abs(t->controls.locus-second)<.000001f);
+    midiCc(*t,14,1,0);midiCc(*t,14,1,64);assert(std::abs(t->controls.locus-second)<.000001f);
+    // Delayed retired NRPN feedback, old scene recall and pressure cannot
+    // reinterpret the direction of the next physical turn.
+    nrpnId(*t,5,3457,8192);assert(t->controls.locus==second);
+    midiCc(*t,14,1,127);assert(t->controls.locus>second);
+    midiCc(*t,14,1,1);assert(std::abs(t->controls.locus-second)<.000001f);
+    midiCc(*t,15,1,127);assert(t->liveControlsForPart(1).locus>.25f);
+    assert(t->splitFocus==focus && t->selectedLane==lane);
+    setParam(t.get(),"algorithm","8");
+    for(std::size_t choice=1;choice<10;++choice) {
+        midiCc(*t,14,21,127);assert(Engine::wavesetProcessIndex(t->controls.wavesetProcess)==choice);
     }
-    assert(gotA&&gotB);
+    midiCc(*t,14,21,1);assert(Engine::wavesetProcessIndex(t->controls.wavesetProcess)==8);
+    midiCc(*t,14,127,22);assert(Engine::wavesetProcessIndex(t->controls.wavesetProcess)==0);
+    midiCc(*t,14,21,127);assert(Engine::wavesetProcessIndex(t->controls.wavesetProcess)==1);
+    // Release packets do not repeat the reset and no direction is latched.
+    midiCc(*t,14,127,0);midiCc(*t,14,21,127);
+    assert(Engine::wavesetProcessIndex(t->controls.wavesetProcess)==2);
+    setParam(t.get(),"midi_takeover","Jump");midiCc(*t,10,17,127);
+    assert(t->liveControlsForPart(1).locus==1 && t->splitFocus==focus);
+    char feedback[1024]{};formatMidiFeedback(*t,feedback,sizeof(feedback));
+    assert(std::strcmp(feedback,"[]")==0);
+    const auto old=t->controls.locus;setParam(t.get(),"midi_control_mode","Off");
+    midiCc(*t,14,1,127);assert(t->controls.locus==old);
+    std::puts("s3g Thru E16 clockwise/counterclockwise turns, magnitude, default pushes, A/B isolation and Monolit: PASS");
+}
+void testNativeE16HeldNoteResponse() {
+    for(int mode:{0,1,2}) {
+        auto t=splitFixture();t->setPerformanceMode(mode);
+        setParam(t.get(),"midi_control_mode","E16 + MNLT");
+        setParam(t.get(),"algorithm","8");
+        if(mode){t->selectSplitPart(1,false);setParam(t.get(),"algorithm","8");t->selectSplitPart(0,false);}
+        for(int pad:{0,1,2,3,4,5,6,7})t->padNoteOn(68+pad,100);
+        for(int step=0;step<100;++step) {
+            const auto choice=Engine::wavesetProcessIndex(t->controls.wavesetProcess);
+            midiCc(*t,14,21,choice==9?1:127);
+            assert(Engine::wavesetProcessIndex(t->controls.wavesetProcess)==(choice==9?8:choice+1));
+            const float before=t->controls.locus;
+            midiCc(*t,14,1,before>.9f?1:127);
+            assert(before>.9f?t->controls.locus<before:t->controls.locus>before);
+            t->aftertouch(t->padMappedNotes[0],step%127,0);renderSplit(*t,1);
+        }
+    }
+    std::puts("s3g Thru relative encoder edits with held polyphonic notes: PASS");
+}
 
-    std::array<char,kStateTextSize> state{};assert(t->serializeState(state.data(),state.size())>0);
-    auto restored=splitFixture();assert(restored->restoreState(state.data()));
-    assert(restored->midiControlMode==5);
-
-    // test.38 could persist E16's complete raw-zero ENGINE sweep. State 19
-    // recognizes that exact multi-control signature once and restores the
-    // playable defaults without touching isolated minimum settings.
-    auto corrupt=splitFixture();corrupt->setPerformanceMode(0);
-    corrupt->controls.locus=0.0f;corrupt->controls.field=0.02f;
-    corrupt->controls.speed=0.05f;corrupt->controls.manualLane=0.0f;
-    corrupt->controls.laneCycles=0.125f;corrupt->controls.join=0.0f;
-    corrupt->outputGain=0.0f;
-    std::array<char,kStateTextSize> corruptState{};
-    assert(corrupt->serializeState(corruptState.data(),corruptState.size())>0);
-    std::string legacyZero=corruptState.data();
-    auto corruptVersion=legacyZero.find("\"version\":19");
-    assert(corruptVersion!=std::string::npos);
-    legacyZero.replace(corruptVersion,12,"\"version\":18");
-    auto repaired=splitFixture();assert(repaired->restoreState(legacyZero.c_str()));
-    assert(repaired->controls.locus==.5f&&repaired->controls.field==1.0f
-        &&repaired->controls.speed==1.0f&&repaired->controls.manualLane==0.0f
-        &&repaired->controls.laneCycles==1.0f&&repaired->controls.join==1.0f
-        &&repaired->outputGain==1.0f&&repaired->persistentStateDirty);
-
-    // Existing test.34 state keeps its behavior after the final two display
-    // positions are swapped: legacy 6=N+M and legacy 5=Off.
-    std::string legacy=state.data();
-    auto versionAt=legacy.find("\"version\":19");assert(versionAt!=std::string::npos);
-    legacy.replace(versionAt,12,"\"version\":17");
-    auto modeAt=legacy.find("\"midi_control_mode\":5");assert(modeAt!=std::string::npos);
-    legacy.replace(modeAt,21,"\"midi_control_mode\":6");
-    auto migrated=splitFixture();assert(migrated->restoreState(legacy.c_str()));
-    assert(migrated->midiControlMode==5&&midiModeAllowsNrpn(*migrated)
-        &&midiModeAllowsMonolit(*migrated));
-    std::puts("s3g Thru script-free E16 NRPN aliases plus simultaneous MNLT CC: PASS");
+void testNativeE16RingSnapshots() {
+    auto t=splitFixture();t->setPerformanceMode(2);
+    setParam(t.get(),"midi_control_mode","E16 + MNLT");
+    char state[2048]{};assert(formatE16NativeState(*t,state,sizeof(state))==2);
+    const int focus=t->splitFocus;const auto revision=t->persistentRevision;
+    midiCc(*t,14,125,37);midiCc(*t,14,126,1);
+    t->controls.locus=.5f;t->splitParts[1].controls.locus=1;
+    formatE16NativeState(*t,state,sizeof(state));
+    assert(std::strstr(state,"\"page\":0,\"token\":37"));
+    assert(std::strstr(state,"[1,8192,30]") && std::strstr(state,"[9,16383,100]"));
+    assert(t->splitFocus==focus && t->persistentRevision==revision);
+    midiCc(*t,14,1,127);assert(t->controls.locus>.5f);
+    formatE16NativeState(*t,state,sizeof(state));
+    const auto* position=midiParameterForKey("locus");assert(position);
+    const int raw=s3g_thru_midi::encode(*position,t->controls.locus,1);
+    assert(raw>8192);char expected[64]{};std::snprintf(expected,sizeof(expected),"[1,%d,30]",raw);
+    assert(std::strstr(state,expected));
+    midiCc(*t,14,1,1);assert(std::abs(t->controls.locus-.5f)<.000001f);
+    setParam(t.get(),"midi_takeover","Jump");midiCc(*t,10,17,0);
+    formatE16NativeState(*t,state,sizeof(state));assert(std::strstr(state,"[9,0,100]"));
+    t->setPerformanceMode(4);midiCc(*t,14,126,4);
+    setParam(t.get(),"bank_pan","100");
+    formatE16NativeState(*t,state,sizeof(state));assert(std::strstr(state,"[10,16383,100]"));
+    midiCc(*t,15,26,1);assert(t->bankSlots[t->bankSelected].pan<1);
+    midiCc(*t,15,29,127);assert(t->settingsForPart(1).holdMs==50);
+    midiCc(*t,15,29,127);assert(t->settingsForPart(1).holdMs==100);
+    midiCc(*t,15,29,1);assert(t->settingsForPart(1).holdMs==50);
+    midiCc(*t,15,127,30);assert(t->settingsForPart(1).holdMs==0);
+    for(int index=0;index<=67;++index)assert(e16HoldIndex(e16HoldTime(index))==index);
+    const auto* source=midiParameterForKey("bank_record_source");assert(source && source->maximum==3 && source->initial==2);
+    midiCc(*t,15,30,127);assert(t->bankRecordSource==3);
+    midiCc(*t,15,30,1);assert(t->bankRecordSource==2);
+    midiCc(*t,15,30,1);assert(t->bankRecordSource==1);
+    midiCc(*t,15,30,1);assert(t->bankRecordSource==0);
+    midiCc(*t,15,127,31);assert(t->bankRecordSource==2);
+    setParam(t.get(),"midi_control_mode","Off");formatE16NativeState(*t,state,sizeof(state));
+    assert(std::strcmp(state,"{}")==0);
+    std::puts("s3g Thru E16 native page snapshots, safe startup, external edits and Bank bindings: PASS");
 }

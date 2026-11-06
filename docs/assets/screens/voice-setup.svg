@@ -4,7 +4,8 @@
   <desc id="desc">Voice Setup for entry 2 with keyboard assignment and launch variations shown as it appears on Ableton Move.</desc>
   <rect width="128" height="64" fill="#050706"/>
   <g shape-rendering="crispEdges" font-family="DejaVu Sans Mono, IBM Plex Mono, monospace" font-size="6" font-style="normal" font-weight="400" text-rendering="geometricPrecision">
-    <text x="1" y="5.5" fill="#dce8e1">E2 VOICE SETUP 5/24</text>
+    <text x="1" y="5.5" fill="#dce8e1">E2 VOICE SETUP</text>
+    <text x="104" y="5.5" fill="#dce8e1">4/10</text>
     <rect x="0" y="8" width="128" height="1" fill="#dce8e1"/>
     <text x="3" y="16.5" fill="#dce8e1">EDIT</text>
     <text x="3" y="27.5" fill="#dce8e1">2</text>

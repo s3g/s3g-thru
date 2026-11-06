@@ -20,9 +20,9 @@ Requires the local **0.30.0-test.39 or newer** module.
 For the one-USB-device route, connect **Monolit TRS MIDI Out → E16 TRS MIDI
 In → E16 USB-C → Move USB-A**. Power Monolit separately over USB-C, enable
 MIDI Thru in E16's MIDI settings, set Schwung Surface to **CC Only**, and set
-Thru's MIDI mode to **N+M**. Load the stock NRPN scene from
-[`../oxi-e16-nrpn/`](../oxi-e16-nrpn/) on E16. E16 then supplies direct
-high-resolution A/B control and feedback while forwarding this preset's
+Thru's MIDI mode to **E+M**. Load the native relative-CC scene from
+[`../oxi-e16-monolit/`](../oxi-e16-monolit/) on E16. E16 then supplies direct
+relative A/B control while forwarding this preset's
 channel 9–13 CC messages from its TRS input. No USB hub or E16 Lua/Remote
 surface is involved.
 

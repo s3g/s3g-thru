@@ -54,11 +54,12 @@
         return {rootNote, padOctave, static_cast<int>(padScale), static_cast<int>(padMode),
             pressureMode, holdReleaseMs, stackScanPaused ? 1 : 0, glitchBufferLocked ? 1 : 0,
             splitEnabled ? splitParts[static_cast<std::size_t>(splitFocus)].settings.muted : 0,
-            static_cast<int>(laneVariation),voiceEngineSettings};
+            static_cast<int>(laneVariation),voiceEngineSettings,voiceMode};
     }
 
     void applyPartSettings(const PartSettings& s)
     {
+        voiceMode=clampValue(s.voiceMode,0,2);
         voiceEngineSettings=s.engines;
         voiceEngineSettings.edit=std::min(voiceEngineSettings.edit,engineSlotCount()-1);
         if(voiceEngineSettings.enabled)controls.algorithm=static_cast<Engine::PlaybackAlgorithm>(voiceEngineSettings.engines[voiceEngineSettings.edit]);
@@ -136,15 +137,15 @@
         if (notify) markPersistentStateDirty();
     }
 
-    int performanceMode() const {return splitEnabled?(quadMode?3:sharedDual?2:1):0;}
+    int performanceMode() const {return bankMode?4:splitEnabled?(quadMode?3:sharedDual?2:1):0;}
 
     void setSplitMode(bool enabled) {setPerformanceMode(enabled?(quadMode?3:sharedDual?2:1):0);}
 
     void setPerformanceMode(int mode)
     {
-        const bool enabled=mode!=0,shared=mode==2,quad=mode==3;
-        if(enabled==splitEnabled&&(!enabled||(shared==sharedDual&&quad==quadMode)))return;
-        if(audioRecording()||partCapturePublishing||clipRecording){setError("Stop recording before changing mode");return;}
+        const bool enabled=mode!=0,shared=mode==2||mode==4,quad=mode==3;
+        if(enabled==splitEnabled&&bankMode==(mode==4)&&(!enabled||(shared==sharedDual&&quad==quadMode)))return;
+        if(audioRecording()||partCapturePublishing||clipRecording||bankJob.load(std::memory_order_acquire)){setError("Stop recording before changing mode");return;}
         const bool wasMulti=splitEnabled,wasQuad=quadMode;
         voiceEngineTraversal={};
         stochasticPartMeters={};
@@ -181,10 +182,12 @@
         } else {
             storeFocusedPart();splitEnabled=false;splitFocus=0;controls=splitSingleControls;applyPartSettings(splitSingleSettings);
         }
+        bankMode=mode==4;
         for(auto& insert:splitInserts)insert.reset();
         splitRollWrite={};splitRollFrames={};refreshPlaybackVoices();
         for(auto& roll:rolls){roll.active=roll.held=false;roll.envelope=roll.target=0;}
         captureActiveClip(true);markPersistentStateDirty();clearError();
+        if(bankMode)requestBankSourcesIfNeeded();
     }
 
     void copySplitPart(int source)
@@ -239,6 +242,8 @@
     {
         storeFocusedPart();
         captureCurrentStackPaths(clip);
+        clip.bankMode=bankMode;clip.bankSlots=bankSlots;
+        clip.bankMasterRate=bankMasterRate;clip.bankRecordSource=bankRecordSource;
         clip.splitEnabled = splitEnabled; clip.sharedDual=sharedDual;clip.quadMode=quadMode;clip.quadInitialized=quadInitialized; clip.splitInitialized = splitInitialized; clip.splitFocus = splitFocus;
         clip.singleSettings = splitEnabled ? splitSingleSettings : currentPartSettings();
         if (!splitEnabled) splitSingleControls = controls;
@@ -255,6 +260,8 @@
 
     void restoreSplitClip(const ClipSlot& clip)
     {
+        bankMode=clip.bankMode;bankSlots=clip.bankSlots;
+        bankMasterRate=clip.bankMasterRate;bankRecordSource=clip.bankRecordSource;
         stackPathLastEdit=-1;
         voiceEngineTraversal={};
         stochasticPartMeters={};
@@ -328,7 +335,7 @@
 
     int formatSplitState(char* buffer,int capacity) const
     {
-        int at=std::snprintf(buffer,capacity,"{\"enabled\":%d,\"shared\":%d,\"quad\":%d,\"focus\":%d,\"blend\":%.5f,\"parts\":[",splitEnabled?1:0,sharedDual?1:0,quadMode?1:0,splitFocus,splitBlendState);
+        int at=std::snprintf(buffer,capacity,"{\"enabled\":%d,\"shared\":%d,\"quad\":%d,\"bank\":%d,\"focus\":%d,\"blend\":%.5f,\"parts\":[",splitEnabled?1:0,sharedDual?1:0,quadMode?1:0,bankMode?1:0,splitFocus,splitBlendState);
         for(int p=0;p<partCount();++p) {
             if(at<0||at>=capacity)return -1;
             const auto ui=settingsForPart(p);const auto& c=liveControlsForPart(p);
@@ -612,6 +619,7 @@
             const int n=std::snprintf(buffer+at,static_cast<std::size_t>(capacity-at),format,values...);
             if(n<0||n>=capacity-at)at=capacity;else at+=n;
         };
+        append(",\"bank_mode\":%d,\"bank_master_rate\":%.9g,\"bank_record_source\":%d,\"bank_source_version\":2",bankMode?1:0,bankMasterRate,bankRecordSource);
         append(",\"split_enabled\":%d,\"split_shared\":%d,\"split_initialized\":%d,\"split_focus\":%d",splitEnabled?1:0,sharedDual?1:0,splitInitialized?1:0,splitFocus);
         append(",\"split_params_count\":%zu,\"split_parts\":4,\"split_quad\":%d,\"quad_initialized\":%d",kLockParameterCount,quadMode?1:0,quadInitialized?1:0);
         const char* names[]{"split_single","split_a","split_b","split_c","split_d"};
@@ -625,6 +633,7 @@
                 :(splitEnabled?settingsForPart(group-1):splitParts[static_cast<std::size_t>(group-1)].settings);
             for(int value:settingsValues(ui))append(",%d",value);
             append("%s","]");
+            append(",\"%s_voice_mode\":%d",names[group],ui.voiceMode);
             appendVoiceEngineJson(append,group,ui.engines);
             appendVoicePlayJson(append,group,ui.engines);
         }
@@ -669,11 +678,22 @@
         if(parts==2)for(int group=3;group<5;++group){restored[group]=restored[1];settings[group]=settings[1];}
         const char* pathNames[]{"stack_path_single","stack_path_a","stack_path_b","stack_path_c","stack_path_d"};
         for(int group=0;group<5;++group)if(!readStackPathJson(json,pathNames[group],restored[group].stackPath))return false;
+        for(int group=0;group<5;++group) {
+            char key[40]{};float value=0;std::snprintf(key,sizeof(key),"%s_voice_mode",names[group]);
+            if(jsonNumber(json,key,value))settings[group].voiceMode=clampValue(static_cast<int>(value),0,2);
+        }
+        float bank=0;jsonNumber(json,"bank_mode",bank);bankMode=bank>=.5f && enabled>=.5f && shared>=.5f && quad<.5f;
+        float master=1,source=0,sourceVersion=1;jsonNumber(json,"bank_master_rate",master);
+        bankMasterRate=clampValue(master,.125f,8.f);bankRecordSource=2;
+        if(jsonNumber(json,"bank_record_source",source)) {
+            jsonNumber(json,"bank_source_version",sourceVersion);
+            bankRecordSource=sourceVersion>=2?clampValue(static_cast<int>(source),0,3):(source>=.5f?0:2);
+        }
         splitMixerOverrides.fill(false);voiceEngineTraversal={};
         splitSingleControls=restored[0];splitSingleSettings=settings[0];
         for(std::size_t p=0;p<4;++p){splitParts[p].controls=restored[p+1];splitParts[p].settings=settings[p+1];}
         splitEnabled=enabled>=.5f;sharedDual=shared>=.5f;quadMode=quad>=.5f;quadInitialized=quadInit>=.5f;splitInitialized=initialized>=.5f;splitFocus=clampValue(static_cast<int>(focus),0,partCount()-1);
-        if(!splitEnabled){voiceEngineSettings=settings[0].engines;controls.stackPath=restored[0].stackPath;for(std::size_t p=kVersion19LockParameterCount;p<kLockParameterCount;++p)applyLockedValue(controls,outputGain,p,lockedValue(restored[0],outputGain,p));}
+        if(!splitEnabled){voiceMode=settings[0].voiceMode;voiceEngineSettings=settings[0].engines;controls.stackPath=restored[0].stackPath;for(std::size_t p=kVersion19LockParameterCount;p<kLockParameterCount;++p)applyLockedValue(controls,outputGain,p,lockedValue(restored[0],outputGain,p));}
         if(splitEnabled) {
             float ignored=outputGain;
             for(std::size_t p=0;p<kLockParameterCount;++p)if(!splitPartParameter(p))applyLockedValue(controls,ignored,p,lockedValue(restored[1],outputGain,p));

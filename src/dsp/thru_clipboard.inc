@@ -8,7 +8,7 @@ bool clipClipboardHasEntry = false, undoHasChainClip = false;
 int chainClipUndoIndex = -1;
 
 bool clipClipboardEditAllowed() {
-    if (clipRecording || audioRecording()) {
+    if (clipRecording || audioRecording() || bankJob.load(std::memory_order_acquire)) {
         setError("Stop recording first");
         return false;
     }

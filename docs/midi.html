@@ -17,7 +17,7 @@
       <main class="content" id="content">
         <p class="eyebrow">External control</p>
         <h1>MIDI control</h1>
-        <p class="lead">Play notes and pressure independently from parameter control, then choose high-resolution NRPN, eight page-following CCs, the MNLT direct-CC bank, the dedicated OXI E16 Remote surface or a script-free E16 + Monolit route.</p>
+        <p class="lead">Play notes and pressure independently from parameter control, then choose high-resolution NRPN, eight page-following CCs, the MNLT direct-CC bank, the dedicated OXI E16 Remote surface or a native E16 + Monolit route.</p>
         <div class="callout"><p><strong>Next-release preview:</strong> selectable controller modes, MNLT and Priority Duck control require the local <strong>0.30.0-test.39 or newer</strong> build. The published 0.29.1 release predates this controller interface. Check the version shown when takeover opens.</p></div>
 
         <h2 id="options">MIDI options at a glance</h2>
@@ -27,7 +27,7 @@
           <tr><td>Generic CC</td><td>Eight consecutive absolute CCs on a configurable channel</td><td>A small controller that should follow the eight controls visible on Move.</td></tr>
           <tr><td>MNLT direct-CC bank</td><td>Channels 9–12 for A–D; shared controls and commands on channel 13</td><td>Simultaneous part control from Light Reft Monolit or another multi-control surface.</td></tr>
           <tr><td>OXI E16 Remote</td><td>Dedicated Schwung surface using E16’s display, encoders and RGB rings</td><td>Readable pages with formatted names, values and feedback.</td></tr>
-          <tr><td>E16 NRPN + MNLT</td><td>E16 native 14-bit aliases on channels 5–6; Monolit direct CC on 9–13</td><td>One direct USB connection to Move, with Monolit entering E16 over TRS MIDI.</td></tr>
+          <tr><td>E16 + MNLT</td><td>E16 relative CC on channels 14–15; Monolit absolute CC on 9–13</td><td>One direct USB connection to Move, with Monolit entering E16 over TRS MIDI.</td></tr>
           <tr><td>Clock and transport</td><td>MIDI real-time messages</td><td>External synchronization; unaffected by parameter-mode selection.</td></tr>
         </tbody></table></div>
 
@@ -39,7 +39,7 @@
           <tr><td>MODE</td><td>CC</td><td>Map eight consecutive absolute CCs to the visible Move parameter page.</td></tr>
           <tr><td>MODE</td><td>MNLT</td><td>Use the fixed Light Reft Monolit bank and button layout.</td></tr>
           <tr><td>MODE</td><td>E16</td><td>Accept only OXI E16 Remote parameter control.</td></tr>
-          <tr><td>MODE</td><td>N+M</td><td>Accept fixed NRPN, the script-free E16 native aliases and the MNLT direct-CC bank together.</td></tr>
+          <tr><td>MODE</td><td>E+M</td><td>Use native E16 relative turns alongside the MNLT direct-CC bank. Fixed public NRPN remains available.</td></tr>
           <tr><td>MODE</td><td>Off</td><td>Disable external parameter control.</td></tr>
           <tr><td>CCCH</td><td>1–16</td><td>Generic CC channel; default 9.</td></tr>
           <tr><td>BASE</td><td>0–120</td><td>First of eight Generic CC numbers; default 20 for CC 20–27.</td></tr>
@@ -68,7 +68,7 @@
             <tr><td>MNLT shared controls</td><td>13</td><td>CC 72–79</td><td>Performance clip, tempo and pattern-fade controls.</td></tr>
             <tr><td>MNLT commands</td><td>13</td><td>CC 16–23</td><td>Stack Hold A–D, clip record, pattern-fade Hold, Panic and one reserved command.</td></tr>
             <tr><td>OXI E16 Remote</td><td>1 while Remote owns the surface</td><td>Relative CC 1–16; notes 0–16 for held encoders and shortcuts</td><td>The active E16 Remote page. This transport is reserved while the surface is live.</td></tr>
-            <tr><td>E16 native aliases</td><td>5 A / 6 B turns; 14 A / 15 B resets</td><td>Private NRPN 3456–3551; reset CC 0–95</td><td>The twelve script-free E16 pages in N+M mode. CC reset presses preserve the active turn address. Destinations follow each part's current engine.</td></tr>
+            <tr><td>E16 native relative controls</td><td>14 A / 15 B</td><td>Turn CC 0–95; reset CC 127 with value 1–96</td><td>E+M mode. THRU EM turns use 127 to increase and 1 to decrease: clockwise increases values and advances the rings. Destinations follow the current engine.</td></tr>
             <tr><td>Clock / transport</td><td>Channel-free</td><td>MIDI Clock, Start, Continue and Stop</td><td>External tempo and transport synchronization.</td></tr>
           </tbody>
         </table></div>
@@ -77,7 +77,7 @@
 
         <h2 id="direct-cc">All fixed direct-CC mappings</h2>
         <p>The two tables below are the complete fixed ordinary-CC receiver map implemented by Thru. Parts use identical CC numbers on separate channels: <strong>channel 9 = A, 10 = B, 11 = C and 12 = D</strong>. Send A and B controls at the same time without selecting a controller target first.</p>
-        <p>Set MODE to <strong>MNLT</strong>, or <strong>N+M</strong> when Monolit is routed through the script-free E16 scene. The map can be used by Light Reft Monolit or any controller able to send these addresses. Values are absolute 0–127; Pick is the safer takeover setting while testing a layout.</p>
+        <p>Set MODE to <strong>MNLT</strong>, or <strong>E+M</strong> when Monolit is routed through the native E16 scene. The map can be used by Light Reft Monolit or any controller able to send these addresses. Values are absolute 0–127; Pick is the safer takeover setting while testing a layout.</p>
         <p>The map defines what Thru receives, not where a control must live physically. Banks C–F are intentionally adaptive: each address follows one knob on the addressed part’s current engine-detail page. This makes them flexible, but their sound function changes when the engine changes.</p>
         <p>Banks A–H use the part channels above and CC 16–79. Channel 13 CC 24 controls the shared A/B crossfade, CC 25 selects its curve, CC 26–33 control Priority Duck, and CC 72–79 form the shared Performance bank. An unavailable engine page or part that does not exist in the current instrument mode is ignored.</p>
 
@@ -203,36 +203,38 @@
         <p>Send these optional commands as momentary 0/127 controls. Thru acts on the nonzero edge, so the release does not repeat the command.</p>
         <p>The controller folder includes a <a href="https://github.com/s3g/s3g-thru/blob/main/controllers/lightreft-monolit/mapping.csv">downloadable receiver-map CSV</a> and generated <a href="https://github.com/s3g/s3g-thru/blob/main/controllers/lightreft-monolit/presets/s3g-thru">Split / Shared Dual example preset</a> for the official Monolit Web-Editor. Each bank places A on faders 1–4 and B on faders 5–8. The eight banks cover LIVE, both halves of ENG 1, both halves of ENG 2, MIX / SEND, COLOR and ROTARY. MIX / SEND places X-CURVE on fader 4 and X-FADE on fader 8. ROTARY keeps per-part X-PN and omits SPRD from the focused preset. All paired buttons remain local Monolit MOTION controls; the example does not use the optional command map above.</p>
 
-        <h2 id="e16-nrpn-monolit">E16 NRPN + Monolit · one USB connection</h2>
+        <h2 id="e16-monolit">E16 + Monolit · one USB connection</h2>
         <p>This alternate local setup keeps E16 directly attached to Move and brings Monolit into E16's TRS MIDI input:</p>
         <pre><code>Monolit TRS MIDI OUT → E16 TRS MIDI IN → E16 USB-C → Move USB-A</code></pre>
         <p>Move powers E16 over USB. Power Monolit separately over USB-C; TRS MIDI does not carry power. Use a type-A-compatible TRS MIDI cable or adapter. E16 sends its own controls and the forwarded Monolit messages to Move through the same USB connection, so no USB hub or direction-switching adapter is involved.</p>
         <h3 id="e16-nrpn-setup">Connection setup</h3>
         <ol>
-          <li>Install the matching <strong>0.30.0-test.39</strong> tarball.</li>
+          <li>Install the matching <strong>0.30.0-test.49 or newer</strong> tarball.</li>
           <li>Leave takeover and set <strong>Schwung Global Settings → Surfaces → Surface → CC Only</strong>.</li>
-          <li>Before connecting E16 to Move, open Thru and set <strong>Menu → MIDI Control → MODE</strong> to <strong>N+M</strong>. Use Pick for safe Monolit fader pickup or Jump for immediate response. The selection is saved.</li>
+          <li>Open Thru and set <strong>Menu → MIDI Control → MODE</strong> to <strong>E+M</strong>. Use Pick for safe Monolit fader pickup or Jump for immediate response. The selection is saved. E16 and takeover may be started in either order.</li>
           <li>On E16, select USB1, turn USB Multi Port off and enable MIDI Thru in <strong>Conf / Settings → MIDI</strong>. OXI documents that an enabled input is echoed to the other MIDI outputs.</li>
-          <li>Transfer the matching <strong>Scenes/THRU NRPN MNLT.oxie16</strong> from <a href="https://github.com/s3g/s3g-thru/tree/main/controllers/oxi-e16-nrpn">controllers/oxi-e16-nrpn</a> with OXI App. Replace an older THRU NM scene rather than retaining the test.38 copy. The E16 scene appears as <strong>THRU NM</strong> and contains no Lua script.</li>
-          <li>Load the supplied Monolit preset or a custom channel 9–13 MNLT map. Select THRU NM, connect the devices in the order shown above, then open Thru.</li>
+          <li>Transfer the matching <strong>Scenes/THRU E16 MNLT.oxie16</strong> from <a href="https://github.com/s3g/s3g-thru/tree/main/controllers/oxi-e16-monolit">controllers/oxi-e16-monolit</a> with OXI App. Replace the older native scene with this relative-CC scene. The E16 scene appears as <strong>THRU EM</strong> and includes the small <strong>Thru Rings</strong> feedback script; transfer the script with the scene.</li>
+          <li>Load the supplied Monolit preset or a custom channel 9–13 MNLT map. Select THRU EM, connect the devices in the order shown above, then open Thru.</li>
         </ol>
-        <p>In N+M mode, Thru disables its E16 Remote discovery and ignores Remote handshakes, so the native THRU NM scene remains on the controller. If an older build has already replaced it with Remote, install test.39, disconnect E16, set Surface to CC Only and MODE to N+M, then reconnect and reselect THRU NM.</p>
-        <div class="callout"><p><strong>Updating from test.38:</strong> install the test.39-or-newer module and replace the THRU NM scene. The revised scene reserves raw zero for startup synchronization. Thru also repairs the exact saved zero-sweep state—Position 0, minimum Field, Speed and Scan, Join 0 and possibly Level 0—on first load. Individual controls intentionally set to a minimum are not reset.</p></div>
-        <p>E16 encoders 1–8 control A and 9–16 control B. Its twelve page positions match Engine, Stack, ENG 1–4, Sends, Color, Rotary, Delay, Reverb and Tape. Shared pages occupy encoders 1–8 once. ENG pages show P1–P8 because a stock scene cannot rename controls as the algorithm changes, but each destination and value follows that part's current engine. Full parameter names, option text and units remain visible on Move. <strong>Quick-press an active encoder to return its current parameter to the Thru default.</strong> The reset follows adaptive ENG assignments; PRIO returns to neutral Off, XFD to center, levels to unity and effect mixes to dry. A Monolit fader edit is returned to its matching E16 ring before the background page sweep, so the ring follows on the next feedback tick. Monolit remains a 7-bit source with 128 positions; turning E16 itself retains 14-bit resolution.</p>
-        <p>The scene uses private turn aliases 3456–3551 on channels 5 and 6. Reset presses use CC 0–95 on dedicated channels 14 (A) and 15 (B), preserving E16's selected NRPN turn address without colliding with Monolit on channels 9–13. These controls are not part of Thru's fixed public registry. Thru resolves them dynamically and returns values to E16. This native route controls A/B only and uses fixed ring colors. Use Move or the fixed NRPN registry for Quad C/D.</p>
-        <p>Rebuild the OXI App bundle with <code>npm run controllers:nrpn:package</code>. It writes <code>dist/s3g-thru-e16-nrpn-monolit.zip</code> and a ready storage folder at <code>dist/e16-nrpn-monolit</code>.</p>
-
+        <p>Test.49 corrects encoder direction: clockwise increases values and counterclockwise decreases them. The test.48 THRU EM scene and Thru Rings script can remain installed.</p>
+        <p>E+M disables Thru's Remote discovery and ignores Remote handshakes. E16 encoders 1–8 address A; 9–16 address B. A turn edits Thru's current value directly, so no pickup or ring alignment is needed. One detent advances one enum choice, including Wavesets PROC. Ordinary numerical controls use a high-resolution internal step.</p>
+        <p>The twelve pages are Engine, Stack, ENG 1–4, Sends, Color, Rotary, Delay, Reverb and Tape. Shared pages use the first eight encoders. ENG labels remain P1–P8; read names, units and option text on Move. Quick-press an encoder to restore that destination's default, then continue turning normally.</p>
+        <p><strong>Update both the module and scene.</strong> THRU EM replaces the earlier native NRPN scene. Automatic scene/page transmission is disabled. The Thru Rings script receives actual values for E16’s selected page without taking over its display or handling encoder turns. Monolit retains its absolute CC map and Pick or Jump behavior. Use E16 Remote separately when readable synchronized values are the priority.</p>
+        <h3 id="e16-native-rings">Reading the native E16 rings</h3>
+        <p>The first two encoder rows address A and the last two address B; their colors identify these banks. Ring fill follows Thru’s current value for the selected E16 page: start is minimum and full is maximum. Bipolar controls put zero at the midpoint; enum choices are spaced across the ring. Move edits, Monolit fader moves, clip recalls and encoder-press default resets are mirrored without needing the same page open on Move. Native text remains the scene’s labels; Remote is the option for formatted value text. Page changes request a fresh snapshot; feedback is sent in small batches and does not control the direction or origin of turns.</p>
+        <p>In Bank mode, B’s ENG 1 page follows Bank Sample and ENG 2 follows Bank Pads, in Move knob order. B’s Engine, Stack and ENG 3–4 destinations are inactive. Bank controls and the SRC IN / MIX / PT A / PT B selector are described on the <a href="bank.html#pads">Bank page</a>.</p>
         <h3 id="e16-native-help">Native scene checks</h3>
-        <table class="readout-table"><thead><tr><th>Symptom</th><th>What it means</th><th>What to do</th></tr></thead><tbody>
-          <tr><td>Library preview works; pads light and playheads move, but performance audio is silent</td><td>A test.38 native scene may have saved the Engine page's startup minima.</td><td>Install test.39 or newer, replace THRU NM, and reopen takeover. Confirm FIELD is full, SPD and SCAN are 1, JOIN is full and LVL is unity.</td></tr>
-          <tr><td>THRU NM changes to Remote</td><td>Remote still owns the E16 connection.</td><td>Leave takeover, choose Schwung Surface CC Only, set Thru MODE to N+M, select THRU NM and reopen takeover.</td></tr>
-          <tr><td>Monolit changes Move but not the E16 rings</td><td>MIDI reaches Thru, but E16 feedback or MIDI Thru is not configured.</td><td>Use USB1, USB Multi Port Off and MIDI Thru On; confirm the matching THRU NM scene is selected.</td></tr>
+        <table><thead><tr><th>Symptom</th><th>Check</th></tr></thead><tbody>
+          <tr><td>Scene becomes Remote</td><td>Select Schwung Surface CC Only and Thru MIDI Mode E+M, then reselect THRU EM.</td></tr>
+          <tr><td>Turns do not edit</td><td>Install the matching test.49 module and relative-CC scene. Use USB1, with USB Multi Port off.</td></tr>
+          <tr><td>Monolit does not reach Move</td><td>Enable E16's TRS-input MIDI Thru to USB; check Monolit's power and channels 9–13.</td></tr>
+          <tr><td>Ring differs from Move</td><td>Install the matching module, scene and Thru Rings script. Reselect THRU EM and allow a second for its read-only refresh; confirm USB1 and CC Only.</td></tr>
         </tbody></table>
 
         <h2 id="e16">OXI E16 Remote</h2>
-        <p>The local test.39 build retains the script-free <strong>THRU RM</strong> scene as the more readable alternative. OXI Remote draws a compact name above each formatted value, while Thru retains its high-resolution parameter values internally. Remote is separate from the N+M route above and does not merge Monolit.</p>
+        <p>The local test.39 build retains the script-free <strong>THRU RM</strong> scene as the more readable alternative. OXI Remote draws a compact name above each formatted value, while Thru retains its high-resolution parameter values internally. Remote is separate from the E+M route above and does not merge Monolit.</p>
         <h3 id="e16-setup">Connection setup</h3>
-        <ol><li>Install the matching <strong>0.30.0-test.39</strong> tarball with Schwung Manager.</li><li>Leave takeover. Set <strong>Schwung Global Settings → Surfaces → Surface → E16</strong>.</li><li>Use current E16 firmware, USB1, USB Multi Port Off and USB MIDI Thru Off.</li><li>Extract <code>dist/s3g-thru-e16-remote.zip</code>, or select <code>dist/e16-remote</code> as OXI App's computer storage folder. Transfer <strong>Scenes/THRU REMOTE.oxie16</strong> to an unused slot. No Lua script is attached or required.</li><li>Connect E16 USB-C to Move USB-A. Select THRU RM before opening takeover. Remote replaces the blank starter screen automatically.</li></ol>
+        <ol><li>Install a <strong>0.30.0-test.39 or newer</strong> tarball with Schwung Manager.</li><li>Leave takeover. Set <strong>Schwung Global Settings → Surfaces → Surface → E16</strong>.</li><li>Use current E16 firmware, USB1, USB Multi Port Off and USB MIDI Thru Off.</li><li>Extract <code>dist/s3g-thru-e16-remote.zip</code>, or select <code>dist/e16-remote</code> as OXI App's computer storage folder. Transfer <strong>Scenes/THRU REMOTE.oxie16</strong> to an unused slot. No Lua script is attached or required.</li><li>Connect E16 USB-C to Move USB-A. Select THRU RM before opening takeover. Remote replaces the blank starter screen automatically.</li></ol>
         <p>The official integration is in <a href="https://github.com/s3g/s3g-thru/tree/main/controllers/oxi-e16">controllers/oxi-e16</a>. Run <code>npm run controllers:generate</code> and <code>npm run controllers:package</code> to rebuild it. Screen traffic is acknowledged and bounded; headings arrive before a changed page body. Ordinary value changes redraw only their value and ring. Engine changes preserve common cells, the other part and effects.</p>
         <h3 id="e16-layout">Parts and modes</h3>
         <p>A/C occupies the first two encoder rows, 1–8; B/D occupies the last two, 9–16. Single uses A; Split and Shared Dual use A/B. In Quad, hold <strong>E16 Shift and press encoder 1</strong> to switch A/B ↔ C/D. Shared SENDS always shows all four parts. E16 edits leave Move's current part and page selected.</p>
@@ -250,7 +252,7 @@
           <tr><td>11</td><td>REVERB</td><td>1–8, once</td><td>Algorithm, Decay, Pre-delay, Damping, Diffusion, Modulation, Width and MIX.</td></tr>
           <tr><td>12</td><td>TAPE</td><td>1–8, once</td><td>Format, Record level, Age, Crinkle, Mechanics, Inertia, Hiss and MIX.</td></tr>
         </tbody></table>
-        <p>Shared returns occupy the top eight controls once. SENDS does not duplicate return MIX. Blank controls show a small reserved square. Pads &amp; Scale, envelopes, Engine Lists, Path Editor points, browsing, recording, loops and chains remain on Move; open its page chooser with <strong>Capture + Menu</strong>.</p>
+        <p>Shared returns occupy the top eight controls once. SENDS does not duplicate return MIX. Blank controls show a small reserved square. Pads &amp; Scale, envelopes, Engine Lists, Path Editor points, browsing, recording, loops and chains remain on Move; open its page hub with <strong>Capture + Menu</strong> or use Capture + Track 1–4 for the four working banks.</p>
         <h3 id="e16-values">Values and feedback</h3>
         <p>Remote uses a compact 3×5 display font. Each cell places its abbreviated parameter name above a readable choice, percentage, ratio, millisecond, second, hertz or semitone value. Bipolar controls use centered rings.</p>
         <p>Hold an encoder while turning for fine continuous adjustment. Choice controls advance one option per turn. Shift turns do not edit sound parameters. Move edits and clip recalls update the visible E16 page.</p>
@@ -264,7 +266,7 @@
         <h3 id="e16-link">Reading the E16 report</h3>
         <p>Press <strong>Shift + Menu</strong> on Move and select E16 Link 5/5. STATE reports LIVE, SEARCH, WAIT CLEAR, RECONNECT or OFF. LAST retains the most recent transport issue. ACK/NACK and RETRY/RECON show display confirmations and recovery attempts. PENDING PX is unacknowledged display work against its 320-pixel window; these are not audio-load measurements.</p>
         <h2 id="nrpn">High-resolution NRPN map</h2>
-        <p>Thru provides <strong>342 fixed NRPN addresses</strong> for playback, engines, effects, recording and performance. Channels 5–8 address parts A–D; channel 16 addresses shared controls. Each address keeps the same meaning when engines or pages change.</p>
+        <p>Thru provides <strong>352 fixed NRPN addresses</strong> for playback, engines, effects, recording and performance. Channels 5–8 address parts A–D; channel 16 addresses shared controls. Each address keeps the same meaning when engines or pages change.</p>
         <p>Use the downloadable <a href="https://github.com/s3g/s3g-thru/blob/main/controllers/midi/parameters.csv"><strong>complete NRPN CSV</strong></a> for every address, CC 99/98 selector byte, channel, range, curve and action flag. The <a href="https://github.com/s3g/s3g-thru/tree/main/controllers/midi">MIDI reference folder</a> also contains the source registry.</p>
         <p id="engine-list-midi">Engine List, Voice Setup, Stochastic and Pulsar mappings are included in the same CSV rather than repeated as separate manual sections.</p>
         <p>Send CC 99 and 98 to select an address, followed by CC 6 and 38 for its 14-bit value. Configure two-way feedback without retransmitting received values. Ordinary NRPN feedback pauses while THRU RM owns the E16 surface and resumes after it disconnects.</p>
@@ -277,7 +279,7 @@
       </main>
       <aside class="toc" aria-label="Page navigation">
         <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="midi.html">MIDI</a><a href="shortcuts.html">Shortcuts</a></div>
-        <div class="toc-section"><h2>On this page</h2><a href="#options">MIDI options</a><a href="#control-mode">Controller mode</a><a href="#generic-cc">Generic CC</a><a href="#channels">Channels and CCs</a><a href="#direct-cc">All fixed direct CCs</a><a href="#monolit-buttons">Command CCs</a><a href="#e16-nrpn-monolit">E16 + Monolit</a><a href="#e16-native-help">Native checks</a><a href="#e16">OXI E16 Remote</a><a href="#nrpn">NRPN CSV</a></div>
+        <div class="toc-section"><h2>On this page</h2><a href="#options">MIDI options</a><a href="#control-mode">Controller mode</a><a href="#generic-cc">Generic CC</a><a href="#channels">Channels and CCs</a><a href="#direct-cc">All fixed direct CCs</a><a href="#monolit-buttons">Command CCs</a><a href="#e16-monolit">E16 + Monolit</a><a href="#e16-native-help">Native checks</a><a href="#e16">OXI E16 Remote</a><a href="#nrpn">NRPN CSV</a></div>
       </aside>
     </div>
     <footer class="manual-footer">s3g Thru · Next-release MIDI guide</footer>

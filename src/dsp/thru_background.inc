@@ -63,7 +63,9 @@
         s3g_daisy::configureBackgroundThread();
         while (self.backgroundRunning.load(std::memory_order_acquire)
             || self.laneJob.load(std::memory_order_acquire) == backgroundRequested
-            || self.persistenceJob.load(std::memory_order_acquire) == backgroundRequested) {
+            || self.persistenceJob.load(std::memory_order_acquire) == backgroundRequested
+            || self.bankJob.load(std::memory_order_acquire)==2) {
+            if(self.processBankJob())continue;
             if (self.laneJob.load(std::memory_order_acquire) == backgroundRequested) {
                 self.laneJob.store(backgroundWorking, std::memory_order_release);
                 auto& job = self.laneSnapshot;
@@ -121,6 +123,7 @@
 
     void consumeBackgroundResults()
     {
+        consumeBankJob();
         if (laneJob.load(std::memory_order_acquire) == backgroundComplete) {
             const auto& job = laneSnapshot;
             const bool current = job.revision == wavesetSourceRevisions[job.lane]
@@ -296,9 +299,9 @@
     int saveStatus() const
     {
         if(!persistenceEnabled)return 0; // No persistent data directory.
-        if(saveFailed || !backgroundStarted)return 4;
-        if(audioRecording() || clipRecording)return 1;
-        if(partCapturePublishing || pendingCaptureSaveMask || persistentStateDirty || recordStartPending
+        if(saveFailed || bankSaveFailed || !backgroundStarted)return 4;
+        if(audioRecording() || clipRecording || bankJob.load(std::memory_order_acquire)==1)return 1;
+        if(bankJob.load(std::memory_order_acquire)>1 || partCapturePublishing || pendingCaptureSaveMask || persistentStateDirty || recordStartPending
             || persistenceJob.load(std::memory_order_acquire)!=backgroundIdle)return 2;
         return 3; // All referenced audio and the latest metadata are committed.
     }

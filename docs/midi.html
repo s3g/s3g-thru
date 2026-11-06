@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>MIDI control - s3g Thru manual</title>
-    <meta name="description" content="MIDI notes, pressure, NRPN, ordinary CC, Light Reft Monolit, OXI E16 Remote and combined E16 NRPN routing for s3g Thru.">
+    <meta name="description" content="MIDI notes, pressure, NRPN, ordinary CC, Light Reft Monolit, OXI E16 Remote and combined native relative-CC E16 routing for s3g Thru.">
     <link rel="stylesheet" href="assets/styles.css">
   </head>
   <body>
@@ -18,7 +18,7 @@
         <p class="eyebrow">External control</p>
         <h1>MIDI control</h1>
         <p class="lead">Play notes and pressure independently from parameter control, then choose high-resolution NRPN, eight page-following CCs, the MNLT direct-CC bank, the dedicated OXI E16 Remote surface or a native E16 + Monolit route.</p>
-        <div class="callout"><p><strong>Next-release preview:</strong> selectable controller modes, MNLT and Priority Duck control require the local <strong>0.30.0-test.39 or newer</strong> build. The published 0.29.1 release predates this controller interface. Check the version shown when takeover opens.</p></div>
+        <div class="callout"><p><strong>0.30.0 draft:</strong> this guide describes the current <strong>0.30.0-test.52</strong> controller interface. The published installer remains at <strong>0.29.1</strong>. Use the matching local testing package to try these controls.</p></div>
 
         <h2 id="options">MIDI options at a glance</h2>
         <div class="table-scroll"><table class="readout-table"><thead><tr><th>Option</th><th>Messages and channels</th><th>Best use</th></tr></thead><tbody>
@@ -209,14 +209,14 @@
         <p>Move powers E16 over USB. Power Monolit separately over USB-C; TRS MIDI does not carry power. Use a type-A-compatible TRS MIDI cable or adapter. E16 sends its own controls and the forwarded Monolit messages to Move through the same USB connection, so no USB hub or direction-switching adapter is involved.</p>
         <h3 id="e16-nrpn-setup">Connection setup</h3>
         <ol>
-          <li>Install the matching <strong>0.30.0-test.49 or newer</strong> tarball.</li>
+          <li>Install the matching s3g Thru module and controller files from the 0.30.0 draft.</li>
           <li>Leave takeover and set <strong>Schwung Global Settings → Surfaces → Surface → CC Only</strong>.</li>
           <li>Open Thru and set <strong>Menu → MIDI Control → MODE</strong> to <strong>E+M</strong>. Use Pick for safe Monolit fader pickup or Jump for immediate response. The selection is saved. E16 and takeover may be started in either order.</li>
           <li>On E16, select USB1, turn USB Multi Port off and enable MIDI Thru in <strong>Conf / Settings → MIDI</strong>. OXI documents that an enabled input is echoed to the other MIDI outputs.</li>
           <li>Transfer the matching <strong>Scenes/THRU E16 MNLT.oxie16</strong> from <a href="https://github.com/s3g/s3g-thru/tree/main/controllers/oxi-e16-monolit">controllers/oxi-e16-monolit</a> with OXI App. Replace the older native scene with this relative-CC scene. The E16 scene appears as <strong>THRU EM</strong> and includes the small <strong>Thru Rings</strong> feedback script; transfer the script with the scene.</li>
           <li>Load the supplied Monolit preset or a custom channel 9–13 MNLT map. Select THRU EM, connect the devices in the order shown above, then open Thru.</li>
         </ol>
-        <p>Test.49 corrects encoder direction: clockwise increases values and counterclockwise decreases them. The test.48 THRU EM scene and Thru Rings script can remain installed.</p>
+        <p>Clockwise increases values and counterclockwise decreases them. Existing users of the matching THRU EM scene and Thru Rings script can retain them when updating only the Move module.</p>
         <p>E+M disables Thru's Remote discovery and ignores Remote handshakes. E16 encoders 1–8 address A; 9–16 address B. A turn edits Thru's current value directly, so no pickup or ring alignment is needed. One detent advances one enum choice, including Wavesets PROC. Ordinary numerical controls use a high-resolution internal step.</p>
         <p>The twelve pages are Engine, Stack, ENG 1–4, Sends, Color, Rotary, Delay, Reverb and Tape. Shared pages use the first eight encoders. ENG labels remain P1–P8; read names, units and option text on Move. Quick-press an encoder to restore that destination's default, then continue turning normally.</p>
         <p><strong>Update both the module and scene.</strong> THRU EM replaces the earlier native NRPN scene. Automatic scene/page transmission is disabled. The Thru Rings script receives actual values for E16’s selected page without taking over its display or handling encoder turns. Monolit retains its absolute CC map and Pick or Jump behavior. Use E16 Remote separately when readable synchronized values are the priority.</p>
@@ -226,16 +226,16 @@
         <h3 id="e16-native-help">Native scene checks</h3>
         <table><thead><tr><th>Symptom</th><th>Check</th></tr></thead><tbody>
           <tr><td>Scene becomes Remote</td><td>Select Schwung Surface CC Only and Thru MIDI Mode E+M, then reselect THRU EM.</td></tr>
-          <tr><td>Turns do not edit</td><td>Install the matching test.49 module and relative-CC scene. Use USB1, with USB Multi Port off.</td></tr>
+          <tr><td>Turns do not edit</td><td>Install the matching module, THRU EM relative-CC scene and Thru Rings script. Use USB1, with USB Multi Port off.</td></tr>
           <tr><td>Monolit does not reach Move</td><td>Enable E16's TRS-input MIDI Thru to USB; check Monolit's power and channels 9–13.</td></tr>
           <tr><td>Ring differs from Move</td><td>Install the matching module, scene and Thru Rings script. Reselect THRU EM and allow a second for its read-only refresh; confirm USB1 and CC Only.</td></tr>
         </tbody></table>
 
         <h2 id="e16">OXI E16 Remote</h2>
-        <p>The local test.39 build retains the script-free <strong>THRU RM</strong> scene as the more readable alternative. OXI Remote draws a compact name above each formatted value, while Thru retains its high-resolution parameter values internally. Remote is separate from the E+M route above and does not merge Monolit.</p>
+        <p>The script-free <strong>THRU RM</strong> scene provides a readable Remote display. OXI Remote draws a compact name above each formatted value, while Thru retains its high-resolution parameter values internally. Remote is separate from the E+M route above and does not merge Monolit.</p>
         <h3 id="e16-setup">Connection setup</h3>
-        <ol><li>Install a <strong>0.30.0-test.39 or newer</strong> tarball with Schwung Manager.</li><li>Leave takeover. Set <strong>Schwung Global Settings → Surfaces → Surface → E16</strong>.</li><li>Use current E16 firmware, USB1, USB Multi Port Off and USB MIDI Thru Off.</li><li>Extract <code>dist/s3g-thru-e16-remote.zip</code>, or select <code>dist/e16-remote</code> as OXI App's computer storage folder. Transfer <strong>Scenes/THRU REMOTE.oxie16</strong> to an unused slot. No Lua script is attached or required.</li><li>Connect E16 USB-C to Move USB-A. Select THRU RM before opening takeover. Remote replaces the blank starter screen automatically.</li></ol>
-        <p>The official integration is in <a href="https://github.com/s3g/s3g-thru/tree/main/controllers/oxi-e16">controllers/oxi-e16</a>. Run <code>npm run controllers:generate</code> and <code>npm run controllers:package</code> to rebuild it. Screen traffic is acknowledged and bounded; headings arrive before a changed page body. Ordinary value changes redraw only their value and ring. Engine changes preserve common cells, the other part and effects.</p>
+        <ol><li>Install the matching s3g Thru module from the 0.30.0 draft with Schwung Manager.</li><li>Leave takeover. Set <strong>Schwung Global Settings → Surfaces → Surface → E16</strong>.</li><li>Use current E16 firmware, USB1, USB Multi Port Off and USB MIDI Thru Off.</li><li>Extract <code>dist/s3g-thru-e16-remote.zip</code>, or select <code>dist/e16-remote</code> as OXI App's computer storage folder. Transfer <strong>Scenes/THRU REMOTE.oxie16</strong> to an unused slot. No Lua script is attached or required.</li><li>Connect E16 USB-C to Move USB-A. Select THRU RM before opening takeover. Remote replaces the blank starter screen automatically.</li></ol>
+        <p>The Remote example is in <a href="https://github.com/s3g/s3g-thru/tree/main/controllers/oxi-e16">controllers/oxi-e16</a>. Headings arrive before a changed page body. Ordinary value changes redraw only their value and ring. Engine changes preserve common cells, the other part and effects.</p>
         <h3 id="e16-layout">Parts and modes</h3>
         <p>A/C occupies the first two encoder rows, 1–8; B/D occupies the last two, 9–16. Single uses A; Split and Shared Dual use A/B. In Quad, hold <strong>E16 Shift and press encoder 1</strong> to switch A/B ↔ C/D. Shared SENDS always shows all four parts. E16 edits leave Move's current part and page selected.</p>
         <p>Remote RGB rings use neutral A, teal Split B, plum Shared Dual B, yellow Quad C and plum D. Shared returns use purple. Inactive and reserved controls stay dark.</p>
@@ -259,14 +259,14 @@
         <p>Remote sends relative turns, while Thru retains its full parameter precision. Ordinary NRPN feedback pauses while Remote owns the surface and resumes after it disconnects.</p>
         <h3 id="e16-help">Connection checks</h3>
         <table class="readout-table"><thead><tr><th>Display or symptom</th><th>What it means</th><th>What to do</th></tr></thead><tbody>
-          <tr><td>THRU RM–REMOTE remains</td><td>The starter scene is loaded, but Remote did not take ownership.</td><td>Check test.39, USB1 and Schwung Surface E16; select THRU RM and reopen takeover.</td></tr>
+          <tr><td>THRU RM–REMOTE remains</td><td>The starter scene is loaded, but Remote did not take ownership.</td><td>Check the matching module and scene, USB1 and Schwung Surface E16; select THRU RM and reopen takeover.</td></tr>
           <tr><td>E16 RECONNECTING</td><td>A display patch was rejected or its acknowledgement was lost.</td><td>Thru retries automatically. If the display stays frozen, reconnect USB without closing takeover.</td></tr>
           <tr><td>Reserved square; dark ring</td><td>The current engine or mode does not use that control.</td><td>Select a relevant page or Quad pair.</td></tr>
         </tbody></table>
         <h3 id="e16-link">Reading the E16 report</h3>
         <p>Press <strong>Shift + Menu</strong> on Move and select E16 Link 5/5. STATE reports LIVE, SEARCH, WAIT CLEAR, RECONNECT or OFF. LAST retains the most recent transport issue. ACK/NACK and RETRY/RECON show display confirmations and recovery attempts. PENDING PX is unacknowledged display work against its 320-pixel window; these are not audio-load measurements.</p>
         <h2 id="nrpn">High-resolution NRPN map</h2>
-        <p>Thru provides <strong>352 fixed NRPN addresses</strong> for playback, engines, effects, recording and performance. Channels 5–8 address parts A–D; channel 16 addresses shared controls. Each address keeps the same meaning when engines or pages change.</p>
+        <p>Thru provides <strong>357 fixed NRPN addresses</strong> for playback, engines, effects, recording and performance. Channels 5–8 address parts A–D; channel 16 addresses shared controls. Each address keeps the same meaning when engines or pages change.</p>
         <p>Use the downloadable <a href="https://github.com/s3g/s3g-thru/blob/main/controllers/midi/parameters.csv"><strong>complete NRPN CSV</strong></a> for every address, CC 99/98 selector byte, channel, range, curve and action flag. The <a href="https://github.com/s3g/s3g-thru/tree/main/controllers/midi">MIDI reference folder</a> also contains the source registry.</p>
         <p id="engine-list-midi">Engine List, Voice Setup, Stochastic and Pulsar mappings are included in the same CSV rather than repeated as separate manual sections.</p>
         <p>Send CC 99 and 98 to select an address, followed by CC 6 and 38 for its 14-bit value. Configure two-way feedback without retransmitting received values. Ordinary NRPN feedback pauses while THRU RM owns the E16 surface and resumes after it disconnects.</p>

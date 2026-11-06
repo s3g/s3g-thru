@@ -1,6 +1,6 @@
 # OXI E16 — s3g Thru Remote
 
-The official E16 integration for **0.30.0-test.24** uses OXI Remote so
+The E16 Remote example for the **0.30.0 draft** uses OXI Remote so
 each encoder can show a small parameter name with its formatted value directly
 underneath. A/C occupies the first two rows and B/D the lower two. The E16
 follows each part's selected engine without changing Move's current focus.
@@ -66,7 +66,9 @@ as Remote RGB rather than being restricted to E16's native color swatches.
 - **Shift + press encoder 16:** leave Remote until takeover is reopened.
 
 Pads & Scale, envelopes, Engine List setup, Path Editor points, sample browsing,
-recording, performance loops and chains remain on Move.
+recording, performance loops and chains remain on Move. For native relative
+turns and Monolit forwarding, use the separate
+[E16 + Monolit example](../oxi-e16-monolit/README.md) with Schwung Surface CC Only.
 
 ## Link report and recovery
 

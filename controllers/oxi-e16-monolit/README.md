@@ -1,9 +1,9 @@
 # E16 + Monolit: native relative CC
 
 Use **E+M** in s3g Thru and **THRU EM** on E16. This example requires the
-**0.30.0-test.49 or newer** module with the matching THRU EM scene.
-The test.48 scene and Thru Rings script are unchanged; no E16 reimport is
-needed when updating from test.48.
+**0.30.0 draft** module with the matching THRU EM scene and Thru Rings
+script. The scene and script are unchanged from the current test.52 setup;
+existing users of that setup do not need to reimport them.
 
 ```text
 Monolit TRS OUT -> E16 TRS IN -> E16 USB-C -> Move USB-A
@@ -39,12 +39,12 @@ that scene's private NRPN messages are ignored by this module.
   fader reaches the current value; **Jump** applies its position immediately.
 - The native scene targets A/B. Quad C/D remain available from Move or the
   fixed NRPN map. In Bank, B’s ENG 1 slots match Bank Sample and ENG 2 matches Bank Pads; Engine/Stack and ENG 3–4 have no B assignments.
-- With module test.51 or newer, B ENG 2 / P7 selects Bank recording source:
+- B ENG 2 / P7 selects Bank recording source:
   IN, MIX, PT A or PT B. PT B records the Bank pads themselves. No scene or
   ring-script reimport is needed for these additional choices.
 
-With module test.52 or newer, Pulsar SIZE reaches 500 ms. Its native relative
-turns retain fine adjustment at small sizes. The scene and script are unchanged.
+Pulsar SIZE reaches 500 ms. Its native relative turns retain fine adjustment
+at small sizes.
 
 The rings show **Thru’s actual values** for the selected E16 page, even while
 Move displays another page. Minimum is at the start of the ring, maximum at

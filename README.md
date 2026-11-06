@@ -5,6 +5,7 @@ s3g Thru is a four-lane stereo sampler and performance-data looper for
 [Schwung](https://github.com/charlesvestal/schwung) takeover module, with fifteen playback engines and eight
 polyphonic voices. Single uses one four-lane stack; Split and Shared Dual offer
 two independent instruments; Quad offers four instruments with one lane each.
+Bank pairs a four-lane instrument with sixteen saved stereo sample pads.
 
 Read the illustrated [s3g Thru manual](https://s3g.github.io/s3g-thru/) for the
 complete control map, recording workflow, playback-engine reference, effects,
@@ -27,9 +28,11 @@ press **Step 2** for Global Settings. **Shift + main encoder click** opens its
 section picker: choose **System → Help → Modules → s3g Thru**. Inside Thru,
 **Shift + Menu** opens the diagnostic reports and shortcut reminder.
 
-The local 0.30.0 test build adds MIDI controller options, Legato keys, and
-[Bank mode](docs/bank.html): play an engine on the left and capture sixteen
-persistent stereo samples on the right. The published installer remains 0.29.1.
+**0.30.0 is a release draft**, currently tested as 0.30.0-test.52. It adds
+Stochastic and Pulsar, Engine Lists, Legato, [Bank mode](docs/bank.html), grouped
+navigation and MIDI controller options. See the
+[draft release notes](release-notes/RELEASE_NOTES_0.30.0.md).
+The published installer remains **0.29.1**.
 
 Controller examples are in [controllers/](controllers/). The readable
 [E16 Remote](controllers/oxi-e16/) and native

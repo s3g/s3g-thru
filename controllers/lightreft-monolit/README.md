@@ -4,7 +4,7 @@ This is the s3g Thru live-control layout for Light Reft Monolit. It uses
 ordinary absolute MIDI CC, so no NRPN support is required. It targets controls
 that are useful during performance rather than exposing every Thru setting.
 
-Requires the local **0.30.0-test.39 or newer** module.
+Requires the matching **0.30.0 draft** module.
 
 ## Thru setup
 
@@ -23,8 +23,9 @@ MIDI Thru in E16's MIDI settings, set Schwung Surface to **CC Only**, and set
 Thru's MIDI mode to **E+M**. Load the native relative-CC scene from
 [`../oxi-e16-monolit/`](../oxi-e16-monolit/) on E16. E16 then supplies direct
 relative A/B control while forwarding this preset's
-channel 9–13 CC messages from its TRS input. No USB hub or E16 Lua/Remote
-surface is involved.
+channel 9–13 CC messages from its TRS input. A small feedback-only script on
+E16 mirrors actual ring values; native turn and press assignments stay in
+E16 firmware. No Remote surface or USB hub is required.
 
 Part controls use CC 16–79 on each part channel. Channel 13 carries the A/B
 crossfade at CC 24, crossfade curve at CC 25, Priority Duck at CC 26–33,

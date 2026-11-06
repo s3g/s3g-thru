@@ -158,7 +158,7 @@
           </tbody>
         </table>
 
-        <p>In <a href="bank.html">Bank mode</a>, hold an empty right pad to record A, release to finish, hold a filled pad to loop, Shift + pad to latch, Delete (X) + pad to clear, and Undo to restore the assignment.</p>
+        <p>In <a href="bank.html">Bank mode</a>, hold an empty right pad to record the SRC chosen on Bank Pads (IN, MIX, PT A or PT B). Release to finish; touches under 10 ms save nothing. Hold a filled pad to play, Shift + pad to latch, Delete (X) + pad to clear, and Undo to restore the assignment.</p>
         <h2 id="midi">External MIDI</h2>
         <p>Musical notes, note-offs and polyphonic aftertouch use channels 1–4 for A–D according to the instrument mode. All Sound Off (CC 120) and All Notes Off (CC 123) are also accepted. External notes keep the pitches sent by the keyboard; Move’s pad scale does not quantize them.</p>
         <p>High-resolution parameters use separate channels: <strong>5–8 for A–D, 16 for shared controls</strong>. Part-control edits preserve Move’s selected part and page. Channels 5–8 and 16 also carry controller commands, so keep note input on 1–4. See <a href="midi.html">MIDI control</a> for setup, the current NRPN map and two-way feedback.</p>
@@ -167,7 +167,7 @@
         <p>The Remote interface provides Engine, Stack, engine-specific and effect pages. Hold E16 Shift and turn encoder 1 to change pages. A occupies the top two encoder rows; B occupies the bottom two. The layout follows Single, Split, Shared Dual and Quad. Hold an encoder while turning for fine adjustment. In Quad, Shift + encoder 1 switches A/B ↔ C/D; Shift + encoder 16 leaves Remote. Edits preserve Move’s current part and page. See <a href="midi.html#e16-setup">MIDI control</a> for setup and connection checks.</p>
 
         <h2 id="nrpn">High-resolution MIDI</h2>
-        <p>The next-release map has <strong>352 fixed NRPN addresses</strong>. Channels 5–8 control A–D; channel 16 controls shared parameters. Musical notes and polyphonic aftertouch use channels 1–4. See the <a href="midi.html#nrpn">high-resolution MIDI guide</a> for complete value messages, ranges and feedback.</p>
+        <p>The next-release map has <strong>357 fixed NRPN addresses</strong>. Channels 5–8 control A–D; channel 16 controls shared parameters. Musical notes and polyphonic aftertouch use channels 1–4. See the <a href="midi.html#nrpn">high-resolution MIDI guide</a> for complete value messages, ranges and feedback.</p>
 
         <nav class="page-nav" aria-label="Page navigation">
           <a class="page-nav-link" href="midi.html"><span>Previous</span>MIDI Control</a>

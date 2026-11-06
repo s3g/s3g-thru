@@ -1,6 +1,6 @@
 # s3g Thru MIDI map, version 1
 
-The high-resolution interface for the next release has 352
+The high-resolution interface for the next release has 357
 fixed NRPN addresses. `parameters.csv` is the full channel/address/range
 reference; `parameters.json` is the editable source. Parameter addresses
 belong to their controls across all engines; selecting another engine does

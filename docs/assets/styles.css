@@ -847,7 +847,7 @@ details > :not(summary) {
   overflow-x: auto;
 }
 
-.readout-table {
+.content table {
   width: 100%;
   margin: 18px 0;
   border-collapse: collapse;
@@ -856,26 +856,26 @@ details > :not(summary) {
   font-size: 12px;
 }
 
-.readout-table th,
-.readout-table td {
+.content table th,
+.content table td {
   padding: 8px 10px;
   border: 1px solid var(--line);
   text-align: left;
   vertical-align: top;
 }
 
-.readout-table th {
+.content table th {
   color: var(--ink);
   background: var(--panel-alt);
   font-weight: 700;
   text-transform: uppercase;
 }
 
-.readout-table td {
+.content table td {
   color: #343434;
 }
 
-.readout-table tbody tr:nth-child(even) td {
+.content table tbody tr:nth-child(even) td {
   background: #f7f7f5;
 }
 
@@ -941,8 +941,8 @@ details > :not(summary) {
 }
 
 @media (max-width: 700px) {
-  .readout-table th,
-  .readout-table td {
+  .content table th,
+  .content table td {
     padding: 8px 6px;
   }
 

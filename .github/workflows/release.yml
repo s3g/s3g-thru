@@ -53,6 +53,11 @@ jobs:
           AARCH64_READELF: ${{ runner.temp }}/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-none-linux-gnu-readelf
         run: npm run build
 
+      - name: Package controller examples
+        run: |
+          npm run controllers:package
+          npm run controllers:monolit:package
+
       - name: Prepare release files
         if: github.ref_type == 'tag'
         run: |
@@ -60,6 +65,8 @@ jobs:
           cp "release-notes/RELEASE_NOTES_${VERSION}.md" "$RUNNER_TEMP/release-notes.md"
           cd dist
           sha256sum s3g-thru-module.tar.gz > s3g-thru-module.tar.gz.sha256
+          sha256sum s3g-thru-e16-remote.zip > s3g-thru-e16-remote.zip.sha256
+          sha256sum s3g-thru-e16-monolit.zip > s3g-thru-e16-monolit.zip.sha256
 
       - name: Publish GitHub Release
         if: github.ref_type == 'tag'
@@ -71,3 +78,7 @@ jobs:
           files: |
             dist/s3g-thru-module.tar.gz
             dist/s3g-thru-module.tar.gz.sha256
+            dist/s3g-thru-e16-remote.zip
+            dist/s3g-thru-e16-remote.zip.sha256
+            dist/s3g-thru-e16-monolit.zip
+            dist/s3g-thru-e16-monolit.zip.sha256

@@ -19,10 +19,13 @@ assert scene['title'] == 'THRU EM'
 assert scene['code']['scriptName'] == 'Thru Rings'
 assert len(scene['code']['code'].encode()) < 2000
 files = {name: (source / name).read_bytes() for name in ['README.md', scene_name, 'Scripts/Thru Rings.e16script']}
+files['Monolit/presets/s3g-thru'] = (root / 'controllers/lightreft-monolit/presets/s3g-thru').read_bytes()
+files['Monolit/mapping.csv'] = (root / 'controllers/lightreft-monolit/mapping.csv').read_bytes()
 folder = root / 'dist/e16-monolit'
 for name in ['Scenes', 'Scripts']:
     (folder / name).mkdir(parents=True, exist_ok=True)
 for name, data in files.items():
+    (folder / name).parent.mkdir(parents=True, exist_ok=True)
     (folder / name).write_bytes(data)
 archive = root / 'dist/s3g-thru-e16-monolit.zip'
 temporary = archive.with_suffix('.zip.tmp')
@@ -34,6 +37,9 @@ with zipfile.ZipFile(temporary, 'w', compression=zipfile.ZIP_DEFLATED) as output
         entry.compress_type = zipfile.ZIP_DEFLATED
         output.writestr(entry, data)
 with zipfile.ZipFile(temporary) as check:
+    assert set(check.namelist()) == set(files) | {'Scenes/', 'Scripts/'}
+    for name, data in files.items():
+        assert check.read(name) == data, name
     assert check.testzip() is None
 temporary.replace(archive)
 digest = hashlib.sha256(archive.read_bytes()).hexdigest()

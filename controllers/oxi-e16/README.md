@@ -1,6 +1,6 @@
 # OXI E16 — s3g Thru Remote
 
-The E16 Remote example for the **0.30.0 draft** uses OXI Remote so
+The E16 Remote example for the **0.30.0** uses OXI Remote so
 each encoder can show a small parameter name with its formatted value directly
 underneath. A/C occupies the first two rows and B/D the lower two. The E16
 follows each part's selected engine without changing Move's current focus.

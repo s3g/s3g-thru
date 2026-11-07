@@ -1,7 +1,7 @@
 {
   "id": "s3g-thru",
   "name": "s3g Thru",
-  "version": "0.30.0-test.64",
+  "version": "0.30.0",
   "min_host_version": "1.7.3",
   "abbrev": "THRU",
   "description": "Four-lane stereo sampler with Single, Split, Shared Dual, Quad and Bank modes, fifteen engines, performance looping, stereo recording, reverb, and configurable effects.",

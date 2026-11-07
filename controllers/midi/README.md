@@ -1,6 +1,6 @@
 # s3g Thru MIDI map, version 1
 
-The high-resolution interface for the next release has 364
+The high-resolution interface for 0.30.0 has 364
 fixed NRPN addresses. MIDI Notes settings (NRPN 3584–3590 on channel 16) configure
 keyboard/sequencer routing and expression independently of parameter mode.
 See the [manual](https://s3g.github.io/s3g-thru/midi.html#note-input) for

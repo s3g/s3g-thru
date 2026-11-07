@@ -28,11 +28,11 @@ press **Step 2** for Global Settings. **Shift + main encoder click** opens its
 section picker: choose **System → Help → Modules → s3g Thru**. Inside Thru,
 **Shift + Menu** opens the diagnostic reports and shortcut reminder.
 
-**0.30.0 is a release draft**, currently tested as 0.30.0-test.64. It adds
-Stochastic and Pulsar, Engine Lists, Legato, [Bank mode](docs/bank.html), grouped
-navigation and MIDI controller options. Use [Projects export/import](docs/projects.html)
-for project backups. See the [draft release notes](release-notes/RELEASE_NOTES_0.30.0.md).
-The published installer remains **0.29.1**.
+Version 0.30.0 adds Stochastic and Pulsar, per-note Engine Lists, Legato,
+Bank capture pads, portable project backups, slice editing and Custom MIDI
+profiles. See the [release notes](release-notes/RELEASE_NOTES_0.30.0.md).
+Use the manual's [Projects guide](https://s3g.github.io/s3g-thru/projects.html)
+for backup and restore.
 
 Controller examples are in [controllers/](controllers/). The readable
 [E16 Remote](controllers/oxi-e16/) and native
@@ -54,8 +54,8 @@ npm test
 npm run build
 ```
 
-On Linux, use an AArch64 toolchain with a glibc 2.34-or-earlier sysroot. The
-pinned toolchain and checksum used for official packages are documented in
+On Linux, use an AArch64 toolchain with a glibc 2.34-or-earlier sysroot.
+Release CI uses a pinned toolchain with a verified checksum, documented in
 [the release workflow](.github/workflows/release.yml). A current distribution’s
 default cross-compiler may target a newer glibc and will be rejected by the
 Move ABI check.

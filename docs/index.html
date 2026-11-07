@@ -20,8 +20,8 @@
         <hr class="home-title-rule">
         <p class="lead">A stereo sample instrument with four audio lanes and eight independent voices. Play them as one stack, two independently configured instruments, or four instruments in Quad mode. A performance recorder captures notes, pressure, stack holds, and parameter motion as loopable data.</p>
         <p>s3g Thru is an adaptation and extension of the <a href="https://s3g.github.io/s3g-dsp/">s3g-dsp</a> Sample family, rebuilt around Move’s pads, controls, display, live input, and performance workflow.</p>
-        <span class="version-chip">manual · 0.30.0 draft</span>
-        <p>This manual previews <strong>s3g Thru 0.30.0</strong>, currently tested as <strong>0.30.0-test.63</strong>. It includes <a href="bank.html">Bank capture pads</a>, <a href="playing.html#legato">Legato playing</a>, <a href="engines.html#engine-list">per-note Engine Lists</a>, <a href="engine-stochastic.html">Stochastic</a>, <a href="engine-pulsar.html">Pulsar</a>, grouped navigation, portable <a href="projects.html">project backups</a> and expanded <a href="midi.html">MIDI control</a>. The published installer remains at <strong>0.29.1</strong>. The installed version appears briefly when takeover opens; see <a href="https://github.com/s3g/s3g-thru/releases">GitHub releases</a> for published downloads and release notes.</p>
+        <span class="version-chip">manual · 0.30.0</span>
+        <p>This manual describes <strong>s3g Thru 0.30.0</strong>. The installed version appears briefly when takeover opens; see <a href="https://github.com/s3g/s3g-thru/releases">GitHub releases</a> for downloads and release notes.</p>
 
 
         <figure class="screen-figure">
@@ -35,7 +35,7 @@
 
         <p><a href="modes.html">Choose Single, Split, Shared Dual, Quad or Bank</a> for different source layouts and voice budgets. Bank adds sixteen sample slots beside a four-lane instrument; all modes share the performance recorder.</p>
 
-        <h2 id="next-release">Coming in 0.30.0</h2>
+        <h2 id="next-release">New in 0.30.0</h2>
         <ul>
           <li><a href="engine-stochastic.html">Stochastic</a> continuously deforms recorded samples with evolving amplitude and timing walks, plus a listener that can settle the result. <a href="engine-pulsar.html">Pulsar</a> makes windowed sample trains with independent repetition, pulse duration and a 0.5–500 ms source SIZE.</li>
           <li><a href="engines.html#engine-list">Engine Lists and Voice Setup</a> assign engines per note, playing order or keyboard position, with per-entry variations and pressure expression.</li>
@@ -44,6 +44,9 @@
           <li><a href="midi.html#control-mode">Selectable MIDI modes</a> provide 364 fixed NRPN addresses, current-page Generic CC, channel-addressed MNLT and OXI E16 options. Parameter control leaves Move’s editing focus in place.</li>
           <li>The <a href="midi.html#monolit-example">Monolit example</a> places Part A on faders 1–4 and Part B on 5–8 while paired buttons retain local MOTION controls. <a href="midi.html#e16-monolit">E16 + Monolit</a> combines relative encoder control with synchronized rings through one USB connection.</li>
           <li><a href="midi.html#e16-setup">E16 Remote</a> provides readable names and formatted values, adaptive engine/effect pages and a Page Jump overview. A occupies the top two rows; B the bottom two.</li>
+          <li><a href="projects.html">Portable projects</a> bundle clips, chains, settings and referenced samples in one .thru file. Export and import through the Projects menu; transfer backups through Schwung Manager.</li>
+          <li><a href="engine-slices.html">Slice editing</a> adds pad audition, trim and split controls, WAV marker import and transient pre-roll.</li>
+          <li><a href="midi.html#custom-maps">Custom MIDI profiles</a> let you assign external CCs to parts, engine controls and commands with MIDI Learn, ranges and pickup.</li>
           <li><a href="effects.html#priority-duck">Priority Duck</a> lets A or B make space for the other. <a href="effects.html#tape">Aligned Tape mixing</a> reduces unwanted dry/wet comb filtering while retaining intentional transport movement.</li>
         </ul>
 
@@ -118,7 +121,7 @@
         <div class="toc-section"><h2>Instrument modes</h2><a href="playing.html">Single · Basic playing</a><a href="modes.html">Compare modes</a><a href="split.html">Split</a><a href="shared-dual.html">Shared Dual</a><a href="quad.html">Quad</a><a href="bank.html">Bank</a></div>
         <div class="toc-section">
           <h2>On this page</h2>
-          <a href="#next-release">Next-release features</a>
+          <a href="#next-release">New in 0.30.0</a>
           <a href="#whats-new">New in 0.29</a>
           <a href="#quick-start">Quick start</a>
           <a href="#mental-model">Mental model</a>
@@ -126,7 +129,7 @@
         </div>
       </aside>
     </div>
-    <footer class="manual-footer">s3g Thru · Next-release manual · Takeover module for Ableton Move via Schwung</footer>
+    <footer class="manual-footer">s3g Thru · Manual · Takeover module for Ableton Move via Schwung</footer>
     <script src="assets/lightbox.js"></script>
   </body>
 </html>

@@ -4,7 +4,7 @@ This is the s3g Thru live-control layout for Light Reft Monolit. It uses
 ordinary absolute MIDI CC, so no NRPN support is required. It targets controls
 that are useful during performance rather than exposing every Thru setting.
 
-Requires the matching **0.30.0 draft** module.
+Requires the matching **0.30.0** module.
 
 ## Thru setup
 
@@ -76,9 +76,9 @@ replacing the 64 fader MIDI addresses and display names. Import it through
 select the new preset on Monolit. The Web-Editor uses the imported filename as
 the preset name.
 
-The supplied binary has been structurally verified against the Web-Editor's 45
-settings and 200-byte transfer chunks. It still needs a physical upload and
-control test before release. Keep the source export until that test succeeds.
+After uploading, select the preset on Monolit, enable MNLT or E+M in Thru,
+and check the LIVE bank. Pickup waits for each fader to reach its current value;
+Jump applies the fader position immediately.
 Its SHA-256 checksum is recorded beside it in `presets/s3g-thru.sha256`.
 
 To rebuild from another current Monolit export:

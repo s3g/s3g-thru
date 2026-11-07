@@ -1,9 +1,9 @@
 # E16 + Monolit: native relative CC
 
 Use **E+M** in s3g Thru and **THRU EM** on E16. This example requires the
-**0.30.0 draft** module with the matching THRU EM scene and Thru Rings
-script. The scene and script are unchanged from the current test.52 setup;
-existing users of that setup do not need to reimport them.
+**0.30.0** module with the matching THRU EM scene and Thru Rings
+script. Existing users of the matching THRU EM scene and Thru Rings script
+can retain them when updating only the Move module.
 
 ```text
 Monolit TRS OUT -> E16 TRS IN -> E16 USB-C -> Move USB-A
@@ -19,6 +19,9 @@ Monolit TRS OUT -> E16 TRS IN -> E16 USB-C -> Move USB-A
    to USB. Keep automatic scene, page and preset transmission disabled.
 6. Import the Monolit example from `../lightreft-monolit/presets/s3g-thru`
    with the official Monolit Web-Editor, or retain a custom channel 9–13 map.
+   The release ZIP also includes **Monolit/presets/s3g-thru** and its CC map.
+   See the [Monolit layout](https://s3g.github.io/s3g-thru/midi.html#monolit-example)
+   for the eight fader banks.
 
 The native scene uses a small feedback-only Lua script and no Remote display. Transfer the attached **Thru Rings** script with the scene; it is also supplied in `Scripts/Thru Rings.e16script`. Native turn and press assignments remain in E16 firmware. Installing the
 scene does not change the Monolit preset. Replace the older native NRPN scene;
@@ -60,7 +63,7 @@ It never writes a stored parameter value or handles encoder turns. Connecting
 or changing pages therefore reads Thru without replacing project settings.
 Feedback is coalesced and limited to six rings per output batch. A fresh page
 snapshot and one-second refresh recover reconnections; turns never wait for it.
-The matching script/module still require device testing for visual response.
+If rings do not refresh, reselect THRU EM and check the connection settings above.
 
 ## Addresses
 

@@ -8,7 +8,8 @@ namespace s3g_daisy {
 // Immutable windows initialize when the module loads, never on a note trigger.
 struct ThruPulsar {
     static constexpr std::size_t readers = 4, tableSize = 256;
-    static constexpr float minimumSizeMs = .5f, maximumSizeMs = 500.f;
+    static constexpr float minimumSizeMs = .5f, maximumSizeMs = 1000.f;
+    static constexpr float minimumFormHz = 1.f, maximumFormHz = 2000.f;
     inline static const std::array<std::array<float, tableSize + 1>, 5> windows = [] {
         std::array<std::array<float, tableSize + 1>, 5> t{};
         for (std::size_t i = 0; i <= tableSize; ++i) {

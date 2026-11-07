@@ -238,8 +238,8 @@ bool handleE16NativeResetCc(ThruInstance& t,int channel,int number,int value) {
         if(std::strcmp(p->key,"hold_release_ms")==0)next=static_cast<float>(e16HoldTime(e16HoldIndex(current)+ticks));
         else if(p->integer || lane)next=clampValue(current+ticks,p->minimum,maximum);
         else {
-            // Retain the small-size turn increment after extending SIZE to 500 ms.
-            const int step=std::strcmp(p->key,"pulsar_size")==0?37:48;
+            // Retain turn precision across the wider SIZE and FORM ranges.
+            const int step=std::strcmp(p->key,"pulsar_size")==0?34:std::strcmp(p->key,"pulsar_form")==0?29:48;
             next=s3g_thru_midi::decode(*p,clampValue(
                 s3g_thru_midi::encode(*p,current,maximum)+ticks*step,0,16383),maximum);
         }

@@ -1105,9 +1105,9 @@ public:
 
     void stopPlayback() { playing_ = false; }
 
-    std::array<float,6> pulsarStatus() const {
+    std::array<float,7> pulsarStatus() const {
         float active=0;for(const auto& h:pulsarHeads_)if(h.active)++active;
-        return {pulsarFragmentStart_,pulsarFragmentEnd_,active,pulsarLimited_?1.f:0.f,pulsarFrequency_,static_cast<float>(pulsarEvent_%2)};
+        return {pulsarFragmentStart_,pulsarFragmentEnd_,active,pulsarLimited_?1.f:0.f,pulsarFrequency_,static_cast<float>(pulsarEvent_%2),pulsarDurationMs_};
     }
 
     float stochasticListenerCapture() const { return stochasticListener_.effective(); }

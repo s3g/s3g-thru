@@ -23,7 +23,7 @@
     <text x="67" y="51.5" fill="#dce8e1">CONT</text>
     <text x="99" y="40.5" fill="#dce8e1">JITT</text>
     <text x="99" y="51.5" fill="#dce8e1">0%</text>
-    <text x="1" y="62.5" fill="#dce8e1">CLICK: HOLD SOURCE</text>
+    <text x="1" y="62.5" fill="#dce8e1">~2ms CLICK:HOLD</text>
   </g>
   <rect x="0.25" y="0.25" width="127.5" height="63.5" fill="none" stroke="#5b6661" stroke-width="0.5"/>
 </svg>

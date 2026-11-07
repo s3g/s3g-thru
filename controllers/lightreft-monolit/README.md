@@ -4,7 +4,8 @@ This is the s3g Thru live-control layout for Light Reft Monolit. It uses
 ordinary absolute MIDI CC, so no NRPN support is required. It targets controls
 that are useful during performance rather than exposing every Thru setting.
 
-Requires the matching **0.30.0** module.
+Requires s3g Thru **0.30.0 or newer**. Existing presets can be retained
+when updating to 0.30.1.
 
 ## Thru setup
 

@@ -209,6 +209,7 @@ globalThis.__testClearDisplay=clearDisplay;
 globalThis.__testParseCutups = parseCutupsState;
 globalThis.__testParseUi = parseUiState;
 globalThis.__testParams = PARAMS;
+globalThis.__testPulsar={parse:parsePulsarState,footer:pulsarDurationFooter};
 globalThis.__testSplit = {pages:parameterPages,parse:parseSplitState,keys:activeControlKeys};
 globalThis.__testResetEncoders = resetParameterEncoderMotion;
 globalThis.__testNextControlValue = nextControlValue;
@@ -2331,14 +2332,53 @@ console.log('s3g Thru Stochastic conditional CAPT/PULL knob and independent valu
  const before=blockingWrites.length;cc(3);assert.deepEqual(blockingWrites[before],['pulsar_source_hold','1']);
  cc(3);assert.deepEqual(blockingWrites.at(-1),['pulsar_source_hold','0']);
  const value=globalThis.__testCompactControlValue({...ps.pulsar_form,value:500});assert.equal(value,'500');
- assert.equal(ps.pulsar_size.max,500);assert.equal(ps.pulsar_size.min,.5);
+ assert.equal(ps.pulsar_size.max,1000);assert.equal(ps.pulsar_size.min,.5);
  const next=globalThis.__testNextControlValue;
  const low=next({...ps.pulsar_size,value:1},1);assert(low>1 && low<1.04);
- let size=.5;for(let i=0;i<321;++i)size=next({...ps.pulsar_size,value:size},1);
- assert.equal(size,500);assert(next({...ps.pulsar_size,value:500},-1)<500);
- assert.equal(globalThis.__testCompactControlValue({...ps.pulsar_size,value:500}),'500');
+ let size=.5;for(let i=0;i<353;++i)size=next({...ps.pulsar_size,value:size},1);
+ assert.equal(size,1000);assert(next({...ps.pulsar_size,value:1000},-1)<1000);
+ assert.equal(globalThis.__testCompactControlValue({...ps.pulsar_size,value:1000}),'1000');
 }
 console.log('s3g Thru Pulsar page, all layouts, labels, locks and source-hold click: PASS');
+{
+ const ui=globalThis.__testSplit,state=globalThis.__testFx.state(),ps=globalThis.__testParams;
+ const {parse,footer}=globalThis.__testPulsar;
+ Object.assign(state,{algorithm:14,splitEnabled:false,sharedDual:false,quadMode:false,view:'settings',editorReady:true,actionMessageTicks:0});
+ state.settingsPage=ui.pages().findIndex(p=>p.pulsar);
+ ps.pulsar_form.value=2;ps.pulsar_rate.value=1;ps.pulsar_jitter.value=0;ps.pulsar_source_hold.value=0;
+ assert.equal(ps.pulsar_form.min,1);
+ parse('');assert.equal(footer(),'~500ms CLICK:HOLD');
+ parse('0,250,750,1,0,1,1,500;');assert.equal(footer(),'500ms CLICK:HOLD');
+ assert.equal(state.pulsarVoices[0].durationMs,500);
+ ps.pulsar_source_hold.value=1;assert.equal(footer(),'500ms CLICK:RUN');
+ parse('0,250,750,1,1,100,1,29;1,250,750,2,0,1,0,500;');
+ assert.equal(footer(),'29-500ms LIMIT');
+ Object.assign(state,{splitEnabled:true,splitFocus:1});
+ parse('0,250,750,1,1,100,1,29;4,250,750,1,0,1,0,500;');
+ assert.equal(footer(),'500ms CLICK:RUN');
+ Object.assign(state,{quadMode:true,splitFocus:2});assert.equal(footer(),'500ms CLICK:RUN');
+ parse('0,0,500,1,0,1,1;');assert.equal(state.pulsarVoices[0].durationMs,null);
+ for(const invalid of ['8,0,500,1,0,1,1,500;','0,0,500,1,0,1,1,nan;']) {
+  parse(invalid);assert(state.pulsarVoices.every(p=>p===null));
+ }
+ Object.assign(state,{splitEnabled:false,quadMode:false});ps.pulsar_source_hold.value=0;
+ parse('0,0,500,1,0,1,1,500;');
+ const before=drawWrites.length;globalThis.__testFx.draw();
+ assert(drawWrites.slice(before).some(w=>w[0]==='print'&&w[2]===57&&w[3]==='500ms CLICK:HOLD'));
+ parse('0,0,500,1,0,1,1,0.5;1,0,500,1,0,1,1,500;');
+ assert(footer().length<=21);
+ const next=globalThis.__testNextControlValue;
+ const low=next({...ps.pulsar_form,value:1},1);assert(low>1&&low<1.02);
+ assert.equal(next({...ps.pulsar_form,value:1},-1),1);
+ ps.pulsar_form.value=1;ps.pulsar_rate.value=.5;
+ parse('');assert.equal(footer(),'~1000ms CLICK:HOLD');
+ parse('0,250,750,1,0,.5,1,1000;');assert.equal(footer(),'1000ms CLICK:HOLD');
+ parse('0,0,500,1,0,1,1,0.5;1,0,500,1,0,1,1,1000;');
+ assert.equal(footer(),'0.5-1000ms CLICK:HOLD');assert(footer().length<=21);
+ parse('');ps.pulsar_form.value=500;ps.pulsar_rate.value=261.625565;
+}
+console.log('s3g Thru Pulsar duration footer, part scopes, range, limit, rest estimate and low FORM precision: PASS');
+
 
 {
  const ui=globalThis.__testSplit,state=globalThis.__testFx.state(),ps=globalThis.__testParams;

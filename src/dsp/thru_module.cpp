@@ -1059,8 +1059,8 @@ constexpr const char kChainParams[] = R"json([
 {"key":"pulsar_reverse","name":"Pulsar Reverse","short_name":"REV%","type":"float","min":0,"max":100,"default":0,"unit":"%"},
 {"key":"pulsar_keytrack","name":"Pulsar Keytrack","short_name":"KEYT","type":"float","min":0,"max":100,"default":0,"unit":"%"},
 {"key":"pulsar_rate","name":"Pulsar Rate","short_name":"RATE","type":"float","min":0.1,"max":2000,"default":261.625565,"unit":"Hz"},
-{"key":"pulsar_form","name":"Pulsar Form","short_name":"FORM","type":"float","min":20,"max":2000,"default":500,"unit":"Hz"},
-{"key":"pulsar_size","name":"Pulsar Size","short_name":"SIZE","type":"float","min":0.5,"max":500,"default":4,"unit":"ms"},
+{"key":"pulsar_form","name":"Pulsar Form","short_name":"FORM","type":"float","min":1,"max":2000,"default":500,"unit":"Hz"},
+{"key":"pulsar_size","name":"Pulsar Size","short_name":"SIZE","type":"float","min":0.5,"max":1000,"default":4,"unit":"ms"},
 {"key":"pulsar_window","name":"Pulsar Win","short_name":"WIN","type":"enum","default":0,"options":["Hann","Bell","Tapered","Percussive","Reverse"]},
 {"key":"pulsar_skew","name":"Pulsar Skew","short_name":"SKEW","type":"float","min":0,"max":100,"default":50,"unit":"%"},
 {"key":"pulsar_omit","name":"Pulsar Omit","short_name":"OMIT","type":"float","min":0,"max":100,"default":0,"unit":"%"},
@@ -1534,7 +1534,7 @@ void applyLockedValue(Engine::Controls& controls, float& outputGain,
         case LockParameter::pulsarReverse: controls.pulsarReverse=clampValue(value * .01f,0.0f,1.0f);break;
         case LockParameter::pulsarKeytrack: controls.pulsarKeytrack=clampValue(value * .01f,0.0f,1.0f);break;
         case LockParameter::pulsarRate: controls.pulsarRate=clampValue(value,0.1f,2000.0f);break;
-        case LockParameter::pulsarForm: controls.pulsarForm=clampValue(value,20.0f,2000.0f);break;
+        case LockParameter::pulsarForm: controls.pulsarForm=clampValue(value,s3g_daisy::ThruPulsar::minimumFormHz,s3g_daisy::ThruPulsar::maximumFormHz);break;
         case LockParameter::pulsarSize: controls.pulsarSize=clampValue(value,s3g_daisy::ThruPulsar::minimumSizeMs,s3g_daisy::ThruPulsar::maximumSizeMs);break;
         case LockParameter::pulsarWindow: controls.pulsarWindow=clampValue(std::round(value),0.0f,4.0f);break;
         case LockParameter::pulsarSkew: controls.pulsarSkew=clampValue(value*.01f,0.0f,1.0f);break;
@@ -10647,7 +10647,7 @@ int getParamValue(void* opaque, const char* key, char* buffer, int bufferLength)
         for(std::size_t i=0;i<instance->voices.size();++i) {
             const auto& v=instance->voices[i];if(!v.active||v.engine.playbackAlgorithm()!=Engine::PlaybackAlgorithm::pulsar)continue;
             const auto p=v.engine.pulsarStatus();
-            const int n=std::snprintf(buffer+at,bufferLength-at,"%zu,%.0f,%.0f,%.0f,%.0f,%.1f,%.0f;",i,p[0]*1000,p[1]*1000,p[2],p[3],p[4],p[5]);
+            const int n=std::snprintf(buffer+at,bufferLength-at,"%zu,%.0f,%.0f,%.0f,%.0f,%.1f,%.0f,%.2f;",i,p[0]*1000,p[1]*1000,p[2],p[3],p[4],p[5],p[6]);
             if(n<0||n>=bufferLength-at){buffer[0]=0;return -1;}at+=n;
         }
         if(!at)buffer[0]=0;

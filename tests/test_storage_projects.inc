@@ -211,18 +211,26 @@ void testPortableProjects(bool bank=true,int legacyImport=0) {
 void testProjectBackgroundWorkflow() {
     char folder[]="/tmp/thru-project-worker.XXXXXX";assert(mkdtemp(folder));
     auto t=std::make_unique<ThruInstance>();assert(t->prepare(folder));
+    // Durable import performs multiple flushes plus a safety export. Poll by
+    // wall-clock time so a busy filesystem does not fail a healthy worker.
+    const auto waitForProject=[&] {
+        const auto deadline=std::chrono::steady_clock::now()+std::chrono::seconds(30);
+        while(t->projectJob.load()!=ThruInstance::projectIdle&&std::chrono::steady_clock::now()<deadline) {
+            renderSplit(*t,1);usleep(1000);
+        }
+    };
     storageTrace.clear();storageFailAt=0;storageRenderThread=pthread_self();s3g_thru_storage::testHook=storageHook;
     setParam(t.get(),"project_export","1");assert(t->projectJob.load()==ThruInstance::projectWaiting);
     const auto field=t->controls.field;const auto mode=t->voiceMode;
     setParam(t.get(),"field",".3");setParam(t.get(),"voice_mode","2");
     assert(t->controls.field==field&&t->voiceMode==mode);
-    for(int i=0;i<20000&&t->projectJob.load()!=ThruInstance::projectIdle;++i){renderSplit(*t,1);usleep(100);}
+    waitForProject();
     assert(t->projectJob.load()==ThruInstance::projectIdle&&t->projectSuccess&&access(t->projectOutputPath.data(),F_OK)==0);
     t->stopBackgroundWork();s3g_thru_storage::testHook=nullptr;
     assert(!storageTrace.empty());for(const auto& e:storageTrace)assert(!e.renderThread);
     t->backgroundStarted=true;setParam(t.get(),"project_scan","0");assert(t->processProjectJob());t->consumeProjectJob();assert(t->projectListed==1);
     t->backgroundStarted=false;resumeTestBackgroundWorker(*t);setParam(t.get(),"project_import","0");
-    for(int i=0;i<20000&&t->projectJob.load()!=ThruInstance::projectIdle;++i){renderSplit(*t,1);usleep(100);}
+    waitForProject();
     if(!t->projectSuccess)std::fprintf(stderr,"Worker import: job=%d message=%s dirty=%d save=%d\n",t->projectJob.load(),t->projectMessage.data(),t->persistentStateDirty,t->saveStatus());
     assert(t->projectImportInstalled&&t->projectSuccess&&t->projectJob.load()==ThruInstance::projectIdle);
     setParam(t.get(),"field",".3");assert(t->controls.field==field);assert(t->savePersistentState());
@@ -233,7 +241,8 @@ void testProjectBackgroundWorkflow() {
 }
 
 template<class F> void waitProjectSources(ThruInstance& t,F ready) {
-    for(int i=0;i<50000&&!ready();++i){renderSplit(t,1);usleep(100);}
+    const auto deadline=std::chrono::steady_clock::now()+std::chrono::seconds(30);
+    while(!ready()&&std::chrono::steady_clock::now()<deadline){renderSplit(t,1);usleep(1000);}
     if(!ready())std::fprintf(stderr,"Wait failed: project=%s sample=%s last=%s job=%d dirty=%d mask=%u\n",t.projectMessage.data(),t.sampleLoadError.data(),t.lastError.data(),t.projectJob.load(),t.persistentStateDirty,t.pendingClipSourceMask);
     assert(ready());
 }

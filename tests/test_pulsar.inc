@@ -346,14 +346,118 @@ void testPulsarExtendedSize() {
     char folder[]="/tmp/thru-pulsar-500.XXXXXX";assert(mkdtemp(folder));
     auto t=std::make_unique<ThruInstance>();assert(t->prepare(folder));t->stopBackgroundWork();
     setParam(t.get(),"algorithm","Pulsar");const auto& size=midiParameter("pulsar_size");
-    assert(size.id==3330 && size.maximum==500 && size.initial==4 && size.logarithmic);
-    nrpn(*t,5,"pulsar_size",16383);assert(t->controls.pulsarSize==500);
+    assert(size.id==3330 && size.maximum==1000 && size.initial==4 && size.logarithmic);
+    nrpn(*t,5,"pulsar_size",16383);assert(t->controls.pulsarSize==1000);
     nrpn(*t,5,"pulsar_size",0);assert(t->controls.pulsarSize==.5f);
     setParam(t.get(),"midi_control_mode","E16 + MNLT");
     midiCc(*t,14,127,19);assert(t->controls.pulsarSize==4);
     midiCc(*t,14,18,127);assert(t->controls.pulsarSize>4 && t->controls.pulsarSize<4.08f);
-    setParam(t.get(),"pulsar_size","500");t->captureActiveClip(true);assert(t->savePersistentState());t.reset();
-    t=std::make_unique<ThruInstance>();assert(t->prepare(folder));assert(t->controls.pulsarSize==500);
+    setParam(t.get(),"pulsar_size","1000");t->captureActiveClip(true);assert(t->savePersistentState());t.reset();
+    t=std::make_unique<ThruInstance>();assert(t->prepare(folder));assert(t->controls.pulsarSize==1000);
     t.reset();removeBackgroundTestDirectory(folder);
     std::puts("s3g Thru Pulsar genuine 500 ms spans: source rates, stereo, fixed readers, live/crop safety, MIDI, fine E16 and restart recall: PASS");
+}
+
+void testPulsarLongDuration() {
+    for (float pulseMs : {500.f, 1000.f})
+    for (float outputRate : {44100.f, 48000.f})
+        for (float sourceRate : {22050.f, 44100.f, 48000.f, 96000.f})
+            for (bool prepared : {false, true}) {
+                const auto frames = static_cast<std::size_t>(sourceRate * 2);
+                std::array<std::vector<float>, 4> pcm;
+                std::array<std::array<float, 64>, 4> input{}, output{};
+                std::array<const float*, 4> in{};
+                std::array<float*, 4> out{};
+                for (int lane = 0; lane < 4; ++lane) {
+                    pcm[lane].resize(frames * 2);
+                    for (std::size_t i = 0; i < frames; ++i) {
+                        const float x = .3f * std::sin(6.28318530718 * 220 * i / sourceRate);
+                        pcm[lane][i] = x;
+                        pcm[lane][frames + i] = -.5f * x;
+                    }
+                    in[lane] = input[lane].data(); out[lane] = output[lane].data();
+                }
+                auto engine = std::make_unique<Engine>();
+                assert(engine->prepare(outputRate, pcm[0].data(), pcm[1].data(),
+                                       pcm[2].data(), pcm[3].data(), frames * 2));
+                for (int lane = 0; lane < 4; ++lane)
+                    assert(engine->adoptLane(lane, frames, sourceRate));
+                s3g_daisy::ThruWavesetBank bank;
+                if (prepared) {
+                    bank.analyze(pcm[0].data(), pcm[0].data() + frames, frames, sourceRate);
+                    engine->setPreparedWavesetBank(0, &bank);
+                }
+                Engine::Controls c;
+                c.algorithm = Engine::PlaybackAlgorithm::pulsar;
+                c.lanePath = Engine::LanePath::manual;
+                c.pulsarRate = 500 / pulseMs; c.pulsarForm = 1000 / pulseMs; c.pulsarSize = pulseMs;
+                c.pulsarSourceHold = 1; c.pulsarHoldPosition = .25f;
+                int eventCount = 0;
+                float previousEvent = 0;
+                double sinceLaunch = 0, lateEnergy = 0, gapEnergy = 0;
+                int lateCount = 0, gapCount = 0;
+                for (int block = 0; block < static_cast<int>(outputRate * pulseMs * .0038 / 64); ++block) {
+                    engine->process(in.data(), out.data(), 64, c);
+                    const auto p = engine->pulsarStatus();
+                    assert(p[2] <= 4);
+                    if (p[5] != previousEvent) {
+                        previousEvent = p[5]; sinceLaunch = 0; ++eventCount;
+                        assert(std::abs(p[6] - pulseMs) < .001f && p[3] == 0);
+                        assert(std::abs(p[1] - p[0] - pulseMs * .0005f) < .0001f);
+                    }
+                    for (int i = 0; i < 64; ++i) {
+                        const float x = output[0][i];
+                        assert(std::isfinite(x) && std::abs(x) < 1);
+                        assert(std::abs(output[1][i] + .5f * x) < 1e-5f);
+                        // Measure the second pulse, after algorithm-entry fades.
+                        const double age = sinceLaunch + i / outputRate;
+                        if (eventCount >= 2 && age >= pulseMs * .0007 && age < pulseMs * .00088) {
+                            lateEnergy += x*x; ++lateCount;
+                        }
+                        if (eventCount >= 2 && age >= pulseMs * .0014 && age < pulseMs * .0016) {
+                            gapEnergy += x*x; ++gapCount;
+                        }
+                    }
+                    sinceLaunch += 64 / outputRate;
+                }
+                assert(lateCount > 100 && gapCount > 100);
+                assert(std::sqrt(lateEnergy / lateCount) > .01);
+                assert(std::sqrt(gapEnergy / gapCount) < .0001);
+                // Higher clock speeds and jitter shorten new pulses; long
+                // existing readers finish instead of being stolen.
+                const auto previousPulse = engine->pulsarStatus()[5];
+                for (int block = 0; block < static_cast<int>(outputRate * pulseMs * .002 / 64) + 2
+                     && engine->pulsarStatus()[5] == previousPulse; ++block)
+                    engine->process(in.data(), out.data(), 64, c);
+                assert(engine->pulsarStatus()[5] != previousPulse);
+                c.pulsarRate = 100; c.pulsarJitter = 1;
+                for (int block = 0; block < 700; ++block) {
+                    engine->process(in.data(), out.data(), 64, c);
+                    assert(engine->pulsarStatus()[2] <= 4);
+                    for (float x : output[0]) assert(std::isfinite(x) && std::abs(x) < 1);
+                }
+                const auto limited = engine->pulsarStatus();
+                assert(limited[3] == 1 && limited[6] > 15.9 && limited[6] < 16.1);
+                // Keyboard/form modulation cannot shrink FORM below 1 Hz.
+                c.pulsarRate = 1; c.pulsarJitter = 0;
+                c.notePitch = .5f; c.pulsarKeytrack = 1;
+                for (int block = 0; block < static_cast<int>(outputRate * 5 / 64); ++block)
+                    engine->process(in.data(), out.data(), 64, c);
+                assert(std::abs(engine->pulsarStatus()[6] - 1000) < .001f);
+            }
+    char folder[] = "/tmp/thru-pulsar-duration.XXXXXX"; assert(mkdtemp(folder));
+    auto t = std::make_unique<ThruInstance>(); assert(t->prepare(folder));
+    t->stopBackgroundWork();
+    const auto& form = midiParameter("pulsar_form");
+    assert(form.id == 3329 && form.minimum == 1 && form.maximum == 2000 && form.initial == 500);
+    nrpn(*t, 5, "pulsar_form", 0); assert(t->controls.pulsarForm == 1);
+    setParam(t.get(), "pulsar_form", "0.5"); assert(t->controls.pulsarForm == 1);
+    setParam(t.get(), "pulsar_form", "1");
+    t->captureActiveClip(true); assert(t->savePersistentState()); t.reset();
+    t = std::make_unique<ThruInstance>(); assert(t->prepare(folder));
+    assert(t->controls.pulsarForm == 1);
+    Engine::Controls c; c.algorithm = Engine::PlaybackAlgorithm::pulsar; c.pulsarForm = 1;
+    ThruInstance::applyVoiceCharacter(c, .5f); assert(c.pulsarForm == 2);
+    t.reset(); removeBackgroundTestDirectory(folder);
+    std::puts("s3g Thru Pulsar audible 500/1000 ms windows, stereo/rates, safe overlap, low FORM tracking and saved/MIDI ranges: PASS");
 }

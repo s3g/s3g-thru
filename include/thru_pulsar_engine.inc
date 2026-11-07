@@ -22,7 +22,7 @@ std::uint32_t pulsarRandom_ = 1, pulsarSerial_ = 0;
 float pulsarRate_ = 0, pulsarSlew_ = .001f, pulsarDcPole_ = .999f;
 float pulsarBaseFrequency_ = 261.625565f;
 float pulsarFrequency_ = 261.625565f, pulsarForm_ = 500, pulsarSize_ = 4, pulsarGain_ = 1;
-float pulsarFragmentStart_ = 0, pulsarFragmentEnd_ = 0;
+float pulsarFragmentStart_ = 0, pulsarFragmentEnd_ = 0, pulsarDurationMs_ = 0;
 bool pulsarInitialized_ = false, pulsarLimited_ = false;
 void resetPulsar() {
     pulsarHeads_ = {};
@@ -38,7 +38,7 @@ void resetPulsar() {
     pulsarInitialized_ = false;
     pulsarLimited_ = false;
     pulsarGain_ = 1;
-    pulsarFragmentStart_ = pulsarFragmentEnd_ = 0;
+    pulsarFragmentStart_ = pulsarFragmentEnd_ = pulsarDurationMs_ = 0;
     ++pulsarSerial_;
 }
 void preparePulsarControls(const Controls &c) {
@@ -63,7 +63,7 @@ void launchPulsar(const Controls &c, const Window &window, double age, float min
         semitones += 12 * std::log2(clamp(c.notePitch, .001f, 512.f)) * pulsarKeytrack_;
     const float form = semitones == 0
                            ? pulsarForm_
-                           : clamp(pulsarForm_ * std::exp2(semitones / 12), 20.f, 2000.f);
+                           : clamp(pulsarForm_ * std::exp2(semitones / 12), ThruPulsar::minimumFormHz, ThruPulsar::maximumFormHz);
     const double requested = outputSampleRate_ / form;
     const double duration = clamp(requested, 16., std::max(16., 2.9 * minimumInterval));
     pulsarLimited_ = std::abs(duration - requested) > .01;
@@ -85,6 +85,7 @@ void launchPulsar(const Controls &c, const Window &window, double age, float min
     *head = {};
     head->active = true;
     head->duration = duration;
+    pulsarDurationMs_ = static_cast<float>(duration * 1000 / outputSampleRate_);
     head->age = age;
     head->shape = static_cast<int>(clamp(std::round(c.pulsarWindow), 0.f, 4.f));
     head->skew = clamp01(c.pulsarSkew);
@@ -163,7 +164,7 @@ void renderPulsarFrame(const Controls &c, float *wet) {
         pulsarSpray_ = clamp01(c.pulsarSpray);
         pulsarReverse_ = clamp01(c.pulsarReverse);
         pulsarKeytrack_ = clamp01(c.pulsarKeytrack);
-        pulsarForm_ = clamp(c.pulsarForm, 20.f, 2000.f);
+        pulsarForm_ = clamp(c.pulsarForm, ThruPulsar::minimumFormHz, ThruPulsar::maximumFormHz);
         pulsarSize_ = clamp(c.pulsarSize, ThruPulsar::minimumSizeMs, ThruPulsar::maximumSizeMs);
         pulsarInitialized_ = true;
     }
@@ -195,7 +196,7 @@ void renderPulsarFrame(const Controls &c, float *wet) {
     pulsarFrequency_ = clamp(pulsarBaseFrequency_ * modulation, .05f, 2000.f);
     // Preserve clock phase through a rate edit, including long silent periods.
     pulsarCountdown_ *= previousFrequency / pulsarFrequency_;
-    pulsarForm_ += pulsarSlew_ * (clamp(c.pulsarForm, 20.f, 2000.f) - pulsarForm_);
+    pulsarForm_ += pulsarSlew_ * (clamp(c.pulsarForm, ThruPulsar::minimumFormHz, ThruPulsar::maximumFormHz) - pulsarForm_);
     pulsarSize_ += pulsarSlew_ * (clamp(c.pulsarSize, ThruPulsar::minimumSizeMs, ThruPulsar::maximumSizeMs) - pulsarSize_);
     const float interval = outputSampleRate_ / pulsarFrequency_,
                 jitter = clamp01(c.pulsarJitter) * .45f;

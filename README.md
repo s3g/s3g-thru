@@ -28,9 +28,9 @@ press **Step 2** for Global Settings. **Shift + main encoder click** opens its
 section picker: choose **System → Help → Modules → s3g Thru**. Inside Thru,
 **Shift + Menu** opens the diagnostic reports and shortcut reminder.
 
-Version 0.30.0 adds Stochastic and Pulsar, per-note Engine Lists, Legato,
-Bank capture pads, portable project backups, slice editing and Custom MIDI
-profiles. See the [release notes](release-notes/RELEASE_NOTES_0.30.0.md).
+Version 0.30.1 expands Pulsar to one-second pulses, with an actual-duration
+readout and fine encoder control. See the
+[release notes](release-notes/RELEASE_NOTES_0.30.1.md).
 Use the manual's [Projects guide](https://s3g.github.io/s3g-thru/projects.html)
 for backup and restore.
 

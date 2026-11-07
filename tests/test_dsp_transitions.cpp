@@ -3,6 +3,7 @@
 #define S3G_THRU_STORAGE_TESTING 1
 #include "../src/dsp/thru_module.cpp"
 #include <filesystem>
+#include <chrono>
 #include <fstream>
 #include <cassert>
 #include <string>
@@ -346,6 +347,9 @@ void testPreviewIsolation()
 
 int main(int argc,char** argv)
 {
+    if(argc==2 && std::strcmp(argv[1],"--pulsar")==0) {
+        testPulsarLongDuration();testPulsarExtendedSize();testPulsarWindowsAndClock();testPulsarEditsAndParts();testPulsarPersistenceAndMidi();return 0;
+    }
     if(argc==2&&std::strcmp(argv[1],"--storage-projects")==0){testProjectPathBounds();testBankExitRecoveryAndDiscard();testDurableStorageCommits();testPortableProjects();testPortableProjects(false);testPortableProjects(true,1);testPortableProjects(true,2);testProjectBackgroundWorkflow();testProjectLoadedAndRecordedSources();return 0;}
     testProjectPathBounds();testBankExitRecoveryAndDiscard();testDurableStorageCommits();testPortableProjects();testPortableProjects(false);testPortableProjects(true,1);testPortableProjects(true,2);testProjectBackgroundWorkflow();testProjectLoadedAndRecordedSources();
     if(argc==2&&std::strcmp(argv[1],"--bank-guard")==0){testBankMinimumTake();testBankSilenceAndDurationGuards();return 0;}
@@ -375,9 +379,6 @@ int main(int argc,char** argv)
         std::puts("s3g Thru focused MIDI regressions: PASS");
         return 0;
     }
-    if(argc==2 && std::strcmp(argv[1],"--pulsar")==0) {
-        testPulsarExtendedSize();testPulsarWindowsAndClock();testPulsarEditsAndParts();testPulsarPersistenceAndMidi();return 0;
-    }
     if(argc==2 && std::strcmp(argv[1],"--bank")==0) {
         testLegatoKeys();testBankCaptureAndRecall();testBankSaveRecovery();testBankPadControlsAndSources();testBankFourRecordingSources();testBankMinimumTake();testBankSilenceAndDurationGuards();return 0;
     }
@@ -387,6 +388,7 @@ int main(int argc,char** argv)
     testPriorityDuckingAudio();
     testPulsarModulationSound();
     testPulsarModulationPersistence();
+    testPulsarLongDuration();
     testPulsarExtendedSize();
     testPulsarWindowsAndClock();
     testPulsarEditsAndParts();

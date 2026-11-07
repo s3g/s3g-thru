@@ -127,7 +127,7 @@
             case Engine::PlaybackAlgorithm::prism:c.prismSmear=clampValue(c.prismSmear+(1-c.prismSmear)*amount,0.0f,1.0f);break;
             case Engine::PlaybackAlgorithm::morph:c.morphAmplitude=clampValue(c.morphAmplitude+(1-c.morphAmplitude)*amount,0.0f,1.0f);break;
             case Engine::PlaybackAlgorithm::texture:c.textureScatter=clampValue(c.textureScatter+(1-c.textureScatter)*amount,0.0f,1.0f);break;
-            case Engine::PlaybackAlgorithm::pulsar:c.pulsarForm=clampValue(c.pulsarForm*std::exp2(2*amount),20.f,2000.f);break;
+            case Engine::PlaybackAlgorithm::pulsar:c.pulsarForm=clampValue(c.pulsarForm*std::exp2(2*amount),s3g_daisy::ThruPulsar::minimumFormHz,s3g_daisy::ThruPulsar::maximumFormHz);break;
             case Engine::PlaybackAlgorithm::stochastic:c.stochasticAmplitude=clampValue(c.stochasticAmplitude+(1-c.stochasticAmplitude)*amount,0.f,1.f);c.stochasticTiming=clampValue(c.stochasticTiming+(1-c.stochasticTiming)*amount,0.f,1.f);break;
             case Engine::PlaybackAlgorithm::formant:c.formantShift=clampValue(c.formantShift+12*amount,-24.0f,24.0f);break;
             default:break;

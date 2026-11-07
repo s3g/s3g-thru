@@ -1,7 +1,7 @@
 # E16 + Monolit: native relative CC
 
 Use **E+M** in s3g Thru and **THRU EM** on E16. This example requires the
-**0.30.0** module with the matching THRU EM scene and Thru Rings
+**0.30.0 or newer** module with the matching THRU EM scene and Thru Rings
 script. Existing users of the matching THRU EM scene and Thru Rings script
 can retain them when updating only the Move module.
 
@@ -46,8 +46,9 @@ that scene's private NRPN messages are ignored by this module.
   IN, MIX, PT A or PT B. PT B records the Bank pads themselves. No scene or
   ring-script reimport is needed for these additional choices.
 
-Pulsar SIZE reaches 500 ms. Its native relative turns retain fine adjustment
-at small sizes.
+In 0.30.1, Pulsar SIZE reaches 1000 ms and FORM reaches 1 Hz. Native
+relative turns retain fine adjustment at small values. The wider ranges
+come from Thru; no scene or ring-script reimport is required.
 
 The rings show **Thru’s actual values** for the selected E16 page, even while
 Move displays another page. Minimum is at the start of the ring, maximum at

@@ -1,4 +1,4 @@
-/* s3g Thru 0.30.0 — polyphonic sampler/performance-looper takeover for Move. */
+/* s3g Thru 0.30.1 — polyphonic sampler/performance-looper takeover for Move. */
 
 import * as moveConstants from '/data/UserData/schwung/shared/constants.mjs';
 import * as moveInputFilter from '/data/UserData/schwung/shared/input_filter.mjs';
@@ -89,7 +89,7 @@ const setButtonLED = typeof moveInputFilter.setButtonLED === 'function'
         }
     };
 
-const UI_VERSION = '0.30.0';
+const UI_VERSION = '0.30.1';
 const HELP_PAGE_COUNT=5;
 const WAVE_BINS = 112;
 const ALGORITHMS = ['MOTION', 'LANES', 'GRAINS', 'CUTUPS', 'SAMPLE', 'SLICES',
@@ -224,8 +224,8 @@ const PARAMS = {
     pulsar_reverse: {"key":"pulsar_reverse","label":"REV%","min":0,"max":100,"value":0,"step":2,"unit":"%"},
     pulsar_keytrack: {"key":"pulsar_keytrack","label":"KEYT","min":0,"max":100,"value":0,"step":2,"unit":"%"},
     pulsar_rate: {"key":"pulsar_rate","label":"RATE","min":0.1,"max":2000,"value":261.625565,"step":0.1,"unit":"Hz"},
-    pulsar_form: {"key":"pulsar_form","label":"FORM","min":20,"max":2000,"value":500,"step":0.1,"unit":"Hz"},
-    pulsar_size: {"key":"pulsar_size","label":"SIZE","min":0.5,"max":500,"value":4,"step":0.01,"unit":"ms"},
+    pulsar_form: {"key":"pulsar_form","label":"FORM","min":1,"max":2000,"value":500,"step":0.1,"unit":"Hz"},
+    pulsar_size: {"key":"pulsar_size","label":"SIZE","min":0.5,"max":1000,"value":4,"step":0.01,"unit":"ms"},
     pulsar_window: {"key":"pulsar_window","label":"WIN","min":0,"max":4,"value":0,"step":1,"integer":true,"labels":["HANN","BELL","TAPR","PERC","REV"]},
     pulsar_skew: {"key":"pulsar_skew","label":"SKEW","min":0,"max":100,"value":50,"step":2,"unit":"%"},
     pulsar_omit: {"key":"pulsar_omit","label":"OMIT","min":0,"max":100,"value":0,"step":2,"unit":"%"},
@@ -1282,9 +1282,25 @@ function adjustSplitBlend(delta) {
 function parsePulsarState(text) {
     state.pulsarVoices=Array(8).fill(null);
     for(const item of String(text||'').split(';')) {
-        const v=item.split(',').map(Number);if(v.length!==7||!v.every(Number.isFinite)||!Number.isInteger(v[0])||v[0]<0||v[0]>7)continue;
-        state.pulsarVoices[v[0]]={start:clamp(v[1]/1000,0,1),end:clamp(v[2]/1000,0,1),active:v[3],limited:v[4]>0,frequency:v[5],pulse:v[6]};
+        const v=item.split(',').map(Number);if((v.length!==7&&v.length!==8)||!v.every(Number.isFinite)||!Number.isInteger(v[0])||v[0]<0||v[0]>7)continue;
+        state.pulsarVoices[v[0]]={start:clamp(v[1]/1000,0,1),end:clamp(v[2]/1000,0,1),active:v[3],limited:v[4]>0,frequency:v[5],pulse:v[6],durationMs:v.length===8&&v[7]>0?v[7]:null};
     }
+}
+function pulsarDurationFooter() {
+    const voices=state.pulsarVoices.filter((p,i)=>p&&(!state.splitEnabled||Math.floor(i/(isQuad()?2:4))===state.splitFocus));
+    const durations=voices.map(p=>p.durationMs).filter(ms=>Number.isFinite(ms)&&ms>0);
+    const format=ms=>ms<10?String(Number(ms.toFixed(1))):String(Math.round(ms));
+    let duration;
+    if(durations.length) {
+        const low=format(Math.min(...durations)),high=format(Math.max(...durations));
+        duration=(low===high?low:low+'-'+high)+'ms';
+    } else {
+        // At rest, estimate the root-note pulse with unmodulated controls.
+        const requested=1000/PARAMS.pulsar_form.value;
+        const limit=2900/PARAMS.pulsar_rate.value*(1-.45*PARAMS.pulsar_jitter.value/100);
+        duration='~'+format(Math.min(requested,limit))+'ms';
+    }
+    return duration+' '+(voices.some(p=>p.limited)?'LIMIT':PARAMS.pulsar_source_hold.value>=.5?'CLICK:RUN':'CLICK:HOLD');
 }
 function drawPulsarFragment(slot,lane,window) {
     const p=state.pulsarVoices[slot];if(!p||p.active<=0||lane<0||lane>3||p.end<window[0]||p.start>window[1])return;
@@ -3187,7 +3203,7 @@ function drawSettings() {
         if(page.voiceEngines&&index===Math.round(PARAMS.voice_engine_edit.value)-1)
             drawRect((index%4)*32+3,Math.floor(index/4)*24+19,12,1,1);
     }
-    if(page.pulsar){const limited=state.pulsarVoices.some((p,i)=>p?.limited&&(!state.splitEnabled||Math.floor(i/(isQuad()?2:4))===state.splitFocus));print(1,57,limited?'LIMIT: RATE / WIDTH':PARAMS.pulsar_source_hold.value>=.5?'SRC HELD CLICK: RUN':'CLICK: HOLD SOURCE',1);}
+    if(page.pulsar)print(1,57,pulsarDurationFooter(),1);
     else if(page.stochastic)print(1,57,PARAMS.stochastic_source_hold.value>=.5?'SRC HELD CLICK: RUN':'CLICK: HOLD SOURCE',1);
     else if(page.voiceEngines||page.voiceSetup)print(1,57,'TURN SLOT CLICK EDIT',1);
     else if(drawPath)print(1,57,'CLICK: EDIT PATH',1);
@@ -4276,8 +4292,8 @@ function nextControlValue(control,delta,fine=false) {
     if(fine&&!control.labels)return clamp(control.value+delta*(control.integer?Math.max(1,control.step):control.step*.1),control.min,control.max);
     let value;
     if(['pulsar_rate','pulsar_form','pulsar_size','pulsar_emit_mod_rate','pulsar_form_mod_rate'].includes(control.key)) {
-        // Keep small SIZE changes as fine as before across its wider range.
-        const steps=control.key==='pulsar_size'?320:240;
+        // Preserve turn precision when extending SIZE and the low FORM range.
+        const steps=control.key==='pulsar_size'?352:control.key==='pulsar_form'?396:240;
         const i=Math.round(steps*Math.log(control.value/control.min)/Math.log(control.max/control.min))+delta;
         value=Number((control.min*Math.pow(control.max/control.min,clamp(i,0,steps)/steps)).toFixed(4));
     } else if(control.key==='stochastic_evolution') {

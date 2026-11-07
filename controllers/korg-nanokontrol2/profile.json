@@ -1,0 +1,1106 @@
+{
+  "version": 1,
+  "name": "nanoKONTROL2",
+  "configuration": "CC mode, factory channel-1 CC assignments",
+  "bank_names": [
+    "Engine 1",
+    "Engine 2",
+    "Engine 3",
+    "Engine 4",
+    "Sends / Crossfade",
+    "Color",
+    "Rotary",
+    "Reverb"
+  ],
+  "bindings": [
+    {
+      "cc": 0,
+      "channel": 1,
+      "part": "A",
+      "bank": 0,
+      "behavior": 0,
+      "kind": "parameter",
+      "parameter": "locus"
+    },
+    {
+      "cc": 1,
+      "channel": 1,
+      "part": "A",
+      "bank": 0,
+      "behavior": 0,
+      "kind": "parameter",
+      "parameter": "field"
+    },
+    {
+      "cc": 2,
+      "channel": 1,
+      "part": "A",
+      "bank": 0,
+      "behavior": 0,
+      "kind": "parameter",
+      "parameter": "speed"
+    },
+    {
+      "cc": 3,
+      "channel": 1,
+      "part": "A",
+      "bank": 0,
+      "behavior": 0,
+      "kind": "parameter",
+      "parameter": "part_level"
+    },
+    {
+      "cc": 4,
+      "channel": 1,
+      "part": "B",
+      "bank": 0,
+      "behavior": 0,
+      "kind": "parameter",
+      "parameter": "locus"
+    },
+    {
+      "cc": 5,
+      "channel": 1,
+      "part": "B",
+      "bank": 0,
+      "behavior": 0,
+      "kind": "parameter",
+      "parameter": "field"
+    },
+    {
+      "cc": 6,
+      "channel": 1,
+      "part": "B",
+      "bank": 0,
+      "behavior": 0,
+      "kind": "parameter",
+      "parameter": "speed"
+    },
+    {
+      "cc": 7,
+      "channel": 1,
+      "part": "B",
+      "bank": 0,
+      "behavior": 0,
+      "kind": "parameter",
+      "parameter": "part_level"
+    },
+    {
+      "cc": 16,
+      "channel": 1,
+      "part": "A",
+      "bank": 1,
+      "behavior": 0,
+      "kind": "engine",
+      "target": null,
+      "page": 0,
+      "slot": 0
+    },
+    {
+      "cc": 17,
+      "channel": 1,
+      "part": "A",
+      "bank": 1,
+      "behavior": 0,
+      "kind": "engine",
+      "target": null,
+      "page": 0,
+      "slot": 1
+    },
+    {
+      "cc": 18,
+      "channel": 1,
+      "part": "A",
+      "bank": 1,
+      "behavior": 0,
+      "kind": "engine",
+      "target": null,
+      "page": 0,
+      "slot": 2
+    },
+    {
+      "cc": 19,
+      "channel": 1,
+      "part": "A",
+      "bank": 1,
+      "behavior": 0,
+      "kind": "engine",
+      "target": null,
+      "page": 0,
+      "slot": 3
+    },
+    {
+      "cc": 20,
+      "channel": 1,
+      "part": "B",
+      "bank": 1,
+      "behavior": 0,
+      "kind": "engine",
+      "target": null,
+      "page": 0,
+      "slot": 0
+    },
+    {
+      "cc": 21,
+      "channel": 1,
+      "part": "B",
+      "bank": 1,
+      "behavior": 0,
+      "kind": "engine",
+      "target": null,
+      "page": 0,
+      "slot": 1
+    },
+    {
+      "cc": 22,
+      "channel": 1,
+      "part": "B",
+      "bank": 1,
+      "behavior": 0,
+      "kind": "engine",
+      "target": null,
+      "page": 0,
+      "slot": 2
+    },
+    {
+      "cc": 23,
+      "channel": 1,
+      "part": "B",
+      "bank": 1,
+      "behavior": 0,
+      "kind": "engine",
+      "target": null,
+      "page": 0,
+      "slot": 3
+    },
+    {
+      "cc": 16,
+      "channel": 1,
+      "part": "A",
+      "bank": 2,
+      "behavior": 0,
+      "kind": "engine",
+      "target": null,
+      "page": 1,
+      "slot": 0
+    },
+    {
+      "cc": 17,
+      "channel": 1,
+      "part": "A",
+      "bank": 2,
+      "behavior": 0,
+      "kind": "engine",
+      "target": null,
+      "page": 1,
+      "slot": 1
+    },
+    {
+      "cc": 18,
+      "channel": 1,
+      "part": "A",
+      "bank": 2,
+      "behavior": 0,
+      "kind": "engine",
+      "target": null,
+      "page": 1,
+      "slot": 2
+    },
+    {
+      "cc": 19,
+      "channel": 1,
+      "part": "A",
+      "bank": 2,
+      "behavior": 0,
+      "kind": "engine",
+      "target": null,
+      "page": 1,
+      "slot": 3
+    },
+    {
+      "cc": 20,
+      "channel": 1,
+      "part": "B",
+      "bank": 2,
+      "behavior": 0,
+      "kind": "engine",
+      "target": null,
+      "page": 1,
+      "slot": 0
+    },
+    {
+      "cc": 21,
+      "channel": 1,
+      "part": "B",
+      "bank": 2,
+      "behavior": 0,
+      "kind": "engine",
+      "target": null,
+      "page": 1,
+      "slot": 1
+    },
+    {
+      "cc": 22,
+      "channel": 1,
+      "part": "B",
+      "bank": 2,
+      "behavior": 0,
+      "kind": "engine",
+      "target": null,
+      "page": 1,
+      "slot": 2
+    },
+    {
+      "cc": 23,
+      "channel": 1,
+      "part": "B",
+      "bank": 2,
+      "behavior": 0,
+      "kind": "engine",
+      "target": null,
+      "page": 1,
+      "slot": 3
+    },
+    {
+      "cc": 16,
+      "channel": 1,
+      "part": "A",
+      "bank": 3,
+      "behavior": 0,
+      "kind": "engine",
+      "target": null,
+      "page": 2,
+      "slot": 0
+    },
+    {
+      "cc": 17,
+      "channel": 1,
+      "part": "A",
+      "bank": 3,
+      "behavior": 0,
+      "kind": "engine",
+      "target": null,
+      "page": 2,
+      "slot": 1
+    },
+    {
+      "cc": 18,
+      "channel": 1,
+      "part": "A",
+      "bank": 3,
+      "behavior": 0,
+      "kind": "engine",
+      "target": null,
+      "page": 2,
+      "slot": 2
+    },
+    {
+      "cc": 19,
+      "channel": 1,
+      "part": "A",
+      "bank": 3,
+      "behavior": 0,
+      "kind": "engine",
+      "target": null,
+      "page": 2,
+      "slot": 3
+    },
+    {
+      "cc": 20,
+      "channel": 1,
+      "part": "B",
+      "bank": 3,
+      "behavior": 0,
+      "kind": "engine",
+      "target": null,
+      "page": 2,
+      "slot": 0
+    },
+    {
+      "cc": 21,
+      "channel": 1,
+      "part": "B",
+      "bank": 3,
+      "behavior": 0,
+      "kind": "engine",
+      "target": null,
+      "page": 2,
+      "slot": 1
+    },
+    {
+      "cc": 22,
+      "channel": 1,
+      "part": "B",
+      "bank": 3,
+      "behavior": 0,
+      "kind": "engine",
+      "target": null,
+      "page": 2,
+      "slot": 2
+    },
+    {
+      "cc": 23,
+      "channel": 1,
+      "part": "B",
+      "bank": 3,
+      "behavior": 0,
+      "kind": "engine",
+      "target": null,
+      "page": 2,
+      "slot": 3
+    },
+    {
+      "cc": 16,
+      "channel": 1,
+      "part": "A",
+      "bank": 4,
+      "behavior": 0,
+      "kind": "engine",
+      "target": null,
+      "page": 3,
+      "slot": 0
+    },
+    {
+      "cc": 17,
+      "channel": 1,
+      "part": "A",
+      "bank": 4,
+      "behavior": 0,
+      "kind": "engine",
+      "target": null,
+      "page": 3,
+      "slot": 1
+    },
+    {
+      "cc": 18,
+      "channel": 1,
+      "part": "A",
+      "bank": 4,
+      "behavior": 0,
+      "kind": "engine",
+      "target": null,
+      "page": 3,
+      "slot": 2
+    },
+    {
+      "cc": 19,
+      "channel": 1,
+      "part": "A",
+      "bank": 4,
+      "behavior": 0,
+      "kind": "engine",
+      "target": null,
+      "page": 3,
+      "slot": 3
+    },
+    {
+      "cc": 20,
+      "channel": 1,
+      "part": "B",
+      "bank": 4,
+      "behavior": 0,
+      "kind": "engine",
+      "target": null,
+      "page": 3,
+      "slot": 0
+    },
+    {
+      "cc": 21,
+      "channel": 1,
+      "part": "B",
+      "bank": 4,
+      "behavior": 0,
+      "kind": "engine",
+      "target": null,
+      "page": 3,
+      "slot": 1
+    },
+    {
+      "cc": 22,
+      "channel": 1,
+      "part": "B",
+      "bank": 4,
+      "behavior": 0,
+      "kind": "engine",
+      "target": null,
+      "page": 3,
+      "slot": 2
+    },
+    {
+      "cc": 23,
+      "channel": 1,
+      "part": "B",
+      "bank": 4,
+      "behavior": 0,
+      "kind": "engine",
+      "target": null,
+      "page": 3,
+      "slot": 3
+    },
+    {
+      "cc": 16,
+      "channel": 1,
+      "part": "A",
+      "bank": 5,
+      "behavior": 0,
+      "kind": "parameter",
+      "parameter": "part_delay"
+    },
+    {
+      "cc": 17,
+      "channel": 1,
+      "part": "A",
+      "bank": 5,
+      "behavior": 0,
+      "kind": "parameter",
+      "parameter": "part_reverb"
+    },
+    {
+      "cc": 18,
+      "channel": 1,
+      "part": "Global",
+      "bank": 5,
+      "behavior": 0,
+      "kind": "parameter",
+      "parameter": "split_priority"
+    },
+    {
+      "cc": 19,
+      "channel": 1,
+      "part": "Global",
+      "bank": 5,
+      "behavior": 0,
+      "kind": "parameter",
+      "parameter": "split_curve"
+    },
+    {
+      "cc": 20,
+      "channel": 1,
+      "part": "B",
+      "bank": 5,
+      "behavior": 0,
+      "kind": "parameter",
+      "parameter": "part_delay"
+    },
+    {
+      "cc": 21,
+      "channel": 1,
+      "part": "B",
+      "bank": 5,
+      "behavior": 0,
+      "kind": "parameter",
+      "parameter": "part_reverb"
+    },
+    {
+      "cc": 22,
+      "channel": 1,
+      "part": "Global",
+      "bank": 5,
+      "behavior": 0,
+      "kind": "parameter",
+      "parameter": "split_duck_threshold"
+    },
+    {
+      "cc": 23,
+      "channel": 1,
+      "part": "Global",
+      "bank": 5,
+      "behavior": 0,
+      "kind": "parameter",
+      "parameter": "split_blend"
+    },
+    {
+      "cc": 16,
+      "channel": 1,
+      "part": "A",
+      "bank": 6,
+      "behavior": 0,
+      "kind": "parameter",
+      "parameter": "effect_tone"
+    },
+    {
+      "cc": 17,
+      "channel": 1,
+      "part": "A",
+      "bank": 6,
+      "behavior": 0,
+      "kind": "parameter",
+      "parameter": "effect_drive"
+    },
+    {
+      "cc": 18,
+      "channel": 1,
+      "part": "A",
+      "bank": 6,
+      "behavior": 0,
+      "kind": "parameter",
+      "parameter": "effect_bits"
+    },
+    {
+      "cc": 19,
+      "channel": 1,
+      "part": "A",
+      "bank": 6,
+      "behavior": 0,
+      "kind": "parameter",
+      "parameter": "effect_rate"
+    },
+    {
+      "cc": 20,
+      "channel": 1,
+      "part": "B",
+      "bank": 6,
+      "behavior": 0,
+      "kind": "parameter",
+      "parameter": "effect_tone"
+    },
+    {
+      "cc": 21,
+      "channel": 1,
+      "part": "B",
+      "bank": 6,
+      "behavior": 0,
+      "kind": "parameter",
+      "parameter": "effect_drive"
+    },
+    {
+      "cc": 22,
+      "channel": 1,
+      "part": "B",
+      "bank": 6,
+      "behavior": 0,
+      "kind": "parameter",
+      "parameter": "effect_bits"
+    },
+    {
+      "cc": 23,
+      "channel": 1,
+      "part": "B",
+      "bank": 6,
+      "behavior": 0,
+      "kind": "parameter",
+      "parameter": "effect_rate"
+    },
+    {
+      "cc": 16,
+      "channel": 1,
+      "part": "A",
+      "bank": 7,
+      "behavior": 0,
+      "kind": "parameter",
+      "parameter": "effect_cross_pan"
+    },
+    {
+      "cc": 17,
+      "channel": 1,
+      "part": "A",
+      "bank": 7,
+      "behavior": 0,
+      "kind": "parameter",
+      "parameter": "effect_rotary_rate"
+    },
+    {
+      "cc": 18,
+      "channel": 1,
+      "part": "A",
+      "bank": 7,
+      "behavior": 0,
+      "kind": "parameter",
+      "parameter": "effect_rotary_depth"
+    },
+    {
+      "cc": 19,
+      "channel": 1,
+      "part": "A",
+      "bank": 7,
+      "behavior": 0,
+      "kind": "parameter",
+      "parameter": "effect_rotary_mix"
+    },
+    {
+      "cc": 20,
+      "channel": 1,
+      "part": "B",
+      "bank": 7,
+      "behavior": 0,
+      "kind": "parameter",
+      "parameter": "effect_cross_pan"
+    },
+    {
+      "cc": 21,
+      "channel": 1,
+      "part": "B",
+      "bank": 7,
+      "behavior": 0,
+      "kind": "parameter",
+      "parameter": "effect_rotary_rate"
+    },
+    {
+      "cc": 22,
+      "channel": 1,
+      "part": "B",
+      "bank": 7,
+      "behavior": 0,
+      "kind": "parameter",
+      "parameter": "effect_rotary_depth"
+    },
+    {
+      "cc": 23,
+      "channel": 1,
+      "part": "B",
+      "bank": 7,
+      "behavior": 0,
+      "kind": "parameter",
+      "parameter": "effect_rotary_mix"
+    },
+    {
+      "cc": 16,
+      "channel": 1,
+      "part": "Global",
+      "bank": 8,
+      "behavior": 0,
+      "kind": "parameter",
+      "parameter": "effect_reverb_algo"
+    },
+    {
+      "cc": 17,
+      "channel": 1,
+      "part": "Global",
+      "bank": 8,
+      "behavior": 0,
+      "kind": "parameter",
+      "parameter": "effect_reverb_decay"
+    },
+    {
+      "cc": 18,
+      "channel": 1,
+      "part": "Global",
+      "bank": 8,
+      "behavior": 0,
+      "kind": "parameter",
+      "parameter": "effect_reverb_damp"
+    },
+    {
+      "cc": 19,
+      "channel": 1,
+      "part": "Global",
+      "bank": 8,
+      "behavior": 0,
+      "kind": "parameter",
+      "parameter": "effect_reverb_mix"
+    },
+    {
+      "cc": 20,
+      "channel": 1,
+      "part": "Global",
+      "bank": 8,
+      "behavior": 0,
+      "kind": "parameter",
+      "parameter": "effect_reverb_pre"
+    },
+    {
+      "cc": 21,
+      "channel": 1,
+      "part": "Global",
+      "bank": 8,
+      "behavior": 0,
+      "kind": "parameter",
+      "parameter": "effect_reverb_diff"
+    },
+    {
+      "cc": 22,
+      "channel": 1,
+      "part": "Global",
+      "bank": 8,
+      "behavior": 0,
+      "kind": "parameter",
+      "parameter": "effect_reverb_mod"
+    },
+    {
+      "cc": 23,
+      "channel": 1,
+      "part": "Global",
+      "bank": 8,
+      "behavior": 0,
+      "kind": "parameter",
+      "parameter": "effect_reverb_width"
+    },
+    {
+      "cc": 32,
+      "channel": 1,
+      "part": "Global",
+      "bank": 0,
+      "behavior": 3,
+      "kind": "command",
+      "target": "bank1",
+      "page": 0,
+      "slot": 0
+    },
+    {
+      "cc": 33,
+      "channel": 1,
+      "part": "Global",
+      "bank": 0,
+      "behavior": 3,
+      "kind": "command",
+      "target": "bank2",
+      "page": 0,
+      "slot": 0
+    },
+    {
+      "cc": 34,
+      "channel": 1,
+      "part": "Global",
+      "bank": 0,
+      "behavior": 3,
+      "kind": "command",
+      "target": "bank3",
+      "page": 0,
+      "slot": 0
+    },
+    {
+      "cc": 35,
+      "channel": 1,
+      "part": "Global",
+      "bank": 0,
+      "behavior": 3,
+      "kind": "command",
+      "target": "bank4",
+      "page": 0,
+      "slot": 0
+    },
+    {
+      "cc": 36,
+      "channel": 1,
+      "part": "Global",
+      "bank": 0,
+      "behavior": 3,
+      "kind": "command",
+      "target": "bank5",
+      "page": 0,
+      "slot": 0
+    },
+    {
+      "cc": 37,
+      "channel": 1,
+      "part": "Global",
+      "bank": 0,
+      "behavior": 3,
+      "kind": "command",
+      "target": "bank6",
+      "page": 0,
+      "slot": 0
+    },
+    {
+      "cc": 38,
+      "channel": 1,
+      "part": "Global",
+      "bank": 0,
+      "behavior": 3,
+      "kind": "command",
+      "target": "bank7",
+      "page": 0,
+      "slot": 0
+    },
+    {
+      "cc": 39,
+      "channel": 1,
+      "part": "Global",
+      "bank": 0,
+      "behavior": 3,
+      "kind": "command",
+      "target": "bank8",
+      "page": 0,
+      "slot": 0
+    },
+    {
+      "cc": 48,
+      "channel": 1,
+      "part": "A",
+      "bank": 0,
+      "behavior": 2,
+      "kind": "parameter",
+      "parameter": "part_mute"
+    },
+    {
+      "cc": 52,
+      "channel": 1,
+      "part": "B",
+      "bank": 0,
+      "behavior": 2,
+      "kind": "parameter",
+      "parameter": "part_mute"
+    },
+    {
+      "cc": 49,
+      "channel": 1,
+      "part": "A",
+      "bank": 0,
+      "behavior": 2,
+      "kind": "parameter",
+      "parameter": "stack_scan_paused"
+    },
+    {
+      "cc": 53,
+      "channel": 1,
+      "part": "B",
+      "bank": 0,
+      "behavior": 2,
+      "kind": "parameter",
+      "parameter": "stack_scan_paused"
+    },
+    {
+      "cc": 41,
+      "channel": 1,
+      "part": "Global",
+      "bank": 0,
+      "behavior": 3,
+      "kind": "command",
+      "target": "play",
+      "page": 0,
+      "slot": 0
+    },
+    {
+      "cc": 42,
+      "channel": 1,
+      "part": "Global",
+      "bank": 0,
+      "behavior": 3,
+      "kind": "command",
+      "target": "stop",
+      "page": 0,
+      "slot": 0
+    },
+    {
+      "cc": 43,
+      "channel": 1,
+      "part": "Global",
+      "bank": 0,
+      "behavior": 3,
+      "kind": "command",
+      "target": "previousClip",
+      "page": 0,
+      "slot": 0
+    },
+    {
+      "cc": 44,
+      "channel": 1,
+      "part": "Global",
+      "bank": 0,
+      "behavior": 3,
+      "kind": "command",
+      "target": "nextClip",
+      "page": 0,
+      "slot": 0
+    },
+    {
+      "cc": 45,
+      "channel": 1,
+      "part": "Global",
+      "bank": 0,
+      "behavior": 3,
+      "kind": "command",
+      "target": "record",
+      "page": 0,
+      "slot": 0
+    },
+    {
+      "cc": 46,
+      "channel": 1,
+      "part": "Global",
+      "bank": 0,
+      "behavior": 3,
+      "kind": "command",
+      "target": "patternHold",
+      "page": 0,
+      "slot": 0
+    },
+    {
+      "cc": 58,
+      "channel": 1,
+      "part": "Global",
+      "bank": 0,
+      "behavior": 3,
+      "kind": "command",
+      "target": "previousBank",
+      "page": 0,
+      "slot": 0
+    },
+    {
+      "cc": 59,
+      "channel": 1,
+      "part": "Global",
+      "bank": 0,
+      "behavior": 3,
+      "kind": "command",
+      "target": "nextBank",
+      "page": 0,
+      "slot": 0
+    },
+    {
+      "cc": 60,
+      "channel": 1,
+      "part": "Global",
+      "bank": 0,
+      "behavior": 3,
+      "kind": "command",
+      "target": "undo",
+      "page": 0,
+      "slot": 0
+    },
+    {
+      "cc": 61,
+      "channel": 1,
+      "part": "Global",
+      "bank": 0,
+      "behavior": 3,
+      "kind": "command",
+      "target": "previousBank",
+      "page": 0,
+      "slot": 0
+    },
+    {
+      "cc": 62,
+      "channel": 1,
+      "part": "Global",
+      "bank": 0,
+      "behavior": 3,
+      "kind": "command",
+      "target": "nextBank",
+      "page": 0,
+      "slot": 0
+    },
+    {
+      "cc": 50,
+      "channel": 1,
+      "part": "Global",
+      "bank": 0,
+      "behavior": 3,
+      "kind": "command",
+      "target": "ignore",
+      "page": 0,
+      "slot": 0
+    },
+    {
+      "cc": 51,
+      "channel": 1,
+      "part": "Global",
+      "bank": 0,
+      "behavior": 3,
+      "kind": "command",
+      "target": "ignore",
+      "page": 0,
+      "slot": 0
+    },
+    {
+      "cc": 54,
+      "channel": 1,
+      "part": "Global",
+      "bank": 0,
+      "behavior": 3,
+      "kind": "command",
+      "target": "ignore",
+      "page": 0,
+      "slot": 0
+    },
+    {
+      "cc": 55,
+      "channel": 1,
+      "part": "Global",
+      "bank": 0,
+      "behavior": 3,
+      "kind": "command",
+      "target": "ignore",
+      "page": 0,
+      "slot": 0
+    },
+    {
+      "cc": 64,
+      "channel": 1,
+      "part": "Global",
+      "bank": 0,
+      "behavior": 3,
+      "kind": "command",
+      "target": "ignore",
+      "page": 0,
+      "slot": 0
+    },
+    {
+      "cc": 65,
+      "channel": 1,
+      "part": "Global",
+      "bank": 0,
+      "behavior": 3,
+      "kind": "command",
+      "target": "ignore",
+      "page": 0,
+      "slot": 0
+    },
+    {
+      "cc": 66,
+      "channel": 1,
+      "part": "Global",
+      "bank": 0,
+      "behavior": 3,
+      "kind": "command",
+      "target": "ignore",
+      "page": 0,
+      "slot": 0
+    },
+    {
+      "cc": 67,
+      "channel": 1,
+      "part": "Global",
+      "bank": 0,
+      "behavior": 3,
+      "kind": "command",
+      "target": "ignore",
+      "page": 0,
+      "slot": 0
+    },
+    {
+      "cc": 68,
+      "channel": 1,
+      "part": "Global",
+      "bank": 0,
+      "behavior": 3,
+      "kind": "command",
+      "target": "ignore",
+      "page": 0,
+      "slot": 0
+    },
+    {
+      "cc": 69,
+      "channel": 1,
+      "part": "Global",
+      "bank": 0,
+      "behavior": 3,
+      "kind": "command",
+      "target": "ignore",
+      "page": 0,
+      "slot": 0
+    },
+    {
+      "cc": 70,
+      "channel": 1,
+      "part": "Global",
+      "bank": 0,
+      "behavior": 3,
+      "kind": "command",
+      "target": "ignore",
+      "page": 0,
+      "slot": 0
+    },
+    {
+      "cc": 71,
+      "channel": 1,
+      "part": "Global",
+      "bank": 0,
+      "behavior": 3,
+      "kind": "command",
+      "target": "ignore",
+      "page": 0,
+      "slot": 0
+    }
+  ]
+}

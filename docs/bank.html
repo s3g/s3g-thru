@@ -21,7 +21,7 @@
         <figure><img src="assets/screens/bank-waveform.svg" alt="Bank B shows a selected sample waveform and sixteen-slot overview."><figcaption>The most recently pressed right pad selects the sample to view and edit. The grid follows the physical pad rows: slot 01 at bottom left, slot 16 at top right.</figcaption></figure>
         <h2 id="capture">Capture a pad</h2>
         <ol><li>On B’s Bank Pads page, choose SRC: IN, MIX, PT A or PT B. Play or latch the material to capture; for IN, select Move’s mic/line input and set its recording level.</li><li>Hold an empty right pad. Its LED turns red while recording.</li><li>Release the pad to finish. Capture ends silently; it does not start playback.</li><li>Wait for saving to finish, then hold the pad again to play its recording.</li></ol>
-        <p>Bank uses the same four source choices as Mix/Rec. The source is fixed when a take starts; changing SRC affects the next take. Touches shorter than 10 ms are ignored: the pad stays empty and no take is saved. Longer takes keep the audio from the initial press. Each recording is stereo, up to twelve seconds; a full pad finishes automatically. One capture/save runs at a time.</p>
+        <p>Bank uses the same four source choices as Mix/Rec. The source is fixed when a take starts; changing SRC affects the next take. Recordings shorter than 250 ms are discarded: the pad stays empty and no take is saved. Takes that stay at or below −90 dBFS peak on both channels are also discarded. This low silence threshold preserves quiet material; ordinary mic noise may exceed it. Accepted takes keep the audio from the initial press, including a short attack followed by silence. Filled pads still play immediately. A brief message explains a discarded take. Each recording is stereo, up to twelve seconds; a full pad finishes automatically. One capture/save runs at a time.</p>
         <table><thead><tr><th>Display</th><th>What it records</th></tr></thead><tbody>
           <tr><td>IN</td><td>Move’s selected mic/line input with Thru’s recording gain. Input monitoring can remain off.</td></tr>
           <tr><td>MIX</td><td>The combined instrument mix, including part balance, levels, shared effects and Tape, at the same recording point as Mix/Rec. Input monitoring is excluded.</td></tr>
@@ -30,6 +30,15 @@
         </tbody></table>
         <h3 id="resample-bank">Record the Bank pads</h3>
         <p>Set SRC to PT B, play or latch one or more filled right pads, then hold an empty right pad to record them. Release the empty pad to finish and wait for saving. The original pads keep playing; the new recording stays silent until you trigger it. Select MIX instead to include A and the shared effects.</p>
+        <h2 id="save-recovery">Recover a failed save</h2>
+        <p>If a take reports Save Failed, its audio remains in memory. Click the main encoder on the waveform page to open the recovery menu. Back also opens this menu when leaving a failed take; while a take is still saving, Back waits for it to finish.</p>
+        <figure><img src="assets/screens/bank-save-recovery.svg" alt="Unsaved Bank take menu with Retry Save, Keep Waiting and Discard."><figcaption>The take stays in memory until saving succeeds or you confirm Discard.</figcaption></figure>
+        <table class="readout-table"><thead><tr><th>Action</th><th>What it does</th></tr></thead><tbody>
+          <tr><td>Retry Save</td><td>Request another background save immediately.</td></tr>
+          <tr><td>Keep Waiting / Back</td><td>Return to the instrument while automatic retries continue.</td></tr>
+          <tr><td>Discard…</td><td>Open a second confirmation, initially set to Keep Take. Confirm Discard to release the pending take. Existing pad assignments, saved recordings and the previous Undo are retained.</td></tr>
+        </tbody></table>
+        <p>Ordinary exit waits for pending Bank audio. Shutdown also makes one final attempt at saving retained audio if a previous write failed. A forced exit or power loss while storage remains unavailable can still lose an unsaved take.</p>
         <h2 id="play">Play, latch and clear</h2>
         <table><thead><tr><th>Control</th><th>Action</th></tr></thead><tbody>
           <tr><td>Hold a filled right pad</td><td>With PLAY LOOP, play from the start and loop while held; release starts the envelope release. With PLAY ONE, play through once even after release, with a short fade at the end.</td></tr>
@@ -69,7 +78,7 @@
         <p>The performance recorder captures playing and latched Bank notes together with A. Holding an empty pad to capture audio is not recorded as a playback note. Existing clip and chain transitions can recall and fade Bank performances along with their sample assignments.</p>
         <nav class="page-nav" aria-label="Page navigation"><a class="page-nav-link" href="quad.html"><span>Previous</span>Quad Mode</a><a class="page-nav-link next" href="performance.html"><span>Next</span>Performance Loops</a></nav>
       </main>
-      <aside class="toc" aria-label="On this page"><div class="toc-section"><h2>On this page</h2><a href="#start">Choose Bank</a><a href="#capture">Capture</a><a href="#resample-bank">Record Bank pads</a><a href="#play">Play and clear</a><a href="#pads">Pad controls</a><a href="#sample">Sample controls</a><a href="#recall">Recall and clips</a></div></aside>
+      <aside class="toc" aria-label="On this page"><div class="toc-section"><h2>On this page</h2><a href="#start">Choose Bank</a><a href="#capture">Capture</a><a href="#resample-bank">Record Bank pads</a><a href="#save-recovery">Save recovery</a><a href="#play">Play and clear</a><a href="#pads">Pad controls</a><a href="#sample">Sample controls</a><a href="#recall">Recall and clips</a></div></aside>
     </div>
     <footer class="manual-footer">s3g Thru · Bank mode</footer>
     <script src="assets/lightbox.js"></script>

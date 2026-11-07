@@ -48,6 +48,10 @@
             else if(c.type==2)s.setClipPlaying(c.value!=0);
             else if(c.type==3)s.panic();
             else if(c.type==4)s.cancelPerformanceGestures();
+            else if(c.type==7)s.tempoBpm=c.value*.001f;
+            else if(c.type==8)s.releaseMidiInput(c.value);
+            else if(c.type==6){s.releaseExternalNotes();if(c.value)s.midiPauseClip();}
+            else if(c.type==5){const std::uint8_t bytes[]{static_cast<std::uint8_t>(c.value),static_cast<std::uint8_t>(c.value>>8),static_cast<std::uint8_t>(c.value>>16)};s.handleNoteMidi(bytes,3,c.source);}
         }
         patternCommandRead.store(read,std::memory_order_release);
     }
@@ -162,6 +166,9 @@
         s.bankMasterRate=bankMasterRate;s.bankRecordSource=bankRecordSource;
         s.bankMode=bankMode;s.bankSlots=bankSlots;s.bankAssets=bankAssets;s.bankLoadedClip=0;
         s.bankSelected=bankSelected;s.voiceMode=voiceMode;s.heldKeys=heldKeys;
+        s.midiKeys=midiKeys;s.midiKeyOwner=midiKeyOwner;s.midiChannels=midiChannels;s.midiPartExpression=midiPartExpression;
+        s.midiNoteRoute=midiNoteRoute;s.midiNoteChannel=midiNoteChannel;s.midiBendRange=midiBendRange;s.midiModTarget=midiModTarget;s.midiVelocityDepth=midiVelocityDepth;
+        s.midiSyncSource=0;
         for(int index:s.bankAssets)if(index>=0)bankPool->assets[index].pins.fetch_add(1,std::memory_order_acq_rel);
         s.engine=engine;s.voices=voices;s.stochasticPartMeters=stochasticPartMeters;
         for(const auto& voice:s.voices)if(voice.bankAsset>=0)bankPool->assets[voice.bankAsset].pins.fetch_add(1,std::memory_order_acq_rel);
@@ -184,7 +191,7 @@
         s.grainVoiceLimit=grainVoiceLimit;s.polyphonyCompensation=polyphonyCompensation;s.polyphonyGain=polyphonyGain;
         s.padMappedNotes=padMappedNotes;s.latchedPadNotes=latchedPadNotes;s.latchedPadDeadlines=latchedPadDeadlines;
         s.holdReleaseMs=holdReleaseMs;s.liveStackHoldPhases=liveStackHoldPhases;s.liveStackHoldPhaseValid=liveStackHoldPhaseValid;
-        s.activeRegions=activeRegions;s.laneRegionRevisions=laneRegionRevisions;
+        s.fileSliceMaps=fileSliceMaps;s.activeRegions=activeRegions;s.laneRegionRevisions=laneRegionRevisions;
         s.splitEnabled=splitEnabled;s.sharedDual=sharedDual;s.quadMode=quadMode;s.splitFocus=splitFocus;s.voiceEngineSettings=voiceEngineSettings;s.voiceEngineRandom=voiceEngineRandom;s.voiceEngineTraversal=voiceEngineTraversal;
         s.splitInitialized=splitInitialized;s.quadInitialized=quadInitialized;
         s.splitParts=splitParts;s.splitSingleControls=splitSingleControls;s.splitSingleSettings=splitSingleSettings;
@@ -262,6 +269,7 @@
         noteClock=s.noteClock;
         activeNote=s.activeNote;
         midiPart=s.midiPart;
+        midiKeys=s.midiKeys;midiKeyOwner=s.midiKeyOwner;midiChannels=s.midiChannels;midiPartExpression=s.midiPartExpression;
         laneVariation=s.laneVariation;
         variationCounter=s.variationCounter;
         lastVariationLane=s.lastVariationLane;
@@ -275,7 +283,7 @@
         holdReleaseMs=s.holdReleaseMs;
         liveStackHoldPhases=s.liveStackHoldPhases;
         liveStackHoldPhaseValid=s.liveStackHoldPhaseValid;
-        activeRegions=s.activeRegions;
+        fileSliceMaps=s.fileSliceMaps;activeRegions=s.activeRegions;
         laneRegionRevisions=s.laneRegionRevisions;
         splitEnabled=s.splitEnabled;
         sharedDual=s.sharedDual;

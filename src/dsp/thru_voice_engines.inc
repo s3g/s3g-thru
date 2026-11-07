@@ -99,6 +99,11 @@
         return std::numeric_limits<float>::quiet_NaN();
     }
     void advanceVoiceExpression(PlaybackVoice& voice,std::size_t frames) {
+        for(int field=0;field<3;++field)if(voice.midiValue[field]!=voice.midiTarget[field]) {
+            const float slew=1-std::exp(-static_cast<float>(frames)/(sampleRate*.02f));
+            voice.midiValue[field]+=(voice.midiTarget[field]-voice.midiValue[field])*slew;
+            if(std::abs(voice.midiValue[field]-voice.midiTarget[field])<1e-6f)voice.midiValue[field]=voice.midiTarget[field];
+        }
         const auto owner=settingsForPart(voice.part);const float depth=owner.engines.pressureDepth;
         const bool character=owner.pressure==3||(!isQuad()&&owner.pressure==4);
         const float target=character?clampValue(voice.pressureTarget*depth,0.0f,1.0f):0;
@@ -130,7 +135,7 @@
     }
     float voiceToneAmount(const PlaybackVoice& voice) const {
         const int algorithm=voice.assignedAlgorithm>=0?voice.assignedAlgorithm:static_cast<int>((voice.clipOwned?splitEnabled?splitClipControls[voice.part]:clipControls:liveControlsForPart(voice.part)).algorithm);
-        return algorithm==2||algorithm==7||algorithm==9||algorithm==10||algorithm==11||algorithm==12||algorithm==13||algorithm==14?0:voice.pressureState;
+        return algorithm==2||algorithm==7||algorithm==9||algorithm==10||algorithm==11||algorithm==12||algorithm==13||algorithm==14?0:std::max(voice.pressureState,voice.midiValue[2]);
     }
     bool setVoiceEngineParam(const char* key,const char* value) {
         auto& cfg=voiceEngineSettings;const int slot=engineSlotKey(key);

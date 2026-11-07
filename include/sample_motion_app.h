@@ -61,9 +61,13 @@ public:
     enum class RegionMode : std::uint8_t {
         equal,
         transients,
+        file,
+        edited,
+        automatic,
     };
 
     static constexpr std::size_t kRegionModeCount = 2u;
+    static constexpr std::size_t kSliceRegionModeCount = 5u;
 
     enum class MotionMode : std::uint8_t {
         forward,
@@ -517,6 +521,9 @@ public:
         float sampleRegionCount = 16.0f;
         float sampleLane = 0.0f;
         float sampleSlice = 0.0f;
+        bool sampleRegionOverride = false, sampleRegionAbsolute = false;
+        bool sampleEditCrossfade = false;
+        float sampleRegionLow = 0, sampleRegionHigh = 1, sampleRegionLead = 0;
         GlitchMode glitchMode = GlitchMode::override;
         CutClock glitchClock = CutClock::tempo;
         CutDivision glitchDivision = CutDivision::sixteenth;
@@ -1211,7 +1218,7 @@ public:
             const float retriggerGain = retriggerTransitionGain();
             const float motionSoundGain = motionSoundTransitionGain(controls);
             const float motionSeedGain = motionSeedTransitionGain();
-            const float sampleTransition = sampleTransitionGain();
+            const float sampleTransition = controls.sampleEditCrossfade ? 1.0f : sampleTransitionGain();
             if(noteStartPending_&&currentAlgorithm_==controls.algorithm) {
                 noteStartPending_=false;
                 if(controls.noteStartOffset!=0) {
@@ -1496,6 +1503,13 @@ public:
     }
     float laneWeight(std::size_t lane) const
     {
+        // Direct readers choose one discrete lane. Their background scan
+        // weights are unused audio state and must not animate the display.
+        if (currentAlgorithm_ == PlaybackAlgorithm::sample
+            || currentAlgorithm_ == PlaybackAlgorithm::slices) {
+            return sampleConfigInitialized_ && laneLoaded(lane)
+                && currentSampleConfig_.lane == lane ? 1.0f : 0.0f;
+        }
         if (currentAlgorithm_ == PlaybackAlgorithm::cutups) {
             const auto state = cutupsDisplayState();
             return (state.lane == static_cast<int>(lane) ? state.gain : 0.0f)
@@ -1894,6 +1908,8 @@ private:
         std::size_t slice = 0u;
         std::size_t lane = kNoLane;
         bool sliced = false;
+        bool overrideRegion = false, absoluteRegion = false;
+        float low = 0, high = 1, lead = 0;
     };
 
     struct WavesetUnit {
@@ -2130,6 +2146,7 @@ private:
         sampleConfigInitialized_ = false;
         sampleConfigPending_ = false;
         sampleTransitionRemaining_ = 0u;
+        sampleEditRemaining_ = 0u;
         randomState_ = 0x51f15e5du;
         currentMotionSound_ = MotionSound::continuous;
         pendingMotionSound_ = MotionSound::continuous;
@@ -5022,9 +5039,9 @@ private:
     static bool sameSampleConfig(const SampleReaderConfig& a,
                                  const SampleReaderConfig& b)
     {
-        return a.mode == b.mode && a.regionMode == b.regionMode
-            && a.regionCount == b.regionCount && a.slice == b.slice
-            && a.lane == b.lane && a.sliced == b.sliced;
+        if(a.mode!=b.mode||a.lane!=b.lane||a.sliced!=b.sliced||a.overrideRegion!=b.overrideRegion)return false;
+        if(a.overrideRegion)return a.absoluteRegion==b.absoluteRegion&&a.low==b.low&&a.high==b.high&&a.lead==b.lead;
+        return a.regionMode==b.regionMode&&a.regionCount==b.regionCount&&a.slice==b.slice;
     }
 
     SampleReaderConfig requestedSampleConfig(
@@ -5040,6 +5057,12 @@ private:
             0.0f, std::floor(controls.sampleSlice)));
         config.lane = requestedSampleLane(controls);
         config.sliced = sliced;
+        if (sliced && controls.sampleRegionOverride) {
+            config.overrideRegion = true; config.absoluteRegion = controls.sampleRegionAbsolute;
+            config.low = clamp01(controls.sampleRegionLow);
+            config.high = clamp01(controls.sampleRegionHigh);
+            config.lead = clamp(controls.sampleRegionLead, 0.0f, 1.0f);
+        }
         return config;
     }
 
@@ -5091,18 +5114,28 @@ private:
         }
     }
 
-    void renderSampleFrame(const Controls& controls, bool sliced, float* wet)
+    void renderSampleReader(const SampleReaderConfig& config, const Window& window,
+                            const Controls& controls, double& phase, bool& done,
+                            float* wet, bool display)
     {
-        prepareSampleConfig(controls, sliced);
-        const SampleReaderConfig& config = currentSampleConfig_;
-        const Window window = smoothEventWindow(controls);
         fieldLow_ = window.low;
         fieldHigh_ = window.high;
         const std::size_t lane = config.lane;
         const double fieldWidth = std::max(1.0, window.high - window.low);
         double low = window.low;
         double high = window.high;
-        if (config.sliced) {
+        if (config.sliced && config.overrideRegion) {
+            const double extent = config.absoluteRegion ? static_cast<double>(sourceFrames_) : fieldWidth;
+            const double origin = config.absoluteRegion ? 0.0 : window.low;
+            const double nominal = origin + config.low * extent;
+            low = std::max(window.low, nominal - config.lead * sourceFrames_);
+            high = std::min(window.high, origin + config.high * extent);
+            if (high <= low + 0.5) {
+                if (display) displayPosition_ = nominal;
+                for (std::size_t channel=0; channel<kChannels; ++channel) wet[channel]=0;
+                return;
+            }
+        } else if (config.sliced) {
             const bool transientRegions = lane < kStackLanes
                 && config.regionMode == RegionMode::transients
                 && laneRegionCounts_[lane] != 0u;
@@ -5131,11 +5164,11 @@ private:
         // Halving its phase rate keeps the audible pitch equal to the other
         // sample modes instead of making both legs run at double speed.
         if (config.mode == SampleMode::pingPong) increment *= 0.5;
-        double readPhase = phase_;
+        double readPhase = phase;
         if (config.mode == SampleMode::reverse) {
-            readPhase = 1.0 - phase_;
+            readPhase = 1.0 - phase;
         } else if (config.mode == SampleMode::pingPong) {
-            readPhase = phase_ < 0.5 ? phase_ * 2.0 : 2.0 - phase_ * 2.0;
+            readPhase = phase < 0.5 ? phase * 2.0 : 2.0 - phase * 2.0;
         }
         const double position = clamp(low + readPhase * width,
                                       low, std::max(low, high - 1.0));
@@ -5143,20 +5176,27 @@ private:
             ? joinFrames({ low, high }, controls.join) : 0.0;
         const ReadHead head = makeEventReadHead(
             position, increment, low, high, seam);
-        displayPosition_ = position;
+        if (display) displayPosition_ = position;
         float completionGain = 1.0f;
+        if(config.overrideRegion) {
+            const double extent=config.absoluteRegion?static_cast<double>(sourceFrames_):fieldWidth;
+            const double nominalWidth=std::max(1.0,extent*(config.high-config.low)+config.lead*sourceFrames_);
+            const double ramp=std::max(1.0,std::min(nominalWidth,
+                static_cast<double>(safetyFadeFrames_)*std::abs(increment)*width));
+            completionGain=smoothStep(static_cast<float>(clamp((high-low)/ramp,0.0,1.0)));
+        }
         if ((config.mode == SampleMode::forward
                 || config.mode == SampleMode::reverse)
-            && !sampleDone_) {
+            && !done) {
             const double outputFramesRemaining = increment > 0.0
-                ? std::max(0.0, 1.0 - phase_) / increment : 0.0;
-            completionGain = smoothStep(static_cast<float>(clamp(
+                ? std::max(0.0, 1.0 - phase) / increment : 0.0;
+            completionGain *= smoothStep(static_cast<float>(clamp(
                 outputFramesRemaining
                     / static_cast<double>(safetyFadeFrames_),
                 0.0, 1.0)));
         }
         for (std::size_t channel = 0u; channel < kChannels; ++channel) {
-            if (sampleDone_) {
+            if (done) {
                 wet[channel] = 0.0f;
             } else if (stackMode_ && lane < kStackLanes) {
                 wet[channel] = readLaneHead(lane, channel & 1u, head)
@@ -5166,21 +5206,59 @@ private:
             }
             wet[channel] *= completionGain;
         }
-        phase_ += increment;
+        phase += increment;
         if (config.mode == SampleMode::loop) {
-            if (phase_ >= 1.0) {
+            if (phase >= 1.0) {
                 // The incoming seam has already advanced from low to
                 // low+seam during the crossfade. Continue there after the
                 // first traversal instead of replaying that segment twice.
                 const double loopStart = seam / width;
                 const double cycle = std::max(1.0 / width, 1.0 - loopStart);
-                phase_ = loopStart + std::fmod(phase_ - 1.0, cycle);
+                phase = loopStart + std::fmod(phase - 1.0, cycle);
             }
         } else if (config.mode == SampleMode::pingPong) {
-            phase_ = wrapPhase(phase_);
-        } else if (phase_ >= 1.0) {
-            phase_ = 1.0;
-            sampleDone_ = true;
+            phase = wrapPhase(phase);
+        } else if (phase >= 1.0) {
+            phase = 1.0;
+            done = true;
+        }
+    }
+
+    void renderSampleFrame(const Controls& controls, bool sliced, float* wet)
+    {
+        const Window window = smoothEventWindow(controls);
+        if (!controls.sampleEditCrossfade || !sliced) {
+            sampleEditRemaining_ = 0u;
+            prepareSampleConfig(controls, sliced);
+            renderSampleReader(currentSampleConfig_,window,controls,phase_,sampleDone_,wet,true);
+            return;
+        }
+        // Editor audition owns one voice and at most two moving readers. Finish
+        // each overlap before adopting the newest edit; do not replace its tail
+        // with a frozen output sample or restart an overlap on every knob tick.
+        requestedSampleConfig_ = requestedSampleConfig(controls,true);
+        sampleTransitionRemaining_ = 0u; sampleConfigPending_ = false;
+        if (!sampleConfigInitialized_) {
+            currentSampleConfig_ = requestedSampleConfig_;
+            currentSampleMode_ = currentSampleConfig_.mode;
+            sampleConfigInitialized_ = true;
+        } else if (sampleEditRemaining_ == 0u
+            && !sameSampleConfig(currentSampleConfig_,requestedSampleConfig_)) {
+            outgoingEditSample_ = currentSampleConfig_;
+            outgoingEditPhase_ = phase_; outgoingEditDone_ = sampleDone_;
+            currentSampleConfig_ = requestedSampleConfig_;
+            currentSampleMode_ = currentSampleConfig_.mode;
+            phase_ = 0.0; sampleDone_ = false;
+            sampleEditRemaining_ = readerTransitionFrames_ * 2u;
+        }
+        renderSampleReader(currentSampleConfig_,window,controls,phase_,sampleDone_,wet,true);
+        if (sampleEditRemaining_ != 0u) {
+            float outgoing[kChannels] {};
+            renderSampleReader(outgoingEditSample_,window,controls,outgoingEditPhase_,outgoingEditDone_,outgoing,false);
+            const float mix = smoothStep(1.0f-static_cast<float>(sampleEditRemaining_)
+                / static_cast<float>(readerTransitionFrames_*2u));
+            for (std::size_t ch=0;ch<kChannels;++ch) wet[ch]=outgoing[ch]+(wet[ch]-outgoing[ch])*mix;
+            --sampleEditRemaining_;
         }
     }
 
@@ -6699,6 +6777,10 @@ private:
     SampleReaderConfig currentSampleConfig_ {};
     SampleReaderConfig requestedSampleConfig_ {};
     SampleReaderConfig pendingSampleConfig_ {};
+    SampleReaderConfig outgoingEditSample_ {};
+    double outgoingEditPhase_ = 0.0;
+    bool outgoingEditDone_ = false;
+    std::size_t sampleEditRemaining_ = 0u;
     bool sampleConfigInitialized_ = false;
     bool sampleConfigPending_ = false;
     PlaybackAlgorithm currentAlgorithm_ = PlaybackAlgorithm::motion;

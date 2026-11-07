@@ -141,7 +141,7 @@ inline constexpr Parameter parameters[]{
     {1028, "sample_fade", 0.0f, 1.0f, 0.0f, false, true, false, false, -1},
     {1029, "sample_trim_apply", 0.0f, 1.0f, 0.0f, false, true, false, false, -1},
     {1030, "sample_mode", 0.0f, 3.0f, 0.0f, true, true, false, false, 65},
-    {1031, "slice_region_mode", 0.0f, 1.0f, 1.0f, true, true, false, false, 66},
+    {1031, "slice_region_mode", 0.0f, 4.0f, 1.0f, true, true, false, false, 66},
     {1032, "slice_regions", 1.0f, 64.0f, 16.0f, true, true, false, false, 67},
     {1152, "glitch_mode", 0.0f, 4.0f, 4.0f, true, true, false, false, 81},
     {1153, "glitch_clock", 0.0f, 1.0f, 1.0f, true, true, false, false, 82},
@@ -365,6 +365,13 @@ inline constexpr Parameter parameters[]{
     {3372, "bank_play", 0.0f, 1.0f, 0.0f, false, true, false, false, -1},
     {3373, "bank_choke", 0.0f, 4.0f, 0.0f, false, true, false, false, -1},
     {3374, "bank_record_source", 0.0f, 3.0f, 2.0f, false, true, false, false, -1},
+    {3584, "midi_note_route", 0.0f, 1.0f, 0.0f, false, true, false, false, -1},
+    {3585, "midi_note_channel", 1.0f, 4.0f, 1.0f, false, true, false, false, -1},
+    {3586, "midi_bend_range", 0.0f, 24.0f, 2.0f, false, true, false, false, -1},
+    {3587, "midi_mod_target", 0.0f, 2.0f, 0.0f, false, true, false, false, -1},
+    {3588, "midi_velocity_depth", 0.0f, 100.0f, 0.0f, false, true, false, false, -1},
+    {3589, "midi_sync_source", 0.0f, 1.0f, 0.0f, false, true, false, false, -1},
+    {3590, "midi_sync_transport", 0.0f, 1.0f, 0.0f, false, true, false, false, -1},
 };
 inline constexpr std::size_t count = sizeof(parameters) / sizeof(parameters[0]);
 struct FeedbackSubscription {int part,id;};

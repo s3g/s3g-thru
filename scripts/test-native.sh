@@ -28,7 +28,8 @@ ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 \
 "$cxx_bin" -std=c++17 -O2 -Wall -Wextra -Werror -Wno-deprecated-declarations \
   -pthread -I"$repo_dir/include" "$repo_dir/tests/test_dsp_transitions.cpp" \
   -o "$test_dir/test-transitions"
-"$test_dir/test-transitions"
+S3G_THRU_PROJECT_FIXTURE="$test_dir/portable.thru" "$test_dir/test-transitions"
+python3 "$repo_dir/tests/test_project_format.py" "$test_dir/portable.thru"
 "$cxx_bin" -std=c++17 -O1 -g -Wall -Wextra -Werror -Wno-deprecated-declarations \
   -pthread -fno-omit-frame-pointer -fsanitize=address,undefined \
   -I"$repo_dir/include" "$repo_dir/tests/test_dsp_transitions.cpp" \
@@ -44,23 +45,30 @@ node "$repo_dir/tests/test_e16_native_feedback.mjs"
 node "$repo_dir/controllers/oxi-e16/generate-remote-scene.mjs" --check
 node "$repo_dir/controllers/oxi-e16/generate-layout.mjs" --check
 node "$repo_dir/controllers/oxi-e16-monolit/generate-scene.mjs" --check
+node "$repo_dir/scripts/generate-custom-midi.mjs" --check
 node "$repo_dir/scripts/generate-midi.mjs" --check
 node "$repo_dir/scripts/generate-midi-ui.mjs" --check
 node "$repo_dir/scripts/validate-help.mjs"
 
 set_dir="$test_dir/set data"
 set_archive="$test_dir/exported set.tar.gz"
-mkdir -p "$set_dir/captures"
+mkdir -p "$set_dir/captures" "$set_dir/project-data/test/captures"
 touch "$set_dir/thru-state.json" "$set_dir/thru-clips.bin" \
   "$set_dir/thru-state.json.bak" "$set_dir/thru-clips.bin.bak" \
+  "$set_dir/thru-midi-maps.bin" "$set_dir/thru-midi-maps.bin.bak" \
   "$set_dir/thru-lane-1.wav" "$set_dir/captures/t0000000001-c01-l1-input.wav" \
-  "$set_dir/captures/unfinished.wav.tmp"
+  "$set_dir/captures/unfinished.wav.tmp" "$set_dir/thru-active-project.txt" \
+  "$set_dir/project-data/test/captures/portable.wav"
 "$repo_dir/scripts/export-set.sh" "$set_dir" "$set_archive"
 archive_entries="$(tar -tzf "$set_archive")"
 grep -qx 'thru-state.json' <<<"$archive_entries"
 grep -qx 'thru-clips.bin' <<<"$archive_entries"
 grep -qx 'thru-state.json.bak' <<<"$archive_entries"
 grep -qx 'thru-clips.bin.bak' <<<"$archive_entries"
+grep -qx 'thru-midi-maps.bin' <<<"$archive_entries"
+grep -qx 'thru-midi-maps.bin.bak' <<<"$archive_entries"
+grep -qx 'thru-active-project.txt' <<<"$archive_entries"
+grep -qx 'project-data/test/captures/portable.wav' <<<"$archive_entries"
 grep -qx 'thru-lane-1.wav' <<<"$archive_entries"
 grep -qx 'captures/t0000000001-c01-l1-input.wav' <<<"$archive_entries"
 if grep -q '\.tmp$' <<<"$archive_entries"; then

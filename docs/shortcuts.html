@@ -60,6 +60,7 @@
         </table>
         <p>Large counts are shortened with <code>M</code> or <code>G</code> suffixes so every value remains visible. The report is diagnostic history for the current takeover session; opening or closing it does not reset the counters. In any report view, press Shift+Delete to reset audio diagnostic peaks and miss counters for a fresh test. This report shortcut preserves samples, clips, and the running performance. One 128-frame block at 44.1 kHz lasts about 2,902 µs, and Move and Schwung also need part of that time. Peaks are displayed in whole microseconds; miss counters compare the original nanosecond timings with the block period, so display rounding cannot create a miss. The reports do not measure every cause of a missed device deadline.</p>
 
+        <p><a href="projects.html">Capture + Menu → Projects</a> exports or imports a complete project archive with its referenced samples.</p>
         <h2 id="global">Global and waveform controls</h2>
 
         <table class="readout-table">
@@ -72,6 +73,8 @@
             <tr><td>Shift + pad</td><td>Latch that pad's note or captured roll; repeat to release it. In Cues, stores the displayed playhead instead.</td></tr>
             <tr><td>Knobs 1–8</td><td>On the waveform page, control POS, FLD, SPD, STAK, RATE, JOIN, the engine’s MODE/PLAY/ORDR, and LEVL. Cutups replaces STAK/RATE with LANE/ADV. Quad reserves both positions. In either dual mode, knob 8 is BLND. On parameter pages, they edit the eight displayed positions.</td></tr>
             <tr><td>Hold Capture + bottom-row pad</td><td>Lane rides on pads 1–4 and momentary effects on pads 5–8. Pressure changes strength; release restores the current path/settings.</td></tr>
+            <tr><td>Main click on MIDI Maps</td><td>Open the Custom assignment list. Target selects a parameter, Source learns or enters a channel/CC, and Response sets its range and pickup. Click on Response to save; Back cancels. X removes a mapping after confirmation; curved Undo reverses the last profile edit.</td></tr>
+            <tr><td>Main click on Slice Source</td><td>Open <a href="engine-slices.html#slice-edit">Slice Edit</a>. Knobs 1–5 select a slice, move start/end, zoom and set pre-roll. Main turn positions the cursor; click adds a cut; X removes the highlighted interior cut; Loop repeats audition; Back returns.</td></tr>
             <tr><td>Main click on Stack Path with DRAW</td><td>Open <a href="engines.html#path-editor">Path Editor</a>. Knobs 1–4 select and edit a point; knob 5 changes the point count. Back returns to Stack Path.</td></tr>
             <tr><td>Shift + knob 8 in Path Editor</td><td>Turn clockwise to reset the path to a four-point triangle.</td></tr>
             <tr><td>Capture + Menu</td><td>Open the <a href="interface.html#page-picker">Pages hub</a>. Its four banks are Voice, Lane, Mix/FX, and Perf; Mode, Setup, MIDI, and All occupy the lower row.</td></tr>
@@ -158,7 +161,7 @@
           </tbody>
         </table>
 
-        <p>In <a href="bank.html">Bank mode</a>, hold an empty right pad to record the SRC chosen on Bank Pads (IN, MIX, PT A or PT B). Release to finish; touches under 10 ms save nothing. Hold a filled pad to play, Shift + pad to latch, Delete (X) + pad to clear, and Undo to restore the assignment.</p>
+        <p>In <a href="bank.html">Bank mode</a>, hold an empty right pad to record the SRC chosen on Bank Pads (IN, MIX, PT A or PT B). Release to finish; takes under 250 ms and effectively silent takes save nothing. Hold a filled pad to play, Shift + pad to latch, Delete (X) + pad to clear, and Undo to restore the assignment. A failed Bank take offers <a href="bank.html#save-recovery">Retry / Discard</a> from a main-encoder click on the waveform page.</p>
         <h2 id="midi">External MIDI</h2>
         <p>Musical notes, note-offs and polyphonic aftertouch use channels 1–4 for A–D according to the instrument mode. All Sound Off (CC 120) and All Notes Off (CC 123) are also accepted. External notes keep the pitches sent by the keyboard; Move’s pad scale does not quantize them.</p>
         <p>High-resolution parameters use separate channels: <strong>5–8 for A–D, 16 for shared controls</strong>. Part-control edits preserve Move’s selected part and page. Channels 5–8 and 16 also carry controller commands, so keep note input on 1–4. See <a href="midi.html">MIDI control</a> for setup, the current NRPN map and two-way feedback.</p>
@@ -167,7 +170,7 @@
         <p>The Remote interface provides Engine, Stack, engine-specific and effect pages. Hold E16 Shift and turn encoder 1 to change pages. A occupies the top two encoder rows; B occupies the bottom two. The layout follows Single, Split, Shared Dual and Quad. Hold an encoder while turning for fine adjustment. In Quad, Shift + encoder 1 switches A/B ↔ C/D; Shift + encoder 16 leaves Remote. Edits preserve Move’s current part and page. See <a href="midi.html#e16-setup">MIDI control</a> for setup and connection checks.</p>
 
         <h2 id="nrpn">High-resolution MIDI</h2>
-        <p>The next-release map has <strong>357 fixed NRPN addresses</strong>. Channels 5–8 control A–D; channel 16 controls shared parameters. Musical notes and polyphonic aftertouch use channels 1–4. See the <a href="midi.html#nrpn">high-resolution MIDI guide</a> for complete value messages, ranges and feedback.</p>
+        <p>The next-release map has <strong>364 fixed NRPN addresses</strong>. Channels 5–8 control A–D; channel 16 controls shared parameters. Musical notes and polyphonic aftertouch use channels 1–4. See the <a href="midi.html#nrpn">high-resolution MIDI guide</a> for complete value messages, ranges and feedback.</p>
 
         <nav class="page-nav" aria-label="Page navigation">
           <a class="page-nav-link" href="midi.html"><span>Previous</span>MIDI Control</a>

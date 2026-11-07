@@ -1,20 +1,24 @@
 # s3g Thru MIDI map, version 1
 
-The high-resolution interface for the next release has 357
-fixed NRPN addresses. `parameters.csv` is the full channel/address/range
+The high-resolution interface for the next release has 364
+fixed NRPN addresses. MIDI Notes settings (NRPN 3584–3590 on channel 16) configure
+keyboard/sequencer routing and expression independently of parameter mode.
+See the [manual](https://s3g.github.io/s3g-thru/midi.html#note-input) for
+channels 1–4, sustain, bend, pressure, wheel, velocity and Move clock setup.
+`parameters.csv` is the full channel/address/range
 reference; `parameters.json` is the editable source. Parameter addresses
 belong to their controls across all engines; selecting another engine does
 not change an address's meaning.
 
 | MIDI channel | Purpose |
 | --- | --- |
-| 1–4 | Note input and polyphonic aftertouch for A–D, according to the instrument mode |
+| 1–4 | Notes, sustain, bend, wheel and pressure; A–D or Focus routing |
 | 5–8 | NRPN controls for A–D; identical addresses on each part's channel |
 | 9–12 | MNLT direct CC for A–D; identical CC numbers on each part's channel |
 | 13 | MNLT shared Performance controls and commands |
 | 16 | Shared NRPN controls: transport, recording, mixer, effect returns, Tape, chains and fades |
 
-Parameter channels are separate from the musical note channels.
+Parameter channels are separate from note-input channels.
 Single accepts part parameters on channel 5. Split and Shared Dual accept
 5–6. Quad accepts all four. An unavailable part or a parameter on the wrong
 NRPN channel is ignored. A/B edits leave Move's current part and page selected;
@@ -150,3 +154,19 @@ acknowledges Remote entry. Other musical notes and NRPN channels stay available.
 A connection lease releases the routing if the UI or controller disconnects.
 
 The fixed NRPN addresses are unchanged.
+
+## Custom CC profiles
+
+The MIDI Maps page provides four editable profiles, 128 entries each and eight
+controller banks. Learn or enter a channel/CC and assign a named parameter,
+engine-page slot or controller command. Destinations can target A–D, current
+Focus or a shared parameter. Each entry has range, inversion, pickup and button
+behavior. An active profile replaces current-page Generic CC; only explicitly
+claimed addresses override the other selected protocol routes. MODE Off still
+disables parameter control.
+
+Profiles save in `thru-midi-maps.bin` with a backup, separately from clips.
+Loading a profile installs routing without writing instrument values. A bank
+entry overrides an All-bank entry at the same address; duplicate entries in
+the same bank require confirmation. A read-only nanoKONTROL2 example is in
+`../korg-nanokontrol2/` and can be copied to a Custom slot on Move.

@@ -48,7 +48,7 @@ function syncRemoteTransport(readDsp=false,force=false){
         if(Number.isFinite(raw))PARAMS.midi_control_mode.value=clamp(Math.round(raw),0,6);
     }
     const mode=Math.round(PARAMS.midi_control_mode.value);
-    const allowed=mode===0||mode===4;
+    const allowed=(mode===0&&customMidiActive()===0)||mode===4;
     if(force||allowed!==remoteModeAllowed){
         remoteModeAllowed=allowed;
         if(allowed)remoteE16.resume();else remoteE16.enable(false);
@@ -56,17 +56,20 @@ function syncRemoteTransport(readDsp=false,force=false){
     return allowed;
 }
 function resetMidiSurface(){
+    readCustomMidi();
     midiSurface.query='';midiSurface.epoch=null;midiFeedback.reset();e16NativeFeedback.reset();
     syncRemoteTransport(true,true);
 }
 function pollMidiControls(){
+    readCustomMidi();
     // Move's eight visible controls use midi_view. E16 has a separate
     // page snapshot and never changes Move's part or editing page.
     const keys=state.view==='chain'?CHAIN_PAGE.keys:activeControlKeys();
     const selection=[];
     for(const key of keys){
         const p=thruMidi.MIDI_BY_KEY.get(key);
-        if(p&&!p.action)selection.push((p.scope==='part'?state.splitFocus:-1)+':'+p.id);
+        // Keep each CC aligned to its physical slot, including blank cells.
+        selection.push(p&&!p.action?(p.scope==='part'?state.splitFocus:-1)+':'+p.id:'-1:-1');
     }
     const query=selection.slice(0,8).join(';');
     if(query!==midiSurface.query){

@@ -189,10 +189,10 @@ void testSelectableMidiModesAndMonolit() {
     midiCc(*t,9,20,127);assert(t->liveControlsForPart(0).locus==1.0f);
     midiCc(*t,8,20,0);assert(t->liveControlsForPart(0).locus==1.0f);
     nrpn(*t,5,"locus",0);assert(t->liveControlsForPart(0).locus==1.0f);
-    // Control-channel notes revert to ordinary musical notes outside NRPN mode.
+    // Parameter-control channels never fall back to playing Part A.
     const std::uint8_t on[]{0x94,60,100};onMidi(t.get(),on,3,MOVE_MIDI_SOURCE_EXTERNAL);
     bool held=false;for(const auto& voice:t->voices)held|=voice.held&&voice.note==60;
-    assert(held);t->allNotesOff();
+    assert(!held);t->allNotesOff();
 
     setParam(t.get(),"midi_takeover","Pickup");
     t->controls.locus=.5f;resetMidiControlPickups(*t);

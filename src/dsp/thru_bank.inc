@@ -14,6 +14,10 @@
     std::unique_ptr<float[]> bankRecordAudio;
     int bankRecordSlot=-1,bankRecordClip=-1,bankResultAsset=-1;
     std::size_t bankRecordFrames=0;
+    bool bankRecordHasAudio=false;
+    std::uint32_t bankTakeToken=0;
+    std::uint32_t bankDiscardSequence=0;
+    int bankDiscardReason=0; // 1: under 250 ms, 2: effectively silent.
     std::atomic<int> bankJob {0}; // idle, recording, requested, working, complete, retry
     bool bankRecordSuccess=false;
     bool bankSaveFailed=false,bankAudioArchived=false,bankRecordCollision=false;
@@ -102,7 +106,7 @@
         bankUndoSlot=bankSlots[slot];bankUndoIndex=slot;bankUndoClip=activeClip;
         bankUndoAsset=bankAssets[slot];
         if(bankUndoAsset>=0)bankPool->assets[bankUndoAsset].pins.fetch_add(1,std::memory_order_acq_rel);
-        undoAvailable=true;undoIsChain=false;undoIsBank=true;
+        undoAvailable=true;undoIsChain=false;undoIsBank=true;undoIsSlice=false;
     }
     bool undoBankEdit() {
         if(bankUndoIndex<0)return false;
@@ -143,7 +147,8 @@
         if(!allocateCapturePath(activeClip,0,kind,bankRecordPath.data(),bankRecordPath.size())) {
             setError("Cannot create Bank recording");return false;
         }
-        bankRecordSlot=slot;bankRecordClip=activeClip;bankRecordFrames=0;
+        bankRecordSlot=slot;bankRecordClip=activeClip;bankRecordFrames=0;bankRecordHasAudio=false;
+        if(++bankTakeToken==0)++bankTakeToken;
         bankRecordSourceActive=bankRecordSource;
         bankSaveFailed=bankAudioArchived=bankRecordCollision=false;
         bankJob.store(1,std::memory_order_release);clearError();return true;
@@ -151,10 +156,12 @@
     void finishBankCapture() {
         if(bankJob.load(std::memory_order_acquire)!=1)return;
         const auto minimumFrames=std::max<std::size_t>(4,
-            static_cast<std::size_t>(std::ceil(sampleRate*.010)));
-        // Buffer from the initial press, but do not archive an accidental tap.
-        if(bankRecordFrames<minimumFrames) {
-            bankRecordSlot=-1;bankRecordFrames=0;
+            static_cast<std::size_t>(std::ceil(sampleRate*kBankMinimumCaptureSeconds)));
+        // Keep the initial attack of an accepted take. Neither an accidental
+        // press nor a silent take reaches the archive worker or replaces Undo.
+        if(bankRecordFrames<minimumFrames || !bankRecordHasAudio) {
+            bankDiscardReason=bankRecordFrames<minimumFrames?1:2;++bankDiscardSequence;
+            bankRecordSlot=bankRecordClip=-1;bankRecordFrames=0;bankRecordHasAudio=false;
             bankJob.store(0,std::memory_order_release);return;
         }
         bankJob.store(2,std::memory_order_release);
@@ -167,15 +174,25 @@
         // pre-level/crossfade; IN already includes recording gain.
         const auto& source=bankRecordSourceActive==0?monitorInput
             :bankRecordSourceActive==1?voiceMix:splitBus[bankRecordSourceActive-2];
-        for(std::size_t channel=0;channel<2;++channel)
+        for(std::size_t channel=0;channel<2;++channel) {
             std::copy_n(source[channel].data(),count,
                 bankRecordAudio.get()+channel*laneCapacityFrames+bankRecordFrames);
+            // Bounded block check, before any balance/downmix. A right-only
+            // or opposite-polarity stereo take is still real audio. Once a
+            // signal is found there is no further detector work for this take.
+            if(!bankRecordHasAudio)for(std::size_t frame=0;frame<count;++frame) {
+                const float value=source[channel][frame];
+                if(std::isfinite(value)&&std::abs(value)>kBankCaptureSilenceFloor) {
+                    bankRecordHasAudio=true;break;
+                }
+            }
+        }
         bankRecordFrames+=count;
         if(bankRecordFrames==laneCapacityFrames)finishBankCapture();
     }
     bool processBankJob() {
-        if(bankJob.load(std::memory_order_acquire)!=2)return false;
-        bankJob.store(3,std::memory_order_release);
+        int requested=2;
+        if(!bankJob.compare_exchange_strong(requested,3,std::memory_order_acq_rel))return false;
         // Commit immutable audio before publishing any slot reference.
         std::array<char,kPersistencePathSize+4> temporary {};
         std::snprintf(temporary.data(),temporary.size(),"%s.tmp",bankRecordPath.data());
@@ -197,7 +214,7 @@
             // A programmatic state restore can change clips outside the pad
             // UI. Keep a completed take attached to its originating clip.
             auto& slot=clipSlots[bankRecordClip].bankSlots[bankRecordSlot];
-            std::snprintf(slot.path.data(),slot.path.size(),"%s",bankRecordPath.data());
+            slot.path=bankRecordPath;
             bankUnpin(*bankPool,bankResultAsset);bankResultAsset=-1;bankSaveFailed=false;
             bankRecordSlot=-1;bankJob.store(0,std::memory_order_release);
             markPersistentStateDirty();return;
@@ -207,7 +224,7 @@
             bankUnpin(*bankPool,bankAssets[bankRecordSlot]);
             bankAssets[bankRecordSlot]=bankResultAsset;bankResultAsset=-1;
             auto& slot=bankSlots[bankRecordSlot];
-            std::snprintf(slot.path.data(),slot.path.size(),"%s",bankRecordPath.data());
+            slot.path=bankRecordPath;
             bankSaveFailed=false;
             bankLoadedClip=activeClip;captureActiveClip(true);markPersistentStateDirty();clearError();
         } else {
@@ -222,6 +239,29 @@
             setError("Bank save failed: retrying; audio retained");return;
         }
         bankRecordSlot=-1;bankJob.store(0,std::memory_order_release);
+    }
+    bool retryBankTake(std::uint32_t token) {
+        if(token!=bankTakeToken||!bankSaveFailed||bankRecordSlot<0)return false;
+        int waiting=5;
+        if(!bankJob.compare_exchange_strong(waiting,2,std::memory_order_acq_rel))return false;
+        bankRetryFrame=0;return true;
+    }
+    bool discardBankTake(std::uint32_t token) {
+        if(token!=bankTakeToken||!bankSaveFailed||bankRecordSlot<0)return false;
+        int state=bankJob.load(std::memory_order_acquire);
+        if(state!=5&&state!=2)return false;
+        if(!bankJob.compare_exchange_strong(state,0,std::memory_order_acq_rel))return false;
+        bankRecordSlot=bankRecordClip=-1;bankRecordFrames=0;bankRecordHasAudio=false;
+        bankRecordSuccess=bankSaveFailed=bankAudioArchived=bankRecordCollision=false;
+        bankRecordPath[0]=0;bankRetryFrame=0;
+        bankDiscardReason=3;++bankDiscardSequence;clearError();return true;
+    }
+    bool finishBankCaptureOffline() {
+        // Only after joining the worker, or during offline project import.
+        if(bankJob.load(std::memory_order_acquire)==5)bankJob.store(2,std::memory_order_release);
+        if(bankJob.load(std::memory_order_acquire)==2)processBankJob();
+        if(bankJob.load(std::memory_order_acquire)==4)consumeBankJob();
+        return bankJob.load(std::memory_order_acquire)==0;
     }
     void startBankVoice(int slot,int pad,int velocity,bool recorded=false,int noteIndex=-1) {
         bankSelected=slot;
@@ -241,12 +281,14 @@
         const float gain=stealing?voice.gainState:outputGain;
         if(stealing && !voice.clipOwned)clearPadMappingForVoice(voice);
         releaseBankVoice(voice);
+        voice.sliceAudition=voice.sliceCached=false;
         voice.bankSlot=slot;voice.bankAsset=bankAssets[slot];
         bankPool->assets[voice.bankAsset].pins.fetch_add(1,std::memory_order_acq_rel);
         voice.bankRate=bankMasterRate*bankSlots[slot].rate;voice.bankLevel=bankSlots[slot].level;
         voice.bankPan=bankSlots[slot].pan;voice.bankPlay=bankSlots[slot].play;voice.bankEnded=false;
         voice.bankStart=bankSlots[slot].start;voice.bankEnd=bankSlots[slot].end;voice.bankReverse=bankSlots[slot].reverse;
         voice.bankPosition=0;voice.bankTail=tail;voice.bankTailFrames=stealing?voiceStealFadeFrames:0;
+        voice.midiExternal=false;voice.midiGain=1;voice.midiTarget={};voice.midiValue={};
         voice.bankLast={};voice.note=60+slot;voice.sourcePad=pad;voice.velocity=velocity;
         voice.age=noteClock;voice.active=voice.held=true;voice.clipOwned=recorded;voice.clipNoteIndex=noteIndex;
         voice.stealPending=voice.panicRelease=false;voice.engineSlot=voice.assignedAlgorithm=-1;
@@ -306,8 +348,9 @@
             const auto* audio=asset.audio.get()+channel*laneCapacityFrames;
             return audio[a]+(audio[b]-audio[a])*fraction;
         };
+        const float bentRate=clampValue(bankMasterRate*slot.rate*std::exp2(voice.midiValue[0]/12),.015625f,256.f);
         for(std::size_t f=0;f<count;++f) {
-            voice.bankRate+=(bankMasterRate*slot.rate-voice.bankRate)*gainControlSlew;
+            voice.bankRate+=(bentRate-voice.bankRate)*gainControlSlew;
             voice.bankPan+=(slot.pan-voice.bankPan)*gainControlSlew;
             voice.bankLevel+=(slot.level-voice.bankLevel)*gainControlSlew;
             if(voice.bankPosition>=length) {
@@ -344,6 +387,8 @@
 
     bool setBankParam(const char* key,const char* value) {
         if(std::strncmp(key,"bank_",5))return false;
+        if(std::strcmp(key,"bank_take_retry")==0){retryBankTake(static_cast<std::uint32_t>(std::strtoul(value,nullptr,10)));return true;}
+        if(std::strcmp(key,"bank_take_discard")==0){discardBankTake(static_cast<std::uint32_t>(std::strtoul(value,nullptr,10)));return true;}
         if(std::strcmp(key,"bank_slot")==0){bankSelected=clampValue(parseInteger(value,1)-1,0,15);return true;}
         if(std::strcmp(key,"bank_clear")==0){if(isTruthy(value))clearBankSlot(bankSelected);return true;}
         const float v=parseFloat(value,0);
@@ -378,7 +423,8 @@
         const float values[]{s.start,s.end,s.rate,static_cast<float>(s.reverse),s.level,s.attack,s.release,s.fade};
         for(int i=0;i<8;++i)if(std::strcmp(key,keys[i])==0)return std::snprintf(buffer,size,"%.6g",values[i]);
         if(std::strcmp(key,"bank_state")==0) {
-            int at=std::snprintf(buffer,size,"{\"selected\":%d,\"slots\":[",bankSelected);
+            int at=std::snprintf(buffer,size,"{\"selected\":%d,\"discard_seq\":%u,\"discard_reason\":%d,\"take\":%u,\"pending\":%d,\"failed\":%d,\"slots\":[",bankSelected,bankDiscardSequence,bankDiscardReason,bankTakeToken,bankRecordSlot,bankSaveFailed?1:0);
+            if(at<0||at>=size)return -1;
             for(int slot=0;slot<16;++slot) {
                 int state=bankSlots[slot].path[0]?(bankLoadedClip==activeClip&&bankAssets[slot]>=0?1:5):0;
                 for(const auto& v:voices)if(v.active && v.bankSlot==slot)state=4;

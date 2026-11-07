@@ -1150,7 +1150,7 @@
     {
       "id": 1031,
       "label": "SSRC",
-      "steps": 1,
+      "steps": 4,
       "scope": "part"
     },
     {

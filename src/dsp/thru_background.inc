@@ -5,6 +5,7 @@
         SavedChainBanks banks;
         int chainBank=0,chainPlayBank=0;
         std::array<char, kStateTextSize> json {};
+        std::array<char,kPersistencePathSize> directory {};
         std::uint64_t revision = 0u, generation = 0u;
         float tempo = 120.0f, swing = 0.5f;
         LaunchQuantize quantize = LaunchQuantize::off;
@@ -14,6 +15,10 @@
     };
     struct LaneSnapshot {
         std::size_t lane = 0u, frames = 0u, copied = 0u;
+        std::size_t sourceFrames = 0u, firstFrame = 0u;
+        bool editorZoom = false;
+        std::uint32_t viewToken = 0;
+        float viewLow = 0, viewHigh = 1;
         std::uint64_t revision = 0u;
         float rate = 44100.0f;
         bool archive = false, success = false, collision = false;
@@ -64,14 +69,16 @@
         while (self.backgroundRunning.load(std::memory_order_acquire)
             || self.laneJob.load(std::memory_order_acquire) == backgroundRequested
             || self.persistenceJob.load(std::memory_order_acquire) == backgroundRequested
-            || self.bankJob.load(std::memory_order_acquire)==2) {
+            || self.bankJob.load(std::memory_order_acquire)==2
+            || self.customSaveJob.load(std::memory_order_acquire)==1
+            || self.projectJob.load(std::memory_order_acquire)==projectRequested) {
             if(self.processBankJob())continue;
             if (self.laneJob.load(std::memory_order_acquire) == backgroundRequested) {
                 self.laneJob.store(backgroundWorking, std::memory_order_release);
                 auto& job = self.laneSnapshot;
                 const float* left = self.backgroundAudio.get();
                 const float* right = left + self.laneCapacityFrames;
-                analyzeRegions(left, right, job.frames, job.rate, job.regions);
+                if (!job.editorZoom) analyzeRegions(left, right, job.frames, job.rate, job.regions);
                 analyzeWaveform(left, right, job.frames, job.minimum, job.maximum);
                 job.success = true;
                 if (job.archive) {
@@ -85,6 +92,11 @@
                 self.laneJob.store(backgroundComplete, std::memory_order_release);
                 continue;
             }
+            if(self.customSaveJob.load(std::memory_order_acquire)==1) {
+                self.customSaveJob.store(2,std::memory_order_release);
+                auto& job=*self.customSaveSnapshot;job.success=self.writeCustomMidiFile(job.state);
+                self.customSaveJob.store(3,std::memory_order_release);continue;
+            }
             if (self.persistenceJob.load(std::memory_order_acquire) == backgroundRequested) {
                 self.persistenceJob.store(backgroundWorking, std::memory_order_release);
                 auto& job = *self.persistenceSnapshot;
@@ -92,6 +104,7 @@
                 self.persistenceJob.store(backgroundComplete, std::memory_order_release);
                 continue;
             }
+            if(self.processProjectJob())continue;
             const timespec delay {0, 1000000};
             nanosleep(&delay, nullptr);
         }
@@ -101,8 +114,8 @@
     bool startBackgroundWork()
     {
         backgroundAudio.reset(new (std::nothrow) float[laneCapacityFrames * 2u]);
-        if (persistenceEnabled) persistenceSnapshot.reset(new (std::nothrow) PersistenceSnapshot);
-        if (!backgroundAudio || (persistenceEnabled && !persistenceSnapshot)) return false;
+        if (persistenceEnabled) {persistenceSnapshot.reset(new (std::nothrow) PersistenceSnapshot);customSaveSnapshot.reset(new(std::nothrow) CustomSaveSnapshot);}
+        if (!backgroundAudio || (persistenceEnabled && (!persistenceSnapshot||!customSaveSnapshot))) return false;
         backgroundRunning.store(true, std::memory_order_release);
         if (!s3g_daisy::startBackgroundThread(backgroundThread, backgroundEntry, this)) {
             backgroundRunning.store(false, std::memory_order_release);
@@ -115,6 +128,8 @@
     void stopBackgroundWork()
     {
         if (!backgroundStarted) return;
+        if(projectJob.load()!=projectIdle)projectCancel.store(true,std::memory_order_release);
+        if(projectJob.load()==projectWaiting)projectJob.store(projectIdle);
         backgroundRunning.store(false, std::memory_order_release);
         pthread_join(backgroundThread, nullptr);
         backgroundStarted = false;
@@ -123,14 +138,21 @@
 
     void consumeBackgroundResults()
     {
-        consumeBankJob();
+        consumeBankJob();consumeCustomMidiSave();consumeProjectJob();
         if (laneJob.load(std::memory_order_acquire) == backgroundComplete) {
             const auto& job = laneSnapshot;
             const bool current = job.revision == wavesetSourceRevisions[job.lane]
-                && engine.laneFrames(job.lane) == job.frames
+                && engine.laneFrames(job.lane) == job.sourceFrames
                 && (recordingLaneMask & (1u << job.lane)) == 0u
                 && (pendingClearMask & (1u << job.lane)) == 0u;
-            if (current) {
+            if (current && job.editorZoom && sliceEditor.active
+                && selectedLane==job.lane && sliceEditor.viewRequest==job.viewToken) {
+                sliceEditor.minimum=job.minimum;sliceEditor.maximum=job.maximum;
+                sliceEditor.readyLow=job.viewLow;sliceEditor.readyHigh=job.viewHigh;
+                sliceEditor.viewLane=job.lane;sliceEditor.viewRevision=job.revision;
+                sliceEditor.viewComplete=job.viewToken;
+            }
+            if (current && !job.editorZoom) {
                 installRegionMap(job.lane, job.regions, false);
                 pendingRegionAnalysisMask &= ~(1u << job.lane);
                 waveMinimum[job.lane] = job.minimum;
@@ -195,10 +217,13 @@
         if (!backgroundStarted) return;
         if (clipFinishPending && clipRecording) finishClipRecording();
         consumeBackgroundResults();
+        if(projectImportInstalled.load(std::memory_order_acquire))return;
+        serviceCustomMidiSave();
         auto state = laneJob.load(std::memory_order_acquire);
         if (state == backgroundCopying
             && (laneSnapshot.revision != wavesetSourceRevisions[laneSnapshot.lane]
-                || engine.laneFrames(laneSnapshot.lane) != laneSnapshot.frames
+                || engine.laneFrames(laneSnapshot.lane) != laneSnapshot.sourceFrames
+                || (laneSnapshot.editorZoom && (!sliceEditor.active || selectedLane!=laneSnapshot.lane || sliceEditor.viewRequest!=laneSnapshot.viewToken))
                 || (recordingLaneMask & (1u << laneSnapshot.lane)) != 0u
                 || (pendingClearMask & (1u << laneSnapshot.lane)) != 0u)) {
             laneJob.store(backgroundIdle, std::memory_order_release);
@@ -220,6 +245,7 @@
                 }
                 laneSnapshot.lane = lane;
                 laneSnapshot.frames = engine.laneFrames(lane);
+                laneSnapshot.sourceFrames=laneSnapshot.frames;laneSnapshot.firstFrame=0;laneSnapshot.editorZoom=false;
                 laneSnapshot.rate = engine.laneSampleRate(lane);
                 laneSnapshot.revision = wavesetSourceRevisions[lane];
                 laneSnapshot.copied = 0u;
@@ -232,12 +258,26 @@
                 break;
             }
         }
+        if (state == backgroundIdle && sliceEditor.active && sliceEditorAllowed()
+            && sliceEditor.viewRequest!=sliceEditor.viewComplete) {
+            auto& job=laneSnapshot;
+            job.lane=selectedLane;job.sourceFrames=engine.laneFrames(selectedLane);
+            job.firstFrame=std::min(job.sourceFrames-1,static_cast<std::size_t>(sliceEditor.viewLow*job.sourceFrames));
+            const auto end=std::min(job.sourceFrames,std::max(job.firstFrame+1,
+                static_cast<std::size_t>(std::ceil(sliceEditor.viewHigh*job.sourceFrames))));
+            job.frames=end-job.firstFrame;job.copied=0;job.editorZoom=true;
+            job.viewToken=sliceEditor.viewRequest;job.revision=wavesetSourceRevisions[selectedLane];
+            job.viewLow=static_cast<float>(job.firstFrame)/job.sourceFrames;
+            job.viewHigh=static_cast<float>(end)/job.sourceFrames;
+            job.rate=engine.laneSampleRate(selectedLane);job.archive=job.collision=false;job.clip=-1;
+            laneJob.store(backgroundCopying,std::memory_order_release);state=backgroundCopying;
+        }
         if (state == backgroundCopying) {
             auto& job = laneSnapshot;
             const std::size_t count = std::min<std::size_t>(4096u, job.frames - job.copied);
-            std::copy_n(engine.laneData(job.lane, 0u) + job.copied, count,
+            std::copy_n(engine.laneData(job.lane, 0u) + job.firstFrame + job.copied, count,
                 backgroundAudio.get() + job.copied);
-            std::copy_n(engine.laneData(job.lane, 1u) + job.copied, count,
+            std::copy_n(engine.laneData(job.lane, 1u) + job.firstFrame + job.copied, count,
                 backgroundAudio.get() + laneCapacityFrames + job.copied);
             job.copied += count;
             if (job.copied == job.frames) laneJob.store(backgroundRequested, std::memory_order_release);
@@ -289,7 +329,8 @@
         if(saveFailed && pendingCaptureSaveMask==0u && !persistentStateDirty
             && persistenceJob.load(std::memory_order_acquire)==backgroundIdle)saveFailed=false;
         if (waveTextDirty) rebuildWaveText();
-        if (recordStartPending && pendingCaptureSaveMask == 0u) {
+        serviceProjectJob();
+        if (recordStartPending && pendingCaptureSaveMask == 0u && !projectLocked()) {
             recordStartPending = false;
             selectedLane = pendingRecordLane;
             startRecording();
@@ -299,9 +340,9 @@
     int saveStatus() const
     {
         if(!persistenceEnabled)return 0; // No persistent data directory.
-        if(saveFailed || bankSaveFailed || !backgroundStarted)return 4;
+        if(saveFailed || bankSaveFailed || customSaveFailed || !backgroundStarted)return 4;
         if(audioRecording() || clipRecording || bankJob.load(std::memory_order_acquire)==1)return 1;
-        if(bankJob.load(std::memory_order_acquire)>1 || partCapturePublishing || pendingCaptureSaveMask || persistentStateDirty || recordStartPending
+        if(customDirty||customSaveJob.load(std::memory_order_acquire)!=0||bankJob.load(std::memory_order_acquire)>1 || partCapturePublishing || pendingCaptureSaveMask || persistentStateDirty || recordStartPending
             || persistenceJob.load(std::memory_order_acquire)!=backgroundIdle)return 2;
         return 3; // All referenced audio and the latest metadata are committed.
     }

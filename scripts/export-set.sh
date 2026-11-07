@@ -32,9 +32,9 @@ fi
 
 members=(thru-state.json thru-clips.bin)
 for optional in \
-  thru-state.json.bak thru-clips.bin.bak \
+  thru-state.json.bak thru-clips.bin.bak thru-midi-maps.bin thru-midi-maps.bin.bak \
   thru-lane-1.wav thru-lane-2.wav thru-lane-3.wav thru-lane-4.wav \
-  captures; do
+  captures thru-active-project.txt thru-active-project.txt.bak project-data; do
   if [[ -e "$data_dir/$optional" ]]; then
     members+=("$optional")
   fi

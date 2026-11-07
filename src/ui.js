@@ -1,4 +1,4 @@
-/* s3g Thru 0.30.0-test.52 — polyphonic sampler/performance-looper takeover for Move. */
+/* s3g Thru 0.30.0-test.64 — polyphonic sampler/performance-looper takeover for Move. */
 
 import * as moveConstants from '/data/UserData/schwung/shared/constants.mjs';
 import * as moveInputFilter from '/data/UserData/schwung/shared/input_filter.mjs';
@@ -89,7 +89,7 @@ const setButtonLED = typeof moveInputFilter.setButtonLED === 'function'
         }
     };
 
-const UI_VERSION = '0.30.0-test.52';
+const UI_VERSION = '0.30.0-test.64';
 const HELP_PAGE_COUNT=5;
 const WAVE_BINS = 112;
 const ALGORITHMS = ['MOTION', 'LANES', 'GRAINS', 'CUTUPS', 'SAMPLE', 'SLICES',
@@ -155,6 +155,13 @@ const PARAMS = {
     bank_release:{key:'bank_release',label:'RELEASE',shortLabel:'REL',min:5,max:10000,step:1,value:40,format:v=>Math.round(v)+'ms'},
     bank_fade:{key:'bank_fade',label:'LOOP FADE',shortLabel:'FADE',min:2,max:100,step:1,value:8,format:v=>Math.round(v)+'ms'},
     voice_mode:{key:'voice_mode',label:'KEY VOICES',shortLabel:'VOICE',min:0,max:2,step:1,value:0,integer:true,labels:['POLY','MONO','LEGATO']},
+    midi_note_route:{key:'midi_note_route',label:'NOTE ROUTE',shortLabel:'ROUT',min:0,max:1,step:1,value:0,integer:true,labels:['PARTS','FOCUS']},
+    midi_note_channel:{key:'midi_note_channel',label:'FOCUS CHANNEL',shortLabel:'CHAN',min:1,max:4,step:1,value:1,integer:true},
+    midi_bend_range:{key:'midi_bend_range',label:'BEND RANGE',shortLabel:'BEND',min:0,max:24,step:1,value:2,integer:true,unit:'st'},
+    midi_mod_target:{key:'midi_mod_target',label:'MOD WHEEL',shortLabel:'WHEL',min:0,max:2,step:1,value:0,integer:true,labels:['OFF','STACK','CHAR']},
+    midi_velocity_depth:{key:'midi_velocity_depth',label:'NOTE VELOCITY',shortLabel:'VELO',min:0,max:100,step:1,value:0,integer:true,unit:'%'},
+    midi_sync_source:{key:'midi_sync_source',label:'CLOCK SOURCE',shortLabel:'SYNC',min:0,max:1,step:1,value:0,integer:true,labels:['INT','MOVE']},
+    midi_sync_transport:{key:'midi_sync_transport',label:'TRANSPORT',shortLabel:'RUN',min:0,max:1,step:1,value:0,integer:true,labels:['TEMPO','CLIPS']},
     midi_control_mode:{key:'midi_control_mode',label:'MIDI MODE',shortLabel:'MODE',min:0,max:6,step:1,value:0,integer:true,labels:['AUTO','NRPN','CC','MNLT','E16','E+M','OFF']},
     midi_cc_channel:{key:'midi_cc_channel',label:'CC CHANNEL',shortLabel:'CCCH',min:1,max:16,step:1,value:9,integer:true},
     midi_cc_base:{key:'midi_cc_base',label:'CC BASE',shortLabel:'BASE',min:0,max:120,step:1,value:20,integer:true},
@@ -350,7 +357,7 @@ const PARAMS = {
     cut_poly_path: { key: 'cut_poly_path', label: 'POLY PATH', min: 0, max: 3, step: 1, value: 0, integer: true, labels: ['TOGETHER', 'STAGGER', 'ROTATE', 'RANDOM'] },
     cut_region_mode: { key: 'cut_region_mode', label: 'REGION SOURCE', min: 0, max: 1, step: 1, value: 0, integer: true, labels: ['EQUAL', 'TRANSIENTS'] },
     sample_mode: { key: 'sample_mode', label: 'PLAY MODE', min: 0, max: 3, step: 1, value: 0, integer: true, labels: ['FORWARD', 'REVERSE', 'LOOP', 'PINGPONG'] },
-    slice_region_mode: { key: 'slice_region_mode', label: 'SLICE SOURCE', min: 0, max: 1, step: 1, value: 1, integer: true, labels: ['EQUAL', 'TRANSIENTS'] },
+    slice_region_mode: { key: 'slice_region_mode', label: 'SLICE SOURCE', min: 0, max: 4, step: 1, value: 1, integer: true, labels: ['EQUAL', 'TRANS', 'FILE', 'EDIT', 'AUTO'] },
     slice_regions: { key: 'slice_regions', label: 'SLICE COUNT', min: 1, max: 64, step: 1, value: 16, integer: true },
     glitch_mode: { key: 'glitch_mode', label: 'MODE', min: 0, max: 4, step: 1, value: 4, integer: true, labels: ['REPEAT', 'STUTTER', 'SCATTER', 'DIVIDE', 'OVERRIDE'] },
     glitch_clock: { key: 'glitch_clock', label: 'CLOCK', min: 0, max: 1, step: 1, value: 1, integer: true, labels: ['FREE', 'TEMPO'] },
@@ -459,9 +466,11 @@ const MAIN_ENGINE_CONTROLS = MAIN_ENGINE_MODES.map((mode) => [
     'lane_cycles', 'join', mode, 'output_gain',
 ]);
 MAIN_ENGINE_CONTROLS[3][4] = 'cut_lane_advance';
+for(const algorithm of [4,5])MAIN_ENGINE_CONTROLS[algorithm][4]=null;
 const ENGINE_PAGE = { title: 'ENGINE', keys: ['algorithm', 'locus', 'field',
     'speed', 'manual_lane', 'lane_cycles', 'join', 'output_gain'] };
 const CUTUPS_ENGINE_PAGE = { ...ENGINE_PAGE, keys: ENGINE_PAGE.keys.map((key) => key === 'lane_cycles' ? 'cut_lane_advance' : key) };
+const DIRECT_ENGINE_PAGE = { ...ENGINE_PAGE, keys: ENGINE_PAGE.keys.map((key) => key === 'lane_cycles' ? null : key) };
 const STACK_PATH_PAGE = { title: 'STACK PATH', keys: ['lane_path',
     'lane_blend', 'lane_path_shape', 'lane_path_offset', 'lane_path_skew',
     'lane_path_curve', 'lane_slew'] };
@@ -472,6 +481,9 @@ const PADS_SCALE_PAGE = { title: 'PADS & SCALE', keys: ['pad_mode',
     'root_note', 'scale', 'hold_release_ms', 'voice_mode','pressure_mode','voice_engine_mode','voice_engine_order'] };
 const BANK_PADS_PAGE={title:'BANK PADS',keys:['bank_slot','bank_rate','bank_pan','bank_play','bank_choke','hold_release_ms','bank_record_source',null]};
 const BANK_SAMPLE_PAGE={title:'BANK SAMPLE',global:true,scopeLabel:'B ',keys:['bank_start','bank_end','bank_master_rate','bank_reverse','bank_level','bank_attack','bank_release','bank_fade']};
+const MIDI_NOTES_PAGE={title:'MIDI NOTES',global:true,keys:['midi_note_route','midi_note_channel','midi_bend_range','midi_mod_target','midi_velocity_depth','midi_sync_source','midi_sync_transport',null]};
+const MIDI_MAPS_PAGE={title:'MIDI MAPS',global:true,customMaps:true,keys:Array(8).fill(null)};
+function isMidiPage(page){return page===MIDI_CONTROL_PAGE||page===MIDI_NOTES_PAGE||page===MIDI_MAPS_PAGE;}
 const MIDI_CONTROL_PAGE = {title:'MIDI CONTROL',global:true,keys:[
     'midi_control_mode','midi_cc_channel','midi_cc_base','midi_takeover',
     null,null,null,null]};
@@ -525,7 +537,7 @@ const PLAYBACK_PAGES = [
     [DIRECT_PLAY_PAGE],
     [
         DIRECT_PLAY_PAGE,
-        { title: 'SLICE SOURCE', keys: ['slice_region_mode', 'slice_regions'] },
+        { title: 'SLICE SOURCE', sliceEditor: true, keys: ['slice_region_mode', 'slice_regions'] },
     ],
     [
         STACK_PATH_PAGE,
@@ -1583,6 +1595,7 @@ function basePadColor(owner = padSettings(0), index = 0) {
 }
 
 function padColor(index) {
+    if(state.view==='sliceEdit'&&!state.performanceVisible){const color=sliceEditorPadColor(index);if(color!==null)return color;}
     if(state.performanceVisible && index<8 && !state.activePads.has(MovePads[index])) {
         if(index<4&&!performanceLaneEnabled(index))return Black;
         return state.performancePadLive.has(MovePads[index])?Cyan:(index<4?BrightOrange:WhiteLedDim);
@@ -1649,13 +1662,13 @@ function sendLedNow(type, id, color, force = false) {
 }
 
 function iconLedStates() {
-    const menu=['settings','pages','mode','fxMenu','help'].includes(state.view);
-    const upDown=['main','settings','pages','mode','fxMenu','help','library','chain'].includes(state.view);
+    const menu=['settings','pages','mode','fxMenu','help','projects'].includes(state.view);
+    const upDown=['bankRecovery','projects'].includes(state.view)||customMidiViews.includes(state.view)||['main','settings','pages','mode','fxMenu','help','library','chain','sliceEdit'].includes(state.view);
     const leftRight=['main','settings','help'].includes(state.view);
     return [
         [MoveMenu,menu?WhiteLedBright:IconLedDim],
         [MoveBack,state.view!=='main'?WhiteLedBright:IconLedDim],
-        [MoveUndo,state.undoAvailable&&!state.recording&&!state.clipRecording?WhiteLedBright:Black],
+        [MoveUndo,customMidiContext()?(customMidiUi.data?.undo||['midiMapEdit','midiMapPicker'].includes(state.view)?WhiteLedBright:Black):state.undoAvailable&&!state.recording&&!state.clipRecording?WhiteLedBright:Black],
         [MoveShift,state.shiftHeld?WhiteLedBright:IconLedDim],
         [MoveDelete,state.deleteHeld?WhiteLedBright:IconLedDim],
         [MoveUp,upDown?IconLedDim:Black],[MoveDown,upDown?IconLedDim:Black],
@@ -1663,7 +1676,7 @@ function iconLedStates() {
         [MoveCopy,state.recording||state.clipRecording?Black:state.splitEnabled?WhiteLedBright:IconLedDim],
         [MoveCapture,state.focusButtonHeld||state.view==='pages'||(state.splitEnabled&&state.splitFocus)?WhiteLedBright:IconLedDim],
         [MoveMute,state.splitEnabled?(state.splitParts[state.splitFocus]?.mute?WhiteLedBright:IconLedDim):Black],
-        [MoveLoop,!loopAvailable()?Black:state.glitchBufferLocked||state.stackScanPaused?WhiteLedBright:state.recordedStackHold?IconLedMedium:IconLedDim],
+        [MoveLoop,state.view==='sliceEdit'?(sliceUi.data?.loop?WhiteLedBright:IconLedDim):!loopAvailable()?Black:state.glitchBufferLocked||state.stackScanPaused?WhiteLedBright:state.recordedStackHold?IconLedMedium:IconLedDim],
     ].map(([id,value])=>[id,value!==Black&&state.iconPressed.has(id)?WhiteLedBright:value]);
 }
 
@@ -2021,6 +2034,11 @@ function readBankState() {
         if(Array.isArray(data.slots)&&data.slots.length===16) {
             const changed=data.selected!==state.bank?.selected;
             const statuses=String(data.slots)!==String(state.bank?.slots);
+            if(Number.isInteger(data.discard_seq)&&data.discard_seq>0
+                &&data.discard_seq!==(state.bank?.discard_seq||0)) {
+                const message=data.discard_reason===1?'BANK TAKE < 250 MS':data.discard_reason===3?'BANK TAKE DISCARDED':'BANK TAKE: NO AUDIO';
+                showMessage(message);showActionMessage(message);
+            }
             state.bank=data;
             if(changed || state.splitFocus===1)for(const key of [...BANK_SAMPLE_PAGE.keys,...BANK_PADS_PAGE.keys].filter(Boolean))
                 PARAMS[key].value=getNumber(key,PARAMS[key].value);
@@ -2028,6 +2046,136 @@ function readBankState() {
         }
     } catch(_){}
     if(state.splitFocus===1)state.bankWave=String(getParam('bank_waveform','')).split(',').map(Number);
+}
+
+const bankRecovery={selection:0,confirm:false,token:0,returnView:'main'};
+function openBankRecovery() {
+    readBankState();if(!state.bank?.failed||state.bank.pending<0)return false;
+    bankRecovery.selection=0;bankRecovery.confirm=false;bankRecovery.token=state.bank.take;
+    bankRecovery.returnView=state.view;state.view='bankRecovery';draw();return true;
+}
+function drawBankRecovery() {
+    clearDisplay();print(1,0,'UNSAVED BANK TAKE',1);drawRect(0,8,128,1,1);
+    print(1,11,'PAD '+String((state.bank?.pending??-1)+1).padStart(2,'0')+' IN MEMORY',1);
+    const rows=bankRecovery.confirm?['KEEP TAKE','DISCARD THIS TAKE']:['RETRY SAVE','KEEP WAITING','DISCARD...'];
+    rows.forEach((text,i)=>{const y=23+i*10,active=i===bankRecovery.selection;
+        if(active)drawRect(0,y-1,128,9,1);print(1,y,text,active?0:1);});
+    print(1,57,bankRecovery.confirm?'CLICK YES; BACK NO':'CLICK SET; BACK WAIT',1);
+}
+function handleBankRecovery(number,value) {
+    if(state.view!=='bankRecovery')return false;
+    if(number===MovePlay&&value>0&&state.iconPressed.has(MoveDelete)){triggerPanic();return true;}
+    if(number===MoveMainKnob||number===MoveUp||number===MoveDown){
+        if(number!==MoveMainKnob&&value<=0)return true;
+        const delta=number===MoveMainKnob?decodeDelta(value):number===MoveUp?-1:1;
+        bankRecovery.selection=clamp(bankRecovery.selection+delta,0,bankRecovery.confirm?1:2);return true;
+    }
+    if(number===MoveBack||number===MoveMenu){
+        if(value>0){if(bankRecovery.confirm){bankRecovery.confirm=false;bankRecovery.selection=2;}
+            else state.view=bankRecovery.returnView==='bankRecovery'?'main':bankRecovery.returnView;}
+        return true;
+    }
+    if(number===MoveMainButton&&value>0){
+        readBankState();const current=state.bank;
+        if(current?.take!==bankRecovery.token||!current.failed||current.pending<0){
+            state.view='main';showMessage('TAKE ALREADY FINISHED');return true;
+        }
+        if(bankRecovery.confirm){
+            if(bankRecovery.selection===0){bankRecovery.confirm=false;bankRecovery.selection=2;}
+            else {setParamBlocking('bank_take_discard',bankRecovery.token);readBankState();
+                if(state.bank?.failed)showMessage('SAVE BUSY: TRY AGAIN');
+                else {state.view='main';showMessage('BANK TAKE DISCARDED');}}
+        }else if(bankRecovery.selection===0){setParamBlocking('bank_take_retry',bankRecovery.token);state.view='main';showMessage('RETRYING BANK SAVE');}
+        else if(bankRecovery.selection===1)state.view='main';
+        else {bankRecovery.confirm=true;bankRecovery.selection=0;}
+        return true;
+    }
+    // Keep the recovery menu stable. Pads and safety controls still reach DSP.
+    return number!==MoveDelete&&number!==MoveShift&&number!==MovePlay;
+}
+
+const projectUi={data:null,files:[],mode:'menu',selection:0,confirm:0,pending:null};
+function readProject() {
+    try {
+        const data=JSON.parse(String(getParam('project_state','{}')));if(data.v!==1)return;
+        projectUi.data=data;
+        if(data.job===0){
+            const files=JSON.parse(String(getParam('project_files','[]')));
+            if(Array.isArray(files)&&files.length<=32&&files.every(f=>typeof f==='string'))projectUi.files=files;
+            if(projectUi.pending){projectUi.mode=projectUi.pending;projectUi.pending=null;}
+            if(projectUi.mode==='list')projectUi.selection=clamp(projectUi.selection,0,Math.max(0,projectUi.files.length-1));
+        }
+    } catch(_){}
+}
+function projectCommand(key,value,after='complete') {
+    projectUi.pending=after;setParamBlocking('project_'+key,value);readProject();
+}
+function openProjects() {
+    state.view='projects';projectUi.mode='menu';projectUi.selection=0;projectUi.confirm=0;
+    projectCommand('scan',0,'menu');pollMidiControls();draw();
+}
+function drawProjects() {
+    clearDisplay();const data=projectUi.data||{},busy=data.job>0;
+    drawTitleWithFraction('THRU PROJECTS',projectUi.mode==='list'?(projectUi.selection+1)+'/'+Math.max(1,projectUi.files.length):'');drawRect(0,8,128,1,1);
+    if(busy){
+        print(1,14,data.action===3?'READING PROJECTS':data.job===1?'SAVING CURRENT SET':data.action===1?'EXPORTING PROJECT':'IMPORTING PROJECT',1);
+        const progress=data.total>0?clamp(data.bytes/data.total,0,1):0;
+        print(1,28,Math.round(progress*100)+'%  '+(data.bytes/1048576).toFixed(1)+' MB',1);
+        drawRect(1,40,126,6,1);drawRect(2,41,124,4,0);drawRect(2,41,Math.round(124*progress),4,1);
+        print(1,57,'BACK: CANCEL',1);return;
+    }
+    if(data.reopen){
+        print(1,15,data.ok?'PROJECT IMPORTED':'CHECK PROJECT COMMIT',1);
+        print(1,29,'REOPEN THRU TO PLAY',1);print(1,57,'CLICK / BACK: EXIT',1);return;
+    }
+    if(projectUi.mode==='confirm'){
+        print(1,12,'OPEN THIS PROJECT?',1);print(1,22,'BACKS UP CURRENT SET',1);
+        ['CANCEL','IMPORT PROJECT'].forEach((t,i)=>{const y=35+i*10;if(i===projectUi.confirm)drawRect(0,y-1,128,9,1);print(1,y,t,i===projectUi.confirm?0:1);});
+        print(1,57,'CLICK SELECT; BACK NO',1);return;
+    }
+    if(projectUi.mode==='complete'){
+        print(1,15,String(data.message||'PROJECT READY').slice(0,21),1);
+        print(1,30,data.ok?'SEE THRU PROJECTS':'CURRENT SET RETAINED',1);print(1,57,'CLICK / BACK: MENU',1);return;
+    }
+    const rows=projectUi.mode==='list'?projectUi.files:['EXPORT PROJECT','IMPORT PROJECT'];
+    if(!rows.length)print(1,20,'NO .THRU FILES FOUND',1);
+    const start=clamp(projectUi.selection-1,0,Math.max(0,rows.length-4));
+    for(let row=0;row<4&&start+row<rows.length;++row){const i=start+row,y=12+row*10;
+        if(i===projectUi.selection)drawRect(0,y-1,128,9,1);print(1,y,String(rows[i]).slice(0,21),i===projectUi.selection?0:1);}
+    print(1,57,projectUi.mode==='list'?'<> PAGE  CLICK OPEN':'ALL CLIPS AND SAMPLES',1);
+}
+function handleProjects(number,value) {
+    const data=projectUi.data||{};
+    if(state.view!=='projects'&&!data.reopen)return false;
+    if(number===MovePlay&&value>0&&state.iconPressed.has(MoveDelete)){triggerPanic();return true;}
+    if(data.reopen){if(value>0&&(number===MoveMainButton||number===MoveBack)&&typeof host_exit_module==='function')host_exit_module();return true;}
+    if(data.job>0){if(number===MoveShift||number===MoveDelete)return false;if(number===MoveBack&&value>0)projectCommand('cancel',1,'menu');return true;}
+    if((number===MoveLeft||number===MoveRight)&&value>0&&projectUi.mode==='list'){
+        projectUi.selection=0;projectCommand('scan',Math.max(0,data.page+(number===MoveRight?1:-1)),'list');return true;
+    }
+    if(number===MoveMainKnob||number===MoveUp||number===MoveDown){
+        if(number!==MoveMainKnob&&value<=0)return true;const delta=number===MoveMainKnob?decodeDelta(value):number===MoveUp?-1:1;
+        if(projectUi.mode==='confirm')projectUi.confirm=clamp(projectUi.confirm+delta,0,1);
+        else projectUi.selection=clamp(projectUi.selection+delta,0,projectUi.mode==='list'?Math.max(0,projectUi.files.length-1):1);
+        return true;
+    }
+    if(number===MoveBack||number===MoveMenu){if(value>0){
+        if(projectUi.mode==='confirm')projectUi.mode='list';
+        else if(projectUi.mode!=='menu'){projectUi.mode='menu';projectUi.selection=0;}
+        else if(!returnToPagePicker())state.view='main';
+    }return true;}
+    if(number===MoveMainButton&&value>0){
+        if(projectUi.mode==='menu'){
+            if(projectUi.selection===0)projectCommand('export',1);
+            else {projectUi.selection=0;projectCommand('scan',0,'list');}
+        }else if(projectUi.mode==='list'&&projectUi.files.length){projectUi.confirm=0;projectUi.mode='confirm';}
+        else if(projectUi.mode==='confirm'){
+            if(projectUi.confirm)projectCommand('import',projectUi.selection);
+            else projectUi.mode='list';
+        }else {projectUi.mode='menu';projectUi.selection=0;}
+        return true;
+    }
+    return number!==MoveDelete&&number!==MoveShift&&number!==MovePlay;
 }
 
 function drawBankMain() {
@@ -2070,7 +2218,7 @@ function drawBankMain() {
     }
     const status=bank.slots[bank.selected]||0;
     const hint=state.deleteHeld?'X+PAD: CLEAR BANK':status===2?'RELEASE TO FINISH':status===3?'SAVING BANK TAKE':status===0?'HOLD EMPTY PAD: REC':'HOLD PLAY; SH:LATCH';
-    print(1,55,errorFooter(state.messageTicks>0?state.message:hint).slice(0,21),1);
+    print(1,55,(bank.failed?'SAVE FAILED: CLICK':errorFooter(state.messageTicks>0?state.message:hint)).slice(0,21),1);
 }
 
 function drawMain() {
@@ -2450,24 +2598,24 @@ function parameterPages() {
             ? [{...page,keys:page.keys.map(key=>['lane_path_shape','lane_path_skew','lane_path_curve'].includes(key)?null:key)},PATH_EDITOR_PAGE]
             : [page]);
     enginePages=enginePages.map(p=>p.title==='PRISM'?{...p,keys:p.keys.map(k=>k==='prism_decay'&&Math.round(PARAMS.prism_mode.value)!==4?null:k)}:p.title==='MORPH'?{...p,keys:p.keys.map(k=>k==='morph_frequency'&&Math.round(PARAMS.morph_mode.value)===1?null:k)}:p.title==='TEXTURE'?{...p,keys:p.keys.map(k=>k==='texture_group'&&Math.round(PARAMS.texture_mode.value)===0?null:k)}:p);
-    const engine=state.algorithm===3?CUTUPS_ENGINE_PAGE:ENGINE_PAGE;
+    const engine=state.algorithm===3?CUTUPS_ENGINE_PAGE:state.algorithm===4||state.algorithm===5?DIRECT_ENGINE_PAGE:ENGINE_PAGE;
     const pads={...PADS_SCALE_PAGE,keys:PADS_SCALE_PAGE.keys.map(k=>k==='voice_engine_order'?(voiceEngineListEnabled()?(PARAMS.voice_engine_assign.value===0?k:null):((isQuad()?PARAMS.pressure_mode.value===3:PARAMS.pressure_mode.value!==0)?'voice_engine_depth':null)):k)};
     const lists=voiceEngineListEnabled()?[{...VOICE_ENGINES_PAGE,keys:VOICE_ENGINES_PAGE.keys.map((k,i)=>i<voiceEngineCount()?k:null)},
         {...VOICE_SETUP_PAGE,keys:VOICE_SETUP_PAGE.keys.map(k=>isQuad()&&k==='voice_engine_stack'?null:k)}]:[];
-    if(!state.splitEnabled)return [engine,pads,MIDI_CONTROL_PAGE,...lists,AMP_ENVELOPE_PAGE,PLAY_GAIN_PAGE,...enginePages,
+    if(!state.splitEnabled)return [engine,pads,MIDI_CONTROL_PAGE,MIDI_NOTES_PAGE,MIDI_MAPS_PAGE,...lists,AMP_ENVELOPE_PAGE,PLAY_GAIN_PAGE,...enginePages,
         MIX_REC_PAGE,EFFECTS_PAGE,STEREO_ROTARY_PAGE,TAPE_PAGE,REVERB_PAGE,FX_ORDER_PAGE,SAMPLE_PAGE,LOOP_PAGE,PATTERN_FADE_PAGE,TAKE_PAGE,CHAIN_PAGE,CHAIN_FADE_PAGE,ENTRY_FADE_PAGE,CHAIN_TOOLS_PAGE];
     const engineSplit={...engine,keys:engine.keys.map((key)=>key==='output_gain'?partLevelKey():isQuad()&&['manual_lane','lane_cycles','cut_lane_advance'].includes(key)?null:key)};
     if(isQuad()) {
         const pages=enginePages.filter(p=>p.title!==STACK_PATH_PAGE.title).map(p=>({...p,keys:p.keys.map(k=>['manual_lane','lane_cycles','cut_lane_advance','cut_lane_order','cut_poly_path'].includes(k)?null:k)}));
         const rec={...MIX_REC_PAGE,keys:['lane_'+(state.splitFocus+1)+'_gain',null,null,null,...MIX_REC_PAGE.keys.slice(4)]};
-        return [engineSplit,pads,MIDI_CONTROL_PAGE,...lists,AMP_ENVELOPE_PAGE,PLAY_GAIN_PAGE,...pages,QUAD_SEND_PAGE,QUAD_SETUP_PAGE,rec,PART_COLOR_PAGE,STEREO_ROTARY_PAGE,
+        return [engineSplit,pads,MIDI_CONTROL_PAGE,MIDI_NOTES_PAGE,MIDI_MAPS_PAGE,...lists,AMP_ENVELOPE_PAGE,PLAY_GAIN_PAGE,...pages,QUAD_SEND_PAGE,QUAD_SETUP_PAGE,rec,PART_COLOR_PAGE,STEREO_ROTARY_PAGE,
             {...DELAY_RETURN_PAGE,keys:['effect_delay','effect_feedback','effect_width',null,null,null,null,'effect_mix']},
             {...TAPE_PAGE,global:true},{...REVERB_PAGE,global:true},FX_ORDER_PAGE,SAMPLE_PAGE,
             LOOP_PAGE,PATTERN_FADE_PAGE,TAKE_PAGE,CHAIN_PAGE,CHAIN_FADE_PAGE,ENTRY_FADE_PAGE,CHAIN_TOOLS_PAGE];
     }
-    if(state.bankMode && state.splitFocus===1)return [BANK_SAMPLE_PAGE,BANK_PADS_PAGE,PLAY_GAIN_PAGE,MIDI_CONTROL_PAGE,SPLIT_MIX_PAGE,PRIORITY_PAGE,SPLIT_SETUP_PAGE,PART_COLOR_PAGE,STEREO_ROTARY_PAGE,DELAY_RETURN_PAGE,{...TAPE_PAGE,global:true},{...REVERB_PAGE,global:true},FX_ORDER_PAGE,LOOP_PAGE,PATTERN_FADE_PAGE,TAKE_PAGE,CHAIN_PAGE,CHAIN_FADE_PAGE,ENTRY_FADE_PAGE,CHAIN_TOOLS_PAGE];
+    if(state.bankMode && state.splitFocus===1)return [BANK_SAMPLE_PAGE,BANK_PADS_PAGE,PLAY_GAIN_PAGE,MIDI_CONTROL_PAGE,MIDI_NOTES_PAGE,MIDI_MAPS_PAGE,SPLIT_MIX_PAGE,PRIORITY_PAGE,SPLIT_SETUP_PAGE,PART_COLOR_PAGE,STEREO_ROTARY_PAGE,DELAY_RETURN_PAGE,{...TAPE_PAGE,global:true},{...REVERB_PAGE,global:true},FX_ORDER_PAGE,LOOP_PAGE,PATTERN_FADE_PAGE,TAKE_PAGE,CHAIN_PAGE,CHAIN_FADE_PAGE,ENTRY_FADE_PAGE,CHAIN_TOOLS_PAGE];
     const rec=state.sharedDual?MIX_REC_PAGE:{...MIX_REC_PAGE,keys:[state.splitFocus?'lane_3_gain':'lane_1_gain',state.splitFocus?'lane_4_gain':'lane_2_gain',null,null,...MIX_REC_PAGE.keys.slice(4)]};
-    return [engineSplit,pads,MIDI_CONTROL_PAGE,...lists,AMP_ENVELOPE_PAGE,PLAY_GAIN_PAGE,...enginePages,SPLIT_MIX_PAGE,PRIORITY_PAGE,SPLIT_SETUP_PAGE,
+    return [engineSplit,pads,MIDI_CONTROL_PAGE,MIDI_NOTES_PAGE,MIDI_MAPS_PAGE,...lists,AMP_ENVELOPE_PAGE,PLAY_GAIN_PAGE,...enginePages,SPLIT_MIX_PAGE,PRIORITY_PAGE,SPLIT_SETUP_PAGE,
         rec,PART_COLOR_PAGE,STEREO_ROTARY_PAGE,DELAY_RETURN_PAGE,{...TAPE_PAGE,global:true},
         {...REVERB_PAGE,global:true,keys:REVERB_PAGE.keys.map((key)=>key==='effect_reverb_mix'?null:key)},FX_ORDER_PAGE,SAMPLE_PAGE,LOOP_PAGE,PATTERN_FADE_PAGE,TAKE_PAGE,CHAIN_PAGE,CHAIN_FADE_PAGE,ENTRY_FADE_PAGE,CHAIN_TOOLS_PAGE];
 }
@@ -2528,6 +2676,8 @@ function copyShortcutStep(step) {
 }
 function chainEditorActive() {return state.view==='chain'||(state.view==='settings'&&(currentSettingsPage()===CHAIN_PAGE||!!currentSettingsPage().chainFade||currentSettingsPage().chainTools));}
 function activeControlKeys() {
+    if(customMidiViews.includes(state.view)||['projects','bankRecovery'].includes(state.view))return Array(8).fill(null);
+    if(state.view==='sliceEdit')return Array(8).fill(null);
     if(state.view==='library')return [null,null,null,null,null,null,'preview_route','preview_level'];
     return state.view === 'settings'
         ? currentSettingsPage().keys
@@ -3000,6 +3150,7 @@ function drawSettings() {
     clearDisplay();
     if(!state.editorReady){print(1,0,'UPDATING EDITOR',1);return;}
     const page = currentSettingsPage();
+    if(page.customMaps){drawCustomMidiProfile();return;}
     if (page.route) { drawFxOrder(); return; }
     if(page.pathEditor){drawPathEditor();return;}
     if(page.patternFade){drawPatternFade();return;}
@@ -3011,7 +3162,7 @@ function drawSettings() {
         : (page === FX_ORDER_PAGE && state.fxRoutePending ? '*' : '');
     const lockTarget = state.algorithm === 6 && state.glitchBufferLocked
         ? 'LCK ' : '';
-    const scope=state.splitEnabled?((isSendPage(page)||isSetupPage(page))?'':state.sharedDual&&page===SAMPLE_PAGE?'SRC ':page.global?(page.scopeLabel??'FX '):((partName()+' '))):'';
+    const scope=state.splitEnabled?((isMidiPage(page)||isSendPage(page)||isSetupPage(page))?'':state.sharedDual&&page===SAMPLE_PAGE?'SRC ':page.global?(page.scopeLabel??'FX '):((partName()+' '))):'';
     const engineTitle=voiceEngineListEnabled()&&(page.title==='ENGINE'||playbackPagesForAlgorithm(state.algorithm,Math.round(PARAMS.motion_sound.value)).some(p=>p.title===page.title)||page.pathEditor||page.voiceSetup)?'E'+Math.round(PARAMS.voice_engine_edit.value)+' ':'';
     const pageTitle = target + lockTarget + scope + engineTitle + page.title + takeSuffix;
     const title = state.actionMessageTicks > 0
@@ -3023,7 +3174,7 @@ function drawSettings() {
         return;
     }
     const drawPath=page.title===STACK_PATH_PAGE.title&&Math.round(PARAMS.lane_path.value)===8;
-    const hasFooter = page.pulsar || page.stochastic || page.voiceEngines || page.voiceSetup || drawPath || (state.splitEnabled && (isSendPage(page)
+    const hasFooter = page.sliceEditor || page.pulsar || page.stochastic || page.voiceEngines || page.voiceSetup || drawPath || (state.splitEnabled && (isSendPage(page)
         || page===DELAY_RETURN_PAGE || page.title===REVERB_PAGE.title));
     for (let index = 0; index < 8; index++) {
         const key = page.keys[index];
@@ -3040,6 +3191,7 @@ function drawSettings() {
     else if(page.stochastic)print(1,57,PARAMS.stochastic_source_hold.value>=.5?'SRC HELD CLICK: RUN':'CLICK: HOLD SOURCE',1);
     else if(page.voiceEngines||page.voiceSetup)print(1,57,'TURN SLOT CLICK EDIT',1);
     else if(drawPath)print(1,57,'CLICK: EDIT PATH',1);
+    else if(page.sliceEditor)print(1,57,'CLICK: EDIT SLICES',1);
     else if (state.splitEnabled && isSendPage(page)) print(1,57,splitSendFooter(),1);
     else if (state.splitEnabled && !isQuad() && (page===DELAY_RETURN_PAGE || page.title===REVERB_PAGE.title))
         print(1,57,'RETURN: FX SENDS',1);
@@ -3154,7 +3306,6 @@ function pageEntries() {
 }
 
 const PAGE_CATEGORY_NAMES=['VOICE','LANE','MIX / FX','PERF'];
-const PAGE_CATEGORY_LABELS=['VOICE','LANE','MIXFX','PERF'];
 const LANE_PAGE_TITLES=new Set(['MIX / REC','SAMPLE EDIT']);
 const MIX_PAGE_TITLES=new Set(['FX SENDS','PRIORITY DUCK','PART COLOR',
     'EFFECTS','STEREO / ROTARY','DELAY RETURN','TAPE','REVERB','FX ORDER']);
@@ -3162,7 +3313,7 @@ const PERF_PAGE_TITLES=new Set(['PERF LOOP','PATTERN FADE','OVERDUB TAKES',
     'CHAIN','CHAIN FADE','ENTRY FADE','CHAIN TOOLS']);
 
 function pageCategoryForPage(page) {
-    if(!page||page===MIDI_CONTROL_PAGE||isSetupPage(page))return -1;
+    if(!page||isMidiPage(page)||isSetupPage(page))return -1;
     if(LANE_PAGE_TITLES.has(page.title))return 1;
     if(MIX_PAGE_TITLES.has(page.title))return 2;
     if(PERF_PAGE_TITLES.has(page.title))return 3;
@@ -3180,7 +3331,7 @@ function categorySettingsIndices(category,pages=parameterPages()) {
 function settingsPagePosition(pages=parameterPages()) {
     const page=pages[state.settingsPage],category=pageCategoryForPage(page);
     const indices=category>=0?categorySettingsIndices(category,pages)
-        :page===MIDI_CONTROL_PAGE?pages.map((p,i)=>p===MIDI_CONTROL_PAGE?i:-1).filter(i=>i>=0)
+        :isMidiPage(page)?pages.map((p,i)=>isMidiPage(p)?i:-1).filter(i=>i>=0)
         :isSetupPage(page)?pages.map((p,i)=>isSetupPage(p)?i:-1).filter(i=>i>=0)
         :[state.settingsPage];
     return String(Math.max(0,indices.indexOf(state.settingsPage))+1)+'/'+indices.length;
@@ -3233,11 +3384,12 @@ function midiPageEntry() {
 
 function pageHubEntries() {
     return [
-        ...PAGE_CATEGORY_NAMES.map((title,category)=>({title,category,hub:'category'})),
+        ...PAGE_CATEGORY_NAMES.map((title,category)=>({title:category===3?'PERFORMANCE':title,category,hub:'category'})),
         {title:'MODE',view:'mode',hub:'mode'},
         {...setupPageEntry(),title:'SETUP',hub:'setup'},
         {...midiPageEntry(),title:'MIDI',hub:'midi'},
         {title:'ALL',hub:'all'},
+        {title:'PROJECTS',view:'projects',hub:'projects'},
     ];
 }
 
@@ -3276,7 +3428,7 @@ function openPagePicker() {
     const category=currentPageCategory();
     state.pageSelection=category>=0?category
         :state.view==='mode'?4
-        :state.view==='settings'&&currentSettingsPage()===MIDI_CONTROL_PAGE?6
+        :state.view==='settings'&&isMidiPage(currentSettingsPage())?6
         :state.view==='settings'&&isSetupPage(currentSettingsPage())?5
         :0;
     state.view='pages';state.actionMessageTicks=0;
@@ -3299,7 +3451,8 @@ function activatePageEntry(entry,returnToPicker=false) {
     }
     if((state.pageReturn?.view==='library'||state.view==='library')&&entry.view!=='library')
         setParamBlocking('preview_stop',1);
-    if(entry.view==='library')openLibrary(state.lane);
+    if(entry.view==='projects')openProjects();
+    else if(entry.view==='library')openLibrary(state.lane);
     else {
         state.view=entry.view;state.fxMenuReturn=false;
         if(entry.view==='settings') {
@@ -3402,19 +3555,8 @@ function applyModePicker() {
 function drawPagePicker() {
     clearDisplay();const entries=pagePickerEntries();
     state.pageSelection=clamp(state.pageSelection,0,entries.length-1);
-    if(state.pageTier==='hub') {
-        print(1,0,('PAGES'+(state.splitEnabled?' EDIT '+partName():'')+'  TRACK 1-4').slice(0,21),1);
-        drawRect(0,8,128,1,1);
-        for(let index=0;index<8;++index) {
-            const selected=index===state.pageSelection,column=index%4,row=Math.floor(index/4);
-            const x=column*32,y=11+row*20;
-            if(selected)drawRect(x,y,31,16,1);
-            const label=index<4?PAGE_CATEGORY_LABELS[index]:entries[index].title;
-            print(x+2,y+4,label.slice(0,5),selected?0:1);
-        }
-        print(1,57,errorFooter('TURN PICK CLICK ENTER'),1);return;
-    }
-    const heading=state.pageTier==='category'?PAGE_CATEGORY_NAMES[state.pageCategory]:'ALL PAGES';
+    const hub=state.pageTier==='hub';
+    const heading=hub?'PAGES':state.pageTier==='category'?PAGE_CATEGORY_NAMES[state.pageCategory]:'ALL PAGES';
     drawTitleWithFraction(heading+(state.splitEnabled?' '+partName():''),
         (state.pageSelection+1)+'/'+entries.length);
     drawRect(0,8,128,1,1);
@@ -3422,10 +3564,16 @@ function drawPagePicker() {
     for(let row=0;row<5;++row){
         const index=start+row,entry=entries[index];if(!entry)continue;
         const selected=index===state.pageSelection,y=10+row*9;
-        if(selected)drawRect(0,y,128,8,1);
-        print(1,y,((selected?'>':' ')+entry.title).slice(0,21),selected?0:1);
+        if(selected)drawRect(0,y,hub?124:128,8,1);
+        const label=hub&&entry.hub==='category'?(entry.category+1)+' '+entry.title:entry.title;
+        print(1,y,((selected?'> ':'  ')+label).slice(0,hub?20:21),selected?0:1);
     }
-    print(1,57,errorFooter('CLICK OPEN  BACK HUB'),1);
+    if(hub&&entries.length>5){
+        const height=Math.max(3,Math.floor(44*5/entries.length));
+        const top=10+Math.round((44-height)*start/(entries.length-5));
+        drawRect(127,10,1,44,1);drawRect(125,top,2,height,1);
+    }
+    print(1,57,errorFooter(hub?'T1-4 BANK CLICK OPEN':'CLICK OPEN  BACK HUB'),1);
 }
 
 function meterWidth(peak,width) {
@@ -3688,6 +3836,10 @@ function draw() {
     const overlay=state.saveStatus===2?'saving':state.savedTicks>0&&state.saveStatus===3?'saved':'';
     if(overlay!==state.saveOverlayLast){splitDisplay.footer=null;state.saveOverlayLast=overlay;}
     if(state.performanceVisible)drawPerformanceLayer();
+    else if(customMidiViews.includes(state.view))drawCustomMidi();
+    else if(state.view==='projects')drawProjects();
+    else if(state.view==='bankRecovery')drawBankRecovery();
+    else if(state.view==='sliceEdit')drawSliceEditor();
     else if(state.view==='mode')drawModePicker();
     else if(state.view==='pages')drawPagePicker();
     else if(state.view==='mixStatus')drawMixStatus();
@@ -3702,9 +3854,10 @@ function draw() {
 }
 
 function drawSaveIndicator() {
+    if(state.view==='projects')return; // The project panel owns progress and completion feedback.
     // Fixed footer overlay: parameter cells and waveform coordinates stay put.
     if(state.saveStatus===4) {
-        if(state.view!=='main'||state.performanceVisible) {
+        if((state.view!=='main'&&state.view!=='bankRecovery'&&state.view!=='projects')||state.performanceVisible) {
             drawRect(0,57,128,7,0);print(1,57,saveNotice(),1);
         }
         return;
@@ -4067,6 +4220,9 @@ function adjustSettingsPage(delta) {
         const indices=categorySettingsIndices(category,pages);
         const current=Math.max(0,indices.indexOf(state.settingsPage));
         state.settingsPage=indices[(current+(delta>0?1:-1)+indices.length)%indices.length];
+    } else if(isMidiPage(pages[state.settingsPage])) {
+        const indices=pages.map((p,i)=>isMidiPage(p)?i:-1).filter(i=>i>=0);
+        state.settingsPage=indices[(indices.indexOf(state.settingsPage)+(delta>0?1:-1)+indices.length)%indices.length];
     } else {
         state.settingsPage = (state.settingsPage + (delta > 0 ? 1 : -1)
             + pages.length) % pages.length;
@@ -4336,6 +4492,168 @@ function pollDsp() {
     if(state.view==='settings'&&currentSettingsPage().pathEditor)readStackPath();
     parseWaveforms(getParam('waveforms', ''));
     readBankState();
+    readSliceEditor();
+}
+
+// Slice editing is a focused source view, separate from the engine's live pages.
+const sliceUi={data:null,wave:null,zoom:1,low:0,high:1,viewKey:'',returnPage:0,notice:'',noticeUntil:0};
+function sliceEditorPadOwner(pad) {return !state.splitEnabled||padPart(pad)===sliceUi.data?.part;}
+function sliceEditorPerPage() {return state.splitEnabled?(isQuad()?8:16):32;}
+function sliceEditorCommand(key,value) {
+    const before=sliceUi.data;
+    setParamBlocking('slice_editor_'+key,value);
+    readSliceEditor();const after=sliceUi.data;
+    sliceUi.notice='';
+    if(after&&before){
+        if(key==='add'&&after.count===before.count)sliceUi.notice=before.count>=64?'64 SLICE LIMIT':'CUT TOO CLOSE';
+        if(key==='delete'&&after.count===before.count)sliceUi.notice='EDGE PROTECTED';
+        if(key==='lane'&&after.lane!==Number(value))sliceUi.notice='LANE UNAVAILABLE';
+    }
+    sliceUi.noticeUntil=state.ticks+40;rebuildLedQueue();draw();
+}
+function openSliceEditor() {
+    setParamBlocking('slice_editor_open',1);
+    let data;try{data=JSON.parse(String(getParam('slice_editor_state','{}')));}catch(e){}
+    if(!data?.active){showActionMessage('LOAD A LANE FIRST');return;}
+    sliceUi.notice='';sliceUi.noticeUntil=0;
+    sliceUi.returnPage=state.settingsPage;sliceUi.data=data;sliceUi.zoom=1;sliceUi.viewKey='';sliceUi.wave=null;
+    state.view='sliceEdit';state.deleteHeld=false;setParam('delete_held',0);
+    resetParameterEncoderMotion();readSliceEditor();rebuildLedQueue();draw();
+}
+function closeSliceEditor(send=true) {
+    if(send)setParamBlocking('slice_editor_open',0);
+    sliceUi.data=null;sliceUi.wave=null;sliceUi.viewKey='';
+    state.view='settings';state.settingsPage=clamp(sliceUi.returnPage,0,parameterPages().length-1);
+    resetParameterEncoderMotion();rebuildLedQueue();
+}
+function readSliceEditor() {
+    if(state.view!=='sliceEdit')return;
+    let data;try{data=JSON.parse(String(getParam('slice_editor_state','{}')));}catch(e){return;}
+    if(!data.active){closeSliceEditor(false);return;}
+    if(data.v!==1||!Number.isInteger(data.count)||data.count<1||data.count>64
+        ||!Array.isArray(data.points)||data.points.length!==data.count+1
+        ||!data.points.every(Number.isFinite)||!(data.duration>0))return;
+    data.selected=clamp(data.selected|0,0,data.count-1);
+    data.boundary=clamp(data.boundary|0,0,data.count);
+    data.page=clamp(data.page|0,0,Math.ceil(data.count/sliceEditorPerPage())-1);
+    if(sliceUi.data?.lane!==data.lane){sliceUi.zoom=1;sliceUi.wave=null;sliceUi.viewKey='';}
+    sliceUi.data=data;state.lane=data.lane;
+    PARAMS.slice_region_mode.value=data.mode;
+    const width=1/sliceUi.zoom;
+    // At the full overview, keep both file edges visible. Zoomed navigation
+    // scrolls the waveform beneath a fixed central edit cursor.
+    const center=sliceUi.zoom===1?.5:data.cursor;
+    sliceUi.low=center-width*.5;sliceUi.high=center+width*.5;
+    const low=clamp(sliceUi.low,0,1),high=clamp(sliceUi.high,0,1);
+    const viewKey=data.lane+':'+low.toFixed(9)+','+high.toFixed(9);
+    if(viewKey!==sliceUi.viewKey){
+        sliceUi.viewKey=viewKey;setParamBlocking('slice_editor_view',low.toFixed(9)+','+high.toFixed(9));
+    }
+    const wave=String(getParam('slice_editor_wave','')).split(',').map(Number);
+    if(wave.length===4+WAVE_BINS*2&&wave.every(Number.isFinite)
+        &&wave[0]>0&&wave[1]===data.lane&&wave[3]>wave[2])sliceUi.wave=wave;
+}
+function sliceEditorTime(value) {
+    const ms=value*(sliceUi.data?.duration||0);
+    return ms<1000?Math.round(ms)+'m':ms<10000?(ms/1000).toFixed(2)+'s':(ms/1000).toFixed(1)+'s';
+}
+function adjustSliceEditor(index,delta) {
+    const d=sliceUi.data;if(!d||!delta||index>4)return;
+    delta=parameterEncoderDelta(index,'slice-edit-'+index,delta);if(!delta)return;
+    if(index===0){
+        const selected=clamp(d.selected+delta,0,d.count-1);
+        setParamBlocking('slice_editor_select',selected);
+        setParamBlocking('slice_editor_page',Math.floor(selected/sliceEditorPerPage()));
+    } else if(index===3){sliceUi.zoom=clamp(sliceUi.zoom*Math.pow(2,delta/4),1,65536);}
+    else if(index===4)setParamBlocking('slice_editor_preroll',clamp(d.preroll+delta*(state.shiftHeld?.1:1),0,30).toFixed(1));
+    else {
+        const point=d.selected+(index===2?1:0);
+        const step=state.shiftHeld?.1/d.duration:1/(sliceUi.zoom*256);
+        setParamBlocking('slice_editor_move',point+','+clamp(d.points[point]+delta*step,0,1).toFixed(9));
+    }
+    readSliceEditor();rebuildLedQueue();draw();
+}
+function sliceEditorPadColor(index) {
+    const d=sliceUi.data;if(!d||!sliceEditorPadOwner(index))return null;
+    const slice=padLocal(index)+d.page*sliceEditorPerPage();
+    if(slice>=d.count)return Black;
+    if(d.playing&&slice===d.selected)return d.latched?LightMagenta:Cyan;
+    return slice===d.selected?BrightOrange:WhiteLedDim;
+}
+function handleSliceEditorCc(number,value) {
+    if(state.view!=='sliceEdit')return false;
+    const d=sliceUi.data;if(!d)return false;
+    if(number===MoveMainKnob){
+        const delta=decodeDelta(value),step=state.shiftHeld?.1/d.duration:1/(sliceUi.zoom*128);
+        sliceEditorCommand('cursor',clamp(d.cursor+delta*step,0,1).toFixed(9));return true;
+    }
+    if(number>=MoveKnob1&&number<MoveKnob1+8){adjustSliceEditor(number-MoveKnob1,decodeDelta(value));return true;}
+    if(number===MoveMainButton){if(value>0)sliceEditorCommand('add',d.cursor.toFixed(9));return true;}
+    if(number===MoveDelete){
+        state.deleteHeld=false;setParam('delete_held',0);
+        if(value>0)sliceEditorCommand('delete',d.boundary);return true;
+    }
+    if(number===MoveLoop){if(value>0)sliceEditorCommand('loop',d.loop?0:1);return true;}
+    if(number===MoveBack||number===MoveMenu){
+        if(value>0){closeSliceEditor();if(number===MoveMenu&&state.focusButtonHeld){state.focusButtonUsed=true;openPagePicker();}}
+        return true;
+    }
+    const track=MoveTracks.indexOf(number);
+    if(track>=0&&value>0){
+        if(state.focusButtonHeld){closeSliceEditor();state.focusButtonUsed=true;openPageCategory(track);}
+        else if(state.shiftHeld){closeSliceEditor();openLibrary(track+1);}
+        else {sliceEditorCommand('lane',track+1);}
+        return true;
+    }
+    if(number===MoveUp||number===MoveDown){
+        if(value>0)sliceEditorCommand('page',clamp(d.page+(number===MoveUp?1:-1),0,Math.ceil(d.count/sliceEditorPerPage())-1));
+        return true;
+    }
+    return false;
+}
+function drawSliceEditor() {
+    clearDisplay();const d=sliceUi.data;if(!d)return;
+    const index=String(d.selected+1).padStart(2,'0'),count=String(d.count).padStart(2,'0');
+    if(sliceUi.notice&&state.ticks<sliceUi.noticeUntil)print(1,0,sliceUi.notice,1);
+    else {
+        print(1,0,'L'+d.lane+' S'+index+'/'+count,1);
+        print(61,0,String(d.overflow?'LIMIT64':d.label||(d.loop?'LOOP':'ONCE')).slice(0,7),1);
+        print(110,0,(d.page+1)+'/'+Math.ceil(d.count/sliceEditorPerPage()),1);
+    }
+    const xFor=p=>Math.round((p-sliceUi.low)/(sliceUi.high-sliceUi.low)*127);
+    const wave=sliceUi.wave,ready=wave&&wave[1]===d.lane;
+    for(let x=0;x<128;++x){
+        const position=sliceUi.low+x/127*(sliceUi.high-sliceUi.low);
+        if(position<0||position>1)continue;
+        let lo=0,hi=0;
+        if(ready&&position>=wave[2]&&position<=wave[3]){
+            const bin=clamp(Math.floor((position-wave[2])/(wave[3]-wave[2])*WAVE_BINS),0,WAVE_BINS-1);
+            lo=wave[4+bin*2];hi=wave[5+bin*2];
+        } else {
+            const bin=clamp(Math.floor(position*(WAVE_BINS-1)),0,WAVE_BINS-1);
+            [lo,hi]=state.waves[d.lane-1]?.[bin]||[0,0];
+        }
+        const top=20-Math.round(clamp(hi,-7,7)*8/7),bottom=20-Math.round(clamp(lo,-7,7)*8/7);
+        drawRect(x,top,1,Math.max(1,bottom-top+1),1);
+    }
+    for(let p=0;p<=d.count;++p){
+        const x=xFor(d.points[p]);if(x<0||x>127)continue;
+        if(p===d.selected||p===d.selected+1){
+            drawRect(x,10,1,20,1);
+            const y=p===d.selected?10:28;drawRect(Math.max(0,x-2),y,Math.min(5,128-Math.max(0,x-2)),2,1);
+            if(p===d.boundary){drawRect(Math.max(0,x-2),16,Math.min(5,128-Math.max(0,x-2)),5,0);drawRect(x,16,1,5,1);}
+        } else for(let y=11;y<29;y+=4)drawRect(x,y,1,1,1);
+    }
+    const lead=xFor(Math.max(0,d.points[d.selected]-d.preroll/d.duration));
+    const nominal=xFor(d.points[d.selected]);
+    if(lead>=0&&lead<128&&d.preroll>0){drawRect(lead,25,1,5,1);for(let x=lead;x<=Math.min(127,nominal);x+=2)drawRect(x,30,1,1,1);}
+    const cursor=sliceUi.zoom===1?xFor(d.cursor):64;
+    if(cursor>=0&&cursor<128){drawRect(Math.max(0,cursor-1),11,3,18,0);for(let y=11;y<29;y+=2)drawRect(cursor,y,1,1,1);}
+    const cells=[['SLIC',index],['STRT',sliceEditorTime(d.points[d.selected])],['END',sliceEditorTime(d.points[d.selected+1])],['ZOOM',Math.round(sliceUi.zoom)+'x']];
+    for(let i=0;i<4;++i){print(i*32+1,32,cells[i][0],1);print(i*32+1,40,cells[i][1].slice(0,5),1);}
+    print(1,49,'PRER',1);print(1,57,d.preroll.toFixed(1)+'m',1);
+    for(let i=1;i<4;++i){drawRect(i*32+14,49,4,4,1);drawRect(i*32+15,50,2,2,0);}
+    print(33,57,('B '+(d.points[d.boundary]*d.duration).toFixed(1)+'ms').slice(0,14),1);
 }
 
 // MIDI and E16 integration is appended below; functions are initialized before init runs.
@@ -4346,11 +4664,14 @@ globalThis.init = function() {
         moveInputFilter.invalidateLedCache();
     }
     state.ticks = 0;
+    resetCustomMidiUi();
     resetMidiSurface();
+    setParam('slice_editor_open',0);sliceUi.data=null;sliceUi.wave=null;
     state.view = 'main';
     state.settingsPage = 0;
     state.pathReady=false;state.pathPoint=0;
     state.helpPage = 0;
+    projectUi.data=null;projectUi.files=[];projectUi.pending=null;projectUi.mode='menu';
     state.bankMode=false;state.bank=null;state.bankWave=[];state.splitEnabled = false; state.sharedDual=false;state.quadMode=false;state.modeSelection=0;state.splitFocus = 0; state.splitPages = [0,0,0,0];
     state.focusButtonHeld = false; state.focusButtonUsed = false;
     state.performanceVisible=false;state.performanceArmed=false;state.performancePads.clear();state.performancePadLive.clear();state.performanceValues.fill(0);
@@ -4440,7 +4761,7 @@ globalThis.tick = function() {
         && state.ticks-state.captureStartTick>=10) {
         state.focusButtonUsed=true;state.performanceVisible=true;rebuildLedQueue();
     }
-    if (state.ticks % 3 === 0) {pollDsp();pollMidiControls();}
+    if (state.ticks % 3 === 0) {pollDsp();pollMidiControls();if(state.view==='projects'||projectUi.pending)readProject();}
     tickMidiFeedback();
     if (state.ticks % 180 === 0) setParam('maintenance', 1);
     if(state.savedTicks>0)state.savedTicks--;
@@ -4494,6 +4815,10 @@ globalThis.onMidiMessageInternal = function(data) {
                 state.focusButtonUsed=true;state.performanceVisible=true;
                 state.performancePads.add(number);state.performancePadLive.add(number);state.performanceValues[pad]=0.75;
                 rebuildLedQueue();draw();return;
+            }
+            if(state.view==='sliceEdit'&&sliceEditorPadOwner(pad)){
+                if(pressed)state.activePads.add(number);else state.activePads.delete(number);
+                readSliceEditor();rebuildLedQueue();draw();return;
             }
             const owner=padSettings(pad),mode=owner.mode;
             if (pressed) {
@@ -4550,7 +4875,11 @@ globalThis.onMidiMessageInternal = function(data) {
         if(value>0)state.iconPressed.add(number);else state.iconPressed.delete(number);
         rebuildIconLedQueue();
     }
-    if(number===MoveUndo&&value>0){triggerSafetyUndo();return;}
+    if(handleProjects(number,value))return;
+    if(handleBankRecovery(number,value))return;
+    if(handleCustomMidiCcUi(number,value))return;
+    if(handleSliceEditorCc(number,value))return;
+    if(number===MoveUndo&&value>0){triggerSafetyUndo();readSliceEditor();return;}
     if(number===MoveCopy){
         if(value<=0){
             const gesture=state.copyShortcut;state.copyShortcut=null;
@@ -4773,8 +5102,10 @@ globalThis.onMidiMessageInternal = function(data) {
         return;
     }
     if (number === MoveMainButton && value > 0) {
+        if(state.bankMode&&state.bank?.failed&&state.view==='main'){openBankRecovery();return;}
         if(state.view==='mode')applyModePicker();
         else if(state.view==='pages')activatePagePicker();
+        else if(state.view==='settings'&&currentSettingsPage().title==='SLICE SOURCE')openSliceEditor();
         else if (state.view === 'fxMenu') activateSplitFxPage();
         else if(state.view==='settings'&&(currentSettingsPage().voiceEngines||currentSettingsPage().voiceSetup))openVoiceEngineEditor();
         else if(state.view==='settings'&&currentSettingsPage().pulsar){setParamBlocking('pulsar_source_hold',PARAMS.pulsar_source_hold.value>=.5?0:1);PARAMS.pulsar_source_hold.value=getNumber('pulsar_source_hold',PARAMS.pulsar_source_hold.value>=.5?0:1);showMessage(PARAMS.pulsar_source_hold.value>=.5?'SOURCE HELD':'SOURCE RUNNING');draw();}
@@ -4835,6 +5166,11 @@ globalThis.onMidiMessageInternal = function(data) {
         return;
     }
     if (number === MoveBack && value > 0) {
+        if(state.view==='main'&&state.bankMode){
+            readBankState();
+            if(openBankRecovery())return;
+            if(state.bank?.pending>=0){showMessage('WAIT FOR BANK SAVE');return;}
+        }
         if(state.view==='settings'&&state.engineListReturn&&voiceEngineListEnabled()){
             state.engineListReturn=false;state.settingsPage=parameterPages().findIndex(p=>p.title===(state.engineListReturnPage||VOICE_ENGINES_PAGE.title));resetParameterEncoderMotion();return;
         }
@@ -4868,6 +5204,8 @@ globalThis.onMidiMessageInternal = function(data) {
 };
 
 globalThis.onUnload = function() {
+    setParamBlocking('midi_custom_cancel',1);
+    setParamBlocking('slice_editor_open',0);
     remoteE16.stop();
     endPerformanceLayer();state.performancePads.clear();
     if (state.recording) setParamBlocking('record_gate', 0);
@@ -4886,6 +5224,304 @@ globalThis.onUnload = function() {
 
 
 // BEGIN GENERATED MIDI ADAPTER
+// On-device Custom CC profiles. Draft edits are committed explicitly; entering
+// Learn or loading a profile never writes an instrument parameter.
+const customMidiUi={data:null,entries:[],entriesKey:'',selection:0,tab:0,returnPage:0,
+    copyDestination:1,targetPart:0,pickerTier:0,pickerGroup:'Core',pickerSelection:0,
+    confirm:null,notice:'',noticeUntil:0};
+const CUSTOM_COMMANDS=['Play clip','Stop clip','Record performance','Undo clip/source','Panic','Previous bank','Next bank',
+    'Bank 1','Bank 2','Bank 3','Bank 4','Bank 5','Bank 6','Bank 7','Bank 8','Undo overdub take',
+    'Previous clip','Next clip','Hold pattern fade','Ignore CC'];
+const CUSTOM_PROFILES=['NONE','CUSTOM1','CUSTOM2','CUSTOM3','CUSTOM4','NANO CC'];
+const CUSTOM_PARTS=['SHR','A','B','C','D','FOC'];
+const customMidiViews=['midiMapList','midiMapEdit','midiMapPicker','midiMapConfirm'];
+function customMidiActive() {return customMidiUi.data?.profile||0;}
+function customMidiPage() {return state.view==='settings'&&currentSettingsPage().customMaps;}
+function customMidiContext() {return customMidiPage()||customMidiViews.includes(state.view);}
+function customMidiEditable() {return customMidiActive()>=1&&customMidiActive()<=4;}
+function customMidiNotice(text) {customMidiUi.notice=text;customMidiUi.noticeUntil=state.ticks+45;}
+function readCustomMidi() {
+    let data;try{data=JSON.parse(String(getParam('midi_custom_state','{}')));}catch(_){return;}
+    if(data.v!==1||!Number.isInteger(data.profile)||data.profile<0||data.profile>5
+        ||!Array.isArray(data.draft)||data.draft.length!==13||!data.draft.every(Number.isFinite))return;
+    const previous=customMidiUi.data;customMidiUi.data=data;
+    if(customMidiContext()) {
+        const key=data.profile+':'+data.revision;
+        if(key!==customMidiUi.entriesKey){
+            let entries;try{entries=JSON.parse(String(getParam('midi_custom_entries','[]')));}catch(_){return;}
+            if(Array.isArray(entries)&&entries.length<=128&&entries.every(e=>Array.isArray(e)&&e.length===9&&e.every(Number.isFinite))){
+                customMidiUi.entries=entries;customMidiUi.entriesKey=key;
+                customMidiUi.selection=clamp(customMidiUi.selection,0,entries.length);
+            }
+        }
+        if(previous?.profile!==data.profile&&customMidiViews.includes(state.view)){
+            state.view='midiMapList';customMidiUi.selection=0;customMidiUi.confirm=null;
+        }
+        if(data.result===1&&previous?.ui!==data.ui)customMidiNotice('LEARNED CH'+data.draft[0]+' CC'+data.draft[1]);
+        if(data.result===7&&previous?.ui!==data.ui)customMidiNotice('LEARN TIMED OUT');
+    }
+}
+function customMidiSet(key,value) {setParamBlocking('midi_custom_'+key,value);readCustomMidi();rebuildIconLedQueue();}
+function resetCustomMidiUi() {
+    setParam('midi_custom_cancel',1);customMidiUi.data=null;customMidiUi.entries=[];customMidiUi.entriesKey='';
+    customMidiUi.selection=0;customMidiUi.confirm=null;customMidiUi.notice='';
+}
+function customMidiTitle(title,fraction='') {
+    const width=fraction.length*6;
+    const limit=Math.floor((128-(width?width+6:0)-1)/6);
+    print(1,0,String(title).slice(0,limit),1);if(fraction)print(128-width,0,fraction,1);
+    drawRect(0,8,128,1,1);
+}
+function customMidiCell(index,label,value) {
+    const x=index%4*32,y=11+Math.floor(index/4)*22;
+    if(!label){drawRect(x+14,y+8,4,4,1);drawRect(x+15,y+9,2,2,0);return;}
+    print(x+1,y,String(label).slice(0,5),1);print(x+1,y+10,String(value).slice(0,5),1);
+}
+function customMidiFooter(fallback) {
+    return customMidiUi.notice&&state.ticks<customMidiUi.noticeUntil?customMidiUi.notice:fallback;
+}
+function drawCustomMidiProfile() {
+    const d=customMidiUi.data;clearDisplay();drawSettingsTitle('MIDI MAPS',parameterPages());drawRect(0,8,128,1,1);
+    if(!d){print(1,22,'READING MIDI MAPS',1);return;}
+    const cells=[['PROF',['NONE','C1','C2','C3','C4','NANO'][d.profile]],['BANK',d.bank],['EDIT','OPEN'],['COPY','TURN'],
+        ['DEST','C'+customMidiUi.copyDestination],['CLEAR','TURN'],null,null];
+    cells.forEach((cell,i)=>customMidiCell(i,...(cell||[])));
+    print(1,57,customMidiFooter(d.mode===6?'MIDI CONTROL MODE OFF':d.save===3?'MAP SAVE FAILED':d.save===1?'SAVING MAPS':d.profile===5?'COPY TO CUSTOM TO EDIT':d.profile?'CLICK: EDIT MAPPINGS':'CHOOSE A PROFILE'),1);
+}
+function openCustomMidiList() {
+    readCustomMidi();if(!customMidiActive()){customMidiNotice('CHOOSE A PROFILE');return;}
+    customMidiUi.returnPage=state.settingsPage;customMidiUi.selection=0;customMidiUi.entriesKey='';
+    state.view='midiMapList';readCustomMidi();resetParameterEncoderMotion();draw();
+}
+function customMidiTargetLabel(entry,long=false) {
+    const [index,ch,cc,part,kind,target,page,slot]=entry;
+    void index;void ch;void cc;
+    const prefix=part<0?'':CUSTOM_PARTS[part+1]+' ';
+    if(kind===1)return prefix+'E'+(page+1)+'.'+(slot+1);
+    if(kind===2)return CUSTOM_COMMANDS[target]||'COMMAND';
+    const p=thruMidi.MIDI_BY_ID.get(target);
+    return prefix+(p?(long?p.name:(SHORT_LABELS[p.key]||p.short_name||p.name).trim()):'UNKNOWN');
+}
+function customMidiRows(rows,selected) {
+    const offset=clamp(selected-1,0,Math.max(0,rows.length-4));
+    for(let row=0;row<4&&offset+row<rows.length;++row){
+        const i=offset+row,y=11+row*10,active=i===selected;
+        if(active)drawRect(0,y-1,128,9,1);
+        print(1,y,String(rows[i]).slice(0,21),active?0:1);
+    }
+}
+function drawCustomMidiList() {
+    clearDisplay();const d=customMidiUi.data;if(!d)return;
+    const rows=[d.profile===5?'FACTORY: READ ONLY':'+ ADD MAPPING',...customMidiUi.entries.map(e=>
+        String(e[1]).padStart(2,'0')+'/'+String(e[2]).padStart(3,'0')+' '+customMidiTargetLabel(e).slice(0,10)+(e[8]?' '+e[8]:''))];
+    customMidiTitle(d.profile===5?'NANO MAPS':'C'+d.profile+' MAPS',(customMidiUi.selection+1)+'/'+rows.length);
+    customMidiRows(rows,customMidiUi.selection);
+    print(1,57,customMidiFooter(d.profile===5?'COPY PROFILE TO EDIT':'CLICK EDIT  X REMOVE'),1);
+}
+function customMidiBegin(index) {
+    customMidiSet('begin',index);if(!customMidiUi.data?.editing)return;
+    customMidiUi.tab=0;customMidiUi.targetPart=Math.max(0,customMidiUi.data.draft[2]);
+    customMidiUi.notice='';state.view='midiMapEdit';resetParameterEncoderMotion();draw();
+}
+function customMidiDraft(change) {
+    const next=customMidiUi.data.draft.slice();change(next);
+    if(next[3]===0){const p=thruMidi.MIDI_BY_ID.get(next[4]);if(p){if(p.scope!=='part')next[2]=-1;if(p.action)next[7]=3;}}
+    if(next[3]===1&&next[2]<0)next[2]=customMidiUi.targetPart;
+    if(next[3]===2){next[2]=-1;next[7]=3;}
+    customMidiSet('draft',next.join(','));
+}
+function customMidiGroups() {return [...new Set(thruMidi.MIDI_PARAMETERS.map(p=>p.group))];}
+function customMidiParameters(group) {return thruMidi.MIDI_PARAMETERS.filter(p=>p.group===group);}
+function customMidiDraftTarget() {
+    const b=customMidiUi.data?.draft;if(!b)return null;
+    if(b[3]===0)return thruMidi.MIDI_BY_ID.get(b[4])||null;
+    if(b[3]===1){try{const p=JSON.parse(String(getParam('midi_custom_target','{}')));return thruMidi.MIDI_BY_ID.get(p.id)||null;}catch(_){return null;}}
+    return null;
+}
+function drawCustomMidiEdit() {
+    clearDisplay();const d=customMidiUi.data;if(!d)return;const b=d.draft;
+    const tab=customMidiUi.tab,names=['TARGET','SOURCE','RESPONSE'];
+    customMidiTitle((d.index<0?'NEW MAP':'MAP '+(d.index+1))+' '+names[tab],(tab+1)+'/3');
+    const p=customMidiDraftTarget();let cells,footer;
+    if(tab===0){
+        const groups=customMidiGroups(),group=b[3]===0?p?.group:'',params=customMidiParameters(group);
+        void groups;void params;
+        cells=[['PART',CUSTOM_PARTS[b[2]+1]],['BIND',['PARAM','SLOT','CMD'][b[3]]],
+            b[3]===0?['GROUP',group]:null,b[3]===0?['PARAM',p?(SHORT_LABELS[p.key]||p.short_name||p.name).trim():'---']:b[3]===2?['CMD',b[4]+1]:null,
+            b[3]===1?['EPAGE',b[5]+1]:null,b[3]===1?['KNOB',b[6]+1]:null,null,null];
+        footer=b[3]===2?CUSTOM_COMMANDS[b[4]]:b[3]===1?(p?.name||'RESERVED ENGINE SLOT'):(p?.name||'CLICK CHOOSE TARGET');
+    } else if(tab===1){
+        cells=[['CH',b[0]],['CC',b[1]],['TYPE',['ABS','HOLD','TOGL','TRIG'][b[7]]],['LEARN',d.learn?'WAIT':'CLICK'],
+            ['FILT',d.filter||'ANY'],['BANK',b[12]||'ALL'],null,null];
+        footer=d.learn?'MOVE CONTROL TO LEARN':'CLICK: LEARN CONTROL';
+    } else {
+        cells=b[3]===2?Array(8).fill(null):[['MIN',Math.round(b[10]*100)+'%'],['MAX',Math.round(b[11]*100)+'%'],
+            ['REV',b[9]?'ON':'OFF'],['TAKE',b[8]?'PICK':'JUMP'],null,null,null,null];
+        footer='CLICK: SAVE MAPPING';
+    }
+    cells.forEach((cell,i)=>customMidiCell(i,...(cell||[])));
+    print(1,57,customMidiFooter(customMidiEditable()?footer:'FACTORY: COPY TO EDIT').slice(0,21),1);
+}
+function customMidiPickerRows() {
+    if(!customMidiUi.pickerTier)return ['Engine page slot','Controller command',...customMidiGroups()];
+    return customMidiUi.pickerGroup==='Commands'?CUSTOM_COMMANDS:customMidiParameters(customMidiUi.pickerGroup).map(p=>p.name);
+}
+function drawCustomMidiPicker() {
+    clearDisplay();const rows=customMidiPickerRows();customMidiUi.pickerSelection=clamp(customMidiUi.pickerSelection,0,rows.length-1);
+    customMidiTitle(customMidiUi.pickerTier?customMidiUi.pickerGroup:'DESTINATION',(customMidiUi.pickerSelection+1)+'/'+rows.length);
+    customMidiRows(rows,customMidiUi.pickerSelection);print(1,57,'CLICK SELECT  BACK UP',1);
+}
+function customMidiChooseTarget() {
+    const i=customMidiUi.pickerSelection;
+    if(!customMidiUi.pickerTier){
+        if(i===0){customMidiDraft(b=>{b[3]=1;b[4]=-1;b[2]=customMidiUi.targetPart;b[7]=0;});state.view='midiMapEdit';return;}
+        customMidiUi.pickerGroup=i===1?'Commands':customMidiGroups()[i-2];customMidiUi.pickerTier=1;customMidiUi.pickerSelection=0;return;
+    }
+    if(customMidiUi.pickerGroup==='Commands')customMidiDraft(b=>{b[3]=2;b[4]=i;b[7]=3;});
+    else {const p=customMidiParameters(customMidiUi.pickerGroup)[i];customMidiDraft(b=>{b[3]=0;b[4]=p.id;b[2]=p.scope==='part'?customMidiUi.targetPart:-1;b[7]=p.action?3:0;});}
+    state.view='midiMapEdit';
+}
+function customMidiConfirm(type,argument,title,detail) {
+    customMidiUi.confirm={type,argument,title,detail,returnView:state.view};state.view='midiMapConfirm';draw();
+}
+function drawCustomMidiConfirm() {
+    clearDisplay();const c=customMidiUi.confirm;if(!c)return;
+    customMidiTitle(c.title);print(1,19,c.detail.slice(0,21),1);
+    print(1,35,'CLICK TO CONFIRM',1);print(1,47,'BACK TO CANCEL',1);
+}
+function customMidiCommit(replace=false) {
+    customMidiSet('apply',replace?2:1);const d=customMidiUi.data;
+    if(d?.result===2){customMidiConfirm('replace',0,'CC ALREADY ASSIGNED','Replace map '+(d.conflict+1)+'?');return;}
+    if(d?.result===5){state.view='midiMapList';customMidiUi.notice='';customMidiUi.entriesKey='';readCustomMidi();return;}
+    customMidiNotice(d?.result===3?'128 MAPPING LIMIT':'INVALID MAPPING');
+}
+function customMidiAccept() {
+    const c=customMidiUi.confirm;if(!c)return;customMidiUi.confirm=null;state.view=c.returnView;
+    if(c.type==='replace'){customMidiCommit(true);return;}
+    customMidiSet(c.type,c.argument);customMidiUi.entriesKey='';
+    if(c.type==='delete'){state.view='midiMapList';customMidiUi.selection=0;}
+    else state.view='settings';
+    readCustomMidi();
+}
+function customMidiBack() {
+    if(state.view==='midiMapConfirm'){
+        state.view=customMidiUi.confirm?.returnView||'midiMapList';customMidiUi.confirm=null;return;
+    }
+    if(state.view==='midiMapPicker'){
+        if(customMidiUi.pickerTier){customMidiUi.pickerTier=0;customMidiUi.pickerSelection=0;}else state.view='midiMapEdit';return;
+    }
+    if(state.view==='midiMapEdit'){customMidiSet('cancel',1);state.view='midiMapList';return;}
+    customMidiSet('cancel',1);state.view='settings';state.settingsPage=customMidiUi.returnPage;
+}
+function adjustCustomMidiProfile(index,delta) {
+    const d=customMidiUi.data;if(!d||!delta)return;
+    if(index===2){openCustomMidiList();return;}
+    if(index===3){if(d.profile)customMidiConfirm('copy',customMidiUi.copyDestination,'COPY PROFILE','Overwrite CUSTOM'+customMidiUi.copyDestination+'?');return;}
+    if(index===5){if(customMidiEditable())customMidiConfirm('clear',1,'CLEAR PROFILE','Remove all mappings?');else customMidiNotice('CUSTOM PROFILES ONLY');return;}
+    delta=parameterEncoderDelta(index,'custom-profile-'+index,delta);if(!delta)return;
+    if(index===0){customMidiSet('profile',clamp(d.profile+delta,0,5));syncRemoteTransport();}
+    if(index===1)customMidiSet('bank',clamp(d.bank+delta,1,8));
+    if(index===4)customMidiUi.copyDestination=clamp(customMidiUi.copyDestination+delta,1,4);
+}
+function adjustCustomMidiEdit(index,delta) {
+    const d=customMidiUi.data;if(!d||!delta)return;
+    if(!customMidiEditable()){customMidiNotice('COPY TO CUSTOM FIRST');return;}
+    if(customMidiUi.tab===1&&index===3){customMidiSet('learn',d.learn?0:1);return;}
+    delta=parameterEncoderDelta(index,'custom-edit-'+customMidiUi.tab+'-'+index,delta);if(!delta)return;
+    const b=d.draft,tab=customMidiUi.tab;
+    if(tab===0){
+        if(index===0){const part=clamp((b[2]<0?customMidiUi.targetPart:b[2])+delta,0,4);customMidiUi.targetPart=part;customMidiDraft(n=>{n[2]=part;});}
+        else if(index===1){const kind=clamp(b[3]+delta,0,2);customMidiDraft(n=>{n[3]=kind;n[4]=kind===1?-1:0;n[2]=kind===2?-1:customMidiUi.targetPart;n[7]=kind===2?3:0;});}
+        else if(index===2&&b[3]===0){
+            const groups=customMidiGroups(),p=thruMidi.MIDI_BY_ID.get(b[4]);const group=groups[clamp(groups.indexOf(p?.group)+delta,0,groups.length-1)];
+            const next=customMidiParameters(group)[0];customMidiDraft(n=>{n[4]=next.id;n[2]=next.scope==='part'?customMidiUi.targetPart:-1;n[7]=next.action?3:0;});
+        } else if(index===3&&b[3]===0){
+            const p=thruMidi.MIDI_BY_ID.get(b[4]),params=customMidiParameters(p?.group);const next=params[clamp(params.indexOf(p)+delta,0,params.length-1)];
+            if(next)customMidiDraft(n=>{n[4]=next.id;n[2]=next.scope==='part'?customMidiUi.targetPart:-1;n[7]=next.action?3:0;});
+        } else if(index===3&&b[3]===2)customMidiDraft(n=>{n[4]=clamp(n[4]+delta,0,CUSTOM_COMMANDS.length-1);});
+        else if(index===4&&b[3]===1)customMidiDraft(n=>{n[5]=clamp(n[5]+delta,0,3);});
+        else if(index===5&&b[3]===1)customMidiDraft(n=>{n[6]=clamp(n[6]+delta,0,7);});
+    }else if(tab===1){
+        if(index===0||index===1){customMidiSet('learn',0);customMidiDraft(n=>{n[index]=clamp(n[index]+delta,index===0?1:0,index===0?16:127);});}
+        if(index===2)customMidiDraft(n=>{n[7]=clamp(n[7]+delta,0,3);});
+        if(index===4)customMidiSet('learn_filter',clamp(d.filter+delta,0,16));
+        if(index===5)customMidiDraft(n=>{n[12]=clamp(n[12]+delta,0,8);});
+    }else if(b[3]!==2){
+        if(index===0)customMidiDraft(n=>{n[10]=clamp(Math.round(n[10]*100+delta)/100,0,n[11]);});
+        if(index===1)customMidiDraft(n=>{n[11]=clamp(Math.round(n[11]*100+delta)/100,n[10],1);});
+        if(index===2)customMidiDraft(n=>{n[9]=delta>0?1:0;});
+        if(index===3)customMidiDraft(n=>{n[8]=delta>0?1:0;});
+    }
+}
+function handleCustomMidiCcUi(number,value) {
+    if(!customMidiContext())return false;
+    const view=state.view;
+    if(number===MovePlay&&value>0&&state.iconPressed.has(MoveDelete)) {
+        customMidiSet('cancel',1);customMidiUi.confirm=null;
+        if(customMidiViews.includes(state.view))state.view='midiMapList';
+        setParamBlocking('panic',1);customMidiNotice('PANIC: NOTES OFF');return true;
+    }
+    if(number===MoveMenu&&value>0&&customMidiViews.includes(view)){
+        customMidiSet('cancel',1);state.view='settings';state.settingsPage=customMidiUi.returnPage;
+        return !state.shiftHeld&&!state.focusButtonHeld;
+    }
+    if(number===MoveBack&&value>0&&customMidiViews.includes(view)){customMidiBack();return true;}
+    if(number===MoveUndo&&value>0){
+        if(view==='midiMapEdit'||view==='midiMapPicker'){customMidiSet('cancel',1);state.view='midiMapList';}
+        else {customMidiSet('undo',1);customMidiUi.entriesKey='';readCustomMidi();}
+        return true;
+    }
+    if(number===MoveDelete&&customMidiViews.includes(view)){
+        state.deleteHeld=false;setParam('delete_held',0);
+        if(value>0&&customMidiEditable()){
+            const row=view==='midiMapList'?customMidiUi.entries[customMidiUi.selection-1]:null;
+            const index=row?row[0]:view==='midiMapEdit'?customMidiUi.data.index:-1;
+            if(index>=0)customMidiConfirm('delete',index,'REMOVE MAPPING','Delete map '+(index+1)+'?');
+        }
+        return true;
+    }
+    if(number===MoveMainButton&&value>0){
+        if(customMidiPage())openCustomMidiList();
+        else if(view==='midiMapList'){
+            if(customMidiUi.selection===0){if(customMidiEditable())customMidiBegin(-1);else customMidiNotice('COPY TO CUSTOM FIRST');}
+            else customMidiBegin(customMidiUi.entries[customMidiUi.selection-1][0]);
+        }else if(view==='midiMapPicker')customMidiChooseTarget();
+        else if(view==='midiMapConfirm')customMidiAccept();
+        else if(view==='midiMapEdit'){
+            if(!customMidiEditable()){customMidiNotice('COPY TO CUSTOM FIRST');return true;}
+            if(customMidiUi.tab===0){customMidiUi.pickerTier=0;customMidiUi.pickerSelection=0;state.view='midiMapPicker';}
+            else if(customMidiUi.tab===1)customMidiSet('learn',customMidiUi.data.learn?0:1);
+            else customMidiCommit();
+        }
+        draw();return true;
+    }
+    if(number>=MoveKnob1&&number<MoveKnob1+8){
+        if(customMidiPage())adjustCustomMidiProfile(number-MoveKnob1,decodeDelta(value));
+        else if(view==='midiMapEdit')adjustCustomMidiEdit(number-MoveKnob1,decodeDelta(value));
+        draw();return true;
+    }
+    if(customMidiViews.includes(view)&&(number===MoveMainKnob||number===MoveUp||number===MoveDown||number===MoveLeft||number===MoveRight)){
+        if(number!==MoveMainKnob&&value<=0)return true;
+        const delta=number===MoveMainKnob?decodeDelta(value):number===MoveUp||number===MoveLeft?-1:1;
+        if(view==='midiMapList')customMidiUi.selection=clamp(customMidiUi.selection+delta,0,customMidiUi.entries.length);
+        if(view==='midiMapPicker')customMidiUi.pickerSelection=clamp(customMidiUi.pickerSelection+delta,0,customMidiPickerRows().length-1);
+        if(view==='midiMapEdit'){
+            customMidiSet('learn',0);customMidiUi.tab=(customMidiUi.tab+delta%3+3)%3;resetParameterEncoderMotion();
+        }
+        draw();return true;
+    }
+    if(customMidiViews.includes(view)&&state.focusButtonHeld&&MoveTracks.includes(number)&&value>0){
+        customMidiSet('cancel',1);state.view='settings';state.settingsPage=customMidiUi.returnPage;
+    }
+    return false;
+}
+function drawCustomMidi() {
+    if(state.view==='midiMapList')drawCustomMidiList();
+    else if(state.view==='midiMapEdit')drawCustomMidiEdit();
+    else if(state.view==='midiMapPicker')drawCustomMidiPicker();
+    else if(state.view==='midiMapConfirm')drawCustomMidiConfirm();
+}
+
 // Generated by controllers/oxi-e16/generate-layout.mjs.
 const E16_LABELS={"0":"POS ","1":"FLD ","2":"SPD ","3":"STK ","4":"ENG ","5":"JOIN","6":"LVL ","133":"VARI","384":"SCAN","385":"MODE","386":"PATH","388":"BLND","389":"SHAP","390":"OFST","391":"SKEW","392":"CURV","393":"SLEW","394":"STR ","395":"RATI","512":"MODE","513":"SND ","514":"RATE","515":"BAS ","516":"PATH","517":"STEP","518":"SEED","519":"TRVL","520":"JITR","521":"DUTY","522":"MRAT","523":"MSYM","524":"MSHP","525":"TRIG","526":"OVLP","527":"LAYR","528":"ERAT","529":"REPT","530":"ESTP","531":"PITC","532":"LEVL","533":"CURV","640":"MODE","641":"SIZE","642":"DENS","643":"QUAL","644":"PIT ","645":"WIN ","646":"SPRD","647":"SPRY","648":"BIAS","649":"PSPR","650":"REV%","651":"SVAR","652":"LVAR","653":"TIME","654":"TSC ","655":"ESKW","656":"PROC","657":"PAMT","658":"REGN","659":"ADVN","768":"MODE","769":"LEN ","770":"LAYR","771":"PIT ","772":"SHAP","773":"EDGE","774":"SPRD","775":"REV%","776":"SPRY","777":"BIAS","778":"DVAR","779":"PSPR","780":"LVAR","781":"PHAS","782":"ADVN","896":"ADV ","897":"MODE","898":"CLCK","899":"DIV ","900":"RATE","901":"TVAR","902":"GATE","903":"JOIN","904":"REGN","905":"REPT","906":"REV%","907":"PVAR","908":"LVAR","909":"LORD","910":"POLY","911":"RSRC","1030":"PLAY","1031":"SSRC","1032":"SLIC","1152":"MODE","1153":"CLCK","1154":"DIV ","1155":"RATE","1156":"BUFF","1157":"REPT","1158":"CHNC","1159":"OVRD","1160":"STEP","1161":"PULS","1162":"ROTA","1163":"JUMP","1164":"PITC","1165":"REV%","1166":"DCAY","1167":"SEED","1280":"GRUP","1281":"REPT","1282":"STRD","1283":"ADVN","1284":"ORDR","1285":"PROC","1286":"DPTH","1287":"DTAL","1408":"MODE","1409":"BLUR","1410":"DCAY","1411":"PIT ","1412":"TILT","1413":"SMER","1536":"MODE","1537":"AMP ","1538":"FREQ","1539":"OFST","1540":"BLUR","1541":"PIT ","1664":"MODE","1665":"RATE","1666":"LEN ","1667":"SCAT","1668":"RNGE","1669":"GRUP","1670":"SPRD","1671":"SEED","1792":"PIT ","1793":"FORM","1794":"SMTH","1795":"TUNE","1796":"FRZE","1797":"KEYT","1798":"ROUG","1799":"SUB ","1921":"TONE","1922":"DRIV","1923":"BITS","1924":"RATE","1925":"DLY ","1926":"FDBK","1927":"WDTH","1928":"MIX ","1929":"X-PN","2048":"RATE","2049":"DPTH","2050":"MIX ","2051":"RAMP","2052":"BAL ","2053":"XOVR","2054":"SPRD","2176":"FMT ","2177":"REC ","2182":"HISS","2183":"MIX ","2184":"AGE ","2185":"CRNK","2186":"MECH","2187":"INRT","2304":"ALGO","2305":"DECY","2306":"PRE ","2307":"DAMP","2308":"DIFF","2309":"MOD ","2310":"WDTH","2311":"MIX ","2432":"OUT ","2438":"BLND","2441":"ADLY","2442":"BDLY","2443":"AREV","2444":"BREV","2445":"CURV","2448":"CDLY","2449":"DDLY","2450":"CREV","2451":"DREV","2453":"PRIO","2454":"THR ","3200":"SIZE","3201":"AMUT","3202":"TMUT","3203":"EVOL","3204":"MEM ","3205":"PULL","3206":"LAW ","3207":"DRFT","3210":"CAPT","3328":"RATE","3329":"FORM","3330":"SIZE","3331":"WIN ","3332":"SKEW","3333":"OMIT","3334":"BRST","3335":"JITT","3338":"ERAT","3339":"EDEP","3340":"FRAT","3341":"FDEP","3342":"SPRY","3343":"FVAR","3344":"REV%","3345":"KEYT"};
 const E16_ROW_TITLES=["ENGINE","STACK PATH","MOTION PATH","MOTION SOUND","LANES PLAY","GRAINS MAIN","GRAINS CLOUD","GRAINS PROCESS","CUTUPS CLOCK","CUTUPS PATH","DIRECT PLAY","DIRECT PLAY","SLICE SOURCE","GLITCH CLOCK","GLITCH PATTERN","WEAVE","WEAVE MOTION","WAVESETS","PRISM","MORPH","TEXTURE","FORMANT","STOCHASTIC","PULSAR","PULSAR MOD","PACKETS","MOTOR","EVENT CLOCK","EVENT SHAPE","PART COLOR","STEREO ROTARY","FX SENDS","FX SENDS","DELAY RETURN","REVERB","TAPE"];
@@ -5154,7 +5790,7 @@ function syncRemoteTransport(readDsp=false,force=false){
         if(Number.isFinite(raw))PARAMS.midi_control_mode.value=clamp(Math.round(raw),0,6);
     }
     const mode=Math.round(PARAMS.midi_control_mode.value);
-    const allowed=mode===0||mode===4;
+    const allowed=(mode===0&&customMidiActive()===0)||mode===4;
     if(force||allowed!==remoteModeAllowed){
         remoteModeAllowed=allowed;
         if(allowed)remoteE16.resume();else remoteE16.enable(false);
@@ -5162,17 +5798,20 @@ function syncRemoteTransport(readDsp=false,force=false){
     return allowed;
 }
 function resetMidiSurface(){
+    readCustomMidi();
     midiSurface.query='';midiSurface.epoch=null;midiFeedback.reset();e16NativeFeedback.reset();
     syncRemoteTransport(true,true);
 }
 function pollMidiControls(){
+    readCustomMidi();
     // Move's eight visible controls use midi_view. E16 has a separate
     // page snapshot and never changes Move's part or editing page.
     const keys=state.view==='chain'?CHAIN_PAGE.keys:activeControlKeys();
     const selection=[];
     for(const key of keys){
         const p=thruMidi.MIDI_BY_KEY.get(key);
-        if(p&&!p.action)selection.push((p.scope==='part'?state.splitFocus:-1)+':'+p.id);
+        // Keep each CC aligned to its physical slot, including blank cells.
+        selection.push(p&&!p.action?(p.scope==='part'?state.splitFocus:-1)+':'+p.id:'-1:-1');
     }
     const query=selection.slice(0,8).join(';');
     if(query!==midiSurface.query){

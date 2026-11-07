@@ -28,10 +28,10 @@ press **Step 2** for Global Settings. **Shift + main encoder click** opens its
 section picker: choose **System → Help → Modules → s3g Thru**. Inside Thru,
 **Shift + Menu** opens the diagnostic reports and shortcut reminder.
 
-**0.30.0 is a release draft**, currently tested as 0.30.0-test.52. It adds
+**0.30.0 is a release draft**, currently tested as 0.30.0-test.64. It adds
 Stochastic and Pulsar, Engine Lists, Legato, [Bank mode](docs/bank.html), grouped
-navigation and MIDI controller options. See the
-[draft release notes](release-notes/RELEASE_NOTES_0.30.0.md).
+navigation and MIDI controller options. Use [Projects export/import](docs/projects.html)
+for project backups. See the [draft release notes](release-notes/RELEASE_NOTES_0.30.0.md).
 The published installer remains **0.29.1**.
 
 Controller examples are in [controllers/](controllers/). The readable

@@ -192,7 +192,7 @@ source = source.replace(
     'const os = globalThis.__os;');
 source += `
 globalThis.__testParameterPageSets = PLAYBACK_PAGES.map((enginePages, algorithm) =>
-    [algorithm === 3 ? CUTUPS_ENGINE_PAGE : ENGINE_PAGE, PADS_SCALE_PAGE, AMP_ENVELOPE_PAGE, ...enginePages,
+    [algorithm === 3 ? CUTUPS_ENGINE_PAGE : algorithm === 4 || algorithm === 5 ? DIRECT_ENGINE_PAGE : ENGINE_PAGE, PADS_SCALE_PAGE, AMP_ENVELOPE_PAGE, ...enginePages,
         MIX_REC_PAGE, EFFECTS_PAGE, STEREO_ROTARY_PAGE, TAPE_PAGE, REVERB_PAGE, FX_ORDER_PAGE,
         SAMPLE_PAGE, LOOP_PAGE, TAKE_PAGE, CHAIN_PAGE].map((page) => page.keys));
 globalThis.__testMotionPages = Array.from({ length: 8 }, (_, sound) =>
@@ -231,10 +231,14 @@ globalThis.__testStereoRotaryPage = STEREO_ROTARY_PAGE.keys;
 globalThis.__testTapePage = TAPE_PAGE.keys;
 globalThis.__testWavesetProcess = PARAMS.waveset_process;
 globalThis.__testMidi={model:midiSurface,poll:pollMidiControls,tick:tickMidiFeedback,reset:resetMidiSurface,createFeedback:createNrpnFeedback,remoteAllowed:()=>remoteModeAllowed};
+globalThis.__testProjects={model:projectUi,read:readProject,open:openProjects};
+globalThis.__testBankRecovery=bankRecovery;
+globalThis.__testCustomMidi={ui:customMidiUi,read:readCustomMidi,groups:customMidiGroups};
+globalThis.__testSliceUi={model:sliceUi,open:openSliceEditor,read:readSliceEditor};
 globalThis.__testTools={entries:pageEntries,categories:categoryPageEntries,
     params:PARAMS,pages:parameterPages,drawAll:draw,led:padColor,
     hub:pageHubEntries,picker:pagePickerEntries,categoryFor:pageCategoryForPage,
-    parseSave:parseSaveStatus,parseMix:parseMixStatus,drawMix:drawMixStatus};
+    readBank:readBankState,parseSave:parseSaveStatus,parseMix:parseMixStatus,drawMix:drawMixStatus};
 globalThis.__testFx = { adjust: adjustFxOrder, sync: syncFxOrder,
     encode: encodeFxOrder, decode: decodeFxOrder,
     state: () => state,
@@ -297,7 +301,7 @@ const waveformModeControls = ['motion_mode', 'lanes_mode', 'grain_mode',
     'long_grain_mode', 'waveset_direction','prism_mode','morph_amplitude','texture_mode','formant_shift','stochastic_timing','pulsar_form'];
 for (let algorithm = 0; algorithm < 15; algorithm++) {
     assert.deepEqual(globalThis.__testMainEngineControls[algorithm], [
-        'locus', 'field', 'speed', 'manual_lane', algorithm === 3 ? 'cut_lane_advance' : 'lane_cycles', 'join',
+        'locus', 'field', 'speed', 'manual_lane', algorithm === 3 ? 'cut_lane_advance' : algorithm === 4 || algorithm === 5 ? null : 'lane_cycles', 'join',
         waveformModeControls[algorithm], 'output_gain',
     ], 'the waveform encoder layout must stay stable across engines');
 }
@@ -594,8 +598,8 @@ globalThis.onMidiMessageInternal([0xB0,3,127]);
 const midiPageDrawStart = drawWrites.length;
 globalThis.tick();
 const midiPageWrites = drawWrites.slice(midiPageDrawStart);
-assert(titleText(midiPageWrites).includes('MIDI CONTROL 1/1'));
-assert(hasRightFraction(midiPageWrites,'1/1'));
+assert(titleText(midiPageWrites).includes('MIDI CONTROL 1/3'));
+assert(hasRightFraction(midiPageWrites,'1/3'));
 for (const label of ['MODE', 'CCCH', 'BASE', 'TAKE']) {
     assert(midiPageWrites.some((write) => write[0] === 'print'
         && write[3] === label));
@@ -603,6 +607,12 @@ for (const label of ['MODE', 'CCCH', 'BASE', 'TAKE']) {
 assert.equal(globalThis.__testSplit.pages().filter((page) =>
     page.title === 'MIDI CONTROL').length, 1);
 globalThis.onMidiMessageInternal([0xB0, 55, 127]);
+const notePageDrawStart=drawWrites.length;globalThis.tick();
+const notePageWrites=drawWrites.slice(notePageDrawStart);
+assert(titleText(notePageWrites).includes('MIDI NOTES 2/3'));
+assert(hasRightFraction(notePageWrites,'2/3'));
+for(const label of ['ROUT','CHAN','BEND','WHEL','VELO','SYNC','RUN'])assert(notePageWrites.some(w=>w[0]==='print'&&w[3]===label));
+globalThis.__testFx.state().settingsPage=globalThis.__testSplit.pages().findIndex(p=>p.title==='AMP ENVELOPE');
 const envelopePageDrawStart = drawWrites.length;
 globalThis.tick();
 const envelopeWrites = drawWrites.slice(envelopePageDrawStart);
@@ -1433,7 +1443,7 @@ let toolWrites=blockingWrites.length;
 cc(52);cc(50);cc(50,0);cc(52,0);
 assert.equal(ui.view,'pages');
 assert(!blockingWrites.slice(toolWrites).some(([k])=>['clip_record','record_gate','split_focus'].includes(k)));
-assert.equal(ui.pageTier,'hub');assert.equal(tools.hub().length,8);
+assert.equal(ui.pageTier,'hub');assert.equal(tools.hub().length,9);
 tapIcon(43);assert.equal(ui.view,'pages');assert.equal(ui.pageTier,'category');assert.equal(ui.pageCategory,0);
 ui.pageSelection=1;tapIcon(3);assert.equal(ui.view,'settings');
 assert.equal(globalThis.__testSplit.pages()[ui.settingsPage].title,'PADS & SCALE');
@@ -1468,11 +1478,12 @@ assert([...screenText.values()].some(t=>t[2]==='FADED OUT'));
 cc(50);assert.equal(ui.view,'main');
 // Cancelling after changing focus returns to that part's remembered page.
 if(ui.splitFocus!==0){cc(52);cc(52,0);}
-ui.view='settings';ui.settingsPage=2;ui.splitPages=[2,5];
+const rememberedA=split.pages().findIndex(p=>p.title==='PADS & SCALE'),rememberedB=split.pages().findIndex(p=>p.title==='STACK PATH');
+ui.view='settings';ui.settingsPage=rememberedA;ui.splitPages=[rememberedA,rememberedB];
 cc(52);cc(50);cc(52,0);cc(52);cc(52,0);
-assert.equal(ui.splitFocus,1);assert.equal(ui.settingsPage,5);
-cc(51);assert.equal(ui.view,'settings');assert.equal(ui.settingsPage,5);
-cc(52);cc(52,0);assert.equal(ui.settingsPage,2);
+assert.equal(ui.splitFocus,1);assert.equal(ui.settingsPage,rememberedB);
+cc(51);assert.equal(ui.view,'settings');assert.equal(ui.settingsPage,rememberedB);
+cc(52);cc(52,0);assert.equal(ui.settingsPage,rememberedA);
 // The browser exposes only its two relevant encoders, without an audio load.
 cc(49);cc(43);cc(49,0);assert.equal(ui.view,'library');
 assert.deepEqual(globalThis.__testSplit.keys(),[null,null,null,null,null,null,'preview_route','preview_level']);
@@ -2455,3 +2466,249 @@ console.log('s3g Thru physical X modifier, Bank pad orientation and gain-page na
  verify([.24,.28,.34,.4],[0,1/3,2/3,1],[.2,.4]);
 }
 console.log('s3g Thru Bank A hollow markers over waveforms, intersecting voices and zoom edges: PASS');
+
+// Direct readers reserve the unused rate slot in both the parameter page
+// and waveform controls; turning it must not change state or send MIDI.
+{
+ const st=globalThis.__testFx.state();
+ Object.assign(st,{bankMode:false,splitEnabled:false,sharedDual:false,quadMode:false,
+  view:'settings',settingsPage:0,messageTicks:0,actionMessageTicks:0});
+ globalThis.__testParams.voice_engine_mode.value=0;
+ for(const algorithm of [4,5]) {
+  st.algorithm=algorithm;
+  assert.equal(globalThis.__testSplit.pages()[0].keys[5],null);
+  assert.equal(globalThis.__testSplit.keys()[5],null);
+  globalThis.__testMidi.poll();
+  assert.equal(globalThis.__testMidi.model.query.split(';')[5],'-1:-1','Generic CC keeps the reserved Engine slot');
+  const draws=drawWrites.length;globalThis.__testFx.draw();
+  assert(drawWrites.slice(draws).some(w=>w[0]==='rect'&&w[1]===46&&w[2]===46&&w[3]===4&&w[4]===4&&w[5]===1),
+   'Sample/Slices Engine RATE is a reserved hollow box');
+  let writes=paramWrites.length;globalThis.__testResetEncoders();
+  globalThis.onMidiMessageInternal([0xb0,76,32]);
+  assert.equal(paramWrites.length,writes,'reserved Engine knob 6 does nothing');
+  st.view='main';assert.equal(globalThis.__testSplit.keys()[4],null);
+  globalThis.__testMidi.poll();
+  assert.equal(globalThis.__testMidi.model.query.split(';')[4],'-1:-1','Generic CC keeps the reserved waveform slot');
+  writes=paramWrites.length;globalThis.__testResetEncoders();
+  globalThis.onMidiMessageInternal([0xb0,75,32]);
+  assert.equal(paramWrites.length,writes,'reserved waveform knob 5 does nothing');
+  st.view='settings';
+ }
+}
+console.log('s3g Thru direct-engine RATE: reserved parameter box, matching waveform slot and inert encoder turns: PASS');
+
+// Dedicated editor routing uses the real dispatcher; DSP semantics are tested
+// independently against the module in test_slice_editor.inc.
+{
+    const editor=globalThis.__testSliceUi,ui=globalThis.__testFx.state();
+    const previousSet=globalThis.host_module_set_param_blocking,previousGet=globalThis.host_module_get_param;
+    const sent=[];const snapshot={v:1,active:0,lane:1,part:0,selected:1,boundary:1,cursor:.25,count:4,preroll:3,duration:1000,source:1,mode:1,overflow:0,loop:0,playing:0,latched:0,pad:-1,page:0,label:'Snare',request:1,points:[0,.25,.5,.75,1]};
+    globalThis.host_module_get_param=key=>key==='slice_editor_state'?JSON.stringify(snapshot):key==='slice_editor_wave'?[1,1,0,1,...Array.from({length:112},(_,i)=>[-(i%7),i%7]).flat()].join(','):previousGet(key);
+    globalThis.host_module_set_param_blocking=(key,value)=>{
+        sent.push([key,String(value)]);
+        if(key==='slice_editor_open')snapshot.active=Number(value);
+        else if(key==='slice_editor_loop')snapshot.loop=Number(value);
+        else if(key==='slice_editor_page')snapshot.page=Number(value);
+        else if(key==='slice_editor_cursor')snapshot.cursor=Number(value);
+        else if(!key.startsWith('slice_editor_'))previousSet(key,value);
+    };
+    Object.assign(ui,{view:'settings',algorithm:5,splitEnabled:false,quadMode:false,sharedDual:false,bankMode:false,shiftHeld:false,focusButtonHeld:false,performanceVisible:false,editorReady:true});
+    ui.settingsPage=globalThis.__testSplit.pages().findIndex(p=>p.title==='SLICE SOURCE');assert(ui.settingsPage>=0);
+    const cc=(n,v=127)=>globalThis.onMidiMessageInternal([0xb0,n,v]);
+    cc(3);assert.equal(ui.view,'sliceEdit');assert(sent.some(([key,value])=>key==='slice_editor_open'&&value==='1'));
+    assert(!sent.some(([key])=>key==='clip_record'||key==='record_gate'));
+    assert.deepEqual(globalThis.__testSplit.keys(),Array(8).fill(null),'ordinary MIDI page CCs do not edit a stale waveform page');
+    let at=drawWrites.length;globalThis.__testTools.drawAll();const text=drawWrites.slice(at).filter(w=>w[0]==='print');
+    for(const label of ['SLIC','STRT','END','ZOOM','PRER','Snare'])assert(text.some(w=>w[3]===label));
+    assert(text.every(w=>w[1]>=0&&w[1]+String(w[3]).length*6<=128&&w[2]>=0&&w[2]<=57),'editor text fits all five controls');
+    editor.model.zoom=4;editor.read();assert(sent.some(([key,value])=>key==='slice_editor_view'&&value==='0.125000000,0.375000000'));
+    cc(14,1);assert(sent.at(-1)[0]==='slice_editor_view'||sent.at(-1)[0]==='slice_editor_cursor');assert(sent.some(([key])=>key==='slice_editor_cursor'));
+    globalThis.__testResetEncoders();cc(49);for(let turn=0;turn<8;++turn)cc(72,1);
+    const move=sent.findLast(([key])=>key==='slice_editor_move');assert(move);const [point,position]=move[1].split(',').map(Number);
+    assert.equal(point,1);assert(Math.abs(position-.2501)<1e-8,'Shift boundary nudge is exactly 0.1 ms at this source duration');
+    at=sent.length;cc(119);cc(119,0);cc(49,0);
+    assert(sent.slice(at).some(([key])=>key==='slice_editor_delete'));
+    assert(!sent.slice(at).some(([key])=>key==='clear_lane'||key==='clip_clear'),'X merges a cut even with Shift held');
+    cc(58);assert.equal(snapshot.loop,1);
+    at=sent.length;cc(3);assert(sent.slice(at).some(([key])=>key==='slice_editor_add'));
+    ui.padMode=2;params.pad_mode='2';at=sent.length;
+    globalThis.onMidiMessageInternal([0x90,69,100]);globalThis.onMidiMessageInternal([0x80,69,0]);
+    assert(!sent.slice(at).some(([key])=>key.startsWith('cue_')),'audition keys cannot store/trigger Cues');
+    assert.equal(globalThis.__testTools.led(5),0,'pads beyond the slice count stay dark');
+    snapshot.count=2;snapshot.points=[0,.5,1];snapshot.selected=63;snapshot.boundary=64;snapshot.page=3;
+    editor.read();assert.equal(editor.model.data.selected,1);assert.equal(editor.model.data.boundary,2);assert.equal(editor.model.data.page,0);
+    at=drawWrites.length;globalThis.__testTools.drawAll();assert(!drawWrites.slice(at).some(w=>w[0]==='print'&&String(w[3]).includes('NaN')),'a shrinking map keeps editor banks and boundary readouts valid');
+    at=sent.length;cc(51);assert.equal(ui.view,'settings');assert.equal(globalThis.__testSplit.pages()[ui.settingsPage].title,'SLICE SOURCE');
+    assert(sent.slice(at).some(([key,value])=>key==='slice_editor_open'&&value==='0'));
+    globalThis.host_module_set_param_blocking=previousSet;globalThis.host_module_get_param=previousGet;
+    console.log('s3g Thru Slice Edit UI: main-click entry, waveform/detail, five controls, fine adjustment, X/Shift isolation, audition/Cues isolation and Back: PASS');
+}
+
+// Exercise every editor stage through Move's actual controls.
+{
+    const test=globalThis.__testCustomMidi,view=globalThis.__testFx.state();
+    const oldGet=globalThis.host_module_get_param,oldSet=globalThis.host_module_set_param_blocking;
+    let rows=[],undoRows=[];const sent=[];
+    const custom={v:1,profile:1,bank:1,count:0,revision:1,ui:1,editing:0,index:-1,learn:0,filter:0,result:0,conflict:-1,undo:0,save:2,recovered:0,mode:0,draft:[1,0,0,0,0,0,0,0,1,0,0,1,0]};
+    globalThis.host_module_get_param=key=>key==='midi_custom_state'?JSON.stringify(custom):key==='midi_custom_entries'?JSON.stringify(rows):key==='midi_custom_target'?'{}':oldGet(key);
+    globalThis.host_module_set_param_blocking=(key,value)=>{
+        if(!key.startsWith('midi_custom_'))return oldSet(key,value);
+        sent.push([key,String(value)]);const op=key.slice(12);custom.result=0;
+        if(op==='profile'){custom.profile=Number(value);custom.editing=0;custom.revision++;}
+        if(op==='bank'){custom.bank=Number(value);custom.revision++;}
+        if(op==='begin'){custom.editing=1;custom.index=Number(value);custom.draft=[1,0,0,0,0,0,0,0,1,0,0,1,0];}
+        if(op==='draft')custom.draft=String(value).split(',').map(Number);
+        if(op==='learn')custom.learn=Number(value);
+        if(op==='learn_filter')custom.filter=Number(value);
+        if(op==='cancel'){custom.editing=custom.learn=0;}
+        if(op==='apply'){
+            if(custom.conflict>=0&&Number(value)!==2)custom.result=2;
+            else {const b=custom.draft;rows=[[0,b[0],b[1],b[2],b[3],b[4],b[5],b[6],b[12]]];custom.count=rows.length;custom.result=5;custom.editing=0;custom.revision++;custom.conflict=-1;}
+        }
+        if(op==='delete'){undoRows=rows;rows=[];custom.count=0;custom.undo=1;custom.revision++;}
+        if(op==='undo'){rows=undoRows;custom.count=rows.length;custom.undo=0;custom.revision++;}
+        if(op==='copy'){custom.profile=Number(value);custom.editing=0;custom.revision++;}
+        if(op==='clear'){rows=[];custom.count=0;custom.editing=0;custom.revision++;}
+        custom.ui++;
+    };
+    Object.assign(view,{view:'settings',algorithm:5,splitEnabled:false,quadMode:false,sharedDual:false,bankMode:false,shiftHeld:false,focusButtonHeld:false,performanceVisible:false,editorReady:true});
+    view.settingsPage=globalThis.__testSplit.pages().findIndex(p=>p.customMaps);assert(view.settingsPage>=0);
+    test.ui.data=null;test.ui.entriesKey='';test.read();
+    const cc=(n,v=127)=>globalThis.onMidiMessageInternal([0xb0,n,v]);
+    let at=drawWrites.length;globalThis.__testTools.drawAll();
+    assert(hasRightFraction(drawWrites.slice(at),'3/3'));
+    assert(drawWrites.slice(at).some(w=>w[0]==='print'&&w[3]==='C1'),'profile numbers must remain visible in the small cell');
+    const locusBefore=params.locus,recordWrites=blockingWrites.filter(([k])=>k==='clip_record').length;
+    cc(3);assert.equal(view.view,'midiMapList');cc(3);assert.equal(view.view,'midiMapEdit');assert.equal(test.ui.tab,0);
+    cc(3);assert.equal(view.view,'midiMapPicker');
+    cc(14,test.groups().indexOf('Grains')+2);cc(3);assert.equal(test.ui.pickerGroup,'Grains');
+    cc(14,1);cc(3);assert.equal(view.view,'midiMapEdit');assert.equal(custom.draft[4],641);
+    globalThis.__testResetEncoders();cc(71,2);assert.equal(custom.draft[2],1,'target B without changing Move editing focus');assert.equal(view.splitFocus,0);
+    cc(54);assert.equal(test.ui.tab,1);cc(3);assert.equal(custom.learn,1);
+    custom.draft[0]=7;custom.draft[1]=88;custom.learn=0;custom.result=1;custom.ui++;test.read();
+    assert.equal(test.ui.data.draft[0],7);assert.equal(test.ui.data.draft[1],88);
+    globalThis.__testResetEncoders();cc(71,2);cc(72,2);assert.equal(custom.draft[0],8);assert.equal(custom.draft[1],89);
+    cc(73,4);assert.equal(custom.draft[7],2);cc(76,2);assert.equal(custom.draft[12],1);
+    cc(54);assert.equal(test.ui.tab,2);
+    cc(71,20);cc(72,108);cc(73,2);cc(74,126);
+    assert.equal(custom.draft[10],.08);assert.equal(custom.draft[11],.92);assert.equal(custom.draft[9],1);assert.equal(custom.draft[8],0);
+    custom.conflict=0;cc(3);assert.equal(view.view,'midiMapConfirm');assert.equal(custom.result,2);
+    cc(3);assert.equal(view.view,'midiMapList');assert(sent.some(([k,v])=>k==='midi_custom_apply'&&v==='2'));
+    assert.equal(rows[0][1],8);assert.equal(rows[0][2],89);
+    assert.equal(params.locus,locusBefore);assert.equal(blockingWrites.filter(([k])=>k==='clip_record').length,recordWrites,'editing/learning never triggers performance recording');
+    cc(14,1);cc(119);assert.equal(view.view,'midiMapConfirm');cc(51);assert.equal(rows.length,1);
+    cc(119);cc(3);assert.equal(rows.length,0);cc(56);assert.equal(rows.length,1);
+    assert(!sent.some(([k])=>k==='clear_lane'||k==='clip_clear'));
+    cc(51);assert.equal(view.view,'settings');
+    globalThis.__testResetEncoders();cc(71,10);assert.equal(custom.profile,5);cc(3);cc(14,1);cc(3);
+    const beforeReadonly=custom.draft.slice();cc(71,8);assert.deepEqual(custom.draft,beforeReadonly,'factory mappings remain read-only');
+    cc(51);cc(51);assert.equal(view.view,'settings');
+    globalThis.__testResetEncoders();cc(75,4);assert.equal(test.ui.copyDestination,3);cc(74,127);assert.equal(view.view,'midiMapConfirm');
+    cc(3);assert.equal(custom.profile,3);assert.equal(view.view,'settings');
+    // Headers, numeric values and notices fit the screen in each editor view.
+    cc(3);cc(3);
+    for(let tab=0;tab<3;++tab){test.ui.tab=tab;at=drawWrites.length;globalThis.__testTools.drawAll();
+        assert(drawWrites.slice(at).filter(w=>w[0]==='print').every(w=>w[1]>=0&&w[1]+String(w[3]).length*6<=128&&w[2]>=0&&w[2]<=57));}
+    cc(51);cc(51);
+    globalThis.host_module_get_param=oldGet;globalThis.host_module_set_param_blocking=oldSet;
+    console.log('s3g Thru Custom MIDI UI: profile/list/picker, explicit part, Learn/manual addresses, range/reverse/pickup, conflict confirmation, cancel/delete/Undo, factory copy and text fit: PASS');
+}
+
+// Discard feedback uses the existing short message area, once per event.
+{
+ const tools=globalThis.__testTools,state=globalThis.__testFx.state();
+ Object.assign(state,{bankMode:true,splitEnabled:true,sharedDual:true,quadMode:false,splitFocus:1,view:'main',messageTicks:0,saveStatus:0,savedTicks:0});
+ state.bank={selected:0,slots:Array(16).fill(0),discard_seq:0,discard_reason:0};
+ const report={selected:0,slots:Array(16).fill(0),discard_seq:1,discard_reason:1};
+ params.bank_state=JSON.stringify(report);tools.readBank();
+ assert.equal(state.message,'BANK TAKE < 250 MS');assert(state.messageTicks>0);
+ state.messageTicks=0;tools.readBank();assert.equal(state.messageTicks,0,'polling cannot repeat the same discarded-take notice');
+ report.discard_seq=2;report.discard_reason=2;params.bank_state=JSON.stringify(report);tools.readBank();
+ assert.equal(state.message,'BANK TAKE: NO AUDIO');
+ const start=drawWrites.length;tools.drawAll();
+ assert(drawWrites.slice(start).some(w=>w[0]==='print'&&w[2]===55&&w[3]==='BANK TAKE: NO AUDIO'));
+ for(const text of ['BANK TAKE < 250 MS','BANK TAKE: NO AUDIO'])assert(text.length*6<=126);
+ delete params.bank_state;Object.assign(state,{bankMode:false,bank:null,messageTicks:0,actionMessageTicks:0,view:'main'});
+}
+console.log('s3g Thru Bank discard UI: brief reason, no repeated polling notice and footer fit: PASS');
+
+// Failed and pending Bank takes cannot be silently abandoned through Back.
+{
+ const ui=globalThis.__testFx.state(),tools=globalThis.__testTools;
+ Object.assign(ui,{view:'main',bankMode:true,splitEnabled:true,sharedDual:true,splitFocus:1,shiftHeld:false,deleteHeld:false,performanceVisible:false});
+ const bank={selected:0,slots:Array(16).fill(0),take:3,pending:0,failed:0,discard_seq:0,discard_reason:0};
+ params.bank_state=JSON.stringify(bank);const exits=exitCount;tapIcon(51);assert.equal(exitCount,exits);assert.equal(ui.view,'main');
+ bank.failed=1;params.bank_state=JSON.stringify(bank);tapIcon(51);assert.equal(ui.view,'bankRecovery');
+ let at=blockingWrites.length;cc(14,2);tapIcon(3);assert.equal(globalThis.__testBankRecovery.confirm,true);
+ assert(!blockingWrites.slice(at).some(([key])=>key==='bank_take_discard'));
+ tapIcon(51);assert.equal(globalThis.__testBankRecovery.confirm,false);
+ tapIcon(3);cc(14,1);tapIcon(3);
+ assert(blockingWrites.slice(at).some(([key,val])=>key==='bank_take_discard'&&Number(val)===3));
+ // A completed/replaced take makes the old confirmation harmless.
+ bank.take=4;params.bank_state=JSON.stringify(bank);at=blockingWrites.length;tapIcon(3);
+ assert(!blockingWrites.slice(at).some(([key])=>key==='bank_take_discard'));
+ assert.equal(ui.view,'main');
+ bank.pending=-1;bank.failed=0;params.bank_state=JSON.stringify(bank);tools.readBank();
+ delete params.bank_state;Object.assign(ui,{bankMode:false,bank:null,view:'main',messageTicks:0,actionMessageTicks:0});
+}
+console.log('s3g Thru Bank recovery UI: wait-before-exit, Retry/Discard menu, safe confirmation, cancellation and stale take protection: PASS');
+{
+ const ui=globalThis.__testFx.state(),test=globalThis.__testProjects,tools=globalThis.__testTools;
+ const data={v:1,job:0,action:3,ok:1,reopen:0,page:0,count:2,bytes:0,total:0,message:'PROJECTS READY'};
+ params.project_state=JSON.stringify(data);params.project_files=JSON.stringify(['Thru-20261106-a.thru','BeforeImport-test.thru']);
+ Object.assign(ui,{view:'main',shiftHeld:false,deleteHeld:false,performanceVisible:false,saveStatus:0,messageTicks:0,actionMessageTicks:0});
+ assert(tools.hub().some(entry=>entry.title==='PROJECTS'));
+ test.open();assert.equal(ui.view,'projects');test.read();
+ cc(14,1);test.read();assert.equal(test.model.selection,1,'polling preserves Import selection');tapIcon(3);test.read();assert.equal(test.model.mode,'list');
+ let at=blockingWrites.length;tapIcon(3);assert.equal(test.model.mode,'confirm');assert.equal(test.model.confirm,0);
+ assert(!blockingWrites.slice(at).some(([key])=>key==='project_import'));tapIcon(51);assert.equal(test.model.mode,'list');
+ tapIcon(3);cc(14,1);tapIcon(3);assert(blockingWrites.slice(at).some(([key])=>key==='project_import'));
+ data.job=3;data.action=2;data.bytes=1024;data.total=2048;params.project_state=JSON.stringify(data);test.read();
+ at=drawWrites.length;tools.drawAll();assert(drawWrites.slice(at).some(w=>w[0]==='print'&&String(w[3]).startsWith('50%')));
+ const writes=blockingWrites.length;tapIcon(51);assert(blockingWrites.slice(writes).some(([key])=>key==='project_cancel'));
+ data.job=0;data.reopen=1;data.ok=1;data.message='IMPORTED: REOPEN THRU';params.project_state=JSON.stringify(data);test.read();
+ const exits=exitCount;tapIcon(3);assert.equal(exitCount,exits+1);
+ delete params.project_state;delete params.project_files;test.model.data=null;test.model.pending=null;Object.assign(ui,{view:'main',messageTicks:0,actionMessageTicks:0});
+}
+console.log('s3g Thru Projects UI: hub, full project export/import, confirmation, browser selection, progress/cancel and reopen: PASS');
+
+// Every hub entry must be visible when selected, including off-screen rows.
+{
+ const state=globalThis.__testFx.state(),tools=globalThis.__testTools;
+ params.project_state=JSON.stringify({v:1,job:0,action:3,ok:1,reopen:0,page:0,count:0,bytes:0,total:0,message:'PROJECTS READY'});
+ params.project_files='[]';
+ const layouts=[{splitEnabled:false,sharedDual:false,quadMode:false,bankMode:false},
+  {splitEnabled:true,sharedDual:false,quadMode:false,bankMode:false},
+  {splitEnabled:true,sharedDual:true,quadMode:false,bankMode:false},
+  {splitEnabled:true,sharedDual:false,quadMode:true,bankMode:false},
+  {splitEnabled:true,sharedDual:true,quadMode:false,bankMode:true}];
+ for(const layout of layouts){
+  Object.assign(state,layout,{view:'main',splitFocus:0,shiftHeld:false,deleteHeld:false,focusButtonHeld:false,
+   pageReturn:null,pageDestinationReturn:null,fxMenuReturn:false,messageTicks:0,actionMessageTicks:0,saveStatus:0,savedTicks:0});
+  const before=blockingWrites.length;
+  cc(52);cc(50);cc(50,0);cc(52,0);assert.equal(state.view,'pages');assert.equal(state.pageTier,'hub');
+  state.pageSelection=0;
+  const entries=tools.hub();
+  const checkSelected=()=>{
+   const start=drawWrites.length;tools.drawAll();const writes=drawWrites.slice(start);
+   const title=entries[state.pageSelection].title;
+   const row=writes.find(w=>w[0]==='print'&&w[2]>=10&&w[2]<=46&&String(w[3]).includes(title)&&w[4]===0);
+   assert(row,'Selected hub entry must be visible: '+title);
+   assert(row[1]+String(row[3]).length*6<=128,'Hub text fits: '+title);
+   assert(hasRightFraction(writes,(state.pageSelection+1)+'/'+entries.length));
+  };
+  // First verify the previously invisible ninth item, then walk both ways.
+  state.pageSelection=entries.length-1;checkSelected();state.pageSelection=0;
+  for(let i=0;i<entries.length;++i){checkSelected();if(i<entries.length-1)cc(14,1);}
+  assert.equal(state.pageSelection,8);tapIcon(3);assert.equal(state.view,'projects');
+  tapIcon(51);assert.equal(state.view,'pages');assert.equal(state.pageSelection,8);checkSelected();
+  for(let i=8;i>0;--i){cc(14,127);checkSelected();}
+  assert(!blockingWrites.slice(before).some(([key])=>['record_gate','clip_record','project_import','project_export'].includes(key)));
+  tapIcon(43);assert.equal(state.pageTier,'category');assert.equal(state.pageCategory,0);
+  tapIcon(51);assert.equal(state.pageTier,'hub');assert.equal(state.pageSelection,0);checkSelected();
+  tapIcon(51);assert.equal(state.view,'main');
+ }
+ delete params.project_state;delete params.project_files;globalThis.__testProjects.model.data=null;
+ Object.assign(state,{splitEnabled:false,sharedDual:false,quadMode:false,bankMode:false,view:'main'});
+}
+console.log('s3g Thru hub visibility: every entry drawn/selected in five layouts, bidirectional scrolling/fractions, Projects enter/Back, Track shortcuts and no recording side effects: PASS');

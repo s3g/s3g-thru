@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Projects and portable backups - s3g Thru manual</title>
+    <meta name="description" content="Export and import complete s3g Thru projects with their samples in a single .thru file.">
+    <link rel="stylesheet" href="assets/styles.css">
+  </head>
+  <body>
+    <header class="site-header"><a class="brand" href="index.html">s3g Thru <span>manual</span></a><nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="projects.html">Projects</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="midi.html">MIDI</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav></header>
+    <div class="page-shell">
+      <main class="content" id="content">
+        <p class="eyebrow">Save · transfer · reopen</p>
+        <h1>Projects and portable backups</h1>
+        <p class="lead">A <code>.thru</code> project is one file containing the complete clip and chain bank, instrument settings, slice edits and every sample those clips and Bank pads use. Recordings and imported library samples travel together.</p>
+        <p><strong>Use project export and import for backups and transfers between devices.</strong> Download an exported file to the computer through Schwung Manager to keep a copy away from Move.</p>
+        <p>Open <kbd>Capture</kbd> + <kbd>Menu</kbd>, scroll down to <strong>Projects</strong> (9/9) and click the main encoder. Use the main encoder or Up/Down to choose an action. Finish recording and resolve any save error before starting. Playback stops while a project is prepared.</p>
+        <figure><img src="assets/screens/projects-menu.svg" alt="Projects menu with Export Project and Import Project."><figcaption>Export saves the full current project. Import opens a file list.</figcaption></figure>
+        <h2 id="contents">What the file contains</h2>
+        <table class="readout-table"><thead><tr><th>Content</th><th>Included</th></tr></thead><tbody>
+          <tr><td>Performance</td><td>All 64 clip slots, recorded notes and control motion, overdub takes, saved chains and transition settings.</td></tr>
+          <tr><td>Instrument</td><td>Modes, engine assignments, per-part and Bank-pad settings, envelopes, stack paths, effects and mix settings.</td></tr>
+          <tr><td>Slices</td><td>Edited boundaries, imported marker maps, labels and pre-roll.</td></tr>
+          <tr><td>Audio</td><td>Every referenced lane and Bank sample, including sources from the library. A shared source is stored once.</td></tr>
+        </tbody></table>
+        <p>Device MIDI configuration and Custom controller profiles stay with the destination Move when a project is opened. Project archives include referenced samples. Older recordings that are no longer assigned to any clip remain in their recording folders on Move.</p>
+        <h2 id="export">Export a project backup</h2>
+        <ol>
+          <li>Open Projects and choose <strong>Export Project</strong>.</li>
+          <li>Thru saves the current settings and waits for referenced recordings to finish saving.</li>
+          <li>Watch the progress display. Back cancels the operation.</li>
+          <li>After <strong>Project Exported</strong>, find the timestamped <code>.thru</code> file in <strong>Thru Projects</strong> inside Move’s Samples folder.</li>
+        </ol>
+        <figure><img src="assets/screens/projects-progress.svg" alt="Project export showing progress percentage and copied megabytes."><figcaption>File work happens in the background. Project controls remain locked until the operation completes or is cancelled.</figcaption></figure>
+        <p>Files are named automatically, for example <code>Thru-20261106-183000-123456.thru</code>. You can rename a file on the computer or in Schwung Manager’s Files page; keep its <code>.thru</code> extension. Exports are versioned ZIP64 containers, readable by standard ZIP tools, with samples stored at their original quality.</p>
+        <h2 id="transfer">Download or upload with Schwung Manager</h2>
+        <p>Open <a href="http://move.local:7700/files?path=/data/UserData/UserLibrary/Samples/Thru%20Projects">Thru Projects in Schwung Manager’s Files page</a> while Move is reachable on your network. If you use an IP address for Manager, open its Files page and browse to the same folder:</p>
+        <pre><code>/data/UserData/UserLibrary/Samples/Thru Projects</code></pre>
+        <ul>
+          <li>Use a file’s <strong>Download</strong> action to keep a backup on the computer.</li>
+          <li>Use <strong>Upload</strong> in this folder to put a <code>.thru</code> project onto Move.</li>
+          <li>Open Projects → Import Project again to refresh the list after uploading.</li>
+        </ul>
+        <p>Schwung Manager provides the file transfer. Thru itself creates and opens the project archive; no Schwung source modification or additional software on Move is required.</p>
+        <h2 id="import">Restore or import a project</h2>
+        <ol>
+          <li>Place the <code>.thru</code> file in Thru Projects.</li>
+          <li>Open Projects → <strong>Import Project</strong>, choose the file and click. Use Left/Right for another page of files.</li>
+          <li>The confirmation starts on Cancel. Choose <strong>Import Project</strong> and click to proceed.</li>
+          <li>Thru validates and stages the archive, then creates a <code>BeforeImport-….thru</code> backup of the current project.</li>
+          <li>After <strong>Project Imported</strong>, click to exit, then reopen s3g Thru. The imported project loads with its own sample copies.</li>
+        </ol>
+        <div class="screen-gallery"><figure><img src="assets/screens/projects-list.svg" alt="Import browser listing .thru project files."><figcaption>Choose the project file. Left/Right changes the browser page.</figcaption></figure><figure><img src="assets/screens/projects-confirm.svg" alt="Import confirmation with Cancel selected."><figcaption>Import requires confirmation and backs up the current project.</figcaption></figure></div>
+        <p>After reopening, check the restored lanes and filled Bank pads before removing any backup.</p>
+        <p>The current-project backup must succeed before import activates. If it reports a missing source, restore or replace that source first.</p>
+        <p>Imported projects use separate data folders. Their samples are copied into those folders; opening a project keeps the previous project’s files intact. Thru recalls the active project the next time takeover opens. To return to the previous project, import its BeforeImport backup.</p>
+        <h2 id="checks">If an operation fails</h2>
+        <table class="readout-table"><thead><tr><th>Message or situation</th><th>Action</th></tr></thead><tbody>
+          <tr><td>Finish Record / Save</td><td>Finish recording, wait for Saved, or resolve a failed Bank take, then try again.</td></tr>
+          <tr><td>Sample Missing</td><td>Restore or replace the missing source in its clip before exporting. Export needs every referenced sample.</td></tr>
+          <tr><td>Not Enough Space</td><td>Make room for the imported audio and the current-project backup. Keep copies of recordings before removing files.</td></tr>
+          <tr><td>Invalid or unsupported project</td><td>Use the original complete export. Damaged archives and unsupported format versions are rejected before activation.</td></tr>
+          <tr><td>Import Commit Failed</td><td>The staged project files remain separate. Reopen Thru to check which complete project is active; keep the BeforeImport backup.</td></tr>
+          <tr><td>No files found</td><td>Check the folder and <code>.thru</code> extension, finish the upload, then reopen the import browser.</td></tr>
+        </tbody></table>
+        <p>Project export/import is available in s3g Thru 0.30.0. Older firmware cannot open <code>.thru</code> files; retain a compatible backup when planning a return to an older version.</p>
+        <p>Saved and Project Exported appear only after the required file and directory flushes succeed. Keep Move running while saving, exporting or importing.</p>
+        <nav class="page-nav" aria-label="Page navigation"><a class="page-nav-link" href="recording.html"><span>Previous</span>Samples and Recording</a><a class="page-nav-link next" href="engines.html"><span>Next</span>Playback Engines</a></nav>
+      </main>
+      <aside class="toc" aria-label="On this page"><div class="toc-section"><h2>On this page</h2><a href="#contents">Contents</a><a href="#export">Export</a><a href="#transfer">Transfer files</a><a href="#import">Import</a><a href="#checks">Operation checks</a></div></aside>
+    </div>
+    <footer class="manual-footer">s3g Thru · Projects</footer>
+    <script src="assets/lightbox.js"></script>
+  </body>
+</html>

@@ -9,7 +9,7 @@
             chainUndo=currentChain();chainUndoBank=chainBankIndex;chainUndoSlot=slot;
             std::snprintf(chainUndoKey.data(),chainUndoKey.size(),"%s",key);
         }
-        chainUndoFrame=now;undoIsBank=false;undoAvailable=true;undoIsChain=true;
+        chainUndoFrame=now;undoIsBank=false;undoAvailable=true;undoIsChain=true;undoIsSlice=false;
     }
     void restoreChainUndo() {
         if(clipRecording || audioRecording()){setError("Stop recording before undoing");return;}

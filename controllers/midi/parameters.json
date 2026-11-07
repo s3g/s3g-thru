@@ -117,6 +117,10 @@
     {
       "name": "Stochastic",
       "msb": 25
+    },
+    {
+      "name": "MIDI Notes",
+      "msb": 28
     }
   ],
   "startup_feedback": [
@@ -2303,13 +2307,16 @@
       "type": "enum",
       "options": [
         "Equal",
-        "Transients"
+        "Transients",
+        "File",
+        "Edited",
+        "Auto"
       ],
       "default": 1,
       "scope": "part",
       "group": "Sample",
       "min": 0,
-      "max": 1,
+      "max": 4,
       "integer": true,
       "action": false,
       "id": 1031
@@ -6155,6 +6162,121 @@
         "Part A",
         "Part B"
       ]
+    },
+    {
+      "id": 3584,
+      "key": "midi_note_route",
+      "name": "MIDI Note Route",
+      "short_name": "ROUT",
+      "min": 0,
+      "max": 1,
+      "default": 0,
+      "options": [
+        "Parts",
+        "Focus"
+      ],
+      "integer": true,
+      "action": false,
+      "scope": "global",
+      "group": "MIDI Notes",
+      "unit": ""
+    },
+    {
+      "id": 3585,
+      "key": "midi_note_channel",
+      "name": "MIDI Focus Channel",
+      "short_name": "CHAN",
+      "min": 1,
+      "max": 4,
+      "default": 1,
+      "integer": true,
+      "action": false,
+      "scope": "global",
+      "group": "MIDI Notes",
+      "unit": ""
+    },
+    {
+      "id": 3586,
+      "key": "midi_bend_range",
+      "name": "MIDI Bend Range",
+      "short_name": "BEND",
+      "min": 0,
+      "max": 24,
+      "default": 2,
+      "unit": "st",
+      "integer": true,
+      "action": false,
+      "scope": "global",
+      "group": "MIDI Notes"
+    },
+    {
+      "id": 3587,
+      "key": "midi_mod_target",
+      "name": "MIDI Mod Wheel",
+      "short_name": "WHEL",
+      "min": 0,
+      "max": 2,
+      "default": 0,
+      "options": [
+        "Off",
+        "Stack",
+        "Character"
+      ],
+      "integer": true,
+      "action": false,
+      "scope": "global",
+      "group": "MIDI Notes",
+      "unit": ""
+    },
+    {
+      "id": 3588,
+      "key": "midi_velocity_depth",
+      "name": "MIDI Velocity Depth",
+      "short_name": "VELO",
+      "min": 0,
+      "max": 100,
+      "default": 0,
+      "unit": "%",
+      "integer": true,
+      "action": false,
+      "scope": "global",
+      "group": "MIDI Notes"
+    },
+    {
+      "id": 3589,
+      "key": "midi_sync_source",
+      "name": "MIDI Sync Source",
+      "short_name": "SYNC",
+      "min": 0,
+      "max": 1,
+      "default": 0,
+      "options": [
+        "Internal",
+        "Move"
+      ],
+      "integer": true,
+      "action": false,
+      "scope": "global",
+      "group": "MIDI Notes",
+      "unit": ""
+    },
+    {
+      "id": 3590,
+      "key": "midi_sync_transport",
+      "name": "MIDI Transport Follow",
+      "short_name": "RUN",
+      "min": 0,
+      "max": 1,
+      "default": 0,
+      "options": [
+        "Tempo Only",
+        "Follow Clips"
+      ],
+      "integer": true,
+      "action": false,
+      "scope": "global",
+      "group": "MIDI Notes",
+      "unit": ""
     }
   ],
   "reserved_ids": [

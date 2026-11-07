@@ -128,25 +128,30 @@
 
         <p>Thru autosaves changed settings and completed captures, then saves again when <kbd>Back</kbd> exits from the main waveform page. It also keeps one recovery copy in case a metadata save is interrupted. Capture WAVs are append-only during normal use: rerecording, editing, clearing, and resetting do not delete older files.</p>
 
-        <p>A small fixed footer overlay shows <code>saving</code> while capture archives or the latest settings are pending, then briefly shows <code>saved</code> after both are committed. Recording has its usual capture indicators. A <code>SAVE FAILED: RETRYING</code> message stays visible until saving recovers; the current take stays in memory while Thru retries.</p>
+        <p>A small fixed footer overlay shows <code>saving</code> while capture archives or the latest settings are pending, then briefly shows <code>saved</code> after both are committed. Recording has its usual capture indicators. File contents and their directory entries are flushed to storage before Saved is shown. A <code>SAVE FAILED: RETRYING</code> message stays visible until saving recovers; the current take stays in memory while Thru retries. For a failed Bank take, click the main encoder on the waveform page to open <a href="bank.html#save-recovery">Retry / Discard</a>.</p>
         <div class="screen-gallery"><figure><div class="doc-graphic move-screen"><img src="assets/screens/save-pending.svg" alt="Waveform footer showing Saving"></div><figcaption>Saving includes archive completion and the latest set metadata.</figcaption></figure><figure><div class="doc-graphic move-screen"><img src="assets/screens/save-complete.svg" alt="Waveform footer confirming Saved"></div><figcaption>Saved appears after the pending work is committed.</figcaption></figure></div>
-        <h3 id="backup">Export a set backup</h3>
-        <p>Uninstalling a module may remove its data. Before uninstalling or moving to another Move, export the module data with:</p>
-
-        <pre><code>scripts/export-set.sh /path/to/s3g-thru-data Thru-set.tar.gz</code></pre>
-
-        <p>The exported archive includes current metadata, recovery files, saved lane WAVs, and every local capture. User Library samples remain external paths and should be backed up separately. Because old captures are retained, storage use grows over time. Export before manually removing unused WAVs; deleting a file still assigned to a clip makes that lane report <code>MISSING</code>.</p>
+        <h3 id="backup">Back up a project</h3>
+        <p><strong>Project export is the recommended backup method.</strong> A single <code>.thru</code> file holds all clips, chains, instrument settings, slice edits and the samples used by the project, including Bank recordings and imported library samples.</p>
+        <ol>
+          <li>Finish recording, then open <kbd>Capture</kbd> + <kbd>Menu</kbd> → <strong>Projects</strong>.</li>
+          <li>Choose <strong>Export Project</strong> and wait for <strong>Project Exported</strong>.</li>
+          <li>In Schwung Manager’s Files page, open <strong>Samples → Thru Projects</strong> and download the <code>.thru</code> file to the computer.</li>
+        </ol>
+        <p>Keep a project backup before updating, reinstalling, changing devices or clearing material you may want to recall. <a href="projects.html#export">Projects and portable backups</a> explains the file contents and transfer steps.</p>
+        <h3 id="restore">Restore a project</h3>
+        <p>Upload the <code>.thru</code> file to <strong>Samples → Thru Projects</strong> using Schwung Manager. On Move, open <strong>Projects → Import Project</strong>, select the file and confirm. Thru makes a BeforeImport backup of the current project. After import finishes, exit and reopen s3g Thru to load it. See <a href="projects.html#import">Import a project</a> for the complete procedure.</p>
+        <p>Project backups include referenced audio. Device MIDI settings, Custom controller mappings and older recordings that are no longer assigned to a clip stay on Move.</p>
 
         <nav class="page-nav" aria-label="Page navigation">
           <a class="page-nav-link" href="playing.html"><span>Previous</span>Basic Playing · Single</a>
-          <a class="page-nav-link next" href="engines.html"><span>Next</span>Playback Engines</a>
+          <a class="page-nav-link next" href="projects.html"><span>Next</span>Projects and Backups</a>
         </nav>
       </main>
 
       <aside class="toc" aria-label="Page navigation">
         <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="midi.html">MIDI</a><a href="shortcuts.html">Shortcuts</a></div>
         <div class="toc-section"><h2>Instrument modes</h2><a href="playing.html">Single · Basic playing</a><a href="modes.html">Compare modes</a><a href="split.html">Split</a><a href="shared-dual.html">Shared Dual</a><a href="quad.html">Quad</a></div>
-        <div class="toc-section"><h2>On this page</h2><a href="#signal-flow">Signal flow</a><a href="#input">Input safety</a><a href="#capture">Audio capture</a><a href="#library">Sample library</a><a href="#preview">Sample preview</a><a href="#ownership">Clip ownership</a><a href="#editing">Sample edits</a><a href="#gain-staging">Gain staging</a><a href="#saving">Saving</a></div>
+        <div class="toc-section"><h2>On this page</h2><a href="#signal-flow">Signal flow</a><a href="#input">Input safety</a><a href="#capture">Audio capture</a><a href="#library">Sample library</a><a href="#preview">Sample preview</a><a href="#ownership">Clip ownership</a><a href="#editing">Sample edits</a><a href="#gain-staging">Gain staging</a><a href="#saving">Saving</a><a href="#backup">Project backup</a><a href="#restore">Restore a project</a></div>
       </aside>
     </div>
     <footer class="manual-footer">Use headphones for the first microphone and resampling tests.</footer>

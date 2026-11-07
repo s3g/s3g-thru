@@ -131,7 +131,7 @@
     {
         part = clampValue(part,0,partCount()-1);
         if (!splitEnabled || part == splitFocus) return;
-        if(notify) cancelPerformanceGestures();
+        if(notify) {closeSliceEditor();cancelPerformanceGestures();}
         storeFocusedPart(); splitFocus = part; loadPartEditor(part);
         if (notify && !audioRecording() && !sharedDual) selectedLane = static_cast<std::size_t>(firstLaneForPart(part));
         if (notify) markPersistentStateDirty();
@@ -146,6 +146,7 @@
         const bool enabled=mode!=0,shared=mode==2||mode==4,quad=mode==3;
         if(enabled==splitEnabled&&bankMode==(mode==4)&&(!enabled||(shared==sharedDual&&quad==quadMode)))return;
         if(audioRecording()||partCapturePublishing||clipRecording||bankJob.load(std::memory_order_acquire)){setError("Stop recording before changing mode");return;}
+        closeSliceEditor();
         const bool wasMulti=splitEnabled,wasQuad=quadMode;
         voiceEngineTraversal={};
         stochasticPartMeters={};
@@ -224,6 +225,7 @@
 
     void releaseSplitPart(int part)
     {
+        clearMidiKeyState(part);
         if (!splitEnabled) { allNotesOff(); return; }
         for (auto& voice : voices) if (voice.active && voice.part == part) {
             if (!voice.clipOwned) captureClipNoteOff(voice.note,voice.sourcePad,part);

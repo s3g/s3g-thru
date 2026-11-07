@@ -1,6 +1,15 @@
 #pragma once
 // Convert a current, checksum-free payload to the preceding format for migration fixtures.
+inline void stripSliceExtension(std::vector<unsigned char>& bytes) {
+    if(bytes.size()<12||bytes[8]!=36)return;
+    constexpr std::size_t extra=4+64*4*(4+2*(8+65*4+64*24));
+    assert(bytes.size()>extra);const auto at=bytes.size()-extra;
+    assert(bytes[at]==0x53&&bytes[at+1]==0x4c&&bytes[at+2]==0x43&&bytes[at+3]==0x31);
+    bytes.resize(at);bytes[8]=35;
+}
 inline void stripBankPadExtension(std::vector<unsigned char>& bytes) {
+    stripSliceExtension(bytes);
+    if(bytes.size()>=12&&bytes[8]==35)bytes[8]=34;
     if(bytes.size()>=12 && (bytes[8]==33 || bytes[8]==34)) {
         constexpr std::size_t extra=4+64*(8+16*12);
         assert(bytes.size()>extra);const auto at=bytes.size()-extra;

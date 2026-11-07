@@ -1,6 +1,9 @@
 // Include the real module so its pre-compressor effects and preview routing
 // can be measured without exposing test hooks in the device ABI.
+#define S3G_THRU_STORAGE_TESTING 1
 #include "../src/dsp/thru_module.cpp"
+#include <filesystem>
+#include <fstream>
 #include <cassert>
 #include <string>
 #include <vector>
@@ -308,6 +311,12 @@ void testPreviewIsolation()
 #include "test_cutups_scan.inc"
 #include "test_split.inc"
 #include "test_midi.inc"
+#include "test_midi_notes.inc"
+#include "test_midi_voice_modes.inc"
+#include "test_midi_custom.inc"
+#include "test_sample_lane_display.inc"
+#include "test_slice_editor.inc"
+#include "test_midi_mailbox.inc"
 #include "test_bank_legato.inc"
 #include "test_split_sends.inc"
 #include "test_priority_duck.inc"
@@ -321,6 +330,7 @@ void testPreviewIsolation()
 #include "test_pattern_fades.inc"
 #include "test_chain_banks.inc"
 #include "test_chain_workflow.inc"
+#include "test_storage_projects.inc"
 #include "test_spectral_engines.inc"
 #include "test_clipboard.inc"
 #include "test_imprint.inc"
@@ -336,6 +346,19 @@ void testPreviewIsolation()
 
 int main(int argc,char** argv)
 {
+    if(argc==2&&std::strcmp(argv[1],"--storage-projects")==0){testBankExitRecoveryAndDiscard();testDurableStorageCommits();testPortableProjects();testPortableProjects(false);testPortableProjects(true,1);testPortableProjects(true,2);testProjectBackgroundWorkflow();testProjectLoadedAndRecordedSources();return 0;}
+    testBankExitRecoveryAndDiscard();testDurableStorageCommits();testPortableProjects();testPortableProjects(false);testPortableProjects(true,1);testPortableProjects(true,2);testProjectBackgroundWorkflow();testProjectLoadedAndRecordedSources();
+    if(argc==2&&std::strcmp(argv[1],"--bank-guard")==0){testBankMinimumTake();testBankSilenceAndDurationGuards();return 0;}
+    if(argc==2&&std::strcmp(argv[1],"--custom-midi")==0){testCustomMidiRoutingAndPickup();testCustomMidiLearnAndConflicts();testCustomMidiBanksAndButtons();testCustomMidiStorage();return 0;}
+    if(argc==2&&std::strcmp(argv[1],"--slice-editor")==0){testSliceMarkersAndMaps();testSliceEditorVoicesAndUndo();testSliceEditorOverlap();testSliceEditorBackgroundZoom();testSliceEditorPersistence();testSliceSampleEditAlignment();return 0;}
+    if(argc==2&&std::strcmp(argv[1],"--release-fixes")==0){testMidiVoiceModesAcrossPadLayouts();testDirectEngineReservedRate();return 0;}
+    if(argc==2&&std::strcmp(argv[1],"--lane-display")==0){testSampleLaneIndicators();return 0;}
+    if(argc==2&&std::strcmp(argv[1],"--midi-slices")==0){testMidiSlices();return 0;}
+    if(argc==2&&std::strcmp(argv[1],"--midi-gates")==0){testSequencerMidiGates();testMidiPlayheadParity();return 0;}
+    if(argc==2&&std::strcmp(argv[1],"--midi-notes")==0){testStandardNoteRoutingAndSustain();testStandardNoteExpression();testStandardNoteClock();testStandardNoteRecordingAndRecall();testStandardNoteBankAndEngines();testMidiSlices();testMidiVoiceModesAcrossPadLayouts();testDirectEngineReservedRate();testSampleLaneIndicators();testExclusiveMidiInbox();testSequencerMidiGates();testMidiPlayheadParity();return 0;}
+    testCustomMidiRoutingAndPickup();testCustomMidiLearnAndConflicts();testCustomMidiBanksAndButtons();testCustomMidiStorage();
+    testSliceMarkersAndMaps();testSliceEditorVoicesAndUndo();testSliceEditorOverlap();testSliceEditorBackgroundZoom();testSliceEditorPersistence();testSliceSampleEditAlignment();
+    testStandardNoteRoutingAndSustain();testStandardNoteExpression();testStandardNoteClock();testStandardNoteRecordingAndRecall();testStandardNoteBankAndEngines();testMidiSlices();testMidiVoiceModesAcrossPadLayouts();testDirectEngineReservedRate();testSampleLaneIndicators();testExclusiveMidiInbox();testSequencerMidiGates();testMidiPlayheadParity();
     if(argc==2 && std::strcmp(argv[1],"--background")==0) {
         testBoundedBackgroundPersistence();
         std::puts("s3g Thru focused background persistence regression: PASS");
@@ -356,9 +379,9 @@ int main(int argc,char** argv)
         testPulsarExtendedSize();testPulsarWindowsAndClock();testPulsarEditsAndParts();testPulsarPersistenceAndMidi();return 0;
     }
     if(argc==2 && std::strcmp(argv[1],"--bank")==0) {
-        testLegatoKeys();testBankCaptureAndRecall();testBankSaveRecovery();testBankPadControlsAndSources();testBankFourRecordingSources();testBankMinimumTake();return 0;
+        testLegatoKeys();testBankCaptureAndRecall();testBankSaveRecovery();testBankPadControlsAndSources();testBankFourRecordingSources();testBankMinimumTake();testBankSilenceAndDurationGuards();return 0;
     }
-    testLegatoKeys();testBankCaptureAndRecall();testBankSaveRecovery();testBankPadControlsAndSources();testBankFourRecordingSources();testBankMinimumTake();
+    testLegatoKeys();testBankCaptureAndRecall();testBankSaveRecovery();testBankPadControlsAndSources();testBankFourRecordingSources();testBankMinimumTake();testBankSilenceAndDurationGuards();
     testPriorityDuckingControls();
     testPriorityDuckingRoutingAndBypass();
     testPriorityDuckingAudio();

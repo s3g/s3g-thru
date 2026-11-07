@@ -17,13 +17,14 @@
       <main class="content" id="content">
         <p class="eyebrow">External control</p>
         <h1>MIDI control</h1>
-        <p class="lead">Play notes and pressure independently from parameter control, then choose high-resolution NRPN, eight page-following CCs, the MNLT direct-CC bank, the dedicated OXI E16 Remote surface or a native E16 + Monolit route.</p>
-        <div class="callout"><p><strong>0.30.0 draft:</strong> this guide describes the current <strong>0.30.0-test.52</strong> controller interface. The published installer remains at <strong>0.29.1</strong>. Use the matching local testing package to try these controls.</p></div>
+        <p class="lead">Play notes and pressure independently from parameter control. Create a Custom CC profile for your controller, or choose high-resolution NRPN, eight page-following CCs, the MNLT direct-CC bank, the dedicated OXI E16 Remote surface or a native E16 + Monolit route.</p>
+        <div class="callout"><p><strong>0.30.0 draft:</strong> this guide describes the current <strong>0.30.0-test.55</strong> controller interface. The published installer remains at <strong>0.29.1</strong>. Use the matching local testing package to try these controls.</p></div>
 
         <h2 id="options">MIDI options at a glance</h2>
         <div class="table-scroll"><table class="readout-table"><thead><tr><th>Option</th><th>Messages and channels</th><th>Best use</th></tr></thead><tbody>
-          <tr><td>Note input</td><td>Notes, note-offs and polyphonic aftertouch on channels 1–4</td><td>Play parts A–D from keys, pads or a sequencer. This remains active regardless of parameter mode.</td></tr>
+          <tr><td>Note input</td><td>Notes, sustain, pitch bend, wheel and pressure on channels 1–4</td><td>Play parts A–D from keys, pads or a sequencer. This remains active regardless of parameter mode.</td></tr>
           <tr><td>NRPN</td><td>14-bit NRPN on channels 5–8 for A–D; channel 16 for shared controls</td><td>Full, stable parameter addressing and two-way feedback.</td></tr>
+          <tr><td>Custom profile</td><td>Learned or manually assigned channel/CC addresses</td><td>Fixed A–D or Focus targets, adaptive engine slots, commands and controller banks.</td></tr>
           <tr><td>Generic CC</td><td>Eight consecutive absolute CCs on a configurable channel</td><td>A small controller that should follow the eight controls visible on Move.</td></tr>
           <tr><td>MNLT direct-CC bank</td><td>Channels 9–12 for A–D; shared controls and commands on channel 13</td><td>Simultaneous part control from Light Reft Monolit or another multi-control surface.</td></tr>
           <tr><td>OXI E16 Remote</td><td>Dedicated Schwung surface using E16’s display, encoders and RGB rings</td><td>Readable pages with formatted names, values and feedback.</td></tr>
@@ -31,8 +32,54 @@
           <tr><td>Clock and transport</td><td>MIDI real-time messages</td><td>External synchronization; unaffected by parameter-mode selection.</td></tr>
         </tbody></table></div>
 
+        <h2 id="note-input">Keyboard and sequencer input</h2>
+        <p>While takeover is active, USB-A keyboard notes play Thru exclusively. Thru reads the original input channels directly and prevents those note-ons from also playing Move’s native instrument. Native track MIDI Out does not need to be enabled, and track levels and MIDI settings are left unchanged.</p>
+        <div class="callout"><p><strong>Additional isolation check:</strong> before opening takeover, set native Move’s <strong>MIDI In = Off</strong> and <strong>MIDI Out = Off</strong> on its MIDI tracks. Open those settings with <strong>Shift + the relevant Track button</strong>. Thru receives the USB input directly while active. These are separate from Thru’s MIDI Control MODE and from <strong>MIDI Sync</strong>; clock input can remain enabled when needed. Stop native Move clips before takeover: disabling note input/output does not mute a clip already playing.</p></div>
+        <p>Connect a class-compliant USB MIDI keyboard or sequencer to Move’s USB-A port. Open <strong>Capture + Menu → MIDI → MIDI Notes</strong> (page 2/3). Note input works with every MIDI Control MODE, including Off. Move’s pad scale, octave and Slices/Cues/Rolls layouts do not remap external notes. Pitched engines use the notes sent by the controller; the Slices engine uses them to select slices.</p>
+        <div class="table-scroll"><table class="readout-table"><thead><tr><th>Instrument mode</th><th>Channel</th><th>What it plays</th></tr></thead><tbody>
+          <tr><td>Single</td><td>1</td><td>A; up to eight voices.</td></tr>
+          <tr><td>Split / Shared Dual</td><td>1 / 2</td><td>A / B; four voices each.</td></tr>
+          <tr><td>Quad</td><td>1 / 2 / 3 / 4</td><td>A / B / C / D; two voices each.</td></tr>
+          <tr><td>Bank</td><td>1 / 2</td><td>A plays pitched notes. B notes 60–75 trigger Bank slots 1–16, at each slot’s stored rate. Empty slots stay silent; MIDI does not start Bank recording.</td></tr>
+        </tbody></table></div>
+        <p>This table applies with ROUT set to Parts. With <strong>Focus</strong>, only CHAN is accepted and new notes play the part selected on Move. A released key or sustain pedal still releases its original part if you change focus while holding it. Other note channels are ignored. Physical pads and external keys share the existing voice budget.</p>
+        <figure class="screen-figure"><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/midi-notes.svg" aria-label="Open the MIDI Notes page figure"><img src="assets/screens/midi-notes.svg" alt="MIDI Notes page with routing, channel, bend, wheel, velocity and synchronization settings"></button></div><figcaption>MIDI Notes configures playing and synchronization separately from parameter controllers.</figcaption></figure>
+        <table class="readout-table"><thead><tr><th>Knob</th><th>Display</th><th>Values</th><th>What it controls</th></tr></thead><tbody>
+          <tr><td>1</td><td>ROUT</td><td>Parts / Focus</td><td>Note routing. Parts uses the fixed channel table above; Focus plays the selected part. Default Parts.</td></tr>
+          <tr><td>2</td><td>CHAN</td><td>1–4</td><td>Focus input channel; ignored by Parts routing. Default 1.</td></tr>
+          <tr><td>3</td><td>BEND</td><td>0–24 st</td><td>Pitch-bend range in either direction. Default ±2 semitones. Center is unbent; movement is smoothed.</td></tr>
+          <tr><td>4</td><td>WHEL</td><td>Off / Stack / Character</td><td>CC 1 destination. Stack adds lane-position offset; Character drives the engine’s Character behavior. Independent of Pressure mode. Default Off.</td></tr>
+          <tr><td>5</td><td>VELO</td><td>0–100%</td><td>Velocity-to-volume depth for newly played external notes. 0% keeps full level; 100% follows note velocity. Move pad volume is unchanged. Default 0%.</td></tr>
+          <tr><td>6</td><td>SYNC</td><td>Internal / Move</td><td>Internal uses Thru’s BPM. Move follows incoming MIDI clock supplied by Move/Schwung. Default Internal.</td></tr>
+          <tr><td>7</td><td>RUN</td><td>Tempo Only / Follow Clips</td><td>Tempo Only leaves clip playback under local control. Follow Clips lets Start begin the current clip at zero, Stop pause it, and Continue resume. Default Tempo Only.</td></tr>
+          <tr><td>8</td><td>□</td><td>Reserved</td><td>Available for a future control.</td></tr>
+        </tbody></table>
+        <h3 id="midi-slices">Playing slices from MIDI</h3>
+        <p>Set the part’s <strong>ALG to Slices</strong>. The part’s Root note triggers slice 1; each semitone above Root selects the next slice. For example, with Root at MIDI note 60, notes 60, 61 and 62 trigger slices 1, 2 and 3. Notes wrap after the last available slice; notes below Root trigger slice 1.</p>
+        <p>All keys use the engine’s SPEED without additional keyboard transposition. Pitch bend and an Engine List entry’s octave setting can still change pitch deliberately. Equal and transient regions both follow this mapping, including recorded performance clips. The Move PADS layout can remain Keys; MIDI slice selection follows the voice’s engine. Channel routing uses the table above, and each part uses its own Root.</p>
+        <h3 id="expression">Expression and recording</h3>
+        <p>CC 64 sustains notes at values 64–127 and releases pedal-held notes at 0–63. Pitch bend, channel pressure and polyphonic pressure affect external notes in the addressed part. Pressure follows the part’s Pressure setting. CC 121 resets bend, wheel, channel pressure and sustain; CC 123 releases external notes on that input channel, while CC 120 uses a short safety release. Neither clears Move pad latches.</p>
+        <p>Performance recording includes notes already held when recording starts, pedal-extended note lengths, bend, wheel, pressure and velocity response. The clip recalls that expression without needing the controller connected. Poly, Mono and Legato use the part’s VOICE setting independently of the Move PADS layout. Legato changes pitch while retaining the current playhead, and releasing the newest key returns to the previous held key. Physical Slices, Cues and Rolls pads keep their separate playing behavior. Bank B remains a slot-trigger instrument.</p>
+        <h3 id="sequencer-gates">Sequencer gates and moving playheads</h3>
+        <p>Sequencer note duration controls the note’s held gate. A note-off starts the Amp Envelope release; delay and reverb tails can continue afterward. For a clear timing check, choose a short REL and turn delay/reverb down. CC 64 sustain can extend the gate until pedal release. In Bank, PLAY = ONE completes the sample; PLAY = LOOP follows the held gate.</p>
+        <p>A held MIDI note advances through the selected engine like an equivalent Move pad note. Forward or one-shot playback can reach the end of its source before a long gate closes; use looping playback when you need it to continue. Stack scan runs independently of the note length. Loop/Stack Hold or Pressure = Brake can deliberately hold its lane position; the sample playhead can continue moving. Legato changes the current voice’s pitch without starting another playhead. Pitched engines use the transmitted notes, so test at the same pitch as the Move pad when comparing speed. Slices uses the key as a slice address at the engine’s SPEED.</p>
+        <p>Repeated note-ons on the same input, channel and pitch retrigger one live gate; the next note-off releases it. Notes on different channels or inputs retain independent ownership. For the first OXI test, use a simple untied note with a normal gate length, without Legato or sustain, then add those behaviors after checking the basic duration.</p>
+        <h3 id="oxi-one">Example: original OXI One</h3>
+        <ol>
+          <li>Connect OXI One’s USB device port to Move’s USB-A port. Select USB output for its sequencers and disable any MIDI echo route back into OXI.</li>
+          <li>As an extra check, set native Move’s MIDI In and MIDI Out to Off before entering takeover. Leave MIDI Sync separate if you plan to follow OXI clock.</li>
+          <li>Set Thru ROUT to Parts. Use OXI sequencer channel 1 for A, 2 for B, and 3/4 for C/D in Quad. Load samples in the corresponding lanes first.</li>
+          <li>Start with SYNC Internal to check notes. For Bank B, sequence MIDI note numbers 60–75; octave labels vary between devices.</li>
+          <li>To follow OXI tempo, enable its USB MIDI clock output. In Move’s native Setup, choose MIDI Sync In and Link Off. Then set Thru SYNC to Move.</li>
+          <li>Leave RUN at Tempo Only for independent Thru clip control. Choose Follow Clips when OXI Start/Stop/Continue should control the current Thru clip. Start OXI’s transport.</li>
+        </ol>
+        <p>For a recorded clip to follow tempo changes, select Beat timing on its Performance Loop page. Free timing keeps its recorded duration.</p>
+        <p>Stop or loss of clock releases external held notes, including sustain. Follow Clips also pauses the clip. Move pad latches remain held. Clock reacquisition restores tempo following; send Continue to resume a paused clip or Start to restart it.</p>
+        <p>Move supports one directly connected USB MIDI device. To combine OXI note input with E16/Monolit, merge OXI’s MIDI output into the existing controller’s MIDI input and forward it to Move; check that channels and clock are preserved. Avoid MIDI feedback loops. See <a href="https://help.ableton.com/hc/en-us/articles/14661164865308-Using-MIDI-with-Move">Ableton’s USB and sync setup</a> and <a href="https://oxiinstruments.com/support/">OXI’s original One manual</a>.</p>
+        <p>The receiver is tested in Thru. Check bend, sustain, channel pressure and clock on the actual Move/Schwung connection: stock Move’s native instrument support differs from takeover MIDI. If expression does not arrive, first verify the controller’s output and routing; NRPN is not required for note input.</p>
+
         <h2 id="control-mode">Choose a controller mode</h2>
-        <p>Open <strong>Menu → MIDI Control</strong>. This shared page appears once in Single, Split, Shared Dual and Quad. Controller messages do not change Move's current editing focus.</p>
+        <p>Open <strong>Menu → MIDI Control</strong>. MIDI Control, MIDI Notes and MIDI Maps are three shared pages in every instrument mode. Use Up/Down to move between them. Controller messages do not change Move's current editing focus.</p>
         <table class="readout-table"><thead><tr><th>Display</th><th>Setting</th><th>What it controls</th></tr></thead><tbody>
           <tr><td>MODE</td><td>Auto</td><td>Accept NRPN, current-page Generic CC and E16 Remote. This is the default.</td></tr>
           <tr><td>MODE</td><td>NRPN</td><td>Accept only the fixed 14-bit parameter map and its scene commands.</td></tr>
@@ -46,18 +93,79 @@
           <tr><td>TAKE</td><td>Pick / Jump</td><td>Pick waits for an absolute control to meet the stored value. Jump applies it immediately.</td></tr>
         </tbody></table>
         <figure class="screen-figure"><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/midi-control.svg" aria-label="Open the MIDI Control page figure"><img src="assets/screens/midi-control.svg" alt="Move MIDI Control page with mode, channel, base CC and takeover"></button></div><figcaption>MIDI Control is a shared page. It changes external parameter routing without changing the instrument's note and pressure input.</figcaption></figure>
-        <p>These modes affect parameter messages only. Note input, note-offs, polyphonic aftertouch, clock and transport remain available. The previous hard-coded 7-bit CC assignments are no longer routed, preventing unrelated controller messages from changing sound settings.</p>
+        <p>These modes affect parameter messages only. Note input and expression remain available for messages not claimed by a controller profile. Clock and transport follow the separate MIDI Notes settings. The previous hard-coded 7-bit CC assignments are no longer routed, preventing unrelated controller messages from changing sound settings.</p>
 
         <h2 id="generic-cc">Eight-knob Generic CC</h2>
-        <p>Generic CC follows the parameter page shown on Move: its first eight available controls map to eight consecutive CCs. With the defaults, CC 20–27 on channel 9 correspond to knobs 1–8. Change page or engine and the assignments follow the visible controls. A reserved cell does nothing.</p>
+        <p>With PROF set to None, Generic CC follows the parameter page shown on Move: its first eight available controls map to eight consecutive CCs. With the defaults, CC 20–27 on channel 9 correspond to knobs 1–8. Change page or engine and the assignments follow the visible controls. A reserved cell does nothing and keeps its CC position; later controls do not shift into the gap.</p>
         <p>Use <strong>Pick</strong> when changing pages on a controller with absolute knobs or faders. Thru ignores a control until it crosses the current stored value, avoiding a jump. Use <strong>Jump</strong> when immediate response matters more. Generic CC follows the part and page currently shown on Move.</p>
+
+        <h2 id="custom-maps">Custom controller mappings</h2>
+        <p>Use a controller profile when a knob or fader should keep a particular job as you change pages or clips. Open <kbd>Capture</kbd> + <kbd>Menu</kbd>, choose <strong>MIDI</strong>, then use Up/Down to reach <strong>MIDI Maps</strong>. Select <strong>C1–C4</strong> with knob 1, or start with the supplied <strong>NANO</strong> profile. Each Custom profile holds up to 128 assignments and eight controller banks.</p>
+        <p>An active profile replaces Generic CC page-following. Its mapped messages take priority over other CC routes; NRPN and the selected E16/MNLT routes remain available for other messages. MODE Off disables profile control. Choose None to restore the ordinary Generic CC behavior. When combining a CC controller with a note keyboard, use separate MIDI channels so their wheel or sustain messages do not share a mapped address.</p>
+        <div class="screen-gallery">
+          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/midi-maps.svg" aria-label="Open MIDI Maps"><img src="assets/screens/midi-maps.svg" alt="MIDI Maps profile, bank, editor, copy destination and clear controls"></button></div><figcaption>Profiles are independent of clips. C1–C4 are editable; NANO is a supplied starter that can be copied into a Custom slot.</figcaption></figure>
+          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/midi-map-list.svg" aria-label="Open the mapping list"><img src="assets/screens/midi-map-list.svg" alt="Custom mapping list showing channel and CC, addressed part, destination and optional bank"></button></div><figcaption>Rows show channel/CC, part and destination. A trailing 1–8 marks a bank-specific assignment; an assignment without that suffix works in every bank.</figcaption></figure>
+        </div>
+        <table class="readout-table parameter-table"><thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>Detail</th></tr></thead><tbody>
+          <tr><td>1</td><td>PROF</td><td>None / C1–C4 / Nano</td><td>Controller profile. Selection changes routing and leaves instrument values intact.</td></tr>
+          <tr><td>2</td><td>BANK</td><td>1–8</td><td>Active controller bank. Fixed assignments stay available while bank-specific controls change destination.</td></tr>
+          <tr><td>3</td><td>EDIT</td><td>Open</td><td>Turn either way, or click the main encoder, to open the assignment list.</td></tr>
+          <tr><td>4</td><td>COPY</td><td>Confirm</td><td>Copy the selected profile into DEST. Confirm with a main click; Back cancels.</td></tr>
+          <tr><td>5</td><td>DEST</td><td>C1–C4</td><td>Destination for a profile copy. Copying selects that Custom slot.</td></tr>
+          <tr><td>6</td><td>CLEAR</td><td>Confirm</td><td>Remove all assignments from the selected Custom profile after confirmation.</td></tr>
+          <tr><td>7–8</td><td>Reserved</td><td>—</td><td>Unused positions.</td></tr>
+        </tbody></table>
+        <h3 id="learn-mapping">Make an assignment</h3>
+        <ol>
+          <li>Select C1–C4 and click the main encoder. Choose <strong>Add Mapping</strong>.</li>
+          <li>On <strong>Target 1/3</strong>, choose A, B, C, D or Focus with knob 1. Click the main encoder to browse destination groups and parameter names. Shared parameters show SHR.</li>
+          <li>Use Up/Down or the main encoder to reach <strong>Source 2/3</strong>. Click to arm Learn, then move the external control. CH and CC fill in without applying that incoming value to the sound. Or enter CH/CC manually with knobs 1–2.</li>
+          <li>On <strong>Response 3/3</strong>, set the range, reverse direction and pickup behavior. Click the main encoder to save the assignment.</li>
+        </ol>
+        <p>Up/Down, Left/Right or the main encoder moves between the three editor pages. Back cancels an unsaved draft and returns to the list. In the destination picker, Back moves up a level. If the channel/CC is already assigned in the same bank, Thru asks before replacing it.</p>
+        <p>Learn waits up to 15 seconds. FILT can accept any channel or only one selected channel. Notes and clock are ignored. Learn accepts CC 0–119; enter CC 120–127 manually when needed. While editing a draft, messages at its selected channel/CC are held back until you save or cancel.</p>
+        <div class="screen-gallery">
+          <figure><div class="doc-graphic doc-screenshot move-screen"><img src="assets/screens/midi-map-target.svg" alt="Mapping Target page with part, binding, group and named parameter"></div><figcaption>Choose a fixed parameter, an adaptive engine-page slot, or a controller command. A and B assignments leave Move’s current editing focus in place.</figcaption></figure>
+          <figure><div class="doc-graphic doc-screenshot move-screen"><img src="assets/screens/midi-map-source.svg" alt="Mapping Source page with channel, CC, input type, Learn, channel filter and bank"></div><figcaption>Click Learn or enter addresses manually. BANK All keeps the assignment active across all eight controller banks.</figcaption></figure>
+          <figure><div class="doc-graphic doc-screenshot move-screen"><img src="assets/screens/midi-map-response.svg" alt="Mapping Response page with minimum and maximum percentage, reverse and pickup"></div><figcaption>Range limits are percentages of the parameter’s available control range, including its normal logarithmic scaling. TAKE Pick prevents a physical control from jumping to a different stored value.</figcaption></figure>
+        </div>
+        <table class="readout-table"><thead><tr><th>Binding</th><th>What it controls</th></tr></thead><tbody>
+          <tr><td>PARAM</td><td>One named parameter, independent of the current page or selected engine. Its A–D target stays fixed; Focus follows the part selected on Move.</td></tr>
+          <tr><td>SLOT</td><td>One of eight knob positions on engine-detail page 1–4. Its parameter follows the addressed part’s engine. Reserved or unavailable slots do nothing. In Bank’s B part, the first two pages follow Bank Sample and Bank Pads.</td></tr>
+          <tr><td>CMD</td><td>Clip Play, Stop, performance Record, Undo, Panic, previous/next clip, previous/next controller bank, direct bank 1–8, undo overdub take, pattern-fade Hold, or Ignore CC.</td></tr>
+        </tbody></table>
+        <table class="readout-table"><thead><tr><th>TYPE</th><th>Input behavior</th></tr></thead><tbody>
+          <tr><td>ABS</td><td>Absolute 0–127 knob or fader. MIN/MAX limit its range; REV reverses direction. Pick waits for the incoming control to meet or cross the stored value, and re-arms after an edit elsewhere. Jump applies immediately.</td></tr>
+          <tr><td>HOLD</td><td>Nonzero input applies MAX; zero applies MIN. REV swaps these. Use this for a button that should follow its transmitted on/off state.</td></tr>
+          <tr><td>TOGL</td><td>Each press toggles between MIN and MAX. Use with a physical momentary button; repeated nonzero messages do not count as extra presses.</td></tr>
+          <tr><td>TRIG</td><td>Apply MAX once on a press. Release does nothing. Action parameters and commands always use this behavior.</td></tr>
+        </tbody></table>
+        <p>A bank-specific assignment overrides an All-bank assignment at the same address while that bank is selected. This allows fixed faders alongside banked knobs. Bank changes reset pickup so physical controls meet the newly selected values first.</p>
+        <p>In the mapping list, select a row and press Delete (X) to remove it after confirmation. The curved Undo key reverses the last saved mapping edit, deletion, clear or copy while you are in these mapping views. It does not undo instrument values. X + Play retains Panic and cancels a pending mapping confirmation.</p>
+        <p>Profiles save automatically in <code>thru-midi-maps.bin</code> as device settings. Clips, pattern changes and module updates leave them in place. Profiles stay with Move and are separate from <code>.thru</code> project archives; importing a project preserves the destination’s profiles. <strong>SAVING MAPS</strong> indicates a pending save; <strong>MAP SAVE FAILED</strong> means the in-memory profile remains active while saving is retried.</p>
+        <h3 id="nano-profile">nanoKONTROL2 starter</h3>
+        <p>Set the nanoKONTROL2 to CC mode, using its factory channel-1 CC assignments and momentary buttons (nonzero on press, zero on release), and set Schwung’s surface to CC Only. Choose NANO on MIDI Maps. Use MODE Auto or CC. Copy NANO to a Custom slot to change any assignment or learn addresses from a previously customized unit. The source profile is available in <a href="https://github.com/s3g/s3g-thru/tree/main/controllers/korg-nanokontrol2">controllers/korg-nanokontrol2</a>; <a href="https://www.korg.com/us/support/download/product/0/159/">Korg’s editor and manuals</a> explain its hardware settings.</p>
+        <table class="readout-table"><thead><tr><th>Control</th><th>Starter assignment</th></tr></thead><tbody>
+          <tr><td>Faders 1–4 / 5–8</td><td>A / B Position, Field, Speed and Level. In Single, A Level controls Output.</td></tr>
+          <tr><td>Knobs 1–4 / 5–8</td><td>A / B controls for the selected bank. Engine banks use the first four positions of each part’s engine-detail page.</td></tr>
+          <tr><td>S1–S8</td><td>Choose Engine 1, Engine 2, Engine 3, Engine 4, Sends/Crossfade, Color, Rotary or Reverb. Check BANK on Move for the current selection.</td></tr>
+          <tr><td>M1 / M5; M2 / M6</td><td>Mute A / B; Stack Scan Hold A / B.</td></tr>
+          <tr><td>Play / Stop / Record</td><td>Performance-clip playback, stop and recording.</td></tr>
+          <tr><td>Rewind / Fast-forward</td><td>Previous / next clip.</td></tr>
+          <tr><td>Track and Marker arrows</td><td>Previous / next controller bank.</td></tr>
+          <tr><td>Set Marker / Cycle</td><td>Undo clip/source / Hold pattern fade.</td></tr>
+          <tr><td>R1–R8; other M buttons</td><td>Ignore CC, ready for reassignment in a Custom copy.</td></tr>
+        </tbody></table>
 
         <h2 id="channels">MIDI channels and CC ranges</h2>
         <div class="table-scroll"><table class="readout-table">
           <thead><tr><th>Mode or message</th><th>Channel</th><th>CC / data</th><th>What it controls</th></tr></thead>
           <tbody>
-            <tr><td>Note input</td><td>1–4</td><td>Notes, note-offs, polyphonic aftertouch</td><td>Parts A–D according to the current instrument mode.</td></tr>
-            <tr><td>Safety</td><td>1–4</td><td>CC 120 / CC 123</td><td>All Sound Off / All Notes Off for the addressed part.</td></tr>
+            <tr><td>Note input</td><td>1–4</td><td>Notes, note-offs, polyphonic and channel pressure</td><td>Parts A–D according to the current instrument mode.</td></tr>
+            <tr><td>Wheel / sustain</td><td>1–4</td><td>CC 1 / CC 64</td><td>Assigned wheel movement / sustain pedal. These addresses provide note expression unless explicitly claimed by an active controller profile.</td></tr>
+            <tr><td>Pitch bend / pressure</td><td>1–4</td><td>14-bit bend; channel or polyphonic pressure</td><td>Pitch and the addressed part’s Pressure behavior.</td></tr>
+            <tr><td>Reset expression</td><td>1–4</td><td>CC 121</td><td>Reset bend, wheel, channel pressure and sustain for this input channel.</td></tr>
+            <tr><td>Safety</td><td>1–4</td><td>CC 120 / CC 123</td><td>Release this input channel’s external keys, including sustain. Move pad latches remain held.</td></tr>
             <tr><td>NRPN part control</td><td>5–8</td><td>CC 99, 98, 6 and 38</td><td>High-resolution parameters for A–D. The same NRPN address retains its meaning across part channels.</td></tr>
             <tr><td>NRPN shared control</td><td>16</td><td>CC 99, 98, 6 and 38</td><td>Mixer, effect returns, Tape, transport, recording, performance loops, chains and fades.</td></tr>
             <tr><td>Generic CC</td><td>CCCH, default 9</td><td>BASE through BASE + 7; default CC 20–27</td><td>The first eight available parameters on Move’s visible page.</td></tr>
@@ -69,11 +177,11 @@
             <tr><td>MNLT commands</td><td>13</td><td>CC 16–23</td><td>Stack Hold A–D, clip record, pattern-fade Hold, Panic and one reserved command.</td></tr>
             <tr><td>OXI E16 Remote</td><td>1 while Remote owns the surface</td><td>Relative CC 1–16; notes 0–16 for held encoders and shortcuts</td><td>The active E16 Remote page. This transport is reserved while the surface is live.</td></tr>
             <tr><td>E16 native relative controls</td><td>14 A / 15 B</td><td>Turn CC 0–95; reset CC 127 with value 1–96</td><td>E+M mode. THRU EM turns use 127 to increase and 1 to decrease: clockwise increases values and advances the rings. Destinations follow the current engine.</td></tr>
-            <tr><td>Clock / transport</td><td>Channel-free</td><td>MIDI Clock, Start, Continue and Stop</td><td>External tempo and transport synchronization.</td></tr>
+            <tr><td>Clock / transport</td><td>Channel-free</td><td>MIDI Clock, Start, Continue and Stop</td><td>Follow Move clock when SYNC is Move; RUN chooses tempo only or clip transport.</td></tr>
           </tbody>
         </table></div>
         <p>Use channel 5 for Single; 5 and 6 for Split or Shared Dual; 5–8 for Quad. Unavailable parts and parameters sent on the wrong control channel are ignored. In Auto or NRPN mode, channels 5–8 and 16 also accept controller commands, so keep note input on channels 1–4.</p>
-        <p>Changing A or B from an external controller leaves Move’s editing focus and page in place. Move’s visible parameter values refresh when their controls change. External MIDI notes keep the pitches sent by the keyboard; the Move pad scale does not quantize them.</p>
+        <p>Changing A or B from an external controller leaves Move’s editing focus and page in place. Move’s visible parameter values refresh when their controls change. External MIDI notes follow the keyboard’s note numbers without Move pad scale quantization; Slices interprets them as slice addresses.</p>
 
         <h2 id="direct-cc">All fixed direct-CC mappings</h2>
         <p>The two tables below are the complete fixed ordinary-CC receiver map implemented by Thru. Parts use identical CC numbers on separate channels: <strong>channel 9 = A, 10 = B, 11 = C and 12 = D</strong>. Send A and B controls at the same time without selecting a controller target first.</p>
@@ -266,7 +374,7 @@
         <h3 id="e16-link">Reading the E16 report</h3>
         <p>Press <strong>Shift + Menu</strong> on Move and select E16 Link 5/5. STATE reports LIVE, SEARCH, WAIT CLEAR, RECONNECT or OFF. LAST retains the most recent transport issue. ACK/NACK and RETRY/RECON show display confirmations and recovery attempts. PENDING PX is unacknowledged display work against its 320-pixel window; these are not audio-load measurements.</p>
         <h2 id="nrpn">High-resolution NRPN map</h2>
-        <p>Thru provides <strong>357 fixed NRPN addresses</strong> for playback, engines, effects, recording and performance. Channels 5–8 address parts A–D; channel 16 addresses shared controls. Each address keeps the same meaning when engines or pages change.</p>
+        <p>Thru provides <strong>364 fixed NRPN addresses</strong> for playback, engines, effects, recording and performance. Channels 5–8 address parts A–D; channel 16 addresses shared controls. Each address keeps the same meaning when engines or pages change.</p>
         <p>Use the downloadable <a href="https://github.com/s3g/s3g-thru/blob/main/controllers/midi/parameters.csv"><strong>complete NRPN CSV</strong></a> for every address, CC 99/98 selector byte, channel, range, curve and action flag. The <a href="https://github.com/s3g/s3g-thru/tree/main/controllers/midi">MIDI reference folder</a> also contains the source registry.</p>
         <p id="engine-list-midi">Engine List, Voice Setup, Stochastic and Pulsar mappings are included in the same CSV rather than repeated as separate manual sections.</p>
         <p>Send CC 99 and 98 to select an address, followed by CC 6 and 38 for its 14-bit value. Configure two-way feedback without retransmitting received values. Ordinary NRPN feedback pauses while THRU RM owns the E16 surface and resumes after it disconnects.</p>
@@ -279,7 +387,7 @@
       </main>
       <aside class="toc" aria-label="Page navigation">
         <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="midi.html">MIDI</a><a href="shortcuts.html">Shortcuts</a></div>
-        <div class="toc-section"><h2>On this page</h2><a href="#options">MIDI options</a><a href="#control-mode">Controller mode</a><a href="#generic-cc">Generic CC</a><a href="#channels">Channels and CCs</a><a href="#direct-cc">All fixed direct CCs</a><a href="#monolit-buttons">Command CCs</a><a href="#e16-monolit">E16 + Monolit</a><a href="#e16-native-help">Native checks</a><a href="#e16">OXI E16 Remote</a><a href="#nrpn">NRPN CSV</a></div>
+        <div class="toc-section"><h2>On this page</h2><a href="#options">MIDI options</a><a href="#note-input">Keyboard / sequencer</a><a href="#expression">Expression / recording</a><a href="#sequencer-gates">Sequencer gates</a><a href="#oxi-one">OXI One setup</a><a href="#control-mode">Controller mode</a><a href="#generic-cc">Generic CC</a><a href="#custom-maps">Custom mappings</a><a href="#nano-profile">nanoKONTROL2 starter</a><a href="#channels">Channels and CCs</a><a href="#direct-cc">All fixed direct CCs</a><a href="#monolit-buttons">Command CCs</a><a href="#e16-monolit">E16 + Monolit</a><a href="#e16-native-help">Native checks</a><a href="#e16">OXI E16 Remote</a><a href="#nrpn">NRPN CSV</a></div>
       </aside>
     </div>
     <footer class="manual-footer">s3g Thru · Next-release MIDI guide</footer>

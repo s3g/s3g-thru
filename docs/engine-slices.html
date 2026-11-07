@@ -14,7 +14,7 @@
       <main class="content" id="content">
         <p class="eyebrow">Playback engine 6 of 15</p>
         <h1>Slices</h1>
-        <p class="lead">Slices divides the current Position/Field window into equal or detected regions and lets pad identity choose a region. Every voice still has independent pitch, direction, loop behavior, and a discrete lane.</p>
+        <p class="lead">Slices plays equal divisions, detected transients, imported WAV markers, or your own edited regions. Pads and MIDI keys choose a slice, and held slices can overlap within the part’s voice budget. Every voice still has independent pitch, direction, loop behavior, and a discrete lane.</p>
         <p>Controls edit the focused instrument. <a href="modes.html">Instrument mode</a> sets its lane and voice budget: eight voices in Single, four per part in either dual mode, or two per part in Quad. Quad omits stack controls because each part has one lane.</p>
         <div class="callout"><p><strong>Good for:</strong> drum chopping, transient performance, chromatic slices, repeated regions, velocity-layered slice sets, cue triggering, and tempo rolls.</p></div>
 
@@ -23,7 +23,7 @@
         <div class="screen-gallery">
           <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/pads-scale.svg" aria-label="Open Pads and Scale"><img src="assets/screens/pads-scale.svg" alt="Shared Pads and Scale parameter page"></button></div><figcaption>Pads &amp; Scale selects the performance layout, tuning root, and optional folded scale.</figcaption></figure>
           <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/direct-play.svg" aria-label="Open Direct Play"><img src="assets/screens/direct-play.svg" alt="Shared Direct Play parameter page"></button></div><figcaption>Direct Play holds direction and lane variation in the same positions used by Sample.</figcaption></figure>
-          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/slice-source.svg" aria-label="Open Slice Source"><img src="assets/screens/slice-source.svg" alt="Slice Source page with two controls and six reserved positions"></button></div><figcaption>Slice Source contains only region source and equal-region count.</figcaption></figure>
+          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/slice-source.svg" aria-label="Open Slice Source"><img src="assets/screens/slice-source.svg" alt="Slice Source page with two controls and six reserved positions"></button></div><figcaption>Slice Source selects the boundary map and equal-region count. Click the main encoder here to open Slice Edit.</figcaption></figure>
         </div>
 
         <p>The controls common to every playback engine are documented in the <a href="engines.html#shared">shared Engine page table</a>. The sections below cover Slices-specific controls.</p>
@@ -42,8 +42,8 @@
         <table class="readout-table parameter-table">
           <thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>Detail</th></tr></thead>
           <tbody>
-            <tr><td>1</td><td>SSRC</td><td>Equal / Transients</td><td>Chooses mathematical divisions or the selected lane's detected transient map.</td></tr>
-            <tr><td>2</td><td>SLIC</td><td>1–64</td><td>Number of equal regions, and the fallback count when a transient map is unavailable.</td></tr>
+            <tr><td>1</td><td>SSRC</td><td>Equal / Transients / File / Edited / Auto</td><td>Slice source: choose equal divisions, detected onsets, WAV cue markers, an edited map, or automatic source selection.</td></tr>
+            <tr><td>2</td><td>SLIC</td><td>1–64</td><td>Slice count for Equal, and the fallback when the selected boundary source is unavailable. Detected, file and edited maps keep their own count.</td></tr>
             <tr><td>3–8</td><td>Reserved</td><td>—</td><td>Inactive positions available for future slice-source controls.</td></tr>
           </tbody>
         </table>
@@ -53,10 +53,44 @@
           <thead><tr><th>Source</th><th>How boundaries are made</th></tr></thead>
           <tbody>
             <tr><td>Equal</td><td>Divides the outer Position/Field window into SLIC equally sized regions.</td></tr>
-            <tr><td>Transients</td><td>Uses up to 64 automatically detected regions for the chosen lane. If that lane has no transient map, SLIC equal regions are used instead.</td></tr>
+            <tr><td>Transients</td><td>Uses up to 64 automatically detected regions for the chosen lane. PRER can start playback a few milliseconds before each onset. Falls back to Equal if no map is available.</td></tr>
+            <tr><td>File</td><td>Uses embedded RIFF/WAV cue points, sorted by position. WAV labels name the slices in Slice Edit. A beginning boundary and an end boundary are supplied automatically. Falls back to Equal without usable markers.</td></tr>
+            <tr><td>Edited</td><td>Uses your saved boundary edits for this clip and lane. Before the first edit, starts from File if available, then Transients, then Equal.</td></tr>
+            <tr><td>Auto</td><td>Chooses Edited first, then File, then Transients, then Equal.</td></tr>
           </tbody>
         </table>
-        <p>When detected transients are available, SLIC does not change their count. Pad numbers wrap through the available regions.</p>
+        <p>SLIC changes only equal divisions. Pad numbers wrap through the available regions. File import supports the standard WAV <code>cue </code> points and optional <code>LIST/adtl/labl</code> names. Markers outside the loaded audio are discarded; duplicate positions are merged. A map holds at most 64 slices. <strong>LIMIT64</strong> in the editor means extra markers were omitted.</p>
+
+        <h2 id="slice-edit">Slice Edit</h2>
+        <p>Open <strong>Slice Source</strong> and click the main encoder. Track 1–4 selects a loaded lane belonging to the focused part. The header shows lane, selected slice/count, its WAV name when available, and the current/total pad-bank fraction at the right edge. The selected slice has start and end caps; other cuts appear as dotted marks. A small lead-in bracket shows PRER. Zoom in and turn the main encoder to scroll the waveform beneath the central edit cursor. At the full overview, the cursor moves across the file.</p>
+        <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/slice-edit.svg" aria-label="Open Slice Edit"><img src="assets/screens/slice-edit.svg" alt="Slice Edit waveform with selected start and end, pre-roll lead-in, and SLIC, STRT, END, ZOOM and PRER controls"></button></div><figcaption>Knobs 1–4 select a slice, move its boundaries and zoom. Knob 5 sets pre-roll. The lower readout shows the highlighted boundary in milliseconds, including tenths.</figcaption></figure>
+        <table class="readout-table parameter-table">
+          <thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>Detail</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>SLIC</td><td>1–64, within the map</td><td>Selected slice. Pads select and audition slices directly.</td></tr>
+            <tr><td>2</td><td>STRT</td><td>Between adjacent boundaries</td><td>Start boundary. Turn to move it; hold Shift for 0.1 ms adjustment, with a minimum one-frame gap. Moving a shared cut also changes the preceding slice’s end.</td></tr>
+            <tr><td>3</td><td>END</td><td>Between adjacent boundaries</td><td>End boundary. Turn to move it; Shift gives the same fine adjustment. Moving a shared cut also changes the following slice’s start.</td></tr>
+            <tr><td>4</td><td>ZOOM</td><td>1×–65536×</td><td>Waveform magnification around the edit cursor. Detail is prepared in the background; playing notes continue while the display updates.</td></tr>
+            <tr><td>5</td><td>PRER</td><td>0–30 ms</td><td>Pre-roll: begin playback this far before the nominal slice start, clipped to the source window. Adjust by 1 ms, or 0.1 ms with Shift. Applies to this clip’s lane; nominal cuts and preceding slice ends stay in place.</td></tr>
+            <tr><td>6–8</td><td>Reserved</td><td>—</td><td>Unused controls, shown as small boxes.</td></tr>
+          </tbody>
+        </table>
+        <table class="readout-table">
+          <thead><tr><th>Control</th><th>Action in Slice Edit</th></tr></thead>
+          <tbody>
+            <tr><td>Main encoder turn</td><td>Place the edit cursor. Movement follows the current zoom; Shift gives 0.1 ms steps.</td></tr>
+            <tr><td>Main encoder click</td><td>Add a cut at the cursor. The new slice becomes selected. Maximum 64 slices.</td></tr>
+            <tr><td>Pad / Shift + pad</td><td>Select and audition a slice / latch the audition. Shift + the same pad stops a latched audition. Only the focused part’s pads become slice selectors; other parts keep playing normally.</td></tr>
+            <tr><td>Loop</td><td>Toggle repeating audition. ONCE plays the selected slice once; LOOP repeats while held or latched.</td></tr>
+            <tr><td>Up / Down</td><td>Next / previous slice-pad bank. Single presents 32 slices per bank, either dual mode 16, and Quad 8. Step buttons retain clip selection.</td></tr>
+            <tr><td>Delete (X)</td><td>Remove the highlighted interior boundary and merge its neighbouring slices. Turn STRT or END to choose which boundary is highlighted. First and last boundaries cannot be deleted.</td></tr>
+            <tr><td>Undo (curved arrow)</td><td>Undo the latest boundary or pre-roll edit. Continuous turns are grouped into one edit; stop performance/audio recording before undoing.</td></tr>
+            <tr><td>Back / Menu</td><td>Stop audition and return to Slice Source.</td></tr>
+          </tbody>
+        </table>
+        <p>The first boundary edit creates an independent Edited map for this clip and lane, preserving the current source map as a starting point. Edits and PRER are saved with the clip and follow clip copies and source inheritance. Loading a replacement sample or making a new lane recording clears that lane’s old edits. File markers are read again when their WAV is recalled. Saved marker maps survive normalization and fades; destructive Reverse and Trim move both imported and edited boundaries with the audio.</p>
+        <p>New transient maps default to <strong>3 ms</strong> pre-roll; File and Equal default to <strong>0 ms</strong>, preserving authored marker timing. The first explicit PRER setting overrides that default for the lane. Sets saved before Slice Edit retain their previous 1 ms transient lead-in when upgraded.</p>
+        <p>Existing performance notes keep their original slice boundaries until the next trigger; source-lane changes resolve the map for the new lane. The editor’s audition follows edits with a short reader crossfade and uses one of the part’s existing voices. Audition gestures are excluded from performance recording; record normal slice playing after leaving the editor. JOIN still controls loop seams, so increase it when a loop edge sounds abrupt.</p>
 
         <h3 id="play-modes">Play Mode choices</h3>
         <table class="readout-table">
@@ -81,10 +115,16 @@
           </tbody>
         </table>
 
+        <p>Each note keeps its chosen lane while it plays. The unused RATE position is reserved on the waveform and Engine pages. Use STAK with Manual variation to choose the lane for the next note, or another Variation choice to change lanes at note-on.</p>
+
+        <p>The activity bars beside the lane numbers follow the latest held voice in Single mode. Each playhead’s square marks its own source lane. In Split, Shared Dual and Quad, the bars show the combined activity of the voices. They follow the actual slice readers rather than the unused stack scan.</p>
+
         <h3 id="pad-modes">Pad layouts</h3>
         <p>See the shared <a href="engines.html#pads-scale">Pads &amp; Scale reference</a> for every layout and scale. In Keys, physical pad identity chooses a region while its mapped note also transposes that region. In Slices, pad identity chooses the region and every pad plays at Root pitch.</p>
 
-        <div class="callout"><p><strong>Window first, regions second:</strong> Position and Field crop the source area globally. Equal or transient boundaries are then mapped into that outer window, so moving either boundary changes what every slice contains.</p></div>
+        <p>From an external MIDI keyboard or sequencer, the part’s Root note selects slice 1; each semitone above it selects the next slice, wrapping after the last region. Notes below Root select slice 1. All slices play at SPEED without keyboard transposition; pitch bend and Engine List octave variation remain available. See <a href="midi.html#midi-slices">MIDI slice playing</a> for routing and an example.</p>
+
+        <div class="callout"><p><strong>Source window:</strong> Equal divides the current Position/Field window. Detected, File and Edited maps keep their positions in the full recording; Position/Field clips their playable range. A slice outside the window is silent. The editor auditions the full selected lane so a cropped performance window does not hide the cut being edited.</p></div>
 
         <nav class="page-nav" aria-label="Page navigation">
           <a class="page-nav-link" href="engine-sample.html"><span>Previous</span>Sample</a>
@@ -95,7 +135,7 @@
         <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="midi.html">MIDI</a><a href="shortcuts.html">Shortcuts</a></div>
         <div class="toc-section"><h2>Instrument modes</h2><a href="playing.html">Single · Basic playing</a><a href="modes.html">Compare modes</a><a href="split.html">Split</a><a href="shared-dual.html">Shared Dual</a><a href="quad.html">Quad</a></div>
         <div class="toc-section"><h2>Engine guides</h2><a href="engine-motion.html">Motion</a><a href="engine-lanes.html">Lanes</a><a href="engine-grains.html">Grains</a><a href="engine-cutups.html">Cutups</a><a href="engine-sample.html">Sample</a><a href="engine-slices.html">Slices</a><a href="engine-glitch.html">Glitch</a><a href="engine-weave.html">Weave</a><a href="engine-wavesets.html">Wavesets</a><a href="engine-prism.html">Prism</a><a href="engine-morph.html">Morph</a><a href="engine-texture.html">Texture</a><a href="engine-formant.html">Formant</a><a href="engine-stochastic.html">Stochastic</a><a href="engine-pulsar.html">Pulsar</a></div>
-        <div class="toc-section"><h2>On this page</h2><a href="#page">Pages</a><a href="engines.html#shared">Shared Engine table</a><a href="#parameters">Direct Play</a><a href="#slice-source">Slice Source</a><a href="#region-source">Source choices</a><a href="#play-modes">Play modes</a><a href="#variation">Variation</a><a href="#pad-modes">Pad modes</a></div>
+        <div class="toc-section"><h2>On this page</h2><a href="#page">Pages</a><a href="engines.html#shared">Shared Engine table</a><a href="#parameters">Direct Play</a><a href="#slice-source">Slice Source</a><a href="#region-source">Source choices</a><a href="#slice-edit">Slice Edit</a><a href="#play-modes">Play modes</a><a href="#variation">Variation</a><a href="#pad-modes">Pad modes</a></div>
       </aside>
     </div>
     <footer class="manual-footer">Slices: pad-addressed regions inside the current source window.</footer>

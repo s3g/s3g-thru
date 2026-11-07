@@ -1,6 +1,16 @@
 #include "sample_motion_app.h"
+#include "thru_slice_model.h"
+#include "thru_storage.h"
+#include "thru_project_zip.h"
+#include <sys/statvfs.h>
+#include <map>
+#include <set>
+#include <string>
+#include <vector>
 #include "thru_waveset_worker.h"
 #include "thru_midi_parameters.h"
+#include "thru_midi_custom.h"
+#include "thru_nano_profile.h"
 #include "thru_e16_adaptive.h"
 #include "thru_midi_decoder.h"
 #include "thru_output_limiter.h"
@@ -76,6 +86,8 @@ constexpr float kOutputCeiling = 0.8912509381337456f; // -1 dBFS
 constexpr float kProgramCompressorThreshold = 0.251188643150958f; // -12 dBFS
 constexpr float kProgramMakeupGain = 1.4125375446227544f; // +3 dB
 constexpr float kCueZeroCrossingWindowSeconds = 0.010f;
+constexpr float kBankMinimumCaptureSeconds = 0.250f;
+constexpr float kBankCaptureSilenceFloor = 0.0000316227766f; // -90 dBFS peak, either channel.
 
 using WaveBins = std::array<std::int8_t, kWaveBins>;
 
@@ -165,6 +177,7 @@ enum class LaneVariation : std::uint8_t {
 
 struct RegionMap {
     std::array<float, Engine::kRegionBoundaryCount> boundaries {};
+    std::array<float, Engine::kRegionBoundaryCount> onsets {};
     std::size_t count = 0u;
 };
 
@@ -196,6 +209,7 @@ enum class ClipPointType : std::uint8_t {
     performance,
     stackPath,
     notePressure,
+    midiExpression,
 };
 
 struct VoiceEntryVariation {
@@ -463,7 +477,8 @@ constexpr std::size_t kClipPartHoldOffset = kClipPartParameterOffset + kLockPara
 constexpr std::size_t kClipPerformanceOffset = kClipPartHoldOffset + 4u;
 constexpr std::size_t kClipStackPathOffset = kClipPerformanceOffset + 4u * 9u;
 constexpr std::size_t kClipNotePressureOffset = kClipStackPathOffset + 5u * 2u * s3g_daisy::ThruStackPath::valueCount;
-constexpr std::size_t kClipCurveLaneCount = kClipNotePressureOffset+4u*128u;
+constexpr std::size_t kClipMidiExpressionOffset = kClipNotePressureOffset+4u*128u;
+constexpr std::size_t kClipCurveLaneCount = kClipMidiExpressionOffset+16u;
 struct VoiceEngineSettings {
     bool enabled=false, configured=false;
     int order=0, edit=0, assignment=0;
@@ -495,6 +510,7 @@ struct BankAudio {
 };
 struct BankPool { std::array<BankAudio,64> assets; };
 struct ClipSlot {
+    std::array<s3g_thru::SliceLaneSettings,kLaneCount> sliceLanes {};
     std::array<BankSlot,16> bankSlots {};
     bool bankMode=false;
     float bankMasterRate=1;
@@ -580,6 +596,7 @@ enum class ClipPrepareState : int {
 };
 
 const host_api_v1_t* g_host = nullptr;
+void dispatchMidi(void*,const std::uint8_t*,int,int,bool);
 
 constexpr const char* kMorphModeNames[]{"Morph","Imprint"};
 constexpr const char* kPrismModeNames[]{"Scan","Freeze","Amplitude Hold","Frequency Hold","Accumulate"};
@@ -595,6 +612,7 @@ constexpr const char* kSampleModeNames[] {
     "Forward", "Reverse", "Loop", "Ping Pong"
 };
 constexpr const char* kRegionModeNames[] { "Equal", "Transients" };
+constexpr const char* kSliceRegionModeNames[] { "Equal", "Transients", "File", "Edited", "Auto" };
 constexpr const char* kPadModeNames[] { "Keys", "Slices", "Cues", "Rolls" };
 constexpr const char* kScaleNames[] {
     "Chromatic", "Major", "Minor", "Dorian", "Mixolydian", "Lydian",
@@ -746,6 +764,13 @@ constexpr const char kChainParams[] = R"json([
 {"key":"bank_record_source","name":"Bank Record Source","short_name":"SRC","type":"enum","options":["Input","Main Mix","Part A","Part B"],"default":2},
 {"key":"voice_mode","name":"Key Voice Mode","short_name":"VOICE","type":"enum","options":["Poly","Mono","Legato"],"default":0},
 {"key":"polyphony_comp","name":"Polyphony Compensation","short_name":"POLY COMP","type":"enum","options":["Off","On"],"default":1},
+{"key":"midi_note_route","name":"MIDI Note Route","short_name":"ROUT","min":0,"max":1,"default":0,"options":["Parts","Focus"],"type":"enum"},
+{"key":"midi_note_channel","name":"MIDI Focus Channel","short_name":"CHAN","min":1,"max":4,"default":1,"type":"int"},
+{"key":"midi_bend_range","name":"MIDI Bend Range","short_name":"BEND","min":0,"max":24,"default":2,"unit":"st","type":"int"},
+{"key":"midi_mod_target","name":"MIDI Mod Wheel","short_name":"WHEL","min":0,"max":2,"default":0,"options":["Off","Stack","Character"],"type":"enum"},
+{"key":"midi_velocity_depth","name":"MIDI Velocity Depth","short_name":"VELO","min":0,"max":100,"default":0,"unit":"%","type":"int"},
+{"key":"midi_sync_source","name":"MIDI Sync Source","short_name":"SYNC","min":0,"max":1,"default":0,"options":["Internal","Move"],"type":"enum"},
+{"key":"midi_sync_transport","name":"MIDI Transport Follow","short_name":"RUN","min":0,"max":1,"default":0,"options":["Tempo Only","Follow Clips"],"type":"enum"},
 {"key":"midi_control_mode","name":"MIDI Control Mode","short_name":"MODE","type":"enum","options":["Auto","NRPN","Generic CC","MNLT","E16 Remote","E16 + MNLT","Off"],"default":0},
 {"key":"midi_cc_channel","name":"Generic CC Channel","short_name":"CC CH","type":"int","min":1,"max":16,"step":1,"default":9},
 {"key":"midi_cc_base","name":"Generic CC Base","short_name":"CC BASE","type":"int","min":0,"max":120,"step":1,"default":20},
@@ -861,7 +886,7 @@ constexpr const char kChainParams[] = R"json([
 {"key":"cut_poly_path","name":"Poly Path","short_name":"POLY","type":"enum","options":["Together","Stagger","Rotate","Random"],"default":0},
 {"key":"cut_region_mode","name":"Cut Region Source","short_name":"REGION SRC","type":"enum","options":["Equal","Transients"],"default":0},
 {"key":"sample_mode","name":"Sample Playback","short_name":"PLAY MODE","type":"enum","options":["Forward","Reverse","Loop","Ping Pong"],"default":0},
-{"key":"slice_region_mode","name":"Slice Region Source","short_name":"SLICE SRC","type":"enum","options":["Equal","Transients"],"default":1},
+{"key":"slice_region_mode","name":"Slice Region Source","short_name":"SLICE SRC","type":"enum","options":["Equal","Transients","File","Edited","Auto"],"default":1},
 {"key":"slice_regions","name":"Equal Slice Count","short_name":"SLICES","type":"int","min":1,"max":64,"default":16},
 {"key":"glitch_mode","name":"Glitch Mode","short_name":"MODE","type":"enum","options":["Repeat","Stutter","Scatter","Divide","Override"],"default":4},
 {"key":"glitch_clock","name":"Glitch Clock","short_name":"CLOCK","type":"enum","options":["Free","Tempo"],"default":1},
@@ -1342,7 +1367,7 @@ void applyLockedValue(Engine::Controls& controls, float& outputGain,
         case LockParameter::cutPolyPath: controls.cutPolyPath = static_cast<Engine::CutPolyPath>(clampValue(static_cast<int>(std::lround(value)), 0, 3)); break;
         case LockParameter::cutRegionMode: controls.cutRegionMode = static_cast<Engine::RegionMode>(clampValue(static_cast<int>(std::lround(value)), 0, 1)); break;
         case LockParameter::sampleMode: controls.sampleMode = static_cast<Engine::SampleMode>(clampValue(static_cast<int>(std::lround(value)), 0, 3)); break;
-        case LockParameter::sampleRegionMode: controls.sampleRegionMode = static_cast<Engine::RegionMode>(clampValue(static_cast<int>(std::lround(value)), 0, 1)); break;
+        case LockParameter::sampleRegionMode: controls.sampleRegionMode = static_cast<Engine::RegionMode>(clampValue(static_cast<int>(std::lround(value)), 0, 4)); break;
         case LockParameter::sampleRegionCount: controls.sampleRegionCount = clampValue(value, 1.0f, 64.0f); break;
         case LockParameter::motionRateBasis: controls.motionRateBasis = static_cast<Engine::MotionRateBasis>(clampValue(static_cast<int>(std::lround(value)), 0, 1)); break;
         case LockParameter::motionPathRate: controls.motionPathRate = clampValue(value, 0.01f, 80.0f); break;
@@ -1934,7 +1959,7 @@ bool appendFileChecksum(const char* path)
     file = std::fopen(path, "ab");
     if (!file) return false;
     const bool wrote = writeU32(file, checksum);
-    return std::fclose(file) == 0 && wrote;
+    return s3g_thru_storage::closeFile(file,path,wrote);
 }
 
 bool replaceFileWithBackup(const char* temporary, const char* path)
@@ -1945,11 +1970,16 @@ bool replaceFileWithBackup(const char* temporary, const char* path)
     if (length <= 0 || static_cast<std::size_t>(length) >= backup.size()) {
         return false;
     }
-    std::remove(backup.data());
     const bool hadOriginal = access(path, F_OK) == 0;
-    if (hadOriginal && std::rename(path, backup.data()) != 0) return false;
-    if (std::rename(temporary, path) == 0) return true;
-    if (hadOriginal) std::rename(backup.data(), path);
+    if(hadOriginal) {
+        if(!s3g_thru_storage::rename(path,backup.data())
+            ||!s3g_thru_storage::syncParent(path))return false;
+    }
+    if(s3g_thru_storage::rename(temporary,path))return s3g_thru_storage::syncParent(path);
+    if(hadOriginal) {
+        s3g_thru_storage::rename(backup.data(),path);
+        s3g_thru_storage::syncParent(path);
+    }
     return false;
 }
 
@@ -2071,6 +2101,14 @@ struct PlaybackVoice {
     int sourcePad = -1;
     int part = 0;
     int velocity = 100;
+    bool midiExternal=false;
+    bool sliceCached=false,sliceAudition=false,sliceAbsolute=false;
+    int sliceCachedLane=-1;
+    std::uint64_t sliceSourceRevision=0;
+    float sliceLow=0,sliceHigh=1,sliceLead=0;
+    int midiInput=-1,midiChannel=-1;
+    float midiGain=1;
+    std::array<float,3> midiTarget {},midiValue {};
     std::size_t variantLane = 0u;
     std::array<std::uint32_t, kLaneCount> regionRevisions {};
     std::uint32_t age = 0u;
@@ -2447,6 +2485,8 @@ struct ThruInstance : PlaybackEffectsState {
     std::array<std::unique_ptr<s3g_daisy::ThruWavesetBank>,kLaneCount> preparedWavesetBanks;
     std::array<std::unique_ptr<s3g_daisy::ThruSpectralBank>,kLaneCount> preparedSpectralBanks;
     RegionMap sampleStageRegions {};
+    std::array<s3g_thru::SliceMap,kLaneCount> fileSliceMaps {}, preparedFileSlices {};
+    s3g_thru::SliceMap sampleStageFileSlices {};
     std::array<WaveBins, kLaneCount> preparedWaveMinimum {};
     std::array<WaveBins, kLaneCount> preparedWaveMaximum {};
     WaveBins sampleStageWaveMinimum {};
@@ -2508,7 +2548,12 @@ struct ThruInstance : PlaybackEffectsState {
     std::uint64_t nextCaptureId = 1u;
 
 #include "thru_bank.inc"
+#include "thru_midi_notes.inc"
+#include "thru_midi_mailbox.inc"
+#include "thru_midi_custom.inc"
 #include "thru_background.inc"
+#include "thru_slices.inc"
+#include "thru_projects.inc"
 #include "thru_split.inc"
 #include "thru_voice_engines.inc"
 #include "thru_gestures.inc"
@@ -2641,12 +2686,15 @@ struct ThruInstance : PlaybackEffectsState {
         if (moduleDir && moduleDir[0] != '\0'
             && std::strlen(moduleDir) + 32u < moduleDirectory.size()) {
             std::snprintf(moduleDirectory.data(), moduleDirectory.size(), "%s", moduleDir);
+            std::snprintf(moduleRootDirectory.data(),moduleRootDirectory.size(),"%s",moduleDir);
+            selectProjectDataDirectory();
             persistenceEnabled = true;
             std::array<char, kPersistencePathSize> capturesDirectory {};
             if (persistencePath("captures", capturesDirectory.data(),
                                 capturesDirectory.size())) {
-                if (mkdir(capturesDirectory.data(), 0700) != 0
-                    && errno != EEXIST) {
+                const bool created=mkdir(capturesDirectory.data(),0700)==0;
+                if ((!created&&errno!=EEXIST)
+                    ||(created&&!s3g_thru_storage::syncParent(capturesDirectory.data()))) {
                     persistenceEnabled = false;
                     setError("Unable to create the capture directory");
                 }
@@ -2654,6 +2702,7 @@ struct ThruInstance : PlaybackEffectsState {
             loadPersistentState();
             reserveCaptureIds();
         }
+        customFactory=s3g_thru_custom_midi::nanoProfile();loadCustomMidiMaps();currentCustomProfile();
         if (!clipBankInitialized) captureActiveClip(false);
         effectOrderCode = controls.effectOrder;
         effectOrder = s3g_daisy::decodeEffectOrder(effectOrderCode);
@@ -3533,8 +3582,9 @@ struct ThruInstance : PlaybackEffectsState {
     bool decodeLibraryWav(const char* requestedPath, float* destinationLeft,
                           float* destinationRight, std::size_t& decodedFrames,
                           float& decodedRate, char* decodedName,
-                          std::size_t decodedNameSize)
+                          std::size_t decodedNameSize, s3g_thru::SliceMap* markers = nullptr)
     {
+        if(markers)*markers={};
         if (!requestedPath || requestedPath[0] == '\0' || !destinationLeft
             || !destinationRight || !decodedName || decodedNameSize == 0u) {
             setSampleLoadError("No sample was selected");
@@ -3552,7 +3602,7 @@ struct ThruInstance : PlaybackEffectsState {
         if (resolvedPath && moduleDirectory[0] != '\0') {
             std::array<char, PATH_MAX> requestedLocalRoot {};
             std::snprintf(requestedLocalRoot.data(), requestedLocalRoot.size(),
-                          "%s/library", moduleDirectory.data());
+                          "%s/library", moduleRootDirectory[0]?moduleRootDirectory.data():moduleDirectory.data());
             if (realpath(requestedLocalRoot.data(), localRoot.data())) {
                 const std::size_t length = std::strlen(localRoot.data());
                 if (length + 1u < localRoot.size()) {
@@ -3722,6 +3772,7 @@ struct ThruInstance : PlaybackEffectsState {
                     audio, sourceFrame, 1, channels, format, bits, blockAlign);
             }
         }
+        if(ok && markers)*markers=s3g_thru::readWaveSliceMarkers(bytes,mapSize,ratio,outputFrames);
         munmap(mapping, mapSize);
         close(fd);
         if (!ok) return false;
@@ -3739,7 +3790,7 @@ struct ThruInstance : PlaybackEffectsState {
         const bool loaded = decodeLibraryWav(
             requestedPath, sampleStage.get(),
             sampleStage.get() + laneCapacityFrames, sampleStageFrames,
-            sampleStageRate, sampleLoadedName.data(), sampleLoadedName.size());
+            sampleStageRate, sampleLoadedName.data(), sampleLoadedName.size(), &sampleStageFileSlices);
         if (loaded) {
             analyzeRegions(sampleStage.get(),
                            sampleStage.get() + laneCapacityFrames,
@@ -3790,6 +3841,14 @@ struct ThruInstance : PlaybackEffectsState {
         }
         std::array<float, kWaveBins> rawMinimum {};
         std::array<float, kWaveBins> rawMaximum {};
+        if(frames<kWaveBins) {
+            for(std::size_t bin=0;bin<kWaveBins;++bin) {
+                const auto frame=bin*frames/kWaveBins;
+                rawMinimum[bin]=std::min(0.f,std::min(left[frame],right[frame]));
+                rawMaximum[bin]=std::max(0.f,std::max(left[frame],right[frame]));
+            }
+            quantizeWaveform(rawMinimum,rawMaximum,minimum,maximum);return;
+        }
         for (std::size_t frame = 0u; frame < frames; ++frame) {
             const std::size_t bin = std::min(kWaveBins - 1u,
                 frame * kWaveBins / frames);
@@ -3809,7 +3868,7 @@ struct ThruInstance : PlaybackEffectsState {
         result.boundaries[0u] = 0.0f;
         if (!left || !right || frames < 2u || !(rate > 0.0f)) {
             result.count = 1u;
-            result.boundaries[1u] = 1.0f;
+            result.boundaries[1u] = result.onsets[1u] = 1.0f;
             return;
         }
         constexpr std::size_t hop = 64u;
@@ -3841,6 +3900,7 @@ struct ThruInstance : PlaybackEffectsState {
                 && energy > std::max(0.003f, slow * 1.55f)
                 && novelty > threshold && regions < Engine::kRegionCount) {
                 const std::size_t onset = frame > preRoll ? frame - preRoll : 0u;
+                result.onsets[regions] = static_cast<float>(frame) / static_cast<float>(frames);
                 result.boundaries[regions++] = static_cast<float>(onset)
                     / static_cast<float>(frames);
                 last = frame;
@@ -3848,7 +3908,7 @@ struct ThruInstance : PlaybackEffectsState {
             previous += (fast - previous) * 0.12f;
         }
         result.count = regions;
-        result.boundaries[regions] = 1.0f;
+        result.boundaries[regions] = result.onsets[regions] = 1.0f;
     }
 
     void installRegionMap(std::size_t lane, const RegionMap& map, bool sourceChanged = true)
@@ -3869,6 +3929,7 @@ struct ThruInstance : PlaybackEffectsState {
         preparedLaneFrames.fill(0u);
         preparedLaneRates.fill(sampleRate);
         preparedRegions.fill(RegionMap {});
+        preparedFileSlices.fill(s3g_thru::SliceMap {});
         preparedWaveMinimum.fill(WaveBins {});
         preparedWaveMaximum.fill(WaveBins {});
         for (std::size_t lane = 0u; lane < kLaneCount; ++lane) {
@@ -3897,6 +3958,7 @@ struct ThruInstance : PlaybackEffectsState {
                 preparedLaneRates[lane] = engine.laneSampleRate(lane);
                 preparedLaneKinds[lane] = currentLaneSourceKinds[lane];
                 preparedRegions[lane] = activeRegions[lane];
+                preparedFileSlices[lane] = fileSliceMaps[lane];
                 analyzeWaveform(left, right, frames,
                                 preparedWaveMinimum[lane],
                                 preparedWaveMaximum[lane]);
@@ -3911,9 +3973,10 @@ struct ThruInstance : PlaybackEffectsState {
             if (!decodeLibraryWav(path, left, right, preparedLaneFrames[lane],
                                   preparedLaneRates[lane],
                                   preparedLaneLabels[lane].data(),
-                                  preparedLaneLabels[lane].size())) {
+                                  preparedLaneLabels[lane].size(), &preparedFileSlices[lane])) {
                 return false;
             }
+            if(!preparedFileSlices[lane].count)preparedFileSlices[lane]=clip.sliceLanes[lane].file;
             analyzeRegions(left, right, preparedLaneFrames[lane],
                            preparedLaneRates[lane], preparedRegions[lane]);
             analyzeWaveform(left, right, preparedLaneFrames[lane],
@@ -4243,6 +4306,7 @@ struct ThruInstance : PlaybackEffectsState {
                                       std::memory_order_release);
                 return;
             }
+            closeSliceEditor();
             sampleApplyLane = sampleRequestLane;
             sampleCopyFrame = 0u;
             sampleRemovalRequested = false;
@@ -4284,6 +4348,7 @@ struct ThruInstance : PlaybackEffectsState {
             return;
         }
         installRegionMap(lane, sampleStageRegions);
+        fileSliceMaps[lane]=sampleStageFileSlices;
         pendingClearMask &= ~(1u << lane);
         waveMinimum[lane] = sampleStageWaveMinimum;
         waveMaximum[lane] = sampleStageWaveMaximum;
@@ -4298,6 +4363,7 @@ struct ThruInstance : PlaybackEffectsState {
                                      static_cast<int>(kClipSlotCount) - 1);
         if (!sampleRequestFromClip) {
             ClipSlot& clip = clipSlots[static_cast<std::size_t>(owner)];
+            clip.sliceLanes[lane]={};clip.sliceLanes[lane].file=fileSliceMaps[lane];
             clip.laneSourceKinds[lane] = LaneSourceKind::file;
             clip.laneSourcePaths[lane] = sampleRequestPath;
             std::snprintf(clip.laneSourceLabels[lane].data(),
@@ -4309,6 +4375,7 @@ struct ThruInstance : PlaybackEffectsState {
             markPersistentStateDirty();
         } else {
             const ClipSlot& clip = clipSlots[static_cast<std::size_t>(owner)];
+            if(!fileSliceMaps[lane].count)fileSliceMaps[lane]=clip.sliceLanes[lane].file;
             currentLaneSourceKinds[lane] = clip.laneSourceKinds[lane];
             if (clip.laneSourceLabels[lane][0] != '\0') {
                 laneSourceLabels[lane] = clip.laneSourceLabels[lane];
@@ -4352,8 +4419,8 @@ struct ThruInstance : PlaybackEffectsState {
         if (voice.stealPending) return;
         voice.stealControls = effectiveControls(voice);
         voice.stealPan=voice.panState;voice.stealTone=voiceToneAmount(voice);
-        voice.stealOutputGain = voice.clipOwned
-            ? clipOutputGain : outputGain;
+        voice.stealOutputGain = (voice.clipOwned
+            ? clipOutputGain : outputGain)*voice.midiGain;
         voice.stealFadeRemaining = voiceStealFadeFrames;
         voice.stealPending = true;
     }
@@ -4383,7 +4450,7 @@ struct ThruInstance : PlaybackEffectsState {
             return;
         }
 
-        voice.gainState = voice.clipOwned ? clipOutputGain : outputGain;
+        voice.gainState = (voice.clipOwned ? clipOutputGain : outputGain)*voice.midiGain;
         voice.panState=voice.entryVariation.pan;voice.pressureToneState={};voice.pressureToneMix=0;voice.pressureToneCoefficient=1;
         voice.envelopeSustain = clampValue(
             (voice.clipOwned ? clipControls : controls).ampSustain,
@@ -4543,6 +4610,7 @@ struct ThruInstance : PlaybackEffectsState {
 
     void allNotesOff()
     {
+        clearMidiKeyState();
         heldKeys={};
         cancelPerformanceGestures();
         if (clipRecording) {
@@ -4586,7 +4654,7 @@ struct ThruInstance : PlaybackEffectsState {
         activeNote = -1;
         std::uint32_t newestAge = 0u;
         for (const auto& voice : voices) {
-            if (voice.active && voice.held && !voice.clipOwned
+            if (voice.active && voice.held && !voice.clipOwned && !voice.sliceAudition
                 && voice.age >= newestAge) {
                 activeNote = voice.note;
                 newestAge = voice.age;
@@ -4618,7 +4686,7 @@ struct ThruInstance : PlaybackEffectsState {
     PlaybackVoice* findHeldVoiceForNote(int note, int sourcePad)
     {
         for (auto& voice : voices) {
-            if (voice.active && voice.held && !voice.clipOwned && voice.note == note
+            if (voice.active && !voice.sliceAudition && voice.held && !voice.clipOwned && voice.note == note
                 && voice.sourcePad == sourcePad
                 && (!splitEnabled || sourcePad >= 0 || voice.part == midiPart)) {
                 return &voice;
@@ -4748,6 +4816,7 @@ struct ThruInstance : PlaybackEffectsState {
 
     static std::size_t clipPointLane(const ClipPoint& point)
     {
+        if(point.type==ClipPointType::midiExpression)return point.sourcePad<4u&&(point.parameter&255u)<4u?kClipMidiExpressionOffset+point.sourcePad*4u+(point.parameter&255u):kClipCurveLaneCount;
         if(point.type==ClipPointType::notePressure)return point.sourcePad<4u&&(point.parameter&255u)<128u?kClipNotePressureOffset+point.sourcePad*128u+(point.parameter&255u):kClipCurveLaneCount;
         if (point.type == ClipPointType::partParameter) {
             const std::size_t p=point.parameter&255u;
@@ -4832,6 +4901,15 @@ struct ThruInstance : PlaybackEffectsState {
         }
     }
 
+    bool monoKeyInput(int part, int sourcePad) const
+    {
+        const auto settings = settingsForPart(part);
+        // External keys follow VOICE independently of the physical pad layout.
+        // Non-key pad voices retain their separate polyphonic behavior.
+        return settings.voiceMode != 0
+            && (sourcePad < 0 || settings.mode == static_cast<int>(PadMode::keys));
+    }
+
     void captureClipNoteOn(int note, int velocity, int sourcePad, int owner = -1)
     {
         ClipSlot* clip = activeClipSlot();
@@ -4856,9 +4934,9 @@ struct ThruInstance : PlaybackEffectsState {
         captured.part = splitEnabled ? static_cast<std::uint8_t>(owner+1) : 0u;
         bool pressureFound=false;float recordPressure=0;
         captured.engineSlot=captured.engineAlgorithm=255;captured.engineVariation={};captured.initialPressure=0;
-        const bool monoKeys=settingsForPart(owner).voiceMode && settingsForPart(owner).mode==0;
-        for(const auto& v:voices)if(v.active&&v.held&&(!splitEnabled||v.part==owner)
-            &&((v.note==note&&v.sourcePad==sourcePad)||monoKeys)&&!v.clipOwned) {
+        const bool monoKeys=monoKeyInput(owner,sourcePad);
+        for(const auto& v:voices)if(v.active&&v.held&&!v.sliceAudition&&(!splitEnabled||v.part==owner)
+            &&((v.note==note&&v.sourcePad==sourcePad)||(monoKeys&&monoKeyInput(owner,v.sourcePad)))&&!v.clipOwned) {
             captured.engineVariation=v.entryVariation;captured.initialPressure=v.pressureTarget;
             const int mode=settingsForPart(v.part).pressure;pressureFound=mode!=0;recordPressure=mode==1||mode==4?v.laneOffset:v.pressureTarget;
             captured.engineSlot=v.engineSlot>=0?static_cast<std::uint8_t>(v.engineSlot):255;
@@ -4899,7 +4977,8 @@ struct ThruInstance : PlaybackEffectsState {
         if (!clipRecording || !clip) return;
         const std::uint32_t time = timeOverride==0xffffffffu ? clipCaptureTimeMs() : timeOverride;
         std::size_t curveLane = kClipCurveLaneCount;
-        if(type==ClipPointType::notePressure) {curveLane=sourcePad>=0&&sourcePad<4&&parameter<128u?kClipNotePressureOffset+sourcePad*128u+parameter:kClipCurveLaneCount;}
+        if(type==ClipPointType::midiExpression) {curveLane=sourcePad>=0&&sourcePad<4&&parameter<4u?kClipMidiExpressionOffset+sourcePad*4u+parameter:kClipCurveLaneCount;}
+        else if(type==ClipPointType::notePressure) {curveLane=sourcePad>=0&&sourcePad<4&&parameter<128u?kClipNotePressureOffset+sourcePad*128u+parameter:kClipCurveLaneCount;}
         else if(type==ClipPointType::stackPath) {
             curveLane=sourcePad>=0 && sourcePad<5 && parameter<50u ? kClipStackPathOffset+static_cast<std::size_t>(sourcePad)*50u+parameter : kClipCurveLaneCount;
         } else if(type==ClipPointType::performance) {
@@ -4931,7 +5010,7 @@ struct ThruInstance : PlaybackEffectsState {
             / static_cast<float>(kClipPointCapacity);
         const std::uint32_t minimumInterval = use >= 0.90f ? 40u
             : (use >= 0.75f ? 20u : 10u);
-        const float minimumChange = use >= 0.90f ? 0.05f
+        const float minimumChange = type==ClipPointType::midiExpression ? .001f : use >= 0.90f ? 0.05f
             : (use >= 0.75f ? 0.03f : 0.02f);
         if (type == ClipPointType::pressure && sourcePad >= 0
             && sourcePad < static_cast<int>(clipLastPressureTimes.size())) {
@@ -4956,7 +5035,7 @@ struct ThruInstance : PlaybackEffectsState {
             && previousIndex < static_cast<int>(clip->clipPointCount)) {
             ClipPoint& previous = clip->clipPoints[
                 static_cast<std::size_t>(previousIndex)];
-            if((type==ClipPointType::pressure||type==ClipPointType::notePressure)&&time==previous.timeMs){previous.value=value;return;}
+            if((type==ClipPointType::pressure||type==ClipPointType::notePressure||type==ClipPointType::midiExpression)&&time==previous.timeMs){previous.value=value;return;}
             if(formantEdge && time>=previous.timeMs && value==previous.value)return;
             if(formantEdge && time==previous.timeMs){previous.value=value;return;}
             if (!formantEdge && time >= previous.timeMs
@@ -5144,7 +5223,7 @@ struct ThruInstance : PlaybackEffectsState {
     void captureActiveStackPositions()
     {
         for (const auto& voice : voices) {
-            if (voice.active && voice.held && (!splitEnabled || voice.part==splitFocus)) captureClipStackPosition(voice);
+            if (voice.active && voice.held && !voice.sliceAudition && (!splitEnabled || voice.part==splitFocus)) captureClipStackPosition(voice);
         }
     }
 
@@ -5188,15 +5267,20 @@ struct ThruInstance : PlaybackEffectsState {
         const int key=sourcePad>=0?128+sourcePad:note;
         heldKeys[owner][key]={note,velocity,sourcePad,noteClock};
         PlaybackVoice* mono=nullptr;
-        if(mode && settingsForPart(owner).mode==0)for(auto& v:voices)
-            if(v.active && !v.clipOwned && v.part==owner && (!mono || v.age>mono->age))mono=&v;
+        if(monoKeyInput(owner,sourcePad))for(auto& v:voices)
+            if(v.active && !v.sliceAudition && !v.clipOwned && v.part==owner && monoKeyInput(owner,v.sourcePad)
+                && (!mono || v.age>mono->age))mono=&v;
         if(mode==2 && mono && mono->held) {
             mono->note=note;mono->sourcePad=sourcePad;mono->velocity=velocity;mono->age=noteClock;
+            mono->sliceCached=false;
+            if(sourcePad>=0){mono->midiExternal=false;mono->midiGain=1;mono->midiTarget={};}
             captureClipNoteOn(note,velocity,sourcePad);updateActiveNote();return;
         }
         PlaybackVoice& voice = mono?*mono:allocateVoice(note, sourcePad);
         const bool reusingActiveVoice = voice.active;
         if (reusingActiveVoice) beginVoiceStealTransition(voice);
+        voice.midiExternal=false;voice.midiGain=1;voice.midiTarget={};voice.midiValue={};
+        voice.sliceCached=false;voice.sliceAudition=false;
         if (!mode && voice.active && !voice.clipOwned
             && (voice.note != note || voice.sourcePad != sourcePad)) {
             clearPadMappingForVoice(voice);
@@ -5241,20 +5325,23 @@ struct ThruInstance : PlaybackEffectsState {
 
     void noteOff(int note, int sourcePad = -1)
     {
-        postPatternCommand(0,note,sourcePad);
+        if(!midiReleasingExternal)postPatternCommand(0,note,sourcePad);
         note = clampValue(note, 0, 127);
         const int owner=splitEnabled?partForInput(sourcePad):0;
         const int key=sourcePad>=0?128+sourcePad:note;
         heldKeys[owner][key]={};
         for (auto& voice : voices) {
-            if (voice.active && voice.held && !voice.clipOwned && voice.note == note
+            if (voice.active && !voice.sliceAudition && voice.held && !voice.clipOwned && voice.note == note
                 && voice.sourcePad == sourcePad
                 && (!splitEnabled || sourcePad >= 0 || voice.part == midiPart)) {
                 const HeldKey* prior=nullptr;
-                if(settingsForPart(owner).voiceMode && settingsForPart(owner).mode==0)
-                    for(const auto& held:heldKeys[owner])if(held.note>=0 && (!prior || held.age>prior->age))prior=&held;
+                if(monoKeyInput(owner,sourcePad))
+                    for(const auto& held:heldKeys[owner])if(held.note>=0 && monoKeyInput(owner,held.pad)
+                        && (!prior || held.age>prior->age))prior=&held;
                 if(prior) {
+                    voice.sliceCached=false;
                     voice.note=prior->note;voice.sourcePad=prior->pad;voice.velocity=prior->velocity;
+                    const auto expression=voice.midiValue;initializeMidiVoice(voice);voice.midiValue=expression;
                     if(settingsForPart(owner).voiceMode==1){beginVoiceStealTransition(voice);}
                 } else {voice.held = false;
                     if(voice.bankAsset<0 || bankSlots[voice.bankSlot].play==0)beginVoiceRelease(voice);
@@ -5274,7 +5361,7 @@ struct ThruInstance : PlaybackEffectsState {
             captureClipPoint(ClipPointType::pressure, 0u, sourcePad, offset);
         } else captureClipPoint(ClipPointType::notePressure,static_cast<std::size_t>(clampValue(note,0,127)),owner,offset);
         for (auto& voice : voices) {
-            if (voice.active && voice.held && !voice.clipOwned
+            if (voice.active && voice.held && !voice.clipOwned && !voice.sliceAudition
                 && voice.note == note && voice.sourcePad == sourcePad
                 && (!splitEnabled || sourcePad>=0 || voice.part==midiPart)) {
                 voice.pressureTarget=offset;
@@ -5662,6 +5749,7 @@ struct ThruInstance : PlaybackEffectsState {
     {
         if(bankPadOn(hardwareNote-kFirstPadNote,velocity))return;
         if(performancePadOn(hardwareNote-kFirstPadNote)) return;
+        if(sliceEditorPadOn(hardwareNote-kFirstPadNote,velocity))return;
         const int index = hardwareNote - kFirstPadNote;
         if (index < 0 || index >= static_cast<int>(padMappedNotes.size())) return;
         const std::size_t pad = static_cast<std::size_t>(index);
@@ -5713,6 +5801,7 @@ struct ThruInstance : PlaybackEffectsState {
         postPatternCommand(1,hardwareNote);
         if(bankPadOff(hardwareNote-kFirstPadNote))return;
         if(performancePadOff(hardwareNote-kFirstPadNote)) return;
+        sliceEditorPadOff(hardwareNote-kFirstPadNote);
         const int index = hardwareNote - kFirstPadNote;
         if (index < 0 || index >= static_cast<int>(padMappedNotes.size())) return;
         const std::size_t pad = static_cast<std::size_t>(index);
@@ -5910,8 +5999,12 @@ struct ThruInstance : PlaybackEffectsState {
             effective.manualLane = effective.stackFirstLane + clampValue(effective.manualLane,0.0f,sharedDual?3.0f:isQuad()?0.0f:1.0f);
         }
         effective.noteStartOffset=voice.entryVariation.position;
+        // External Slices keys address regions, independently of playback
+        // pitch. Keep intentional bend and per-voice octave variation.
+        const float keyTranspose = effective.algorithm == Engine::PlaybackAlgorithm::slices
+            && voice.sourcePad < 0 ? 0.0f : static_cast<float>(voice.note - owner.root);
         const float noteRatio = voice.note >= 0
-            ? std::pow(2.0f, static_cast<float>(voice.note + 12*voice.entryVariation.octave - owner.root) / 12.0f)
+            ? std::pow(2.0f, (keyTranspose + 12*voice.entryVariation.octave + voice.midiValue[0]) / 12.0f)
             : 1.0f;
         if (effective.algorithm == Engine::PlaybackAlgorithm::grains
             || effective.algorithm == Engine::PlaybackAlgorithm::longGrains
@@ -5935,7 +6028,7 @@ struct ThruInstance : PlaybackEffectsState {
                 effective.speed * noteRatio, 0.05f, 4.0f);
         }
         if(effective.algorithm==Engine::PlaybackAlgorithm::formant)
-            effective.formantNoteHz=440.f*std::exp2(static_cast<float>((voice.note>=0?voice.note:owner.root)+12*voice.entryVariation.octave-69)/12);
+            effective.formantNoteHz=440.f*std::exp2((static_cast<float>((voice.note>=0?voice.note:owner.root)+12*voice.entryVariation.octave-69)+voice.midiValue[0])/12);
         effective.textureScaleMask=0;
         const auto& scale=kScaleDefinitions[static_cast<std::size_t>(owner.scale)];
         for(int interval=0;interval<12;++interval)for(std::size_t degree=0;degree<scale.count;++degree)
@@ -5950,6 +6043,9 @@ struct ThruInstance : PlaybackEffectsState {
         effective.lanePhaseOffset = effective.algorithm == Engine::PlaybackAlgorithm::cutups
             ? ((owner.pressure==1||owner.pressure==4) ? voice.cutLanePressure*owner.engines.pressureDepth : 0.0f)
             : voiceLanePhaseOffset(voice);
+        effective.lanePhaseOffset=effective.algorithm==Engine::PlaybackAlgorithm::cutups
+            ?clampValue(effective.lanePhaseOffset+voice.midiValue[1],0.f,1.f)
+            :effective.lanePhaseOffset+voice.midiValue[1];
         if(voice.entryVariation.stack!=0) {
             const float phase=effective.lanePhaseOffset+voice.entryVariation.stack;
             effective.lanePhaseOffset=effective.algorithm==Engine::PlaybackAlgorithm::cutups?clampValue(phase,0.0f,1.0f):phase-std::floor(phase);
@@ -5965,13 +6061,14 @@ struct ThruInstance : PlaybackEffectsState {
                 && voice.liveStackPhaseValid
             ? voice.liveStackPhase : voice.recordedStackPhase;
         if(voice.pressureBrakeHeld&&!effective.lanePhaseOverride) {effective.laneScanPaused=true;effective.lanePhaseOverride=true;effective.lanePhaseOverrideValue=voice.pressureBrakePhase;}
-        applyVoiceCharacter(effective,voice.pressureState);
+        applyVoiceCharacter(effective,std::max(voice.pressureState,voice.midiValue[2]));
         applyPerformanceLane(effective,voice.part);
         effective.glitchBufferLocked = owner.glitchHold != 0;
         effective.stochasticListenTarget = effective.algorithm == Engine::PlaybackAlgorithm::stochastic
             ? stochasticPartMeters[voice.part].target(voice.stochasticListenLevel) : 0;
         effective.mix = 1.0f;
         effective.recordInputGain = 1.0f;
+        applySliceVoiceCache(voice,effective);
         return effective;
     }
 
@@ -6032,7 +6129,8 @@ struct ThruInstance : PlaybackEffectsState {
         const bool hasPrevious = next != first;
         const bool hasNext = next != last;
         const ClipPoint& before = hasPrevious ? *(next - 1) : *(last - 1);
-        if (!interpolate || count == 1u) {
+        // MIDI expression holds its last value until the loop seam.
+        if (!interpolate || count == 1u || (lane>=kClipMidiExpressionOffset&&(!hasPrevious||!hasNext))) {
             value = before.value;
             return true;
         }
@@ -6077,7 +6175,8 @@ struct ThruInstance : PlaybackEffectsState {
         if(owner<0||owner>=partCount())return;
         if(bankMode && owner==1) {
             const int pad=event.sourcePad<32?event.sourcePad:-1,slot=pad>=0?localPad(pad):event.note-60;
-            if(slot>=0&&slot<16)startBankVoice(slot,pad,event.velocity,true,static_cast<int>(noteIndex));
+            if(slot>=0&&slot<16){startBankVoice(slot,pad,event.velocity,true,static_cast<int>(noteIndex));
+                for(auto& voice:voices)if(voice.clipOwned&&voice.clipNoteIndex==static_cast<int>(noteIndex))initializeMidiVoice(voice,&clip,event.startMs);}
             return;
         }
         if (event.sourcePad < 32u) {
@@ -6102,16 +6201,20 @@ struct ThruInstance : PlaybackEffectsState {
         const auto& ownerControls=splitEnabled?splitClipControls[static_cast<std::size_t>(owner)]:clipControls;
         PlaybackVoice* mono=nullptr;
         const auto settings=settingsForPart(owner);
-        if(settings.voiceMode && settings.mode==0)for(auto& v:voices)
-            if(v.active && v.clipOwned && v.part==owner && (!mono || v.age>mono->age))mono=&v;
+        if(monoKeyInput(owner,event.sourcePad<32?event.sourcePad:-1))for(auto& v:voices)
+            if(v.active && v.clipOwned && v.part==owner && monoKeyInput(owner,v.sourcePad)
+                && (!mono || v.age>mono->age))mono=&v;
         if(settings.voiceMode==2 && mono && mono->held) {
+            mono->sliceCached=false;
             mono->note=event.note;mono->sourcePad=event.sourcePad<32?event.sourcePad:-1;
-            mono->velocity=event.velocity;mono->clipNoteIndex=static_cast<int>(noteIndex);mono->age=noteClock;return;
+            mono->velocity=event.velocity;mono->clipNoteIndex=static_cast<int>(noteIndex);mono->age=noteClock;
+            const auto values=mono->midiValue;initializeMidiVoice(*mono,&clip,event.startMs);mono->midiValue=values;return;
         }
         PlaybackVoice& voice = mono?*mono:allocateClipVoice(owner);
         const bool reusingActiveVoice = voice.active;
         if (reusingActiveVoice) beginVoiceStealTransition(voice);
         if (voice.active && !voice.clipOwned) clearPadMappingForVoice(voice);
+        voice.sliceCached=false;voice.sliceAudition=false;
         voice.engineSlot=event.engineSlot<8?event.engineSlot:-1;
         voice.assignedAlgorithm=event.engineAlgorithm<Engine::kPlaybackAlgorithmCount?event.engineAlgorithm:-1;
         voice.entryVariation=event.engineVariation;voice.pressureTarget=event.initialPressure;voice.pressureState=0;voice.pressureBrakeHeld=false;
@@ -6163,6 +6266,7 @@ struct ThruInstance : PlaybackEffectsState {
         voice.held = true;
         voice.clipOwned = true;
         voice.clipNoteIndex = static_cast<int>(noteIndex);
+        initializeMidiVoice(voice,&clip,event.startMs);
         if (!reusingActiveVoice) {
             beginVoiceAttack(voice);
             voice.engine.retrigger(false);
@@ -6185,7 +6289,7 @@ struct ThruInstance : PlaybackEffectsState {
                 || voice.clipNoteIndex != clipNoteIndex) continue;
             const auto settings=settingsForPart(voice.part);
             const auto* clip=activeClipSlot();int prior=-1;std::uint32_t newest=0xffffffffu;
-            if(settings.voiceMode && settings.mode==0 && voice.bankAsset<0 && clip && noteIndex<clip->clipNoteCount) {
+            if(monoKeyInput(voice.part,voice.sourcePad) && voice.bankAsset<0 && clip && noteIndex<clip->clipNoteCount) {
                 const auto duration=std::max(kClipMinimumDurationMs,clip->clipDurationMs);
                 const auto& released=clip->clipNotes[noteIndex];
                 const auto end=static_cast<std::uint32_t>((static_cast<std::uint64_t>(released.startMs)+released.durationMs)%duration);
@@ -6194,15 +6298,18 @@ struct ThruInstance : PlaybackEffectsState {
                     const auto& candidate=clip->clipNotes[i];
                     const int owner=splitEnabled?(candidate.part?candidate.part-1:partForInput(candidate.sourcePad<32?candidate.sourcePad:-1)):0;
                     const auto elapsed=(end+duration-candidate.startMs)%duration;
-                    if(owner==voice.part && elapsed>0 && elapsed<candidate.durationMs && elapsed<newest) {
+                    if(owner==voice.part && monoKeyInput(owner,candidate.sourcePad<32?candidate.sourcePad:-1)
+                        && elapsed>0 && elapsed<candidate.durationMs && elapsed<newest) {
                         newest=elapsed;prior=static_cast<int>(i);
                     }
                 }
             }
             if(prior>=0) {
                 if(settings.voiceMode==1)beginVoiceStealTransition(voice);
+                voice.sliceCached=false;
                 const auto& key=clip->clipNotes[prior];voice.note=key.note;
                 voice.sourcePad=key.sourcePad<32?key.sourcePad:-1;voice.velocity=key.velocity;voice.clipNoteIndex=prior;
+                const auto values=voice.midiValue;initializeMidiVoice(voice,clip,clipPositionMs);voice.midiValue=values;
             } else {
                 voice.held = false;
                 if(voice.bankAsset<0 || bankSlots[voice.bankSlot].play==0)beginVoiceRelease(voice);
@@ -6302,6 +6409,12 @@ struct ThruInstance : PlaybackEffectsState {
                         && splitClipControls[part].algorithm == Engine::PlaybackAlgorithm::cutups);
                 if(sampleClipCurve(clip,lane,position,interpolate,value))
                     applyLockedValue(splitClipControls[part],clipOutputGain,parameter,value);
+                continue;
+            }
+            if(lane>=kClipMidiExpressionOffset) {
+                const auto part=(lane-kClipMidiExpressionOffset)/4u,field=(lane-kClipMidiExpressionOffset)%4u;
+                if(field<3&&sampleClipCurve(clip,lane,position,true,value))for(auto& voice:voices)
+                    if(voice.active&&voice.clipOwned&&voice.sourcePad<0&&voice.part==static_cast<int>(part))voice.midiTarget[field]=value;
                 continue;
             }
             if(lane>=kClipNotePressureOffset) {
@@ -6428,6 +6541,7 @@ struct ThruInstance : PlaybackEffectsState {
             std::memory_order_relaxed);
         clipRecording = true;
         capturePerformanceInitialState();
+        seedMidiRecording();
         if(splitEnabled) {
             for(int part=0;part<partCount();++part) captureClipPoint(ClipPointType::partHold,0u,part,
                 settingsForPart(part).stackHold?1.0f:0.0f);
@@ -6439,10 +6553,9 @@ struct ThruInstance : PlaybackEffectsState {
         // those held free-play voices at the record origin/current overdub
         // phase so their later note-offs close valid captured notes.
         for (const auto& voice : voices) {
-            if (!voice.active || !voice.held) continue;
+            if (!voice.active || !voice.held || voice.sliceAudition) continue;
             if (!voice.clipOwned) {
-                const auto settings=settingsForPart(voice.part);
-                if(!settings.voiceMode || settings.mode!=0 || voice.bankAsset>=0)
+                if(!monoKeyInput(voice.part,voice.sourcePad) || voice.bankAsset>=0)
                     captureClipNoteOn(voice.note, voice.velocity, voice.sourcePad, voice.part);
                 if (voice.sourcePad >= 0 && voice.sourcePad < 32) {
                     captureClipPoint(ClipPointType::pressure, 0u,
@@ -6454,9 +6567,9 @@ struct ThruInstance : PlaybackEffectsState {
             if (settingsForPart(voice.part).stackHold) captureClipStackPosition(voice);
         }
         for(int owner=0;owner<(splitEnabled?partCount():1);++owner)
-            if(settingsForPart(owner).voiceMode && settingsForPart(owner).mode==0) {
+            if(settingsForPart(owner).voiceMode) {
             std::array<const HeldKey*,160> ordered {};std::size_t count=0;
-            for(const auto& key:heldKeys[owner])if(key.note>=0)ordered[count++]=&key;
+            for(const auto& key:heldKeys[owner])if(key.note>=0 && monoKeyInput(owner,key.pad))ordered[count++]=&key;
             std::sort(ordered.begin(),ordered.begin()+count,[](const HeldKey* a,const HeldKey* b){return a->age<b->age;});
             for(std::size_t i=0;i<count;++i) {
                 const auto& key=*ordered[i];
@@ -6723,7 +6836,7 @@ struct ThruInstance : PlaybackEffectsState {
     {
         renderClockSamples.fetch_add(frames, std::memory_order_relaxed);
         const double previousBeat = transportBeats;
-        transportBeats += static_cast<double>(frames)
+        if(!midiSyncSource||!midiClockStopped)transportBeats += static_cast<double>(frames)
             / static_cast<double>(std::max(1.0f, sampleRate))
             * static_cast<double>(tempoBpm) / 60.0;
         if (clipLaunchPending) {
@@ -6869,7 +6982,7 @@ struct ThruInstance : PlaybackEffectsState {
     void pushClipUndo(int index)
     {
         undoHasChainClip=false;
-        undoIsBank=false;undoIsChain=false;
+        undoIsBank=false;undoIsChain=false;undoIsSlice=false;
         if (index < 0 || index >= static_cast<int>(clipSlots.size())) return;
         if (index == activeClip) captureActiveClip(false);
         undoClip = clipSlots[static_cast<std::size_t>(index)];
@@ -6880,6 +6993,7 @@ struct ThruInstance : PlaybackEffectsState {
     void restoreUndo()
     {
         if(bankJob.load(std::memory_order_acquire)){setError("Finish Bank capture/save before undo");return;}
+        if(undoAvailable && undoIsSlice){restoreSliceUndo();return;}
         if(undoAvailable && undoIsBank && undoBankEdit())return;
         if(undoAvailable && undoIsChain){restoreChainUndo();return;}
         if (pendingCaptureSaveMask != 0u && !serviceMaintenance()) {
@@ -7058,6 +7172,7 @@ struct ThruInstance : PlaybackEffectsState {
         if(wantsPatternFade(fade) && (previewActive||previewTransitionRemaining)) {stopPreviewWithFade();return false;}
         const bool fading=beginPatternFade(preparedClip.load(std::memory_order_relaxed),fade);
         if(!fading)beginSourceTransitionTail();
+        closeSliceEditor();
         allNotesOff();
         if(fading) {
             // The outgoing context owns every old envelope. Silent envelopes
@@ -7089,11 +7204,13 @@ struct ThruInstance : PlaybackEffectsState {
                 engine.adoptLane(lane, preparedLaneFrames[lane],
                                  preparedLaneRates[lane]);
                 activeRegions[lane] = preparedRegions[lane];
+                fileSliceMaps[lane] = preparedFileSlices[lane];
                 engine.setLaneRegions(lane,
                     activeRegions[lane].boundaries.data(),
                     std::max<std::size_t>(1u, activeRegions[lane].count));
                 ++laneRegionRevisions[lane];
             } else {
+                fileSliceMaps[lane] = {};
                 activeRegions[lane] = {};
             }
             waveMinimum[lane] = preparedWaveMinimum[lane];
@@ -7153,6 +7270,7 @@ struct ThruInstance : PlaybackEffectsState {
     void copyCurrentSourcesToClip(ClipSlot& target)
     {
         for (std::size_t lane = 0u; lane < kLaneCount; ++lane) {
+            if(const auto* source=activeClipSlot();source&&source!=&target)target.sliceLanes[lane]=source->sliceLanes[lane];
             target.laneSourceKinds[lane] = currentLaneSourceKinds[lane];
             std::snprintf(target.laneSourcePaths[lane].data(),
                           target.laneSourcePaths[lane].size(), "%s",
@@ -7451,10 +7569,7 @@ struct ThruInstance : PlaybackEffectsState {
         if(splitEnabled||voiceEngineSettings.enabled||std::any_of(voices.begin(),voices.end(),[](const auto& v){return v.active&&v.assignedAlgorithm>=0;})) {
             float sum=0;
             for(const auto& voice:voices)if(voice.active) {
-                const auto algorithm=voice.engine.playbackAlgorithm();
-                const float gain=algorithm==Engine::PlaybackAlgorithm::sample||algorithm==Engine::PlaybackAlgorithm::slices
-                    ? (voice.variantLane==lane?1.0f:0.0f):voice.engine.laneWeight(lane);
-                sum+=gain*voice.envelope;
+                sum+=voice.engine.laneWeight(lane)*voice.envelope;
             }
             return clampValue(sum,0.0f,1.0f);
         }
@@ -7603,7 +7718,15 @@ struct ThruInstance : PlaybackEffectsState {
     int formatRegionState(char* buffer, int bufferLength) const
     {
         if (!buffer || bufferLength < 1 || selectedLane >= kLaneCount) return -1;
-        const RegionMap& map = activeRegions[selectedLane];
+        RegionMap map = activeRegions[selectedLane];
+        if(controls.algorithm==Engine::PlaybackAlgorithm::slices) {
+            int kind=0;const auto slices=sliceMapForLane(selectedLane,controls,kind);
+            map.count=slices.count;map.boundaries=slices.points;
+            if(kind==0&&map.count) {
+                const auto window=sliceSourceWindow(controls);
+                for(std::size_t i=0;i<=map.count;++i)map.boundaries[i]=window[0]+map.boundaries[i]*(window[1]-window[0]);
+            }
+        }
         int position = std::snprintf(buffer, static_cast<std::size_t>(bufferLength),
                                      "%zu", map.count);
         if (position < 0 || position >= bufferLength) return -1;
@@ -7934,6 +8057,8 @@ struct ThruInstance : PlaybackEffectsState {
 
     void completedRecordingLane(std::size_t lane, bool = true)
     {
+        closeSliceEditor();
+        if(lane<kLaneCount){fileSliceMaps[lane]={};if(auto* clip=activeClipSlot())clip->sliceLanes[lane]={};}
         recordingLaneMask = 0u;
         if (lane < kLaneCount && engine.laneFrames(lane) != 0u) {
             pendingRegionAnalysisMask |= 1u << lane;
@@ -7987,6 +8112,7 @@ struct ThruInstance : PlaybackEffectsState {
             return;
         }
         clearError();
+        closeSliceEditor();
         pendingRegionAnalysisMask &= ~(1u << selectedLane);
         if(recordSource>=2) {beginPartCapture();return;}
         recordingLaneMask = 1u << selectedLane;
@@ -8027,6 +8153,9 @@ struct ThruInstance : PlaybackEffectsState {
             setError("Lane is busy and could not be cleared");
             return;
         }
+        closeSliceEditor();
+        fileSliceMaps[selectedLane]={};
+        if(auto* clip=activeClipSlot())clip->sliceLanes[selectedLane]={};
         pendingClearMask |= 1u << selectedLane;
         pendingRegionAnalysisMask &= ~(1u << selectedLane);
         std::snprintf(laneSourceLabels[selectedLane].data(),
@@ -8096,6 +8225,7 @@ struct ThruInstance : PlaybackEffectsState {
         }
         clearError();
         pushClipUndo(activeClip);
+        closeSliceEditor();
         allNotesOff();
         return true;
     }
@@ -8105,6 +8235,7 @@ struct ThruInstance : PlaybackEffectsState {
         if (activeClip < 0
             || activeClip >= static_cast<int>(clipSlots.size())) return;
         ClipSlot& clip = clipSlots[static_cast<std::size_t>(activeClip)];
+        clip.sliceLanes[selectedLane].file=fileSliceMaps[selectedLane];
         if (!allocateCapturePath(
                 activeClip, selectedLane, captureKind ? captureKind : "edit",
                 clip.laneSourcePaths[selectedLane].data(),
@@ -8137,6 +8268,10 @@ struct ThruInstance : PlaybackEffectsState {
         for (std::size_t channel = 0u; channel < 2u; ++channel) {
             float* data = engine.writableLane(selectedLane, channel);
             std::reverse(data, data + frames);
+        }
+        if(auto* clip=activeClipSlot()) {
+            auto& data=clip->sliceLanes[selectedLane];data.edited=s3g_thru::reverseSliceMap(data.edited);
+            fileSliceMaps[selectedLane]=s3g_thru::reverseSliceMap(fileSliceMaps[selectedLane]);data.file=fileSliceMaps[selectedLane];
         }
         finishSampleEdit("REVERSED", "reverse");
     }
@@ -8199,6 +8334,11 @@ struct ThruInstance : PlaybackEffectsState {
             float* data = engine.writableLane(selectedLane, channel);
             std::memmove(data, data + first, trimmedFrames * sizeof(float));
         }
+        if(auto* clip=activeClipSlot()) {
+            auto& data=clip->sliceLanes[selectedLane];const float low=static_cast<float>(first)/frames,high=static_cast<float>(last)/frames;
+            data.edited=s3g_thru::trimSliceMap(data.edited,low,high);
+            fileSliceMaps[selectedLane]=s3g_thru::trimSliceMap(fileSliceMaps[selectedLane],low,high);data.file=fileSliceMaps[selectedLane];
+        }
         engine.adoptLane(selectedLane, trimmedFrames,
                          engine.laneSampleRate(selectedLane));
         sampleTrimStart = 0.0f;
@@ -8243,6 +8383,7 @@ struct ThruInstance : PlaybackEffectsState {
     void render(int16_t* interleaved, int frames, float* rawStereo = nullptr)
     {
         if ((!interleaved && !rawStereo) || frames <= 0) return;
+        captureMidiInbox();
         const int16_t* audioInput = nullptr;
         if (!patternRenderOnly && g_host && g_host->mapped_memory) {
             audioInput = reinterpret_cast<const int16_t*>(
@@ -8278,6 +8419,7 @@ struct ThruInstance : PlaybackEffectsState {
                 renderPatternWarmup(interleaved,rawStereo,rendered,count);rendered+=static_cast<int>(count);continue;
             }
             servicePadHoldDeadlines();
+            serviceMidiClock();
             serviceClipBeforeBlock();
             if(!patternRenderOnly && patternWarmup) {
                 renderPatternWarmup(interleaved,rawStereo,rendered,count);rendered+=static_cast<int>(count);continue;
@@ -8312,6 +8454,7 @@ struct ThruInstance : PlaybackEffectsState {
                     ? voice.stealControls
                     : effectiveControls(voice,splitEnabled ? partSnapshots[static_cast<std::size_t>(voice.part)] : liveControlSnapshot,
                         splitEnabled ? splitClipControls[static_cast<std::size_t>(voice.part)] : clipControlSnapshot);
+                if(!stealingVoice)prepareSliceVoice(voice,effective);
                 if(voice.bankAsset>=0)renderBankVoice(voice,count,effective);
                 else voice.engine.process(silentInputPointers.data(),voice.outputPointers.data(),count,effective);
                 if (!voice.active) continue;
@@ -8324,7 +8467,7 @@ struct ThruInstance : PlaybackEffectsState {
                 }
                 const float voiceGain = stealingVoice
                     ? voice.stealOutputGain
-                    : (voice.clipOwned ? clipOutputGain : outputGain);
+                    : (voice.clipOwned ? clipOutputGain : outputGain)*voice.midiGain;
                 const float tone=stealingVoice?voice.stealTone:voiceToneAmount(voice);
                 const float toneCoefficient=tone>0?1-std::exp(-6.28318530718f*(20000.f*std::pow(.04f,tone))/sampleRate):1;
                 float listenEnergy = 0;
@@ -8716,6 +8859,7 @@ struct ThruInstance : PlaybackEffectsState {
             "\"launch_quantize\":%d,\"midi_control_mode\":%d,"
             "\"midi_cc_channel\":%d,\"midi_cc_base\":%d,"
             "\"midi_takeover\":%d,\"midi_control_part\":%d,"
+            "\"midi_note_route\":%d,\"midi_note_channel\":%d,\"midi_bend_range\":%.4f,\"midi_mod_target\":%d,\"midi_velocity_depth\":%.4f,\"midi_sync_source\":%d,\"midi_sync_transport\":%d,"
             "\"next_capture_id\":%llu,"
             "\"generation\":%llu,\"complete\":1}",
             controls.locus, controls.field, controls.speed,
@@ -8825,6 +8969,7 @@ struct ThruInstance : PlaybackEffectsState {
             static_cast<int>(launchQuantize),
             midiControlMode, midiCcChannel, midiCcBase,
             midiTakeover, midiControlPart,
+            midiNoteRoute,midiNoteChannel,midiBendRange,midiModTarget,midiVelocityDepth*100,midiSyncSource,midiSyncTransport,
             static_cast<unsigned long long>(nextCaptureId),
             static_cast<unsigned long long>(generation == kAnyPersistenceGeneration
                 ? persistenceGeneration : generation));
@@ -8836,8 +8981,8 @@ struct ThruInstance : PlaybackEffectsState {
         std::array<char, kPersistencePathSize> path {};
         std::array<char, kPersistencePathSize> temporary {};
         std::array<char, kStateTextSize> text {};
-        if (!persistencePath("thru-state.json", path.data(), path.size())
-            || !persistencePath("thru-state.json.tmp", temporary.data(), temporary.size())) {
+        if (!metadataPath(snapshot,"thru-state.json", path.data(), path.size())
+            || !metadataPath(snapshot,"thru-state.json.tmp", temporary.data(), temporary.size())) {
             return false;
         }
         const int length = snapshot
@@ -8847,7 +8992,7 @@ struct ThruInstance : PlaybackEffectsState {
         std::FILE* file = std::fopen(temporary.data(), "wb");
         if (!file) return false;
         const bool wrote = writeBytes(file, text.data(), static_cast<std::size_t>(length));
-        const bool closed = std::fclose(file) == 0;
+        const bool closed = s3g_thru_storage::closeFile(file,temporary.data(),wrote);
         if (!wrote || !closed
             || (!stageOnly && !replaceFileWithBackup(temporary.data(), path.data()))) {
             std::remove(temporary.data());
@@ -8860,8 +9005,8 @@ struct ThruInstance : PlaybackEffectsState {
     {
         std::array<char, kPersistencePathSize> path {};
         std::array<char, kPersistencePathSize> temporary {};
-        if (!persistencePath("thru-clips.bin", path.data(), path.size())
-            || !persistencePath("thru-clips.bin.tmp", temporary.data(),
+        if (!metadataPath(snapshot,"thru-clips.bin", path.data(), path.size())
+            || !metadataPath(snapshot,"thru-clips.bin.tmp", temporary.data(),
                                 temporary.size())) {
             return false;
         }
@@ -8874,7 +9019,7 @@ struct ThruInstance : PlaybackEffectsState {
         if (!file) return false;
         const char magic[8] { 'S', '3', 'G', 'T', 'H', 'R', '3', '\0' };
         bool ok = writeBytes(file, magic, sizeof(magic))
-            && writeU32(file, 34u)
+            && writeU32(file, 36u)
             && writeU64(file, snapshot ? snapshot->generation : persistenceGeneration)
             && writeF32(file, snapshot ? snapshot->tempo : tempoBpm)
             && writeF32(file, snapshot ? snapshot->swing : tempoSwing)
@@ -8940,7 +9085,7 @@ struct ThruInstance : PlaybackEffectsState {
                     && writeU32(file, clipPointTake(point));
             }
         }
-        ok = ok && writeSplitExtension(file,savedClips) && writeStackPaths(file,savedClips) && writeChainBanks(file,savedBanks,savedBank) && writeChainPlaybackState(file,snapshot?snapshot->chainPlayBank:chainPlayBank) && writeNewEngineParameters(file,savedClips) && writeVoiceEngineExtension(file,savedClips) && writeVoicePlayExtension(file,savedClips) && writeStochasticParameters(file,savedClips) && writePulsarParameters(file,savedClips) && writePriorityParameters(file,savedClips) && writeBankExtension(file,savedClips) && writeBankPadExtension(file,savedClips);
+        ok = ok && writeSplitExtension(file,savedClips) && writeStackPaths(file,savedClips) && writeChainBanks(file,savedBanks,savedBank) && writeChainPlaybackState(file,snapshot?snapshot->chainPlayBank:chainPlayBank) && writeNewEngineParameters(file,savedClips) && writeVoiceEngineExtension(file,savedClips) && writeVoicePlayExtension(file,savedClips) && writeStochasticParameters(file,savedClips) && writePulsarParameters(file,savedClips) && writePriorityParameters(file,savedClips) && writeBankExtension(file,savedClips) && writeBankPadExtension(file,savedClips) && writeSliceExtension(file,savedClips);
         const bool closed = std::fclose(file) == 0;
         ok = ok && closed && appendFileChecksum(temporary.data());
         if (!ok || (!stageOnly && !replaceFileWithBackup(temporary.data(), path.data()))) {
@@ -8962,24 +9107,31 @@ struct ThruInstance : PlaybackEffectsState {
         if (!writeClipFile(snapshot, true) || !writeStateFile(snapshot, true)) return false;
         std::array<char, kPersistencePathSize> clips {}, state {}, clipTemp {}, stateTemp {};
         std::array<char, kPersistencePathSize> clipBackup {}, stateBackup {};
-        if (!persistencePath("thru-clips.bin", clips.data(), clips.size())
-            || !persistencePath("thru-state.json", state.data(), state.size())
-            || !persistencePath("thru-clips.bin.tmp", clipTemp.data(), clipTemp.size())
-            || !persistencePath("thru-state.json.tmp", stateTemp.data(), stateTemp.size())
-            || !persistencePath("thru-clips.bin.bak", clipBackup.data(), clipBackup.size())
-            || !persistencePath("thru-state.json.bak", stateBackup.data(), stateBackup.size())) return false;
-        std::uint64_t clipGeneration = 0u, stateGeneration = 0u;
-        const bool currentPairValid = clipFileGeneration(clips.data(), clipGeneration)
-            && stateFileGeneration(state.data(), stateGeneration)
-            && clipGeneration == stateGeneration;
-        if (currentPairValid) {
-            if (std::rename(clips.data(), clipBackup.data()) != 0) return false;
-            if (std::rename(state.data(), stateBackup.data()) != 0) return false;
-        }
-        // A damaged current pair leaves existing backups intact. Every commit
-        // boundary therefore retains a complete older pair for startup recovery.
-        return std::rename(clipTemp.data(), clips.data()) == 0
-            && std::rename(stateTemp.data(), state.data()) == 0;
+        if (!metadataPath(snapshot,"thru-clips.bin", clips.data(), clips.size())
+            || !metadataPath(snapshot,"thru-state.json", state.data(), state.size())
+            || !metadataPath(snapshot,"thru-clips.bin.tmp", clipTemp.data(), clipTemp.size())
+            || !metadataPath(snapshot,"thru-state.json.tmp", stateTemp.data(), stateTemp.size())
+            || !metadataPath(snapshot,"thru-clips.bin.bak", clipBackup.data(), clipBackup.size())
+            || !metadataPath(snapshot,"thru-state.json.bak", stateBackup.data(), stateBackup.size())) return false;
+        // Repair a matching previous generation even after an interrupted
+        // rotation left it split across the primary and recovery names.
+        const char* cp[2]{clips.data(),clipBackup.data()};
+        const char* sp[2]{state.data(),stateBackup.data()};
+        std::uint64_t cg[2]{},sg[2]{};bool cv[2]{},sv[2]{};
+        for(int i=0;i<2;++i){cv[i]=clipFileGeneration(cp[i],cg[i]);sv[i]=stateFileGeneration(sp[i],sg[i]);}
+        int ci=-1,si=-1;std::uint64_t newest=0;
+        for(int i=0;i<2;++i)for(int j=0;j<2;++j)
+            if(cv[i]&&sv[j]&&cg[i]==sg[j]&&cg[i]>newest){ci=i;si=j;newest=cg[i];}
+        if(ci==0&&(!s3g_thru_storage::rename(clips.data(),clipBackup.data())
+            ||!s3g_thru_storage::syncParent(clips.data())))return false;
+        if(si==0&&(!s3g_thru_storage::rename(state.data(),stateBackup.data())
+            ||!s3g_thru_storage::syncParent(state.data())))return false;
+        // Persist each namespace boundary before the next one. The previous
+        // pair is durable before either new primary can become authoritative.
+        return s3g_thru_storage::rename(clipTemp.data(),clips.data())
+            &&s3g_thru_storage::syncParent(clips.data())
+            &&s3g_thru_storage::rename(stateTemp.data(),state.data())
+            &&s3g_thru_storage::syncParent(state.data());
     }
 
     bool clipFileGeneration(const char* path, std::uint64_t& generation) const
@@ -8997,7 +9149,7 @@ struct ThruInstance : PlaybackEffectsState {
             && (version == 1u || version == 2u || version == 3u
                 || version == 4u || version == 5u || version == 6u
                 || version == 7u || version == 8u || version == 9u
-                || version == 10u || version == 11u || version == 12u || version == 13u || version == 14u || version==15u || version==16u || version==17u || version==18u || version==19u || version==20u || version==21u || version==22u || version==23u || version==24u || version==25u || version==26u || version==27u || version==28u || version==29u || version==30u || version==31u || version==32u || version==33u || version==34u)
+                || version == 10u || version == 11u || version == 12u || version == 13u || version == 14u || version==15u || version==16u || version==17u || version==18u || version==19u || version==20u || version==21u || version==22u || version==23u || version==24u || version==25u || version==26u || version==27u || version==28u || version==29u || version==30u || version==31u || version==32u || version==33u || version==34u || version==35u || version==36u)
             && readU64(file, generation) && generation != 0u;
         std::fclose(file);
         return ok;
@@ -9005,7 +9157,7 @@ struct ThruInstance : PlaybackEffectsState {
 
     bool readClipFileFromPath(
         const char* path,
-        std::uint64_t expectedGeneration = kAnyPersistenceGeneration)
+        std::uint64_t expectedGeneration = kAnyPersistenceGeneration,PersistenceSnapshot* detached=nullptr)
     {
         long payloadSize = 0l;
         if (!checksummedPayloadSize(path, payloadSize)) return false;
@@ -9034,7 +9186,7 @@ struct ThruInstance : PlaybackEffectsState {
             && (version == 1u || version == 2u || version == 3u
                 || version == 4u || version == 5u || version == 6u
                 || version == 7u || version == 8u || version == 9u
-                || version == 10u || version == 11u || version == 12u || version == 13u || version == 14u || version==15u || version==16u || version==17u || version==18u || version==19u || version==20u || version==21u || version==22u || version==23u || version==24u || version==25u || version==26u || version==27u || version==28u || version==29u || version==30u || version==31u || version==32u || version==33u || version==34u)
+                || version == 10u || version == 11u || version == 12u || version == 13u || version == 14u || version==15u || version==16u || version==17u || version==18u || version==19u || version==20u || version==21u || version==22u || version==23u || version==24u || version==25u || version==26u || version==27u || version==28u || version==29u || version==30u || version==31u || version==32u || version==33u || version==34u || version==35u || version==36u)
             && readU64(file, loadedGeneration)
             && loadedGeneration != 0u
             && (expectedGeneration == kAnyPersistenceGeneration
@@ -9193,9 +9345,10 @@ struct ThruInstance : PlaybackEffectsState {
                         && (version < 2u || readU32(file, take))
                         && parameter < kLockParameterCount
                         && type <= static_cast<std::uint32_t>(
-                            version>=25u?ClipPointType::notePressure:version>=17u?ClipPointType::stackPath:version>=16u?ClipPointType::performance:ClipPointType::partHold)
+                            version>=35u?ClipPointType::midiExpression:version>=25u?ClipPointType::notePressure:version>=17u?ClipPointType::stackPath:version>=16u?ClipPointType::performance:ClipPointType::partHold)
                         && take < std::max(1u, takeCount)
-                        && (type!=static_cast<std::uint32_t>(ClipPointType::notePressure)||(sourcePad<4u&&parameter<128u&&point.value>=0&&point.value<=1));
+                        && (type!=static_cast<std::uint32_t>(ClipPointType::notePressure)||(sourcePad<4u&&parameter<128u&&point.value>=0&&point.value<=1))
+                        && (type!=static_cast<std::uint32_t>(ClipPointType::midiExpression)||(sourcePad<4u&&parameter<4u&&point.value>=(parameter==0?-24.f:0.f)&&point.value<=(parameter==0?24.f:1.f)));
                     if (clip.clipDurationMs != 0u) {
                         point.timeMs %= clip.clipDurationMs;
                     }
@@ -9230,9 +9383,26 @@ struct ThruInstance : PlaybackEffectsState {
         else if(ok)for(auto& clip:*loadedClips)for(int group=0;group<5;++group)for(std::size_t p=kVersion30LockParameterCount;p<kLockParameterCount;++p)(group?clip.splitValues[group-1]:clip.baseValues)[p]=lockedValue(Engine::Controls{},1.f,p);
         if(ok && version>=32u)ok=readBankExtension(file,*loadedClips);
         if(ok && version>=33u)ok=readBankPadExtension(file,*loadedClips,version);
+        if(ok && version>=36u)ok=readSliceExtension(file,*loadedClips);
+        else if(ok)for(auto& clip:*loadedClips)for(auto& lane:clip.sliceLanes)lane.preRollMs=-2;
+        // A legacy automatic policy preserves 1 ms for Transients and zero
+        // for Equal independently, including shared lanes used by both parts.
         const bool atEnd = ok && std::ftell(file) == payloadSize;
         std::fclose(file);
         if (!atEnd || !loadedClips) return false;
+        if(detached) {
+            detached->clips=*loadedClips;detached->banks=loadedBanks;
+            detached->chainBank=loadedBank;detached->chainPlayBank=version>=19u?loadedPlayBank:loadedBank;
+            detached->tempo=bpm;detached->swing=swing;detached->quantize=static_cast<LaunchQuantize>(loadedLaunchQuantize);
+            detached->grainLimit=loadedGrainVoiceLimit;detached->generation=loadedGeneration;
+            detached->active=selected;detached->chainPosition=loadedChainPosition;detached->chainEdit=loadedChainEditSlot;
+            return true;
+        }
+        bool linksRebased=false;
+        if(!rebaseImportedProjectSources(*loadedClips,linksRebased))return false;
+        projectRecoveredRelativePaths=linksRebased;
+        if(linksRebased&&g_host&&g_host->log)
+            g_host->log("s3g Thru restored portable sample paths in an imported project");
         clipSlots = *loadedClips;
         chainBanks = loadedBanks;chainBankIndex=static_cast<int>(loadedBank);
         chainPlayBank=static_cast<int>(version>=19u?loadedPlayBank:loadedBank);
@@ -9321,12 +9491,19 @@ struct ThruInstance : PlaybackEffectsState {
             }
             ok = writeBytes(file, interleaved.data(), count * 2u * sizeof(float));
         }
-        const bool closed = std::fclose(file) == 0;
+        const bool closed = s3g_thru_storage::closeFile(file,temporaryPath,ok);
+        // Flush sample data before publishing a name that metadata can reference.
         // link publishes a new archived take without replacing an existing one.
         const bool published = ok && closed && (preserveExisting
-            ? link(temporaryPath, path) == 0 : std::rename(temporaryPath, path) == 0);
+            ? s3g_thru_storage::link(temporaryPath,path) : s3g_thru_storage::rename(temporaryPath,path));
         if (collision) *collision = !published && ok && closed && preserveExisting && errno == EEXIST;
         if (published && preserveExisting) std::remove(temporaryPath);
+        if(published&&!s3g_thru_storage::syncParent(path)) {
+            // This take has never been referenced. A failed publication must
+            // not be reported as Saved, nor reused as a later mutable temp.
+            if(preserveExisting){std::remove(path);s3g_thru_storage::syncParent(path);}
+            return false;
+        }
         if (!published) {
             std::remove(temporaryPath);
             return false;
@@ -9578,7 +9755,8 @@ struct ThruInstance : PlaybackEffectsState {
             std::uint64_t newest = 0u;
             for (std::size_t state = 0u; state < 2u; ++state) {
                 for (std::size_t clips = 0u; clips < 2u; ++clips) {
-                    if (!stateValid[state] || !clipValid[clips]
+                    if ((projectPreferRelocatedPrimary&&(state!=0u||clips!=0u))
+                        || !stateValid[state] || !clipValid[clips]
                         || stateGenerations[state] != clipGenerations[clips]
                         || stateGenerations[state] <= newest) continue;
                     newest = stateGenerations[state];
@@ -9611,11 +9789,16 @@ struct ThruInstance : PlaybackEffectsState {
     {
         finishBankCapture();
         stopBackgroundWork();
+        if(projectImportInstalled.load(std::memory_order_acquire))return true;
         if (!persistenceEnabled) return false;
         if (audioRecording()) finishRecording();
         if(partCapturePublishing) {wavesetWorker.stop();finalizePartCaptureOffline();}
         if (clipRecording) finishClipRecording();
-        bool ok = true;
+        // The worker is joined. Give retained Bank audio one final attempt,
+        // regardless of its render-clock retry deadline, before metadata.
+        const bool bankSaved=finishBankCaptureOffline();
+        bool ok = !customDirty||writeCustomMidiFile(customMaps);
+        if(ok)customDirty=false;
         for (std::size_t lane = 0u; lane < kLaneCount; ++lane) {
             if ((pendingCaptureSaveMask & (1u << lane)) == 0u) continue;
             const int owner = pendingCaptureClips[lane];
@@ -9630,6 +9813,7 @@ struct ThruInstance : PlaybackEffectsState {
         for (std::size_t lane = 0u; lane < kLaneCount; ++lane) {
             ok = writeLaneFile(lane) && ok;
         }
+        ok=bankSaved&&ok;
         if (!ok && g_host && g_host->log) {
             g_host->log("s3g Thru could not save all persistent state");
         }
@@ -9665,7 +9849,7 @@ struct ThruInstance : PlaybackEffectsState {
         if (jsonNumber(json, "lane_cycles", value)) controls.laneCycles = clampValue(value, 0.125f, 16.0f);
         if (jsonNumber(json, "algorithm", value)) controls.algorithm = static_cast<Engine::PlaybackAlgorithm>(clampValue(static_cast<int>(value), 0, static_cast<int>(Engine::kPlaybackAlgorithmCount) - 1));
         if (jsonNumber(json, "sample_mode", value)) controls.sampleMode = static_cast<Engine::SampleMode>(clampValue(static_cast<int>(value), 0, static_cast<int>(Engine::kSampleModeCount) - 1));
-        if (jsonNumber(json, "slice_region_mode", value)) controls.sampleRegionMode = static_cast<Engine::RegionMode>(clampValue(static_cast<int>(value), 0, static_cast<int>(Engine::kRegionModeCount) - 1));
+        if (jsonNumber(json, "slice_region_mode", value)) controls.sampleRegionMode = static_cast<Engine::RegionMode>(clampValue(static_cast<int>(value), 0, static_cast<int>(Engine::kSliceRegionModeCount) - 1));
         if (jsonNumber(json, "slice_regions", value)) controls.sampleRegionCount = clampValue(value, 1.0f, 64.0f);
         if (jsonNumber(json, "pad_mode", value)) padMode = static_cast<PadMode>(clampValue(static_cast<int>(value), 0, 3));
         if (jsonNumber(json, "scale", value)) padScale = static_cast<PadScale>(
@@ -9683,6 +9867,15 @@ struct ThruInstance : PlaybackEffectsState {
         }
         if (jsonNumber(json, "launch_quantize", value)) launchQuantize =
             static_cast<LaunchQuantize>(clampValue(static_cast<int>(value), 0, 2));
+        midiNoteRoute=0;midiNoteChannel=1;midiBendRange=2;midiModTarget=0;midiVelocityDepth=0;midiSyncSource=midiSyncTransport=0;
+        if(jsonNumber(json,"midi_note_route",value))midiNoteRoute=clampValue(static_cast<int>(value),0,1);
+        if(jsonNumber(json,"midi_note_channel",value))midiNoteChannel=clampValue(static_cast<int>(value),1,4);
+        if(jsonNumber(json,"midi_bend_range",value))midiBendRange=clampValue(value,0.f,24.f);
+        if(jsonNumber(json,"midi_mod_target",value))midiModTarget=clampValue(static_cast<int>(value),0,2);
+        if(jsonNumber(json,"midi_velocity_depth",value))midiVelocityDepth=clampValue(value*.01f,0.f,1.f);
+        if(jsonNumber(json,"midi_sync_source",value))midiSyncSource=clampValue(static_cast<int>(value),0,1);
+        if(jsonNumber(json,"midi_sync_transport",value))midiSyncTransport=clampValue(static_cast<int>(value),0,1);
+        resetMidiClock();clearMidiKeyState();
         if (jsonNumber(json, "midi_control_mode", value)) {
             midiControlMode=clampValue(static_cast<int>(std::lround(value)),0,6);
             // State 17 used Off=5 and NRPN+MNLT=6. Preserve the selected
@@ -9971,16 +10164,25 @@ void destroyInstance(void* opaque)
 void setParam(void* opaque, const char* key, const char* value);
 int getParamValue(void* opaque, const char* key, char* buffer, int bufferLength);
 #include "thru_midi.inc"
+#include "thru_midi_custom_route.inc"
 
-void onMidi(void* opaque, const uint8_t* message, int length, int source)
+void dispatchMidi(void* opaque, const uint8_t* message, int length, int source, bool fromInbox)
 {
     auto* instance = static_cast<ThruInstance*>(opaque);
     if (!instance || !message || length < 1) return;
-    if(length<3 || message[0]<0x80 || message[0]>=0xf0)return;
-    CallbackWorkTimer callbackTimer(*instance, false);
+    if(instance->projectLocked())return;
+    if(message[0]>=0xf8){instance->handleMidiRealtime(message[0],source);return;}
+    if(message[0]<0x80||message[0]>=0xf0)return;
+    const int required=(message[0]&0xf0)==0xc0||(message[0]&0xf0)==0xd0?2:3;
+    if(length<required)return;
+    for(int i=1;i<required;++i)if(message[i]&0x80)return;
     const int type = message[0] & 0xf0;
     const int note = message[1] & 0x7f;
-    const int value = message[2] & 0x7f;
+    const int value = length>=3?message[2]&0x7f:0;
+    if(!fromInbox&&source==MOVE_MIDI_SOURCE_EXTERNAL&&instance->midiInboxAvailable()
+        &&ThruInstance::midiInboxMessage(message[0],note))return;
+    if(source!=MOVE_MIDI_SOURCE_INTERNAL&&type==0xb0
+        &&handleCustomMidiCc(*instance,(message[0]&15)+1,note,value,source))return;
     if(handleE16RemoteMidi(*instance,message,length,source))return;
     if(source!=MOVE_MIDI_SOURCE_INTERNAL && midiModeAllowsNrpn(*instance)
         && (type==0x90 || type==0x80)
@@ -9989,6 +10191,12 @@ void onMidi(void* opaque, const uint8_t* message, int length, int source)
             applyMidiSceneNote(*instance,(message[0]&15)+1,note);
         return;
     }
+    if(source!=MOVE_MIDI_SOURCE_INTERNAL&&((message[0]&15)<4)) {
+        const bool off=type==0x80||(type==0x90&&value==0);
+        if(off||type==0xa0||type==0xd0||type==0xe0||(type==0xb0&&(note==1||note==64||note==120||note==121||note==123)))
+            instance->postPatternCommand(5,message[0]|(note<<8)|(value<<16),source);
+    }
+    if(instance->handleNoteMidi(message,length,source))return;
     if(source!=MOVE_MIDI_SOURCE_INTERNAL && type==0xb0) {
         const int channel=(message[0]&15)+1;
         if(handleE16NativeResetCc(*instance,channel,note,value))return;
@@ -10046,22 +10254,35 @@ void onMidi(void* opaque, const uint8_t* message, int length, int source)
     }
 }
 
+void onMidi(void* opaque,const uint8_t* message,int length,int source)
+{
+    auto* instance=static_cast<ThruInstance*>(opaque);
+    if(!instance||!message||length<1)return;
+    CallbackWorkTimer timer(*instance,false);dispatchMidi(opaque,message,length,source,false);
+}
+
 void setParam(void* opaque, const char* key, const char* value)
 {
     auto* instance = static_cast<ThruInstance*>(opaque);
     if (!instance || !key || !value) return;
     CallbackWorkTimer callbackTimer(*instance, false);
+    if(instance->setProjectParam(key,value))return;
+    if(instance->projectLocked()&&std::strcmp(key,"panic")&&std::strcmp(key,"all_notes_off")&&std::strcmp(key,"shift_held")&&std::strcmp(key,"delete_held"))return;
     auto& controls = instance->controls;
     if(std::strcmp(key,"delete_held")==0){instance->setDeleteHeld(isTruthy(value));return;}
     if(std::strcmp(key,"voice_mode")==0) {
         const int owner=instance->splitEnabled?instance->splitFocus:0;
         instance->heldKeys[owner]={};
+        instance->clearMidiKeyState(owner);
         for(auto& voice:instance->voices)if(voice.active&&voice.part==owner&&!voice.clipOwned) {
             instance->clearPadMappingForVoice(voice);voice.held=false;instance->beginVoiceRelease(voice);
         }
         instance->voiceMode=clampValue(parseInteger(value,0),0,2);
         instance->storeFocusedPart();instance->markPersistentStateDirty();return;
     }
+    if(instance->setCustomMidiParameter(key,value))return;
+    if(instance->setSliceEditorParam(key,value))return;
+    if(instance->setMidiNoteParam(key,value))return;
     if(instance->setBankParam(key,value))return;
     if(instance->setVoiceEngineParam(key,value))return;
     if(handleMidiControl(*instance,key,value))return;
@@ -10130,7 +10351,7 @@ void setParam(void* opaque, const char* key, const char* value)
     if (std::strcmp(key, "glitch_buffer_lock") == 0) { instance->glitchBufferLocked = isTruthy(value); return; }
     if (std::strcmp(key, "algorithm") == 0) { controls.algorithm = static_cast<Engine::PlaybackAlgorithm>(parseEnum(value, kAlgorithmNames, static_cast<int>(controls.algorithm))); if(instance->voiceEngineSettings.enabled){instance->ensureVoiceEngineList();instance->voiceEngineSettings.engines[std::min(instance->voiceEngineSettings.edit,instance->engineSlotCount()-1)]=static_cast<std::uint8_t>(controls.algorithm);} return; }
     if (std::strcmp(key, "sample_mode") == 0) { controls.sampleMode = static_cast<Engine::SampleMode>(parseEnum(value, kSampleModeNames, static_cast<int>(controls.sampleMode))); return; }
-    if (std::strcmp(key, "slice_region_mode") == 0) { controls.sampleRegionMode = static_cast<Engine::RegionMode>(parseEnum(value, kRegionModeNames, static_cast<int>(controls.sampleRegionMode))); return; }
+    if (std::strcmp(key, "slice_region_mode") == 0) { controls.sampleRegionMode = static_cast<Engine::RegionMode>(parseEnum(value, kSliceRegionModeNames, static_cast<int>(controls.sampleRegionMode))); return; }
     if (std::strcmp(key, "slice_regions") == 0) { controls.sampleRegionCount = clampValue(parseFloat(value, controls.sampleRegionCount), 1.0f, 64.0f); return; }
     if (std::strcmp(key, "pad_mode") == 0) { instance->padMode = static_cast<PadMode>(parseEnum(value, kPadModeNames, static_cast<int>(instance->padMode))); return; }
     if (std::strcmp(key, "scale") == 0) { instance->padScale = static_cast<PadScale>(parseEnum(value, kScaleNames, static_cast<int>(instance->padScale))); instance->releaseSplitPart(instance->splitFocus); return; }
@@ -10180,7 +10401,7 @@ void setParam(void* opaque, const char* key, const char* value)
     if (std::strcmp(key, "panic") == 0) { if(isTruthy(value))instance->panic(); return; }
     if (std::strcmp(key, "all_notes_off") == 0) { instance->allNotesOff(); return; }
     if (std::strcmp(key, "clip_playing") == 0) { instance->setClipPlaying(isTruthy(value)); return; }
-    if (std::strcmp(key, "tempo_bpm") == 0) { instance->tempoBpm = clampValue(parseFloat(value, instance->tempoBpm), 40.0f, 240.0f); return; }
+    if (std::strcmp(key, "tempo_bpm") == 0) { if(instance->midiSyncSource&&instance->midiClockLocked)return; instance->tempoBpm = clampValue(parseFloat(value, instance->tempoBpm), 40.0f, 240.0f); return; }
     if (std::strcmp(key, "tempo_swing") == 0) { instance->tempoSwing = clampValue(parseFloat(value, instance->tempoSwing * 100.0f) / 100.0f, 0.5f, 0.75f); return; }
     if (std::strcmp(key, "undo") == 0) { if (isTruthy(value)) instance->restoreUndo(); return; }
     if (std::strcmp(key, "maintenance") == 0) { if (isTruthy(value)) instance->serviceMaintenance(); return; }
@@ -10406,12 +10627,16 @@ int getParamValue(void* opaque, const char* key, char* buffer, int bufferLength)
 {
     auto* instance = static_cast<ThruInstance*>(opaque);
     if (!instance || !key || !buffer || bufferLength < 1) return -1;
+    const int noteResult=instance->getMidiNoteParam(key,buffer,bufferLength);if(noteResult!=-2)return noteResult;
     if(std::strcmp(key,"midi_control_mode")==0)return std::snprintf(buffer,bufferLength,"%d",instance->midiControlMode);
     if(std::strcmp(key,"midi_cc_channel")==0)return std::snprintf(buffer,bufferLength,"%d",instance->midiCcChannel);
     if(std::strcmp(key,"midi_cc_base")==0)return std::snprintf(buffer,bufferLength,"%d",instance->midiCcBase);
     if(std::strcmp(key,"midi_takeover")==0)return std::snprintf(buffer,bufferLength,"%d",instance->midiTakeover);
     if(std::strcmp(key,"midi_control_part")==0)return std::snprintf(buffer,bufferLength,"%d",instance->midiControlPart);
     if(std::strcmp(key,"voice_mode")==0)return std::snprintf(buffer,bufferLength,"%d",instance->voiceMode);
+    if(!std::strcmp(key,"project_state"))return instance->formatProjectState(buffer,bufferLength);
+    if(!std::strcmp(key,"project_files"))return instance->formatProjectFiles(buffer,bufferLength);
+    if(!std::strcmp(key,"project_directory")){return instance->projectDirectory(buffer,bufferLength)?static_cast<int>(std::strlen(buffer)):-1;}
     const int bankQuery=instance->getBankParam(key,buffer,bufferLength);if(bankQuery!=-2)return bankQuery;
     const int performanceQuery=instance->getChainPerformanceParam(key,buffer,bufferLength);if(performanceQuery!=-2)return performanceQuery;
     if(std::strcmp(key,"clip_clipboard_state")==0)return std::snprintf(buffer,bufferLength,"%d",instance->clipClipboardSource);
@@ -10478,6 +10703,11 @@ int getParamValue(void* opaque, const char* key, char* buffer, int bufferLength)
     if (std::strcmp(key, "effect_order_state") == 0) return std::snprintf(buffer, bufferLength, "%d,%d,%d",
         instance->clipPlaying ? instance->clipControls.effectOrder : controls.effectOrder,
         instance->effectOrderCode, instance->effectOrderTransition);
+    if(std::strcmp(key,"midi_custom_target")==0)return formatCustomMidiTarget(*instance,buffer,bufferLength);
+    if(std::strcmp(key,"midi_custom_state")==0)return instance->formatCustomMidiState(buffer,bufferLength);
+    if(std::strcmp(key,"midi_custom_entries")==0)return instance->formatCustomMidiEntries(buffer,bufferLength);
+    if (std::strcmp(key, "slice_editor_state") == 0) return instance->formatSliceEditor(buffer,bufferLength);
+    if (std::strcmp(key, "slice_editor_wave") == 0) return instance->formatSliceEditorWave(buffer,bufferLength);
     if (std::strcmp(key, "region_state") == 0) return instance->formatRegionState(buffer, bufferLength);
     if (std::strcmp(key, "cue_state") == 0) return instance->formatCueState(buffer, bufferLength);
     if (std::strcmp(key, "playheads") == 0) {
@@ -10918,6 +11148,7 @@ int formatEditorState(void* opaque, char* buffer, int bufferLength)
         "midi_cc_base",
         "midi_takeover",
         "midi_control_part",
+        "midi_note_route", "midi_note_channel", "midi_bend_range", "midi_mod_target", "midi_velocity_depth", "midi_sync_source", "midi_sync_transport",
         "chain_enabled",
         "chain_bank", "chain_end",
         "chain_slot",

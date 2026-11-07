@@ -103,7 +103,7 @@ bool midiModeAllowsNrpn(const ThruInstance& t) {
     return t.midiControlMode==0 || t.midiControlMode==1 || t.midiControlMode==5;
 }
 bool midiModeAllowsGenericCc(const ThruInstance& t) {
-    return t.midiControlMode==0 || t.midiControlMode==2;
+    return (t.midiControlMode==0 || t.midiControlMode==2)&&t.customMaps.active==0;
 }
 bool midiModeAllowsMonolit(const ThruInstance& t) {
     return t.midiControlMode==3 || t.midiControlMode==5;
@@ -270,7 +270,7 @@ bool handleMidiControl(ThruInstance& t,const char* key,const char* value) {
     if(std::strcmp(key,"midi_control_mode")==0) {
         const int mode=clampValue(parseEnum(value,kMidiControlModeNames,t.midiControlMode),0,6);
         if(mode!=t.midiControlMode) {
-            t.midiControlMode=mode;resetMidiControlPickups(t);
+            t.midiControlMode=mode;resetMidiControlPickups(t);t.resetCustomPickups();
             t.e16NativePage=-1;t.e16NativeLease=0;
             if(!midiModeAllowsE16(t)) {
                 t.e16RemoteRequested=t.e16RemoteActive=false;t.e16RemoteLease=0;
@@ -348,7 +348,8 @@ bool handleMidiControl(ThruInstance& t,const char* key,const char* value) {
             int part=-2,id=-1,n=0;
             if(std::sscanf(cursor,"%d:%d%n",&part,&id,&n)!=2 || n<1)return true;
             const auto* p=s3g_thru_midi::find(id);
-            if(!p || p->action || (p->part?part<0||part>3:part!=-1))return true;
+            const bool reserved=part==-1 && id==-1;
+            if(!reserved && (!p || p->action || (p->part?part<0||part>3:part!=-1)))return true;
             next[count++]={part,id};cursor+=n;
             if(*cursor==';')++cursor;else if(*cursor)return true;
         }
@@ -447,6 +448,8 @@ const MidiParameter* e16PageSlotParameter(ThruInstance& t,int page,int slot,int&
     if(page==0) {
         if(slot==7 && t.splitEnabled)id=k[10];
         if(slot==5 && static_cast<int>(c.algorithm)==3)id=k[11];
+        if(slot==5 && (c.algorithm==Engine::PlaybackAlgorithm::sample
+            || c.algorithm==Engine::PlaybackAlgorithm::slices))return nullptr;
         if(t.isQuad() && (slot==4 || slot==5))return nullptr;
     }
     if((id==k[12] && static_cast<int>(c.prismMode)!=4)

@@ -95,7 +95,7 @@ void testFormerTransitionTakeMigration() {
     assert(t->clipChain()[1].clip==5&&t->clipChain()[1].fade.time==8000);
     // A new save drops obsolete gesture records and keeps the zeroed format-19 footer inside the current format.
     assert(t->savePersistentState());file=std::fopen(path.c_str(),"rb");assert(file);
-    constexpr long bankTailBytes=4+64*(24+16*(768+32))+4+64*(8+16*12);
+    constexpr long bankTailBytes=4+64*(24+16*(768+32))+4+64*(8+16*12)+4+64*4*(4+2*(8+65*4+64*24));
     constexpr long engineTailBytes=4+64*5*11*4+4+64*5*18*4+4+64*5*8*4+bankTailBytes;
     assert(std::fseek(file,-8-engineTailBytes,SEEK_END)==0);std::uint32_t voicePlayBytes=0;assert(readU32(file,voicePlayBytes));
     assert(std::fseek(file,-static_cast<long>(4100+37128+15364+voicePlayBytes+engineTailBytes),SEEK_END)==0);std::uint32_t count=99;

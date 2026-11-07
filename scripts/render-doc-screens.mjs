@@ -267,7 +267,7 @@ source = source.replace(
 source = source.replace(
     /import \* as os[^;]+;/,
     'const os = globalThis.__os;');
-source += '\nglobalThis.__docSplit = {state, params:PARAMS, pages:parameterPages, redraw:()=>{clearDisplay();draw();}};';
+source += '\nglobalThis.__docSplit = {state, projectUi, readProject, openProjects, openBankRecovery, customMidiUi, readCustomMidi, openCustomMidiList, sliceUi, openSliceEditor, readSliceEditor, params:PARAMS, pages:parameterPages, redraw:()=>{clearDisplay();draw();}};';
 await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
 
 function escapeXml(value) {
@@ -371,6 +371,8 @@ function captureEnginePages(algorithm, pages) {
     selectAlgorithm(algorithm);
     moveSettingsPage(1); // Shared Pads & Scale page.
     moveSettingsPage(1); // Shared MIDI Control page.
+    moveSettingsPage(1); // Shared MIDI Notes page.
+    moveSettingsPage(1); // Shared MIDI Maps page.
     moveSettingsPage(1); // Shared Amp Envelope page.
     moveSettingsPage(1); // Shared Play Gain page.
     for (const page of pages) {
@@ -379,7 +381,7 @@ function captureEnginePages(algorithm, pages) {
             capture(page.filename, page.title, page.heading);
         }
     }
-    moveSettingsPage(-(pages.length + 4));
+    moveSettingsPage(-(pages.length + 6));
 }
 
 globalThis.init();
@@ -398,7 +400,9 @@ capture('waveform-zoom.svg', 'Single waveform zoom at Position 0.55 and Field 0.
 Object.assign(params, wideWaveformFixture);
 tick(3);
 cc(52);cc(50);cc(50,0);cc(52,0);tick();
-capture('pages.svg','Contextual Pages picker');cc(51);tick();
+capture('pages.svg','Scrolling Pages hub with working banks and position counter');
+const hubDoc=globalThis.__docSplit;hubDoc.state.pageSelection=8;hubDoc.redraw();capture('pages-projects.svg','Pages hub with Projects selected at 9 of 9','PAGES');
+cc(51);tick();
 params.save_status='2';tick(3);capture('save-pending.svg','Waveform with saving status');
 params.save_status='3';tick(3);capture('save-complete.svg','Waveform with saved confirmation');
 params.save_status='0';tick(3);
@@ -437,9 +441,12 @@ moveSettingsPage(1);
 capture('midi-control.svg', 'Selectable MIDI controller mode page',
     'MIDI CONTROL');
 moveSettingsPage(1);
+capture('midi-notes.svg', 'Keyboard and sequencer MIDI Notes page', 'MIDI NOTES');
+moveSettingsPage(1); // MIDI Maps is captured with a populated profile below.
+moveSettingsPage(1);
 capture('amp-envelope.svg', 'Shared breakpoint amplitude envelope page',
     'AMP ENVELOPE');
-moveSettingsPage(-3);
+moveSettingsPage(-5);
 
 // Engine List is an optional page; restore ONE before the standard engine examples.
 {
@@ -462,7 +469,7 @@ captureEnginePages(0, [
     { filename: 'motion-path.svg', title: 'Motion Path parameter page', heading: 'MOTION PATH' },
     { filename: 'motion-sound.svg', title: 'Motion Sound parameter page', heading: 'MOTION SOUND' },
 ]);
-moveSettingsPage(7);
+moveSettingsPage(9);
 selectCurrentIntegerParam('motion_sound', 1);
 moveSettingsPage(1);
 capture('motion-packets.svg', 'Motion Packets parameter page', 'PACKETS');
@@ -478,7 +485,7 @@ capture('motion-event-clock.svg', 'Motion Event Clock parameter page',
 moveSettingsPage(1);
 capture('motion-event-shape.svg', 'Motion Event Shape parameter page',
     'EVENT SHAPE');
-moveSettingsPage(-9);
+moveSettingsPage(-11);
 captureEnginePages(1, [
     {},
     { filename: 'lanes-play.svg', title: 'Lanes Play parameter page', heading: 'LANES PLAY' },
@@ -517,7 +524,7 @@ captureEnginePages(8, [
 ]);
 
 selectAlgorithm(1);
-moveSettingsPage(8);
+moveSettingsPage(10);
 capture('effects.svg', 'Effects parameter page', 'EFFECTS');
 moveSettingsPage(1);
 capture('effects-stereo-rotary.svg', 'Stereo and Rotary effects parameter page',
@@ -761,6 +768,30 @@ bankDoc.redraw();capture('bank-sample.svg','Bank sample playback controls','B BA
 bankDoc.state.settingsPage=bankDoc.pages().findIndex(p=>p.title==='BANK PADS');bankDoc.redraw();capture('bank-pads.svg','Bank per-pad controls and recording source','B BANK PADS');
 Object.assign(bankDoc.state,{view:'main',splitFocus:0,algorithm:4,mask:15,playheads:[.16,.38,.65,.85,-1,-1,-1,-1],stackPositions:[0,1/3,2/3,1,-1,-1,-1,-1]});
 bankDoc.state.splitParts[0].window=[0,1];bankDoc.redraw();capture('bank-waveform-a.svg','Bank A four-lane waveforms and hollow stack position markers');
+
+Object.assign(params,{algorithm:'5',slice_region_mode:'3',record_lane:'1',split_state:JSON.stringify({enabled:0,focus:0,parts:[{},{}]}),
+    slice_editor_state:JSON.stringify({v:1,active:1,lane:1,part:0,selected:1,boundary:1,cursor:.25,count:4,preroll:6,duration:1000,source:3,mode:3,overflow:0,loop:1,playing:1,latched:1,pad:1,page:0,label:'Snare',request:1,points:[0,.25,.5,.875,1]})});
+globalThis.init();tick(82);const sliceDoc=globalThis.__docSplit;sliceDoc.state.view='settings';sliceDoc.state.settingsPage=sliceDoc.pages().findIndex(p=>p.title==='SLICE SOURCE');
+sliceDoc.openSliceEditor();sliceDoc.sliceUi.zoom=2;sliceDoc.readSliceEditor();sliceDoc.redraw();capture('slice-edit.svg','Slice Edit: labelled slice, boundary caps, pre-roll and waveform zoom','L1 S02/04');
+
+const customDocState={v:1,profile:1,bank:2,count:3,revision:1,ui:1,editing:0,index:0,learn:0,filter:0,result:0,conflict:-1,undo:0,save:2,recovered:0,mode:0,draft:[1,16,0,0,641,0,0,0,1,0,.1,.9,0]};
+Object.assign(params,{algorithm:'2',midi_control_mode:'2',record_lane:'1',split_state:JSON.stringify({enabled:0,focus:0,parts:[{},{}]}),
+    midi_custom_state:JSON.stringify(customDocState),midi_custom_entries:JSON.stringify([[0,1,0,0,0,0,0,0,0],[1,1,4,1,0,6,0,0,0],[2,1,16,0,1,-1,0,0,2]])});
+globalThis.init();tick(82);const cmDoc=globalThis.__docSplit;cmDoc.state.view='settings';cmDoc.state.settingsPage=cmDoc.pages().findIndex(p=>p.customMaps);cmDoc.readCustomMidi();cmDoc.redraw();capture('midi-maps.svg','Custom MIDI profile selection, banks, copy and clear','MIDI MAPS');
+cmDoc.openCustomMidiList();cmDoc.redraw();capture('midi-map-list.svg','Custom MIDI assignments: incoming channel and CC to explicit parts and engine slots');
+customDocState.editing=1;params.midi_custom_state=JSON.stringify(customDocState);cmDoc.readCustomMidi();cmDoc.state.view='midiMapEdit';cmDoc.customMidiUi.tab=0;cmDoc.customMidiUi.notice='';cmDoc.redraw();capture('midi-map-target.svg','Custom mapping Target: named parameter and explicit part');
+cmDoc.customMidiUi.tab=1;customDocState.learn=1;params.midi_custom_state=JSON.stringify(customDocState);cmDoc.readCustomMidi();cmDoc.redraw();capture('midi-map-source.svg','Custom mapping Source: Learn or manual channel and CC');
+cmDoc.customMidiUi.tab=2;customDocState.learn=0;params.midi_custom_state=JSON.stringify(customDocState);cmDoc.readCustomMidi();cmDoc.redraw();capture('midi-map-response.svg','Custom mapping Response: range, reverse and pickup');
+
+const projectExample={v:1,job:0,action:3,ok:1,reopen:0,page:0,count:2,bytes:0,total:0,message:'PROJECTS READY'};
+params.project_state=JSON.stringify(projectExample);params.project_files=JSON.stringify(['Thru-20261106-183000.thru','BeforeImport-20261106.thru']);
+const projectDoc=globalThis.__docSplit;projectDoc.openProjects();projectDoc.readProject();projectDoc.redraw();capture('projects-menu.svg','Projects menu: complete project export and import','THRU PROJECTS');
+projectDoc.projectUi.mode='list';projectDoc.redraw();capture('projects-list.svg','Project import browser listing portable .thru files','THRU PROJECTS');
+projectDoc.projectUi.mode='confirm';projectDoc.projectUi.confirm=0;projectDoc.redraw();capture('projects-confirm.svg','Project import confirmation with Cancel selected','THRU PROJECTS');
+Object.assign(projectExample,{job:3,action:1,bytes:6291456,total:12582912});params.project_state=JSON.stringify(projectExample);projectDoc.readProject();projectDoc.redraw();capture('projects-progress.svg','Project export progress in megabytes','THRU PROJECTS');
+params.bank_state=JSON.stringify({selected:0,slots:[3,...Array(15).fill(0)],take:7,pending:0,failed:1,discard_seq:0,discard_reason:0});
+Object.assign(projectDoc.state,{view:'main',bankMode:true,splitEnabled:true,sharedDual:true,splitFocus:1,saveStatus:4,performanceVisible:false});
+projectDoc.openBankRecovery();projectDoc.redraw();capture('bank-save-recovery.svg','Failed Bank take: Retry Save, Keep Waiting or confirmed Discard','UNSAVED BANK TAKE');
 
 if (checkOnly && mismatches !== 0) process.exit(1);
 if (checkOnly) console.log('s3g Thru documentation screens: current');

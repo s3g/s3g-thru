@@ -10,6 +10,7 @@ const adapter=fs.readFileSync(path.join(root,'src/midi-ui.inc.js'),'utf8');
 const labels=fs.readFileSync(path.join(root,'src/e16-labels.inc.js'),'utf8');
 const native=fs.readFileSync(path.join(root,'src/e16-native-feedback.inc.js'),'utf8');
 const remote=fs.readFileSync(path.join(root,'src/e16-remote.inc.js'),'utf8');
-const result=source+marker+labels+remote+adapter+native;
+const custom=fs.readFileSync(path.join(root,'src/midi-custom.inc.js'),'utf8');
+const result=source+marker+custom+'\n'+labels+remote+adapter+native;
 if(process.argv.includes('--check'))assert.equal(fs.readFileSync(target,'utf8'),result,'MIDI UI adapter is stale');
 else fs.writeFileSync(target,result);

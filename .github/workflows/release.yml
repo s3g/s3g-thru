@@ -25,7 +25,7 @@ jobs:
       - name: Install host validation tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y file
+          sudo apt-get install -y file lua5.4
 
       - name: Install Move-compatible AArch64 toolchain
         env:

@@ -13,7 +13,7 @@ jobs:
         with:
           node-version: 20
       - name: Install host validation tools
-        run: sudo apt-get update && sudo apt-get install -y file
+        run: sudo apt-get update && sudo apt-get install -y file lua5.4
       - name: Install Move-compatible AArch64 toolchain
         env:
           TOOLCHAIN_URL: https://developer.arm.com/-/media/Files/downloads/gnu-a/10.3-2021.07/binrel/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu.tar.xz

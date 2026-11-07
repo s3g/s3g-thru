@@ -41,15 +41,15 @@ options. See the [MIDI guide](docs/midi.html) for setup and the full address map
 
 ## Build from source
 
-Requirements are Node.js 18 or newer and a native C++17 compiler
-for tests, and an
+Requirements are Node.js 18 or newer, Lua 5.3 or newer and a native C++17
+compiler for tests, and an
 AArch64 Linux C++ cross-compiler for the Move package.
 
 On macOS:
 
 ```sh
 brew tap messense/macos-cross-toolchains
-brew install aarch64-unknown-linux-gnu
+brew install aarch64-unknown-linux-gnu lua
 npm test
 npm run build
 ```

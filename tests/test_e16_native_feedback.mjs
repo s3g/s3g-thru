@@ -59,4 +59,5 @@ for i=1,7200 do pg=i%12+1;page.onPageChange(1,pg);controller.onSysex(data(pg-1,s
 collectgarbage('collect');assert(collectgarbage('count')-initial<12)
 print('s3g Thru tiny E16 ring receiver: native turns untouched, matching page/token only, bounded memory: PASS')
 `});
+assert.ifError(lua.error);
 assert.equal(lua.status,0,lua.stdout+lua.stderr);process.stdout.write(lua.stdout);

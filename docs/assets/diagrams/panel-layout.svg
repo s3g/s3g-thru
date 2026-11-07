@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="720" viewBox="0 0 1200 720" role="img" aria-labelledby="title desc">
   <title id="title">s3g Thru control layout on Ableton Move</title>
-  <desc id="desc">A grayscale top-panel drawing based on the Ableton Move hardware layout, with fourteen numbered callouts for the OLED display, eight encoders, clickable wheel, four track buttons, 32 pads, 16 step buttons, Play, Record, Loop, Back and Menu, navigation, octave and page controls, Delete, and Shift.</desc>
+  <desc id="desc">A grayscale top-panel drawing based on the Ableton Move hardware layout, with nineteen numbered callouts for the OLED display, eight encoders, clickable wheel, four track buttons, 32 pads, 16 step buttons, Play, Record, Loop, Back, Menu, navigation, octave and page controls, Delete, Shift, Capture, Mute, Copy, and Undo.</desc>
   <defs>
     <style>
       .body{fill:#dededb;stroke:#181818;stroke-width:2}
@@ -166,20 +166,44 @@
   <circle cx="1025" cy="512" r="17" class="button"/><path d="M1020 504L1028 512L1020 520" class="icon"/>
 
   <!-- Numbered s3g Thru controls. Leaders terminate at control edges. -->
+  <!-- 1: Display -->
   <path d="M168 193H112" class="leader"/><circle cx="95" cy="193" r="17" class="call"/><text x="95" y="193" class="num">1</text>
+  <!-- 2: Encoders 1–8 -->
   <path d="M581 167V112" class="leader"/><circle cx="581" cy="95" r="17" class="call"/><text x="581" y="95" class="num">2</text>
+  <!-- 3: Main wheel -->
   <path d="M176 297H112" class="leader"/><circle cx="95" cy="297" r="17" class="call"/><text x="95" y="297" class="num">3</text>
+  <!-- 4: Track 1–4 -->
   <path d="M276 268H260V235H112" class="leader"/><circle cx="95" cy="235" r="17" class="call"/><text x="95" y="235" class="num">4</text>
-  <path d="M916 244H1075V225H1093" class="leader"/><circle cx="1110" cy="225" r="17" class="call"/><text x="1110" y="225" class="num">5</text>
+  <!-- 5: 32 pads -->
+  <path d="M916 244H927V112" class="leader"/><circle cx="927" cy="95" r="17" class="call"/><text x="927" y="95" class="num">5</text>
+  <!-- 6: Step 1–16 -->
   <path d="M627 512H618V608" class="leader"/><circle cx="618" cy="625" r="17" class="call"/><text x="618" y="625" class="num">6</text>
+  <!-- 7: Play -->
   <path d="M188 531V608" class="leader"/><circle cx="188" cy="625" r="17" class="call"/><text x="188" y="625" class="num">7</text>
+  <!-- 8: Record -->
   <path d="M241 531V608" class="leader"/><circle cx="241" cy="625" r="17" class="call"/><text x="241" y="625" class="num">8</text>
-  <path d="M955 307V300H1075V310H1093" class="leader"/><circle cx="1110" cy="310" r="17" class="call"/><text x="1110" y="310" class="num">9</text>
-  <path d="M168 365V355H241V365M204 355H112" class="leader"/><circle cx="95" cy="355" r="17" class="call"/><text x="95" y="355" class="num">10</text>
+  <!-- 9: Loop -->
+  <path d="M955 307V300H1093" class="leader"/><circle cx="1110" cy="300" r="17" class="call"/><text x="1110" y="300" class="num">9</text>
+  <!-- 10: Back -->
+  <path d="M188 365V355H112" class="leader"/><circle cx="95" cy="355" r="17" class="call"/><text x="95" y="355" class="num">10</text>
+  <!-- 11: Left / Right arrows -->
   <path d="M1042 512H1075V525H1093" class="leader"/><circle cx="1110" cy="525" r="17" class="call"/><text x="1110" y="525" class="num">11</text>
+  <!-- 12: + / − keys (Up / Down) -->
   <path d="M985 545V608" class="leader"/><circle cx="985" cy="625" r="17" class="call"/><text x="985" y="625" class="num">12</text>
-  <path d="M955 365V355H1075V370H1093" class="leader"/><circle cx="1110" cy="370" r="17" class="call"/><text x="1110" y="370" class="num">13</text>
-  <path d="M1030 442H1075V445H1093" class="leader"/><circle cx="1110" cy="445" r="17" class="call"/><text x="1110" y="445" class="num">14</text>
+  <!-- 13: Delete -->
+  <path d="M955 365V360H1093" class="leader"/><circle cx="1110" cy="360" r="17" class="call"/><text x="1110" y="360" class="num">13</text>
+  <!-- 14: Shift -->
+  <path d="M1030 442H1148" class="leader"/><circle cx="1165" cy="442" r="17" class="call"/><text x="1165" y="442" class="num">14</text>
+  <!-- 15: Menu -->
+  <path d="M241 405V415H112" class="leader"/><circle cx="95" cy="415" r="17" class="call"/><text x="95" y="415" class="num">15</text>
+  <!-- 16: Capture -->
+  <path d="M955 249V240H1093" class="leader"/><circle cx="1110" cy="240" r="17" class="call"/><text x="1110" y="240" class="num">16</text>
+  <!-- 17: Mute -->
+  <path d="M1030 326H1148" class="leader"/><circle cx="1165" cy="326" r="17" class="call"/><text x="1165" y="326" class="num">17</text>
+  <!-- 18: Copy -->
+  <path d="M1030 384H1148" class="leader"/><circle cx="1165" cy="384" r="17" class="call"/><text x="1165" y="384" class="num">18</text>
+  <!-- 19: Undo -->
+  <path d="M955 423V420H1093" class="leader"/><circle cx="1110" cy="420" r="17" class="call"/><text x="1110" y="420" class="num">19</text>
 
   <text x="55" y="687" class="foot">Control placement follows Ableton Move hardware · numbered controls describe s3g Thru takeover behavior</text>
 </svg>

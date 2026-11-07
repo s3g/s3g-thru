@@ -222,7 +222,7 @@
 
         <h2 id="stack-path">Shared Stack Path page</h2>
 
-        <p>Motion, Lanes, Grains, Glitch, Weave, and Wavesets all use this same page to shape movement through all four lanes in Single and Shared Dual, or the focused pair in Split. Stack Start and Scan Rate remain on Engine and are not repeated here. Quad omits this page because each part owns one lane. Its discrete VARI control also stays on that assigned source.</p>
+        <p>Every engine except Cutups, Sample, and Slices uses this same page to shape movement through all four lanes in Single and Shared Dual, or the focused pair in Split. Stack Start and Scan Rate remain on Engine and are not repeated here. Quad omits this page because each part owns one lane. Its discrete VARI control also stays on that assigned source.</p>
 
         <figure>
           <div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/stack-path.svg" aria-label="Open the shared Stack Path page figure"><img src="assets/screens/stack-path.svg" alt="Shared Stack Path page with seven controls and one reserved encoder position"></button></div>
@@ -232,7 +232,7 @@
         <table class="readout-table parameter-table">
           <thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>What it controls</th></tr></thead>
           <tbody>
-            <tr><td>1</td><td>PATH</td><td>15 choices</td><td>Chooses Down, Up, Triangle, Sine, Steps Down, Steps Up, Manual, Random, or an editable Draw route through the stack.</td></tr>
+            <tr><td>1</td><td>PATH</td><td>9 paths</td><td>Chooses Down, Up, Triangle, Sine, Steps Down, Steps Up, Manual, Random, or an editable Draw route through the stack.</td></tr>
             <tr><td>2</td><td>BLND</td><td>Crossfade / Jump</td><td>Crossfade blends adjacent loaded lanes; Jump selects the nearer loaded lane.</td></tr>
             <tr><td>3</td><td>SHAP</td><td>Linear / Smooth / Exponential / Plateau</td><td>Changes the contour of the path before it becomes a lane position.</td></tr>
             <tr><td>4</td><td>OFST</td><td>0.00–1.00</td><td>Rotates the path through one complete cycle without changing Scan Rate.</td></tr>
@@ -300,12 +300,14 @@
 <tr><td><a href="engine-morph.html">Morph</a></td><td>Blend the spectral amplitudes and frequencies of a source with those of the next lane. The two controls move independently, making hybrid sounds that go beyond a volume crossfade.</td><td>Spectral stack blending with next-lane partners</td><td>Hybrid voices, moving spectral colors, independent amplitude and frequency transformations, and a circular four-lane instrument in Quad.</td></tr>
 <tr><td><a href="engine-texture.html">Texture</a></td><td>A held note becomes a small sample phrase: scattered events, grouped bursts, repeated pitch contours, or ornaments. Each note keeps its own source path and a bounded set of overlapping stereo events.</td><td>Independent stack paths per played note</td><td>Playable sample textures, generated motifs, scattered layers, and short ornamental phrases.</td></tr>
 <tr><td><a href="engine-formant.html">Formant</a></td><td>Pitch-synchronous sampling with independent pitch and formant shift</td><td>Each lane follows its own detected periods</td><td>Playable voices, vowels, reeds, and monophonic recordings</td></tr>
-</tbody>
+            <tr><td><a href="engine-stochastic.html">Stochastic</a></td><td>Sample fragments evolve through timing and amplitude deformation; source travel can run or hold</td><td>Independent stack path and continuously changing lane blend per note</td><td>Metallic tearing, unstable reeds, elastic machinery, and evolving held fragments</td></tr>
+            <tr><td><a href="engine-pulsar.html">Pulsar</a></td><td>Windowed fragments with independent pulse rate, duration, and source span; source travel can run or hold</td><td>Independent stack path per note; each pulse captures its lane blend at launch</td><td>Vocal reeds, pitched buzzing, rhythmic bursts, and sampled pulses up to one second</td></tr>
+          </tbody>
         </table>
 
         <h2 id="voices">What every engine shares</h2>
 
-        <p>Single shares eight voices across the clip’s four lanes. Split gives each instrument four voices across its own two lanes; Shared Dual gives each four voices across the same four sources, using the same or different engines with independent settings. Quad gives each of four parts one lane and two voices. Each voice has its own pitch, read position, release, and physical pad assignment. Motion, Lanes, Grains, Glitch, Weave, and Wavesets also give every voice its own movement through the stack; Cutups advances each voice’s discrete lane after a chosen number of cuts. Sample and Slices choose discrete lanes. Their lane activity bars follow the actual readers: the latest held voice in Single, or combined voice activity in Split, Shared Dual and Quad. Each playhead’s square marks that voice’s source lane.</p>
+        <p>Single shares eight voices across the clip’s four lanes. Split gives each instrument four voices across its own two lanes; Shared Dual gives each four voices across the same four sources, using the same or different engines with independent settings. Quad gives each of four parts one lane and two voices. Each voice has its own pitch, read position, release, and physical pad assignment. The engines with a <a href="#stack-path">Stack Path page</a> also give every voice its own movement through the stack; Cutups advances each voice’s discrete lane after a chosen number of cuts. Sample and Slices choose discrete lanes. Their lane activity bars follow the actual readers: the latest held voice in Single, or combined voice activity in Split, Shared Dual and Quad. Each playhead’s square marks that voice’s source lane.</p>
 
         <p>The four navigation banks keep related pages together:</p>
         <table class="readout-table"><thead><tr><th>Bank</th><th>Page order</th></tr></thead><tbody>

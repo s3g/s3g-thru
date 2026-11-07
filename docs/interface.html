@@ -19,40 +19,37 @@
         <h1>Interface tour</h1>
         <p class="lead">The waveform page is for playing and seeing motion. Parameter pages assign the eight encoders to the names and values shown on screen. Dedicated overview screens provide access to clips, chains, samples, the System Report, and shortcuts.</p>
 
-        <div class="callout"><p><strong>Instrument modes:</strong> Single, Split, Shared Dual, and Quad use different lane layouts and voice budgets. <a href="modes.html">Compare the modes and choose a layout</a> before following the controls below.</p></div>
+        <div class="callout"><p><strong>Instrument modes:</strong> Single, Split, Shared Dual, Quad, and Bank use different lane layouts and voice budgets. <a href="modes.html">Compare the modes and choose a layout</a> before following the controls below.</p></div>
 
         <h2 id="hardware">Move panel layout</h2>
 
         <figure>
-          <div class="manual-diagram"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/diagrams/panel-layout.svg" aria-label="Open the s3g Thru Move panel map"><img src="assets/diagrams/panel-layout.svg" alt="Ableton Move top panel with fourteen numbered s3g Thru controls"></button></div>
-          <figcaption>The control placement follows the Move hardware panel; the numbered descriptions show how s3g Thru uses those controls in Overtake. Native Move functions differ outside the module.</figcaption>
+          <div class="manual-diagram"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/diagrams/panel-layout.svg" aria-label="Open the s3g Thru Move panel map"><img src="assets/diagrams/panel-layout.svg" alt="Ableton Move top panel with nineteen numbered s3g Thru controls"></button></div>
+          <figcaption>Match the 19 numbered controls to the key below for their s3g Thru functions, icon locations, and shortcuts. The control placement follows the Move hardware panel; native Move functions differ outside takeover.</figcaption>
         </figure>
 
+        <h3 id="split-buttons">Numbered controls</h3>
         <ol class="panel-callout-list">
           <li><strong>Display.</strong> Shows waveforms, playheads, stack markers, parameter pages, clips, chains, the browser, the System Report, and shortcuts.</li>
           <li><strong>Encoders 1–8.</strong> Control the eight parameter cells currently shown. Their response is slowed by 50% for precise adjustment; one-shot actions still respond to the first turn. Reserved cells deliberately do nothing.</li>
-          <li><strong>Main wheel.</strong> Selects lanes or browser entries. Its click toggles performance recording from Main, confirms browser choices, opens FX Pages from either dual mode’s FX Sends page, and lifts or drops effects on FX Order.</li>
-          <li><strong>Track 1–4.</strong> Selects the lane used for capture and editing. In Split it also focuses A for lanes 1–2 or B for lanes 3–4. Shared Dual keeps focus unchanged. Quad focuses the lane’s A–D instrument. Shift+Track opens its source browser.</li>
-          <li><strong>32 pads.</strong> Play up to eight voices in Single, four per half in either dual mode, or two per quadrant in Quad. Pressure moves each held voice's stack offset when Pressure is Offset.</li>
+          <li><strong>Main wheel.</strong> Selects lanes or browser entries. Its click toggles performance recording from Main, confirms browser choices, opens FX Pages from either dual mode’s FX Sends page, and lifts or drops effects on FX Order. On the Stochastic and Pulsar parameter pages, click to hold or resume source travel.</li>
+          <li><strong>Track 1–4.</strong> Selects the lane used for capture and editing. In Split it also focuses A for lanes 1–2 or B for lanes 3–4. Shared Dual keeps focus unchanged. Quad focuses the lane’s A–D instrument. Shift + Track opens its source browser.</li>
+          <li><strong>32 pads.</strong> Play up to eight voices in Single, four per half in either dual mode or Bank, or two per quadrant in Quad. Pressure moves each held voice’s stack offset when Pressure is Offset.</li>
           <li><strong>Step 1–16.</strong> Selects a performance clip in the current A–D bank and addresses entries in Clips and Chain views.</li>
-          <li><strong>Play.</strong> Stops or resumes performance-loop playback. Shift+Play cycles Main → Clip Overview → Chain → Main.</li>
-          <li><strong>Record.</strong> Starts or stops performance-data capture. Shift+Record records stereo audio into the selected lane; Delete+Record removes the newest overdub take.</li>
-          <li><strong>Loop.</strong> Holds or resumes stack scanning for the whole Single instrument or the focused part in a multi-instrument mode. Shift+Loop controls Glitch Buffer Lock. Quad has no stack scan; Loop is available for Glitch or an enabled Tape Inertia transport gesture.</li>
-          <li><strong>Back and Menu.</strong> Menu toggles the waveform and parameter pages; Shift+Menu opens System Report / Shortcuts. Back closes a secondary view or saves and exits from Main. The separate curved-arrow Undo key performs the one-level safety undo for clip, sample and chain edits.</li>
-          <li><strong>Left / Right arrows.</strong> Select performance-clip bank A–D from the waveform and parameter pages.</li>
-          <li><strong>+ / − keys (Up / Down).</strong> Transpose the pad grid by octave on the waveform page, move within the current parameter-page bank, set Chain repeats, or browse lists according to the current view.</li>
-          <li><strong>Delete.</strong> Delete+Step resets a clip or removes a Chain entry; Delete+Record removes the newest overdub take; Delete+pad clears a cue. Shift+Delete clears the selected audio lane.</li>
-          <li><strong>Shift.</strong> Accesses audio recording, lane-source browsing, System Report / Shortcuts, clip copy and move, Glitch Buffer Lock, and the shortcuts documented in <a href="shortcuts.html">Shortcut Reference</a>.</li>
+          <li><strong>Play.</strong> Stops or resumes performance-loop playback. Shift + Play cycles Main → Clip Overview → Chain → Main.</li>
+          <li><strong>Record.</strong> Starts or stops performance-data capture. Shift + Record records stereo audio into the selected lane; Delete + Record removes the newest overdub take.</li>
+          <li><strong>Loop.</strong> Holds or resumes stack scanning for the whole Single instrument or the focused part in a multi-instrument mode. Shift + Loop controls Glitch Buffer Lock. Quad has no stack scan; Loop is available for Glitch or an enabled Tape Inertia transport gesture. In Slice Edit it toggles audition looping.</li>
+          <li><strong>Back.</strong> The left-pointing arrow below the main wheel. Returns through secondary views. A page opened from the Pages hub returns to its bank list, then to the hub. From Main, Back saves and exits takeover.</li>
+          <li><strong>Left / Right arrows.</strong> The arrow keys at the lower right. Select performance-clip bank A–D from the waveform and parameter pages.</li>
+          <li><strong>+ / − keys (Up / Down).</strong> The + and − keys between the lower-right arrows. Transpose the pad grid by octave on the waveform page, move within the current parameter-page bank, set Chain repeats, or browse lists according to the current view.</li>
+          <li><strong>Delete.</strong> The X button, below Loop. Delete + Step resets a clip or removes a Chain entry; Delete + Record removes the newest overdub take; Delete + pad clears a cue or Bank slot. Shift + Delete clears the selected audio lane.</li>
+          <li><strong>Shift.</strong> The three-dot button at the bottom right. Accesses audio recording, lane-source browsing, System Report / Shortcuts, clip copy and move, Glitch Buffer Lock, and the shortcuts documented in <a href="shortcuts.html">Shortcut Reference</a>.</li>
+          <li><strong>Menu.</strong> The three horizontal lines to the right of Back. Toggles the waveform and parameter pages. Shift + Menu opens System Report / Shortcuts. Capture + Menu opens the <a href="#page-picker">grouped Pages hub</a>.</li>
+          <li><strong>Capture.</strong> The four broken-corner brackets directly right of the pads and above Loop. Tap to switch A/B editing focus in Split, Shared Dual or Bank, or cycle A–D in Quad. Hold for <a href="playing.html#capture-performance">bottom-row performance controls</a>. Capture + Track 1–4 jumps to Voice, Lane, Mix/FX or Performance; Capture + Menu opens the Pages hub. Capture + knob 8 adjusts Blend in Split, Shared Dual or Bank, or the focused part’s level in Quad.</li>
+          <li><strong>Mute.</strong> The M-marked button to the right of Loop and above Copy. Mutes or unmutes the focused part in a multi-instrument mode. Its playheads keep moving. Part-mode sample preview follows its mute; Direct preview is independent.</li>
+          <li><strong>Copy.</strong> The overlapping squares to the right of Delete and below Mute. In clip and chain editors, Copy / Shift + Copy copies and pastes; hold the combination with a Step to address a slot without launching it. See <a href="performance.html#clip-copy">Clip copy</a> and <a href="performance.html#chain-tools">Chain copy</a>. Outside those editors, Copy toggles Single / last multi-instrument mode and Shift + Copy copies sound settings to the other or next part. Capture + Menu → Mode opens the mode chooser.</li>
+          <li><strong>Undo.</strong> The curved reverse arrow below Delete and directly left of Shift. Restores the most recent destructive clip, sample or chain edit. It lights when an undo is available. Stop audio or performance recording first.</li>
         </ol>
-
-        <h3 id="split-buttons">Find the icon controls</h3>
-        <p>The icon buttons to the right of the pad grid provide mode, focus, mute, and undo control:</p>
-        <table class="readout-table"><thead><tr><th>Control</th><th>Where to find it</th><th>Action</th></tr></thead><tbody>
-          <tr><td>Copy</td><td>Overlapping squares, right of Delete and below Mute.</td><td>In clip and chain editors, Copy / Shift + Copy copies and pastes; hold the combination with a Step to address a slot without launching it. See <a href="performance.html#clip-copy">Clip copy</a> and <a href="performance.html#chain-tools">Chain copy</a>. Outside those editors, Copy toggles Single / last multi-instrument mode and Shift + Copy copies sound settings to the other or next part. Capture + Menu → Mode always opens the mode chooser.</td></tr>
-          <tr><td>Capture</td><td>Four broken-corner brackets, directly right of the pads and above Loop.</td><td>Tap to switch A/B focus in dual modes, or cycle A–D in Quad. Hold for <a href="playing.html#capture-performance">bottom-row performance controls</a>. Capture + Track 1–4 jumps to Voice, Lane, Mix/FX, or Performance; Capture + Menu opens the page hub. Capture + knob 8 adjusts Blend in dual modes or the focused part’s level in Quad.</td></tr>
-          <tr><td>Undo</td><td>Curved reverse arrow, below Delete and directly left of Shift.</td><td>Restore the most recent destructive clip or sample action. It lights when an undo is available. Stop audio or performance recording first.</td></tr>
-          <tr><td>Mute</td><td>M-marked button, right of Loop and above Copy.</td><td>Mute or unmute the focused part in a multi-instrument mode. Its playheads keep moving; Part-mode sample preview follows its mute; Direct preview is independent.</td></tr>
-        </tbody></table>
 
         <h2 id="waveform">Waveform page</h2>
 
@@ -126,7 +123,7 @@
         </figure>
 
         <div class="control-map">
-          <div><span class="control-number">Knob 1</span><strong>ALG</strong><p>Choose Motion, Lanes, Grains, Cutups, Sample, Slices, Glitch, Weave, or Wavesets.</p></div>
+          <div><span class="control-number">Knob 1</span><strong>ALG</strong><p>Choose any of the <a href="engines.html#choose">15 playback engines</a>.</p></div>
           <div><span class="control-number">Knob 2</span><strong>POS</strong><p>Center the readable source field.</p></div>
           <div><span class="control-number">Knob 3</span><strong>FLD</strong><p>Set the width around Position.</p></div>
           <div><span class="control-number">Knob 4</span><strong>SPD</strong><p>Set source transport speed.</p></div>
@@ -154,7 +151,7 @@
               <img src="assets/screens/stack-path.svg" alt="Stack Path page with seven controls and a small reserved box at knob 8">
             </button>
           </div>
-          <figcaption>Stack Path appears unchanged for Motion, Lanes, Grains, Glitch, Weave, and Wavesets. The small hollow box at knob 8 marks an inactive position reserved for a future parameter.</figcaption>
+          <figcaption>The <a href="engines.html#stack-path">shared Stack Path page</a> appears for every engine except Cutups, Sample, and Slices; Quad omits it. The small hollow box at knob 8 marks an inactive position reserved for a future parameter.</figcaption>
         </figure>
 
         <p>Parameter dials use a fine response for small adjustments. Chain BANK uses an even finer response to make individual bank selections easier.</p>
@@ -202,7 +199,7 @@
           <li><span class="status-key status-violet"></span>Blue-violet: queued clip.</li>
         </ul>
 
-        <p>The white icon keys use brightness to show availability. Menu, Back, Shift, Delete, Capture, and Copy are lit from startup. Menu brightens in parameter/menu/help views; Back brightens in secondary views. Undo lights when a one-level safety undo is available and recording is stopped. Shift and Delete brighten while held. Arrow keys light where they navigate. Copy is bright in multi-instrument modes and goes dark while recording blocks a mode change. Capture stays available in Single for page navigation; while Capture or the Pages hub is active, Track 1–4 become the four page-bank indicators and the selected bank brightens. Outside page navigation they return to their lane, part, or clip-bank indication. Mute lights only in the dual modes and brightens when the focused part is muted. Unassigned icon buttons stay dark.</p>
+        <p>The white icon keys use brightness to show availability. Menu, Back, Shift, Delete, Capture, and Copy are lit from startup. Menu brightens in parameter/menu/help views; Back brightens in secondary views. Undo lights when a one-level safety undo is available and recording is stopped. Shift and Delete brighten while held. Arrow keys light where they navigate. Copy is bright in multi-instrument modes and goes dark while recording blocks a mode change. Capture stays available in Single for page navigation; while Capture or the Pages hub is active, Track 1–4 become the four page-bank indicators and the selected bank brightens. Outside page navigation they return to their lane, part, or clip-bank indication. Mute lights in multi-instrument modes and brightens when the focused part is muted. Unassigned icon buttons stay dark.</p>
         <p>The Play key turns green while the performance loop runs. The Loop key is bright white for Glitch Buffer Lock or a live Stack Hold, medium white for a Stack Hold recalled from the playing clip, and dim white while both stack scan and Glitch history are live. Record is red for data capture and orange for audio-lane capture.</p>
 
         <nav class="page-nav" aria-label="Page navigation">
@@ -214,7 +211,7 @@
       <aside class="toc" aria-label="Page navigation">
         <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="midi.html">MIDI</a><a href="shortcuts.html">Shortcuts</a></div>
         <div class="toc-section"><h2>Instrument modes</h2><a href="playing.html">Single · Basic playing</a><a href="modes.html">Compare modes</a><a href="split.html">Split</a><a href="shared-dual.html">Shared Dual</a><a href="quad.html">Quad</a></div>
-        <div class="toc-section"><h2>On this page</h2><a href="#hardware">Panel layout</a><a href="#split-buttons">Icon buttons</a><a href="#waveform">Waveform</a><a href="#zoom">Waveform zoom</a><a href="#parameters">Parameters</a><a href="#page-picker">Page picker</a><a href="#secondary">Secondary screens</a><a href="#navigation">Navigation</a><a href="#leds">LED language</a></div>
+        <div class="toc-section"><h2>On this page</h2><a href="#hardware">Panel layout</a><a href="#split-buttons">Control key</a><a href="#waveform">Waveform</a><a href="#zoom">Waveform zoom</a><a href="#parameters">Parameters</a><a href="#page-picker">Page picker</a><a href="#secondary">Secondary screens</a><a href="#navigation">Navigation</a><a href="#leds">LED language</a></div>
       </aside>
     </div>
     <footer class="manual-footer">Use Shift+Menu on Move for the system report and compact control reminder.</footer>

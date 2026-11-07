@@ -20,9 +20,20 @@
         for(const char* p=id+2;*p;++p)if(!((*p>='0'&&*p<='9')||(*p>='a'&&*p<='f')||*p=='-'))return false;
         return id[2]!=0;
     }
+    static bool projectJoinPath(const char* root,const char* leaf,char* out,std::size_t size) {
+        if(!root||!root[0]||!leaf||!out)return false;
+        std::array<char,kPersistencePathSize> joined;
+        const auto capacity=std::min(size,joined.size());
+        const auto rootLength=std::strlen(root),leafLength=std::strlen(leaf);
+        if(capacity<2||rootLength>capacity-2||leafLength>capacity-rootLength-2)return false;
+        // Stage both components before publishing, including aliasing callers.
+        std::memcpy(joined.data(),root,rootLength);joined[rootLength]='/';
+        std::memcpy(joined.data()+rootLength+1,leaf,leafLength+1);
+        std::memmove(out,joined.data(),rootLength+leafLength+2);return true;
+    }
     bool rootDataPath(const char* leaf,char* out,std::size_t size) const {
         const char* root=moduleRootDirectory[0]?moduleRootDirectory.data():moduleDirectory.data();
-        const int n=std::snprintf(out,size,"%s/%s",root,leaf);return root[0]&&n>0&&static_cast<std::size_t>(n)<size;
+        return projectJoinPath(root,leaf,out,size);
     }
     bool controllerDataPath(const char* leaf,char* out,std::size_t size) const {return rootDataPath(leaf,out,size);}
     bool metadataPath(const PersistenceSnapshot* snapshot,const char* leaf,char* out,std::size_t size) const {
@@ -378,7 +389,7 @@
         if(importing) {
             const int index=parseInteger(value,-1);if(index<0||index>=projectListed){projectNote("CHOOSE A PROJECT");return true;}
             std::array<char,kPersistencePathSize> root{};projectDirectory(root.data(),root.size());
-            if(std::snprintf(projectArchivePath.data(),projectArchivePath.size(),"%s/%s",root.data(),projectFiles[index].data())>=static_cast<int>(projectArchivePath.size()))return true;
+            if(!projectJoinPath(root.data(),projectFiles[index].data(),projectArchivePath.data(),projectArchivePath.size()))return true;
         }
         setClipPlaying(false);allNotesOff();captureActiveClip(true);markPersistentStateDirty();maintenanceRequested=true;
         projectGeneration=reservePersistenceGeneration();projectAction=importing?2:1;projectNote("SAVING CURRENT SET");projectJob.store(projectWaiting,std::memory_order_release);return true;

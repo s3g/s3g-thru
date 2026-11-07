@@ -346,8 +346,8 @@ void testPreviewIsolation()
 
 int main(int argc,char** argv)
 {
-    if(argc==2&&std::strcmp(argv[1],"--storage-projects")==0){testBankExitRecoveryAndDiscard();testDurableStorageCommits();testPortableProjects();testPortableProjects(false);testPortableProjects(true,1);testPortableProjects(true,2);testProjectBackgroundWorkflow();testProjectLoadedAndRecordedSources();return 0;}
-    testBankExitRecoveryAndDiscard();testDurableStorageCommits();testPortableProjects();testPortableProjects(false);testPortableProjects(true,1);testPortableProjects(true,2);testProjectBackgroundWorkflow();testProjectLoadedAndRecordedSources();
+    if(argc==2&&std::strcmp(argv[1],"--storage-projects")==0){testProjectPathBounds();testBankExitRecoveryAndDiscard();testDurableStorageCommits();testPortableProjects();testPortableProjects(false);testPortableProjects(true,1);testPortableProjects(true,2);testProjectBackgroundWorkflow();testProjectLoadedAndRecordedSources();return 0;}
+    testProjectPathBounds();testBankExitRecoveryAndDiscard();testDurableStorageCommits();testPortableProjects();testPortableProjects(false);testPortableProjects(true,1);testPortableProjects(true,2);testProjectBackgroundWorkflow();testProjectLoadedAndRecordedSources();
     if(argc==2&&std::strcmp(argv[1],"--bank-guard")==0){testBankMinimumTake();testBankSilenceAndDurationGuards();return 0;}
     if(argc==2&&std::strcmp(argv[1],"--custom-midi")==0){testCustomMidiRoutingAndPickup();testCustomMidiLearnAndConflicts();testCustomMidiBanksAndButtons();testCustomMidiStorage();return 0;}
     if(argc==2&&std::strcmp(argv[1],"--slice-editor")==0){testSliceMarkersAndMaps();testSliceEditorVoicesAndUndo();testSliceEditorOverlap();testSliceEditorBackgroundZoom();testSliceEditorPersistence();testSliceSampleEditAlignment();return 0;}

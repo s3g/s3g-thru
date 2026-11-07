@@ -6,8 +6,10 @@ module_root="$repo_dir/build/native"
 dist_dir="$repo_dir/dist"
 archive="$dist_dir/s3g-thru-module.tar.gz"
 
-"$repo_dir/scripts/validate-native.sh"
+# Fail compiler/ABI checks before running the full host suite, and validate
+# the candidate binary that will actually be packaged.
 "$repo_dir/scripts/build-native.sh"
+"$repo_dir/scripts/validate-native.sh"
 mkdir -p "$dist_dir"
 COPYFILE_DISABLE=1 tar -C "$module_root" -czf "$archive" s3g-thru
 "$repo_dir/scripts/verify-package.sh" "$archive"

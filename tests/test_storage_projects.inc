@@ -1,3 +1,19 @@
+void testProjectPathBounds() {
+    std::array<char,64> path{};
+    assert(ThruInstance::projectJoinPath("/tmp/thru","projects",path.data(),path.size()));
+    assert(std::string(path.data())=="/tmp/thru/projects");
+    const auto unchanged=path;
+    assert(!ThruInstance::projectJoinPath("/tmp/thru","projects",path.data(),18)&&path==unchanged);
+    assert(ThruInstance::projectJoinPath("/tmp/thru","projects",path.data(),19));
+    std::strcpy(path.data(),"/tmp/thru");
+    assert(ThruInstance::projectJoinPath(path.data(),"projects",path.data(),path.size()));
+    assert(std::string(path.data())=="/tmp/thru/projects");
+    std::strcpy(path.data(),"take.wav");
+    assert(ThruInstance::projectJoinPath("/tmp",path.data(),path.data(),path.size()));
+    assert(std::string(path.data())=="/tmp/take.wav");
+    assert(!ThruInstance::projectJoinPath(nullptr,"x",path.data(),path.size()));
+    std::puts("s3g Thru project paths: exact capacity, overflow rejection, unchanged failure output and aliased components: PASS");
+}
 using StorageOp=s3g_thru_storage::Operation;
 struct StorageEvent {StorageOp op;bool renderThread;};
 std::vector<StorageEvent> storageTrace;

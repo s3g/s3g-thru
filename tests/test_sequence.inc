@@ -53,6 +53,28 @@ void testSequenceScheduler() {
     assert(padStep(stepPad(i)) == i);
   assert(padStep(24) == 0 && padStep(31) == 7 && padStep(0) == 24 &&
          padStep(7) == 31);
+  {
+    Pattern cycles; cycles.active = true;
+    auto &lane = cycles.tracks[0];
+    lane.length = 3; lane.rate = 4; lane.rotation = 1;
+    for (auto &other : cycles.tracks) other.enabled = false;
+    lane.enabled = true;
+    auto &trig = lane.trigs[1]; trig.enabled = true;
+    trig.cycleHit = 1; trig.cycleEvery = 2; setCount(trig, 3);
+    EventList events;
+    schedule(cycles, 0, .25, 18, events);
+    assert(events.size == 9);
+    for (int i = 0; i < events.size; ++i)
+      assert(events.items[i].tick == (i / 3) * 6);
+    trig.cycleHit = 2;
+    schedule(cycles, 0, .25, 18, events);
+    assert(events.size == 9);
+    for (int i = 0; i < events.size; ++i)
+      assert(events.items[i].tick == 3 + (i / 3) * 6);
+    trig.cycleHit = trig.cycleEvery = 1;
+    schedule(cycles, 0, .25, 18, events);
+    assert(events.size == 18);
+  }
   std::puts("Sequence scheduler: sample-offset partition invariance, four "
             "polymeters, rotation, signed microtime, probability, bounded "
             "Burst and strict encoding: PASS");
@@ -210,6 +232,8 @@ void testSequenceGatesAndEditing() {
          t->voices[0].sequence.frames <= 11026);
   t->refreshPlaybackVoices();
   setParam(t.get(), "seq_duration_mode", "1");
+  assert(t->sequenceState(durationState, sizeof(durationState)) > 0 &&
+         std::strstr(durationState, "\"mask\":0"));
   setParam(t.get(), "seq_time_ms", "5000");
   t->sequencePlayback = t->sequenceLive;
   t->startSequenceVoice(0, 0, 0, .2, true);
@@ -297,6 +321,24 @@ void testSequenceGatesAndEditing() {
       "Sequence gates/editing: ADSR fits gate, safe dense Burst stealing, "
       "tap/hold, inherited locks, pitch entry and step copy/paste: PASS");
 }
+void testSequenceDisplayedLength() {
+  auto t = sequenceFixture();
+  t->startClipPlaybackNow();
+  t->sequenceLive.tracks[0].length = 9;
+  t->sequencePlayback.tracks[0].length = 24;
+  t->sequenceBeat = 23 * s3g_thru_sequence::rates[4];
+  t->sequenceCursor[0] = 23;
+  char state[4096]{};
+  assert(t->sequenceState(state, sizeof(state)) > 0);
+  assert(std::strstr(state, "\"length\":24") &&
+         std::strstr(state, "\"lanes\":[[23,24,"));
+  t->sequencePlayback.tracks[0].length = 9;
+  assert(t->sequenceState(state, sizeof(state)) > 0);
+  assert(std::strstr(state, "\"length\":9") &&
+         std::strstr(state, "\"lanes\":[[5,9,"));
+  std::puts("Sequence overview: displayed cursor and length follow the same "
+            "effective playback clock after recorded LEN gestures: PASS");
+}
 void testSequenceRecordingAndMidi() {
   auto t = sequenceFixture();
   setParam(t.get(), "seq_toggle", "1");
@@ -315,13 +357,20 @@ void testSequenceRecordingAndMidi() {
   t->selectSplitPart(0);
   const auto *length = s3g_thru_midi::find(3840);
   const auto *pitch = s3g_thru_midi::find(3851);
-  assert(length && pitch);
+  const auto *every = s3g_thru_midi::find(3885);
+  const auto *hit = s3g_thru_midi::find(3884);
+  assert(length && pitch && every && hit);
   midiWrite(*t, *length, 1, 7);
   assert(t->splitFocus == 0 && t->sequenceLive.tracks[1].length == 7 &&
          midiRead(*t, *length, 1) == 7);
   midiWrite(*t, *pitch, 1, -12);
   assert(t->sequenceLive.tracks[1].trigs[0].locks.values[1] == -12 &&
          t->sequenceLive.tracks[0].trigs[0].locks.values[1] == 0);
+  midiWrite(*t, *every, 1, 3);
+  midiWrite(*t, *hit, 1, 2);
+  assert(t->sequenceLive.tracks[1].trigs[0].cycleHit == 2 &&
+         t->sequenceLive.tracks[1].trigs[0].cycleEvery == 3 &&
+         midiRead(*t, *hit, 1) == 2);
   t->pendingCaptureSaveMask = 0;
   t->recordStartPending = false;
   t->beginClipRecording();
@@ -364,10 +413,15 @@ void testSequencePersistence() {
   setParam(t.get(), "seq_duration_mode", "1");
   setParam(t.get(), "seq_time_ms", "7000");
   setParam(t.get(), "seq_trig_time_ms", "13000");
+  setParam(t.get(), "seq_cycle_every", "3");
+  setParam(t.get(), "seq_cycle_hit", "2");
   setParam(t.get(), "seq_pan_1", "-.8");
   setParam(t.get(), "seq_eq_low", "3");
   setParam(t.get(), "seq_duck_key", "2");
   setParam(t.get(), "seq_duck_depth", "12");
+  setParam(t.get(), "tempo_bpm", "1");
+  setParam(t.get(), "seq_clip_beats", "64");
+  assert(t->tempoBpm == 1 && t->activeClipSlot()->clipDurationMs == 3840000u);
   t->captureActiveClip(true);
   char folder[] = "/tmp/thru-sequence-XXXXXX";
   assert(mkdtemp(folder));
@@ -380,6 +434,8 @@ void testSequencePersistence() {
   assert(copy->readClipFileFromPath(
       (std::string(folder) + "/thru-clips.bin").c_str()));
   copy->activateStoredClip(0, false);
+  assert(copy->tempoBpm == 1 && copy->activeClipSlot()->clipDurationMs == 3840000u
+         && copy->activeClipSlot()->recordedTempoBpm == 1);
   assert(copy->sequenceMode() && copy->sequenceLive.tracks[0].length == 29 &&
          copy->sequenceLive.tracks[0].trigs[29].events[2].locks.values[0] ==
              .61f);
@@ -389,7 +445,9 @@ void testSequencePersistence() {
          copy->sequenceLive.mix.strips[0].pan == -.8f &&
          copy->sequenceLive.mix.strips[0].lowDb == 3 &&
          copy->sequenceLive.mix.priority == 2 &&
-         copy->sequenceLive.mix.depthDb == 12);
+         copy->sequenceLive.mix.depthDb == 12 &&
+         copy->sequenceLive.tracks[0].trigs[29].cycleHit == 2 &&
+         copy->sequenceLive.tracks[0].trigs[29].cycleEvery == 3);
   std::vector<unsigned char> bytes;
   {
     std::ifstream in(std::string(folder) + "/thru-clips.bin", std::ios::binary);
@@ -398,6 +456,7 @@ void testSequencePersistence() {
   bytes.resize(bytes.size() - 4);
   auto prior=bytes;
   stripSequenceMixExtension(prior);
+  assert(copy->sequenceLive.tracks[0].trigs[29].cycleEvery == 3);
   assert(prior[8] == 38);
   std::uint32_t priorSum = 2166136261u;
   for (auto byte : prior) { priorSum ^= byte; priorSum *= 16777619u; }
@@ -409,7 +468,8 @@ void testSequencePersistence() {
   assert(copy->readClipFileFromPath(priorPath.c_str()));
   copy->activateStoredClip(0, false);
   assert(copy->sequenceMode() && !copy->sequenceLive.tracks[0].timeMode &&
-         copy->sequenceLive.mix.priority == 0);
+         copy->sequenceLive.mix.priority == 0 &&
+         copy->sequenceLive.tracks[0].trigs[29].cycleEvery == 1);
   stripSequenceExtension(bytes);
   assert(bytes[8] == 37);
   std::uint32_t sum = 2166136261u;
@@ -439,7 +499,7 @@ void testSequencePersistence() {
   for (const auto &lane : t->sequenceLive.tracks)
     for (const auto &step : lane.trigs)
       assert(!step.enabled);
-  std::puts("Sequence storage: format-39 duration/mix, clip recall and "
+  std::puts("Sequence storage: format-40 cycle conditions, clip recall and "
             "format-38/37 migration: PASS");
 }
 void testSequenceEnginesAndNoteMidi() {
@@ -556,6 +616,8 @@ void testSequenceStepClipboard() {
   setParam(t.get(),"seq_note","7");
   const auto source=t->sequenceLive.tracks[0].trigs[0];
   assert(source.enabled && source.count==4);
+  setParam(t.get(),"seq_cycle_every","4");
+  setParam(t.get(),"seq_cycle_hit","3");
   t->padNoteOn(92,100);
   setParam(t.get(),"seq_consume","0");
   setParam(t.get(),"seq_copy","1");
@@ -572,7 +634,8 @@ void testSequenceStepClipboard() {
   const auto &pasted=t->sequenceLive.tracks[0].trigs[1];
   assert(pasted.enabled && pasted.count==4 &&
          pasted.locks.values[0]==.42f &&
-         pasted.events[1].locks.values[1]==7);
+         pasted.events[1].locks.values[1]==7 &&
+         pasted.cycleHit==3 && pasted.cycleEvery==4);
   std::puts("Sequence step clipboard: consumed Copy/Shift pad gestures preserve "
             "source and paste trig, Burst and event locks: PASS");
 }
@@ -726,10 +789,33 @@ void testSequenceRepeatedPlaybackPosition() {
   std::puts("Sequence repeated POS: actual Sample reader starts at the locked "
             "source position on first, stolen and restarted trigs: PASS");
 }
+void testSequenceTempoEdges() {
+  auto t = sequenceFixture();
+  setParam(t.get(), "tempo_bpm", "1");
+  assert(t->tempoBpm == 1);
+  setParam(t.get(), "tempo_bpm", "999");
+  assert(t->tempoBpm == 999);
+  setParam(t.get(), "tempo_bpm", "1000");
+  assert(t->tempoBpm == 999);
+  setParam(t.get(), "tempo_bpm", "0");
+  assert(t->tempoBpm == 1);
+  using namespace s3g_thru_sequence;
+  Pattern p; p.active = true;
+  for (auto &lane : p.tracks) {
+    lane.length = 1; lane.rate = 8; lane.trigs[0].enabled = true;
+    setCount(lane.trigs[0], 8);
+  }
+  EventList events;
+  schedule(p, 0.0, 999.0 * 4.0 / (60.0 * 44100.0), 128, events);
+  assert(events.size > 0 && !events.overflow);
+  std::puts("Sequence tempo: 1–999 BPM clamp, slow clip span and fast bounded scheduling: PASS");
+}
 void testSequence() {
+  testSequenceTempoEdges();
   testSequenceEnginesAndNoteMidi();
   testSequenceScheduler();
   testSequenceAudioAndTransport();
+  testSequenceDisplayedLength();
   testSequenceLiveRateChange();
   testSequenceRecordedRateChange();
   testSequenceGatesAndEditing();

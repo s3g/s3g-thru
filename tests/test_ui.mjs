@@ -291,8 +291,12 @@ assert.deepEqual(globalThis.__testParameterPageSets[0][3],
     globalThis.__testParameterPageSets[1][3]);
 assert.deepEqual(globalThis.__testParameterPageSets[1][3],
     globalThis.__testParameterPageSets[2][3]);
-assert.deepEqual(globalThis.__testParameterPageSets[4][3],
-    globalThis.__testParameterPageSets[5][3]);
+assert.deepEqual(globalThis.__testParameterPageSets[4][3].slice(0,2),
+    globalThis.__testParameterPageSets[5][3],
+    'Sample and Slices retain their common playback and variation controls');
+assert.deepEqual(globalThis.__testParameterPageSets[4][3].slice(2),
+    ['lanes_stretch','stretch_ratio'],
+    'Sample adds pitch-preserving stretch on the same page');
 assert.deepEqual(globalThis.__testPlaybackPageTitles[6],
     ['STACK PATH', 'GLITCH CLOCK', 'GLITCH PATTERN']);
 assert.deepEqual(globalThis.__testPlaybackPageTitles[7],
@@ -3097,12 +3101,31 @@ console.log('s3g Thru Layers UI: real split-keyboard pitch, normal engine pages,
  params.seq_state=JSON.stringify(data);params.split_mode='6';ui.read();
  state.splitEnabled=state.quadMode=true;state.sharedDual=false;state.splitFocus=0;state.editorReady=true;state.view='main';
  assert(ui.model.active);assert.equal(tools.pages()[0].title,'SEQ LANE');
+ // Sequence owns a fixed source lane, and a one-shot has no loop seam.
+ const priorAlgorithm=state.algorithm,priorMode=globalThis.__testParams.sample_mode.value;
+ state.algorithm=4;globalThis.__testParams.algorithm.value=4;
+ globalThis.__testParams.sample_mode.value=0;
+ let enginePage=tools.pages().find(p=>p.title==='ENGINE');
+ let directPage=tools.pages().find(p=>p.title==='DIRECT PLAY');
+ assert.equal(enginePage.keys[4],null);assert.equal(enginePage.keys[5],null);
+ assert.equal(enginePage.keys[6],null);
+ assert.deepEqual(directPage.keys.slice(0,4),['sample_mode',null,'lanes_stretch','stretch_ratio']);
+ globalThis.__testParams.lanes_stretch.value=0;
+ directPage=tools.pages().find(p=>p.title==='DIRECT PLAY');
+ assert.equal(directPage.keys[3],null,'stretch ratio is a hollow square when STR is off');
+ globalThis.__testParams.lanes_stretch.value=1;
+ globalThis.__testParams.sample_mode.value=2;
+ enginePage=tools.pages().find(p=>p.title==='ENGINE');
+ assert.equal(enginePage.keys[6],'join','Loop exposes its seam control');
+ state.algorithm=priorAlgorithm;globalThis.__testParams.algorithm.value=priorAlgorithm;
+ globalThis.__testParams.sample_mode.value=priorMode;
  assert.equal(tools.hub().find(e=>e.hub==='setup').title,'SEQ SETUP');
  assert.equal(tools.hub().find(e=>e.hub==='setup').index,tools.pages().findIndex(p=>p.title==='SEQ SETUP'));
  assert(tools.pages().some(p=>p.title==='SEQ MIX'));
  assert.deepEqual(tools.pages().filter(p=>Number.isInteger(p.sequenceStrip)).map(p=>p.title),
    ['SEQ STRIP 1','SEQ STRIP 2','SEQ STRIP 3','SEQ STRIP 4']);
  assert(tools.pages().some(p=>p.title==='SEQ DUCK'));
+ assert(tools.pages().some(p=>p.title==='SEQ AMP')&&!tools.pages().some(p=>p.title==='AMP ENVELOPE'));
  const mixPages=tools.categories(2).map(p=>p.title);
  assert.deepEqual(mixPages.slice(mixPages.indexOf('SEQ MIX'),mixPages.indexOf('SEQ MIX')+6),
    ['SEQ MIX','SEQ STRIP 1','SEQ STRIP 2','SEQ STRIP 3','SEQ STRIP 4','SEQ DUCK'],
@@ -3112,7 +3135,29 @@ console.log('s3g Thru Layers UI: real split-keyboard pitch, normal engine pages,
    'shared effects routing and delay return have no part prefix');
  assert(!tools.pages().some(p=>p.title==='PRIORITY DUCK'));
  assert(!tools.pages().some(p=>p.title==='STACK PATH'||p.title==='PADS & SCALE'||p.voiceEngines));
+ const originalAmp=['amp_attack','amp_decay','amp_sustain','amp_release'].map(key=>globalThis.__testParams[key].value);
+ ['amp_attack','amp_decay','amp_sustain','amp_release'].forEach((key,i)=>{globalThis.__testParams[key].value=[500,500,100,3000][i];});
+ state.view='settings';state.settingsPage=tools.pages().findIndex(p=>p.title==='SEQ AMP');
+ const ampDraw=drawWrites.length;tools.drawAll();const ampWrites=drawWrites.slice(ampDraw);
+ assert(ampWrites.some(w=>w[0]==='print'&&w[3]==='DUR 100ms'));
+ assert(ampWrites.some(w=>w[0]==='print'&&w[3]==='FIT'));
+ assert(ampWrites.some(w=>w[0]==='print'&&w[3]==='75ms'),'Release readout must show played time, not requested 3000 ms');
+ data.mask=8;data.values[13]=.4;params.seq_state=JSON.stringify(data);ui.read();
+ const shorterDraw=drawWrites.length;tools.drawAll();
+ assert(drawWrites.slice(shorterDraw).some(w=>w[0]==='print'&&w[3]==='DUR 50ms'),
+   'locked trig DUR changes the Sequence envelope preview');
+ data.mask=0;data.values[13]=.8;params.seq_state=JSON.stringify(data);ui.read();
+ const ampWrite=paramWrites.length;ui.adjust(3,4);
+ assert(paramWrites.slice(ampWrite).some(([key,value])=>key==='amp_release'&&Number(value)>3000),
+   'Sequence Release encoder edits its applied time');
+ ['amp_attack','amp_decay','amp_sustain','amp_release'].forEach((key,i)=>{globalThis.__testParams[key].value=originalAmp[i];});
+ state.view='main';
  assert.equal(globalThis.__testParams.seq_gate.shortLabel,'DUR');
+ assert.deepEqual(tools.pages().find(p=>p.title==='TRIG').keys.slice(6),['seq_cycle_hit','seq_cycle_every']);
+ data.values[39]=2;data.values[40]=3;params.seq_state=JSON.stringify(data);ui.read();
+ assert.equal(ui.control('seq_cycle_hit').value,2);
+ assert.equal(ui.control('seq_cycle_hit').max,3);
+ assert.equal(ui.control('seq_cycle_every').value,3);
  assert.equal(globalThis.__testParams.seq_trig_gate.shortLabel,'DUR');
  data.strips=[[1.25,0,0,900,0],[0,0,0,900,0],[-3,1,0,1800,1],[0,0,0,900,0]];
  params.seq_state=JSON.stringify(data);ui.read();

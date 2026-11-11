@@ -21,7 +21,7 @@ inline float rhythmBeats(float size) {
 inline float rhythmMilliseconds(int algorithm, float size, bool sync,
                                 float bpm) {
   if (sync)
-    return rhythmBeats(size) * 60000 / std::clamp(bpm, 40.f, 240.f);
+    return rhythmBeats(size) * 60000 / std::clamp(bpm, 1.f, 999.f);
   if (algorithm == 14)
     return 2000 / std::pow(160.f, size);
   if (algorithm == 15)
@@ -485,7 +485,7 @@ public:
     }
     dirty_ = dirty_ || pendingP_ != p_ || pendingA_ != a_;
     const float bpm = std::isfinite(context_.bpm)
-                          ? std::clamp(context_.bpm, 40.f, 240.f)
+                          ? std::clamp(context_.bpm, 1.f, 999.f)
                           : 120;
     const bool tempo = bpm != bpm_;
     bpm_ = bpm;

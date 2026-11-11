@@ -253,7 +253,7 @@ void testSelectableMidiModesAndMonolit() {
     nrpn(*t,16,"split_priority",16383);assert(t->controls.splitPriority==24);
     setParam(t.get(),"midi_control_mode","MNLT");
     assert(t->splitFocus==focus&&t->selectedLane==lane);
-    midiCc(*t,13,76,127);assert(t->tempoBpm==240.0f);
+    midiCc(*t,13,76,127);assert(t->tempoBpm==999.0f);
     // Pickup state for the same CC is independent between part channels.
     setParam(t.get(),"midi_takeover","Pickup");
     t->controls.locus=.5f;t->splitParts[1].controls.locus=.5f;

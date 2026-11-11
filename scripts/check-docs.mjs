@@ -21,7 +21,7 @@ const htmlFiles = fs.readdirSync(docsRoot)
 
 const requiredPages = [
     'index.html', 'interface.html', 'playing.html', 'recording.html', 'projects.html', 'engines.html',
-    'modes.html', 'split.html', 'shared-dual.html', 'quad.html', 'bank.html', 'layers.html', 'layers-effects.html', 'sequence.html',
+    'control-availability.html', 'modes.html', 'split.html', 'shared-dual.html', 'quad.html', 'bank.html', 'layers.html', 'layers-effects.html', 'sequence.html',
     'engine-motion.html', 'engine-lanes.html', 'engine-grains.html',
     'engine-cutups.html', 'engine-sample.html', 'engine-slices.html',
     'engine-glitch.html', 'engine-weave.html', 'engine-wavesets.html',

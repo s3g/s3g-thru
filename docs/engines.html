@@ -60,12 +60,12 @@
             <tr><td>4</td><td>SPD</td><td>0.05–4.00×</td><td>Speed sets base source transport. In Grains and Weave it moves grain origins independently of keyboard pitch; the other engines, including Wavesets, combine it with note pitch as described in their guides.</td></tr>
             <tr><td>5</td><td>STAK / LANE</td><td>1.00–4.00 Single / Shared; 1.00–2.00 Split; reserved in Quad</td><td>Stack Start sets an exact lane/crossfade for Manual stack motion, or the starting phase of a moving stack path. Cutups labels this knob LANE and selects a physical starting lane, adopted at the next cut. Sample and Slices round it to a discrete loaded lane.</td></tr>
             <tr><td>6</td><td>RATE / ADV / □</td><td>0.125–16 Hz; Cutups Hold / 1 / 2 / 3 / 4 / 8 / 16 cuts</td><td>Scan Rate sets cycles per second for moving stack paths. <kbd>Loop</kbd> freezes the audible phase. Cutups replaces this knob with ADV: Hold or 1/2/3/4/8/16 cuts per lane. Sample and Slices reserve this position, shown as a small hollow box, because their lanes are chosen at note-on.</td></tr>
-            <tr><td>7</td><td>JOIN</td><td>0.00–1.00</td><td>Join scales seam smoothing for continuous/event readers and the Sample engine's Loop boundary. Motion also uses it as articulation depth. Cutups has a separate Cut Join for event-to-event fades. At zero, a very short internal safety transition remains to prevent a one-sample edge.</td></tr>
+            <tr><td>7</td><td>JOIN / □</td><td>0.00–1.00</td><td>Join scales seam smoothing for continuous/event readers and the Sample and Slices engines' Loop boundary. Forward, Reverse and Ping Pong direct playback show a hollow box. Motion also uses Join as articulation depth. Cutups has a separate Cut Join for event-to-event fades.</td></tr>
             <tr><td>8</td><td>LEVL</td><td>0.00–2.00</td><td>Level sets instrument output gain before the program compressor and safety limiter. At 1.00, the mastering stage supplies a full nominal output; values above 1.00 push it harder. Pad velocity never attenuates playback. In either dual mode, Engine-page knob 8 controls the focused part’s level; waveform knob 8 controls Blend.</td></tr>
           </tbody>
         </table>
 
-        <div class="callout"><p><strong>One control, one location:</strong> a parameter appears on only one parameter page. Shared pages retain the same knob positions wherever they appear. A small hollow box marks an unassigned encoder position reserved for a future control; turning that encoder does nothing.</p></div>
+        <div class="callout"><p><strong>One control, one location:</strong> a parameter appears on only one parameter page. Shared pages retain the same knob positions wherever they appear. A small hollow box marks an unavailable encoder position; turning that encoder does nothing. See the <a href="control-availability.html">mode and engine availability table</a> for controls that are intentionally unavailable.</p></div>
 
         <h2 id="pads-scale">Shared Pads &amp; Scale page</h2>
 
@@ -202,7 +202,7 @@
           </tbody>
         </table>
         <p>For a hands-on grouped roll, latch a chord in Keys, change <code>PADS</code> to Rolls, and press a division pad. The latched source voices remain active through the mode change and become the roll's combined capture.</p>
-        <p>Roll fragment length follows its division and the BPM at capture. The original playheads continue advancing silently while a roll is active, so releasing it returns to the live performance rather than a frozen source position. A 3 ms internal crossfade suppresses boundary clicks, and grouped rolls do not consume or steal any of the eight source voices. Performance recording stores the pad gesture and division; on replay, that event captures the active playhead group at the recorded moment.</p>
+        <p>Roll fragment length follows its division and the BPM at capture, up to the 1.5-second history buffer; slower divisions use the available history. The original playheads continue advancing silently while a roll is active, so releasing it returns to the live performance rather than a frozen source position. A 3 ms internal crossfade suppresses boundary clicks, and grouped rolls do not consume or steal any of the eight source voices. Performance recording stores the pad gesture and division; on replay, that event captures the active playhead group at the recorded moment.</p>
 
         <h3>Scale choices</h3>
         <p>The names and pitch sets follow the 12-tone <a href="https://www.ableton.com/en/push/manual/#playing-in-other-keys" target="_blank" rel="noopener noreferrer">Live and Push scale menu</a>.</p>
@@ -264,13 +264,13 @@
         <p>Paths are stored per clip and per part. Single uses four lanes; Shared Dual has independent A/B paths over all four; Split maps each path across its owning pair. Quad, Sample, Slices, and Cutups do not show this editor. Switching to a named path leaves the authored points available when you return to DRAW.</p>
         <p>Record captures point and curve edits as performance data. Replace and Overdub keep their usual behavior, and Undo Take removes the path edits made in that take.</p>
 
-        <h2 id="direct-play">Shared Direct Play page</h2>
+        <h2 id="direct-play">Direct Play page</h2>
 
-        <p>Sample and Slices use this same page for playback direction and discrete lane selection. Pad behavior is on the shared Pads &amp; Scale page. Position, Field, Speed, Stack Start, and Level remain on Engine.</p>
+        <p>Sample and Slices use the first two positions for playback direction and discrete lane selection. Sample adds STR and RATI in positions 3 and 4. Pad behavior is on Pads &amp; Scale. Position, Field, Speed, Stack Start, and Level remain on Engine.</p>
 
         <figure>
           <div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/direct-play.svg" aria-label="Open the shared Direct Play page figure"><img src="assets/screens/direct-play.svg" alt="Shared Direct Play page with two controls and six reserved encoder positions"></button></div>
-          <figcaption>The first two encoders are assigned; the six hollow boxes are reserved.</figcaption>
+          <figcaption>Slices uses PLAY and VARI. Sample also uses positions 3 and 4 for stretch.</figcaption>
         </figure>
 
         <table class="readout-table parameter-table">
@@ -278,7 +278,9 @@
           <tbody>
             <tr><td>1</td><td>PLAY</td><td>Forward / Reverse / Loop / Ping Pong</td><td>Chooses direction and whether the window or slice stops or repeats.</td></tr>
             <tr><td>2</td><td>VARI</td><td>Manual / Cycle / Random / No Repeat / Velocity</td><td>Selects a discrete lane whenever a voice begins.</td></tr>
-            <tr><td>3–8</td><td>Reserved</td><td>—</td><td>Inactive positions available for future direct-play controls.</td></tr>
+            <tr><td>3</td><td>STR</td><td>Off / On</td><td>Sample only: enable pitch-preserving stretch. This setting is shared with Lanes.</td></tr>
+            <tr><td>4</td><td>RATI</td><td>0.25–4.00×</td><td>Sample only: source duration factor. Reserved while STR is Off; shared with Lanes.</td></tr>
+            <tr><td>3–8 Slices / 5–8 Sample</td><td>Reserved</td><td>—</td><td>Hollow squares mark inactive positions.</td></tr>
           </tbody>
         </table>
 
@@ -320,7 +322,7 @@
 
         <nav class="page-nav" aria-label="Page navigation">
           <a class="page-nav-link" href="projects.html"><span>Previous</span>Projects and Backups</a>
-          <a class="page-nav-link next" href="engine-motion.html"><span>Next</span>Motion</a>
+          <a class="page-nav-link next" href="control-availability.html"><span>Next</span>Control availability</a>
         </nav>
       </main>
 

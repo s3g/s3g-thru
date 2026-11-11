@@ -504,10 +504,10 @@ captureEnginePages(3, [
 ]);
 capture('cutups-engine.svg', 'Cutups Engine page with physical Lane and cut-count Advance', 'ENGINE');
 captureEnginePages(4, [
-    { filename: 'direct-play.svg', title: 'Shared Direct Play parameter page', heading: 'DIRECT PLAY' },
+    { filename: 'sample-play.svg', title: 'Sample Direct Play with stretch controls', heading: 'DIRECT PLAY' },
 ]);
 captureEnginePages(5, [
-    {},
+    { filename: 'direct-play.svg', title: 'Slices Direct Play parameter page', heading: 'DIRECT PLAY' },
     { filename: 'slice-source.svg', title: 'Slice Source parameter page', heading: 'SLICE SOURCE' },
 ]);
 captureEnginePages(6, [
@@ -852,6 +852,8 @@ globalThis.init();tick(82);const seqDoc=globalThis.__docSplit;globalThis.__docSe
 Object.assign(seqDoc.state,{view:'main',recording:true,mask:15,messageTicks:0,actionMessageTicks:0});
 seqDoc.redraw();capture('sequence-overview.svg','Sequence overview with independent lane clocks and fixed recording destination','EDIT 2 REC 1');
 seqExample.held=6;params.seq_state=JSON.stringify(seqExample);globalThis.__docSequence.read();seqDoc.state.view='settings';seqDoc.state.settingsPage=seqDoc.pages().findIndex(p=>p.title==='TRIG');seqDoc.redraw();capture('sequence-trig.svg','Trig source position, pitch and timing controls','L2 T07 TRIG');
+seqExample.step_ms=83.3333;params.seq_state=JSON.stringify(seqExample);globalThis.__docSequence.read();
+seqDoc.state.settingsPage=seqDoc.pages().findIndex(p=>p.title==='SEQ AMP');seqDoc.redraw();capture('sequence-amp.svg','Sequence envelope with applied attack, decay and release inside DUR','B SEQ AMP T07');
 seqExample.child=3;seqExample.burst=[0,.18,.625,.88];seqExample.values[9]=3;seqExample.values[16]=4;seqExample.values[17]=.625;params.seq_state=JSON.stringify(seqExample);globalThis.__docSequence.read();seqDoc.state.settingsPage=seqDoc.pages().findIndex(p=>p.title==='BURST');seqDoc.redraw();capture('sequence-burst.svg','Burst step-time ruler with selected retrigger and unified event controls','L2 T07 BURST');
 seqDoc.state.settingsPage=seqDoc.pages().findIndex(p=>p.title==='SEQ STRIP 3');seqDoc.redraw();capture('sequence-strip.svg','Third sequence channel strip in the Mix/FX page group','SEQ STRIP 3');
 

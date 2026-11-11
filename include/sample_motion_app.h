@@ -5164,6 +5164,30 @@ private:
         // Halving its phase rate keeps the audible pitch equal to the other
         // sample modes instead of making both legs run at double speed.
         if (config.mode == SampleMode::pingPong) increment *= 0.5;
+        // Sample shares Lanes' pitch-preserving overlap-add ratio. Only the
+        // direct Sample reader uses it; Slices retains its existing behavior.
+        if (display && !config.sliced) {
+            const float target = controls.lanesStretch
+                    && std::abs(stretchRatio_ - 1.0f) > 1.0e-4f ? 1.0f : 0.0f;
+            stretchMix_ += laneSlew_ * (target - stretchMix_);
+        }
+        const double pitchIncrement = increment;
+        const double transportIncrement = !config.sliced
+            ? pitchIncrement + (pitchIncrement /
+                static_cast<double>(stretchRatio_) - pitchIncrement)
+                    * static_cast<double>(stretchMix_)
+            : pitchIncrement;
+        // Fade the overlap reader toward the direct reader around unity.
+        // Crossing 1x reverses the grain correction direction; retaining the
+        // old overlap at that instant would jump between two source offsets.
+        const float stretchBlend = stretchMix_ * smoothStep(clamp(
+            std::abs(stretchRatio_ - 1.0f) * 4.0f, 0.0f, 1.0f));
+        const bool renderStretch = !config.sliced && stretchBlend > 0.001f
+            && std::abs(pitchIncrement - transportIncrement) > 1.0e-12;
+        const double windowPhase = renderStretch
+            ? clamp(static_cast<double>(laneRate) * 0.040 / (width * laneScale),
+                    1.0 / width, 0.5)
+            : 0.0;
         double readPhase = phase;
         if (config.mode == SampleMode::reverse) {
             readPhase = 1.0 - phase;
@@ -5175,7 +5199,33 @@ private:
         const double seam = config.mode == SampleMode::loop
             ? joinFrames({ low, high }, controls.join) : 0.0;
         const ReadHead head = makeEventReadHead(
-            position, increment, low, high, seam);
+            position, pitchIncrement, low, high, seam);
+        // Both stereo channels use the same two overlap windows and clock.
+        // Clamp one-shots at their ends; wrapping a grain there would leak
+        // audio from the opposite end before the note has reached it.
+        const auto stretchedSample = [&](std::size_t channel, double clock) {
+            const double offset = pitchIncrement >= transportIncrement
+                ? windowPhase * (1.0 - clock) : windowPhase * clock;
+            double grainPhase = phase - offset;
+            grainPhase = config.mode == SampleMode::forward
+                    || config.mode == SampleMode::reverse
+                ? clamp(grainPhase, 0.0, 1.0) : wrapPhase(grainPhase);
+            double sourcePhase = grainPhase;
+            if (config.mode == SampleMode::reverse) sourcePhase = 1.0 - grainPhase;
+            else if (config.mode == SampleMode::pingPong)
+                sourcePhase = grainPhase < 0.5 ? grainPhase * 2.0 : 2.0 - grainPhase * 2.0;
+            const double sourcePosition = clamp(low + sourcePhase * width,
+                low, std::max(low, high - 1.0));
+            const ReadHead grainHead = makeEventReadHead(
+                sourcePosition, pitchIncrement, low, high, seam);
+            return stackMode_ && lane < kStackLanes
+                ? readLaneHead(lane, channel & 1u, grainHead)
+                    * activeControlsLaneGains_[lane]
+                : readHead(mapSourceChannel(channel), grainHead);
+        };
+        const float firstStretchGain = renderStretch
+            ? smoothBell(stretchPhase_) : 1.0f;
+        const float secondStretchGain = 1.0f - firstStretchGain;
         if (display) displayPosition_ = position;
         float completionGain = 1.0f;
         if(config.overrideRegion) {
@@ -5189,7 +5239,7 @@ private:
                 || config.mode == SampleMode::reverse)
             && !done) {
             const double outputFramesRemaining = increment > 0.0
-                ? std::max(0.0, 1.0 - phase) / increment : 0.0;
+                ? std::max(0.0, 1.0 - phase) / transportIncrement : 0.0;
             completionGain *= smoothStep(static_cast<float>(clamp(
                 outputFramesRemaining
                     / static_cast<double>(safetyFadeFrames_),
@@ -5198,15 +5248,30 @@ private:
         for (std::size_t channel = 0u; channel < kChannels; ++channel) {
             if (done) {
                 wet[channel] = 0.0f;
+            } else if (renderStretch && stretchBlend >= 0.999f) {
+                // Full stretch needs only the two overlap readers.
+                wet[channel] = 0.0f;
             } else if (stackMode_ && lane < kStackLanes) {
                 wet[channel] = readLaneHead(lane, channel & 1u, head)
                     * activeControlsLaneGains_[lane];
             } else {
                 wet[channel] = readHead(mapSourceChannel(channel), head);
             }
+            if (renderStretch && !done) {
+                const float first = stretchedSample(channel, stretchPhase_);
+                const float second = stretchedSample(channel,
+                    wrapPhase(stretchPhase_ + 0.5));
+                const float overlap = first * firstStretchGain
+                    + second * secondStretchGain;
+                wet[channel] = stretchBlend >= 0.999f ? overlap
+                    : wet[channel] + (overlap - wet[channel]) * stretchBlend;
+            }
             wet[channel] *= completionGain;
         }
-        phase += increment;
+        if (renderStretch && display)
+            stretchPhase_ = wrapPhase(stretchPhase_ +
+                std::abs(pitchIncrement - transportIncrement) / windowPhase);
+        phase += transportIncrement;
         if (config.mode == SampleMode::loop) {
             if (phase >= 1.0) {
                 // The incoming seam has already advanced from low to
@@ -5329,7 +5394,7 @@ private:
                     kCutDivisionCount - 1u);
                 interval = static_cast<double>(outputSampleRate_) * 60.0
                     / static_cast<double>(clamp(
-                        controls.cutTempoBpm, 20.0f, 300.0f))
+                        controls.cutTempoBpm, 1.0f, 999.0f))
                     * static_cast<double>(beats[division]);
                 const float swing = clamp(controls.cutSwing, 0.5f, 0.75f);
                 interval *= cutSwingPhase_
@@ -6297,7 +6362,7 @@ private:
             kCutDivisionCount - 1u);
         return static_cast<double>(outputSampleRate_) * 60.0
             / static_cast<double>(clamp(
-                controls.cutTempoBpm, 20.0f, 300.0f))
+                controls.cutTempoBpm, 1.0f, 999.0f))
             * static_cast<double>(beats[division]);
     }
 

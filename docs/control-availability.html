@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Control availability - s3g Thru manual</title><meta name="description" content="Which s3g Thru controls are unavailable in each instrument mode and playback setting."><link rel="stylesheet" href="assets/styles.css"></head>
+<body><header class="site-header"><a class="brand" href="index.html">s3g Thru <span>manual</span></a><nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="midi.html">MIDI</a><a href="shortcuts.html">Shortcuts</a></nav></header>
+<div class="page-shell"><main class="content" id="content"><p class="eyebrow">Control reference</p><h1>When controls are available</h1><p>A small hollow square means that encoder position has no effect in the current mode or engine setting. The stored value remains available if you return to a mode that uses it. Some whole pages are omitted when their controls cannot apply.</p>
+<table class="readout-table parameter-table"><thead><tr><th>Control or page</th><th>Unavailable when</th><th>Reason</th></tr></thead><tbody>
+<tr><td>STAK, RATE and Stack Path</td><td>Quad and Sequence</td><td>Each part is fixed to one audio lane. Sequence retains its trigs while audio in that lane changes.</td></tr>
+<tr><td>Cutups ADV, lane order and poly path</td><td>Quad and Sequence</td><td>These controls would move among lanes, but the part has one fixed source. The Cutups clock and region controls still work.</td></tr>
+<tr><td>STAK and RATE</td><td>Bank B</td><td>The right pads play their own sixteen sample slots. BANK SAMPLE and BANK PADS replace the main engine controls.</td></tr>
+<tr><td>RATE</td><td>Sample and Slices</td><td>These engines select a discrete lane at note-on and do not run a stack scanner.</td></tr>
+<tr><td>VARI</td><td>Sample or Slices in Quad or Sequence</td><td>There is only one source lane per part; variation cannot select another lane.</td></tr>
+<tr><td>JOIN</td><td>Sample or Slices in Forward, Reverse or Ping Pong</td><td>The direct reader uses JOIN for its Loop seam only.</td></tr>
+<tr><td>RATI</td><td>Lanes or Sample with STR Off</td><td>Stretch Ratio is saved but does not affect audio until stretching is enabled.</td></tr>
+<tr><td>Pads &amp; Scale, Voice Engines, Stack Path</td><td>Sequence</td><td>The main pads are trig steps; each sequence lane has a fixed audio source. SEQ SETUP handles note root, scale and pitch entry.</td></tr>
+<tr><td>Prism DCAY</td><td>Prism outside Accumulate</td><td>Only accumulation retains spectral energy after a frame.</td></tr>
+<tr><td>Morph FREQ</td><td>Morph in Imprint</td><td>Imprint uses the second source as a shaping envelope.</td></tr>
+<tr><td>Texture GRUP</td><td>Texture in Spray</td><td>Spray does not launch grouped events.</td></tr>
+<tr><td>Stack Path SHAP, SKEW, CURV</td><td>Draw path</td><td>Authored points and their curves replace the named-path shape controls.</td></tr>
+</tbody></table>
+<p>POS, FLD and SPD still affect the chosen source in Sequence; DUR controls the trig lifetime. A sample can end at the FIELD boundary before DUR. Sample STR/RATI can lengthen or shorten its transport, but does not automatically match DUR. For the individual engine controls, see <a href="engines.html">Playback engines</a>.</p>
+<nav class="page-nav" aria-label="Page navigation"><a class="page-nav-link" href="engines.html"><span>Previous</span>Playback engines</a><a class="page-nav-link next" href="engine-motion.html"><span>Next</span>Motion</a></nav></main><aside class="toc" aria-label="On this page"><div class="toc-section"><h2>Reference</h2><a href="engines.html">Playback engines</a><a href="modes.html">Instrument modes</a><a href="sequence.html">Sequence</a></div></aside></div><footer class="manual-footer">s3g Thru · Control availability</footer></body></html>

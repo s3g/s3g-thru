@@ -86,13 +86,18 @@ void testStandardNoteExpression() {
 void testStandardNoteClock() {
     auto t=splitFixture();t->setPerformanceMode(0);realtimeMidi(*t,0xfa);assert(!t->clipPlaying);
     setParam(t.get(),"midi_sync_source","Move");t->persistentStateDirty=false;
-    for(int bpm:{40,73,120,197,240}) {
+    for(int bpm:{1,40,73,120,197,240,999}) {
         t->resetMidiClock();const auto base=t->renderClockSamples.load();realtimeMidi(*t,0xfa);
         for(int tick=0;tick<100;++tick) {
             t->renderClockSamples.store(base+static_cast<std::uint64_t>(std::llround(tick*t->sampleRate*60./(24*bpm))));
             realtimeMidi(*t,0xf8);
+            if(bpm==1 && tick==0) {
+                t->renderClockSamples.store(base+static_cast<std::uint64_t>(t->sampleRate*2.5f));
+                t->serviceMidiClock();
+                assert(!t->midiClockTimedOut);
+            }
         }
-        assert(t->midiClockLocked&&std::abs(t->tempoBpm-bpm)<.02f&&!t->clipPlaying&&!t->persistentStateDirty);
+        assert(t->midiClockLocked&&std::abs(t->tempoBpm-bpm)<(bpm==999?.5f:.02f)&&!t->clipPlaying&&!t->persistentStateDirty);
         const auto ticks=t->midiClockCount;realtimeMidi(*t,0xf8,MOVE_MIDI_SOURCE_HOST);assert(t->midiClockCount==ticks);
     }
     t->padNoteOn(69,100);noteMidi(*t,1,60);midiCc(*t,1,64,127);noteMidi(*t,1,60,0);
@@ -104,6 +109,8 @@ void testStandardNoteClock() {
     t->clipPositionMs=300;t->clipAbsolutePositionMs=1300;realtimeMidi(*t,0xfc);assert(!t->clipPlaying&&t->clipPositionMs==300);
     realtimeMidi(*t,0xfb);assert(t->clipPlaying&&t->clipPositionMs==300&&t->clipAbsolutePositionMs==1300);
     noteMidi(*t,1,67);realtimeMidi(*t,0xf8);t->renderClockSamples.fetch_add(static_cast<std::uint64_t>(t->sampleRate));t->serviceMidiClock();
+    assert(t->clipPlaying&&!t->midiClockTimedOut); // Allow the first slow MIDI-clock tick up to 1 BPM.
+    t->renderClockSamples.fetch_add(static_cast<std::uint64_t>(t->sampleRate*3));t->serviceMidiClock();
     assert(!t->clipPlaying&&!externalVoice(*t,0,67)&&t->midiClockStopped&&!t->midiClockLocked);
     realtimeMidi(*t,0xf8);assert(!t->midiClockStopped&&!t->clipPlaying&&t->midiClockCount==1);
     for(int tick=1;tick<30;++tick){t->renderClockSamples.fetch_add(static_cast<std::uint64_t>(t->sampleRate/48));realtimeMidi(*t,0xf8);}

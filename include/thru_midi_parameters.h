@@ -278,7 +278,7 @@ inline constexpr Parameter parameters[]{
     {2696, "clip_clipboard_paste", 0.0f, 63.0f, 0.0f, false, true, true, false, -1},
     {2697, "clip_reset", 0.0f, 63.0f, 0.0f, false, true, true, false, -1},
     {2698, "clip_playing", 0.0f, 1.0f, 0.0f, false, true, true, false, -1},
-    {2699, "tempo_bpm", 40.0f, 240.0f, 120.0f, false, false, false, false, -1},
+    {2699, "tempo_bpm", 1.0f, 999.0f, 120.0f, false, false, false, false, -1},
     {2700, "tempo_swing", 50.0f, 75.0f, 50.0f, false, false, false, false, -1},
     {2816, "chain_clip_copy", 0.0f, 1.0f, 0.0f, false, true, true, false, -1},
     {2817, "chain_clip_paste", 0.0f, 1.0f, 0.0f, false, true, true, false, -1},
@@ -436,6 +436,8 @@ inline constexpr Parameter parameters[]{
     {3881, "seq_duck_release", 10.0f, 3000.0f, 220.0f, false, false, false, true, -1},
     {3882, "seq_duck_hpf", 20.0f, 2000.0f, 100.0f, false, false, false, true, -1},
     {3883, "seq_duck_knee", 0.0f, 24.0f, 6.0f, false, false, false, false, -1},
+    {3884, "seq_cycle_hit", 1.0f, 8.0f, 1.0f, true, true, false, false, -1},
+    {3885, "seq_cycle_every", 1.0f, 8.0f, 1.0f, true, true, false, false, -1},
 };
 inline constexpr std::size_t count = sizeof(parameters) / sizeof(parameters[0]);
 struct FeedbackSubscription {int part,id;};

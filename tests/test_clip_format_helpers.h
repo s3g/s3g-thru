@@ -1,7 +1,15 @@
 #pragma once
 #include "thru_sequence.h"
 // Convert a current, checksum-free payload to the preceding format for migration fixtures.
+inline void stripSequenceCycleExtension(std::vector<unsigned char>& bytes) {
+    if(bytes.size()<12||bytes[8]!=40)return;
+    constexpr std::size_t extra=4+64*4*32*2;
+    assert(bytes.size()>extra);const auto at=bytes.size()-extra;
+    assert(bytes[at]=='S'&&bytes[at+1]=='C'&&bytes[at+2]=='Y'&&bytes[at+3]=='1');
+    bytes.resize(at);bytes[8]=39;
+}
 inline void stripSequenceMixExtension(std::vector<unsigned char>& bytes) {
+    stripSequenceCycleExtension(bytes);
     if(bytes.size()<12||bytes[8]!=39)return;
     constexpr std::size_t perClip=4*(2+32*9)+4*6+8;
     constexpr std::size_t extra=4+64*perClip*4;

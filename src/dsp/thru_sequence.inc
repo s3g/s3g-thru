@@ -368,7 +368,8 @@ bool sequenceKeyKnown(const char *key) const {
       "seq_gate", "seq_scale", "seq_duration_mode", "seq_time_ms",
       "seq_copy", "seq_paste", "seq_pos",
       "seq_note", "seq_vel", "seq_trig_gate", "seq_trig_time_ms", "seq_micro", "seq_prob",
-      "seq_burst", "seq_when", "seq_toggle", "seq_clear", "seq_delete",
+      "seq_burst", "seq_when", "seq_cycle_hit", "seq_cycle_every",
+      "seq_toggle", "seq_clear", "seq_delete",
       "seq_clip_beats", "seq_pan_1", "seq_pan_2", "seq_pan_3", "seq_pan_4",
       "seq_eq_low", "seq_eq_mid", "seq_eq_high", "seq_eq_freq", "seq_eq_solo",
       "seq_strip_edit",
@@ -567,6 +568,12 @@ bool setSequenceParameter(const char *key, const char *text) {
     step.micro = clampValue(value, -.5f, .5f);
   else if (!std::strcmp(key, "seq_prob"))
     step.probability = clampValue(value, 0.f, 1.f);
+  else if (!std::strcmp(key, "seq_cycle_hit"))
+    step.cycleHit = clampValue(int(std::lround(value)), 1, int(step.cycleEvery));
+  else if (!std::strcmp(key, "seq_cycle_every")) {
+    step.cycleEvery = clampValue(int(std::lround(value)), 1, 8);
+    step.cycleHit = std::min(step.cycleHit, step.cycleEvery);
+  }
   else if (!std::strcmp(key, "seq_burst")) {
     s3g_thru_sequence::setCount(step, clampValue(int(value), 1, 8));
     sequenceChild = std::min(sequenceChild, step.count);
@@ -650,6 +657,10 @@ float sequenceParameterValue(const char *key, int part = -1) const {
     return step.micro;
   if (!std::strcmp(key, "seq_prob"))
     return step.probability;
+  if (!std::strcmp(key, "seq_cycle_hit"))
+    return float(step.cycleHit);
+  if (!std::strcmp(key, "seq_cycle_every"))
+    return float(step.cycleEvery);
   if (!std::strcmp(key, "seq_burst"))
     return float(step.count);
   if (!std::strcmp(key, "seq_when"))
@@ -661,11 +672,13 @@ float sequenceParameterValue(const char *key, int part = -1) const {
   return 0;
 }
 int sequenceState(char *b, int capacity) const {
-  const auto &lane = sequenceLive.tracks[splitFocus];
-  const auto &step = lane.trigs[sequenceStep];
+  const bool running = sequenceRunning();
+  const auto &editLane = sequenceLive.tracks[splitFocus];
+  const auto &displayLane = running ? sequencePlayback.tracks[splitFocus] : editLane;
+  const auto &step = editLane.trigs[sequenceStep];
   const auto *clip = activeClipSlot();
   const double clipRate = clip ? clampValue(double(clip->clipRate), .25, 4.0) : 1.0;
-  const double stepMs = s3g_thru_sequence::rates[lane.rate] * 60000.0 /
+  const double stepMs = s3g_thru_sequence::rates[displayLane.rate] * 60000.0 /
                         (std::max(1.0, double(tempoBpm)) * clipRate);
   int at = std::snprintf(
       b, capacity,
@@ -674,13 +687,14 @@ int sequenceState(char *b, int capacity) const {
       sequenceMode() ? 1 : 0, splitFocus, static_cast<unsigned>(selectedLane),
       sequenceStep, sequenceEditStep, sequenceChild,
       settingsForPart(splitFocus).root,
-      (sequenceChild ? step.events[sequenceChild - 1].locks.mask
-                    : step.locks.mask) |
-          (lane.timeMode &&
-                   (sequenceChild ? step.events[sequenceChild - 1].locks.timeLocked
-                                  : step.locks.timeLocked)
-               ? 8u : 0u),
-      lane.length, sequenceRunning() ? 1 : 0,
+      ((sequenceChild ? step.events[sequenceChild - 1].locks.mask
+                      : step.locks.mask) & ~8u) |
+          (editLane.timeMode
+               ? ((sequenceChild ? step.events[sequenceChild - 1].locks.timeLocked
+                                 : step.locks.timeLocked) ? 8u : 0u)
+               : ((sequenceChild ? step.events[sequenceChild - 1].locks.mask
+                                 : step.locks.mask) & 8u)),
+      displayLane.length, running ? 1 : 0,
       sequenceClipboardReady ? 1 : 0, stepMs);
   auto append = [&](const char *fmt, auto... args) {
     if (at < 0 || at >= capacity)
@@ -692,9 +706,15 @@ int sequenceState(char *b, int capacity) const {
       at += size;
   };
   for (int p = 0; p < 4; ++p) {
-    const auto &l = sequenceLive.tracks[p];
-    append("%s[%d,%d,%d,%d,%d]", p ? "," : "", sequenceCursor[p], l.length,
-           l.rate, l.enabled ? 1 : 0, settingsForPart(p).muted ? 1 : 0);
+    const auto &l = running ? sequencePlayback.tracks[p] : sequenceLive.tracks[p];
+    const int cursor = running
+        ? int((std::int64_t(std::floor(sequenceBeat /
+                                    s3g_thru_sequence::rates[l.rate])) +
+               l.rotation) % l.length)
+        : sequenceCursor[p];
+    append("%s[%d,%d,%d,%d,%d]", p ? "," : "", cursor, l.length,
+           l.rate, l.enabled ? 1 : 0,
+           (running ? sequenceMuted[p] : settingsForPart(p).muted != 0) ? 1 : 0);
   }
   append("%s", "],\"strips\":[");
   for (int p = 0; p < 4; ++p) {
@@ -718,9 +738,9 @@ int sequenceState(char *b, int capacity) const {
   }
   append("%s", "],\"steps\":[");
   for (int i = 0; i < 32; ++i) {
-    const auto &s = lane.trigs[i];
+    const auto &s = editLane.trigs[i];
     append("%s[%d,%.5f]", i ? "," : "", s.enabled ? 1 : 0,
-           s3g_thru_sequence::resolve(lane, s, -1, 0,
+           s3g_thru_sequence::resolve(editLane, s, -1, 0,
                                       liveControlsForPart(splitFocus).locus));
   }
   append("%s", "],\"burst\":[");
@@ -737,8 +757,9 @@ int sequenceState(char *b, int capacity) const {
       "seq_eq_low", "seq_eq_mid", "seq_eq_high", "seq_eq_freq", "seq_eq_solo",
       "seq_duck_key", "seq_duck_depth", "seq_duck_threshold",
       "seq_duck_attack", "seq_duck_hold", "seq_duck_release",
-      "seq_duck_hpf", "seq_duck_knee"};
-  for (int i = 0; i < 39; ++i)
+      "seq_duck_hpf", "seq_duck_knee", "seq_cycle_hit",
+      "seq_cycle_every"};
+  for (int i = 0; i < 41; ++i)
     append("%s%.7g", i ? "," : "", double(sequenceParameterValue(keys[i])));
   append("%s", "]}");
   return at >= capacity ? -1 : at;
@@ -865,6 +886,43 @@ bool readSequenceMixExtension(
   return true;
 }
 
+// Format 40 appends per-trig lane-cycle conditions. Older clips default to 1:1.
+bool writeSequenceCycleExtension(
+    std::FILE *f, const std::array<ClipSlot, kClipSlotCount> &clips) const {
+  if (!writeU32(f, 0x31594353u)) // SCY1
+    return false;
+  for (const auto &clip : clips)
+    for (const auto &lane : clip.sequence.tracks) {
+      std::array<std::uint8_t, s3g_thru_sequence::steps * 2> encoded{};
+      for (int i = 0; i < s3g_thru_sequence::steps; ++i) {
+        encoded[2 * i] = lane.trigs[i].cycleHit;
+        encoded[2 * i + 1] = lane.trigs[i].cycleEvery;
+      }
+      if (!writeBytes(f, encoded.data(), encoded.size()))
+        return false;
+    }
+  return true;
+}
+bool readSequenceCycleExtension(
+    std::FILE *f, std::array<ClipSlot, kClipSlotCount> &clips) {
+  std::uint32_t magic = 0;
+  if (!readU32(f, magic) || magic != 0x31594353u)
+    return false;
+  for (auto &clip : clips)
+    for (auto &lane : clip.sequence.tracks) {
+      std::array<std::uint8_t, s3g_thru_sequence::steps * 2> encoded{};
+      if (std::fread(encoded.data(), 1, encoded.size(), f) != encoded.size())
+        return false;
+      for (int i = 0; i < s3g_thru_sequence::steps; ++i) {
+        const auto hit = encoded[2 * i], every = encoded[2 * i + 1];
+        if (every < 1 || every > 8 || hit < 1 || hit > every)
+          return false;
+        lane.trigs[i].cycleHit = hit;
+        lane.trigs[i].cycleEvery = every;
+      }
+    }
+  return true;
+}
 void copySequenceRuntimeTo(ThruInstance &other) const {
   other.sequenceLive = sequenceLive;
   other.sequencePlayback = sequencePlayback;

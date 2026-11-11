@@ -20,8 +20,8 @@
         <hr class="home-title-rule">
         <p class="lead">A stereo sample instrument with four audio lanes and eight independent voices. Play them as one stack, two independently configured instruments, or four instruments in Quad mode. A performance recorder captures notes, pressure, stack holds, and parameter motion as loopable data.</p>
         <p>s3g Thru is an adaptation and extension of the <a href="https://s3g.github.io/s3g-dsp/">s3g-dsp</a> Sample family, rebuilt around Move’s pads, controls, display, live input, and performance workflow.</p>
-        <span class="version-chip">manual · 0.31.0-test.22</span>
-        <p>This manual describes the local <strong>s3g Thru 0.31.0-test.22</strong> testing build. The installed version appears briefly when takeover opens; see <a href="https://github.com/s3g/s3g-thru/releases">GitHub releases</a> for downloads and release notes.</p>
+        <span class="version-chip">manual · 0.31.0</span>
+        <p>This manual describes <strong>s3g Thru 0.31.0</strong>. The installed version appears briefly when takeover opens; see <a href="https://github.com/s3g/s3g-thru/releases">GitHub releases</a> for downloads and release notes.</p>
 
 
         <figure class="screen-figure">
@@ -35,8 +35,13 @@
 
         <p><a href="modes.html">Compare all seven instrument modes</a> to see their pad layouts, voice budgets, and recording roles. The mode diagrams cover Single, Split, Shared Dual, Quad, Bank, Layers, and Sequence.</p>
 
-        <h2 id="next-release">Layers and Sequence</h2>
-        <p><a href="layers.html">Layers</a> pairs a note keyboard with four parallel stereo FX choices. <a href="sequence.html">Sequence</a> adds four independent 32-step trigger lanes, per-trig pitch and duration, a four-lane mixer and clip composition.</p>
+        <h2 id="release-0310">New in 0.31.0</h2>
+        <ul>
+          <li><a href="layers.html">Layers</a> pairs a note keyboard with an XY field of four parallel stereo effects. Corner effects can be edited independently, and FX gestures can be captured in clips.</li>
+          <li><a href="sequence.html">Sequence</a> adds four polymetric trigger lanes with up to 32 steps each, per-trig pitch, position, duration, microtime, probability, Burst and cycle conditions. Its mixer has lane level, pan, EQ and Priority Duck controls.</li>
+          <li><a href="engine-sample.html">Sample</a> adds pitch-preserving stretch from 0.25× to 4×. Sequence adds a duration-fitted envelope display, and BPM now spans 1–999.</li>
+          <li><a href="control-availability.html">Control availability</a> is shown on the instrument and in the manual so inactive controls are easier to recognize.</li>
+        </ul>
         <h2 id="release-0301">New in 0.30.1</h2>
         <ul>
           <li><a href="engine-pulsar.html">Pulsar</a> supports source SIZE up to 1000 ms and FORM down to 1 Hz for one-second pulses at slow repetition rates.</li>
@@ -130,7 +135,7 @@
         <div class="toc-section"><h2>Instrument modes</h2><a href="playing.html">Single · Basic playing</a><a href="modes.html">Compare modes</a><a href="split.html">Split</a><a href="shared-dual.html">Shared Dual</a><a href="quad.html">Quad</a><a href="bank.html">Bank</a><a href="layers.html">Layers</a><a href="sequence.html">Sequence</a></div>
         <div class="toc-section">
           <h2>On this page</h2>
-          <a href="#next-release">Layers and Sequence</a><a href="#release-0301">New in 0.30.1</a>
+          <a href="#release-0310">New in 0.31.0</a><a href="#release-0301">New in 0.30.1</a>
           <a href="#release-0300">New in 0.30.0</a>
           <a href="#whats-new">New in 0.29</a>
           <a href="#quick-start">Quick start</a>

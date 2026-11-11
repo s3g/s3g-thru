@@ -264,8 +264,8 @@
                 const auto elapsed=now>then?now-then:0;
                 if(elapsed) {
                     const float estimate=60.f*sampleRate*intervals/(24.f*elapsed);
-                    if(estimate>=35&&estimate<=260) {
-                        const float target=clampValue(estimate,40.f,240.f);
+                    if(estimate>=.95f&&estimate<=1050.f) {
+                        const float target=clampValue(estimate,1.f,999.f);
                         tempoBpm=midiClockLocked?tempoBpm+(target-tempoBpm)*.2f:target;
                         midiClockLocked=true;postPatternCommand(7,static_cast<int>(std::lround(tempoBpm*1000)));
                     }
@@ -282,7 +282,10 @@
     void serviceMidiClock() {
         if(!midiSyncSource||!midiClockSeen||midiClockStopped)return;
         const auto now=renderClockSamples.load(std::memory_order_relaxed);
-        if(now-midiClockLast>static_cast<std::uint64_t>(sampleRate*.75f)) {
+        const double tickSeconds=60.0/(24.0*std::max(1.0f,tempoBpm));
+        const double timeoutSeconds=midiClockLocked
+            ? std::max(.75,1.5*tickSeconds) : 3.75;
+        if(now-midiClockLast>static_cast<std::uint64_t>(sampleRate*timeoutSeconds)) {
             midiClockLocked=false;midiClockStopped=true;midiClockTimedOut=true;midiClockInputSource=-1;
             postPatternCommand(6,midiSyncTransport);releaseExternalNotes();
             if(midiSyncTransport){if(clipRecording)finishClipRecording();midiPauseClip();}

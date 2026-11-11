@@ -1626,6 +1626,26 @@
           ]
         },
         {
+          "title": "Sequence envelope",
+          "lines": [
+            "SEQ AMP shows the",
+            "played ATK, DEC",
+            "and REL times for",
+            "the selected trig's",
+            "DUR. Release ends",
+            "within DUR.",
+            "FIT means the",
+            "stored times were",
+            "shortened to fit.",
+            "Knobs 1-4 edit",
+            "ATK DEC SUS REL.",
+            "SUS is a level %.",
+            "Changing DUR can",
+            "change the played",
+            "envelope times."
+          ]
+        },
+        {
           "title": "Mix and engines",
           "lines": [
             "SEQ MIX sets four",

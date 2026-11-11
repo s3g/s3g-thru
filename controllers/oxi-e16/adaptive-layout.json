@@ -150,8 +150,8 @@
       "keys": [
         "sample_mode",
         "lane_variation",
-        null,
-        null,
+        "lanes_stretch",
+        "stretch_ratio",
         null,
         null,
         null,

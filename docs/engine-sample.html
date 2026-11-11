@@ -14,7 +14,7 @@
       <main class="content" id="content">
         <p class="eyebrow">Playback engine 5 of 15</p>
         <h1>Sample</h1>
-        <p class="lead">Sample is the direct reader: every note selects one discrete lane, then plays the Position/Field window as a one-shot, loop, or ping-pong voice. It is the clearest engine for pitched polyphony and for hearing a lane without continuous stack motion.</p>
+        <p class="lead">Sample selects one discrete lane per note, then plays the Position/Field window as a one-shot, loop, or ping-pong voice. Optional overlap-add stretching changes duration while keeping pitch approximately steady.</p>
         <p>Controls edit the focused instrument. <a href="modes.html">Instrument mode</a> sets its lane and voice budget: eight voices in Single, four per part in either dual mode, or two per part in Quad. Quad omits stack controls because each part has one lane.</p>
         <div class="callout"><p><strong>Good for:</strong> conventional sample playback, pitched chords, sustained loops, reverse one-shots, velocity-addressed lane layers, cue points, and tempo-synced rolls.</p></div>
 
@@ -22,12 +22,12 @@
         <p>Set Algorithm to Sample. Up opens the shared <a href="engines.html#pads-scale">Pads &amp; Scale</a> and <a href="engines.html#amp-envelope">Amp Envelope</a> pages, then Direct Play.</p>
         <div class="screen-gallery">
           <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/pads-scale.svg" aria-label="Open Pads and Scale"><img src="assets/screens/pads-scale.svg" alt="Shared Pads and Scale parameter page"></button></div><figcaption>Pads &amp; Scale selects the performance layout, tuning root, and optional folded scale.</figcaption></figure>
-          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/direct-play.svg" aria-label="Open Direct Play"><img src="assets/screens/direct-play.svg" alt="Direct Play page with two controls and six reserved positions"></button></div><figcaption>Direct Play keeps direction and discrete lane variation together. Source window, pitch, Stack Start, and Level remain on Engine.</figcaption></figure>
+          <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/sample-play.svg" aria-label="Open Direct Play"><img src="assets/screens/sample-play.svg" alt="Sample Direct Play with PLAY, VARI, STR and RATI, plus four reserved positions"></button></div><figcaption>Direct Play keeps direction, discrete lane variation, and stretch together. Source window, pitch, Stack Start, and Level remain on Engine.</figcaption></figure>
         </div>
 
         <p>The controls common to every playback engine are documented in the <a href="engines.html#shared">shared Engine page table</a>. The sections below cover Sample-specific controls.</p>
 
-        <p>The unused RATE position is reserved on the waveform and Engine pages. STAK and VARI choose a discrete lane when each note starts.</p>
+        <p>The unused RATE position is reserved on the waveform and Engine pages. STAK and VARI choose a discrete lane when each note starts. In Quad and Sequence, the lane is fixed, so VARI is also reserved. JOIN is available for Loop playback only. See <a href="control-availability.html">control availability</a>.</p>
 
         <h2 id="parameters">Direct Play — every parameter</h2>
         <table class="readout-table parameter-table">
@@ -35,9 +35,13 @@
           <tbody>
             <tr><td>1</td><td>PLAY</td><td>Forward / Reverse / Loop / Ping Pong</td><td>Chooses the read direction and whether playback stops or repeats at the Position/Field boundaries.</td></tr>
             <tr><td>2</td><td>VARI</td><td>Manual / Cycle / Random / No Repeat / Velocity</td><td>Chooses how a lane is assigned when each new voice starts. The lane remains fixed for that voice.</td></tr>
-            <tr><td>3–8</td><td>Reserved</td><td>—</td><td>Inactive positions available for future direct-play controls.</td></tr>
+            <tr><td>3</td><td>STR</td><td>Off / On</td><td>Enables pitch-preserving overlap-add stretching when RATI differs from 1.00. This setting is shared with Lanes.</td></tr>
+            <tr><td>4</td><td>RATI</td><td>0.25–4.00×</td><td>Above 1 lengthens the source; below 1 shortens it. A hollow box appears while STR is Off. The ratio is shared with Lanes.</td></tr>
+            <tr><td>5–8</td><td>Reserved</td><td>—</td><td>Inactive positions available for future direct-play controls.</td></tr>
           </tbody>
         </table>
+
+        <p>Stretch changes source transport independently of keyboard pitch and SPD. It is not an automatic fit to a Sequence trig’s DUR: a one-shot can still finish before DUR, and DUR can release it early. Loop and Ping Pong can continue through a longer DUR. The two overlapping readers add CPU cost when stretch is active.</p>
 
         <h3 id="play-modes">Play Mode choices</h3>
         <table class="readout-table">

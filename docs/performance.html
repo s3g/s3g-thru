@@ -72,7 +72,7 @@
             <tr><td>1</td><td>RATE</td><td>0.25–4.00x</td><td>Scales note and gesture playback together.</td></tr>
             <tr><td>2</td><td>TIME</td><td>Free / Beat Sync</td><td>Retains wall-clock duration, or stores beat length and follows Thru's Tempo.</td></tr>
             <tr><td>3</td><td>LNCH</td><td>Off / Beat / Bar</td><td>Starts a selected clip immediately, or queues it to the next beat or bar.</td></tr>
-            <tr><td>4</td><td>BPM</td><td>40–240 BPM</td><td>Sets the internal tempo for Beat Sync, launch quantization, and tempo-clocked engines.</td></tr>
+            <tr><td>4</td><td>BPM</td><td>1–999 BPM</td><td>Sets the internal tempo for Beat Sync, launch quantization, and tempo-clocked engines.</td></tr>
             <tr><td>5</td><td>MODE</td><td>Replace / Overdub</td><td>Creates a new base performance or adds an undoable take.</td></tr>
             <tr><td>6</td><td>SWNG</td><td>50–75%</td><td>Applies swing to tempo-clocked Cutups.</td></tr>
 
@@ -104,7 +104,7 @@
           <figcaption>Shift+Play opens the current 16-slot bank. Track 1–4 selects bank A–D; Step 1–16 addresses its clips.</figcaption>
         </figure>
 
-        <p>Each A01–D16 clip stores its four sample assignments, Single, Split, Shared Dual, or Quad mode, instrument setups, shared effects, duration, rate, timing mode, captured tempo, notes, gestures, and take membership. Dual modes recall A/B; Quad recalls A–D. A clip holds up to 1,024 note events and 8,192 gesture points over a maximum 120 seconds.</p>
+        <p>Each A01–D16 clip stores its four sample assignments, Single, Split, Shared Dual, or Quad mode, instrument setups, shared effects, duration, rate, timing mode, captured tempo, notes, gestures, and take membership. Dual modes recall A/B; Quad recalls A–D. A performance recording holds up to 1,024 note events and 8,192 gesture points over a maximum 120 seconds. Authored Sequence clips can span up to 64 beats at the chosen BPM; recording performance into them still has the 120-second capture limit.</p>
 
         <table class="readout-table">
           <thead><tr><th>Gesture</th><th>Clip action</th></tr></thead>

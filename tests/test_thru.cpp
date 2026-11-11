@@ -1654,8 +1654,71 @@ void testWavesetMidiPitch(plugin_api_v2_t* api)
 
 } // namespace
 
+void testSamplePitchPreservingStretch()
+{
+    auto sourcePosition = [](bool enabled, float ratio) {
+        ClickFixture fixture;
+        fixture.loadSine(12.0f);
+        ClickEngine::Controls controls;
+        controls.algorithm = ClickEngine::PlaybackAlgorithm::sample;
+        controls.sampleMode = ClickEngine::SampleMode::forward;
+        controls.lanesStretch = enabled;
+        controls.lanesStretchRatio = ratio;
+        fixture.renderPeak(controls, 16);
+        return fixture.engine.normalizedPosition();
+    };
+    const float direct = sourcePosition(true, 1.0f);
+    const float stretched = sourcePosition(true, 2.0f);
+    const float disabled = sourcePosition(false, 2.0f);
+    assert(direct > 0.15f && direct < 0.35f);
+    assert(stretched > 0.05f && stretched < direct * 0.85f);
+    assert(std::abs(disabled - direct) < 0.02f);
+
+    const auto cyclesHeard = [](float ratio) {
+        ClickFixture source;
+        source.loadSine(24.0f);
+        ClickEngine::Controls program;
+        program.algorithm = ClickEngine::PlaybackAlgorithm::sample;
+        program.sampleMode = ClickEngine::SampleMode::loop;
+        program.lanesStretch = true;
+        program.lanesStretchRatio = ratio;
+        source.renderPeak(program, 24);
+        float previous = source.output[0u][kFrames - 1u];
+        int crossings = 0;
+        for (int block = 0; block < 48; ++block) {
+            source.engine.process(source.inputPointers.data(),
+                source.outputPointers.data(), kFrames, program);
+            for (const float value : source.output[0u]) {
+                if (previous <= 0.0f && value > 0.0f) ++crossings;
+                previous = value;
+            }
+        }
+        return crossings;
+    };
+    const int directCycles = cyclesHeard(1.0f);
+    const int stretchedCycles = cyclesHeard(2.0f);
+    assert(directCycles > 10);
+    assert(std::abs(stretchedCycles - directCycles)
+        <= std::max(3, directCycles / 4));
+
+    ClickFixture fixture;
+    fixture.loadSine(12.0f);
+    ClickEngine::Controls controls;
+    controls.algorithm = ClickEngine::PlaybackAlgorithm::sample;
+    controls.sampleMode = ClickEngine::SampleMode::loop;
+    const float maximumStep = fixture.renderChangingMaximumStep(
+        controls, 96, [](ClickEngine::Controls& live, int block) {
+            if (block % 8 != 0) return;
+            live.lanesStretch = (block / 8) % 3 != 0;
+            live.lanesStretchRatio = (block / 8) % 2 ? 2.0f : 0.5f;
+        });
+    assert(maximumStep < 0.30f);
+    std::puts("s3g Thru Sample stretch transport and live-edit regression: PASS");
+}
+
 int main()
 {
+    testSamplePitchPreservingStretch();
     testOutputLimiterScheduling();
     testWavesetAdaptiveStereoSeam();
     testWavesetSlopeContinuity();
@@ -1802,7 +1865,7 @@ int main()
         {46, "pressure_mode", "1"}, {47, "root_note", "96"},
         {48, "record_lane", "4"}, {49, "record_source", "1"},
         {50, "record_gain", "4.0000"}, {51, "monitor_level", "1.0000"},
-        {54, "tempo_bpm", "240.00"}, {55, "tempo_swing", "75.00"},
+        {54, "tempo_bpm", "999.00"}, {55, "tempo_swing", "75.00"},
         {56, "clip_playing", "1"},
         {69, "motion_travel", "1.0000"}, {70, "motion_jitter", "1.0000"},
         {71, "packet_duty", "98.00"}, {72, "motor_rate", "20.0000"},
@@ -3640,7 +3703,7 @@ int main()
         == sizeof(clipMagic));
     assert(std::memcmp(clipMagic, "S3GTHR3", 7u) == 0);
     assert(std::fread(&clipVersion, sizeof(clipVersion), 1u, clipFile) == 1u);
-    assert(clipVersion == 39u);
+    assert(clipVersion == 40u);
     std::fclose(stateFile);
     std::fclose(laneFile);
     std::fclose(clipFile);
@@ -3838,7 +3901,7 @@ int main()
     assert(std::fread(clipMagic, 1u, sizeof(clipMagic), clipFile)
         == sizeof(clipMagic));
     assert(std::fread(&clipVersion, sizeof(clipVersion), 1u, clipFile) == 1u);
-    assert(clipVersion == 39u);
+    assert(clipVersion == 40u);
     assert(std::fclose(clipFile) == 0);
 
     std::remove(statePath.c_str());

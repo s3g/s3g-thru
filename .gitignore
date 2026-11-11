@@ -2,4 +2,5 @@
 build/
 dist/
 .notes/
+release-notes/RELEASE_NOTES_*-test.*.md
 

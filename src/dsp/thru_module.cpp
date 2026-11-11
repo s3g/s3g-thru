@@ -74,6 +74,8 @@ constexpr std::size_t kClipPointCapacity = 8192u;
 constexpr std::uint8_t kClipTakeLimit = 255u;
 constexpr std::uint32_t kClipMinimumDurationMs = 50u;
 constexpr std::uint32_t kClipMaximumDurationMs = 120000u;
+// Authored Sequence clips may span 64 beats at 1 BPM; live capture remains capped above.
+constexpr std::uint32_t kClipMaximumStoredDurationMs = 64u * 60000u;
 constexpr int kFirstPadNote = 68;
 constexpr int kLastPadNote = 99;
 constexpr int kDeleteControlChange = 119; // Move's X key; Menu is CC 50.
@@ -991,7 +993,7 @@ constexpr const char kChainParams[] = R"json([
 {"key":"clip_take_state","name":"Performance Take State","type":"string","access":"read","live":true},
 {"key":"clip_capacity_state","name":"Clip Capture Capacity","type":"string","access":"read","live":true},
 {"key":"clip_playing","name":"Performance Playback","type":"int","min":0,"max":1,"access":"write"},
-{"key":"tempo_bpm","name":"Tempo","short_name":"BPM","type":"float","min":40,"max":240,"step":1,"default":120,"unit":"BPM"},
+{"key":"tempo_bpm","name":"Tempo","short_name":"BPM","type":"float","min":1,"max":999,"step":1,"default":120,"unit":"BPM"},
 {"key":"tempo_swing","name":"Tempo Swing","short_name":"SWING","type":"float","min":50,"max":75,"step":1,"default":50,"unit":"%"},
 {"key":"chain_bank","name":"Saved Chain","short_name":"BANK","type":"int","min":1,"max":16,"default":1},
 {"key":"chain_end","name":"Chain End","short_name":"END","type":"enum","options":["Loop","Stay","Stop"],"default":0},
@@ -1161,6 +1163,8 @@ constexpr const char kChainParams[] = R"json([
 {"key":"seq_trig_gate","name":"Sequence Trig Duration","short_name":"DUR","type":"float","min":0.01,"max":32,"default":0.8},
 {"key":"seq_micro","name":"Sequence Micro","short_name":"MICRO","type":"float","min":-0.5,"max":0.5,"default":0},
 {"key":"seq_prob","name":"Sequence Prob","short_name":"PROB","type":"float","min":0,"max":1,"default":1},
+{"key":"seq_cycle_hit","name":"Sequence Cycle Hit","short_name":"HIT","type":"int","min":1,"max":8,"default":1},
+{"key":"seq_cycle_every","name":"Sequence Cycle Every","short_name":"EVERY","type":"int","min":1,"max":8,"default":1},
 {"key":"seq_burst","name":"Sequence Burst","short_name":"BURST","type":"int","min":1,"max":8,"default":1},
 {"key":"seq_when","name":"Sequence When","short_name":"WHEN","type":"float","min":0,"max":0.999,"default":0},
 {"key":"seq_clip_beats","name":"Sequence Clip Beats","short_name":"CLIP","type":"int","min":1,"max":64,"default":4},
@@ -1239,7 +1243,7 @@ constexpr const char kUiHierarchy[] = R"json({
 "texture":{"name":"Texture","knobs":["texture_mode","texture_rate","texture_length","texture_scatter","texture_range","texture_group","texture_spread","texture_seed"],"params":[{"key":"texture_mode"},{"key":"texture_rate"},{"key":"texture_length"},{"key":"texture_scatter"},{"key":"texture_range"},{"key":"texture_group"},{"key":"texture_spread"},{"key":"texture_seed"}]},
 "wavesets":{"name":"Wavesets","knobs":["waveset_group","waveset_repeats","waveset_stride","waveset_advance","waveset_direction","waveset_process","waveset_amount","waveset_detail"],"params":[{"key":"waveset_group"},{"key":"waveset_repeats"},{"key":"waveset_stride"},{"key":"waveset_advance"},{"key":"waveset_direction"},{"key":"waveset_process"},{"key":"waveset_amount"},{"key":"waveset_detail"},{"key":"lane_path"},{"key":"lane_cycles"},{"key":"manual_lane"}]},
 "cutups":{"name":"Cutups","knobs":["locus","field","speed","join","cutups_mode","cut_lane_order","cut_lane_advance","manual_lane"],"params":[{"key":"locus"},{"key":"field"},{"key":"speed"},{"key":"join"},{"key":"cutups_mode"},{"key":"cut_lane_order"},{"key":"cut_lane_advance"},{"key":"manual_lane"}]},
-"sample":{"name":"Sample","knobs":["sample_mode","locus","field","speed","manual_lane","lane_variation","output_gain"],"params":[{"key":"sample_mode"},{"key":"locus"},{"key":"field"},{"key":"speed"},{"key":"manual_lane"},{"key":"lane_variation"},{"key":"output_gain"}]},
+"sample":{"name":"Sample","knobs":["sample_mode","locus","field","speed","manual_lane","lane_variation","output_gain"],"params":[{"key":"sample_mode"},{"key":"locus"},{"key":"field"},{"key":"speed"},{"key":"manual_lane"},{"key":"lane_variation"},{"key":"lanes_stretch"},{"key":"stretch_ratio"},{"key":"output_gain"}]},
 "slices":{"name":"Slices","knobs":["sample_mode","slice_region_mode","slice_regions","speed","manual_lane","lane_variation","output_gain"],"params":[{"key":"sample_mode"},{"key":"slice_region_mode"},{"key":"slice_regions"},{"key":"speed"},{"key":"manual_lane"},{"key":"lane_variation"},{"key":"output_gain"}]},
 "glitch":{"name":"Glitch","knobs":["glitch_mode","glitch_clock","glitch_division","glitch_slice","glitch_steps","glitch_pulses","glitch_jump","glitch_mix"],"params":[{"key":"glitch_mode"},{"key":"glitch_clock"},{"key":"glitch_division"},{"key":"glitch_rate"},{"key":"glitch_slice"},{"key":"glitch_repeats"},{"key":"glitch_chance"},{"key":"glitch_mix"},{"key":"glitch_steps"},{"key":"glitch_pulses"},{"key":"glitch_rotate"},{"key":"glitch_jump"},{"key":"glitch_pitch"},{"key":"glitch_reverse"},{"key":"glitch_decay"},{"key":"glitch_seed"}]},
 "reverb":{"name":"Reverb","knobs":["effect_reverb_algo","effect_reverb_decay","effect_reverb_pre","effect_reverb_damp","effect_reverb_diff","effect_reverb_mod","effect_reverb_width","effect_reverb_mix"],"params":[{"key":"effect_reverb_algo"},{"key":"effect_reverb_decay"},{"key":"effect_reverb_pre"},{"key":"effect_reverb_damp"},{"key":"effect_reverb_diff"},{"key":"effect_reverb_mod"},{"key":"effect_reverb_width"},{"key":"effect_reverb_mix"}]},
@@ -5667,7 +5671,7 @@ struct ThruInstance : PlaybackEffectsState {
 
     std::size_t rollDivisionFrames(int padIndex) const
     {
-        const float seconds = 60.0f / std::max(20.0f, tempoBpm)
+        const float seconds = 60.0f / std::max(1.0f, tempoBpm)
             * rollDivisionBeats(padIndex);
         return clampValue<std::size_t>(static_cast<std::size_t>(std::llround(
             seconds * sampleRate)), 1u, rollCapacityFrames);
@@ -7992,7 +7996,7 @@ struct ThruInstance : PlaybackEffectsState {
             case 53:
                 if (value >= 64) clearSelectedLane();
                 break;
-            case 54: tempoBpm = midiRange(value, 40.0f, 240.0f); break;
+            case 54: tempoBpm = midiRange(value, 1.0f, 999.0f); break;
             case 55: tempoSwing = midiRange(value, 50.0f, 75.0f) / 100.0f; break;
             case 56: setClipPlaying(value >= 64); break;
             case 57: if (value >= 64) restoreUndo(); break;
@@ -9182,7 +9186,7 @@ struct ThruInstance : PlaybackEffectsState {
         if (!file) return false;
         const char magic[8] { 'S', '3', 'G', 'T', 'H', 'R', '3', '\0' };
         bool ok = writeBytes(file, magic, sizeof(magic))
-            && writeU32(file, 39u)
+            && writeU32(file, 40u)
             && writeU64(file, snapshot ? snapshot->generation : persistenceGeneration)
             && writeF32(file, snapshot ? snapshot->tempo : tempoBpm)
             && writeF32(file, snapshot ? snapshot->swing : tempoSwing)
@@ -9248,7 +9252,7 @@ struct ThruInstance : PlaybackEffectsState {
                     && writeU32(file, clipPointTake(point));
             }
         }
-        ok = ok && writeSplitExtension(file,savedClips) && writeStackPaths(file,savedClips) && writeChainBanks(file,savedBanks,savedBank) && writeChainPlaybackState(file,snapshot?snapshot->chainPlayBank:chainPlayBank) && writeNewEngineParameters(file,savedClips) && writeVoiceEngineExtension(file,savedClips) && writeVoicePlayExtension(file,savedClips) && writeStochasticParameters(file,savedClips) && writePulsarParameters(file,savedClips) && writePriorityParameters(file,savedClips) && writeBankExtension(file,savedClips) && writeBankPadExtension(file,savedClips) && writeSliceExtension(file,savedClips) && writeLayersExtension(file,savedClips) && writeSequenceExtension(file,savedClips) && writeSequenceMixExtension(file,savedClips);
+        ok = ok && writeSplitExtension(file,savedClips) && writeStackPaths(file,savedClips) && writeChainBanks(file,savedBanks,savedBank) && writeChainPlaybackState(file,snapshot?snapshot->chainPlayBank:chainPlayBank) && writeNewEngineParameters(file,savedClips) && writeVoiceEngineExtension(file,savedClips) && writeVoicePlayExtension(file,savedClips) && writeStochasticParameters(file,savedClips) && writePulsarParameters(file,savedClips) && writePriorityParameters(file,savedClips) && writeBankExtension(file,savedClips) && writeBankPadExtension(file,savedClips) && writeSliceExtension(file,savedClips) && writeLayersExtension(file,savedClips) && writeSequenceExtension(file,savedClips) && writeSequenceMixExtension(file,savedClips) && writeSequenceCycleExtension(file,savedClips);
         const bool closed = std::fclose(file) == 0;
         ok = ok && closed && appendFileChecksum(temporary.data());
         if (!ok || (!stageOnly && !replaceFileWithBackup(temporary.data(), path.data()))) {
@@ -9312,7 +9316,7 @@ struct ThruInstance : PlaybackEffectsState {
             && (version == 1u || version == 2u || version == 3u
                 || version == 4u || version == 5u || version == 6u
                 || version == 7u || version == 8u || version == 9u
-                || version == 10u || version == 11u || version == 12u || version == 13u || version == 14u || version==15u || version==16u || version==17u || version==18u || version==19u || version==20u || version==21u || version==22u || version==23u || version==24u || version==25u || version==26u || version==27u || version==28u || version==29u || version==30u || version==31u || version==32u || version==33u || version==34u || version==35u || version==36u || version==37u || version==38u || version==39u)
+                || version == 10u || version == 11u || version == 12u || version == 13u || version == 14u || version==15u || version==16u || version==17u || version==18u || version==19u || version==20u || version==21u || version==22u || version==23u || version==24u || version==25u || version==26u || version==27u || version==28u || version==29u || version==30u || version==31u || version==32u || version==33u || version==34u || version==35u || version==36u || version==37u || version==38u || version==39u || version==40u)
             && readU64(file, generation) && generation != 0u;
         std::fclose(file);
         return ok;
@@ -9349,7 +9353,7 @@ struct ThruInstance : PlaybackEffectsState {
             && (version == 1u || version == 2u || version == 3u
                 || version == 4u || version == 5u || version == 6u
                 || version == 7u || version == 8u || version == 9u
-                || version == 10u || version == 11u || version == 12u || version == 13u || version == 14u || version==15u || version==16u || version==17u || version==18u || version==19u || version==20u || version==21u || version==22u || version==23u || version==24u || version==25u || version==26u || version==27u || version==28u || version==29u || version==30u || version==31u || version==32u || version==33u || version==34u || version==35u || version==36u || version==37u || version==38u || version==39u)
+                || version == 10u || version == 11u || version == 12u || version == 13u || version == 14u || version==15u || version==16u || version==17u || version==18u || version==19u || version==20u || version==21u || version==22u || version==23u || version==24u || version==25u || version==26u || version==27u || version==28u || version==29u || version==30u || version==31u || version==32u || version==33u || version==34u || version==35u || version==36u || version==37u || version==38u || version==39u || version==40u)
             && readU64(file, loadedGeneration)
             && loadedGeneration != 0u
             && (expectedGeneration == kAnyPersistenceGeneration
@@ -9450,14 +9454,14 @@ struct ThruInstance : PlaybackEffectsState {
                         || (recorded == 0u && takeCount == 0u));
                 clip.clipRecorded = recorded != 0u;
                 clip.clipDurationMs = clampValue(
-                    durationMs, 0u, kClipMaximumDurationMs);
+                    durationMs, 0u, kClipMaximumStoredDurationMs);
                 if (clip.clipRecorded) {
                     clip.clipDurationMs = std::max(
                         kClipMinimumDurationMs, clip.clipDurationMs);
                 }
                 clip.clipRate = clampValue(clip.clipRate, 0.25f, 4.0f);
                 clip.recordedTempoBpm = clampValue(
-                    clip.recordedTempoBpm, 40.0f, 240.0f);
+                    clip.recordedTempoBpm, 1.0f, 999.0f);
                 clip.recordedBeats = std::max(0.0f, clip.recordedBeats);
                 clip.timingMode = static_cast<ClipTimingMode>(timingMode);
                 clip.noteCapacityReached = noteCapacityReached != 0u;
@@ -9552,6 +9556,7 @@ struct ThruInstance : PlaybackEffectsState {
         if(ok && version>=37u)ok=readLayersExtension(file,*loadedClips);
         if(ok && version>=38u)ok=readSequenceExtension(file,*loadedClips);
         if(ok && version>=39u)ok=readSequenceMixExtension(file,*loadedClips);
+        if(ok && version>=40u)ok=readSequenceCycleExtension(file,*loadedClips);
         // A legacy automatic policy preserves 1 ms for Transients and zero
         // for Equal independently, including shared lanes used by both parts.
         const bool atEnd = ok && std::ftell(file) == payloadSize;
@@ -9575,7 +9580,7 @@ struct ThruInstance : PlaybackEffectsState {
         chainPlayBank=static_cast<int>(version>=19u?loadedPlayBank:loadedBank);
         chainLaunchBank=chainLaunchSlot=-1;undoAvailable=false;
         chainNextSlot=-1;chainAdvanceRequested=false;chainLaunchingFirst=false;
-        tempoBpm = clampValue(bpm, 40.0f, 240.0f);
+        tempoBpm = clampValue(bpm, 1.0f, 999.0f);
         tempoSwing = clampValue(swing, 0.5f, 0.75f);
         launchQuantize = static_cast<LaunchQuantize>(loadedLaunchQuantize);
         grainVoiceLimit = loadedGrainVoiceLimit;
@@ -10233,7 +10238,7 @@ struct ThruInstance : PlaybackEffectsState {
         }
         if (jsonNumber(json, "effect_tape_inertia", value)) controls.effectTapeInertia = clampValue(value, 0.0f, 1.0f);
         if (jsonNumber(json, "tempo_bpm", value)) {
-            tempoBpm = clampValue(value, 40.0f, 240.0f);
+            tempoBpm = clampValue(value, 1.0f, 999.0f);
         }
         if (jsonNumber(json, "tempo_swing", value)) {
             tempoSwing = clampValue(value / 100.0f, 0.5f, 0.75f);
@@ -10577,7 +10582,7 @@ void setParam(void* opaque, const char* key, const char* value)
     if (std::strcmp(key, "panic") == 0) { if(isTruthy(value))instance->panic(); return; }
     if (std::strcmp(key, "all_notes_off") == 0) { instance->allNotesOff(); return; }
     if (std::strcmp(key, "clip_playing") == 0) { instance->setClipPlaying(isTruthy(value)); return; }
-    if (std::strcmp(key, "tempo_bpm") == 0) { if(instance->midiSyncSource&&instance->midiClockLocked)return; instance->tempoBpm = clampValue(parseFloat(value, instance->tempoBpm), 40.0f, 240.0f); return; }
+    if (std::strcmp(key, "tempo_bpm") == 0) { if(instance->midiSyncSource&&instance->midiClockLocked)return; instance->tempoBpm = clampValue(parseFloat(value, instance->tempoBpm), 1.0f, 999.0f); return; }
     if (std::strcmp(key, "tempo_swing") == 0) { instance->tempoSwing = clampValue(parseFloat(value, instance->tempoSwing * 100.0f) / 100.0f, 0.5f, 0.75f); return; }
     if (std::strcmp(key, "undo") == 0) { if (isTruthy(value)) instance->restoreUndo(); return; }
     if (std::strcmp(key, "maintenance") == 0) { if (isTruthy(value)) instance->serviceMaintenance(); return; }

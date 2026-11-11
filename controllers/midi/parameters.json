@@ -4478,8 +4478,8 @@
       "name": "Tempo",
       "short_name": "BPM",
       "type": "float",
-      "min": 40,
-      "max": 240,
+      "min": 1,
+      "max": 999,
       "step": 1,
       "default": 120,
       "unit": "BPM",
@@ -7224,6 +7224,32 @@
       "max": 24,
       "default": 6,
       "integer": false,
+      "action": false
+    },
+    {
+      "id": 3884,
+      "key": "seq_cycle_hit",
+      "scope": "part",
+      "group": "Sequence",
+      "name": "Sequence Cycle Hit",
+      "short_name": "HIT",
+      "min": 1,
+      "max": 8,
+      "default": 1,
+      "integer": true,
+      "action": false
+    },
+    {
+      "id": 3885,
+      "key": "seq_cycle_every",
+      "scope": "part",
+      "group": "Sequence",
+      "name": "Sequence Cycle Every",
+      "short_name": "EVERY",
+      "min": 1,
+      "max": 8,
+      "default": 1,
+      "integer": true,
       "action": false
     }
   ],

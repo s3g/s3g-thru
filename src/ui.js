@@ -1,4 +1,4 @@
-/* s3g Thru 0.31.0-test.22 — polyphonic sampler/performance-looper takeover for Move. */
+/* s3g Thru 0.31.0 — polyphonic sampler/performance-looper takeover for Move. */
 
 import * as moveConstants from '/data/UserData/schwung/shared/constants.mjs';
 import * as moveInputFilter from '/data/UserData/schwung/shared/input_filter.mjs';
@@ -89,7 +89,7 @@ const setButtonLED = typeof moveInputFilter.setButtonLED === 'function'
         }
     };
 
-const UI_VERSION = '0.31.0-test.22';
+const UI_VERSION = '0.31.0';
 const HELP_PAGE_COUNT=5;
 const WAVE_BINS = 112;
 const ALGORITHMS = ['MOTION', 'LANES', 'GRAINS', 'CUTUPS', 'SAMPLE', 'SLICES',
@@ -439,7 +439,7 @@ const PARAMS = {
     clip_take_undo: { key: 'clip_take_undo', label: 'UNDO TAKE', min: 0, max: 1, step: 1, value: 0, integer: true, labels: ['TURN', 'UNDO'], momentary: true, result: 'TAKE UNDONE' },
     clip_timing: { key: 'clip_timing', label: 'TIMING', min: 0, max: 1, step: 1, value: 0, integer: true, labels: ['FREE', 'BEAT SYNC'] },
     launch_quantize: { key: 'launch_quantize', label: 'LAUNCH', min: 0, max: 2, step: 1, value: 0, integer: true, labels: ['OFF', 'BEAT', 'BAR'] },
-    tempo_bpm: { key: 'tempo_bpm', label: 'TEMPO', min: 40, max: 240, step: 1, value: 120, integer: true },
+    tempo_bpm: { key: 'tempo_bpm', label: 'TEMPO', min: 1, max: 999, step: 1, value: 120, integer: true },
     tempo_swing: { key: 'tempo_swing', label: 'SWING', min: 50, max: 75, step: 1, value: 50, integer: true },
     hold_release_ms: { key: 'hold_release_ms', label: 'HOLD OFF', min: 0, max: 60000, step: 50, value: 0, integer: true },
     chain_enabled: { key: 'chain_enabled', label: 'CHAIN', min: 0, max: 1, step: 1, value: 0, integer: true, labels: ['OFF', 'ON'] },
@@ -477,6 +477,8 @@ const STACK_PATH_PAGE = { title: 'STACK PATH', keys: ['lane_path',
 const PATH_EDITOR_PAGE = {title:'PATH EDITOR',pathEditor:true,keys:['path_point','path_time','path_lane','path_curve','path_count',null,null,'path_reset']};
 const DIRECT_PLAY_PAGE = { title: 'DIRECT PLAY', keys: ['sample_mode',
     'lane_variation'] };
+const SAMPLE_PLAY_PAGE = { title: 'DIRECT PLAY', keys: ['sample_mode',
+    'lane_variation', 'lanes_stretch', 'stretch_ratio'] };
 const PADS_SCALE_PAGE = { title: 'PADS & SCALE', keys: ['pad_mode',
     'root_note', 'scale', 'hold_release_ms', 'voice_mode','pressure_mode','voice_engine_mode','voice_engine_order'] };
 const BANK_PADS_PAGE={title:'BANK PADS',keys:['bank_slot','bank_rate','bank_pan','bank_play','bank_choke','hold_release_ms','bank_record_source',null]};
@@ -492,6 +494,8 @@ const VOICE_SETUP_PAGE={title:'VOICE SETUP',voiceSetup:true,keys:['voice_engine_
 const PLAY_GAIN_PAGE={title:'PLAY GAIN',global:true,scopeLabel:'',keys:['polyphony_comp']};
 const AMP_ENVELOPE_PAGE = { title: 'AMP ENVELOPE', breakpoint: true,
     keys: ['amp_attack', 'amp_decay', 'amp_sustain', 'amp_release'] };
+const SEQUENCE_ENVELOPE_PAGE = { title: 'SEQ AMP', sequenceEnvelope: true,
+    keys: AMP_ENVELOPE_PAGE.keys };
 const MOTION_SOUND_PAGE = { title: 'MOTION SOUND', keys: ['motion_sound'] };
 const PACKETS_PAGE = { title: 'PACKETS', keys: ['motion_rate',
     'packet_duty'] };
@@ -534,7 +538,7 @@ const PLAYBACK_PAGES = [
             'cut_pitch_variation', 'cut_level_variation', 'cut_lane_order',
             'cut_poly_path', 'cut_regions'] },
     ],
-    [DIRECT_PLAY_PAGE],
+    [SAMPLE_PLAY_PAGE],
     [
         DIRECT_PLAY_PAGE,
         { title: 'SLICE SOURCE', sliceEditor: true, keys: ['slice_region_mode', 'slice_regions'] },
@@ -1202,10 +1206,10 @@ function parseUiState(text) {
 
 
 // Layers uses the existing Thru renderer, encoder response and page browser.
-const SEQUENCE_KEYS=['seq_length','seq_rate','seq_rotation','seq_active','seq_mute','seq_velocity','seq_gate','seq_scale','seq_step','seq_child','seq_pos','seq_note','seq_vel','seq_trig_gate','seq_micro','seq_prob','seq_burst','seq_when','seq_clip_beats','seq_duration_mode','seq_time_ms','seq_trig_time_ms','seq_pan_1','seq_pan_2','seq_pan_3','seq_pan_4','seq_eq_low','seq_eq_mid','seq_eq_high','seq_eq_freq','seq_eq_solo','seq_duck_key','seq_duck_depth','seq_duck_threshold','seq_duck_attack','seq_duck_hold','seq_duck_release','seq_duck_hpf','seq_duck_knee'];
+const SEQUENCE_KEYS=['seq_length','seq_rate','seq_rotation','seq_active','seq_mute','seq_velocity','seq_gate','seq_scale','seq_step','seq_child','seq_pos','seq_note','seq_vel','seq_trig_gate','seq_micro','seq_prob','seq_burst','seq_when','seq_clip_beats','seq_duration_mode','seq_time_ms','seq_trig_time_ms','seq_pan_1','seq_pan_2','seq_pan_3','seq_pan_4','seq_eq_low','seq_eq_mid','seq_eq_high','seq_eq_freq','seq_eq_solo','seq_duck_key','seq_duck_depth','seq_duck_threshold','seq_duck_attack','seq_duck_hold','seq_duck_release','seq_duck_hpf','seq_duck_knee','seq_cycle_hit','seq_cycle_every'];
 const sequenceUi={active:false,data:null,pad:-1,downAt:0,held:false,copy:false,copyReady:false};
 const SEQUENCE_LANE_PAGE={title:'SEQ LANE',sequence:true,keys:['seq_length','seq_rate','seq_rotation','seq_active','seq_velocity','seq_gate','tempo_bpm','seq_clip_beats']};
-const SEQUENCE_TRIG_PAGE={title:'TRIG',sequence:true,sequenceTrig:true,keys:['seq_pos','seq_note','seq_vel','seq_trig_gate','seq_micro','seq_prob',null,null]};
+const SEQUENCE_TRIG_PAGE={title:'TRIG',sequence:true,sequenceTrig:true,keys:['seq_pos','seq_note','seq_vel','seq_trig_gate','seq_micro','seq_prob','seq_cycle_hit','seq_cycle_every']};
 const SEQUENCE_BURST_PAGE={title:'BURST',sequence:true,sequenceBurst:true,keys:['seq_pos','seq_note','seq_vel','seq_trig_gate','seq_burst','seq_child','seq_when',null]};
 const SEQUENCE_PITCH_PAGE={title:'SEQ SETUP',sequence:true,keys:['root_note','scale','seq_scale','seq_duration_mode',null,null,null,null]};
 const SEQUENCE_MIX_PAGE={title:'SEQ MIX',sequenceMix:true,global:true,keys:['split_level_a','split_level_b','split_level_c','split_level_d','seq_pan_1','seq_pan_2','seq_pan_3','seq_pan_4']};
@@ -1215,7 +1219,7 @@ const SEQUENCE_DUCK_PAGE={title:'SEQ DUCK',sequenceMix:true,global:true,keys:['s
 const sequenceSpecs={
  seq_length:['LEN',1,32,1,16,true],seq_rate:['RATE',0,8,1,4,true,['1/1','1/2','1/4','1/8','1/16','1/16T','1/32','1/32T','1/64']],seq_rotation:['ROT',0,31,1,0,true],seq_active:['ON',0,1,1,1,true,['OFF','ON']],seq_mute:['MUTE',0,1,1,0,true,['OFF','ON']],
  seq_velocity:['VEL',1,127,1,100,true],seq_gate:['DUR',.01,32,.01,.8,false],seq_scale:['ENTRY',0,1,1,0,true,['CHROM','SCALE']],seq_step:['STEP',1,32,1,1,true],seq_child:['EVENT',0,8,1,0,true],
- seq_pos:['POS',0,1,.005,0,false],seq_note:['NOTE',-48,48,1,0,true],seq_vel:['VEL',1,127,1,100,true],seq_trig_gate:['DUR',.01,32,.01,.8,false],seq_micro:['MICRO',-.5,.5,.01,0,false],seq_prob:['PROB',0,1,.01,1,false],seq_burst:['BURST',1,8,1,1,true],seq_when:['WHEN',0,.999,.01,0,false],seq_clip_beats:['CLIP',1,64,1,4,true],seq_clear:['CLEAR',0,4,1,4,true],seq_delete:['DEL',0,1,1,1,true],
+ seq_pos:['POS',0,1,.005,0,false],seq_note:['NOTE',-48,48,1,0,true],seq_vel:['VEL',1,127,1,100,true],seq_trig_gate:['DUR',.01,32,.01,.8,false],seq_micro:['MICRO',-.5,.5,.01,0,false],seq_prob:['PROB',0,1,.01,1,false],seq_cycle_hit:['HIT',1,8,1,1,true],seq_cycle_every:['EVERY',1,8,1,1,true],seq_burst:['BURST',1,8,1,1,true],seq_when:['WHEN',0,.999,.01,0,false],seq_clip_beats:['CLIP',1,64,1,4,true],seq_clear:['CLEAR',0,4,1,4,true],seq_delete:['DEL',0,1,1,1,true],
  seq_duration_mode:['UNIT',0,1,1,0,true,['STEP','TIME']],seq_time_ms:['DUR',10,30000,1,1000,false],seq_trig_time_ms:['DUR',10,30000,1,1000,false],
  seq_pan_1:['PAN1',-1,1,.01,0,false],seq_pan_2:['PAN2',-1,1,.01,0,false],seq_pan_3:['PAN3',-1,1,.01,0,false],seq_pan_4:['PAN4',-1,1,.01,0,false],
  seq_eq_low:['LOW',-12,12,.25,0,false],seq_eq_mid:['MID',-12,12,.25,0,false],seq_eq_high:['HIGH',-12,12,.25,0,false],seq_eq_freq:['FREQ',120,8000,1,900,false],seq_eq_solo:['SOLO',0,1,1,0,true,['OFF','ON']],
@@ -1234,8 +1238,8 @@ function readSequence(){
  if(previous?.active!==data.active||previous?.held!==data.held||previous?.edit!==data.edit||JSON.stringify(previous?.lanes)!==JSON.stringify(data.lanes)||JSON.stringify(previous?.steps)!==JSON.stringify(data.steps))rebuildLedQueue();
 }
 function sequencePages(base){
- const pages=base.filter(page=>!page.voiceEngines&&!page.voiceSetup&&page.title!==STACK_PATH_PAGE.title&&page.title!=='PADS & SCALE'&&page!==QUAD_SETUP_PAGE&&page!==SPLIT_MIX_PAGE&&page!==PRIORITY_PAGE);
- return [SEQUENCE_LANE_PAGE,SEQUENCE_TRIG_PAGE,SEQUENCE_PITCH_PAGE,SEQUENCE_BURST_PAGE,SEQUENCE_MIX_PAGE,...SEQUENCE_STRIP_PAGES,SEQUENCE_DUCK_PAGE,...pages];
+ const pages=base.filter(page=>!page.voiceEngines&&!page.voiceSetup&&page!==AMP_ENVELOPE_PAGE&&page.title!==STACK_PATH_PAGE.title&&page.title!=='PADS & SCALE'&&page!==QUAD_SETUP_PAGE&&page!==SPLIT_MIX_PAGE&&page!==PRIORITY_PAGE);
+ return [SEQUENCE_LANE_PAGE,SEQUENCE_TRIG_PAGE,SEQUENCE_PITCH_PAGE,SEQUENCE_BURST_PAGE,SEQUENCE_ENVELOPE_PAGE,SEQUENCE_MIX_PAGE,...SEQUENCE_STRIP_PAGES,SEQUENCE_DUCK_PAGE,...pages];
 }
 function sequencePadColor(pad){
  const d=sequenceUi.data;if(!sequenceUi.active||!d)return null;
@@ -1327,13 +1331,27 @@ function sequenceTimeText(ms){
  if(ms<10000)return (ms/1000).toFixed(1)+'s';
  return Math.round(ms/1000)+'s';
 }
-function sequenceDurationText(value){
- const selected=sequenceUi.data;
- const stepMs=Number(selected?.step_ms);
+function sequenceStepMs(){
+ const stepMs=Number(sequenceUi.data?.step_ms);
  const beats=[4,2,1,.5,.25,1/6,.125,1/12,.0625][clamp(Math.round(PARAMS.seq_rate.value),0,8)];
- const nominal=Number.isFinite(stepMs)&&stepMs>0?stepMs:beats*60000/(Math.max(1,PARAMS.tempo_bpm.value)*clamp(PARAMS.clip_rate.value,.25,4));
- const ms=Math.max(.25,value*nominal);
- return sequenceTimeText(ms);
+ return Number.isFinite(stepMs)&&stepMs>0?stepMs:beats*60000/(Math.max(1,PARAMS.tempo_bpm.value)*clamp(PARAMS.clip_rate.value,.25,4));
+}
+function sequenceDurationText(value){return sequenceTimeText(Math.max(.25,value*sequenceStepMs()));}
+function sequenceAmpDurationMs(){
+ const locked=Boolean((sequenceUi.data?.mask||0)&8);
+ if(PARAMS.seq_duration_mode.value>=.5)return clamp(locked?PARAMS.seq_trig_time_ms.value:PARAMS.seq_time_ms.value,10,30000);
+ return Math.max(.25,(locked?PARAMS.seq_trig_gate.value:PARAMS.seq_gate.value)*sequenceStepMs());
+}
+function sequenceAmpTiming(){
+ const dur=sequenceAmpDurationMs();
+ const raw=[Math.max(0,PARAMS.amp_attack.value),Math.max(0,PARAMS.amp_decay.value),Math.max(3,PARAMS.amp_release.value)];
+ const scale=Math.min(1,dur/(raw[0]+raw[1]+raw[2]+1e-9));
+ const sustain=clamp(PARAMS.amp_sustain.value/100,0,1);
+ const release=raw[2]*scale;
+ const attack=Math.min(raw[0]*scale,Math.max(0,dur-release));
+ // DSP uses a 1 ms safety decay when Sustain sits below the attack peak.
+ const decay=Math.min(Math.max(0,dur-release-attack),Math.max(raw[1]*scale,sustain<.999999?1:0));
+ return {dur,raw,scale,applied:[attack,decay,release],sustain};
 }
 function sequenceValue(control){
  const v=control.value,key=control.key;
@@ -2067,7 +2085,7 @@ function parseClipState(text) {
     if (values.length >= 12) {
         state.clipLaunchPending = values[8] !== 0;
         state.clipTiming = clamp(values[9] | 0, 0, 1);
-        state.clipRecordedTempo = clamp(values[10] / 100, 40, 240);
+        state.clipRecordedTempo = clamp(values[10] / 100, 1, 999);
         state.clipBeats = Math.max(0, values[11] / 1000);
         PARAMS.clip_timing.value = state.clipTiming;
     }
@@ -3233,9 +3251,27 @@ function parameterPagesBase() {
         {...REVERB_PAGE,global:true,keys:REVERB_PAGE.keys.map((key)=>key==='effect_reverb_mix'?null:key)},FX_ORDER_PAGE,SAMPLE_PAGE,LOOP_PAGE,PATTERN_FADE_PAGE,TAKE_PAGE,CHAIN_PAGE,CHAIN_FADE_PAGE,ENTRY_FADE_PAGE,CHAIN_TOOLS_PAGE];
 }
 
-function parameterPages(){const pages=parameterPagesBase();return sequenceUi.active?sequencePages(pages):pages;}
+function inactiveControl(key) {
+    if(!key)return false;
+    const direct=state.algorithm===4||state.algorithm===5;
+    if(key==='join'&&direct&&Math.round(PARAMS.sample_mode.value)!==2)return true;
+    if(key==='stretch_ratio'&&(state.algorithm===1||state.algorithm===4)
+        &&PARAMS.lanes_stretch.value<.5)return true;
+    if(key==='lane_variation'&&(isQuad()||sequenceUi.active))return true;
+    if(sequenceUi.active&&['manual_lane','lane_cycles','cut_lane_advance',
+        'cut_lane_order','cut_poly_path','lane_path','lane_blend',
+        'lane_path_shape','lane_path_offset','lane_path_skew',
+        'lane_path_curve','lane_slew'].includes(key))return true;
+    return false;
+}
+function maskInactivePage(page) {
+    if(!page.keys.some(inactiveControl))return page;
+    return {...page,keys:page.keys.map(key=>inactiveControl(key)?null:key)};
+}
+function parameterPages(){const pages=parameterPagesBase();return (sequenceUi.active?sequencePages(pages):pages).map(maskInactivePage);}
 function controlForKey(key) {
     if(key==='seq_child')return {...PARAMS.seq_child,max:PARAMS.seq_burst.value};
+    if(key==='seq_cycle_hit')return {...PARAMS.seq_cycle_hit,max:PARAMS.seq_cycle_every.value};
     if(key==='seq_note'){const root=sequenceUi.data?.root||60;return {...PARAMS.seq_note,min:Math.max(-48,-root),max:Math.min(48,127-root)};}
     const stripPage=sequenceUi.active&&state.view==='settings'?currentSettingsPage():null;
     const stripField=SEQUENCE_STRIP_KEYS.indexOf(key);
@@ -3305,10 +3341,11 @@ function activeControlKeys() {
     if(state.view==='sliceEdit')return Array(8).fill(null);
     if(state.view==='library')return [null,null,null,null,null,null,'preview_route','preview_level'];
     if(layersUi.active && state.view==='main'&&!layersUi.wave)return LAYERS_MAIN_KEYS;
-    return state.view === 'settings'
+    const keys=state.view === 'settings'
         ? currentSettingsPage().keys
         : state.bankMode&&state.splitFocus===1?BANK_SAMPLE_PAGE.keys
         : (MAIN_ENGINE_CONTROLS[state.algorithm] || MAIN_ENGINE_CONTROLS[0]).map((key,index)=>isQuad()?([3,4].includes(index)?null:index===7?partLevelKey():key):state.splitEnabled&&index===7?'split_blend':key);
+    return keys.map(key=>inactiveControl(key)?null:key);
 }
 
 function noteName(value) {
@@ -3629,6 +3666,26 @@ function drawAmpEnvelopePage() {
     }
 }
 
+function drawSequenceEnvelopePage() {
+    const timing=sequenceAmpTiming(),[attack,decay,release]=timing.applied;
+    const x0=4,x1=122,width=x1-x0,baseline=31,peak=19;
+    const xAttack=x0+Math.round(width*attack/timing.dur);
+    const xDecay=Math.min(x1,xAttack+Math.round(width*decay/timing.dur));
+    const xGate=Math.max(xDecay,x1-Math.round(width*release/timing.dur));
+    const sustainY=Math.round(baseline-timing.sustain*(baseline-peak));
+    print(3,10,'DUR '+sequenceTimeText(timing.dur),1);
+    if(timing.scale<.9999)print(100,10,'FIT',1);
+    drawRect(x0,baseline,width+1,1,1);
+    drawPixelLine(x0,baseline,xAttack,peak);
+    drawPixelLine(xAttack,peak,xDecay,sustainY);
+    drawPixelLine(xDecay,sustainY,xGate,sustainY);
+    drawPixelLine(xGate,sustainY,x1,baseline);
+    for(let y=19;y<=baseline;y+=3)drawRect(xGate,y,1,1,1);
+    const labels=['ATK','DEC','SUS','REL'];
+    const values=[sequenceTimeText(attack),sequenceTimeText(decay),Math.round(timing.sustain*100)+'%',sequenceTimeText(release)];
+    for(let i=0;i<4;++i){const x=i*32+3;print(x,35,labels[i],1);print(i*32+1,46,values[i],1);const reserved=i*32+14;drawRect(reserved,57,4,4,1);drawRect(reserved+1,58,2,2,0);}
+}
+
 function readPatternFade() {
     const v=String(getParam('pattern_fade_state','0,0,-1,-1,0,0,0,0,0,2000,12000,0,0')).split(',').map(Number);
     if(v.length!==13||!v.every(Number.isFinite)||v[9]>v[10])return false;
@@ -3798,11 +3855,12 @@ function drawSettings() {
     const engineTitle=voiceEngineListEnabled()&&(page.title==='ENGINE'||playbackPagesForAlgorithm(state.algorithm,Math.round(PARAMS.motion_sound.value)).some(p=>p.title===page.title)||page.pathEditor||page.voiceSetup)?'E'+Math.round(PARAMS.voice_engine_edit.value)+' ':'';
     rememberLayersPage(page);
     const layerTitle=layersUi.active?((page.title==='FX CORNER'||page.layerFxDetail)?'C'+(Number(PARAMS.layers_corner.value)+1)+' ':layersPageSide(page)===0?'A ':''):'';
-    const pageTitle = target + lockTarget + scope + engineTitle + layerTitle+page.title + takeSuffix;
+    const pageTitle = target + lockTarget + scope + engineTitle + layerTitle+page.title + (page.sequenceEnvelope?' T'+String((sequenceUi.data?.step??0)+1).padStart(2,'0'):takeSuffix);
     const title = state.actionMessageTicks > 0
         ? state.actionMessage : pageTitle;
     drawSettingsTitle(title,pages);
     drawRect(0, 8, 128, 1, 1);
+    if (page.sequenceEnvelope) { drawSequenceEnvelopePage(); return; }
     if (page.breakpoint) {
         drawAmpEnvelopePage();
         return;
@@ -4986,8 +5044,30 @@ function nextControlValue(control,delta,fine=false) {
     return value;
 }
 
+function adjustSequenceEnvelope(index,delta){
+    if(index>3||!delta)return;
+    const key=SEQUENCE_ENVELOPE_PAGE.keys[index];
+    delta=parameterEncoderDelta(index,key,delta);if(!delta)return;
+    if(index===2){
+        const control=controlForKey(key),value=nextControlValue(control,delta);
+        PARAMS[key].value=value;setParam(key,String(value));
+    }else{
+        const timing=sequenceAmpTiming(),field=index===3?2:index;
+        const current=timing.applied[field];
+        const step=timing.dur<10?.1:timing.dur<100?1:timing.dur<1000?5:timing.dur<10000?20:100;
+        const wanted=clamp(current+delta*step,0,timing.dur);
+        const others=timing.raw.reduce((sum,value,i)=>sum+(i===field?0:value),0);
+        const raw=wanted<=timing.dur-others||others<=1e-9?wanted
+            :wanted*others/Math.max(1e-9,timing.dur-wanted);
+        const value=clamp(Math.round(Math.max(index===3?3:0,raw)*10)/10,0,PARAMS[key].max);
+        PARAMS[key].value=value;setParam(key,value.toFixed(1));
+    }
+    if(state.clipRecording&&LOCKABLE_PARAMS.has(key))setParam('clip_automation',key);
+    showMessage(SHORT_LABELS[key]+' '+(index===2?Math.round(PARAMS[key].value)+'%':sequenceTimeText(sequenceAmpTiming().applied[index===3?2:index])),35);
+}
 function adjustControl(index, delta) {
     if(!state.editorReady){showMessage('UPDATING EDITOR');return;}
+    if(state.view==='settings'&&currentSettingsPage().sequenceEnvelope){adjustSequenceEnvelope(index,delta);return;}
     if(state.view==='settings'&&currentSettingsPage().chainTools){adjustChainTools(index,delta);return;}
     if(state.view==='settings'&&currentSettingsPage().pathEditor){adjustPathEditor(index,delta);return;}
     if(state.view==='settings'&&currentSettingsPage().patternFade){adjustPatternFade(index,delta);return;}

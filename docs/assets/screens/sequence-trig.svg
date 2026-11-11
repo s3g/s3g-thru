@@ -147,10 +147,10 @@
     <text x="1" y="59.5" fill="#dce8e1">-10%</text>
     <text x="33" y="52.5" fill="#dce8e1">PROB</text>
     <text x="33" y="59.5" fill="#dce8e1">85%</text>
-    <rect x="78" y="52" width="4" height="4" fill="#dce8e1"/>
-    <rect x="79" y="53" width="2" height="2" fill="#050706"/>
-    <rect x="110" y="52" width="4" height="4" fill="#dce8e1"/>
-    <rect x="111" y="53" width="2" height="2" fill="#050706"/>
+    <text x="65" y="52.5" fill="#dce8e1">HIT</text>
+    <text x="65" y="59.5" fill="#dce8e1">1</text>
+    <text x="97" y="52.5" fill="#dce8e1">EVERY</text>
+    <text x="97" y="59.5" fill="#dce8e1">1</text>
   </g>
   <rect x="0.25" y="0.25" width="127.5" height="63.5" fill="none" stroke="#5b6661" stroke-width="0.5"/>
 </svg>

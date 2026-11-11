@@ -5,7 +5,7 @@ ordinary absolute MIDI CC, so no NRPN support is required. It targets controls
 that are useful during performance rather than exposing every Thru setting.
 
 Requires s3g Thru **0.30.0 or newer**. Existing presets can be retained
-when updating to 0.30.1.
+when updating to 0.31.0.
 
 ## Thru setup
 

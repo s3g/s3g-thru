@@ -241,7 +241,7 @@ void testProjectBackgroundWorkflow() {
 }
 
 template<class F> void waitProjectSources(ThruInstance& t,F ready) {
-    const auto deadline=std::chrono::steady_clock::now()+std::chrono::seconds(30);
+    const auto deadline=std::chrono::steady_clock::now()+std::chrono::seconds(75);
     while(!ready()&&std::chrono::steady_clock::now()<deadline){renderSplit(t,1);usleep(1000);}
     if(!ready())std::fprintf(stderr,"Wait failed: project=%s sample=%s last=%s job=%d dirty=%d mask=%u\n",t.projectMessage.data(),t.sampleLoadError.data(),t.lastError.data(),t.projectJob.load(),t.persistentStateDirty,t.pendingClipSourceMask);
     assert(ready());

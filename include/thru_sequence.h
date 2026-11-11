@@ -29,6 +29,7 @@ struct Step {
   bool enabled = false;
   float micro = 0, probability = 1;
   int count = 1;
+  std::uint8_t cycleHit = 1, cycleEvery = 1; // 1:1 plays on every lane pass.
   Values locks;
   std::array<Child, children> events{};
 };
@@ -109,7 +110,8 @@ inline void schedule(const Pattern &pattern, double start, double increment,
     for (auto n = std::max<std::int64_t>(0, first); n <= last; ++n) {
       const int row = int((n + track.rotation) % track.length);
       const auto &step = track.trigs[row];
-      if (!step.enabled || step.probability <= 0)
+      if (!step.enabled || step.probability <= 0 ||
+          (n / track.length) % step.cycleEvery != step.cycleHit - 1)
         continue;
       const auto random =
           hash(1979u ^ std::uint32_t(n) ^ std::uint32_t(n >> 32) ^

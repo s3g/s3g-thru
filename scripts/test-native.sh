@@ -28,7 +28,7 @@ ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 \
 "$cxx_bin" -std=c++17 -O2 -Wall -Wextra -Werror -Wno-deprecated-declarations \
   -pthread -I"$repo_dir/include" "$repo_dir/tests/test_dsp_transitions.cpp" \
   -o "$test_dir/test-transitions"
-S3G_THRU_PROJECT_FIXTURE="$test_dir/portable.thru" "$test_dir/test-transitions"
+S3G_THRU_SEQUENCE_FIXTURE="$test_dir/sequence.json" S3G_THRU_GLIDE_FIXTURE="$test_dir/layers-glide.json" S3G_THRU_PROJECT_FIXTURE="$test_dir/portable.thru" S3G_THRU_EDITOR_FIXTURE="$test_dir/layers-editor.json" "$test_dir/test-transitions"
 python3 "$repo_dir/tests/test_project_format.py" "$test_dir/portable.thru"
 "$cxx_bin" -std=c++17 -O1 -g -Wall -Wextra -Werror -Wno-deprecated-declarations \
   -pthread -fno-omit-frame-pointer -fsanitize=address,undefined \
@@ -37,7 +37,7 @@ python3 "$repo_dir/tests/test_project_format.py" "$test_dir/portable.thru"
 ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 \
   "$test_dir/test-transitions-sanitize"
 
-node "$repo_dir/tests/test_ui.mjs" "$repo_dir/src/ui.js"
+S3G_THRU_SEQUENCE_FIXTURE="$test_dir/sequence.json" S3G_THRU_GLIDE_FIXTURE="$test_dir/layers-glide.json" S3G_THRU_EDITOR_FIXTURE="$test_dir/layers-editor.json" node "$repo_dir/tests/test_ui.mjs" "$repo_dir/src/ui.js"
 node "$repo_dir/tests/test_e16.mjs"
 node "$repo_dir/tests/test_e16_remote.mjs"
 node "$repo_dir/tests/test_e16_nrpn.mjs"

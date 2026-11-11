@@ -380,7 +380,7 @@
         <p>Send CC 99 and 98 to select an address, followed by CC 6 and 38 for its 14-bit value. Configure two-way feedback without retransmitting received values. Ordinary NRPN feedback pauses while THRU RM owns the E16 surface and resumes after it disconnects.</p>
         <p>Note input also accepts All Sound Off (CC 120) and All Notes Off (CC 123) on channels 1–4.</p>
 
-        <nav class="page-nav" aria-label="Page navigation">
+        <h2 id="sequence">Sequence controls</h2><p>Part channels 5–8 address sample/sequence lanes 1–4. The NRPN CSV includes the Sequence group at IDs 3840–3883. Select STEP and optionally EVENT before sending trig controls. UNIT selects step-based or absolute-time DUR for each lane. IDs 3846 and 3853 set duration in step multiples (0.01–32); IDs 3865 and 3866 set milliseconds (10–30,000). IDs 3867–3870 address the four pans; the channel-strip EQ uses part channels, and the priority duck uses global channel 16. Existing Direct CC assignments remain in place; Custom CC can assign any sequencer destination to your controller.</p><nav class="page-nav" aria-label="Page navigation">
           <a class="page-nav-link" href="performance.html"><span>Previous</span>Performance Loops</a>
           <a class="page-nav-link next" href="shortcuts.html"><span>Next</span>Shortcut Reference</a>
         </nav>

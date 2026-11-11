@@ -10,11 +10,11 @@ with zipfile.ZipFile(sys.argv[1]) as archive:
         'manifest.json', 'thru-state.json', 'thru-clips.bin', 'assets/a000000.wav'}
     manifest = json.loads(archive.read('manifest.json'))
     assert manifest == {'format': 's3g-thru-project', 'version': 1,
-                        'clip_format': 36, 'assets': 1}
+                        'clip_format': 39, 'assets': 1}
     state = json.loads(archive.read('thru-state.json'))
     clips = archive.read('thru-clips.bin')
     version, generation = struct.unpack_from('<IQ', clips, 8)
-    assert version == 36 and generation == state['generation']
+    assert version == 39 and generation == state['generation']
     checksum = 2166136261
     for value in clips[:-4]:
         checksum = ((checksum ^ value) * 16777619) & 0xffffffff

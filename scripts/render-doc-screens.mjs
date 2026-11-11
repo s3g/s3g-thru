@@ -267,6 +267,8 @@ source = source.replace(
 source = source.replace(
     /import \* as os[^;]+;/,
     'const os = globalThis.__os;');
+source += '\nglobalThis.__docSequence={read:readSequence,model:sequenceUi};';
+source += '\nglobalThis.__docLayers={read:readLayers,model:layersUi,openPicker:openLayersPicker,picker:layersPicker};';
 source += '\nglobalThis.__docSplit = {state, projectUi, readProject, openProjects, openBankRecovery, customMidiUi, readCustomMidi, openCustomMidiList, sliceUi, openSliceEditor, readSliceEditor, params:PARAMS, pages:parameterPages, redraw:()=>{clearDisplay();draw();}};';
 await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
 
@@ -792,6 +794,66 @@ Object.assign(projectExample,{job:3,action:1,bytes:6291456,total:12582912});para
 params.bank_state=JSON.stringify({selected:0,slots:[3,...Array(15).fill(0)],take:7,pending:0,failed:1,discard_seq:0,discard_reason:0});
 Object.assign(projectDoc.state,{view:'main',bankMode:true,splitEnabled:true,sharedDual:true,splitFocus:1,saveStatus:4,performanceVisible:false});
 projectDoc.openBankRecovery();projectDoc.redraw();capture('bank-save-recovery.svg','Failed Bank take: Retry Save, Keep Waiting or confirmed Discard','UNSAVED BANK TAKE');
+
+// Layers examples use the production renderer and actual control descriptors.
+const layerExample={active:1,surface:1,corner:2,held:-1,serial:10,fxPads:2**4,
+ values:[0,.5,.2,0,0,0,0,1,1,.64,.2,0,0,1,.35,1,2,.4,.55,.5,.65,2,.4,1,3,.58,.4,.65,.65,2,.25,1,
+  0,.35,.6,120,.1,.3,.4,.2,1,1,.65,0,0,0,0,0,.35],
+ extra:[0,0,0,0,0,0,0,0,.65,.75,.4,1,0,0,0,0],
+ mix:[.35,.2,.3,.15],touches:Array.from({length:32},(_,i)=>i===31?1:0),voices:[[24,63,0],[9,55,1]]};
+Object.assign(params,{layers_view:JSON.stringify(layerExample),algorithm:'2',lane_path:'2',split_mode:'5',
+ split_state:JSON.stringify({enabled:0,shared:0,quad:0,focus:0,parts:[{},{}]})});
+globalThis.init();tick(82);
+const layersDoc=globalThis.__docSplit;globalThis.__docLayers.read();
+Object.assign(layersDoc.state,{view:'main',bankMode:false,splitEnabled:false,actionMessageTicks:0,messageTicks:0,saveStatus:0,savedTicks:0,performanceVisible:false,mask:15,lane:2,fieldStart:.1,fieldEnd:.9,playheads:[.28,.7,-1,-1,-1,-1,-1,-1],stackPositions:[.12,.72,-1,-1,-1,-1,-1,-1],weights:[.1,.65,.2,.05]});
+layersDoc.redraw();capture('layers-field.svg','Layers four-lane waveform navigation and parallel FX field','LAYERS');
+layersDoc.state.saveStatus=2;layersDoc.redraw();capture('layers-field-saving.svg','Layers weight meters remain visible beside Saving','LAYERS');
+layersDoc.state.saveStatus=3;layersDoc.state.savedTicks=30;layersDoc.redraw();capture('layers-field-saved.svg','Layers weight meters remain visible beside Saved','LAYERS');
+layersDoc.state.saveStatus=0;layersDoc.state.savedTicks=0;
+globalThis.onMidiMessageInternal([0xb0,52,127]);globalThis.onMidiMessageInternal([0xb0,52,0]);
+layersDoc.redraw();capture('layers-focus-fx.svg','Layers overview with FX editing focus','LAYERS FX');
+globalThis.onMidiMessageInternal([0xb0,52,127]);globalThis.onMidiMessageInternal([0xb0,52,0]);
+layersDoc.state.view='settings';layersDoc.state.settingsPage=0;
+layersDoc.redraw();capture('layers-a-engine.svg','Instrument A engine page in Layers','A ENGINE');
+
+layersDoc.state.view='settings';layersDoc.state.settingsPage=layersDoc.pages().findIndex(p=>p.layersSetup);
+layersDoc.redraw();capture('layers-setup.svg','Layers FX corner, glide, pressure, release and position settings','LAYERS');
+layersDoc.state.settingsPage=layersDoc.pages().findIndex(p=>p.layerFx);
+layersDoc.redraw();capture('layers-blur.svg','Independent Blur corner with pressure target and output trim','C3 FX CORNER');
+
+for(const [type,name,values,extra] of [[2, "blur", [0.4, 0.55, 0.5, 0.65], [0.65, 0.75, 0.4, 1]], [3, "delay", [0.65, 0.35, 0.6, 0.7], [1, 0.2, 0.1, 0.3]], [4, "delay-field", [0.35, 0.6, 0.35, 0.25], [1, 0, 0.5, 0.25]], [5, "spray", [0.45, 0.25, 0.6, 0.2], [0.65, 0.75, 0.4, 1]], [6, "fracture", [0.1111111111111111, 0.45, 0.5, 0.5], [0.3333333333333333, 0.1, 0.75, 0.7]], [7, "shred", [1, 0.15, 0, 0.5], [0.3333333333333333, 0.1, 0.75, 0.7]], [8, "buffer", [0.43, 0.5, 0.65, 0.15], [0.44, 0.4, 0, 0]], [9, "reverb", [0, 0.5, 0.69, 0.1], [0.72, 0.12, 1, 0]], [10, "tape", [0, 0.2, 0.1, 0], [0.5, 0.5, 0.5, 0.5]], [11, "pitch", [0.5, 0.5, 0.63092975, 0.12], [0, 0, 0, 0]], [12, "rotary", [0.35355339, 0.65, 0.5463034, 0.5], [0.50865197, 0.5, 1, 1]], [13,"rerun",[3/7,1,1,.5],[1,0,0,.25]], [14,"shutter",[3/7,.55,0,0],[1,0,.5,0]], [15,"tumble",[6/7,3/7,0,.15],[1,.5,.17,.25]], [16,"spool",[.5,1,0,.5],[0,.5,0,.25]]]){
+    layerExample.corner=2;layerExample.serial++;
+    layerExample.values.splice(16,8,type,...values,0,0,1);layerExample.extra.splice(8,4,...extra);
+    params.layers_view=JSON.stringify(layerExample);globalThis.__docLayers.read();
+    layersDoc.state.settingsPage=layersDoc.pages().findIndex(p=>p.title==='FX CORNER');
+    if(type!==2){layersDoc.redraw();capture('layers-'+name+'.svg','Independent '+name+' corner controls','C3 FX CORNER');}
+    const detailPage=layersDoc.pages().findIndex(p=>p.layerFxDetail);
+    if(detailPage>=0){layersDoc.state.settingsPage=detailPage;
+      layersDoc.redraw();capture('layers-'+name+'-detail.svg','Independent '+name+' detail controls','C3 FX DETAIL');}
+
+}
+layerExample.values[16]=13;params.layers_view=JSON.stringify(layerExample);globalThis.__docLayers.read();
+layersDoc.state.view='settings';layersDoc.state.settingsPage=layersDoc.pages().findIndex(p=>p.title==='FX CORNER');
+globalThis.__docLayers.openPicker();layersDoc.redraw();capture('layers-fx-families.svg','Layers grouped effect families','C3 FX FAMILY');
+globalThis.onMidiMessageInternal([0xb0,3,127]);globalThis.onMidiMessageInternal([0xb0,3,0]);
+layersDoc.redraw();capture('layers-fx-rhythm.svg','Layers rhythm and buffer effect choices','C3 CHOOSE FX');
+layersDoc.state.view='mode';layersDoc.state.modeSelection=5;
+layersDoc.redraw();capture('layers-mode.svg','Instrument mode picker scrolled to Layers','INSTRUMENT MODE');
+
+
+const seqExample={active:1,edit:1,rec:0,step:6,held:-1,child:0,root:60,mask:3,length:13,playing:1,
+ lanes:[[3,7,4,1,0],[6,13,5,1,0],[8,11,6,1,0],[2,9,4,1,0]],
+ strips:[[0,0,0,900,0],[0,0,0,900,0],[2.5,-1.5,0,1800,0],[0,0,0,900,0]],
+ heads:[[1,.28,.54,300,14],[1,.73,.81,120,13]],
+ steps:Array.from({length:32},(_,i)=>[i%3===0?1:0,[.08,.28,.5,.73,.91][i%5]]),
+ values:[13,5,2,1,0,100,.8,0,7,0,.73,7,100,.8,-.1,.85,4,0,4]};
+Object.assign(params,{split_mode:'6',split_focus:'1',layers_view:'{}',seq_state:JSON.stringify(seqExample),split_state:JSON.stringify({enabled:1,shared:0,quad:1,bank:0,focus:1,blend:.5,parts:Array.from({length:4},()=>({algorithm:4,root:60,octave:0,scale:0,mode:0,mute:0}))})});
+globalThis.init();tick(82);const seqDoc=globalThis.__docSplit;globalThis.__docSequence.read();
+Object.assign(seqDoc.state,{view:'main',recording:true,mask:15,messageTicks:0,actionMessageTicks:0});
+seqDoc.redraw();capture('sequence-overview.svg','Sequence overview with independent lane clocks and fixed recording destination','EDIT 2 REC 1');
+seqExample.held=6;params.seq_state=JSON.stringify(seqExample);globalThis.__docSequence.read();seqDoc.state.view='settings';seqDoc.state.settingsPage=seqDoc.pages().findIndex(p=>p.title==='TRIG');seqDoc.redraw();capture('sequence-trig.svg','Trig source position, pitch and timing controls','L2 T07 TRIG');
+seqExample.child=3;seqExample.burst=[0,.18,.625,.88];seqExample.values[9]=3;seqExample.values[16]=4;seqExample.values[17]=.625;params.seq_state=JSON.stringify(seqExample);globalThis.__docSequence.read();seqDoc.state.settingsPage=seqDoc.pages().findIndex(p=>p.title==='BURST');seqDoc.redraw();capture('sequence-burst.svg','Burst step-time ruler with selected retrigger and unified event controls','L2 T07 BURST');
+seqDoc.state.settingsPage=seqDoc.pages().findIndex(p=>p.title==='SEQ STRIP 3');seqDoc.redraw();capture('sequence-strip.svg','Third sequence channel strip in the Mix/FX page group','SEQ STRIP 3');
 
 if (checkOnly && mismatches !== 0) process.exit(1);
 if (checkOnly) console.log('s3g Thru documentation screens: current');

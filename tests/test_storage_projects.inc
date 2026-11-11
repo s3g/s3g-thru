@@ -247,11 +247,13 @@ template<class F> void waitProjectSources(ThruInstance& t,F ready) {
     assert(ready());
 }
 void testProjectLoadedAndRecordedSources() {
-    for(int mode=0;mode<5;++mode) {
+    for(int mode=0;mode<7;++mode) {
         char folder[]="/tmp/thru-project-sources.XXXXXX";assert(mkdtemp(folder));
         const std::string library=std::string(folder)+"/library";std::filesystem::create_directory(library);
         auto t=std::make_unique<ThruInstance>();assert(t->prepare(folder));
         t->setPerformanceMode(mode);
+        if(mode==6){setParam(t.get(),"seq_length","23");setParam(t.get(),"seq_step","22");setParam(t.get(),"seq_toggle","1");setParam(t.get(),"seq_note","7");setParam(t.get(),"seq_burst","3");}
+        if(mode==5){for(int c=0;c<4;++c){setParam(t.get(),"layers_corner",std::to_string(c).c_str());setParam(t.get(),"layers_fx0",std::to_string(13+c).c_str());setParam(t.get(),"layers_fx1",".83");setParam(t.get(),"layers_fx5","9");setParam(t.get(),"layers_fx6",".4");}}
         for(int lane=0;lane<4;++lane) {
             std::vector<float> left(16384),right(16384);
             for(std::size_t i=0;i<left.size();++i){left[i]=.12f*std::sin(i*(lane+1)*.03f);right[i]=.1f*std::cos(i*(lane+1)*.03f);}
@@ -293,6 +295,9 @@ void testProjectLoadedAndRecordedSources() {
         t=std::make_unique<ThruInstance>();assert(t->prepare(folder));
         waitProjectSources(*t,[&]{return t->engine.loadedLaneMask()==15;});
         assert(t->activeClip==7);
+        assert(t->performanceMode()==mode);
+        if(mode==6){assert(t->sequenceMode()&&t->sequenceLive.tracks[0].length==23&&t->sequenceLive.tracks[0].trigs[21].enabled&&t->sequenceLive.tracks[0].trigs[21].count==3);}
+        if(mode==5)for(int c=0;c<4;++c){assert(t->layersLive.values[LayerPatch::fx+c*8]==13+c);assert(std::abs(t->layersLive.values[LayerPatch::fx+c*8+1]-.83f)<1e-6f);assert(t->layersLive.values[LayerPatch::fx+c*8+5]==9);}
         for(int lane=0;lane<3;++lane)assert(std::abs(t->engine.laneData(lane,1)[100]-.1f*std::cos(100*(lane+1)*.03f))<1e-6f);
         assert(std::abs(t->engine.laneData(3,1)[100]-.125f)<1e-6f);
 
@@ -303,5 +308,5 @@ void testProjectLoadedAndRecordedSources() {
         std::filesystem::remove_all(folder);
     }
 
-    std::puts("s3g Thru project sources: actual library loader, stereo input recording, active clip 8, asynchronous same-device import, deleted originals, all five modes and repeated reopen: PASS");
+    std::puts("s3g Thru project sources: actual library loader, stereo input recording, active clip 8, asynchronous same-device import, deleted originals, all six modes and repeated reopen: PASS");
 }

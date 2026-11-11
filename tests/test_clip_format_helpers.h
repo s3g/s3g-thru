@@ -1,6 +1,33 @@
 #pragma once
+#include "thru_sequence.h"
 // Convert a current, checksum-free payload to the preceding format for migration fixtures.
+inline void stripSequenceMixExtension(std::vector<unsigned char>& bytes) {
+    if(bytes.size()<12||bytes[8]!=39)return;
+    constexpr std::size_t perClip=4*(2+32*9)+4*6+8;
+    constexpr std::size_t extra=4+64*perClip*4;
+    assert(bytes.size()>extra);const auto at=bytes.size()-extra;
+    assert(bytes[at]=='S'&&bytes[at+1]=='Q'&&bytes[at+2]=='T'&&bytes[at+3]=='2');
+    bytes.resize(at);bytes[8]=38;
+}
+inline void stripSequenceExtension(std::vector<unsigned char>& bytes) {
+    stripSequenceMixExtension(bytes);
+    if(bytes.size()<12||bytes[8]!=38)return;
+    constexpr std::size_t extra=4+64*s3g_thru_sequence::patternSize*4;
+    assert(bytes.size()>extra);const auto at=bytes.size()-extra;
+    assert(bytes[at]==0x31&&bytes[at+1]==0x51&&bytes[at+2]==0x45&&bytes[at+3]==0x53);
+    bytes.resize(at);bytes[8]=37;
+}
+inline void stripLayersExtension(std::vector<unsigned char>& bytes) {
+    stripSequenceExtension(bytes);
+    if(bytes.size()<12||bytes[8]!=37)return;
+    // Format 37 has four 242-field corners, four eight-field FX slots and 17 settings.
+    constexpr std::size_t extra=4+64*(8+(4*242+32+17)*4);
+    assert(bytes.size()>extra);const auto at=bytes.size()-extra;
+    assert(bytes[at]==0x31&&bytes[at+1]==0x59&&bytes[at+2]==0x41&&bytes[at+3]==0x4c);
+    bytes.resize(at);bytes[8]=36;
+}
 inline void stripSliceExtension(std::vector<unsigned char>& bytes) {
+    stripLayersExtension(bytes);
     if(bytes.size()<12||bytes[8]!=36)return;
     constexpr std::size_t extra=4+64*4*(4+2*(8+65*4+64*24));
     assert(bytes.size()>extra);const auto at=bytes.size()-extra;

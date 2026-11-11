@@ -343,10 +343,16 @@ void testPreviewIsolation()
 #include "test_stochastic_listener.inc"
 #include "test_pulsar.inc"
 #include "test_pulsar_mod.inc"
+#include "test_layers.inc"
+#include "test_sequence.inc"
 } // namespace
 
 int main(int argc,char** argv)
 {
+    if(argc==2 && std::strcmp(argv[1],"--sequence")==0){testSequence();return 0;}
+    if(argc==2 && std::strcmp(argv[1],"--layers")==0){testLayers();testPatternFadePlaybackAndHeldMidpoint();testManualPatternCrossfader();return 0;}
+    testSequence();
+    testLayers();
     if(argc==2 && std::strcmp(argv[1],"--pulsar")==0) {
         testPulsarLongDuration();testPulsarExtendedSize();testPulsarWindowsAndClock();testPulsarEditsAndParts();testPulsarPersistenceAndMidi();return 0;
     }

@@ -62,7 +62,7 @@
         voiceMode=clampValue(s.voiceMode,0,2);
         voiceEngineSettings=s.engines;
         voiceEngineSettings.edit=std::min(voiceEngineSettings.edit,engineSlotCount()-1);
-        if(voiceEngineSettings.enabled)controls.algorithm=static_cast<Engine::PlaybackAlgorithm>(voiceEngineSettings.engines[voiceEngineSettings.edit]);
+        if(voiceEngineSettings.enabled&&!sequenceMode())controls.algorithm=static_cast<Engine::PlaybackAlgorithm>(voiceEngineSettings.engines[voiceEngineSettings.edit]);
         rootNote = clampValue(s.root,24,96); padOctave = clampValue(s.octave,-3,3);
         padScale = static_cast<PadScale>(clampValue(s.scale,0,24));
         padMode = static_cast<PadMode>(clampValue(s.mode,0,3)); pressureMode = clampValue(s.pressure,0,4);
@@ -73,7 +73,8 @@
 
     PartSettings settingsForPart(int part) const
     {
-        return !splitEnabled || part == splitFocus ? currentPartSettings()
+        auto own=currentPartSettings();
+        return !splitEnabled || part == splitFocus ? own
             : splitParts[static_cast<std::size_t>(part)].settings;
     }
 
@@ -118,6 +119,7 @@
 
     int localPad(int sourcePad) const
     {
+        if(layersLive.active && sourcePad>=0 && sourcePad<32)return sourcePad/8*4+sourcePad%4;
         return splitEnabled && sourcePad >= 0 && sourcePad < 32
             ? (isQuad()?sourcePad/8%2:sourcePad/8)*4+sourcePad%4 : sourcePad;
     }
@@ -132,20 +134,26 @@
         part = clampValue(part,0,partCount()-1);
         if (!splitEnabled || part == splitFocus) return;
         if(notify) {closeSliceEditor();cancelPerformanceGestures();}
+        if(sequenceMode()){sequenceSteps[splitFocus]=sequenceStep;sequenceChildren[splitFocus]=sequenceChild;sequenceStep=sequenceSteps[part];sequenceChild=sequenceChildren[part];}
         storeFocusedPart(); splitFocus = part; loadPartEditor(part);
         if (notify && !audioRecording() && !sharedDual) selectedLane = static_cast<std::size_t>(firstLaneForPart(part));
         if (notify) markPersistentStateDirty();
     }
 
-    int performanceMode() const {return bankMode?4:splitEnabled?(quadMode?3:sharedDual?2:1):0;}
+    int performanceMode() const {return sequenceMode()?6:layersLive.active?5:bankMode?4:splitEnabled?(quadMode?3:sharedDual?2:1):0;}
+
+    int copyReturnMode() const {const int mode=performanceMode();return mode>0?mode:lastNonSingleMode;}
 
     void setSplitMode(bool enabled) {setPerformanceMode(enabled?(quadMode?3:sharedDual?2:1):0);}
 
     void setPerformanceMode(int mode)
     {
-        const bool enabled=mode!=0,shared=mode==2||mode==4,quad=mode==3;
-        if(enabled==splitEnabled&&bankMode==(mode==4)&&(!enabled||(shared==sharedDual&&quad==quadMode)))return;
+        const bool enabled=(mode>=1&&mode<=4)||mode==6,shared=mode==2||mode==4,quad=mode==3||mode==6;
+        if(sequenceMode()==(mode==6)&&layersLive.active==(mode==5)&&enabled==splitEnabled&&bankMode==(mode==4)&&(!enabled||(shared==sharedDual&&quad==quadMode)))return;
         if(audioRecording()||partCapturePublishing||clipRecording||bankJob.load(std::memory_order_acquire)){setError("Stop recording before changing mode");return;}
+        const int previousMode=performanceMode();
+        if(mode>0)lastNonSingleMode=mode;
+        else if(previousMode>0)lastNonSingleMode=previousMode;
         closeSliceEditor();
         const bool wasMulti=splitEnabled,wasQuad=quadMode;
         voiceEngineTraversal={};
@@ -180,10 +188,19 @@
             loadPartEditor(splitFocus);
             if(!sharedDual&&!partOwnsLane(splitFocus,selectedLane))selectedLane=firstLaneForPart(splitFocus);
             splitBlendState=controls.splitBlend;splitCurveState=static_cast<float>(controls.splitCurve);
-        } else {
+        } else if(wasMulti) {
             storeFocusedPart();splitEnabled=false;splitFocus=0;controls=splitSingleControls;applyPartSettings(splitSingleSettings);
+        } else {
+            // Single and Layers use the same four-lane source instrument.
+            // Keep its current controls instead of restoring a stale split cache.
+            splitEnabled=false;splitFocus=0;
         }
+        sequenceLive.active=mode==6;sequenceEditStep=-1;sequencePads=0;sequenceUndoLane=sequenceUndoStep=-1;resetSequenceClock();
+        if(sequenceMode())ensureSequenceClip();
         bankMode=mode==4;
+        layersLive.active=mode==5;
+        if(layersLive.active){initializeLayers();padMode=PadMode::keys;voiceEngineSettings.enabled=false;}
+        layersRecorded=layersLive;layersOverrides.reset();clearLayersTouches();layersRack.prime(layersLive);
         for(auto& insert:splitInserts)insert.reset();
         splitRollWrite={};splitRollFrames={};refreshPlaybackVoices();
         for(auto& roll:rolls){roll.active=roll.held=false;roll.envelope=roll.target=0;}
@@ -244,6 +261,8 @@
     {
         storeFocusedPart();
         captureCurrentStackPaths(clip);
+        clip.layers=layersLive;
+        clip.sequence=sequenceLive;
         clip.bankMode=bankMode;clip.bankSlots=bankSlots;
         clip.bankMasterRate=bankMasterRate;clip.bankRecordSource=bankRecordSource;
         clip.splitEnabled = splitEnabled; clip.sharedDual=sharedDual;clip.quadMode=quadMode;clip.quadInitialized=quadInitialized; clip.splitInitialized = splitInitialized; clip.splitFocus = splitFocus;
@@ -262,6 +281,8 @@
 
     void restoreSplitClip(const ClipSlot& clip)
     {
+        layersLive=layersRecorded=clip.layers;layersOverrides.reset();clearLayersTouches();
+        sequenceLive=sequencePlayback=clip.sequence;
         bankMode=clip.bankMode;bankSlots=clip.bankSlots;
         bankMasterRate=clip.bankMasterRate;bankRecordSource=clip.bankRecordSource;
         stackPathLastEdit=-1;
@@ -397,6 +418,10 @@
             auto insertControls=clipPlaying?splitClipControls[part]:live[part];
             applyPerformanceInsert(insertControls,static_cast<int>(part));
             splitInserts[part].process(frames,splitBus[part],insertControls);
+        }
+        if(sequenceMode())
+            sequenceStripProcessor.process(frames,splitBus,sequencePlayback.mix,sampleRate);
+        for(std::size_t part=0;part<static_cast<std::size_t>(partCount());++part) {
             if(partCaptureRecording && recordSource==static_cast<int>(part)+2)
                 for(std::size_t channel=0;channel<2;++channel)
                     std::copy_n(splitBus[part][channel].data(),frames,partCaptureBus[channel].data());
@@ -406,29 +431,34 @@
         const float delay[4] {mixer.splitDelayA,mixer.splitDelayB,mixer.splitDelayC,mixer.splitDelayD};
         const float rev[4] {mixer.splitReverbA,mixer.splitReverbB,mixer.splitReverbC,mixer.splitReverbD};
         std::array<float,4u> peaks {};
-        // Priority is a dual-instrument mixer feature. Cache its coefficients
-        // once per block: none of these controls can change inside a render
-        // callback, and avoiding repeated exp() work matters on Move.
-        const bool priorityBypassed=isQuad();
-        const int priorityKey=priorityBypassed?-1:mixer.splitPriority<-.001f?0
-            :mixer.splitPriority>.001f?1:-1;
-        if(priorityKey!=splitDuckKey) {
-            splitDuckKey=priorityKey;splitDuckEnvelope=0;
+        // Sequence adapts Opps's protected-lane priority to all four Quad
+        // buses. Existing dual-mode priority retains its original semantics.
+        const bool sequencePriority=sequenceMode();
+        const auto& sequenceMix=sequencePlayback.mix;
+        const bool priorityBypassed=isQuad()&&!sequencePriority;
+        const int priorityKey=sequencePriority
+            ?sequenceMix.priority-1
+            :priorityBypassed?-1:mixer.splitPriority<-.001f?0
+                :mixer.splitPriority>.001f?1:-1;
+        const int priorityIdentity=priorityKey+(sequencePriority?4:0);
+        if(priorityIdentity!=splitDuckKey) {
+            splitDuckKey=priorityIdentity;splitDuckEnvelope=0;
             splitDuckHpfInput={};splitDuckHpfOutput={};
             splitDuckHoldRemaining={};
         }
         const float priorityHpf=std::exp(-6.28318530718f
-            * clampValue(mixer.splitDuckHpfHz,20.0f,2000.0f)/sampleRate);
+            * clampValue(sequencePriority?sequenceMix.hpfHz:mixer.splitDuckHpfHz,20.0f,2000.0f)/sampleRate);
         const float priorityEnvelopeAttack=1-std::exp(-1/(sampleRate*.002f));
         const float priorityEnvelopeRelease=1-std::exp(-1/(sampleRate*.080f));
         const auto priorityHoldFrames=static_cast<std::uint32_t>(sampleRate
-            * clampValue(mixer.splitDuckHoldMs,0.0f,1000.0f)*.001f);
+            * clampValue(sequencePriority?sequenceMix.holdMs:mixer.splitDuckHoldMs,0.0f,1000.0f)*.001f);
         const float priorityAttack=1-std::exp(-1/(sampleRate
-            * clampValue(mixer.splitDuckAttackMs,1.0f,250.0f)*.001f));
+            * clampValue(sequencePriority?sequenceMix.attackMs:mixer.splitDuckAttackMs,1.0f,250.0f)*.001f));
         const float priorityRelease=1-std::exp(-1/(sampleRate
-            * clampValue(mixer.splitDuckReleaseMs,10.0f,3000.0f)*.001f));
-        const float priorityKnee=clampValue(mixer.splitDuckKneeDb,0.0f,24.0f);
-        const float priorityDepth=std::abs(mixer.splitPriority);
+            * clampValue(sequencePriority?sequenceMix.releaseMs:mixer.splitDuckReleaseMs,10.0f,3000.0f)*.001f));
+        const float priorityKnee=clampValue(sequencePriority?sequenceMix.kneeDb:mixer.splitDuckKneeDb,0.0f,24.0f);
+        const float priorityDepth=sequencePriority?sequenceMix.depthDb:std::abs(mixer.splitPriority);
+        const float priorityThreshold=sequencePriority?sequenceMix.thresholdDb:mixer.splitDuckThresholdDb;
         for(std::size_t frame=0;frame<frames;++frame) {
             splitBlendState+=(targetBlend-splitBlendState)*effectMixSlew;
             if(std::abs(targetBlend-splitBlendState)<1e-6f)splitBlendState=targetBlend;
@@ -437,7 +467,7 @@
             const float power[2] {std::cos(splitBlendState*1.57079632679f),std::sin(splitBlendState*1.57079632679f)};
             float gains[4] {};
             for(std::size_t part=0;part<static_cast<std::size_t>(partCount());++part) {
-                const float level=settingsForPart(static_cast<int>(part)).muted?0:levels[part];
+                const float level=(sequenceMode()?sequenceMuted[part]:settingsForPart(static_cast<int>(part)).muted)?0:levels[part];
                 splitLevelState[part]+=(level-splitLevelState[part])*effectMixSlew;
                 splitDelayState[part]+=(delay[part]-splitDelayState[part])*effectMixSlew;
                 splitReverbState[part]+=(rev[part]-splitReverbState[part])*effectMixSlew;
@@ -447,7 +477,7 @@
             // A single stereo-linked detector drives the subordinate part.
             // Detection is post-insert/part-level but pre-crossfade, so the
             // musical balance control cannot alter the compressor response.
-            float targetDuck[2] {1,1};
+            float targetDuck[4] {1,1,1,1};
             if(priorityKey>=0) {
                 float detector=0;
                 for(std::size_t channel=0;channel<2;++channel) {
@@ -462,7 +492,7 @@
                     ?priorityEnvelopeAttack:priorityEnvelopeRelease;
                 splitDuckEnvelope+=(detector-splitDuckEnvelope)*envelopeCoefficient;
                 const float levelDb=20*std::log10(std::max(splitDuckEnvelope,1e-8f));
-                const float over=levelDb-mixer.splitDuckThresholdDb;
+                const float over=levelDb-priorityThreshold;
                 float compressedOver=0;
                 if(priorityKnee<=.001f)compressedOver=std::max(0.0f,over);
                 else if(over>=priorityKnee*.5f)compressedOver=over;
@@ -472,11 +502,12 @@
                 }
                 const float reduction=std::min(priorityDepth,
                     compressedOver*.75f); // 4:1 response, limited by PRIO.
-                targetDuck[1-priorityKey]=std::pow(10.0f,-reduction/20.0f);
+                const float gain=std::pow(10.0f,-reduction/20.0f);
+                for(int p=0;p<partCount();++p)if(p!=priorityKey)targetDuck[p]=gain;
             } else {
                 splitDuckEnvelope*=.999f;
             }
-            for(std::size_t part=0;part<2;++part) {
+            for(std::size_t part=0;part<static_cast<std::size_t>(partCount());++part) {
                 if(targetDuck[part]<splitDuckGainState[part]) {
                     splitDuckGainState[part]+=(targetDuck[part]-splitDuckGainState[part])*priorityAttack;
                     splitDuckHoldRemaining[part]=priorityHoldFrames;
@@ -487,14 +518,14 @@
             }
             for(std::size_t part=0;part<static_cast<std::size_t>(partCount());++part)
                 splitFrameGain[part][frame]=gains[part]
-                    *(!priorityBypassed&&part<2?splitDuckGainState[part]:1.0f);
+                    *(!priorityBypassed?splitDuckGainState[part]:1.0f);
             for(std::size_t channel=0;channel<2;++channel) {
                 float dry=0,sendDelay=0,sendReverb=0;
                 for(int p=0;p<partCount();++p) {
                     const float unducked=splitBus[p][channel][frame]*gains[p];
-                    const float duck=!priorityBypassed&&p<2?splitDuckGainState[p]:1.0f;
+                    const float duck=!priorityBypassed?splitDuckGainState[p]:1.0f;
                     const float value=unducked*duck;
-                    const float sendValue=mixer.splitDuckRoute?value:unducked;
+                    const float sendValue=sequencePriority||mixer.splitDuckRoute?value:unducked;
                     peaks[p]=std::max(peaks[p],std::abs(value));
                     dry+=value;sendDelay+=sendValue*splitDelayState[p];sendReverb+=sendValue*splitReverbState[p];
                 }
@@ -621,6 +652,7 @@
             const int n=std::snprintf(buffer+at,static_cast<std::size_t>(capacity-at),format,values...);
             if(n<0||n>=capacity-at)at=capacity;else at+=n;
         };
+        append(",\"split_return_mode\":%d",copyReturnMode());
         append(",\"bank_mode\":%d,\"bank_master_rate\":%.9g,\"bank_record_source\":%d,\"bank_source_version\":2",bankMode?1:0,bankMasterRate,bankRecordSource);
         append(",\"split_enabled\":%d,\"split_shared\":%d,\"split_initialized\":%d,\"split_focus\":%d",splitEnabled?1:0,sharedDual?1:0,splitInitialized?1:0,splitFocus);
         append(",\"split_params_count\":%zu,\"split_parts\":4,\"split_quad\":%d,\"quad_initialized\":%d",kLockParameterCount,quadMode?1:0,quadInitialized?1:0);
@@ -691,6 +723,9 @@
             jsonNumber(json,"bank_source_version",sourceVersion);
             bankRecordSource=sourceVersion>=2?clampValue(static_cast<int>(source),0,3):(source>=.5f?0:2);
         }
+        float returnMode=bankMode?4.f:quad>=.5f?3.f:shared>=.5f?2.f:1.f;
+        if(jsonNumber(json,"split_return_mode",returnMode)&&(!std::isfinite(returnMode)||returnMode<1||returnMode>6||std::floor(returnMode)!=returnMode))return false;
+        lastNonSingleMode=static_cast<int>(returnMode);
         splitMixerOverrides.fill(false);voiceEngineTraversal={};
         splitSingleControls=restored[0];splitSingleSettings=settings[0];
         for(std::size_t p=0;p<4;++p){splitParts[p].controls=restored[p+1];splitParts[p].settings=settings[p+1];}

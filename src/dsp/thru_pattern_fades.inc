@@ -94,6 +94,7 @@
         scene.effectToneState={};scene.tapeBandwidthState={};scene.tapeHeadState={};
         scene.effectLoFi.prepare(sampleRate);scene.effectDrive.reset();scene.reverb.reset();
         for(auto& insert:scene.splitInserts)insert.reset();
+        scene.layersRack.reset();scene.clearLayersTouches();
         scene.rollHistoryWrite=scene.rollHistoryFrames=0;
         scene.splitRollWrite={};scene.splitRollFrames={};
         for(std::size_t i=0;i<scene.rolls.size();++i) {
@@ -180,6 +181,7 @@
         for(auto& voice:s.voices)for(std::size_t ch=0;ch<kChannelCount;++ch)voice.outputPointers[ch]=voice.output[ch].data();
         s.sampleRate=sampleRate;s.laneCapacityFrames=laneCapacityFrames;s.planeCapacityFrames=planeCapacityFrames;
         s.controls=controls;s.clipControls=clipControls;s.outputGain=outputGain;s.clipOutputGain=clipOutputGain;
+        copyLayersRuntimeTo(s);copySequenceRuntimeTo(s);
         s.clipSlots[0]=*activeClipSlot();s.activeClip=0;s.clipPlaying=clipPlaying;s.clipNeedsStart=clipNeedsStart;
         s.clipPositionMs=clipPositionMs;s.clipAbsolutePositionMs=clipAbsolutePositionMs;
         s.tempoBpm=tempoBpm;s.tempoSwing=tempoSwing;s.transportBeats=transportBeats;
@@ -203,6 +205,7 @@
         s.performanceLive=performanceLive;s.performanceRecorded=performanceRecorded;
         s.performanceSmooth=performanceSmooth;s.performanceLaneEngagement=performanceLaneEngagement;
         s.performancePadOwners=performancePadOwners;s.performanceCaptureHeld=performanceCaptureHeld;s.performancePart=performancePart;
+        layersRack.swapWith(s.layersRack);
         std::swap(s.splitInserts,splitInserts);s.splitRollHistory.swap(splitRollHistory);
         std::swap(static_cast<PlaybackEffectsState&>(s),static_cast<PlaybackEffectsState&>(*this));
         s.wavesetWorker.exchangeBanks(wavesetWorker);s.spectralWorker.exchangeBanks(spectralWorker);
@@ -248,6 +251,7 @@
         selectedLane=s.selectedLane;
         padMappedNotes=s.padMappedNotes;
         ignorePadRelease=s.ignorePadRelease;
+        s.copyLayersRuntimeTo(*this);s.copySequenceRuntimeTo(*this);
         controls=s.controls;
         clipControls=s.clipControls;
         outputGain=s.outputGain;
@@ -318,6 +322,7 @@
         performancePart=s.performancePart;
         sourceTransitionTail=s.sourceTransitionTail;
         sourceTransitionRemaining=s.sourceTransitionRemaining;
+        layersRack.swapWith(s.layersRack);
         std::swap(splitInserts,s.splitInserts);splitRollHistory.swap(s.splitRollHistory);
         std::swap(static_cast<PlaybackEffectsState&>(*this),static_cast<PlaybackEffectsState&>(s));
         wavesetWorker.exchangeBanks(s.wavesetWorker);spectralWorker.exchangeBanks(s.spectralWorker);

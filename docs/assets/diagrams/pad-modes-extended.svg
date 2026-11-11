@@ -1,0 +1,124 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="760" viewBox="0 0 1040 760" role="img" aria-labelledby="title desc">
+<title id="title">s3g Thru Bank, Layers and Sequence pad layouts</title>
+<desc id="desc">Bank divides the grid into sixteen A keyboard pads and sixteen numbered sample pads. Layers divides it into an A keyboard and a right-hand XY effects field with four corners. Sequence uses all thirty-two pads as steps of the selected track; Track buttons one through four choose its lane.</desc>
+<rect width="1040" height="760" fill="#fff"/>
+<style>text{font-family:Arial,Helvetica,sans-serif;fill:#202020}.heading{font-size:20px;font-weight:700}.label{font-size:14px}.pad-label{font-size:13px;text-anchor:middle}.outline{fill:#fafafa;stroke:#aaa;stroke-width:1}.light{fill:#f3f3f3;stroke:#777}.mid{fill:#dedede;stroke:#777}.corner{fill:#bcbcbc;stroke:#666}.off{fill:#fff;stroke:#aaa}</style>
+<text x="30" y="31" class="heading">PAD LAYOUTS · VIEWED FROM ABOVE</text>
+<g><rect x="30" y="60" width="460" height="315" rx="6" class="outline"/><text x="50" y="91" class="heading">BANK</text>
+<text x="50" y="320" class="label">A keyboard · 4 voices</text>
+<text x="50" y="346" class="label">Pads 01–16: record / play stereo slots</text>
+<rect x="60" y="112" width="42" height="34" rx="3" class="light"/><text x="81" y="135" class="pad-label">A</text>
+<rect x="110" y="112" width="42" height="34" rx="3" class="light"/><text x="131" y="135" class="pad-label">A</text>
+<rect x="160" y="112" width="42" height="34" rx="3" class="light"/><text x="181" y="135" class="pad-label">A</text>
+<rect x="210" y="112" width="42" height="34" rx="3" class="light"/><text x="231" y="135" class="pad-label">A</text>
+<rect x="260" y="112" width="42" height="34" rx="3" class="mid"/><text x="281" y="135" class="pad-label">01</text>
+<rect x="310" y="112" width="42" height="34" rx="3" class="mid"/><text x="331" y="135" class="pad-label">02</text>
+<rect x="360" y="112" width="42" height="34" rx="3" class="mid"/><text x="381" y="135" class="pad-label">03</text>
+<rect x="410" y="112" width="42" height="34" rx="3" class="mid"/><text x="431" y="135" class="pad-label">04</text>
+<rect x="60" y="156" width="42" height="34" rx="3" class="light"/><text x="81" y="179" class="pad-label">A</text>
+<rect x="110" y="156" width="42" height="34" rx="3" class="light"/><text x="131" y="179" class="pad-label">A</text>
+<rect x="160" y="156" width="42" height="34" rx="3" class="light"/><text x="181" y="179" class="pad-label">A</text>
+<rect x="210" y="156" width="42" height="34" rx="3" class="light"/><text x="231" y="179" class="pad-label">A</text>
+<rect x="260" y="156" width="42" height="34" rx="3" class="mid"/><text x="281" y="179" class="pad-label">05</text>
+<rect x="310" y="156" width="42" height="34" rx="3" class="mid"/><text x="331" y="179" class="pad-label">06</text>
+<rect x="360" y="156" width="42" height="34" rx="3" class="mid"/><text x="381" y="179" class="pad-label">07</text>
+<rect x="410" y="156" width="42" height="34" rx="3" class="mid"/><text x="431" y="179" class="pad-label">08</text>
+<rect x="60" y="200" width="42" height="34" rx="3" class="light"/><text x="81" y="223" class="pad-label">A</text>
+<rect x="110" y="200" width="42" height="34" rx="3" class="light"/><text x="131" y="223" class="pad-label">A</text>
+<rect x="160" y="200" width="42" height="34" rx="3" class="light"/><text x="181" y="223" class="pad-label">A</text>
+<rect x="210" y="200" width="42" height="34" rx="3" class="light"/><text x="231" y="223" class="pad-label">A</text>
+<rect x="260" y="200" width="42" height="34" rx="3" class="mid"/><text x="281" y="223" class="pad-label">09</text>
+<rect x="310" y="200" width="42" height="34" rx="3" class="mid"/><text x="331" y="223" class="pad-label">10</text>
+<rect x="360" y="200" width="42" height="34" rx="3" class="mid"/><text x="381" y="223" class="pad-label">11</text>
+<rect x="410" y="200" width="42" height="34" rx="3" class="mid"/><text x="431" y="223" class="pad-label">12</text>
+<rect x="60" y="244" width="42" height="34" rx="3" class="light"/><text x="81" y="267" class="pad-label">A</text>
+<rect x="110" y="244" width="42" height="34" rx="3" class="light"/><text x="131" y="267" class="pad-label">A</text>
+<rect x="160" y="244" width="42" height="34" rx="3" class="light"/><text x="181" y="267" class="pad-label">A</text>
+<rect x="210" y="244" width="42" height="34" rx="3" class="light"/><text x="231" y="267" class="pad-label">A</text>
+<rect x="260" y="244" width="42" height="34" rx="3" class="mid"/><text x="281" y="267" class="pad-label">13</text>
+<rect x="310" y="244" width="42" height="34" rx="3" class="mid"/><text x="331" y="267" class="pad-label">14</text>
+<rect x="360" y="244" width="42" height="34" rx="3" class="mid"/><text x="381" y="267" class="pad-label">15</text>
+<rect x="410" y="244" width="42" height="34" rx="3" class="mid"/><text x="431" y="267" class="pad-label">16</text>
+</g>
+<g><rect x="550" y="60" width="460" height="315" rx="6" class="outline"/><text x="570" y="91" class="heading">LAYERS</text>
+<text x="570" y="320" class="label">A keyboard · all 8 source voices</text>
+<text x="570" y="346" class="label">Right: XY blend of FX corners C1–C4</text>
+<rect x="580" y="112" width="42" height="34" rx="3" class="light"/><text x="601" y="135" class="pad-label">A</text>
+<rect x="630" y="112" width="42" height="34" rx="3" class="light"/><text x="651" y="135" class="pad-label">A</text>
+<rect x="680" y="112" width="42" height="34" rx="3" class="light"/><text x="701" y="135" class="pad-label">A</text>
+<rect x="730" y="112" width="42" height="34" rx="3" class="light"/><text x="751" y="135" class="pad-label">A</text>
+<rect x="780" y="112" width="42" height="34" rx="3" class="corner"/><text x="801" y="135" class="pad-label">C1</text>
+<rect x="830" y="112" width="42" height="34" rx="3" class="mid"/><text x="851" y="135" class="pad-label">FX</text>
+<rect x="880" y="112" width="42" height="34" rx="3" class="mid"/><text x="901" y="135" class="pad-label">FX</text>
+<rect x="930" y="112" width="42" height="34" rx="3" class="corner"/><text x="951" y="135" class="pad-label">C2</text>
+<rect x="580" y="156" width="42" height="34" rx="3" class="light"/><text x="601" y="179" class="pad-label">A</text>
+<rect x="630" y="156" width="42" height="34" rx="3" class="light"/><text x="651" y="179" class="pad-label">A</text>
+<rect x="680" y="156" width="42" height="34" rx="3" class="light"/><text x="701" y="179" class="pad-label">A</text>
+<rect x="730" y="156" width="42" height="34" rx="3" class="light"/><text x="751" y="179" class="pad-label">A</text>
+<rect x="780" y="156" width="42" height="34" rx="3" class="mid"/><text x="801" y="179" class="pad-label">FX</text>
+<rect x="830" y="156" width="42" height="34" rx="3" class="mid"/><text x="851" y="179" class="pad-label">FX</text>
+<rect x="880" y="156" width="42" height="34" rx="3" class="mid"/><text x="901" y="179" class="pad-label">FX</text>
+<rect x="930" y="156" width="42" height="34" rx="3" class="mid"/><text x="951" y="179" class="pad-label">FX</text>
+<rect x="580" y="200" width="42" height="34" rx="3" class="light"/><text x="601" y="223" class="pad-label">A</text>
+<rect x="630" y="200" width="42" height="34" rx="3" class="light"/><text x="651" y="223" class="pad-label">A</text>
+<rect x="680" y="200" width="42" height="34" rx="3" class="light"/><text x="701" y="223" class="pad-label">A</text>
+<rect x="730" y="200" width="42" height="34" rx="3" class="light"/><text x="751" y="223" class="pad-label">A</text>
+<rect x="780" y="200" width="42" height="34" rx="3" class="mid"/><text x="801" y="223" class="pad-label">FX</text>
+<rect x="830" y="200" width="42" height="34" rx="3" class="mid"/><text x="851" y="223" class="pad-label">FX</text>
+<rect x="880" y="200" width="42" height="34" rx="3" class="mid"/><text x="901" y="223" class="pad-label">FX</text>
+<rect x="930" y="200" width="42" height="34" rx="3" class="mid"/><text x="951" y="223" class="pad-label">FX</text>
+<rect x="580" y="244" width="42" height="34" rx="3" class="light"/><text x="601" y="267" class="pad-label">A</text>
+<rect x="630" y="244" width="42" height="34" rx="3" class="light"/><text x="651" y="267" class="pad-label">A</text>
+<rect x="680" y="244" width="42" height="34" rx="3" class="light"/><text x="701" y="267" class="pad-label">A</text>
+<rect x="730" y="244" width="42" height="34" rx="3" class="light"/><text x="751" y="267" class="pad-label">A</text>
+<rect x="780" y="244" width="42" height="34" rx="3" class="corner"/><text x="801" y="267" class="pad-label">C3</text>
+<rect x="830" y="244" width="42" height="34" rx="3" class="mid"/><text x="851" y="267" class="pad-label">FX</text>
+<rect x="880" y="244" width="42" height="34" rx="3" class="mid"/><text x="901" y="267" class="pad-label">FX</text>
+<rect x="930" y="244" width="42" height="34" rx="3" class="corner"/><text x="951" y="267" class="pad-label">C4</text>
+</g>
+<g><rect x="30" y="405" width="980" height="315" rx="6" class="outline"/><text x="50" y="436" class="heading">SEQUENCE</text>
+<text x="50" y="665" class="label">Selected track: steps 01–32</text>
+<text x="50" y="691" class="label">Example length 20; later pads are unlit</text>
+<text x="71" y="478" class="pad-label">1</text><rect x="87" y="450" width="25" height="43" rx="12.5" class="light"/><rect x="97" y="459" width="5" height="25" rx="2.5" fill="#aaa"/>
+<rect x="148" y="455" width="42" height="34" rx="3" class="mid"/><text x="169" y="478" class="pad-label">01</text>
+<rect x="198" y="455" width="42" height="34" rx="3" class="mid"/><text x="219" y="478" class="pad-label">02</text>
+<rect x="248" y="455" width="42" height="34" rx="3" class="mid"/><text x="269" y="478" class="pad-label">03</text>
+<rect x="298" y="455" width="42" height="34" rx="3" class="mid"/><text x="319" y="478" class="pad-label">04</text>
+<rect x="348" y="455" width="42" height="34" rx="3" class="mid"/><text x="369" y="478" class="pad-label">05</text>
+<rect x="398" y="455" width="42" height="34" rx="3" class="mid"/><text x="419" y="478" class="pad-label">06</text>
+<rect x="448" y="455" width="42" height="34" rx="3" class="mid"/><text x="469" y="478" class="pad-label">07</text>
+<rect x="498" y="455" width="42" height="34" rx="3" class="mid"/><text x="519" y="478" class="pad-label">08</text>
+<text x="71" y="522" class="pad-label">2</text><rect x="87" y="494" width="25" height="43" rx="12.5" class="corner"/><rect x="97" y="503" width="5" height="25" rx="2.5" fill="#555"/>
+<rect x="148" y="499" width="42" height="34" rx="3" class="mid"/><text x="169" y="522" class="pad-label">09</text>
+<rect x="198" y="499" width="42" height="34" rx="3" class="mid"/><text x="219" y="522" class="pad-label">10</text>
+<rect x="248" y="499" width="42" height="34" rx="3" class="mid"/><text x="269" y="522" class="pad-label">11</text>
+<rect x="298" y="499" width="42" height="34" rx="3" class="mid"/><text x="319" y="522" class="pad-label">12</text>
+<rect x="348" y="499" width="42" height="34" rx="3" class="mid"/><text x="369" y="522" class="pad-label">13</text>
+<rect x="398" y="499" width="42" height="34" rx="3" class="mid"/><text x="419" y="522" class="pad-label">14</text>
+<rect x="448" y="499" width="42" height="34" rx="3" class="mid"/><text x="469" y="522" class="pad-label">15</text>
+<rect x="498" y="499" width="42" height="34" rx="3" class="mid"/><text x="519" y="522" class="pad-label">16</text>
+<text x="71" y="566" class="pad-label">3</text><rect x="87" y="538" width="25" height="43" rx="12.5" class="light"/><rect x="97" y="547" width="5" height="25" rx="2.5" fill="#aaa"/>
+<rect x="148" y="543" width="42" height="34" rx="3" class="mid"/><text x="169" y="566" class="pad-label">17</text>
+<rect x="198" y="543" width="42" height="34" rx="3" class="mid"/><text x="219" y="566" class="pad-label">18</text>
+<rect x="248" y="543" width="42" height="34" rx="3" class="mid"/><text x="269" y="566" class="pad-label">19</text>
+<rect x="298" y="543" width="42" height="34" rx="3" class="mid"/><text x="319" y="566" class="pad-label">20</text>
+<rect x="348" y="543" width="42" height="34" rx="3" class="off"/><text x="369" y="566" class="pad-label" fill="#999">21</text>
+<rect x="398" y="543" width="42" height="34" rx="3" class="off"/><text x="419" y="566" class="pad-label" fill="#999">22</text>
+<rect x="448" y="543" width="42" height="34" rx="3" class="off"/><text x="469" y="566" class="pad-label" fill="#999">23</text>
+<rect x="498" y="543" width="42" height="34" rx="3" class="off"/><text x="519" y="566" class="pad-label" fill="#999">24</text>
+<text x="71" y="610" class="pad-label">4</text><rect x="87" y="582" width="25" height="43" rx="12.5" class="light"/><rect x="97" y="591" width="5" height="25" rx="2.5" fill="#aaa"/>
+<rect x="148" y="587" width="42" height="34" rx="3" class="off"/><text x="169" y="610" class="pad-label" fill="#999">25</text>
+<rect x="198" y="587" width="42" height="34" rx="3" class="off"/><text x="219" y="610" class="pad-label" fill="#999">26</text>
+<rect x="248" y="587" width="42" height="34" rx="3" class="off"/><text x="269" y="610" class="pad-label" fill="#999">27</text>
+<rect x="298" y="587" width="42" height="34" rx="3" class="off"/><text x="319" y="610" class="pad-label" fill="#999">28</text>
+<rect x="348" y="587" width="42" height="34" rx="3" class="off"/><text x="369" y="610" class="pad-label" fill="#999">29</text>
+<rect x="398" y="587" width="42" height="34" rx="3" class="off"/><text x="419" y="610" class="pad-label" fill="#999">30</text>
+<rect x="448" y="587" width="42" height="34" rx="3" class="off"/><text x="469" y="610" class="pad-label" fill="#999">31</text>
+<rect x="498" y="587" width="42" height="34" rx="3" class="off"/><text x="519" y="610" class="pad-label" fill="#999">32</text>
+<text x="640" y="479" class="heading">TRACK 1–4</text>
+<text x="640" y="514" class="label">Vertical buttons select the</text>
+<text x="640" y="538" class="label">sequence shown on all 32 pads.</text>
+<text x="640" y="575" class="label">The other lanes keep playing.</text>
+<text x="640" y="614" class="label">Track also sets the next audio</text>
+<text x="640" y="638" class="label">take lane; an active take stays put.</text></g>
+</svg>

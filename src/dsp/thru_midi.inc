@@ -48,6 +48,7 @@ float midiRead(ThruInstance& t,const MidiParameter& p,int part) {
     // visible menu use the dense ten-choice index, just like set_param.
     if(std::strcmp(key,"waveset_process")==0)return static_cast<float>(
         Engine::wavesetProcessIndex(t.liveControlsForPart(part).wavesetProcess));
+    if(!std::strncmp(key,"seq_",4))return t.sequenceParameterValue(key,part);
     const int index=p.lock;
     if(index>=0)return lockedValue(p.part?t.liveControlsForPart(part):t.controls,t.outputGain,index);
     if(p.part) {

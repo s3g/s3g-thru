@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="768" height="384" viewBox="0 0 128 64" role="img" aria-labelledby="title desc">
+  <title id="title">Burst step-time ruler with selected retrigger and unified event controls</title>
+  <desc id="desc">Burst step-time ruler with selected retrigger and unified event controls shown as it appears on Ableton Move.</desc>
+  <rect width="128" height="64" fill="#050706"/>
+  <g shape-rendering="crispEdges" font-family="DejaVu Sans Mono, IBM Plex Mono, monospace" font-size="6" font-style="normal" font-weight="400" text-rendering="geometricPrecision">
+    <text x="1" y="5.5" fill="#dce8e1">L2 T07 BURST</text>
+    <text x="104" y="5.5" fill="#dce8e1">4/10</text>
+    <rect x="0" y="8" width="128" height="1" fill="#dce8e1"/>
+    <rect x="5" y="19" width="118" height="1" fill="#dce8e1"/>
+    <rect x="5" y="17" width="1" height="5" fill="#dce8e1"/>
+    <rect x="122" y="17" width="1" height="5" fill="#dce8e1"/>
+    <rect x="2" y="14" width="1" height="1" fill="#dce8e1"/>
+    <rect x="3" y="13" width="1" height="2" fill="#dce8e1"/>
+    <rect x="4" y="12" width="1" height="4" fill="#dce8e1"/>
+    <rect x="5" y="13" width="1" height="2" fill="#dce8e1"/>
+    <rect x="6" y="12" width="1" height="5" fill="#dce8e1"/>
+    <rect x="7" y="13" width="1" height="2" fill="#dce8e1"/>
+    <rect x="8" y="13" width="1" height="3" fill="#dce8e1"/>
+    <rect x="9" y="14" width="1" height="1" fill="#dce8e1"/>
+    <rect x="5" y="18" width="1" height="4" fill="#dce8e1"/>
+    <rect x="22" y="14" width="1" height="1" fill="#dce8e1"/>
+    <rect x="23" y="13" width="1" height="2" fill="#dce8e1"/>
+    <rect x="24" y="12" width="1" height="4" fill="#dce8e1"/>
+    <rect x="25" y="13" width="1" height="2" fill="#dce8e1"/>
+    <rect x="26" y="12" width="1" height="5" fill="#dce8e1"/>
+    <rect x="27" y="13" width="1" height="2" fill="#dce8e1"/>
+    <rect x="28" y="13" width="1" height="3" fill="#dce8e1"/>
+    <rect x="29" y="14" width="1" height="1" fill="#dce8e1"/>
+    <rect x="25" y="18" width="1" height="4" fill="#dce8e1"/>
+    <rect x="73" y="14" width="1" height="1" fill="#dce8e1"/>
+    <rect x="74" y="13" width="1" height="2" fill="#dce8e1"/>
+    <rect x="75" y="12" width="1" height="4" fill="#dce8e1"/>
+    <rect x="76" y="13" width="1" height="2" fill="#dce8e1"/>
+    <rect x="77" y="12" width="1" height="5" fill="#dce8e1"/>
+    <rect x="78" y="13" width="1" height="2" fill="#dce8e1"/>
+    <rect x="79" y="13" width="1" height="3" fill="#dce8e1"/>
+    <rect x="80" y="14" width="1" height="1" fill="#dce8e1"/>
+    <rect x="76" y="18" width="1" height="4" fill="#dce8e1"/>
+    <rect x="71" y="10" width="12" height="1" fill="#dce8e1"/>
+    <rect x="71" y="10" width="1" height="10" fill="#dce8e1"/>
+    <rect x="82" y="10" width="1" height="10" fill="#dce8e1"/>
+    <rect x="101" y="14" width="1" height="1" fill="#dce8e1"/>
+    <rect x="102" y="13" width="1" height="2" fill="#dce8e1"/>
+    <rect x="103" y="12" width="1" height="4" fill="#dce8e1"/>
+    <rect x="104" y="13" width="1" height="2" fill="#dce8e1"/>
+    <rect x="105" y="12" width="1" height="5" fill="#dce8e1"/>
+    <rect x="106" y="13" width="1" height="2" fill="#dce8e1"/>
+    <rect x="107" y="13" width="1" height="3" fill="#dce8e1"/>
+    <rect x="108" y="14" width="1" height="1" fill="#dce8e1"/>
+    <rect x="104" y="18" width="1" height="4" fill="#dce8e1"/>
+    <text x="1" y="32.5" fill="#dce8e1">POS*</text>
+    <text x="1" y="39.5" fill="#dce8e1">73%</text>
+    <text x="33" y="32.5" fill="#dce8e1">NOTE*</text>
+    <text x="33" y="39.5" fill="#dce8e1">G4</text>
+    <text x="65" y="32.5" fill="#dce8e1">VEL</text>
+    <text x="65" y="39.5" fill="#dce8e1">100</text>
+    <text x="97" y="32.5" fill="#dce8e1">DUR</text>
+    <text x="97" y="39.5" fill="#dce8e1">67ms</text>
+    <text x="1" y="50.5" fill="#dce8e1">BURST</text>
+    <text x="1" y="57.5" fill="#dce8e1">4</text>
+    <text x="33" y="50.5" fill="#dce8e1">EVENT</text>
+    <text x="33" y="57.5" fill="#dce8e1">3</text>
+    <text x="65" y="50.5" fill="#dce8e1">WHEN</text>
+    <text x="65" y="57.5" fill="#dce8e1">63%</text>
+    <rect x="110" y="50" width="4" height="4" fill="#dce8e1"/>
+    <rect x="111" y="51" width="2" height="2" fill="#050706"/>
+  </g>
+  <rect x="0.25" y="0.25" width="127.5" height="63.5" fill="none" stroke="#5b6661" stroke-width="0.5"/>
+</svg>

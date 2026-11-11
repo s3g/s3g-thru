@@ -60,3 +60,42 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
+
+## s3g-dsp stereo effects
+
+The portable kernels in `include/s3g_fx/` are adapted from
+https://github.com/s3g/s3g-dsp at commit
+`ed75ef2646c574fe8f9f3f66628b0c4c290ff562`:
+
+- `s3g_macro_fracture.h`, `s3g_fracture_processors.h`
+- `s3g_macro_shred.h`, `s3g_analog_drive_circuits.h`
+- `s3g_buffer_processor.h`, `s3g_math.h`, `s3g_realtime.h`
+
+Copyright (c) 2026, Shawn Greenlee. BSD-3-Clause, reproduced in `LICENSE`.
+
+The Thru stereo adapter selects two processing cores, keeps all audio
+buffers prepared, bounds buffer seam searches, validates recent history
+and caches control geometry. The rate multiplier range is extended to 4x.
+Parameter slews include quiet-tail protection. The stereo adapter uses a
+filtered 2x stream and disables the original nested midpoint approximation;
+stereo-linked input/output conditioning and output damping suit a polyphonic bus.
+Spectral Spray is a new compact stereo implementation using Thru's spectral
+framework. Layers Reverb reuses `thru_reverb.h`; Layers Tape adapts Thru's
+existing stereo tape equations. These implementations are also BSD-3-Clause.
+
+Layers Pitch/Detune (`include/thru_layers_pitch_rotary.h`) adapts the overlapping
+sample-reader approach in s3g-dsp `dsp/s3g_macro_pitch.h`. Copyright (c) 2026,
+Shawn Greenlee; BSD-3-Clause, reproduced in `LICENSE`. The stereo adaptation
+uses signed reader phases, smooth unison transitions, cubic interpolation and
+source anti-alias filtering. Layers Rotary adapts Thru's existing independent
+horn/drum and Doppler model without adding the shared drive/lo-fi stages.
+
+Sequence scheduling and trig/Burst adapters in include/thru_sequence.h and
+src/dsp/thru_sequence.inc adapt s3g Opps include/opps/model.h and
+src/core/engine.cpp, revision d3f4ed8d6e3b1c3d5299bc23212308cf932813aa.
+Copyright (c) 2026, Shawn Greenlee; BSD-3-Clause, reproduced in LICENSE.
+The adaptation uses four 32-step sample lanes, inherited trig values,
+sample-offset scheduling and Thru's transport, voices and persistence.
+The Sequence channel strip and protected-lane duck in
+`include/thru_sequence_mix.h` and `src/dsp/thru_split.inc` adapt Opps's final
+mix design with four stereo sample buses and Thru's existing send path.

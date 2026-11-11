@@ -12,7 +12,9 @@ class ThruDrive {
 public:
     static constexpr std::size_t latencyFrames = 24u;
     void reset() { channels_ = {}; write_ = 0u; }
-    std::array<float, 2u> process(const std::array<float, 2u>& input, float drive)
+    // Optional residual fade is used by Layers when waking an idle nonlinear path.
+    std::array<float, 2u> process(const std::array<float, 2u>& input, float drive,
+                                float residualGain = 1.0f)
     {
         std::array<float, 2u> result {};
         for (std::size_t ch = 0u; ch < 2u; ++ch) {
@@ -33,10 +35,24 @@ public:
                 const float filtered = c.downOne.process(down);
                 if (p == 0u) residual = filtered;
             }
-            result[ch] = dry + residual;
+            result[ch] = dry + residual * residualGain;
         }
         if (++write_ == latencyFrames) write_ = 0u;
         return result;
+    }
+    std::array<float, 2u> processClean(const std::array<float, 2u>& input)
+    {
+        std::array<float, 2u> result{};
+        for(std::size_t ch=0;ch<2;++ch) {
+            result[ch]=channels_[ch].dry[write_];
+            channels_[ch].dry[write_]=input[ch];
+        }
+        if(++write_==latencyFrames)write_=0;
+        return result;
+    }
+    void resetNonlinearHistory()
+    {
+        for(auto& channel:channels_){channel.upOne={};channel.upTwo={};channel.downOne={};channel.downTwo={};}
     }
 private:
     struct HalfBand {

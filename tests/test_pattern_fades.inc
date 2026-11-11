@@ -38,8 +38,9 @@ void testPatternFadeCurvesAndRecall()
 }
 void testPatternFadePlaybackAndHeldMidpoint()
 {
-    for(int mode=0;mode<4;++mode) {
+    for(int mode : {0,1,2,3,5}) {
         auto t=splitFixture();t->setPerformanceMode(mode);
+        if(mode==5){setParam(t.get(),"layers_surface","1");setParam(t.get(),"layers_corner","0");setParam(t.get(),"layers_fx0","2");}
         t->currentLaneSourceKinds.fill(LaneSourceKind::capture);
         t->controls.algorithm=Engine::PlaybackAlgorithm::sample;t->controls.sampleMode=Engine::SampleMode::loop;
         t->beginClipRecording();t->padNoteOn(68,100);renderSplit(*t,30);t->padNoteOff(68);renderSplit(*t,60);t->finishClipRecording();
@@ -51,6 +52,8 @@ void testPatternFadePlaybackAndHeldMidpoint()
         t->clipPrepareState.store(static_cast<int>(ClipPrepareState::ready),std::memory_order_release);
         assert(t->activatePreparedClip()&&t->patternActive&&t->patternWarmup&&t->activeClip==1);
         assert(t->patternShadow->engine.laneData(0,0)==old&&t->engine.laneData(0,0)!=old);
+        assert(t->patternShadow->performanceMode()==mode);
+        if(mode==5)assert(t->patternShadow->layersLive.values[LayerPatch::fx]==2);
         for(const auto& voice:t->voices)assert(!voice.active);
         assert(t->polyphonyGain==1);
         assert(!t->requestClipPreparation(2)); // Outgoing samples cannot be reused by the loader.
@@ -157,8 +160,9 @@ void testPatternFadePreparedWavesetBanks()
 
 void testManualPatternCrossfader()
 {
-    for(bool useDone:{false,true}) {
-        auto t=splitFixture();t->setPerformanceMode(0);
+    for(bool useDone:{false,true}) for(int mode:{0,5}) {
+        auto t=splitFixture();t->setPerformanceMode(mode);
+        if(mode==5){setParam(t.get(),"layers_surface","1");setParam(t.get(),"layers_corner","0");setParam(t.get(),"layers_fx0","2");}
         t->currentLaneSourceKinds.fill(LaneSourceKind::capture);
         t->beginClipRecording();t->padNoteOn(68,100);renderSplit(*t,30);
         t->padNoteOff(68);renderSplit(*t,60);t->finishClipRecording();
@@ -190,6 +194,7 @@ void testManualPatternCrossfader()
         if(useDone)t->finishPatternFade();else t->setPatternHeld(false);
         for(int i=0;i<150&&t->patternActive;++i)render(1);
         assert(!t->patternActive&&!t->patternHeld);waitForPatternIdle(*t);
+        assert(t->performanceMode()==mode);if(mode==5)assert(t->layersLive.values[LayerPatch::fx]==2);
     }
 }
 

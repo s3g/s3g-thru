@@ -115,11 +115,11 @@ globalThis.host_module_get_param = (key) => {
     if (key === 'ui_editor_state') {
         if (corruptEditorSnapshot) return '{truncated';
         const values = Object.fromEntries(Object.entries(globalThis.__testParams || {})
-            .filter(([,p]) => !p.momentary)
+            .filter(([key,p]) => !p.momentary&&!key.startsWith('layers_'))
             .map(([key,p]) => [key, Number(params[key] ?? p.value)]));
         const split = JSON.parse(params.split_state || '{"enabled":0,"focus":0,"blend":0.5,"parts":[{},{}]}');
         if(!split.enabled||!split.quad)split.parts=split.parts.slice(0,2);
-        values.split_mode = split.enabled ? (split.quad ? 3 : split.shared ? 2 : 1) : 0; values.split_focus = split.focus;
+        values.split_mode = JSON.parse(params.layers_view||'{}').active===1?5:split.bank?4:split.enabled ? (split.quad ? 3 : split.shared ? 2 : 1) : 0; values.split_focus = split.focus;
         values.part_mute = split.parts[split.focus]?.mute || 0;
         for (const key of ['pad_octave','record_lane','stack_scan_paused','glitch_buffer_lock'])
             values[key]=Number(params[key] || 0);
@@ -211,6 +211,8 @@ globalThis.__testParseUi = parseUiState;
 globalThis.__testParams = PARAMS;
 globalThis.__testPulsar={parse:parsePulsarState,footer:pulsarDurationFooter};
 globalThis.__testSplit = {pages:parameterPages,parse:parseSplitState,keys:activeControlKeys};
+globalThis.__testSequence={model:sequenceUi,read:readSequence,tickGesture:tickSequenceGesture,control:controlForKey,adjust:adjustControl,page:adjustSettingsPage};
+globalThis.__testLayers={model:layersUi,read:readLayers,action:applyMomentaryControl,padNote:padMidiNote,control:controlForKey,gesture:layersCornerGesture,tickGesture:tickLayersCornerGesture,pageSide:layersPageSide,iconStates:iconLedStates,groups:LAYERS_FX_GROUPS,order:LAYERS_FX_ORDER,picker:layersPicker,openPicker:openLayersPicker};
 globalThis.__testResetEncoders = resetParameterEncoderMotion;
 globalThis.__testNextControlValue = nextControlValue;
 globalThis.__testLongGrainLengthIndex = longGrainLengthIndex;
@@ -1015,8 +1017,16 @@ let rejectModeSwitch=false;
 globalThis.host_module_set_param_blocking=(key,value)=>{
     priorSet(key,value);
     if(key==='midi_view')return; // read-only view selection cannot change a part
-    if(key==='split_mode'&&rejectModeSwitch){params.split_mode=String(splitState.enabled?(splitState.quad?3:splitState.shared?2:1):0);return;}
-    if(key==='split_mode'){splitState.enabled=Number(value)!==0?1:0;if(splitState.enabled){splitState.shared=Number(value)===2?1:0;splitState.quad=Number(value)===3?1:0;}}
+    if(key==='split_mode'&&rejectModeSwitch){params.split_mode=String(JSON.parse(params.layers_view||'{}').active===1?5:splitState.bank?4:splitState.enabled?(splitState.quad?3:splitState.shared?2:1):0);return;}
+    if(key==='split_mode'){
+        const layers=JSON.parse(params.layers_view||'{}');
+        const previous=layers.active===1?5:splitState.bank?4:splitState.enabled?(splitState.quad?3:splitState.shared?2:1):0;
+        const wanted=Number(value);
+        if(wanted>0)params.split_return_mode=String(wanted);else if(previous>0)params.split_return_mode=String(previous);
+        splitState.enabled=wanted>=1&&wanted<=4?1:0;splitState.bank=wanted===4?1:0;
+        if(splitState.enabled){splitState.shared=wanted===2||wanted===4?1:0;splitState.quad=wanted===3?1:0;}
+        layers.active=wanted===5?1:0;params.layers_view=JSON.stringify(layers);
+    }
     if(key==='split_focus'){splitState.focus=Number(value);if(splitState.quad)params.record_lane=String(splitState.focus+1);}
     if(key==='record_lane'&&splitState.enabled&&!splitState.shared)splitState.focus=splitState.quad?Number(value)-1:Number(value)>2?1:0;
     if(key==='part_mute')splitState.parts[splitState.focus].mute=Number(value);
@@ -2752,3 +2762,462 @@ console.log('s3g Thru Projects UI: hub, full project export/import, confirmation
  Object.assign(state,{splitEnabled:false,sharedDual:false,quadMode:false,bankMode:false,view:'main'});
 }
 console.log('s3g Thru hub visibility: every entry drawn/selected in five layouts, bidirectional scrolling/fractions, Projects enter/Back, Track shortcuts and no recording side effects: PASS');
+
+{
+ const ui=globalThis.__testLayers,tools=globalThis.__testTools,P=tools.params,state=globalThis.__testFx.state();
+ const values=[0,.5,.2,0,0,0,0,1,1,.64,.2,0,0,1,.35,1,2,.4,.55,.5,.65,2,.4,1,3,.58,.4,.65,.65,2,.25,1,
+  1,0,0,120,1,0,0,0,1,0,1,0,0,0,0,0,0];
+ const model={active:1,surface:1,corner:0,fxCorner:0,held:-1,serial:1,values,touches:Array(32).fill(0),voices:[[24,63,0]]};
+ params.split_state=JSON.stringify({enabled:0,shared:0,quad:0,focus:0,parts:[{},{}]});
+ params.layers_view=JSON.stringify(model);ui.read();
+ Object.assign(state,{view:'main',algorithm:2,splitEnabled:false,shiftHeld:false,focusButtonHeld:false,saveStatus:0,savedTicks:0,messageTicks:0,actionMessageTicks:0});
+ // A real main snapshot excludes FX fields: they arrive in layers_view.
+ assert(!Object.keys(JSON.parse(globalThis.host_module_get_param('ui_editor_state')).values).some(k=>k.startsWith('layers_')));
+ state.editorReady=false;assert(globalThis.__testRefreshEditor());assert(state.editorReady);
+ assert.equal(P.layers_glide.value,120);assert(Number.isFinite(P.layers_fx1.value));
+ assert.deepEqual(tools.pages().find(p=>p.title==='LAYERS').keys,['layers_corner','layers_glide','layers_z_mode','layers_return','layers_fx_x','layers_fx_y',null,'layers_depth']);
+ assert.deepEqual(globalThis.__testSplit.keys(),['locus','field','speed','manual_lane','layers_fx_x','layers_fx_y','layers_glide','layers_depth']);
+ let before=drawWrites.length;tools.drawAll();let writes=drawWrites.slice(before);
+ assert(writes.some(w=>w[0]==='print'&&String(w[3]).includes('LAYERS')));
+ assert(writes.some(w=>w[0]==='print'&&String(w[3]).includes('FX Z')));
+ for(let lane=0;lane<4;++lane)assert(writes.some(w=>w[0]==='print'&&w[1]===2&&w[2]===11+lane*10&&w[3]===String(lane+1)));
+ // Lane display and moving cursors restore cached wave pixels, independently of FX.
+ Object.assign(state,{mask:15,lane:2,fieldStart:0,fieldEnd:1,playheads:[.5,-1,-1,-1,-1,-1,-1,-1],stackPositions:[.5,-1,-1,-1,-1,-1,-1,-1]});
+ globalThis.__testClearDisplay();tools.drawAll();
+ assert.equal(screenPixel(37,10),1);assert.equal(screenPixel(37,30),0,'Hollow stack marker has a black centre');
+ assert.equal(screenPixel(35,30),1);assert.equal(screenPixel(37,28),1);
+ before=drawWrites.length;tools.drawAll();writes=drawWrites.slice(before);
+ assert.equal(writes.length,0,'An unchanged Layers display must issue no redraw commands');
+ state.playheads[0]=.7;before=drawWrites.length;tools.drawAll();writes=drawWrites.slice(before);
+ assert(!writes.some(w=>w[0]==='clear'));assert(writes.filter(w=>w[0]==='rect').every(w=>w[1]>=12&&w[1]+w[3]<=63));
+ assert.equal(screenPixel(37,10),0,'The previous playhead restores the underlying waveform');
+ const leftPixels=()=>Array.from({length:40*63},(_,i)=>screenPixel(i%63,10+Math.floor(i/63)));
+ const leftBefore=leftPixels();model.mix=[0,.1,.9,0];params.layers_view=JSON.stringify(model);ui.read();
+ before=drawWrites.length;tools.drawAll();writes=drawWrites.slice(before);
+ assert.deepEqual(leftPixels(),leftBefore,'Changing the FX field leaves A lane pixels in place');
+ assert(writes.filter(w=>w[0]==='rect').every(w=>w[1]>=66));
+ state.lane=3;before=drawWrites.length;tools.drawAll();writes=drawWrites.slice(before);
+ assert(writes.some(w=>w[0]==='print'&&w[1]===2&&w[2]===31&&w[3]==='3'&&w[4]===0));
+ state.fieldStart=.2;state.fieldEnd=.8;tools.drawAll();assert.equal(screenPixel(52,10),1,'Position and Field zoom the A waveform');
+
+ // The audible cursor must stay on the DSP mix while touch targets change.
+ const oldMix=model.mix,oldTouches=model.touches.slice(),oldConfig=values.slice(36,40);
+ values.splice(36,4,0,1,0,0); // unsmoothed destination is the opposite corner
+ model.mix=[1,0,0,0];model.touches=Array(32).fill(0);
+ params.layers_view=JSON.stringify(model);ui.read();tools.drawAll();
+ const cursorAt=(x,y)=>{for(let dy=0;dy<3;++dy)for(let dx=0;dx<3;++dx)assert.equal(screenPixel(x+dx,y+dy),1,'Solid cursor follows smoothed mix');};
+ cursorAt(67,25);model.touches[31]=1;
+ params.layers_view=JSON.stringify(model);ui.read();tools.drawAll();
+ cursorAt(67,25);assert.equal(screenPixel(116,26),0,'Distant held target is hollow, not a jumped cursor');
+ model.mix=[.75,.25,0,0];params.layers_view=JSON.stringify(model);ui.read();tools.drawAll();cursorAt(79,25);
+ model.touches[31]=0;params.layers_view=JSON.stringify(model);ui.read();tools.drawAll();cursorAt(79,25);
+ model.mix=[.5,.5,0,0];model.touches[31]=2;
+ params.layers_view=JSON.stringify(model);ui.read();tools.drawAll();cursorAt(91,25);
+ model.mix=[.25,.25,.25,.25];model.touches[28]=1;model.touches[7]=1;
+ params.layers_view=JSON.stringify(model);ui.read();tools.drawAll();cursorAt(91,36);
+ assert.equal(screenPixel(68,26),0);assert.equal(screenPixel(116,47),0,'Multiple touch targets remain hollow');
+ // Native press/render/release transactions expose the exact audio-stage mix.
+ if(process.env.S3G_THRU_GLIDE_FIXTURE){
+  for(const snapshot of JSON.parse(fs.readFileSync(process.env.S3G_THRU_GLIDE_FIXTURE,'utf8'))){
+   params.layers_view=JSON.stringify(snapshot);ui.read();tools.drawAll();
+   const x=Math.round((snapshot.mix[1]+snapshot.mix[3])*48),y=Math.round((snapshot.mix[2]+snapshot.mix[3])*21);
+   cursorAt(67+x,25+y);
+  }
+ }
+ model.mix=oldMix;model.touches=oldTouches;values.splice(36,4,...oldConfig);
+ params.layers_view=JSON.stringify(model);ui.read();tools.drawAll();
+
+ // All four meters stay visible beside the fixed Saving/Saved indicator.
+ Object.assign(state,{saveStatus:0,savedTicks:0,messageTicks:0});tools.drawAll();
+ const meterPixels=()=>Array.from({length:30*5},(_,i)=>screenPixel(66+i%30,58+Math.floor(i/30)));
+ const badgePixels=()=>Array.from({length:27*7},(_,i)=>screenPixel(101+i%27,57+Math.floor(i/27)));
+ for(let c=0;c<4;++c)for(let dx=0;dx<6;++dx)assert.equal(screenPixel(66+c*8+dx,62),1,'Every corner meter fits left of the save area');
+ const visibleMeters=meterPixels(),clearBadge=badgePixels();
+ state.saveStatus=2;tools.drawAll();assert.deepEqual(meterPixels(),visibleMeters,'Saving leaves every meter visible');assert.notDeepEqual(badgePixels(),clearBadge);
+ state.saveStatus=3;state.savedTicks=10;tools.drawAll();assert.deepEqual(meterPixels(),visibleMeters,'Saved leaves every meter visible');assert.notDeepEqual(badgePixels(),clearBadge);
+ state.savedTicks=0;tools.drawAll();assert.deepEqual(meterPixels(),visibleMeters);assert.deepEqual(badgePixels(),clearBadge,'Expired save text clears even when the FX mix is stationary');
+ state.saveStatus=0;tools.drawAll();
+
+ for(let algorithm=0;algorithm<15;++algorithm){state.algorithm=algorithm;
+  const pages=tools.pages();assert(pages.some(p=>p.layerFx));assert(!pages.some(p=>p.layerCorner));
+  for(const key of pages.flatMap(p=>p.keys).filter(Boolean))assert(P[key]||key.startsWith('path_'),'Defined Layers control '+key);
+  assert(!pages.flatMap(p=>p.keys).some(k=>k?.startsWith('lc_')));
+ }
+ // All seventeen effect types have a complete, readable contextual page.
+ for(let effect=0;effect<17;++effect){
+  values[0]=effect;model.fxCorner=model.corner=0;params.layers_view=JSON.stringify(model);ui.read();
+  state.view='settings';state.settingsPage=tools.pages().findIndex(p=>p.title==='FX CORNER');
+  before=drawWrites.length;tools.drawAll();writes=drawWrites.slice(before);
+  assert(!writes.some(w=>w[0]==='print'&&String(w[3]).includes('UPDATING')));
+  if(effect>0)for(const key of tools.pages()[state.settingsPage].keys)assert(key,'Expanded effects retain their four macros and pressure/level');
+ }
+ const choices=[[6,10],[7,8],[9,2],[10,5],[11,49]];
+ for(const [effect,count] of choices){
+  values[0]=effect;values[1]=0;params.layers_view=JSON.stringify(model);ui.read();
+  const control=globalThis.__testLayers.control('layers_fx1');
+  assert.equal(control.choiceCount,count);assert.equal(globalThis.__testNextControlValue(control,1),1/(count-1));
+ }
+ values[0]=0;model.corner=model.fxCorner=0;params.layers_view=JSON.stringify(model);ui.read();state.view='main';
+ state.algorithm=2;
+ const oldRoot=P.root_note.value,oldOctave=state.octave;P.root_note.value=65;state.octave=1;state.scale=0;state.padMode=0;
+ for(const pad of [0,1,8,24,27])assert.equal(ui.padNote(pad),65-12+12+Math.floor(pad/8)*5+pad%4);
+ P.root_note.value=oldRoot;state.octave=oldOctave;
+ model.held=24;model.serial++;params.layers_view=JSON.stringify(model);ui.read();
+ assert.equal(state.view,'main','Left keyboard corner must not open a corner editor');
+ const idleFx=tools.led(4);model.touches[4]=1;params.layers_view=JSON.stringify(model);state.ledPending.clear();ui.read();
+ assert.notEqual(tools.led(4),idleFx);assert(state.ledPending.size>0);
+ model.touches[4]=0;model.fxPads=2**4;
+ params.layers_view=JSON.stringify(model);ui.read();
+ assert.notEqual(tools.led(4),idleFx,'STAY must retain the engaged pad LED after release');
+ state.ledPending.clear();model.fxPads=2**31;params.layers_view=JSON.stringify(model);ui.read();
+ assert(state.ledPending.size>0,'Recorded FX-position changes refresh LEDs without physical input');
+ assert.equal(tools.led(4),idleFx);assert.notEqual(tools.led(31),idleFx);
+ model.fxPads=0;params.layers_view=JSON.stringify(model);ui.read();assert.equal(tools.led(31),idleFx);
+ model.held=31;model.corner=model.fxCorner=1;model.serial++;params.layers_view=JSON.stringify(model);ui.read();
+ assert.equal(state.view,'main','Physical corner snapshots alone must not open the editor');
+ Object.assign(state,{focusButtonHeld:false,shiftHeld:false,deleteHeld:false,performanceArmed:false});
+ const originalGestureNow=Date.now;let gestureNow=1000;Date.now=()=>gestureNow;
+ const padEvent=(pad,on)=>globalThis.onMidiMessageInternal([on?0x90:0x80,68+pad,on?100:0]);
+ padEvent(31,true);gestureNow+=100;padEvent(31,false);
+ assert.equal(state.view,'main','An ordinary FX tap stays in performance');
+ gestureNow+=400;padEvent(31,true);gestureNow+=499;ui.tickGesture();assert.equal(state.view,'main');
+ gestureNow++;ui.tickGesture();
+ assert.equal(state.view,'settings');assert.equal(tools.pages()[state.settingsPage].title,'FX CORNER');
+ assert.equal(ui.model.editCorner,1);
+ before=drawWrites.length;tools.drawAll();writes=drawWrites.slice(before);
+ assert(!writes.some(w=>w[0]==='print'&&String(w[3]).includes('UPDATING')));
+ assert(writes.some(w=>w[0]==='print'&&String(w[3]).includes('C2 FX CORNER')));
+ assert(writes.some(w=>w[0]==='print'&&w[3]==='CUT'));
+ padEvent(31,false);model.held=-1;params.layers_view=JSON.stringify(model);ui.read();
+ assert.equal(state.view,'settings','Editing remains open after pad release');
+ const at=paramWrites.length;globalThis.__testResetEncoders();cc(72,4);
+ assert(paramWrites.slice(at).some(([k])=>k==='layers_fx1'),'Released-pad corner editor stays operable');
+ padEvent(4,true);padEvent(4,false);assert.equal(ui.model.editCorner,1,'Ordinary touches do not redirect the editor');
+ gestureNow+=400;padEvent(31,true);padEvent(31,false);gestureNow+=100;padEvent(31,true);padEvent(31,false);
+ assert.equal(state.view,'main','Double tap toggles the same corner editor off');
+ gestureNow+=400;padEvent(31,true);padEvent(31,false);gestureNow+=100;padEvent(31,true);padEvent(31,false);
+ assert.equal(state.view,'settings','Double tap opens the corner editor');
+ tapIcon(51);assert.equal(state.view,'main');
+ state.shiftHeld=true;gestureNow+=400;padEvent(31,true);gestureNow+=700;ui.tickGesture();padEvent(31,false);state.shiftHeld=false;
+ assert.equal(state.view,'main','Shift + corner remains a latch gesture');
+ Date.now=originalGestureNow;
+ // Capture switches Layers editor scope without loading a second instrument.
+ Object.assign(state,{algorithm:2,view:'main',editorReady:true,shiftHeld:false,deleteHeld:false,focusButtonHeld:false,focusButtonUsed:false,performanceVisible:false,actionMessageTicks:0,messageTicks:0,pageReturn:null,pageDestinationReturn:null});
+ Object.assign(ui.model,{focus:0,pages:['','FX CORNER'],returnView:null,holdPad:-1,tapPad:-1});
+ model.corner=model.fxCorner=2;values[16]=2;params.layers_view=JSON.stringify(model);ui.read();
+ const aIndex=tools.pages().findIndex(p=>p.title==='GRAINS CLOUD');assert(aIndex>=0);
+ state.view='settings';state.settingsPage=aIndex;tools.drawAll();const aTitle=tools.pages()[aIndex].title;
+ assert.equal(ui.model.focus,0);assert.equal(ui.model.pages[0],aTitle);
+ const focusWrites=paramWrites.length;cc(52);assert.equal(state.settingsPage,aIndex,'Capture selects on release');cc(52,0);
+ assert.equal(state.view,'settings');assert.equal(tools.pages()[state.settingsPage].title,'FX CORNER');assert.equal(ui.model.focus,1);
+ assert.equal(ui.iconStates().find(([id])=>id===52)[1],127,'FX focus illuminates Capture');
+ tapIcon(55);assert.equal(tools.pages()[state.settingsPage].title,'FX DETAIL');
+ tapIcon(52);assert.equal(tools.pages()[state.settingsPage].title,aTitle);assert.equal(ui.model.focus,0);
+ assert.equal(ui.iconStates().find(([id])=>id===52)[1],16,'A focus dims Capture');
+ tapIcon(52);assert.equal(tools.pages()[state.settingsPage].title,'FX DETAIL','FX page position is remembered');
+ assert(!paramWrites.slice(focusWrites).some(([key])=>key==='split_focus'||key==='algorithm'||key.startsWith('layers_fx')),'Editor focus must not alter either sound');
+ // The same shortcut also escapes a persistent corner editor opened from A.
+ tapIcon(52);ui.gesture(4,true,1000);ui.tickGesture(1500);ui.gesture(4,false,1600);
+ assert(ui.model.returnView);assert.equal(ui.model.focus,1);assert.equal(tools.pages()[state.settingsPage].title,'FX CORNER');
+ tapIcon(52);assert.equal(tools.pages()[state.settingsPage].title,aTitle);assert.equal(ui.model.returnView,null);ui.read();assert.equal(ui.model.focus,0);
+ // Capture chords keep their navigation action and do not flip on release.
+ cc(52);tapIcon(50);cc(52,0);assert.equal(state.view,'pages');tapIcon(51);
+ assert.equal(state.view,'settings');assert.equal(tools.pages()[state.settingsPage].title,aTitle);
+ cc(52);tapIcon(43);cc(52,0);assert.equal(state.view,'settings');assert.equal(ui.pageSide(tools.pages()[state.settingsPage]),0);
+ const chordPage=state.settingsPage,chordFocus=ui.model.focus;
+ cc(52);cc(71,1);cc(52,0);assert.equal(state.settingsPage,chordPage);assert.equal(ui.model.focus,chordFocus,'An encoder chord is not a Capture tap');
+ cc(49);tapIcon(52);cc(49,0);assert.equal(state.settingsPage,chordPage);assert.equal(ui.model.focus,chordFocus);
+ // Changing FX type can remove DETAIL; return to the available CORNER page.
+ ui.model.pages[1]='FX DETAIL';values[16]=1;params.layers_view=JSON.stringify(model);ui.read();tapIcon(52);
+ assert.equal(tools.pages()[state.settingsPage].title,'FX CORNER');tapIcon(52);values[16]=2;params.layers_view=JSON.stringify(model);ui.read();
+ // Back after switching sides returns to the destination's category, not the old FX category.
+ tapIcon(52);state.pageDestinationReturn={tier:'category',category:2,selection:1};tapIcon(52);
+ assert.equal(state.pageDestinationReturn.category,0);tapIcon(51);assert.equal(state.view,'pages');assert.equal(state.pageCategory,0);
+ tapIcon(51);tapIcon(51);state.pageReturn=null;state.pageDestinationReturn=null;
+ // In the overview only the header changes; Menu opens the selected editor.
+ Object.assign(state,{view:'main',messageTicks:0,saveStatus:0,savedTicks:0});ui.model.focus=0;
+ tools.drawAll();const scopePixels=leftPixels();before=drawWrites.length;tapIcon(52);writes=drawWrites.slice(before);
+ assert.equal(state.view,'main');assert.equal(ui.model.focus,1);assert.deepEqual(leftPixels(),scopePixels);
+ assert(!writes.some(w=>w[0]==='clear'));assert(writes.filter(w=>w[0]==='rect').every(w=>w[2]<10),'Changing focus must not redraw the waveforms or FX field');
+ tapIcon(50);assert.equal(ui.pageSide(tools.pages()[state.settingsPage]),1);tapIcon(50);tapIcon(52);tapIcon(50);
+ assert.equal(ui.pageSide(tools.pages()[state.settingsPage]),0);
+ // Remembered pages from a different engine fall back to its main engine page.
+ state.view='main';state.algorithm=14;ui.model.focus=1;ui.model.pages[0]=aTitle;tapIcon(52);assert.equal(state.settingsPage,0);
+ state.algorithm=2;state.view='main';Object.assign(ui.model,{focus:0,pages:['','FX CORNER'],returnView:null});
+ model.corner=model.fxCorner=1;params.layers_view=JSON.stringify(model);ui.read();
+
+ // Each useful algorithm has at most two sound pages; unused cells stay reserved.
+ model.extra=Array(16).fill(.5);
+ for(let effect=0;effect<17;++effect){
+  values[8]=effect;params.layers_view=JSON.stringify(model);ui.read();
+  const details=tools.pages().filter(p=>p.layerFxDetail);
+  assert.equal(details.length,[0,1,11].includes(effect)?0:1);
+  if(details.length){
+   const page=details[0];assert(page.keys.slice(0,4).every(Boolean));assert(page.keys.slice(4).every(k=>k===null));
+   state.view='settings';state.settingsPage=tools.pages().indexOf(page);before=drawWrites.length;tools.drawAll();writes=drawWrites.slice(before);
+   assert(!writes.some(w=>w[0]==='print'&&String(w[3]).includes('UPDATING')));
+   for(let f=8;f<12;++f)assert(ui.control('layers_fx'+f)?.shortLabel);
+  }
+ }
+ assert.equal(P.layers_fx0.max,16);assert.equal(P.layers_fx0.labels.length,17);
+ assert.deepEqual(P.layers_fx0.labels.slice(13),['RRUN','SHUT','TMBL','SPOL']);
+ assert.deepEqual(ui.groups.at(-1).ids,[8,13,14,15,16]);
+ for(const effect of [11,12]){
+  values[8]=effect;params.layers_view=JSON.stringify(model);ui.read();
+  const labels=Array.from({length:4},(_,i)=>ui.control('layers_fx'+(i+1)).shortLabel);
+  assert.deepEqual(labels,effect===11?['PITC','FINE','WIND','SPRD']:['RATE','DEPT','RAMP','SPRD']);
+  for(let i=1;i<=4;++i)for(const value of [0,.5,1])assert(ui.control('layers_fx'+i).format(value).length<=5,'New effect values fit their screen cell');
+  if(effect===11){
+   assert.equal(ui.control('layers_fx1').format(0),'-24st');assert.equal(ui.control('layers_fx1').format(1),'+24st');
+   assert.equal(ui.control('layers_fx2').format(0),'-100c');assert.equal(ui.control('layers_fx3').format(1),'180ms');
+   values[13]=8;params.layers_view=JSON.stringify(model);ui.read();assert.deepEqual(ui.control('layers_fx5').values,[0,1,2,3,4,9]);assert.equal(ui.control('layers_fx5').value,0);
+  }else{
+   assert.equal(ui.control('layers_fx1').format(1),'8.00');assert.equal(ui.control('layers_fx3').format(1),'8.0s');
+   assert.deepEqual([8,9,10,11].map(i=>ui.control('layers_fx'+i).shortLabel),['XOVR','BAL','DOPL','TONE']);
+  }
+ }
+ // The displayed order is independent of the saved/native algorithm IDs.
+ assert.deepEqual([...ui.order].sort((a,b)=>a-b),Array.from({length:17},(_,i)=>i));
+ assert.deepEqual(ui.groups.map(group=>group.name),['Direct','Tone / Color','Pitch / Motion','Space','Spectral','Rhythm / Buffer']);
+ for(let i=0;i<ui.order.length;++i){P.layers_fx0.value=ui.order[i];const control=ui.control('layers_fx0');
+  assert.equal(globalThis.__testNextControlValue(control,1),ui.order[Math.min(i+1,ui.order.length-1)]);
+  assert.equal(globalThis.__testNextControlValue(control,-1),ui.order[Math.max(0,i-1)]);
+ }
+ // MACRO follows P4 for one-page effects without visiting unavailable detail targets.
+ values[8]=11;values[13]=4;params.layers_view=JSON.stringify(model);ui.read();
+ assert.equal(globalThis.__testNextControlValue(ui.control('layers_fx5'),1),9);
+ values[13]=9;params.layers_view=JSON.stringify(model);ui.read();assert.equal(P.layers_fx5.labels[9],'MACRO');
+ const pickerSet=globalThis.host_module_set_param_blocking;
+ globalThis.host_module_set_param_blocking=(key,value)=>{
+  pickerSet(key,value);
+  if(key==='layers_fx0'){values[(model.fxCorner??model.corner)*8]=Number(value);params.layers_view=JSON.stringify(model);}
+ };
+ model.corner=model.fxCorner=1;values[8]=11;params.layers_view=JSON.stringify(model);ui.read();
+ state.view='settings';state.settingsPage=tools.pages().findIndex(page=>page.title==='FX CORNER');
+ const pickerStart=blockingWrites.length;tapIcon(3);
+ assert.equal(state.view,'layerFxPicker');assert.equal(ui.picker.group,2);
+ assert.equal(blockingWrites.slice(pickerStart).filter(([key])=>key==='clip_record'||key==='layers_fx0').length,0,'Opening the picker does not start recording or change the sound');
+ tools.drawAll();assert([...screenText.values()].every(([x,y,text])=>x+String(text).length*6<=128&&y+8<=64));
+ tapIcon(3);assert.equal(ui.picker.tier,1);tapIcon(51);assert.equal(ui.picker.tier,0);assert.equal(state.view,'layerFxPicker');
+ tapIcon(51);assert.equal(state.view,'settings');assert.equal(P.layers_fx0.value,11);
+ tapIcon(3);for(let i=0;i<3;++i)tapIcon(54); // Pitch -> Space -> Spectral -> Rhythm.
+ assert.equal(ui.picker.group,5);tapIcon(3);assert.equal(ui.picker.tier,1);
+ cc(14,1);assert.equal(ui.picker.selection,1);tapIcon(3);
+ assert.equal(state.view,'settings');assert.equal(P.layers_fx0.value,13);assert.equal(tools.pages()[state.settingsPage].title,'FX CORNER');
+ assert(blockingWrites.slice(pickerStart).some(([key,value])=>key==='layers_fx0'&&Number(value)===13));
+ for(let group=0;group<ui.groups.length;++group){
+  state.view='layerFxPicker';ui.picker.group=group;
+  for(let tier=0;tier<2;++tier){ui.picker.tier=tier;ui.picker.selection=0;tools.drawAll();
+   assert([...screenText.values()].every(([x,y,text])=>x+String(text).length*6<=128&&y+8<=64),'Picker text fits every family');
+   assert([...screenText.values()].filter(([x,y])=>y>=56&&x<100).every(([x,y,text])=>x+String(text).length*6<=100),'Picker hints leave room for Saving/Saved');
+  }
+ }
+ state.view='settings';state.settingsPage=tools.pages().findIndex(page=>page.title==='FX CORNER');
+ tapIcon(3);cc(52);tapIcon(50);cc(52,0);assert.equal(state.view,'pages','Capture+Menu escapes the picker to the normal hub');
+ state.view='settings';state.settingsPage=tools.pages().findIndex(page=>page.title==='FX CORNER');
+ const oldWave=ui.model.wave;tapIcon(3);cc(49);tapIcon(51);cc(49,0);assert.equal(state.view,'main');assert.equal(ui.model.wave,!oldWave);
+ ui.model.wave=oldWave;state.pageReturn=null;state.pageDestinationReturn=null;
+ globalThis.host_module_set_param_blocking=pickerSet;
+ state.view='settings';state.settingsPage=tools.pages().findIndex(page=>page.title==='FX CORNER');
+ // A fast settings -> picker gesture must invalidate cached waveform pixels.
+ state.view='main';ui.model.wave=false;tools.drawAll();const beforePickerWave=leftPixels();
+ state.view='settings';state.settingsPage=tools.pages().findIndex(page=>page.title==='FX CORNER');
+ tapIcon(3);tapIcon(51);state.view='main';tools.drawAll();assert.deepEqual(leftPixels(),beforePickerWave);
+ // A page removed by an effect change falls back safely; new rhythm pages
+ // expose their units, note divisions and detail choices without extra pages.
+ model.extra[4]=1;values[8]=13;params.layers_view=JSON.stringify(model);ui.read();
+ assert.equal(ui.control('layers_fx1').format(0),'1/128');assert.equal(ui.control('layers_fx1').format(1),'1/1');
+ assert.equal(ui.control('layers_fx2').format(1),'HOLD');assert.equal(ui.control('layers_fx4').format(1),'+24st');
+ values[8]=15;params.layers_view=JSON.stringify(model);ui.read();assert.equal(ui.control('layers_fx3').format(1),'15x');
+ assert.equal(ui.control('layers_fx10').format(1),'127');
+ state.view='main';
+ values[8]=3;model.extra[4]=1;params.layers_view=JSON.stringify(model);ui.read();P.layers_fx1.value=1;
+ assert.equal(ui.control('layers_fx1').format(1),'8.0s');
+ assert.equal(ui.control('layers_fx8').choiceCount,3);
+ values[8]=1;values[13]=8;params.layers_view=JSON.stringify(model);ui.read();assert.equal(ui.control('layers_fx5').value,0,'Unavailable detail pressure target displays OFF on Filter');state.view='main';
+ cc(49);tapIcon(51);cc(49,0);assert.equal(ui.model.wave,true);
+ cc(49);tapIcon(51);cc(49,0);assert.equal(ui.model.wave,false);
+ const oldMask=state.mask,oldRecording=state.recording;
+ state.mask=0;state.recording=true;state.clipRecording=true;
+ for(const [key,label] of [['layers_copy','COPIED'],['layers_paste','PASTED']]){
+  const start=blockingWrites.length;ui.action(P[key]);
+  assert(blockingWrites.slice(start).some(([k,v])=>k===key&&Number(v)===1));
+  assert.equal(state.actionMessage,label+' FX C2');
+ }
+ params.last_error='Copy an FX corner first';ui.action(P.layers_paste);assert.equal(state.actionMessage,'COPY CORNER FIRST');params.last_error='';
+ Object.assign(state,{mask:oldMask,recording:oldRecording,clipRecording:false});
+ state.view='mode';state.modeSelection=5;before=drawWrites.length;tools.drawAll();writes=drawWrites.slice(before);
+ assert(writes.some(w=>w[0]==='print'&&String(w[3]).includes('LAYERS')&&w[4]===0));
+ // Full builds also run the UI against the actual native snapshot pair.
+ if(process.env.S3G_THRU_EDITOR_FIXTURE){
+  const fixture=JSON.parse(fs.readFileSync(process.env.S3G_THRU_EDITOR_FIXTURE,'utf8'));
+  const oldGet=globalThis.host_module_get_param;
+  globalThis.host_module_get_param=key=>key==='ui_editor_state'?JSON.stringify(fixture.editor):key==='layers_view'?JSON.stringify(fixture.layers):oldGet(key);
+  Object.assign(state,{view:'main',editorReady:false});assert(globalThis.__testRefreshEditor());
+  assert(state.editorReady);assert.equal(P.layers_fx0.value,2);assert(Math.abs(P.layers_fx1.value-.73)<1e-6);
+  state.view='settings';state.settingsPage=tools.pages().findIndex(p=>p.title==='FX CORNER');
+  before=drawWrites.length;tools.drawAll();writes=drawWrites.slice(before);
+  assert(writes.some(w=>w[0]==='print'&&w[3]==='SMEA'));
+  assert(!writes.some(w=>w[0]==='print'&&String(w[3]).includes('UPDATING')));
+  globalThis.host_module_get_param=oldGet;
+ }
+ // Copy toggles every non-Single layout through Single, without guessing flags.
+ Object.assign(state,{view:'main',recording:false,clipRecording:false,shiftHeld:false,copyShortcut:null});
+ for(const mode of [1,2,3,4,5]){
+  model.active=mode===5?1:0;params.layers_view=JSON.stringify(model);
+  globalThis.host_module_set_param_blocking('split_mode',mode);globalThis.__testSplit.parse(params.split_state);ui.read();
+  const beforeModeWrites=blockingWrites.length;tapIcon(60);
+  assert.equal(Number(params.split_mode),0,'Copy reaches Single from mode '+mode);
+  assert.equal(Number(params.split_return_mode),mode);
+  assert.equal(globalThis.__testParams.split_mode.value,0);
+  assert.equal(ui.iconStates().find(([id])=>id===60)[1],16);
+  tapIcon(60);assert.equal(Number(params.split_mode),mode,'Copy restores exact mode '+mode);
+  assert.equal(globalThis.__testParams.split_mode.value,mode);
+  assert.equal(ui.iconStates().find(([id])=>id===60)[1],127);
+  assert.deepEqual(blockingWrites.slice(beforeModeWrites).filter(([k])=>k==='split_mode').map(([,v])=>Number(v)),[0,mode]);
+ }
+ // Project/open state can provide the last mode while Single is active.
+ globalThis.host_module_set_param_blocking('split_mode',0);globalThis.__testSplit.parse(params.split_state);ui.read();
+ state.lastNonSingleMode=1;params.split_return_mode='5';tapIcon(60);assert.equal(Number(params.split_mode),5);
+ // Recording rejection must not overwrite the remembered return mode.
+ rejectModeSwitch=true;const remembered=params.split_return_mode;tapIcon(60);assert.equal(Number(params.split_mode),5);assert.equal(params.split_return_mode,remembered);rejectModeSwitch=false;
+ globalThis.host_module_set_param_blocking('split_mode',0);globalThis.__testSplit.parse(params.split_state);ui.read();
+ model.active=0;params.layers_view=JSON.stringify(model);ui.read();delete params.layers_view;
+ Object.assign(state,{view:'main',algorithm:0,shiftHeld:false});
+}
+console.log('s3g Thru Layers UI: real split-keyboard pitch, normal engine pages, separate native FX snapshot, audible cursor, unobstructed meters/save feedback, Capture page memory, exact Copy mode roundtrips, deliberate gestures and detail pages: PASS');
+
+{
+ const tools=globalThis.__testTools,ui=globalThis.__testSequence,state=globalThis.__testFx.state();
+ const note=(number,value=100)=>globalThis.onMidiMessageInternal([value?0x90:0x80,number,value]);
+ const cc=(number,value=127)=>globalThis.onMidiMessageInternal([0xb0,number,value]);
+ const fixture=process.env.S3G_THRU_SEQUENCE_FIXTURE?JSON.parse(fs.readFileSync(process.env.S3G_THRU_SEQUENCE_FIXTURE,'utf8')):null;
+ const native=fixture?.sequence||{active:1,edit:0,rec:0,step:0,held:-1,child:0,root:60,mask:0,length:13,playing:1,lanes:[[3,13,4,1,0],[6,7,5,1,0],[8,11,6,1,0],[2,9,4,1,0]],steps:Array.from({length:32},(_,i)=>[i%3===0?1:0,i/32]),values:[13,4,0,1,0,100,.8,0,1,0,.25,7,100,.8,0,1,1,0,4]};
+ const data=JSON.parse(JSON.stringify(native));data.length=13;data.edit=0;data.rec=0;data.playing=1;data.step_ms=125;data.lanes[0]=[3,13,4,1,0];data.steps[0]=[1,.25];data.steps[1]=[0,.5];data.values[6]=.8;data.values[13]=.8;
+ params.seq_state=JSON.stringify(data);params.split_mode='6';ui.read();
+ state.splitEnabled=state.quadMode=true;state.sharedDual=false;state.splitFocus=0;state.editorReady=true;state.view='main';
+ assert(ui.model.active);assert.equal(tools.pages()[0].title,'SEQ LANE');
+ assert.equal(tools.hub().find(e=>e.hub==='setup').title,'SEQ SETUP');
+ assert.equal(tools.hub().find(e=>e.hub==='setup').index,tools.pages().findIndex(p=>p.title==='SEQ SETUP'));
+ assert(tools.pages().some(p=>p.title==='SEQ MIX'));
+ assert.deepEqual(tools.pages().filter(p=>Number.isInteger(p.sequenceStrip)).map(p=>p.title),
+   ['SEQ STRIP 1','SEQ STRIP 2','SEQ STRIP 3','SEQ STRIP 4']);
+ assert(tools.pages().some(p=>p.title==='SEQ DUCK'));
+ const mixPages=tools.categories(2).map(p=>p.title);
+ assert.deepEqual(mixPages.slice(mixPages.indexOf('SEQ MIX'),mixPages.indexOf('SEQ MIX')+6),
+   ['SEQ MIX','SEQ STRIP 1','SEQ STRIP 2','SEQ STRIP 3','SEQ STRIP 4','SEQ DUCK'],
+   'all four channel strips are adjacent in the Mix/FX page group');
+ assert(mixPages.includes('FX ORDER')&&!mixPages.includes('A FX ORDER')
+   &&mixPages.includes('DELAY RETURN')&&!mixPages.includes('A DELAY RETURN'),
+   'shared effects routing and delay return have no part prefix');
+ assert(!tools.pages().some(p=>p.title==='PRIORITY DUCK'));
+ assert(!tools.pages().some(p=>p.title==='STACK PATH'||p.title==='PADS & SCALE'||p.voiceEngines));
+ assert.equal(globalThis.__testParams.seq_gate.shortLabel,'DUR');
+ assert.equal(globalThis.__testParams.seq_trig_gate.shortLabel,'DUR');
+ data.strips=[[1.25,0,0,900,0],[0,0,0,900,0],[-3,1,0,1800,1],[0,0,0,900,0]];
+ params.seq_state=JSON.stringify(data);ui.read();
+ state.view='settings';state.settingsPage=tools.pages().findIndex(p=>p.title==='SEQ MIX');
+ const originalFocus=state.splitFocus,originalRecord=data.rec;
+ ui.page(1);
+ assert.equal(tools.pages()[state.settingsPage].title,'SEQ STRIP 1');
+ assert.equal(ui.control('seq_eq_low').value,1.25);
+ ui.page(1);ui.page(1);
+ assert.equal(tools.pages()[state.settingsPage].title,'SEQ STRIP 3');
+ assert.equal(ui.control('seq_eq_low').value,-3);
+ assert.equal(ui.control('seq_eq_freq').value,1800);
+ assert.equal(ui.control('seq_eq_solo').value,1);
+ let stripDraw=drawWrites.length;tools.drawAll();
+ assert(drawWrites.slice(stripDraw).some(w=>w[0]==='print'&&w[3]==='-3'),
+   'strip page displays its own EQ value');
+ let stripWrite=blockingWrites.length;ui.adjust(0,10);
+ assert(blockingWrites.slice(stripWrite).some(([key,value])=>key==='seq_strip_edit'&&String(value).startsWith('2,0,')),
+   'encoder writes the third strip directly');
+ assert.equal(state.splitFocus,originalFocus);
+ assert.equal(ui.model.data.rec,originalRecord);
+ ui.page(1);assert.equal(tools.pages()[state.settingsPage].title,'SEQ STRIP 4');
+ ui.page(1);assert.equal(tools.pages()[state.settingsPage].title,'SEQ DUCK');
+ state.view='settings';state.settingsPage=0;
+ let durationDraw=drawWrites.length;tools.drawAll();
+ assert(drawWrites.slice(durationDraw).some(w=>w[0]==='print'&&w[3]==='100ms'),'lane default duration shows audible time');
+ data.values[19]=1;data.values[20]=5000;data.values[21]=7500;
+ params.seq_state=JSON.stringify(data);ui.read();
+ assert.equal(tools.pages()[0].keys[5],'seq_time_ms');
+ assert.equal(tools.pages().find(p=>p.title==='TRIG').keys[3],'seq_trig_time_ms');
+ assert(globalThis.__testNextControlValue(globalThis.__testParams.seq_time_ms,1)>5000);
+ assert(globalThis.__testNextControlValue(globalThis.__testParams.seq_time_ms,-1)<5000);
+ durationDraw=drawWrites.length;tools.drawAll();
+ assert(drawWrites.slice(durationDraw).some(w=>w[0]==='print'&&w[3]==='5.0s'));
+ data.values[19]=0;params.seq_state=JSON.stringify(data);ui.read();
+ assert.equal(tools.pages()[0].keys[5],'seq_gate');
+ assert.equal(globalThis.__testNextControlValue({...globalThis.__testParams.seq_gate,value:4},1),4.5);
+ state.view='main';
+ data.values[10]=.2;data.steps[0]=[1,.8];data.steps[3]=[1,.65];params.seq_state=JSON.stringify(data);ui.read();
+ const parentMarkerAt=drawWrites.length;tools.drawAll();
+ assert(drawWrites.slice(parentMarkerAt).some(w=>w[0]==='rect'&&w[1]===4+Math.round(.65*119)-2&&w[2]===10&&w[3]===5),
+   'overview top pointer follows the playing step rather than the step selected for editing');
+ data.values[10]=.25;data.steps[0]=[1,.25];params.seq_state=JSON.stringify(data);ui.read();
+ data.heads=[[0,.25,.39,250,12],[0,.5,.57,100,11]];
+ params.seq_state=JSON.stringify(data);ui.read();
+ let headDraw=drawWrites.length;tools.drawAll();
+ const activeDraw=drawWrites.slice(headDraw);
+ assert(activeDraw.some(w=>w[0]==='print'&&String(w[3]).includes('DUR 250ms')),'latest sounding trig duration is shown');
+ assert(activeDraw.some(w=>w[0]==='rect'&&w[1]===4+Math.round(.39*119)&&w[2]===11&&w[4]===14),'current sample cursor is drawn');
+ assert(activeDraw.some(w=>w[0]==='rect'&&w[1]===4+Math.round(.25*119)-2&&w[2]===27&&w[3]===5),
+   'voice launch position remains marked below the waveform');
+ data.heads=[[0,.75,.05,250,13]];params.seq_state=JSON.stringify(data);ui.read();
+ const wrappedAt=drawWrites.length;tools.drawAll();const wrappedDraw=drawWrites.slice(wrappedAt);
+ assert(wrappedDraw.some(w=>w[0]==='rect'&&w[1]===4+Math.round(.75*119)-2&&w[2]===27&&w[3]===5),
+   '75% launch marker stays at its source position after the reader wraps');
+ assert(wrappedDraw.some(w=>w[0]==='rect'&&w[1]===4+Math.round(.05*119)&&w[2]===11&&w[4]===14),
+   'wrapped playback cursor is separate from the launch marker');
+ assert(!wrappedDraw.some(w=>w[0]==='rect'&&w[2]===25&&w[3]>5),
+   'wrapped readers do not draw a misleading source-spanning bar');
+ data.heads=[];params.seq_state=JSON.stringify(data);ui.read();
+ assert.equal(tools.led(24),14,'top-left is step 1 and enabled');assert.equal(tools.led(25),65,'step 2 is inactive');assert.equal(tools.led(27),11,'selected lane playhead');assert.equal(tools.led(0),0,'beyond active length stays dark');
+ let before=blockingWrites.length;note(92);note(92,0);
+ assert(!blockingWrites.slice(before).some(([key])=>key==='seq_hold'),'tap does not enter editor');
+ note(92);ui.model.downAt=Date.now()-301;ui.tickGesture();
+ assert.equal(state.view,'settings');assert(tools.pages()[state.settingsPage].sequenceTrig);
+ assert(blockingWrites.slice(before).some(([key,value])=>key==='seq_hold'&&Number(value)===0));
+ const at=drawWrites.length;tools.drawAll();const drawn=drawWrites.slice(at);
+ assert(hasAnyRightFraction(drawn),'trig editor uses normal right-aligned page fraction');
+ assert(drawn.some(w=>w[0]==='print'&&w[1]===33&&w[2]===38&&/^[A-G]#?-?\d$/.test(String(w[3]))),
+   'NOTE retains the note name');
+ assert(!drawn.some(w=>w[0]==='print'&&w[2]===57),'TRIG has no redundant bottom note report');
+ assert(drawn.some(w=>w[0]==='print'&&w[2]===31&&String(w[3]).startsWith('POS'))
+   &&drawn.some(w=>w[0]==='print'&&w[2]===47&&w[3]==='MICRO'),
+   'TRIG parameter rows have extra vertical spacing');
+ assert(drawn.some(w=>w[0]==='rect'&&w[3]===1&&w[4]===15),'highlighted POS marker is drawn');
+ assert(drawn.some(w=>w[0]==='print'&&w[3]==='100ms'),'inherited trig duration shows lane default');
+ data.values[13]=2;data.mask=8;params.seq_state=JSON.stringify(data);ui.read();
+ durationDraw=drawWrites.length;tools.drawAll();
+ assert(drawWrites.slice(durationDraw).some(w=>w[0]==='print'&&w[3]==='DUR*'),'locked trig duration is marked');
+ assert(drawWrites.slice(durationDraw).some(w=>w[0]==='print'&&w[3]==='250ms'),'trig duration shows its own time');
+ const burstPage=tools.pages().find(p=>p.title==='BURST');
+ assert.deepEqual(burstPage.keys.slice(4,7),['seq_burst','seq_child','seq_when']);
+ data.burst=[0,.25,.5,.75];data.values[16]=4;data.values[9]=2;data.values[17]=.25;
+ params.seq_state=JSON.stringify(data);ui.read();state.settingsPage=tools.pages().indexOf(burstPage);
+ const burstAt=drawWrites.length;tools.drawAll();const burstDraw=drawWrites.slice(burstAt);
+ assert(burstDraw.some(w=>w[0]==='rect'&&w[1]===5+Math.round(.25*113)&&w[2]===18),'Burst shows each event on the compact step-time ruler');
+ assert(burstDraw.some(w=>w[0]==='print'&&w[3]==='WHEN'));
+ assert(burstDraw.some(w=>w[0]==='print'&&w[2]===27&&String(w[3]).startsWith('POS'))
+   &&burstDraw.some(w=>w[0]==='print'&&w[2]===45&&w[3]==='BURST'),
+   'Burst parameter rows have extra vertical spacing');
+ state.settingsPage=tools.pages().findIndex(p=>p.title==='TRIG');
+ data.values[13]=.8;data.mask=0;params.seq_state=JSON.stringify(data);ui.read();
+ before=blockingWrites.length;cc(119);globalThis.__testResetEncoders();cc(71,4);cc(119,0);
+ assert(blockingWrites.slice(before).some(([key,value])=>key==='seq_clear'&&Number(value)===0));
+ note(92,0);assert.equal(state.view,'main');
+ assert(blockingWrites.some(([key,value])=>key==='seq_hold'&&Number(value)===-1));
+ state.recording=true;data.rec=0;params.seq_state=JSON.stringify(data);before=blockingWrites.length;cc(41);
+ assert(blockingWrites.slice(before).some(([key,value])=>key==='record_lane'&&Number(value)===3),'track selection remains available during an audio take');
+ data.edit=2;params.seq_state=JSON.stringify(data);ui.read();const start=drawWrites.length;tools.drawAll();assert(titleText(drawWrites.slice(start)).includes('EDIT 3 REC 1'));
+ state.recording=false;cc(60);note(92);note(92,0);cc(60,0);
+ assert(blockingWrites.some(([key])=>key==='seq_copy'));
+ assert.equal(ui.model.copyReady,true);
+ cc(49);note(93);note(93,0);cc(49,0);
+ assert(blockingWrites.some(([key])=>key==='seq_paste'));
+ if(fixture){params.ui_editor_state=JSON.stringify(fixture.editor);params.seq_state=JSON.stringify(native);ui.read();assert(ui.model.active);}
+ delete params.seq_state;ui.model.active=false;ui.model.pad=-1;state.recording=false;state.view='main';
+ console.log('s3g Thru Sequence UI: native snapshot, top-left step grid, playhead/dark tail, momentary trig editor, waveform markers, inherited locks, pitch display, recording focus and Copy/Paste: PASS');
+}

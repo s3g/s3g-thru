@@ -6,6 +6,7 @@ s3g Thru is a four-lane stereo sampler and performance-data looper for
 polyphonic voices. Single uses one four-lane stack; Split and Shared Dual offer
 two independent instruments; Quad offers four instruments with one lane each.
 Bank pairs a four-lane instrument with sixteen saved stereo sample pads.
+Layers pairs one note keyboard with four independent parallel stereo effects.
 
 Read the illustrated [s3g Thru manual](https://s3g.github.io/s3g-thru/) for the
 complete control map, recording workflow, playback-engine reference, effects,

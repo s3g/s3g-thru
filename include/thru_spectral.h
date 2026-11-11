@@ -41,6 +41,9 @@ struct ThruSpectralPlan {
     static float wrap(float cycle) { return cycle - std::floor(cycle + .5f); }
     float sinCycle(float cycle) const {
         cycle -= std::floor(cycle);
+        // A tiny negative float can round to 1 after wrapping. Keep both
+        // interpolation taps in range; reject nonfinite phases here too.
+        if (!(cycle >= 0 && cycle < 1)) return 0;
         const float p = cycle * 4096;
         const auto i = static_cast<std::size_t>(p);
         return sine[i] + (sine[i + 1] - sine[i]) * (p - i);

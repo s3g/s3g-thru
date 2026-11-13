@@ -5,7 +5,7 @@
   <rect width="128" height="64" fill="#050706"/>
   <g shape-rendering="crispEdges" font-family="DejaVu Sans Mono, IBM Plex Mono, monospace" font-size="6" font-style="normal" font-weight="400" text-rendering="geometricPrecision">
     <text x="1" y="5.5" fill="#dce8e1">E16 LINK &lt;&gt;</text>
-    <text x="110" y="5.5" fill="#dce8e1">5/5</text>
+    <text x="110" y="5.5" fill="#dce8e1">5/8</text>
     <text x="1" y="16.5" fill="#dce8e1">STATE          SEARCH</text>
     <text x="1" y="26.5" fill="#dce8e1">LAST             NONE</text>
     <text x="1" y="36.5" fill="#dce8e1">ACK/NACK          0/0</text>

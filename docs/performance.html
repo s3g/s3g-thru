@@ -76,10 +76,12 @@
             <tr><td>5</td><td>MODE</td><td>Replace / Overdub</td><td>Creates a new base performance or adds an undoable take.</td></tr>
             <tr><td>6</td><td>SWNG</td><td>50–75%</td><td>Applies swing to tempo-clocked Cutups.</td></tr>
 
-            <tr><td>7–8</td><td>Reserved</td><td>—</td><td>Inactive and available for future Performance Loop controls.</td></tr>
+            <tr><td>7</td><td>LOOK</td><td>Off / 12ms</td><td>Fade lookahead. Adds about 12 ms to instrument playback so outgoing audio is ready while a clip fade starts. The input monitor keeps its current response. 12ms is the default.</td></tr>
+            <tr><td>8</td><td>Reserved</td><td>—</td><td>Inactive and available for a future Performance Loop control.</td></tr>
           </tbody>
         </table>
 
+        <p>Use <strong>LOOK 12ms</strong> when clip fades need extra startup margin. It applies to live notes, clips and effect changes across all modes, and is saved with the project. New projects and older projects without a saved LOOK setting use 12ms. Saved choices, including Off, are retained. Choose Off for the quickest instrument response. Change it between performances; the selection crossfades briefly, and is held fixed during an active fade. The incoming clip fills its own buffer before the fade begins, so even very short fades retain continuous audio.</p>
         <p>Thru uses its own Tempo setting; it does not follow Move's native transport. The blue-violet Step LED and <code>QUEUED</code> footer identify a pending launch.</p>
 
         <div class="callout"><p><strong>Live multi-instrument mixing:</strong> moving a part level or send, or dual-mode Blend/Curve, overrides that parameter’s recorded curve until playback restarts or another clip launches. Use Overdub to save the new movement. Mute is saved part state rather than a recorded mixer gesture. See <a href="split.html#live-mix">Mix over a playing clip</a>.</p></div>

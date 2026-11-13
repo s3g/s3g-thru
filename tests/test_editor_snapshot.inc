@@ -127,3 +127,42 @@ void testSingleDisplayWindow()
     t->clipPlaying=true;t->clipControls.locus=.12f;t->clipControls.field=.08f;
     window=t->displayWindow();assert(close(window[0],.08f)&&close(window[1],.16f));
 }
+
+void testEditorChunkSnapshots()
+{
+    auto t=splitFixture();t->stopBackgroundWork();
+    std::array<char,16384> full{},chunk{};
+    for(int mode=0;mode<7;++mode) {
+        t->setPerformanceMode(mode);
+        if(t->splitEnabled)t->selectSplitPart(t->partCount()-1);
+        assert(getParam(t.get(),"ui_editor_state",full.data(),full.size())>0);
+        int count=1;std::size_t found=0;
+        for(int index=0;index<count;++index) {
+            const auto key=std::string("ui_editor_chunk:")+std::to_string(index);
+            assert(getParam(t.get(),key.c_str(),chunk.data(),chunk.size())>0);
+            float n=0,owner=0,part=0;
+            assert(jsonNumber(chunk.data(),"chunks",n)&&n>=1&&n<=16);count=int(n);
+            assert(jsonNumber(chunk.data(),"chunk",part)&&part==index);
+            assert(jsonNumber(chunk.data(),"owner",owner)&&owner==mode*4+t->splitFocus);
+            const char* from=std::strstr(chunk.data(),"\"values\":{");assert(from);
+            const char* end=std::strstr(from,"},\"split\"");assert(end);
+            int fields=0;for(auto c=from+10;c<end;++c)if(*c==':')++fields;
+            assert(fields<=64);
+            for(const char* name:kLockParameterKeys) {
+                const auto needle=std::string("\"")+name+"\":";
+                const char* hit=std::strstr(from,needle.c_str());
+                if(!hit||hit>=end)continue;
+                float expected=0,value=0;
+                assert(jsonNumber(full.data(),name,expected)&&jsonNumber(chunk.data(),name,value));
+                assert(value==expected);++found;
+            }
+            std::array<char,8> small{};
+            assert(getParam(t.get(),key.c_str(),small.data(),small.size())==-1);
+        }
+        assert(found==kLockParameterCount);
+        assert(getParam(t.get(),"ui_editor_chunk:15",chunk.data(),chunk.size())==-1);
+    }
+    for(const char* key:{"ui_editor_chunk:","ui_editor_chunk:-1","ui_editor_chunk:1x","ui_editor_chunk:99"})
+        assert(getParam(t.get(),key,chunk.data(),chunk.size())==-1);
+    std::puts("Editor chunks: at most 64 identical-unit scalar values, complete seven-mode coverage, owner tags, bounded buffers and malformed requests: PASS");
+}

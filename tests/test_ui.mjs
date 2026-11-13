@@ -10,7 +10,9 @@ const buttonWrites = [];
 const paramWrites = [];
 const paramReads = [];
 let corruptEditorSnapshot = false;
+let editorChunkFixtures=null;
 let rejectSafetyUndo = false;
+let rejectLookahead = false;
 const blockingWrites = [];
 const drawWrites = [];
 const titleWrites=writes=>writes.filter(write=>write[0]==='print'&&write[2]===0)
@@ -25,10 +27,14 @@ const screenBits=new Uint8Array(128*64),screenText=new Map();
 const screenPixel=(x,y)=>screenBits[y*128+x];
 const forcedPadWrites = [];
 let emulateSharedLedCache = false;
+let emulateLedTransport=null,emulateForceSuppression=false;
 const sharedLedCache = new Map();
 let invalidations = 0;
 let exitCount = 0;
 let waveformReads = 0;
+let emulateSnapshotTransport=false,spiNow=0,snapshotGroupKeys=null;
+const realDateNow=Date.now;
+
 
 globalThis.__moveConstants = {
     MovePads: Array.from({ length: 32 }, (_, i) => 68 + i),
@@ -40,9 +46,10 @@ globalThis.__moveConstants = {
 };
 globalThis.__moveInputFilter = {
     setLED(note, color, force = false) {
-        if (emulateSharedLedCache && !force && sharedLedCache.get(note) === color) return;
+        if (emulateSharedLedCache && (!force||emulateForceSuppression) && sharedLedCache.get(note) === color) return;
         sharedLedCache.set(note,color);
         padWrites.push([note, color]);forcedPadWrites.push([note,color,force]);
+        if(emulateLedTransport)emulateLedTransport.enqueue(note,color);
     },
     invalidateLedCache() { sharedLedCache.clear();invalidations++; },
     setButtonLED(cc, color) { buttonWrites.push([cc, color]); },
@@ -112,7 +119,19 @@ const params = {
 };
 globalThis.host_module_get_param = (key) => {
     paramReads.push(key);
-    if (key === 'ui_editor_state') {
+    if(emulateSnapshotTransport){
+        spiNow+=2.9; // One synchronous read waits for the next audio frame.
+        if(key.startsWith('ui_poll_')){
+            const allowed=snapshotGroupKeys?.[key.slice(8)];
+            return JSON.stringify({v:1,values:Object.fromEntries(Object.entries(params)
+                .filter(([name,value])=>typeof value==='string'&&(!allowed||allowed.includes(name))))});
+        }
+    }
+    if(key.startsWith('ui_editor_chunk:')&&editorChunkFixtures){
+        const part=editorChunkFixtures[Number(key.slice(16))];
+        return typeof part==='string'?part:JSON.stringify(part);
+    }
+    if(key==='ui_editor_state'||key.startsWith('ui_editor_chunk:')) {
         if (corruptEditorSnapshot) return '{truncated';
         const values = Object.fromEntries(Object.entries(globalThis.__testParams || {})
             .filter(([key,p]) => !p.momentary&&!key.startsWith('layers_'))
@@ -123,7 +142,12 @@ globalThis.host_module_get_param = (key) => {
         values.part_mute = split.parts[split.focus]?.mute || 0;
         for (const key of ['pad_octave','record_lane','stack_scan_paused','glitch_buffer_lock'])
             values[key]=Number(params[key] || 0);
-        return JSON.stringify({v:1,values,split,voices:params.voice_algorithms || '-1,-1,-1,-1,-1,-1,-1,-1'});
+        const full={v:1,values,split,voices:params.voice_algorithms||'-1,-1,-1,-1,-1,-1,-1,-1'};
+        if(key==='ui_editor_state')return JSON.stringify(full);
+        const rows=Object.entries(values),chunk=Number(key.slice(16));
+        return JSON.stringify({...full,chunk,chunks:Math.ceil(rows.length/64),
+            owner:values.split_mode*4+split.focus,clip:parseInt(params.clip_bank_state||'0',10),
+            values:Object.fromEntries(rows.slice(chunk*64,(chunk+1)*64))});
     }
     if (key === 'waveforms') waveformReads++;
     if(key==='ui_state') {
@@ -143,6 +167,7 @@ globalThis.host_module_set_param = (key, value) => {
 };
 globalThis.host_module_set_param_blocking = (key, value) => {
     blockingWrites.push([key, value]);
+    if(key==='pattern_fade_lookahead'&&rejectLookahead)return;
     if (Object.hasOwn(params, key)) params[key] = value;
     if (key === 'effect_order') params.effect_order_state = value + ',' + value + ',0';
     if (key === 'clip_playing') {
@@ -205,13 +230,19 @@ globalThis.__testMainEngineControls = MAIN_ENGINE_CONTROLS;
 globalThis.__testLockableParams = Array.from(LOCKABLE_PARAMS);
 globalThis.__testDrawMain = drawMain;
 globalThis.__testRefreshEditor=refreshEditorSnapshot;
+globalThis.__testReadEditor=readEditorSnapshot;
 globalThis.__testClearDisplay=clearDisplay;
 globalThis.__testParseCutups = parseCutupsState;
 globalThis.__testParseUi = parseUiState;
 globalThis.__testParams = PARAMS;
+globalThis.__testUiPolling=uiPolling;
+let testPageBuilds=0;const originalTestPages=parameterPages;
+parameterPages=function(){testPageBuilds++;return originalTestPages();};
+globalThis.__testPageBuildCount=()=>testPageBuilds;
+globalThis.__testRebuildLeds=rebuildLedQueue;
 globalThis.__testPulsar={parse:parsePulsarState,footer:pulsarDurationFooter};
 globalThis.__testSplit = {pages:parameterPages,parse:parseSplitState,keys:activeControlKeys};
-globalThis.__testSequence={model:sequenceUi,read:readSequence,tickGesture:tickSequenceGesture,control:controlForKey,adjust:adjustControl,page:adjustSettingsPage};
+globalThis.__testSequence={model:sequenceUi,read:readSequence,cursor:readSequenceCursor,tickGesture:tickSequenceGesture,control:controlForKey,adjust:adjustControl,page:adjustSettingsPage,drain:drainLedQueue};
 globalThis.__testLayers={model:layersUi,read:readLayers,action:applyMomentaryControl,padNote:padMidiNote,control:controlForKey,gesture:layersCornerGesture,tickGesture:tickLayersCornerGesture,pageSide:layersPageSide,iconStates:iconLedStates,groups:LAYERS_FX_GROUPS,order:LAYERS_FX_ORDER,picker:layersPicker,openPicker:openLayersPicker};
 globalThis.__testResetEncoders = resetParameterEncoderMotion;
 globalThis.__testNextControlValue = nextControlValue;
@@ -843,7 +874,7 @@ for (let tick = 0; tick < 60; tick++) globalThis.tick();
 const reportWrites = drawWrites.slice(helpDrawStart).filter((write) =>
     write[0] === 'print');
 assert(reportWrites.some((write) => String(write[3]).includes('SYSTEM REPORT')));
-assert(hasRightFraction(reportWrites,'1/5'));
+assert(hasRightFraction(reportWrites,'1/8'));
 assert(reportWrites.some((write) => String(write[3]).includes('12.3M us')));
 assert(reportWrites.some((write) => String(write[3]).includes('987.7M')));
 assert(reportWrites.some((write) => String(write[3]).includes('12.3 dB')));
@@ -854,8 +885,8 @@ globalThis.onMidiMessageInternal([0xB0, 63, 127]);
 const callbackDrawStart = drawWrites.length;
 globalThis.tick();
 const callbackRows = drawWrites.slice(callbackDrawStart).filter((write) => write[0] === 'print');
-assert(titleText(callbackRows).includes('CALLBACK WORK <> 2/5'));
-assert(hasRightFraction(callbackRows,'2/5'));
+assert(titleText(callbackRows).includes('CALLBACK WORK <> 2/8'));
+assert(hasRightFraction(callbackRows,'2/8'));
 assert(callbackRows.some((write) => String(write[3]).includes('12345 us')));
 assert(callbackRows.some((write) => String(write[3]).includes('1.2M')));
 assert(callbackRows.every((write) => String(write[3]).length <= 21));
@@ -864,8 +895,8 @@ globalThis.onMidiMessageInternal([0xB0, 63, 127]);
 const timingDrawStart=drawWrites.length;
 for(let n=0;n<65;++n)globalThis.tick();
 const timingRows=drawWrites.slice(timingDrawStart).filter(w=>w[0]==='print');
-assert(titleText(timingRows).includes('RENDER TIMING <> 3/5'));
-assert(hasRightFraction(timingRows,'3/5'));
+assert(titleText(timingRows).includes('RENDER TIMING <> 3/8'));
+assert(hasRightFraction(timingRows,'3/8'));
 assert(timingRows.some(w=>String(w[3]).includes('CPU PEAK')&&String(w[3]).includes('1800 us')));
 assert(timingRows.some(w=>String(w[3]).includes('WAIT PEAK')&&String(w[3]).includes('1504 us')));
 assert(timingRows.every(w=>String(w[3]).length<=21));
@@ -880,15 +911,45 @@ globalThis.onMidiMessageInternal([0xB0, 63, 127]);
 const shortcutDrawStart = drawWrites.length;
 globalThis.tick();
 const shortcutRows=drawWrites.slice(shortcutDrawStart).filter(write=>write[0]==='print');
-assert(titleText(shortcutRows).includes('SHORTCUTS <> 4/5'));
-assert(hasRightFraction(shortcutRows,'4/5'));
+assert(titleText(shortcutRows).includes('SHORTCUTS <> 4/8'));
+assert(hasRightFraction(shortcutRows,'4/8'));
 globalThis.onMidiMessageInternal([0xB0,63,127]);
 const linkDrawStart=drawWrites.length;globalThis.tick();
 const linkRows=drawWrites.slice(linkDrawStart).filter(w=>w[0]==='print');
-assert(titleText(linkRows).includes('E16 LINK <> 5/5'));
-assert(hasRightFraction(linkRows,'5/5'));
+assert(titleText(linkRows).includes('E16 LINK <> 5/8'));
+assert(hasRightFraction(linkRows,'5/8'));
 for(const field of ['STATE','LAST','ACK/NACK','RETRY/RECON','PENDING PX'])assert(linkRows.some(w=>String(w[3]).includes(field)));
 assert(linkRows.every(w=>String(w[3]).length<=21),'E16 diagnostics remain legible');
+assert(blockingWrites.some(([key,value])=>key==='render_profile_enable'&&value==='1'));
+globalThis.onMidiMessageInternal([0xb0,63,127]);
+const uiTimingStart=drawWrites.length;globalThis.tick();
+const uiTimingRows=drawWrites.slice(uiTimingStart).filter(w=>w[0]==='print');
+assert(titleText(uiTimingRows).includes('UI TIMING <> 6/8'));
+for(const field of ['FRAME GAP','QUERY WAIT','GAPS >50MS','STEP JUMPS'])assert(uiTimingRows.some(w=>String(w[3]).includes(field)));
+params.render_profile_state='1,3000,120,280,1600,400,300,300';
+globalThis.onMidiMessageInternal([0xb0,63,127]);
+const renderDetailStart=drawWrites.length;for(let i=0;i<65;++i)globalThis.tick();
+const detailRows=drawWrites.slice(renderDetailStart).filter(w=>w[0]==='print');
+assert(titleText(detailRows).includes('DSP CPU MISS <> 7/8'));
+for(const field of ['JOBS','PREP/SEQ','VOICES','PART MIX','FX','REC/OUT'])assert(detailRows.some(w=>String(w[3]).includes(field)));
+assert(detailRows.every(w=>String(w[3]).length<=21),'DSP phase rows remain readable');
+params.pattern_worker_state='1,1,3400,1100,18,2,25.125,20.4,-10,46.4,2100';
+globalThis.onMidiMessageInternal([0xb0,63,127]);
+const fadeReportStart=drawWrites.length;for(let i=0;i<65;++i)globalThis.tick();
+const fadeReportRows=drawWrites.slice(fadeReportStart).filter(w=>w[0]==='print');
+assert(titleText(fadeReportRows).includes('FADE AUDIO <> 8/8'));
+assert(hasRightFraction(fadeReportRows,'8/8'));
+for(const field of ['WORKER CPU','WALL/WAKE','START/RUN','OUT MISSING','FLUSH/Q'])assert(fadeReportRows.some(w=>String(w[3]).includes(field)));
+assert(fadeReportRows.some(w=>String(w[3]).includes('1100 us')));
+assert(fadeReportRows.some(w=>String(w[3]).includes('3.4/2.1ms')));
+assert(fadeReportRows.some(w=>String(w[3]).includes('18/2')));
+assert(fadeReportRows.some(w=>String(w[3]).includes('25.1 ms')));
+assert(fadeReportRows.some(w=>String(w[3]).includes('ON 20/46ms -10')));
+assert(fadeReportRows.every(w=>String(w[3]).length<=21));
+globalThis.onMidiMessageInternal([0xb0,63,127]);globalThis.tick();
+assert([...screenText.values()].some(w=>String(w[2]).includes('FADE AUDIO')),'Report navigation stops at the last report');
+
+
 globalThis.onMidiMessageInternal([0xB0, 51, 127]);
 assert.equal(exitCount, 0, 'Back closes settings/help before exiting');
 globalThis.onMidiMessageInternal([0xB0, 51, 127]);
@@ -1054,9 +1115,9 @@ fx.state().settingsPage=2;
 const focusReadsBefore=paramReads.length;
 cc(52);cc(52,0);assert.equal(fx.state().splitFocus,1);
 const focusReads=paramReads.slice(focusReadsBefore);
-assert(focusReads.length <= 3,
-    'A/B focus must use one editor snapshot, not read every control: '+focusReads.length+' reads');
-assert.equal(focusReads.filter((key)=>key==='ui_editor_state').length,1);
+assert(focusReads.length<=18&&focusReads.filter(key=>key.startsWith('ui_editor_chunk:')).length>1,
+    'A/B focus uses bounded chunks rather than individual control reads: '+focusReads.length+' reads');
+assert(!focusReads.includes('ui_editor_state'),'focus cannot use the full synchronous query');
 fx.state().settingsPage=3;
 cc(52);cc(52,0);assert.equal(fx.state().splitFocus,0);assert.equal(fx.state().settingsPage,2);
 fx.state().view='settings';globalThis.__testResetEncoders();
@@ -1427,7 +1488,8 @@ fx.state().view='main';
 if(fx.state().splitFocus!==0){cc(52);cc(52,0);}
 let focusDraws=drawWrites.length,focusCalls=paramReads.length;
 cc(52);cc(52,0);
-assert.equal(paramReads.length-focusCalls,1,'focus uses exactly one snapshot read: '+paramReads.slice(focusCalls).join(','));
+assert(paramReads.length-focusCalls>1&&paramReads.length-focusCalls<=16,'focus uses bounded snapshot chunks');
+assert(paramReads.slice(focusCalls).every(key=>key.startsWith('ui_editor_chunk:')),'focus does not read controls individually');
 assert.equal(globalThis.__testParams.locus.value,.83);
 assert.equal(globalThis.__testParams.effect_drive.value,.42);
 assert.equal(globalThis.__testParams.amp_release.value,1234);
@@ -1482,6 +1544,16 @@ cc(52);tapIcon(41);cc(52,0);assert.equal(globalThis.__testSplit.pages()[ui.setti
 cc(52);tapIcon(40);cc(52,0);assert.equal(globalThis.__testSplit.pages()[ui.settingsPage].title,'PERF LOOP');
 tapIcon(55);assert.equal(globalThis.__testSplit.pages()[ui.settingsPage].title,'PATTERN FADE');
 tapIcon(54);assert.equal(globalThis.__testSplit.pages()[ui.settingsPage].title,'PERF LOOP');
+assert.equal(globalThis.__testSplit.pages()[ui.settingsPage].keys[6],'pattern_fade_lookahead');
+assert.deepEqual(globalThis.__testParams.pattern_fade_lookahead.labels,['OFF','12ms']);
+params.pattern_fade_lookahead='0';globalThis.__testParams.pattern_fade_lookahead.value=0;
+globalThis.__testResetEncoders();cc(77,2);
+assert.deepEqual(blockingWrites.at(-1),['pattern_fade_lookahead','1']);
+assert.equal(globalThis.__testParams.pattern_fade_lookahead.value,1);
+params.pattern_fade_lookahead='0';globalThis.__testParams.pattern_fade_lookahead.value=0;rejectLookahead=true;
+globalThis.__testResetEncoders();cc(77,2);
+assert.equal(globalThis.__testParams.pattern_fade_lookahead.value,0);
+assert.equal(ui.actionMessage,'FINISH FADE FIRST');rejectLookahead=false;
 ui.view='main';cc(60);assert(ui.splitEnabled);ui.view='main';
 const pickerFocus=ui.splitFocus;
 cc(52);cc(50);cc(52,0);assert.equal(ui.splitFocus,pickerFocus);
@@ -2781,9 +2853,19 @@ console.log('s3g Thru hub visibility: every entry drawn/selected in five layouts
  assert.equal(P.layers_glide.value,120);assert(Number.isFinite(P.layers_fx1.value));
  assert.deepEqual(tools.pages().find(p=>p.title==='LAYERS').keys,['layers_corner','layers_glide','layers_z_mode','layers_return','layers_fx_x','layers_fx_y',null,'layers_depth']);
  assert.deepEqual(globalThis.__testSplit.keys(),['locus','field','speed','manual_lane','layers_fx_x','layers_fx_y','layers_glide','layers_depth']);
+ // Layers exposes the same eight-entry list while keeping the FX pages separate.
+ P.voice_engine_mode.value=1;P.voice_engine_assign.value=0;state.engineListVoices=true;
+ const layerPages=tools.pages(),listPage=layerPages.find(p=>p.voiceEngines),setupPage=layerPages.find(p=>p.voiceSetup);
+ assert(listPage&&setupPage&&listPage.keys.every(Boolean));
+ assert.equal(layerPages.find(p=>p.title==='PADS & SCALE').keys[6],'voice_engine_mode');
+ assert.equal(layerPages.find(p=>p.title==='PADS & SCALE').keys[7],'voice_engine_order');
+ assert.equal(ui.pageSide(listPage),0);assert.equal(ui.pageSide(setupPage),0);
+ assert.equal(ui.pageSide(layerPages.find(p=>p.title==='FX CORNER')),1);
  let before=drawWrites.length;tools.drawAll();let writes=drawWrites.slice(before);
  assert(writes.some(w=>w[0]==='print'&&String(w[3]).includes('LAYERS')));
  assert(writes.some(w=>w[0]==='print'&&String(w[3]).includes('FX Z')));
+ assert(writes.some(w=>w[0]==='print'&&String(w[3]).includes('LAYERS A LIST')));
+ P.voice_engine_mode.value=0;state.engineListVoices=false;
  for(let lane=0;lane<4;++lane)assert(writes.some(w=>w[0]==='print'&&w[1]===2&&w[2]===11+lane*10&&w[3]===String(lane+1)));
  // Lane display and moving cursors restore cached wave pixels, independently of FX.
  Object.assign(state,{mask:15,lane:2,fieldStart:0,fieldEnd:1,playheads:[.5,-1,-1,-1,-1,-1,-1,-1],stackPositions:[.5,-1,-1,-1,-1,-1,-1,-1]});
@@ -3152,6 +3234,32 @@ console.log('s3g Thru Layers UI: real split-keyboard pitch, normal engine pages,
    'Sequence Release encoder edits its applied time');
  ['amp_attack','amp_decay','amp_sustain','amp_release'].forEach((key,i)=>{globalThis.__testParams[key].value=originalAmp[i];});
  state.view='main';
+ state.settingsPage=0;state.actionMessageTicks=0;state.saveStatus=0;state.savedTicks=0;
+ cc(50);assert.equal(state.view,'settings');
+ assert.equal(tools.pages()[state.settingsPage].title,'SEQ LANE');
+ tools.drawAll();
+ let steadyLaneAt=drawWrites.length;
+ for(let i=0;i<10;++i)tools.drawAll();
+ assert.equal(drawWrites.length,steadyLaneAt,
+   'SEQ LANE leaves the OLED idle while fast playback changes only the pad cursor');
+ state.performanceVisible=true;tools.drawAll();state.performanceVisible=false;
+ steadyLaneAt=drawWrites.length;tools.drawAll();
+ assert(drawWrites.slice(steadyLaneAt).some(w=>w[0]==='clear'),
+   'SEQ LANE repaints when a temporary performance overlay closes');
+ steadyLaneAt=drawWrites.length;
+ const originalRate=globalThis.__testParams.seq_rate.value;
+ globalThis.__testParams.seq_rate.value=6;
+ tools.drawAll();
+ assert(drawWrites.slice(steadyLaneAt).some(w=>w[0]==='print'&&w[3]==='1/32'),
+   'a RATE edit redraws the SEQ LANE value');
+ globalThis.__testParams.seq_rate.value=originalRate;
+ cc(50);assert.equal(state.view,'main');
+ tools.drawAll();
+ cc(50);assert.equal(state.view,'settings');
+ steadyLaneAt=drawWrites.length;tools.drawAll();
+ assert(drawWrites.slice(steadyLaneAt).some(w=>w[0]==='clear'),
+   'reopening SEQ LANE redraws after the Sequence view');
+ state.view='main';
  assert.equal(globalThis.__testParams.seq_gate.shortLabel,'DUR');
  assert.deepEqual(tools.pages().find(p=>p.title==='TRIG').keys.slice(6),['seq_cycle_hit','seq_cycle_every']);
  data.values[39]=2;data.values[40]=3;params.seq_state=JSON.stringify(data);ui.read();
@@ -3201,10 +3309,13 @@ console.log('s3g Thru Layers UI: real split-keyboard pitch, normal engine pages,
  assert(drawWrites.slice(parentMarkerAt).some(w=>w[0]==='rect'&&w[1]===4+Math.round(.65*119)-2&&w[2]===10&&w[3]===5),
    'overview top pointer follows the playing step rather than the step selected for editing');
  data.values[10]=.25;data.steps[0]=[1,.25];params.seq_state=JSON.stringify(data);ui.read();
+ tools.drawAll(); // Settle the static edit before advancing only the voice heads.
  data.heads=[[0,.25,.39,250,12],[0,.5,.57,100,11]];
  params.seq_state=JSON.stringify(data);ui.read();
  let headDraw=drawWrites.length;tools.drawAll();
  const activeDraw=drawWrites.slice(headDraw);
+ assert(!activeDraw.some(w=>w[0]==='clear'),
+   'moving sample readers redraw the waveform without clearing the full OLED');
  assert(activeDraw.some(w=>w[0]==='print'&&String(w[3]).includes('DUR 250ms')),'latest sounding trig duration is shown');
  assert(activeDraw.some(w=>w[0]==='rect'&&w[1]===4+Math.round(.39*119)&&w[2]===11&&w[4]===14),'current sample cursor is drawn');
  assert(activeDraw.some(w=>w[0]==='rect'&&w[1]===4+Math.round(.25*119)-2&&w[2]===27&&w[3]===5),
@@ -3219,6 +3330,55 @@ console.log('s3g Thru Layers UI: real split-keyboard pitch, normal engine pages,
    'wrapped readers do not draw a misleading source-spanning bar');
  data.heads=[];params.seq_state=JSON.stringify(data);ui.read();
  assert.equal(tools.led(24),14,'top-left is step 1 and enabled');assert.equal(tools.led(25),65,'step 2 is inactive');assert.equal(tools.led(27),11,'selected lane playhead');assert.equal(tools.led(0),0,'beyond active length stays dark');
+ // The compact clock readout moves both cursor LEDs immediately, even when
+ // unrelated LED work is queued. Unchanged frames issue no OLED writes.
+ state.saveStatus=0;state.savedTicks=0;state.saveOverlayLast='';
+ tools.drawAll();
+ let quietAt=drawWrites.length;tools.drawAll();
+ assert.equal(drawWrites.length,quietAt,'unchanged Sequence frame does not redraw');
+ const compact=(selected,other)=>[1,0,1,selected,13,4,1,0,other,7,5,1,0,8,11,6,1,0,2,9,4,1,0].join(',');
+ state.ledSent.set('note:'+String(68+27),11);
+ for(let n=100;n<108;++n)state.ledPending.set('cc:'+n,{type:'cc',id:n,color:1,priority:0,order:n});
+ const assertCursorDelivery=(writes,expected,message)=>{
+   assert(writes.length<=3,'cursor delivery has at most three writes');
+   const ids=expected.map(([id])=>id);
+   assert.deepEqual(writes.filter(([id])=>ids.includes(id)),expected,message);
+   assert(writes.filter(([id])=>!ids.includes(id)).every(([,color])=>color!==11),
+     'any extra repair restores an older pad without making another green cursor');
+ };
+ const cursorWrites=padWrites.length;
+ params.seq_cursor_state=compact(4,6);ui.cursor();
+ assertCursorDelivery(padWrites.slice(cursorWrites),[[68+27,14],[68+28,11]],
+   'old step restores its trig color and the new step turns green in one update');
+ for(let n=100;n<108;++n)state.ledPending.delete('cc:'+n);
+ tools.drawAll();quietAt=drawWrites.length;tools.drawAll();
+ assert.equal(drawWrites.length,quietAt,'steady cursor does not redraw');
+ params.seq_cursor_state=compact(4,1);ui.cursor();
+ const otherLaneAt=drawWrites.length;tools.drawAll();
+ assert(!drawWrites.slice(otherLaneAt).some(w=>w[0]==='clear'||w[0]==='rect'&&w[2]===9&&w[4]===20),
+   'another lane cursor changes only the compact overview');
+ params.seq_cursor_state=compact(5,1);ui.cursor();
+ const selectedLaneAt=drawWrites.length;tools.drawAll();
+ assert(drawWrites.slice(selectedLaneAt).some(w=>w[0]==='rect'&&w[2]===9&&w[4]===20)
+   &&!drawWrites.slice(selectedLaneAt).some(w=>w[0]==='clear'),
+   'selected cursor refreshes the waveform region without clearing the screen');
+ // A periodic full snapshot may lag behind the compact cursor. It must not
+ // move the green pad backwards or hide where the last LED actually was.
+ const staleSequence=JSON.parse(JSON.stringify(data));
+ staleSequence.lanes[0][0]=4;staleSequence.playing=1;
+ params.seq_state=JSON.stringify(staleSequence);
+ let stableWrites=padWrites.length;ui.read(true);
+ assert.equal(padWrites.length,stableWrites,'routine full snapshot does not move the cursor LED');
+ params.seq_cursor_state=compact(6,1);ui.cursor();
+ assertCursorDelivery(padWrites.slice(stableWrites),
+   [[68+29,tools.led(29)],[68+30,11]],'compact clock restores the actual old pad and lights the next one');
+ staleSequence.lanes[0][0]=7;params.seq_state=JSON.stringify(staleSequence);
+ stableWrites=padWrites.length;ui.read(true);
+ params.seq_cursor_state=compact(7,1);ui.cursor();
+ assertCursorDelivery(padWrites.slice(stableWrites),
+   [[68+30,tools.led(30)],[68+31,11]],'unchanged compact frame still reconciles the physical LED');
+ params.seq_state=JSON.stringify(data);ui.read();delete params.seq_cursor_state;
+
  let before=blockingWrites.length;note(92);note(92,0);
  assert(!blockingWrites.slice(before).some(([key])=>key==='seq_hold'),'tap does not enter editor');
  note(92);ui.model.downAt=Date.now()-301;ui.tickGesture();
@@ -3265,4 +3425,211 @@ console.log('s3g Thru Layers UI: real split-keyboard pitch, normal engine pages,
  if(fixture){params.ui_editor_state=JSON.stringify(fixture.editor);params.seq_state=JSON.stringify(native);ui.read();assert(ui.model.active);}
  delete params.seq_state;ui.model.active=false;ui.model.pad=-1;state.recording=false;state.view='main';
  console.log('s3g Thru Sequence UI: native snapshot, top-left step grid, playhead/dark tail, momentary trig editor, waveform markers, inherited locks, pitch display, recording focus and Copy/Paste: PASS');
+}
+
+{
+ const ps=globalThis.__testParams;
+ const state=globalThis.__testFx.state();
+ const full=JSON.parse(globalThis.host_module_get_param('ui_editor_state'));
+ const rows=Object.entries(full.values),count=Math.ceil(rows.length/64);
+ const owner=full.values.split_mode*4+full.split.focus;
+ const locusChunk=Math.floor(rows.findIndex(([key])=>key==='locus')/64);
+ const chunks=Array.from({length:count},(_,chunk)=>({...full,chunk,chunks:count,owner,clip:0,
+   values:Object.fromEntries(rows.slice(chunk*64,(chunk+1)*64))}));
+ editorChunkFixtures=chunks;
+ const before=paramReads.length;
+ assert.deepEqual(globalThis.__testReadEditor().values,full.values);
+ assert.equal(paramReads.slice(before).filter(k=>k==='ui_editor_state').length,0);
+ assert.equal(paramReads.slice(before).filter(k=>k.startsWith('ui_editor_chunk:')).length,count);
+ // Never apply part of an editor refresh when ownership changes or a later
+ // response is corrupt, missing a required parameter, or out of order.
+ const priorLocus=ps.locus.value,failureReads=paramReads.length;
+ for(const failure of ['owner','clip','order','truncated','missing','empty']){
+   editorChunkFixtures=structuredClone(chunks);
+   editorChunkFixtures[locusChunk].values.locus=.77;
+   if(failure==='owner')editorChunkFixtures[count-1].owner++;
+   if(failure==='empty')editorChunkFixtures[0]='';
+   if(failure==='clip')editorChunkFixtures[count-1].clip++;
+   if(failure==='order')editorChunkFixtures[1].chunk++;
+   if(failure==='truncated')editorChunkFixtures[count-1]='{bad';
+   if(failure==='missing')delete editorChunkFixtures[locusChunk].values.locus;
+   assert.equal(globalThis.__testRefreshEditor(false),false,failure);
+   assert.equal(ps.locus.value,priorLocus,failure+' must not apply partial values');
+ }
+ assert(!paramReads.slice(failureReads).includes('ui_editor_state'),'empty/corrupt reads cannot enable the heavy query');
+ editorChunkFixtures=chunks;assert.equal(globalThis.__testRefreshEditor(false),true);
+ if(process.env.S3G_THRU_SEQUENCE_FIXTURE){
+   const native=JSON.parse(fs.readFileSync(process.env.S3G_THRU_SEQUENCE_FIXTURE,'utf8'));
+   assert(native.chunks?.length>1);
+   editorChunkFixtures=native.chunks;
+   const restored=globalThis.__testReadEditor();
+   assert.deepEqual(restored.values,native.editor.values);
+   assert.deepEqual(restored.split,native.editor.split);
+   assert.equal(restored.voices,native.editor.voices);
+ }
+ editorChunkFixtures=null;state.editorReady=true;
+ console.log('s3g Thru bounded editor refresh: complete native values/units, 64-value chunks, no full query, rejected ownership changes, corruption and partial responses: PASS');
+}
+
+{
+ const tools=globalThis.__testTools,ui=globalThis.__testSequence,state=globalThis.__testFx.state();
+ const transport=globalThis.__testUiPolling;
+ const fixture=process.env.S3G_THRU_SEQUENCE_FIXTURE?JSON.parse(fs.readFileSync(process.env.S3G_THRU_SEQUENCE_FIXTURE,'utf8')):null;
+ if(fixture?.poll){
+   snapshotGroupKeys=Object.fromEntries(Object.entries(fixture.poll).map(([key,snapshot])=>[key,Object.keys(snapshot.values)]));
+   for(const snapshot of Object.values(fixture.poll)){
+     assert.equal(snapshot.v,1);assert(Object.values(snapshot.values).every(v=>typeof v==='string'));
+   }
+   const fast=fixture.poll.fast.values;
+   const nativeSequence=JSON.parse(fixture.poll.sequence.values.seq_state);
+   assert.equal(fast.seq_cursor_state.split(',')[1],String(nativeSequence.edit));
+   assert.equal(fast.seq_cursor_state.split(',')[3],String(nativeSequence.lanes[0][0]));
+ }
+ const d={active:1,edit:0,rec:0,step:0,held:-1,child:0,root:60,mask:0,length:16,playing:1,
+   lanes:[[0,16,6,1,0],[-1,16,4,0,0],[-1,16,4,0,0],[-1,16,4,0,0]],
+   steps:Array.from({length:32},()=>[1,.25]),values:[16,6,0,1,0,100,.8,0,1,0,.25,0,100,.8,0,1,1,0,4]};
+ params.seq_state=JSON.stringify(d);params.split_mode='6';ui.read();
+ Object.assign(state,{splitEnabled:true,quadMode:true,bankMode:false,sharedDual:false,
+   splitFocus:0,editorReady:true,view:'main',settingsPage:0,performanceVisible:false,
+   actionMessageTicks:0,saveStatus:0,savedTicks:0,shiftHeld:false,focusButtonHeld:false});
+ // Stop unrelated fixture data from switching away from Sequence during a poll.
+ params.split_state=JSON.stringify({enabled:1,quad:1,focus:0,shared:0,bank:0,blend:.5,
+   parts:Array.from({length:4},()=>({root:60,octave:0,scale:0,mode:0,mute:0}))});
+ delete params.layers_view;params.layers_view='{"active":0}';
+ transport.supported=null;transport.lastFrame=-Infinity;transport.cache.clear();transport.job=0;
+ transport.editorPending=false;
+ emulateSnapshotTransport=true;spiNow=100000;Date.now=()=>Math.floor(spiNow);
+ let largestGap=0,largestNormalGap=0,lastFrame=spiNow,frames=0,largestReads=0,lastPad=-1,largestReadKeys=[],editorFrames=0;
+ const frameTimes=[],nativeReads=paramReads.length;
+ for(let i=0;i<1400;++i){
+   spiNow+=2; // Schwung 1.7.3 overtake host calls tick at up to 500 Hz.
+   const step=Math.floor((spiNow-100000)/(60000/102/8))%16;
+   const compact=[1,0,1,step,16,6,1,0,-1,16,4,0,0,-1,16,4,0,0,-1,16,4,0,0].join(',');
+   params.seq_cursor_state=compact;
+   if(i===150||i===900)globalThis.onMidiMessageInternal([0xb0,50,127]);
+   if(i===151||i===901)globalThis.onMidiMessageInternal([0xb0,50,0]);
+   const beforeTicks=state.ticks,beforeReads=paramReads.length;
+   globalThis.tick();
+   const readKeys=paramReads.slice(beforeReads),reads=readKeys.length;
+   const editorFrame=readKeys.some(key=>key.startsWith('ui_editor_chunk:'));
+   if(editorFrame){
+     editorFrames++;
+     assert(reads<=17&&readKeys.every(key=>key==='ui_poll_fast'||key.startsWith('ui_editor_chunk:')),
+       'editor recovery uses one bounded set of chunks, without scalar sweeps');
+   }else if(reads>largestReads){largestReads=reads;largestReadKeys=readKeys;}
+   if(state.ticks!==beforeTicks){
+     const gap=spiNow-lastFrame;largestGap=Math.max(largestGap,gap);
+     if(!editorFrame)largestNormalGap=Math.max(largestNormalGap,gap);
+     lastFrame=spiNow;frames++;frameTimes.push(spiNow);
+     const lit=ui.model.cursorLedPad;
+     if(lit!==lastPad){assert.equal(lit,(3-Math.floor(step/8))*8+step%8);lastPad=lit;}
+   }
+ }
+ assert(frames>150&&frames<350,'elapsed time caps the 500 Hz host to about 60 UI frames/sec');
+ assert(largestReads<=2,'normal Sequence tick uses at most two host query exchanges: '+largestReadKeys.join(','));
+ assert(largestNormalGap<35,'ordinary menu frames cannot introduce a serial sweep');
+ assert(largestGap<35,'a complete bounded editor refresh stays within the cursor frame budget');
+ assert(paramReads.slice(nativeReads).filter(k=>!k.startsWith('ui_poll_')&&!k.startsWith('ui_editor_chunk:')).length<10,
+   'regular menu and status reads consume the snapshot cache rather than host round trips');
+ assert.equal(transport.supported,true);
+ // A fast editor refresh must not rebuild all menu pages for every clip LED.
+ // This exercises the actual full queue with all 32 pads and 16 clip buttons.
+ state.view='settings';state.settingsPage=0;
+ let pageBuilds=globalThis.__testPageBuildCount();
+ globalThis.__testRebuildLeds();
+ assert(globalThis.__testPageBuildCount()-pageBuilds<=2,
+   'one LED refresh resolves its menu once rather than per clip button');
+ pageBuilds=globalThis.__testPageBuildCount();
+ for(const key of ['seq_pos','seq_length','seq_rate','seq_vel','tempo_bpm','speed'])ui.control(key);
+ assert.equal(globalThis.__testPageBuildCount(),pageBuilds,
+   'ordinary control values do not resolve channel-strip pages');
+ // Even the context check of a skipped 500 Hz host tick must be cheap.
+ transport.lastFrame=Math.floor(spiNow);
+ pageBuilds=globalThis.__testPageBuildCount();
+ const skippedReads=paramReads.length,skippedTicks=state.ticks;
+ for(let i=0;i<7;++i){spiNow+=2;globalThis.tick();}
+ assert.equal(state.ticks,skippedTicks,'intermediate host ticks do not advance the UI');
+ assert.equal(paramReads.length,skippedReads,'intermediate ticks do not query DSP');
+ assert.equal(globalThis.__testPageBuildCount(),pageBuilds,
+   'intermediate ticks must not rebuild menu layouts before the frame gate');
+ // Negative control: the former serial poll must reproduce a gap larger
+ // than one 1/32 step under exactly the same simulated host exchange.
+ transport.supported=false;state.view='settings';state.settingsPage=0;
+ let serialGap=0;
+ for(let i=0;i<30;++i){spiNow+=20;const before=spiNow;globalThis.tick();serialGap=Math.max(serialGap,spiNow-before);}
+ Date.now=realDateNow;emulateSnapshotTransport=false;snapshotGroupKeys=null;
+ assert(serialGap>80,'the transport regression detects the former serial-query stall');
+ console.log('s3g Thru Schwung 1.7.3 transport: 500 Hz ticks, 2.9 ms synchronous reads, Menu open/close and 1/32 cursor: PASS ('+frames+' frames, max gap '+largestGap.toFixed(1)+' ms; former serial poll '+serialGap.toFixed(1)+' ms)');
+}
+
+{
+ const tools=globalThis.__testTools,ui=globalThis.__testSequence,state=globalThis.__testFx.state();
+ const run=(rate,span,ignoreForce)=>{
+   const d={active:1,edit:0,rec:0,step:0,held:-1,child:0,root:60,mask:0,length:16,playing:1,
+     lanes:[[-1,16,rate,1,0],[-1,16,4,0,0],[-1,16,4,0,0],[-1,16,4,0,0]],
+     steps:Array.from({length:32},()=>[1,.25]),values:[16,rate,0,1,0,100,.8,0,1,0,.25,0,100,.8,0,1,1,0,4]};
+   ui.model.active=true;ui.model.data=d;ui.model.cursorLedPad=-1;
+   ui.model.cursorLedRefresh=-Infinity;ui.model.cursorRestores.clear();
+   Object.assign(state,{view:'main',splitEnabled:true,quadMode:true,bankMode:false,performanceVisible:false});
+   state.ledPending.clear();state.ledSent.clear();sharedLedCache.clear();
+   const hardware=new Map(),queue=new Map(),greenAttempts=new Set(),restoreFailures=new Map();
+   const desiredEnds=new Map(),seen=new Set();
+   const stepMs=60000/102*span,origin=200000,steps=64;
+   const padFor=step=>(3-Math.floor(step/8))*8+step%8;
+   for(let pad=0;pad<32;++pad){
+     const note=68+pad,color=tools.led(pad);
+     hardware.set(note,color);sharedLedCache.set(note,color);state.ledSent.set('note:'+note,color);
+   }
+   let now=origin,ordinal=0,lastOrdinal=0,maxCursorPackets=0,maxOldGreenMs=0,drops=0;
+   Date.now=()=>Math.floor(now);emulateSharedLedCache=true;emulateForceSuppression=ignoreForce;
+   emulateLedTransport={enqueue(note,color){queue.set(note,{note,color,ordinal});}};
+   // Reproduce Schwung 1.7.3: coalesce by note, flush at most 16, delete
+   // entries even when the underlying hardware-output queue refuses them.
+   const flush=()=>{
+     for(const note of [...queue.keys()].sort((a,b)=>a-b).slice(0,16)){
+       const packet=queue.get(note);queue.delete(note);
+       if(packet.color===11&&!greenAttempts.has(packet.ordinal)){
+         greenAttempts.add(packet.ordinal);drops++;continue;
+       }
+       if(packet.color!==11&&hardware.get(note)===11&&(restoreFailures.get(note)||0)>0){
+         restoreFailures.set(note,restoreFailures.get(note)-1);drops++;continue;
+       }
+       if(packet.color===11&&hardware.get(note)!==11)restoreFailures.set(note,2);
+       hardware.set(note,packet.color);
+     }
+   };
+   const frame=(playing=true)=>{
+     const row=ordinal%16;
+     params.seq_cursor_state=[1,0,playing?1:0,row,16,rate,1,0,-1,16,4,0,0,-1,16,4,0,0,-1,16,4,0,0].join(',');
+     const before=padWrites.length;ui.cursor();
+     maxCursorPackets=Math.max(maxCursorPackets,padWrites.length-before);
+     ui.drain();
+   };
+   for(let elapsed=0;elapsed<stepMs*steps;elapsed+=2){
+     now=origin+elapsed;ordinal=Math.floor(elapsed/stepMs);
+     if(ordinal!==lastOrdinal){desiredEnds.set(68+padFor(lastOrdinal%16),origin+ordinal*stepMs);lastOrdinal=ordinal;}
+     if(elapsed%16===0)frame();
+     flush();
+     const expected=68+padFor(ordinal%16);
+     if(hardware.get(expected)===11)seen.add(ordinal);
+     for(const [note,color] of hardware)if(color===11&&note!==expected&&desiredEnds.has(note))
+       maxOldGreenMs=Math.max(maxOldGreenMs,now-desiredEnds.get(note));
+   }
+   // Stop must also retry clears after the accepted write was dropped.
+   ordinal=steps;
+   for(let elapsed=0;elapsed<750;elapsed+=2){now=origin+stepMs*steps+elapsed;if(elapsed%16===0)frame(false);flush();}
+   const stuck=[...hardware.values()].filter(color=>color===11).length;
+   Date.now=realDateNow;emulateLedTransport=null;emulateForceSuppression=false;
+   assert(maxCursorPackets<=3,'cursor reconciliation stays within its packet budget');
+   assert(drops>=steps,'test actually refuses accepted green LED packets');
+   return {missed:steps-seen.size,stuck,maxOldGreenMs,drops};
+ };
+ for(const [rate,span,name] of [[4,.25,'1/16'],[6,.125,'1/32'],[8,.0625,'1/64']]){
+   const repaired=run(rate,span,false),cached=run(rate,span,true);
+   assert.equal(repaired.missed,0,name+': every green step reaches hardware after its first packet is refused');
+   assert.equal(repaired.stuck,0,name+': stopped transport leaves no green pads');
+   assert(repaired.maxOldGreenMs<130,name+': repeated old-pad refusals recover promptly');
+   assert(cached.missed>32,name+': cache-only delivery reproduces the skipped LED failure');
+   console.log('s3g Thru LED delivery '+name+': accepted-then-dropped green and restore writes, both caches, hardware queue and Stop: PASS ('+repaired.drops+' refusals; '+repaired.missed+' missed steps vs '+cached.missed+' without forced retry)');
+ }
 }

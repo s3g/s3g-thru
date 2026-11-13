@@ -38,8 +38,48 @@ void waitForTestBackground(ThruInstance& instance, bool metadata)
     assert(false);
 }
 
+void testFrozenPersistentState()
+{
+    auto instance=std::make_unique<ThruInstance>();
+    assert(instance->prepare(nullptr));
+    instance->stopBackgroundWork();
+    std::array<char,kStateTextSize> expected {},saved {};
+    for(int mode=0;mode<=6;++mode) {
+        instance->setPerformanceMode(mode);
+        instance->controls.locus=.1875f;
+        instance->controls.effectDrive=.25f;
+        instance->rootNote=67;instance->padOctave=-1;
+        instance->tempoBpm=137.75f;instance->midiNoteChannel=12;
+        instance->patternFadeMs=27123;instance->patternCurve=3;instance->patternLookahead=1;
+        instance->splitParts[3].controls.speed=1.25f;
+        instance->splitParts[3].settings.root=71;
+        instance->layersLive.values[9]=.375f;
+        instance->nextCaptureId=0x123456789abcdefull;
+        instance->persistenceGeneration=0x11223344556677ull;
+        const int size=instance->serializeState(expected.data(),expected.size());
+        assert(size>0);
+        ThruInstance::PersistentStateSnapshot snapshot;
+        snapshot.capture(*instance);
+        // Nothing on the worker may consult a live control, part, mode or ID.
+        instance->controls.locus=.8125f;instance->controls.effectDrive=.75f;
+        instance->rootNote=60;instance->padOctave=2;
+        instance->tempoBpm=82;instance->midiNoteChannel=4;
+        instance->patternFadeMs=500;instance->patternCurve=1;instance->patternLookahead=0;
+        instance->splitParts[3].controls.speed=.75f;
+        instance->splitParts[3].settings.root=49;
+        instance->layersLive.values[9]=.625f;
+        instance->nextCaptureId=17;instance->persistenceGeneration=8;
+        instance->setPerformanceMode(mode==6?0:6);
+        assert(snapshot.serializeState(saved.data(),saved.size())==size);
+        assert(std::strcmp(expected.data(),saved.data())==0);
+        assert(snapshot.serializeState(saved.data(),8)==-1);
+    }
+    std::puts("Frozen metadata: all seven modes retain exact state after live control/part/mode edits, including 64-bit capture IDs: PASS");
+}
+
 void testBoundedBackgroundPersistence()
 {
+    testFrozenPersistentState();
     char path[] = "/tmp/thru-background-save.XXXXXX";
     assert(mkdtemp(path));
     auto instance = std::make_unique<ThruInstance>();
@@ -75,6 +115,10 @@ void testBoundedBackgroundPersistence()
     }
     assert(instance->persistenceJob.load() == ThruInstance::backgroundRequested);
     assert(instance->persistenceCopyOffset == sizeof(instance->clipSlots)+sizeof(instance->chainBanks));
+    assert(instance->persistenceSnapshot->json[0]==0);
+    assert(instance->persistenceSnapshot->state.controls.effectDrive==.25f);
+    // Text formatting must wait for the worker, alongside file I/O. The
+    // existing restore check below also verifies this frozen metadata image.
 
     // The worker must save only its published image, even if live data is
     // edited before it begins. Its acknowledgement cannot clear newer edits.

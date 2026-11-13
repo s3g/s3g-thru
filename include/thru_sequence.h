@@ -96,7 +96,8 @@ struct EventList {
   bool overflow = false;
 };
 inline void schedule(const Pattern &pattern, double start, double increment,
-                     int frames, EventList &out) {
+                     int frames, EventList &out,
+                     std::array<double, lanes> beatOffsets = {}) {
   out.size = 0;
   out.overflow = false;
   for (int t = 0; t < lanes; ++t) {
@@ -104,9 +105,10 @@ inline void schedule(const Pattern &pattern, double start, double increment,
     if (!track.enabled)
       continue;
     const double span = rates[track.rate];
-    const auto first = std::int64_t(std::floor(start / span)) - 2;
+    const double localStart = start + beatOffsets[t];
+    const auto first = std::int64_t(std::floor(localStart / span)) - 2;
     const auto last =
-        std::int64_t(std::ceil((start + frames * increment) / span)) + 1;
+        std::int64_t(std::ceil((localStart + frames * increment) / span)) + 1;
     for (auto n = std::max<std::int64_t>(0, first); n <= last; ++n) {
       const int row = int((n + track.rotation) % track.length);
       const auto &step = track.trigs[row];
@@ -121,7 +123,7 @@ inline void schedule(const Pattern &pattern, double start, double increment,
       for (int c = 0; c < step.count; ++c) {
         const double authored = (n + step.micro + step.events[c].when) * span;
         const double onset = n == 0 ? std::max(0.0, authored) : authored;
-        const double relative = (onset - start) / increment;
+        const double relative = (onset - localStart) / increment;
         if (relative < -1 || relative > frames + 1)
           continue;
         const int offset = int(std::floor(relative + .5 + 1e-7));

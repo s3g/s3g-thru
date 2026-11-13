@@ -1,9 +1,11 @@
 // Include the real module so its pre-compressor effects and preview routing
 // can be measured without exposing test hooks in the device ABI.
 #define S3G_THRU_STORAGE_TESTING 1
+#define S3G_THRU_FADE_TESTING 1
 #include "../src/dsp/thru_module.cpp"
 #include <filesystem>
 #include <chrono>
+#include <thread>
 #include <fstream>
 #include <cassert>
 #include <string>
@@ -275,8 +277,10 @@ void testTapeGestureDuration()
 
 void testPreviewIsolation()
 {
+    for(bool lookahead:{false,true}) {
     auto instance = std::make_unique<ThruInstance>();
     assert(instance->prepare(nullptr));
+    if(!lookahead)setParam(instance.get(),"pattern_fade_lookahead","0");
     instance->controls.algorithm = Engine::PlaybackAlgorithm::sample;
     instance->controls.sampleMode = Engine::SampleMode::loop;
     for (std::size_t channel = 0u; channel < 2u; ++channel)
@@ -299,12 +303,19 @@ void testPreviewIsolation()
     assert(std::abs(before - performance - 0.2f) < 0.0001f);
     // This synchronous replacement path executes before any file decoding.
     instance->requestLibrarySample(0u, "/tmp/thru-test-missing-preview.wav", false, -1, true);
+    // Compare at the same audible instant: lastVoiceMixSample is pre-delay,
+    // while voiceMix contains the selected lookahead's pending output.
+    std::size_t pending=lookahead?instance->fadeLookahead.frames():0;
+    while(pending){const auto count=std::min<std::size_t>(pending,kBlockFrames);
+        instance->render(output.data(),static_cast<int>(count));pending-=count;}
     instance->render(output.data(), kBlockFrames);
     assert(std::abs(instance->voiceMix[0u][0u] - before) < 0.0001f);
     instance->render(output.data(), kBlockFrames);
     instance->render(output.data(), kBlockFrames);
     assert(std::abs(instance->lastVoiceMixSample[0u] - performance) < 0.0001f);
     assert(instance->lastPreviewSample[0u] == 0.0f);
+    }
+    std::puts("Preview isolation: replacement retains the performance bus and preview tail at matching Off/12ms audible times: PASS");
 }
 #include "test_tape_alignment.inc"
 #include "test_background.inc"
@@ -345,10 +356,23 @@ void testPreviewIsolation()
 #include "test_pulsar_mod.inc"
 #include "test_layers.inc"
 #include "test_sequence.inc"
+#include "test_drive.inc"
+#include "test_fade_lookahead.inc"
 } // namespace
 
 int main(int argc,char** argv)
 {
+    testDriveFilterAndIdleContinuity();
+    testFadeLookahead();
+    if(argc==2 && std::strcmp(argv[1],"--lookahead")==0)return 0;
+    if(argc==2 && std::strcmp(argv[1],"--preview")==0){testPreviewIsolation();return 0;}
+    if(argc==2 && std::strcmp(argv[1],"--drive")==0)return 0;
+    if(argc==2 && std::strcmp(argv[1],"--mode-cost")==0){testLayersSequenceModeCostIsolation();return 0;}
+    if(argc==2 && std::strcmp(argv[1],"--fade-boundary")==0){testLayersSequenceModeCostIsolation();testPatternFadeChunkBoundary();testPatternFadePublication();return 0;}
+    if(argc==2 && std::strcmp(argv[1],"--fade-handoff")==0){testLayersSequenceModeCostIsolation();testPatternFadeChunkBoundary();testPatternFadePublication();testPatternSchedulerReserve();testPatternBoundaryLaunchBudget();testPatternEarlyWorkerHandoff();testPatternWorkerFloatAndReport();testPatternCompactSnapshotAndRackSwap();testPatternWorkerSignal();testPatternVoiceBankHandoff();testPatternFadePlaybackAndHeldMidpoint();testManualPatternCrossfader();return 0;}
+    if(argc==2 && std::strcmp(argv[1],"--editor-chunks")==0){testEditorChunkSnapshots();return 0;}
+    if(argc==2 && std::strcmp(argv[1],"--sequence-budget")==0){testSequenceCallbackWorkBudget();return 0;}
+    if(argc==2 && std::strcmp(argv[1],"--sequence-poll")==0){testSequencePollSnapshots();return 0;}
     if(argc==2 && std::strcmp(argv[1],"--sequence")==0){testSequence();return 0;}
     if(argc==2 && std::strcmp(argv[1],"--layers")==0){testLayers();testPatternFadePlaybackAndHeldMidpoint();testManualPatternCrossfader();return 0;}
     testSequence();
@@ -462,7 +486,7 @@ int main(int argc,char** argv)
     testPatternFadeUnderrunBridge();
     testPatternFadeAudioAndReleases();
     testPatternFadeCurvesAndRecall();
-    testPatternFadePlaybackAndHeldMidpoint();
+    testLayersSequenceModeCostIsolation();testPatternFadeChunkBoundary();testPatternFadePublication();testPatternSchedulerReserve();testPatternBoundaryLaunchBudget();testPatternEarlyWorkerHandoff();testPatternWorkerFloatAndReport();testPatternCompactSnapshotAndRackSwap();testPatternWorkerSignal();testPatternVoiceBankHandoff();testPatternFadePlaybackAndHeldMidpoint();
     testAuthoredPathTakeUndoAfterReload();
     testAuthoredPathsStayWithTheirPart();
     testAuthoredPathMath();
@@ -487,7 +511,7 @@ int main(int argc,char** argv)
     testPreviewRoutesAndTransitions();
     testMixReadouts();
     testSaveStatusAndRecovery();
-    testEditorSnapshot();
+    testEditorSnapshot();testEditorChunkSnapshots();
     testSplitDisplayWindows();
     testSingleDisplayWindow();
     testSplitMuteRecovery();

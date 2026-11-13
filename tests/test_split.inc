@@ -1,8 +1,11 @@
 // Exercise the real mixer, allocation, recording and state paths together.
-std::unique_ptr<ThruInstance> splitFixture()
+std::unique_ptr<ThruInstance> splitFixture(bool lowLatency = true)
 {
     auto t=std::make_unique<ThruInstance>();
     assert(t->prepare(nullptr));
+    // Keep existing zero-latency DSP golden tests explicit. Tests of the
+    // production default use splitFixture(false) or a fresh bare instance.
+    if(lowLatency)setParam(t.get(),"pattern_fade_lookahead","0");
     for(std::size_t lane=0;lane<4;++lane) {
         for(std::size_t channel=0;channel<2;++channel)
             for(std::size_t f=0;f<8192;++f)

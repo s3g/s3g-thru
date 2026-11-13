@@ -32,7 +32,7 @@
             }
             return degree%cap;
         }
-        const int rows=isQuad()?2:4,columns=splitEnabled?4:8;
+        const int rows=isQuad()?2:4,columns=splitEnabled||layersLive.active?4:8;
         const int origin=(!splitEnabled&&owner.scale==0?kPadBaseNote:owner.root-12)+owner.octave*12;
         const int low=clampValue(origin,0,127);
         const int degree=(rows-1)*3+columns-1;

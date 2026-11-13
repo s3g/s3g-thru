@@ -1602,6 +1602,81 @@ void testLayersRhythmArtifacts() {
             "Rerun alias rejection at 44.1/48 kHz: PASS");
 }
 
+void testLayersEngineList() {
+  auto t = layersFixture();
+  setParam(t.get(), "voice_engine_mode", "1");
+  assert(t->voiceEngineSettings.enabled && t->engineSlotCount() == 8);
+  setListSlot(*t, 0, 4); // Sample
+  setListSlot(*t, 1, 2); // Grains
+  setParam(t.get(), "voice_engine_order", "0");
+  t->padNoteOn(68, 100);
+  t->padNoteOn(69, 100);
+  int held = 0;
+  for (auto &v : t->voices)
+    if (v.held) {
+      assert(v.part == 0 && v.engine.loadedLaneMask() == 15u);
+      assert(v.assignedAlgorithm == (v.engineSlot == 0 ? 4 : 2));
+      assert(static_cast<int>(t->effectiveControls(v).algorithm) ==
+             v.assignedAlgorithm);
+      ++held;
+    }
+  assert(held == 2);
+  renderSplit(*t, 8);
+  for (auto &v : t->voices)
+    if (v.held)
+      assert(static_cast<int>(v.engine.playbackAlgorithm()) ==
+             v.assignedAlgorithm);
+  t->padNoteOn(68 + 31, 100); // Right FX pad changes no source ownership.
+  assert(std::count_if(t->voices.begin(), t->voices.end(),
+                       [](auto &v) { return v.held; }) == 2);
+  renderSplit(*t, 8);
+  t->padNoteOff(68 + 31);
+  setListSlot(*t, 0, 3);
+  for (auto &v : t->voices)
+    if (v.held && v.engineSlot == 0)
+      assert(v.assignedAlgorithm == 4);
+  t->padNoteOff(68);
+  t->padNoteOff(69);
+  t->padNoteOn(68, 100);
+  assert(newestVoice(*t, 0).assignedAlgorithm == 3);
+  t->padNoteOff(68);
+  t->setPerformanceMode(0);
+  assert(t->voiceEngineSettings.enabled);
+  t->setPerformanceMode(5);
+  assert(t->voiceEngineSettings.enabled && t->voiceEngineSettings.engines[0] == 3);
+  setListSlot(*t, 0, 4);
+  setListSlot(*t, 1, 2);
+  t->padNoteOn(68, 100);
+  t->beginClipRecording();
+  renderSplit(*t, 5);
+  t->padNoteOn(69, 100);
+  renderSplit(*t, 5);
+  t->padNoteOff(68);
+  t->padNoteOff(69);
+  t->finishClipRecording();
+  const auto *clip = t->activeClipSlot();
+  assert(clip && clip->clipNoteCount >= 2 && clip->singleSettings.engines.enabled);
+  bool sample = false, grains = false;
+  for (int i = 0; i < clip->clipNoteCount; ++i) {
+    const auto &note = clip->clipNotes[i];
+    sample |= note.engineSlot == 0 && note.engineAlgorithm == 4;
+    grains |= note.engineSlot == 1 && note.engineAlgorithm == 2;
+  }
+  assert(sample && grains);
+  t->releaseClipVoices();
+  t->triggerClipVoice(*clip, 0);
+  assert(std::any_of(t->voices.begin(), t->voices.end(),
+                     [](auto &v) { return v.active && v.clipOwned &&
+                                            v.assignedAlgorithm >= 0; }));
+  t->releaseClipVoices();
+  setParam(t.get(), "voice_engine_assign", "2"); // Register uses left 4x4 keyboard.
+  t->padNoteOn(68, 100);
+  assert(newestVoice(*t, 0).engineSlot == 0);
+  t->padNoteOn(68 + 27, 100);
+  assert(newestVoice(*t, 0).engineSlot == 7);
+  std::puts("Layers Engine List: eight slots, mixed voice rendering, FX ownership, clip recall and keyboard register: PASS");
+}
+
 void testLayers() {
   testLayersRhythmArtifacts();
   testLayersRhythmEffects();
@@ -1609,6 +1684,7 @@ void testLayers() {
   testPerformanceModeCopyReturn();
   testLayersAudibleGlide();
   testLayersGeometryAndOwnership();
+  testLayersEngineList();
   testLayersKeyboardAndLegato();
   testLayersParallelAudio();
   testLayersClipsAndPersistence();
@@ -1616,4 +1692,33 @@ void testLayers() {
   testLayersIdleDriveAndEncoderRecording();
   testLayersExpandedEffects();
   testLayersDetailsAndBusRefinement();
+}
+
+void testLayersSequenceModeCostIsolation() {
+    auto t=layersFixture();
+    t->padNoteOn(68+31,100);renderSplit(*t,2);t->padNoteOff(68+31);
+    const auto runningWeights=t->layersRack.currentWeights();
+    const auto patch=t->layersLive.values;
+    std::array<const float*,4> samples{};std::array<std::size_t,4> lengths{};
+    for(std::size_t lane=0;lane<4;++lane){samples[lane]=t->engine.laneData(lane,0);lengths[lane]=t->engine.laneFrames(lane);}
+    t->setPerformanceMode(6);
+    assert(t->sequenceMode()&&!t->layersLive.active);
+    assert(t->layersRack.currentWeights()==runningWeights); // Inactive rack is untouched.
+    assert(t->layersLive.values==patch);
+    for(std::size_t i=0;i<t->voices.size();++i){
+        assert(t->voices[i].part==int(i/2));
+        for(std::size_t lane=0;lane<4;++lane)
+            assert(t->voices[i].engine.laneLoaded(lane)==(lane==i/2&&lengths[lane]>0));
+    }
+    t->captureActiveClip(true);t->clipSlots[1]=t->clipSlots[0];
+    for(int corner=0;corner<4;++corner)
+        t->clipSlots[1].layers.values[LayerPatch::config+LayerPatch::weight0+corner]=corner==2?1:0;
+    t->activateStoredClip(1,false);
+    assert(t->sequenceMode()&&t->layersRack.currentWeights()==runningWeights);
+    t->setPerformanceMode(5);
+    assert(t->layersLive.active&&t->layersRack.currentWeights()[2]==1);
+    for(std::size_t lane=0;lane<4;++lane)
+        assert(t->engine.laneData(lane,0)==samples[lane]&&t->engine.laneFrames(lane)==lengths[lane]);
+    t->padNoteOn(68,100);renderSplit(*t,10);t->padNoteOff(68);
+    std::puts("Layers/Sequence transitions: inactive spectral histories untouched, patches/samples retained, Quad voice masks rebuilt and Layers re-entry primed: PASS");
 }

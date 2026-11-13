@@ -77,14 +77,19 @@ void testBankCaptureAndRecall() {
     renderSplit(*t,40);
     t->padNoteOn(72,100);renderSplit(*t,10);
     const int asset=t->bankAssets[0],pins=t->bankPool->assets[asset].pins.load();
+    const int outgoingPins=std::count_if(t->voices.begin(),t->voices.end(),
+        [asset](const auto& voice){return voice.bankAsset==asset;});
+    // The outgoing voice bank moves into the fade; retiring it releases its
+    // voice pins. This direct handoff does not trigger an incoming Bank note.
+    const int remainingPins=pins-outgoingPins;
     t->patternFadeMs=1000;assert(t->beginPatternFade(0));
     assert(t->patternShadow->bankMode && t->patternShadow->bankAssets[0]==asset);
     renderSplit(*t,1); // Start the outgoing renderer after its warmup block.
     t->finishPatternFade();
     for(int retry=0;retry<6000&&t->patternJob.load()!=0;++retry){renderSplit(*t,1);usleep(500);}
-    if(t->patternJob.load()!=0 || t->bankPool->assets[asset].pins.load()!=pins)
-        std::fprintf(stderr,"Bank fade: job=%d active=%d warmup=%d pins=%d expected=%d shadowSlot=%d shadowVoice=%d\n",t->patternJob.load(),t->patternActive,t->patternWarmup,t->bankPool->assets[asset].pins.load(),pins,t->patternShadow->bankAssets[0],t->patternShadow->voices[4].bankAsset);
-    assert(t->patternJob.load()==0 && t->bankPool->assets[asset].pins.load()==pins);
+    if(t->patternJob.load()!=0 || t->bankPool->assets[asset].pins.load()!=remainingPins)
+        std::fprintf(stderr,"Bank fade: job=%d active=%d warmup=%d pins=%d expected=%d shadowSlot=%d shadowVoice=%d\n",t->patternJob.load(),t->patternActive,t->patternWarmup,t->bankPool->assets[asset].pins.load(),remainingPins,t->patternShadow->bankAssets[0],t->patternShadow->voices[4].bankAsset);
+    assert(t->patternJob.load()==0 && t->bankPool->assets[asset].pins.load()==remainingPins);
     t->padNoteOff(72);renderSplit(*t,40);
     // Exercise the real hardware messages, rather than setting the modifier
     // field directly: CC 50 is Menu; the physical X/Delete key is CC 119.

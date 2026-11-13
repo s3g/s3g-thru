@@ -1,8 +1,11 @@
+#include "thru_state_snapshot.inc"
+
     enum BackgroundJob { backgroundIdle, backgroundCopying, backgroundRequested,
                          backgroundWorking, backgroundComplete };
     struct PersistenceSnapshot {
         std::array<ClipSlot, kClipSlotCount> clips;
         SavedChainBanks banks;
+        PersistentStateSnapshot state;
         int chainBank=0,chainPlayBank=0;
         std::array<char, kStateTextSize> json {};
         std::array<char,kPersistencePathSize> directory {};
@@ -46,6 +49,40 @@
     std::atomic<std::uint64_t> pendingCallbackNanos {0u};
     std::atomic<std::uint64_t> maximumRenderCpuMicros {0u}, maximumRenderWaitMicros {0u}, renderCpuOverruns {0u};
     std::atomic<bool> renderCpuClockAvailable {false};
+    // Optional stage timing, enabled only while the on-device report is open.
+    bool renderProfileEnabled=false,renderProfileActive=false,renderAudioStarted=false;
+    std::uint64_t renderProfileLast=0,renderProfilePeakTotal=0,renderProfileMissTotal=0;
+    std::array<std::uint64_t,6> renderProfileCurrent{},renderProfilePeak{},renderProfileMiss{};
+    void resetRenderProfile(){renderProfilePeakTotal=renderProfileMissTotal=0;renderProfilePeak={};renderProfileMiss={};}
+    void beginRenderProfile(){
+        if(!renderProfileEnabled)return;
+        timespec now{};clock_gettime(CLOCK_MONOTONIC,&now);
+        renderProfileLast=std::uint64_t(now.tv_sec)*1000000000u+std::uint64_t(now.tv_nsec);
+        renderProfileCurrent={};
+    }
+    void markRenderProfile(int section){
+        if(!renderProfileEnabled)return;
+        timespec now{};clock_gettime(CLOCK_MONOTONIC,&now);
+        const auto stamp=std::uint64_t(now.tv_sec)*1000000000u+std::uint64_t(now.tv_nsec);
+        renderProfileCurrent[std::size_t(section)]+=stamp-renderProfileLast;renderProfileLast=stamp;
+    }
+    void mergeRenderProfile(const std::array<std::uint64_t,6>& child){
+        if(!renderProfileEnabled)return;
+        timespec now{};clock_gettime(CLOCK_MONOTONIC,&now);
+        const auto stamp=std::uint64_t(now.tv_sec)*1000000000u+std::uint64_t(now.tv_nsec);
+        const auto elapsed=stamp-renderProfileLast;
+        std::uint64_t measured=0;
+        for(std::size_t i=0;i<child.size();++i){renderProfileCurrent[i]+=child[i];measured+=child[i];}
+        // Attribute wrapper overhead without counting the child render twice.
+        if(elapsed>measured)renderProfileCurrent[2]+=elapsed-measured;
+        renderProfileLast=stamp;
+    }
+    void finishRenderProfile(){
+        if(!renderProfileEnabled)return;
+        std::uint64_t total=0;for(auto ns:renderProfileCurrent)total+=ns;
+        if(total>renderProfilePeakTotal){renderProfilePeakTotal=total;renderProfilePeak=renderProfileCurrent;}
+    }
+
 
     void observePersistenceGeneration(std::uint64_t generation)
     {
@@ -100,7 +137,11 @@
             if (self.persistenceJob.load(std::memory_order_acquire) == backgroundRequested) {
                 self.persistenceJob.store(backgroundWorking, std::memory_order_release);
                 auto& job = *self.persistenceSnapshot;
-                job.success = self.writeMetadataFiles(&job);
+                // Floating-point/text formatting is intentionally off the
+                // audio callback, using only the job's immutable owned image.
+                const int length=job.state.serializeState(job.json.data(),job.json.size(),job.generation);
+                job.success=length>0&&std::size_t(length)<job.json.size()
+                    &&self.writeMetadataFiles(&job);
                 self.persistenceJob.store(backgroundComplete, std::memory_order_release);
                 continue;
             }
@@ -304,8 +345,9 @@
             job.chainPlayBank=chainPlayBank;job.chainBank=chainBankIndex; job.tempo = tempoBpm; job.swing = tempoSwing;
             job.quantize = launchQuantize; job.grainLimit = grainVoiceLimit;
             job.active = activeClip; job.chainPosition = chainPosition; job.chainEdit = chainEditSlot;
-            const int length = serializeState(job.json.data(), job.json.size(), job.generation);
-            if (job.generation != 0u && length > 0 && static_cast<std::size_t>(length) < job.json.size()) {
+            if (job.generation != 0u) {
+                job.state.capture(*this);
+                job.json[0]=0; // No JSON formatting before the worker takes ownership.
                 persistenceCopyOffset = 0u;
                 persistenceJob.store(backgroundCopying, std::memory_order_release);
                 saveState = backgroundCopying;

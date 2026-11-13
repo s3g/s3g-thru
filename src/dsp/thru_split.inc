@@ -199,8 +199,8 @@
         if(sequenceMode())ensureSequenceClip();
         bankMode=mode==4;
         layersLive.active=mode==5;
-        if(layersLive.active){initializeLayers();padMode=PadMode::keys;voiceEngineSettings.enabled=false;}
-        layersRecorded=layersLive;layersOverrides.reset();clearLayersTouches();layersRack.prime(layersLive);
+        if(layersLive.active){initializeLayers();padMode=PadMode::keys;}
+        layersRecorded=layersLive;layersOverrides.reset();clearLayersTouches();if(layersLive.active)layersRack.prime(layersLive);
         for(auto& insert:splitInserts)insert.reset();
         splitRollWrite={};splitRollFrames={};refreshPlaybackVoices();
         for(auto& roll:rolls){roll.active=roll.held=false;roll.envelope=roll.target=0;}
@@ -283,6 +283,7 @@
     {
         layersLive=layersRecorded=clip.layers;layersOverrides.reset();clearLayersTouches();
         sequenceLive=sequencePlayback=clip.sequence;
+        publishSequenceRates();
         bankMode=clip.bankMode;bankSlots=clip.bankSlots;
         bankMasterRate=clip.bankMasterRate;bankRecordSource=clip.bankRecordSource;
         stackPathLastEdit=-1;
@@ -464,7 +465,10 @@
             if(std::abs(targetBlend-splitBlendState)<1e-6f)splitBlendState=targetBlend;
             splitCurveState+=(static_cast<float>(mixer.splitCurve)-splitCurveState)*effectControlSlew;
             const float linear[2] {1-splitBlendState,splitBlendState};
-            const float power[2] {std::cos(splitBlendState*1.57079632679f),std::sin(splitBlendState*1.57079632679f)};
+            float power[2] {};
+            // Quad/Sequence use fixed per-lane gains; the dual crossfade curve
+            // does not participate in their mix.
+            if(!isQuad()){power[0]=std::cos(splitBlendState*1.57079632679f);power[1]=std::sin(splitBlendState*1.57079632679f);}
             float gains[4] {};
             for(std::size_t part=0;part<static_cast<std::size_t>(partCount());++part) {
                 const float level=(sequenceMode()?sequenceMuted[part]:settingsForPart(static_cast<int>(part)).muted)?0:levels[part];
@@ -645,41 +649,8 @@
 
     int appendSplitJson(char* buffer,int capacity,int length) const
     {
-        if(length<=0||length>=capacity)return length;
-        int at=length-1;
-        const auto append=[&](const char* format,auto...values) {
-            if(at<0||at>=capacity)return;
-            const int n=std::snprintf(buffer+at,static_cast<std::size_t>(capacity-at),format,values...);
-            if(n<0||n>=capacity-at)at=capacity;else at+=n;
-        };
-        append(",\"split_return_mode\":%d",copyReturnMode());
-        append(",\"bank_mode\":%d,\"bank_master_rate\":%.9g,\"bank_record_source\":%d,\"bank_source_version\":2",bankMode?1:0,bankMasterRate,bankRecordSource);
-        append(",\"split_enabled\":%d,\"split_shared\":%d,\"split_initialized\":%d,\"split_focus\":%d",splitEnabled?1:0,sharedDual?1:0,splitInitialized?1:0,splitFocus);
-        append(",\"split_params_count\":%zu,\"split_parts\":4,\"split_quad\":%d,\"quad_initialized\":%d",kLockParameterCount,quadMode?1:0,quadInitialized?1:0);
-        const char* names[]{"split_single","split_a","split_b","split_c","split_d"};
-        for(int group=0;group<5;++group) {
-            append(",\"%s\":[",names[group]);
-            const auto& c=group==0?(splitEnabled?splitSingleControls:controls)
-                :(splitEnabled?liveControlsForPart(group-1):splitParts[static_cast<std::size_t>(group-1)].controls);
-            for(std::size_t p=0;p<kLockParameterCount;++p)
-                append(p?",%.9g":"%.9g",static_cast<double>(lockedValue(group>0&&splitEnabled&&!splitPartParameter(p)?controls:c,outputGain,p)));
-            const auto ui=group==0?(splitEnabled?splitSingleSettings:currentPartSettings())
-                :(splitEnabled?settingsForPart(group-1):splitParts[static_cast<std::size_t>(group-1)].settings);
-            for(int value:settingsValues(ui))append(",%d",value);
-            append("%s","]");
-            append(",\"%s_voice_mode\":%d",names[group],ui.voiceMode);
-            appendVoiceEngineJson(append,group,ui.engines);
-            appendVoicePlayJson(append,group,ui.engines);
-        }
-        const char* pathNames[]{"stack_path_single","stack_path_a","stack_path_b","stack_path_c","stack_path_d"};
-        for(int group=0;group<5;++group) {
-            const auto& path=group==0?(splitEnabled?splitSingleControls.stackPath:controls.stackPath)
-                :(splitEnabled?liveControlsForPart(group-1).stackPath:splitParts[group-1].controls.stackPath);
-            append(",\"%s\":[",pathNames[group]);
-            for(std::size_t p=0;p<StackPath::valueCount;++p)append(p?",%.9g":"%.9g",static_cast<double>(path.value(p)));
-            append("%s","]");
-        }
-        append("%s","}");return at;
+        PersistentStateSnapshot snapshot; snapshot.capture(*this);
+        return snapshot.appendSplitJson(buffer,capacity,length);
     }
 
     bool restoreSplitJson(const char* json)

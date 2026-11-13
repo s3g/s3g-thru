@@ -2,12 +2,21 @@ bool sequenceMode() const { return sequenceLive.active; }
 bool sequenceRunning() const {
   return sequenceMode() && (clipPlaying || clipRecording);
 }
+void publishSequenceRates() {
+  for (int part = 0; part < 4; ++part)
+    sequenceRequestedRate[part].store(sequenceLive.tracks[part].rate,
+                                      std::memory_order_release);
+}
 void resetSequenceClock() {
   sequenceBeat = 0;
+  sequenceBeatOffsets.fill(0);
   sequenceEventCount = {};
   sequenceCursor.fill(-1);
+  for (auto &cursor : sequencePublishedCursor)
+    cursor.store(-1, std::memory_order_release);
   sequenceLastRate.fill(-1);
   sequencePlayback = sequenceLive;
+  publishSequenceRates();
   for (auto &lane : sequenceLastEvent)
     for (auto &step : lane)
       step.fill(-1);
@@ -36,8 +45,42 @@ void sequenceChanged(bool undo = true) {
   }
   ensureSequenceClip();
 }
-void commitSequenceEdit() {
-  sequencePlayback = sequenceLive;
+std::int64_t sequenceLaneTick(int part, int rate) const {
+  const double localBeat = sequenceBeat + sequenceBeatOffsets[part];
+  return std::max<std::int64_t>(
+      0, std::int64_t(std::floor(localBeat / s3g_thru_sequence::rates[rate] +
+                                 1e-9)));
+}
+int sequenceLaneCursor(int part, const s3g_thru_sequence::Lane &lane) const {
+  return int((sequenceLaneTick(part, lane.rate) + lane.rotation) % lane.length);
+}
+void syncSequenceRatePhases() {
+  for (int part = 0; part < 4; ++part) {
+    const int rate = sequencePlayback.tracks[part].rate;
+    const int previous = sequenceLastRate[part];
+    if (rate == previous) continue;
+    if (previous >= 0) {
+      // Keep the absolute lane step number and fraction through a RATE edit.
+      // Each lane may change independently, including recorded RATE gestures.
+      const double phase = (sequenceBeat + sequenceBeatOffsets[part]) /
+                           s3g_thru_sequence::rates[previous];
+      sequenceBeatOffsets[part] =
+          std::max(0.0, phase) * s3g_thru_sequence::rates[rate] -
+          sequenceBeat;
+    }
+    sequenceLastRate[part] = rate;
+    // The step tick remains monotonic, so the existing event deduplication
+    // history stays valid across a live RATE change.
+  }
+}
+void commitSequenceEdit(bool deferPlayback = false) {
+  // Apply the RATE target and phase together before scheduling the block.
+  // Schwung serializes live parameter/MIDI/render callbacks on its SPI thread;
+  // atomic targets also support alternative hosts that dispatch controls separately.
+  if (!deferPlayback) {
+    sequencePlayback = sequenceLive;
+    syncSequenceRatePhases();
+  }
   if (auto *clip = activeClipSlot())
     clip->sequence = sequenceLive;
   markPersistentStateDirty();
@@ -270,7 +313,7 @@ std::size_t serviceSequenceBeforeBlock(std::size_t maximum) {
     const auto &from = sequenceLive.tracks[p];
     auto &to = sequencePlayback.tracks[p];
     to.length = from.length;
-    to.rate = from.rate;
+    to.rate = sequenceRequestedRate[p].load(std::memory_order_acquire);
     to.rotation = from.rotation;
     to.enabled = from.enabled;
     to.velocity = from.velocity;
@@ -301,17 +344,7 @@ std::size_t serviceSequenceBeforeBlock(std::size_t maximum) {
               setSequenceLaneValue(sequencePlayback, p, f, value);
           }
         }
-  // Deduplication ticks are numbered in the current rate's step units.
-  // A slower live rate lowers that number; keeping the previous rate's ticks
-  // would suppress new triggers until the old count was reached again.
-  for (int p = 0; p < 4; ++p) {
-    const int rate = sequencePlayback.tracks[p].rate;
-    if (sequenceLastRate[p] == rate)
-      continue;
-    sequenceLastRate[p] = rate;
-    for (auto &step : sequenceLastEvent[p])
-      step.fill(-1);
-  }
+  syncSequenceRatePhases();
   const double speed =
       activeClipSlot()
           ? clampValue(double(activeClipSlot()->clipRate), .25, 4.0)
@@ -322,7 +355,8 @@ std::size_t serviceSequenceBeforeBlock(std::size_t maximum) {
   if (increment <= 0)
     return maximum;
   s3g_thru_sequence::schedule(sequencePlayback, sequenceBeat, increment,
-                              int(maximum), sequenceEvents);
+                              int(maximum), sequenceEvents,
+                              sequenceBeatOffsets);
   std::size_t count = maximum;
   for (int i = 0; i < sequenceEvents.size; ++i) {
     const auto &event = sequenceEvents.items[i];
@@ -354,11 +388,9 @@ void advanceSequenceClock(std::size_t count) {
     sequenceBeat += double(count) * tempoBpm / (60.0 * sampleRate) * speed;
   for (int part = 0; part < 4; ++part) {
     const auto &l = sequencePlayback.tracks[part];
-    sequenceCursor[part] =
-        int((std::int64_t(
-                 std::floor(sequenceBeat / s3g_thru_sequence::rates[l.rate])) +
-             l.rotation) %
-            l.length);
+    sequenceCursor[part] = sequenceLaneCursor(part, l);
+    sequencePublishedCursor[part].store(sequenceCursor[part],
+                                        std::memory_order_release);
   }
 }
 bool sequenceKeyKnown(const char *key) const {
@@ -451,14 +483,18 @@ bool setSequenceParameter(const char *key, const char *text) {
             }
           }
         }
-      } else
+      } else {
         setSequenceLaneValue(sequenceLive, splitFocus, f, value);
+        if (f == 1)
+          sequenceRequestedRate[splitFocus].store(
+              sequenceLive.tracks[splitFocus].rate, std::memory_order_release);
+      }
       if (clipRecording)
         captureClipPoint(ClipPointType::sequenceLane, f, splitFocus,
                          sequenceLaneValue(splitFocus, f));
       if (clipPlaying && !clipRecording)
         sequenceOverrides[splitFocus][f] = true;
-      commitSequenceEdit();
+      commitSequenceEdit(f == 1);
       return true;
     }
   static constexpr const char *panKeys[]{"seq_pan_1", "seq_pan_2",
@@ -671,6 +707,26 @@ float sequenceParameterValue(const char *key, int part = -1) const {
   }
   return 0;
 }
+int sequenceCursorState(char *b, int capacity) const {
+  if (!b || capacity <= 0) return -1;
+  const bool running = sequenceRunning();
+  int at = std::snprintf(b, capacity, "%d,%d,%d",
+                         sequenceMode() ? 1 : 0, splitFocus, running ? 1 : 0);
+  if (at < 0 || at >= capacity) return -1;
+  for (int p = 0; p < 4; ++p) {
+    const auto &lane = running ? sequencePlayback.tracks[p] : sequenceLive.tracks[p];
+    const int cursor = running
+        ? sequencePublishedCursor[p].load(std::memory_order_acquire)
+        : sequenceCursor[p];
+    const int n = std::snprintf(
+        b + at, capacity - at, ",%d,%d,%d,%d,%d", cursor, lane.length,
+        lane.rate, lane.enabled ? 1 : 0,
+        (running ? sequenceMuted[p] : settingsForPart(p).muted != 0) ? 1 : 0);
+    if (n < 0 || n >= capacity - at) return -1;
+    at += n;
+  }
+  return at;
+}
 int sequenceState(char *b, int capacity) const {
   const bool running = sequenceRunning();
   const auto &editLane = sequenceLive.tracks[splitFocus];
@@ -708,9 +764,7 @@ int sequenceState(char *b, int capacity) const {
   for (int p = 0; p < 4; ++p) {
     const auto &l = running ? sequencePlayback.tracks[p] : sequenceLive.tracks[p];
     const int cursor = running
-        ? int((std::int64_t(std::floor(sequenceBeat /
-                                    s3g_thru_sequence::rates[l.rate])) +
-               l.rotation) % l.length)
+        ? sequencePublishedCursor[p].load(std::memory_order_acquire)
         : sequenceCursor[p];
     append("%s[%d,%d,%d,%d,%d]", p ? "," : "", cursor, l.length,
            l.rate, l.enabled ? 1 : 0,
@@ -927,11 +981,20 @@ void copySequenceRuntimeTo(ThruInstance &other) const {
   other.sequenceLive = sequenceLive;
   other.sequencePlayback = sequencePlayback;
   other.sequenceBeat = sequenceBeat;
+  other.sequenceBeatOffsets = sequenceBeatOffsets;
   other.sequenceLastEvent = sequenceLastEvent;
   other.sequenceLastRate = sequenceLastRate;
+  for (int part = 0; part < 4; ++part)
+    other.sequenceRequestedRate[part].store(
+        sequenceRequestedRate[part].load(std::memory_order_acquire),
+        std::memory_order_release);
   other.sequenceMuted = sequenceMuted;
   other.sequenceOverrides = sequenceOverrides;
   other.sequenceCursor = sequenceCursor;
+  for (int part = 0; part < 4; ++part)
+    other.sequencePublishedCursor[part].store(
+        sequencePublishedCursor[part].load(std::memory_order_acquire),
+        std::memory_order_release);
   other.sequenceEventCount = sequenceEventCount;
   other.sequenceSteps = sequenceSteps;
   other.sequenceChildren = sequenceChildren;

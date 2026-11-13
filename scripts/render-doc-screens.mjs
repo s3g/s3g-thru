@@ -192,7 +192,7 @@ const params = {
     captures_directory: '/data/s3g-thru/captures',
     undo_available: '1',
     performance_state: '724,0',
-    callback_performance_state: '28,16,760,0',render_timing_state:'1,720,110,0',
+    callback_performance_state: '28,16,760,0',render_timing_state:'1,720,110,0',pattern_worker_state:'1,1,910,780,0,0,0,42.3,-10,46.4,160',
     limiter_state: '0.0,3.2',
     last_error: '',
     waveforms: [0, 1, 2, 3].map(waveform).join('|'),
@@ -219,7 +219,7 @@ globalThis.host_module_get_param = (key) => {
         return values.join(',');
     }
 
-    if(key==='ui_editor_state') {
+    if(key==='ui_editor_state'||key.startsWith('ui_editor_chunk:')) {
         const values=Object.fromEntries(Object.entries(globalThis.__docSplit.params)
             .filter(([,p])=>!p.momentary).map(([key,p])=>[key,Number(params[key]??p.value)]));
         const split=JSON.parse(params.split_state||'{"enabled":0,"focus":0,"blend":0.5,"parts":[{},{}]}');
@@ -227,7 +227,12 @@ globalThis.host_module_get_param = (key) => {
         values.part_mute=split.parts[split.focus]?.mute||0;
         for(const key of ['pad_octave','record_lane','stack_scan_paused','glitch_buffer_lock'])
             values[key]=Number(params[key]||0);
-        return JSON.stringify({v:1,values,split,voices:params.voice_algorithms||'-1,-1,-1,-1,-1,-1,-1,-1'});
+        const full={v:1,values,split,voices:params.voice_algorithms||'-1,-1,-1,-1,-1,-1,-1,-1'};
+        if(key==='ui_editor_state')return JSON.stringify(full);
+        const rows=Object.entries(values),chunk=Number(key.slice(16));
+        return JSON.stringify({...full,chunk,chunks:Math.ceil(rows.length/64),
+            owner:values.split_mode*4+split.focus,clip:parseInt(params.clip_bank_state||'0',10),
+            values:Object.fromEntries(rows.slice(chunk*64,(chunk+1)*64))});
     }
     return params[key]??'';
 };
@@ -588,6 +593,8 @@ cc(63);tick(3);
 capture('help-shortcuts.svg', 'On-device shortcut help');
 cc(63);tick(3);
 capture('help-e16.svg','On-device E16 connection and recovery report','E16 LINK');
+cc(63);cc(63);cc(63);tick(3);
+capture('help-fade.svg','Outgoing fade audio worker timing and buffer report','FADE AUDIO');
 
 // Split examples use the same live draw code and parameter pages as the device.
 Object.assign(params, {

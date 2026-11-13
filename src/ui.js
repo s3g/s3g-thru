@@ -1,4 +1,4 @@
-/* s3g Thru 0.31.0 — polyphonic sampler/performance-looper takeover for Move. */
+/* s3g Thru 0.31.1 — polyphonic sampler/performance-looper takeover for Move. */
 
 import * as moveConstants from '/data/UserData/schwung/shared/constants.mjs';
 import * as moveInputFilter from '/data/UserData/schwung/shared/input_filter.mjs';
@@ -89,8 +89,8 @@ const setButtonLED = typeof moveInputFilter.setButtonLED === 'function'
         }
     };
 
-const UI_VERSION = '0.31.0';
-const HELP_PAGE_COUNT=5;
+const UI_VERSION = '0.31.1';
+const HELP_PAGE_COUNT=8;
 const WAVE_BINS = 112;
 const ALGORITHMS = ['MOTION', 'LANES', 'GRAINS', 'CUTUPS', 'SAMPLE', 'SLICES',
     'GLITCH', 'WEAVE', 'WAVESETS', 'PRISM', 'MORPH', 'TEXTURE', 'FORMANT', 'STOCH', 'PULSAR'];
@@ -434,6 +434,7 @@ const PARAMS = {
     record_gain: { key: 'record_gain', label: 'REC GAIN', min: 0, max: 4, step: 0.05, value: 1 },
     record_source: { key: 'record_source', label: 'REC SOURCE', min: 0, max: 5, step: 1, value: 0, integer: true, labels: ['INPUT', 'MAIN MIX', 'PART A', 'PART B', 'PART C', 'PART D'] },
     monitor_level: { key: 'monitor_level', label: 'MONITOR', min: 0, max: 1, step: 0.01, value: 0 },
+    pattern_fade_lookahead: { key: 'pattern_fade_lookahead', label: 'FADE LOOKAHEAD', shortLabel: 'LOOK', min: 0, max: 1, step: 1, value: 1, integer: true, labels: ['OFF', '12ms'] },
     clip_rate: { key: 'clip_rate', label: 'LOOP RATE', min: 0.25, max: 4, step: 0.05, value: 1 },
     clip_record_mode: { key: 'clip_record_mode', label: 'REC MODE', min: 0, max: 1, step: 1, value: 0, integer: true, labels: ['REPLACE', 'OVERDUB'] },
     clip_take_undo: { key: 'clip_take_undo', label: 'UNDO TAKE', min: 0, max: 1, step: 1, value: 0, integer: true, labels: ['TURN', 'UNDO'], momentary: true, result: 'TAKE UNDONE' },
@@ -624,7 +625,7 @@ const SAMPLE_PAGE = { title: 'SAMPLE EDIT', keys: ['sample_trim_start',
 // title row. The manual continues to use the unabbreviated page name.
 const LOOP_PAGE = { title: 'PERF LOOP', global:true,scopeLabel:'',keys: ['clip_rate',
     'clip_timing', 'launch_quantize', 'tempo_bpm', 'clip_record_mode',
-    'tempo_swing'] };
+    'tempo_swing', 'pattern_fade_lookahead'] };
 const PATTERN_FADE_PAGE = { title: 'PATTERN FADE', patternFade: true, global: true,scopeLabel:'', keys: Array(8).fill(null) };
 const FADE_CURVES=['LIN','IN','OUT','SMTH','PWR'];
 const MAX_PATTERN_FADE_MS=30000;
@@ -1100,12 +1101,42 @@ function parameterEncoderDelta(index, key, delta) {
     return key === 'chain_bank' ? clamp(applied, -1, 1) : applied;
 }
 
+const uiPolling={supported:null,cache:new Map(),cached:false,lastFrame:-Infinity,job:0,editorPending:false};
+const uiTiming={last:null,gap:0,query:0,key:'',slow:0,jumps:0,step:-1,lane:-1,length:0,rate:-1,clip:-1};
+let renderProfileRequested=false;
+function resetUiTiming(){Object.assign(uiTiming,{last:null,gap:0,query:0,key:'',slow:0,jumps:0,step:-1,lane:-1,length:0,rate:-1,clip:-1});}
+function noteUiFrame(){
+    const now=Date.now();
+    if(uiTiming.last!==null){const gap=Math.max(0,now-uiTiming.last);uiTiming.gap=Math.max(uiTiming.gap,gap);if(gap>50)uiTiming.slow++;}
+    uiTiming.last=now;
+}
+
+const UI_POLL_JOBS=['sequence','status','composition','sequence','sources','diagnostics','sequence','midi'];
+function fetchUiPoll(group){
+    try{
+        const data=JSON.parse(String(getParam('ui_poll_'+group,'')));
+        if(data?.v!==1||!data.values||typeof data.values!=='object'
+            ||Object.values(data.values).some(value=>typeof value!=='string'))return false;
+        for(const [key,value] of Object.entries(data.values))uiPolling.cache.set(key,value);
+        return true;
+    }catch(_){return false;}
+}
+function withUiPollCache(work){
+    const previous=uiPolling.cached;uiPolling.cached=true;
+    try{return work();}finally{uiPolling.cached=previous;}
+}
 function getParam(key, fallback) {
+    if(uiPolling.cached)return uiPolling.cache.has(key)?uiPolling.cache.get(key):fallback;
+    const before=Date.now();
     try {
         const value = host_module_get_param(key);
+        if(value!=null)uiPolling.cache.set(key,value);
         return value == null ? fallback : value;
     } catch (error) {
         return fallback;
+    } finally {
+        const elapsed=Math.max(0,Date.now()-before);
+        if(elapsed>uiTiming.query){uiTiming.query=elapsed;uiTiming.key=key;}
     }
 }
 
@@ -1125,19 +1156,43 @@ function setParam(key, value) {
 function setParamBlocking(key, value) {
     try {
         if (typeof host_module_set_param_blocking === 'function') {
-            host_module_set_param_blocking(key, String(value), 180);
+            return host_module_set_param_blocking(key, String(value), 180);
         } else {
             host_module_set_param(key, String(value));
         }
     } catch (error) {}
 }
 
-function refreshEditorSnapshot() {
+function readEditorSnapshot() {
+    // A failed/empty read is retried by normal editor recovery. Never fall
+    // back to the large synchronous query that this path is designed to avoid.
+    const first=JSON.parse(String(getParam('ui_editor_chunk:0','')));
+    const count=first?.chunks,owner=first?.owner,clip=first?.clip;
+    const valid=(part,index)=>part?.v===1&&part.chunk===index
+        &&part.chunks===count&&part.owner===owner&&part.clip===clip
+        &&part.split?.focus===owner%4&&part.values
+        &&typeof part.values==='object'&&!Array.isArray(part.values)
+        &&Object.keys(part.values).length<=64;
+    if(!Number.isInteger(count)||count<1||count>16
+        ||!Number.isInteger(owner)||owner<0||owner>27
+        ||!Number.isInteger(clip)||clip<0||clip>63||!valid(first,0))return null;
+    const values={...first.values};let latest=first;
+    for(let index=1;index<count;++index){
+        latest=JSON.parse(String(getParam('ui_editor_chunk:'+index,'')));
+        if(!valid(latest,index))return null;
+        Object.assign(values,latest.values);
+    }
+    return {...latest,values};
+}
+
+function refreshEditorSnapshot(readDetails=true) {
+    if(uiPolling.cached){uiPolling.editorPending=true;return false;}
+    uiPolling.editorPending=false;
     const previousPage=state.view==='settings'?parameterPages()[state.settingsPage]:null;
     const keepPage=previousPage&&(previousPage.scopeLabel===''||previousPage.patternFade||previousPage.chainFade||previousPage.chainTools||previousPage===CHAIN_PAGE)?previousPage:null;
     state.editorReady=false;
     let snapshot;
-    try { snapshot=JSON.parse(String(getParam('ui_editor_state',''))); }
+    try { snapshot=readEditorSnapshot(); }
     catch (_) { return false; }
     const values=snapshot?.values,split=snapshot?.split;
     if(snapshot?.v!==1 || !values || typeof values!=='object'
@@ -1162,7 +1217,9 @@ function refreshEditorSnapshot() {
     state.glitchBufferLocked=values.glitch_buffer_lock!==0;
     state.voiceAlgorithms=String(snapshot.voices||'').split(',').map(Number);
     state.editorReady=true;
-    if(Number(values.split_mode)===5||layersUi.active)readLayers();if(Number(values.split_mode)===6||sequenceUi.active)readSequence();
+    uiPolling.cache.set('split_state',JSON.stringify(split));
+    for(const [key,value] of Object.entries(values))uiPolling.cache.set(key,String(value));
+    if(readDetails){if(Number(values.split_mode)===5||layersUi.active)readLayers();if(Number(values.split_mode)===6||sequenceUi.active)readSequence();}
     if(keepPage){const index=parameterPages().findIndex(page=>page.title===keepPage.title);if(index>=0)state.settingsPage=index;}
     if(state.message==='UPDATING EDITOR')state.messageTicks=0;
     return true;
@@ -1207,7 +1264,9 @@ function parseUiState(text) {
 
 // Layers uses the existing Thru renderer, encoder response and page browser.
 const SEQUENCE_KEYS=['seq_length','seq_rate','seq_rotation','seq_active','seq_mute','seq_velocity','seq_gate','seq_scale','seq_step','seq_child','seq_pos','seq_note','seq_vel','seq_trig_gate','seq_micro','seq_prob','seq_burst','seq_when','seq_clip_beats','seq_duration_mode','seq_time_ms','seq_trig_time_ms','seq_pan_1','seq_pan_2','seq_pan_3','seq_pan_4','seq_eq_low','seq_eq_mid','seq_eq_high','seq_eq_freq','seq_eq_solo','seq_duck_key','seq_duck_depth','seq_duck_threshold','seq_duck_attack','seq_duck_hold','seq_duck_release','seq_duck_hpf','seq_duck_knee','seq_cycle_hit','seq_cycle_every'];
-const sequenceUi={active:false,data:null,pad:-1,downAt:0,held:false,copy:false,copyReady:false};
+const sequenceUi={active:false,data:null,pad:-1,downAt:0,held:false,copy:false,copyReady:false,fullRaw:'',revision:0,cursorRevision:0,headRevision:0,cursorLedPad:-1,cursorLedRefresh:-Infinity,cursorRestores:new Map()};
+const sequenceDisplay={valid:false,revision:-1,cursorRevision:-1,headRevision:-1,waves:null,mask:-1,recording:false,tempo:NaN,selectedCursor:-1};
+const sequenceLaneDisplay={valid:false,signature:''};
 const SEQUENCE_LANE_PAGE={title:'SEQ LANE',sequence:true,keys:['seq_length','seq_rate','seq_rotation','seq_active','seq_velocity','seq_gate','tempo_bpm','seq_clip_beats']};
 const SEQUENCE_TRIG_PAGE={title:'TRIG',sequence:true,sequenceTrig:true,keys:['seq_pos','seq_note','seq_vel','seq_trig_gate','seq_micro','seq_prob','seq_cycle_hit','seq_cycle_every']};
 const SEQUENCE_BURST_PAGE={title:'BURST',sequence:true,sequenceBurst:true,keys:['seq_pos','seq_note','seq_vel','seq_trig_gate','seq_burst','seq_child','seq_when',null]};
@@ -1226,16 +1285,100 @@ const sequenceSpecs={
  seq_duck_key:['KEY',0,4,1,0,true,['OFF','L1','L2','L3','L4']],seq_duck_depth:['DEPTH',0,24,.5,0,false],seq_duck_threshold:['THR',-60,0,.5,-24,false],seq_duck_attack:['ATK',1,250,1,12,false],seq_duck_hold:['HOLD',0,1000,1,40,false],seq_duck_release:['REL',10,3000,1,220,false],seq_duck_hpf:['HPF',20,2000,1,100,false],seq_duck_knee:['KNEE',0,24,.5,6,false]
 };
 for(const [key,[label,min,max,step,value,integer,labels]] of Object.entries(sequenceSpecs))PARAMS[key]={key,label,shortLabel:label,min,max,step,value,integer,...(labels?{labels}:{}),...(['seq_clear','seq_delete'].includes(key)?{momentary:true}:{})};
-function readSequence(){
- let data;try{data=JSON.parse(String(getParam('seq_state','{}')));}catch(_){return;}
+function sequenceCursorPad(data){
+ if(!data?.active||!data.playing)return -1;
+ const step=data.lanes?.[data.edit]?.[0];
+ if(!Number.isInteger(step)||step<0||step>=data.length)return -1;
+ return (3-Math.floor(step/8))*8+step%8;
+}
+function syncSequenceCursorLeds(){
+ const previous=sequenceUi.cursorLedPad,next=sequenceCursorPad(sequenceUi.data),now=Date.now();
+ const changed=previous!==next;
+ sequenceUi.cursorLedPad=next;
+ if(changed){
+   if(previous>=0)sequenceUi.cursorRestores.set(previous,4);
+   if(next>=0)sequenceUi.cursorRestores.delete(next);
+ }
+ // Both our cache and Schwung's shared helper remember QUEUED colors.
+ // The host's later LED flush can still lose a packet to backpressure. An
+ // unchanged cursor must therefore be reissued, bypassing both color caches.
+ // At most three cursor packets per UI frame: two old pads, then current.
+ const refresh=changed||now<sequenceUi.cursorLedRefresh||now-sequenceUi.cursorLedRefresh>=12;
+ if(refresh){
+   sequenceUi.cursorLedRefresh=now;
+   // Retain a restore until it has been issued four times, rather than
+   // expiring by age while a fast sequence is still adding newer pads.
+   const repair=changed&&previous>=0?[previous]:[];
+   for(const pad of sequenceUi.cursorRestores.keys()){
+     if(repair.length>=2)break;
+     if(!repair.includes(pad))repair.push(pad);
+   }
+   for(const pad of repair){
+     sendLedNow('note',MovePads[pad],padColor(pad),true);
+     const remaining=(sequenceUi.cursorRestores.get(pad)||1)-1;
+     if(remaining>0)sequenceUi.cursorRestores.set(pad,remaining);
+     else sequenceUi.cursorRestores.delete(pad);
+   }
+   if(next>=0)sendLedNow('note',MovePads[next],padColor(next),true);
+ }else{
+   for(const pad of new Set([previous,next]))if(pad>=0&&pad<MovePads.length){
+     const note=MovePads[pad],key=ledKey('note',note),color=padColor(pad);
+     if(state.ledSent.get(key)!==color)sendLedNow('note',note,color);
+     else state.ledPending.delete(key);
+   }
+ }
+ if(!sequenceUi.active){sequenceUi.cursorRestores.clear();}
+}
+function readSequence(skipCursorLeds=false){
+ const raw=String(getParam('seq_state','{}'));
+ let data;try{data=JSON.parse(raw);}catch(_){return;}
  if(!data||![0,1].includes(data.active))return;
- const previous=sequenceUi.data;sequenceUi.active=Boolean(data.active);sequenceUi.data=data;
+ const previous=sequenceUi.data;
+ const lanesChanged=JSON.stringify(previous?.lanes)!==JSON.stringify(data.lanes);
+ const headsChanged=JSON.stringify(previous?.heads)!==JSON.stringify(data.heads);
+ const stepsChanged=JSON.stringify(previous?.steps)!==JSON.stringify(data.steps);
+ const cursorChanged=previous?.active!==data.active||previous?.playing!==data.playing||previous?.edit!==data.edit||lanesChanged;
+ sequenceUi.active=Boolean(data.active);sequenceUi.data=data;
+ // Moving cursors and sample readers have their own partial redraw paths.
+ // They must not invalidate the whole OLED on every full-state poll.
+ const staticRaw=JSON.stringify({...data,lanes:undefined,heads:undefined});
+ if(staticRaw!==sequenceUi.fullRaw){sequenceUi.fullRaw=staticRaw;sequenceUi.revision++;}
+ if(cursorChanged)sequenceUi.cursorRevision++;
+ if(headsChanged)sequenceUi.headRevision++;
  if(Number.isInteger(data.clipboard))sequenceUi.copyReady=sequenceUi.copyReady||Boolean(data.clipboard);
  if(Array.isArray(data.values))SEQUENCE_KEYS.forEach((key,i)=>{if(Number.isFinite(data.values[i]))PARAMS[key].value=data.values[i];});
  const timed=PARAMS.seq_duration_mode.value>=.5;
  SEQUENCE_LANE_PAGE.keys[5]=timed?'seq_time_ms':'seq_gate';
  SEQUENCE_TRIG_PAGE.keys[3]=timed?'seq_trig_time_ms':'seq_trig_gate';
- if(previous?.active!==data.active||previous?.held!==data.held||previous?.edit!==data.edit||JSON.stringify(previous?.lanes)!==JSON.stringify(data.lanes)||JSON.stringify(previous?.steps)!==JSON.stringify(data.steps))rebuildLedQueue();
+ if(!skipCursorLeds||!sequenceUi.active)syncSequenceCursorLeds();
+ if(cursorChanged||previous?.held!==data.held||stepsChanged)rebuildLedQueue();
+}
+function readSequenceCursor(){
+ const data=sequenceUi.data;if(!sequenceUi.active||!data)return;
+ const values=String(getParam('seq_cursor_state','')).split(',').map(Number);
+ if(values.length!==23||values.some(v=>!Number.isInteger(v))||values[0]<0||values[0]>1||values[1]<0||values[1]>3||values[2]<0||values[2]>1)return;
+ if(values[0]!==1||values[1]!==data.edit){readSequence();return;}
+ const lanes=[];
+ for(let p=0;p<4;++p){
+   const row=values.slice(3+p*5,8+p*5);
+   if(row[0]<-1||row[0]>=row[1]||row[1]<1||row[1]>32||row[2]<0||row[2]>8||row[3]<0||row[3]>1||row[4]<0||row[4]>1)return;
+   lanes.push(row);
+ }
+ const selected=lanes[data.edit];
+ if(values[2]&&selected[0]>=0){
+   if(uiTiming.lane===data.edit&&uiTiming.length===selected[1]&&uiTiming.rate===selected[2]
+      &&uiTiming.clip===state.activeClip&&uiTiming.step>=0){
+     const delta=(selected[0]-uiTiming.step+selected[1])%selected[1];
+     if(delta>1)uiTiming.jumps++;
+   }
+   Object.assign(uiTiming,{lane:data.edit,length:selected[1],rate:selected[2],step:selected[0],clip:state.activeClip});
+ }else uiTiming.step=-1;
+ const changed=data.playing!==values[2]||JSON.stringify(data.lanes)!==JSON.stringify(lanes);
+ if(!changed){syncSequenceCursorLeds();return;}
+ data.playing=values[2];data.lanes=lanes;data.length=lanes[data.edit][1];
+ sequenceUi.cursorRevision++;
+ syncSequenceCursorLeds();
+ rebuildLedQueue();
 }
 function sequencePages(base){
  const pages=base.filter(page=>!page.voiceEngines&&!page.voiceSetup&&page!==AMP_ENVELOPE_PAGE&&page.title!==STACK_PATH_PAGE.title&&page.title!=='PADS & SCALE'&&page!==QUAD_SETUP_PAGE&&page!==SPLIT_MIX_PAGE&&page!==PRIORITY_PAGE);
@@ -1307,21 +1450,57 @@ function drawSequenceHeads(heads){
    else drawRect(cursor,11,1,14,1);
  }
 }
-function drawSequence(){
- clearDisplay();const d=sequenceUi.data;if(!d){print(1,0,'SEQUENCE',1);return;}
+function drawSequenceHeader(d){
  const edit=d.edit+1,rec=state.recording?d.rec+1:edit;
  drawTitleWithFraction('EDIT '+edit+' REC '+rec,d.playing?'PLAY':'STOP');drawRect(0,8,128,1,1);
+}
+function drawSequenceWave(d){
  drawWaveformLane(d.edit,[0,1],18,4,120);sequenceMarkers(18,true);
- const heads=sequenceHeads();drawSequenceHeads(heads);
+ drawSequenceHeads(sequenceHeads());
+}
+function drawSequenceOverview(d){
  for(let lane=0;lane<4;++lane){const l=d.lanes[lane]||[-1,16,4,1,0],x=lane*32;
    if(lane===d.edit)drawRect(x,29,30,9,1);
    print(x+2,29,String(lane+1)+(l[4]?' M':l[3]?'':' OFF'),lane===d.edit?0:1);
    drawRect(x+2,40,27,1,1);if(l[0]>=0)drawRect(x+2+Math.round(l[0]*25/Math.max(1,l[1]-1)),39,2,3,1);
    print(x+1,46,(l[0]>=0?String(l[0]+1).padStart(2,'0'):'--')+'/'+String(l[1]).padStart(2,'0'),1);
  }
+}
+function drawSequenceFooter(d){
+ const heads=sequenceHeads();
  const duration=heads.length?sequenceTimeText(heads[0][3]):PARAMS.seq_duration_mode.value>=.5
    ?sequenceTimeText(PARAMS.seq_time_ms.value):sequenceDurationText(PARAMS.seq_gate.value);
  print(1,57,'BPM '+Math.round(PARAMS.tempo_bpm.value)+'  DUR '+duration,1);
+}
+function drawSequence(){
+ const d=sequenceUi.data;
+ const full=!sequenceDisplay.valid||sequenceDisplay.revision!==sequenceUi.revision
+   ||sequenceDisplay.waves!==state.waves||sequenceDisplay.mask!==state.mask
+   ||sequenceDisplay.recording!==state.recording||sequenceDisplay.tempo!==PARAMS.tempo_bpm.value;
+ if(!full&&sequenceDisplay.cursorRevision===sequenceUi.cursorRevision
+   &&sequenceDisplay.headRevision===sequenceUi.headRevision)return;
+ if(full){
+   clearDisplay();
+   if(!d){print(1,0,'SEQUENCE',1);return;}
+   drawSequenceHeader(d);drawSequenceWave(d);drawSequenceOverview(d);drawSequenceFooter(d);
+ }else if(d){
+   drawRect(0,0,128,9,0);drawSequenceHeader(d);
+   const selected=d.lanes?.[d.edit]?.[0]??-1;
+   if(selected!==sequenceDisplay.selectedCursor
+      ||sequenceDisplay.headRevision!==sequenceUi.headRevision){
+     drawRect(0,9,128,20,0);drawSequenceWave(d);
+   }
+   drawRect(0,29,128,28,0);drawSequenceOverview(d);
+   if(sequenceDisplay.headRevision!==sequenceUi.headRevision){
+     drawRect(0,57,128,7,0);drawSequenceFooter(d);
+   }
+ }
+ sequenceDisplay.valid=true;sequenceDisplay.revision=sequenceUi.revision;
+ sequenceDisplay.cursorRevision=sequenceUi.cursorRevision;
+ sequenceDisplay.headRevision=sequenceUi.headRevision;
+ sequenceDisplay.waves=state.waves;sequenceDisplay.mask=state.mask;
+ sequenceDisplay.recording=state.recording;sequenceDisplay.tempo=PARAMS.tempo_bpm.value;
+ sequenceDisplay.selectedCursor=d?.lanes?.[d.edit]?.[0]??-1;
 }
 function sequenceNoteName(offset){const n=clamp((sequenceUi.data?.root||60)+Math.round(offset),0,127);return ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'][n%12]+(Math.floor(n/12)-1);}
 function sequenceTimeText(ms){
@@ -1646,9 +1825,8 @@ function tickLayersCornerGesture(now=Date.now()){
     if(state.shiftHeld||state.deleteHeld||state.focusButtonHeld){layersUi.holdFired=true;return;}
     if(now-layersUi.holdTime>=500){layersUi.holdFired=true;layersUi.tapPad=-1;toggleLayersCornerEditor(layersUi.holdPad);}
 }
-function layersPages(engine,pads,enginePages){
-    const keyboard={...pads,keys:pads.keys.map(k=>k?.startsWith('voice_engine_')&&k!=='voice_engine_depth'?null:k)};
-    return [engine,keyboard,AMP_ENVELOPE_PAGE,PLAY_GAIN_PAGE,...enginePages,LAYERS_SETUP_PAGE,
+function layersPages(engine,pads,enginePages,lists){
+    return [engine,pads,...lists,AMP_ENVELOPE_PAGE,PLAY_GAIN_PAGE,...enginePages,LAYERS_SETUP_PAGE,
         {...LAYERS_FX_PAGE,keys:LAYERS_FX_PAGE.keys.map((key,i)=>PARAMS.layers_fx0.value===0&&i>0&&i<7?null:key)},
         ...([2,3,4,5,6,7,8,9,10,12,13,14,15,16].includes(Math.round(PARAMS.layers_fx0.value))?[LAYERS_FX_DETAIL_PAGE]:[]),LAYERS_TOOLS_PAGE,MIX_REC_PAGE,SAMPLE_PAGE,MIDI_CONTROL_PAGE,MIDI_NOTES_PAGE,MIDI_MAPS_PAGE,
         LOOP_PAGE,PATTERN_FADE_PAGE,TAKE_PAGE,CHAIN_PAGE,CHAIN_FADE_PAGE,ENTRY_FADE_PAGE,CHAIN_TOOLS_PAGE];
@@ -1718,7 +1896,7 @@ function drawLayersMain() {
         layersDisplay.header=layersDisplay.gutter=layersDisplay.fx=layersDisplay.footer=layersDisplay.notice=null;
         drawRect(63,10,1,44,1);
     }
-    const title='LAYERS '+(layersUi.focus?'FX ':'A ')+(ALGORITHMS[state.algorithm]||'ENGINE'),fraction=state.clipRecording?'REC':'V'+(data.voices||[]).length;
+    const title='LAYERS '+(layersUi.focus?'FX ':'A ')+(voiceEngineListEnabled()||state.engineListVoices?'LIST':ALGORITHMS[state.algorithm]||'ENGINE'),fraction=state.clipRecording?'REC':'V'+(data.voices||[]).length;
     const header=title+fraction;
     if(header!==layersDisplay.header) {
         drawRect(0,0,128,10,0);drawTitleWithFraction(title,fraction);drawRect(0,8,128,1,1);
@@ -1752,10 +1930,11 @@ function drawLayersMain() {
     };
     if(state.mask)for(let voice=0;voice<8;++voice) {
         const cut=state.cutupsVoices[voice],ws=state.wavesetVoices[voice],lane=state.stackPositions[voice]*3;
-        if(state.algorithm===3) {
+        const algorithm=voiceEngineListEnabled()||state.engineListVoices?state.voiceAlgorithms[voice]:state.algorithm;
+        if(algorithm===3) {
             if(cut?.outgoingGain>0)reader(cut.outgoingPosition,cut.outgoingLane,true);
             if(cut?.gain>0)reader(cut.position,cut.lane);
-        } else if(state.algorithm===8) {
+        } else if(algorithm===8) {
             if(ws) {reader(ws.secondarySourcePosition,lane,true);reader(ws.sourcePosition,lane);}
         } else reader(state.playheads[voice],lane);
     }
@@ -2323,10 +2502,13 @@ function rebuildLedQueue() {
         const note = MovePads[i];
         queueLed('note', note, padColor(i), 3);
     }
+    // Resolving the current page builds the engine's complete menu layout.
+    // It is invariant across this refresh, including all sixteen clip LEDs.
+    const chainEditing=chainEditorActive();
     for (let i = 0; i < MoveSteps.length; i++) {
         let color = Black;
         let urgent = false;
-        if (chainEditorActive()) {
+        if (chainEditing) {
             const row=state.chainPage*16+i;
             if (state.chainEntries[row].enabled) color = White;
             if (row === state.chainSlot) color = BrightOrange;
@@ -2347,7 +2529,7 @@ function rebuildLedQueue() {
         queueLed('note', MoveSteps[i], color, urgent ? 0 : 1);
     }
     const categoryNavigation=state.focusButtonHeld||state.view==='pages';
-    const categoryLed=state.view==='pages'
+    const categoryLed=!categoryNavigation?-1:state.view==='pages'
         ?(state.pageTier==='category'?state.pageCategory
             :state.pageTier==='hub'&&state.pageSelection<4?state.pageSelection
             :currentPageCategory())
@@ -2375,6 +2557,8 @@ function primePadLeds() {
     for (let index = 0; index < MovePads.length; index++) {
         sendLedNow('note', MovePads[index], padColor(index), true);
     }
+    sequenceUi.cursorLedPad=sequenceCursorPad(sequenceUi.data);
+    sequenceUi.cursorRestores.clear();sequenceUi.cursorLedRefresh=-Infinity;
 }
 
 function drainLedQueue() {
@@ -2400,6 +2584,8 @@ let splitRasterTarget=null;
 function clearDisplay() {
     layersDisplay.valid=false;
     splitDisplay.valid=false;
+    sequenceDisplay.valid=false;
+    sequenceLaneDisplay.valid=false;
     clear_screen();
 }
 
@@ -3232,7 +3418,7 @@ function parameterPagesBase() {
     const pads={...PADS_SCALE_PAGE,keys:PADS_SCALE_PAGE.keys.map(k=>k==='voice_engine_order'?(voiceEngineListEnabled()?(PARAMS.voice_engine_assign.value===0?k:null):((isQuad()?PARAMS.pressure_mode.value===3:PARAMS.pressure_mode.value!==0)?'voice_engine_depth':null)):k)};
     const lists=voiceEngineListEnabled()?[{...VOICE_ENGINES_PAGE,keys:VOICE_ENGINES_PAGE.keys.map((k,i)=>i<voiceEngineCount()?k:null)},
         {...VOICE_SETUP_PAGE,keys:VOICE_SETUP_PAGE.keys.map(k=>isQuad()&&k==='voice_engine_stack'?null:k)}]:[];
-    if(layersUi.active)return layersPages(engine,pads,enginePages);
+    if(layersUi.active)return layersPages(engine,pads,enginePages,lists);
     if(!state.splitEnabled)return [engine,pads,MIDI_CONTROL_PAGE,MIDI_NOTES_PAGE,MIDI_MAPS_PAGE,...lists,AMP_ENVELOPE_PAGE,PLAY_GAIN_PAGE,...enginePages,
         MIX_REC_PAGE,EFFECTS_PAGE,STEREO_ROTARY_PAGE,TAPE_PAGE,REVERB_PAGE,FX_ORDER_PAGE,SAMPLE_PAGE,LOOP_PAGE,PATTERN_FADE_PAGE,TAKE_PAGE,CHAIN_PAGE,CHAIN_FADE_PAGE,ENTRY_FADE_PAGE,CHAIN_TOOLS_PAGE];
     const engineSplit={...engine,keys:engine.keys.map((key)=>key==='output_gain'?partLevelKey():isQuad()&&['manual_lane','lane_cycles','cut_lane_advance'].includes(key)?null:key)};
@@ -3273,11 +3459,15 @@ function controlForKey(key) {
     if(key==='seq_child')return {...PARAMS.seq_child,max:PARAMS.seq_burst.value};
     if(key==='seq_cycle_hit')return {...PARAMS.seq_cycle_hit,max:PARAMS.seq_cycle_every.value};
     if(key==='seq_note'){const root=sequenceUi.data?.root||60;return {...PARAMS.seq_note,min:Math.max(-48,-root),max:Math.min(48,127-root)};}
-    const stripPage=sequenceUi.active&&state.view==='settings'?currentSettingsPage():null;
+    // Only channel-strip EQ controls depend on which strip page is open.
+    // Ordinary labels/values must not rebuild every menu for each of 8 cells.
     const stripField=SEQUENCE_STRIP_KEYS.indexOf(key);
-    if(Number.isInteger(stripPage?.sequenceStrip)&&stripField>=0){
-        const value=sequenceUi.data?.strips?.[stripPage.sequenceStrip]?.[stripField];
-        return {...PARAMS[key],value:Number.isFinite(value)?value:PARAMS[key].value};
+    if(stripField>=0&&sequenceUi.active&&state.view==='settings'){
+        const stripPage=currentSettingsPage();
+        if(Number.isInteger(stripPage?.sequenceStrip)){
+            const value=sequenceUi.data?.strips?.[stripPage.sequenceStrip]?.[stripField];
+            return {...PARAMS[key],value:Number.isFinite(value)?value:PARAMS[key].value};
+        }
     }
     if(key?.startsWith('layers_fx')&&/^layers_fx(?:[0-9]|1[01])$/.test(key))return layersFxControl(key);
     const control = PARAMS[key];
@@ -3333,7 +3523,12 @@ function copyShortcutStep(step) {
     }
     return true;
 }
-function chainEditorActive() {return state.view==='chain'||(state.view==='settings'&&(currentSettingsPage()===CHAIN_PAGE||!!currentSettingsPage().chainFade||currentSettingsPage().chainTools));}
+function chainEditorActive() {
+    if(state.view==='chain')return true;
+    if(state.view!=='settings')return false;
+    const page=currentSettingsPage();
+    return page===CHAIN_PAGE||Boolean(page.chainFade)||Boolean(page.chainTools);
+}
 function activeControlKeys() {
     if(sequenceUi.active&&state.view==='main')return SEQUENCE_LANE_PAGE.keys;
     if(state.view==='layerFxPicker')return Array(8).fill(null);
@@ -3834,9 +4029,27 @@ function adjustPathEditor(index,delta) {
     draw();
 }
 function drawSettings() {
+    const page = currentSettingsPage();
+    // SEQ LANE is often left open while a fast sequence runs. Its eight
+    // readouts are static between edits, so avoid a full OLED clear and text
+    // transfer on every UI tick. The main Sequence view owns the playheads.
+    let laneSignature='';
+    if(page===SEQUENCE_LANE_PAGE&&state.editorReady){
+        laneSignature=JSON.stringify([
+            state.settingsPage,state.algorithm,state.splitFocus,
+            state.clipPlaying,state.clipRecording,
+            state.actionMessageTicks>0?state.actionMessage:'',
+            ...page.keys.map(key=>{
+                if(!key)return null;
+                const control=controlForKey(key);
+                return [control.shortLabel||SHORT_LABELS[key]||control.label,
+                    compactControlValue(control)];
+            }),
+        ]);
+        if(sequenceLaneDisplay.valid&&sequenceLaneDisplay.signature===laneSignature)return;
+    }
     clearDisplay();
     if(!state.editorReady){print(1,0,'UPDATING EDITOR',1);return;}
-    const page = currentSettingsPage();
     if(page.sequenceTrig){drawSequenceTrig();return;}
     if(page.sequenceBurst){drawSequenceBurst();return;}
     if(page.customMaps){drawCustomMidiProfile();return;}
@@ -3887,6 +4100,10 @@ function drawSettings() {
     else if (state.splitEnabled && isSendPage(page)) print(1,57,splitSendFooter(),1);
     else if (state.splitEnabled && !isQuad() && (page===DELAY_RETURN_PAGE || page.title===REVERB_PAGE.title))
         print(1,57,'RETURN: FX SENDS',1);
+    if(page===SEQUENCE_LANE_PAGE){
+        sequenceLaneDisplay.signature=laneSignature;
+        sequenceLaneDisplay.valid=true;
+    }
 }
 
 function compactReportCount(value) {
@@ -3905,7 +4122,7 @@ function helpReportRow(label, value) {
 function drawHelp() {
     clearDisplay();
     if (state.helpPage === 0) {
-        drawTitleWithFraction('SYSTEM REPORT <>','1/5');
+        drawTitleWithFraction('SYSTEM REPORT <>','1/8');
         print(1, 11, helpReportRow('RENDER PEAK',
             compactReportCount(state.maximumRenderMicros) + ' us'), 1);
         print(1, 21, helpReportRow('RENDER MISSES',
@@ -3918,7 +4135,7 @@ function drawHelp() {
         return;
     }
     if (state.helpPage === 1) {
-        drawTitleWithFraction('CALLBACK WORK <>','2/5');
+        drawTitleWithFraction('CALLBACK WORK <>','2/8');
         print(1, 13, helpReportRow('CONTROL PEAK', compactReportCount(state.controlPeakMicros) + ' us'), 1);
         print(1, 25, helpReportRow('QUERY PEAK', compactReportCount(state.queryPeakMicros) + ' us'), 1);
         print(1, 37, helpReportRow('WORK PEAK', compactReportCount(state.workPeakMicros) + ' us'), 1);
@@ -3926,7 +4143,7 @@ function drawHelp() {
         return;
     }
     if(state.helpPage===2) {
-        drawTitleWithFraction('RENDER TIMING <>','3/5');
+        drawTitleWithFraction('RENDER TIMING <>','3/8');
         const cpu=state.renderCpuAvailable;
         print(1,11,helpReportRow('CPU PEAK',cpu?compactReportCount(state.renderCpuPeakMicros)+' us':'N/A'),1);
         print(1,23,helpReportRow('WALL PEAK',compactReportCount(state.maximumRenderMicros)+' us'),1);
@@ -3934,16 +4151,39 @@ function drawHelp() {
         print(1,47,helpReportRow('CPU MISSES',cpu?compactReportCount(state.renderCpuOverruns):'N/A'),1);
         print(1,57,'SHIFT+DEL RESET',1);return;
     }
+    if(state.helpPage===5){
+        drawTitleWithFraction('UI TIMING <>','6/8');
+        print(1,11,helpReportRow('FRAME GAP',Math.round(uiTiming.gap)+' ms'),1);
+        print(1,21,helpReportRow('QUERY WAIT',Math.round(uiTiming.query)+' ms'),1);
+        print(1,31,helpReportRow('GAPS >50MS',compactReportCount(uiTiming.slow)),1);
+        print(1,41,helpReportRow('STEP JUMPS',compactReportCount(uiTiming.jumps)),1);
+        print(1,51,String(uiTiming.key||'NO SLOW QUERY').slice(0,21),1);return;
+    }
+    if(state.helpPage===7){
+        const d=state.patternWorker||[-1,0,0,0,0,0,0,0,99,0,0];
+        drawTitleWithFraction('FADE AUDIO <>','8/8');
+        print(1,11,helpReportRow('WORKER CPU',d[1]?compactReportCount(d[3])+' us':'N/A'),1);
+        print(1,21,helpReportRow('WALL/WAKE',(d[2]/1000).toFixed(1)+'/'+(d[10]/1000).toFixed(1)+'ms'),1);
+        print(1,31,helpReportRow('START/RUN',compactReportCount(d[4])+'/'+compactReportCount(d[5])),1);
+        print(1,41,helpReportRow('OUT MISSING',d[6].toFixed(1)+' ms'),1);
+        print(1,51,helpReportRow('FLUSH/Q',(d[0]<0?'N/A':d[0]?'ON':'OFF')+' '+Math.round(d[7])+'/'+Math.round(d[9])+'ms '+(d[8]===99?'?':d[8])),1);return;
+    }
+    if(state.helpPage===6){
+        const d=state.renderProfile||Array(8).fill(0);
+        drawTitleWithFraction(d[0]?'DSP CPU MISS <>':'DSP PEAK <>','7/8');
+        ['JOBS','PREP/SEQ','VOICES','PART MIX','FX','REC/OUT'].forEach((label,i)=>
+            print(1,10+i*9,helpReportRow(label,compactReportCount(d[i+2])+' us'),1));return;
+    }
     if(state.helpPage===4){
         const d=remoteE16.diagnostics;
-        drawTitleWithFraction('E16 LINK <>','5/5');
+        drawTitleWithFraction('E16 LINK <>','5/8');
         print(1,11,helpReportRow('STATE',d.state),1);
         print(1,21,helpReportRow('LAST',d.issue),1);
         print(1,31,helpReportRow('ACK/NACK',compactReportCount(d.acks)+'/'+compactReportCount(d.nacks)),1);
         print(1,41,helpReportRow('RETRY/RECON',compactReportCount(d.retries)+'/'+compactReportCount(d.reconnects)),1);
         print(1,51,helpReportRow('PENDING PX',d.pixels+'/'+d.pixelWindow),1);return;
     }
-    drawTitleWithFraction('SHORTCUTS <>','4/5');
+    drawTitleWithFraction('SHORTCUTS <>','4/8');
     print(1, 9, 'REC        data loop', 1);
     print(1, 17, 'SHIFT+REC  audio lane', 1);
     print(1, 25, 'UNDO      sample/clip', 1);
@@ -4533,8 +4773,9 @@ function drawPerformanceLayer() {
     print(1,57,'RELEASE TO RETURN',1);
 }
 function draw() {
+    if(state.view!=='settings'||state.performanceVisible)sequenceLaneDisplay.valid=false;
     const overlay=state.saveStatus===2?'saving':state.savedTicks>0&&state.saveStatus===3?'saved':'';
-    if(overlay!==state.saveOverlayLast){splitDisplay.footer=null;layersDisplay.fx=null;state.saveOverlayLast=overlay;}
+    if(overlay!==state.saveOverlayLast){splitDisplay.footer=null;layersDisplay.fx=null;sequenceDisplay.valid=false;sequenceLaneDisplay.valid=false;state.saveOverlayLast=overlay;}
     if(state.performanceVisible)drawPerformanceLayer();
     else if(customMidiViews.includes(state.view))drawCustomMidi();
     else if(state.view==='layerFxPicker')drawLayersPicker();
@@ -5110,6 +5351,15 @@ function adjustControl(index, delta) {
             readSequence();return;
         }
     }
+    if(control.key==='pattern_fade_lookahead'){
+        // Configuration is held fixed during a fade. Show the accepted value,
+        // rather than leaving an optimistic 12ms label after a rejected edit.
+        setParamBlocking(control.key,String(value));
+        control.value=PARAMS[control.key].value=clamp(getNumber(control.key,control.value),0,1);
+        if(control.value!==value)showActionMessage('FINISH FADE FIRST');
+        else showMessage('LOOK '+formatControlValue(control),35);
+        return;
+    }
     control.value = value;
     PARAMS[control.key].value = value;
     if(control.key.startsWith('seq_')){setParamBlocking(control.key,value);readSequence();return;}
@@ -5176,6 +5426,10 @@ function pollDiagnostics() {
     const timing=String(getParam('render_timing_state','0,0,0,0')).split(',').map(Number);
     state.renderCpuAvailable=timing[0]===1;
     state.renderCpuPeakMicros=bounded(timing[1]);state.renderWaitPeakMicros=bounded(timing[2]);state.renderCpuOverruns=bounded(timing[3]);
+    const profile=String(getParam('render_profile_state','0,0,0,0,0,0,0,0')).split(',').map(Number);
+    if(profile.length===8&&profile.every(Number.isFinite))state.renderProfile=profile;
+    const worker=String(getParam('pattern_worker_state','-1,0,0,0,0,0,0,0,99,0,0')).split(',').map(Number);
+    if(worker.length===11&&worker.every(Number.isFinite))state.patternWorker=worker;
     const limiter = String(getParam('limiter_state', '0,0'))
         .split(',').map((item) => Number(item));
     state.limiterReductionDb = Number.isFinite(limiter[0])
@@ -5197,7 +5451,7 @@ function pollDsp() {
         PARAMS.algorithm.value = algorithm;
         state.settingsPage = clamp(state.settingsPage, 0, parameterPages().length - 1);
     }
-    parseSplitState(getParam('split_state','{}'));if(PARAMS.split_mode.value===6||sequenceUi.active)readSequence();
+    parseSplitState(getParam('split_state','{}'));if(PARAMS.split_mode.value===6||sequenceUi.active)readSequence(true);
     parseVoiceEngineState(getParam('voice_engine_state',''));
     state.voiceAlgorithms=String(getParam('voice_algorithms','')).split(',').map(Number);
     parseSaveStatus(getParam('save_status',''));
@@ -5423,7 +5677,9 @@ function drawSliceEditor() {
 
 // MIDI and E16 integration is appended below; functions are initialized before init runs.
 globalThis.init = function() {
-    sequenceUi.active=false;sequenceUi.data=null;sequenceUi.pad=-1;sequenceUi.held=false;sequenceUi.copy=false;sequenceUi.copyReady=false;
+    resetUiTiming();renderProfileRequested=false;
+    uiPolling.supported=null;uiPolling.cached=false;uiPolling.cache.clear();uiPolling.lastFrame=-Infinity;uiPolling.job=0;uiPolling.editorPending=false;
+    sequenceUi.active=false;sequenceUi.data=null;sequenceUi.pad=-1;sequenceUi.held=false;sequenceUi.copy=false;sequenceUi.copyReady=false;sequenceUi.fullRaw='';sequenceUi.revision=sequenceUi.cursorRevision=sequenceUi.headRevision=0;sequenceUi.cursorLedPad=-1;sequenceUi.cursorLedRefresh=-Infinity;sequenceUi.cursorRestores.clear();sequenceDisplay.valid=false;sequenceLaneDisplay.valid=false;
     splitDisplay.valid=false;state.waveText=null;state.patternFaderTouched=false;
     // Schwung may clear or restore the physical surface between takeover sessions.
     if (typeof moveInputFilter.invalidateLedCache === 'function') {
@@ -5524,21 +5780,54 @@ globalThis.init = function() {
 };
 
 globalThis.tick = function() {
+    // Schwung can call overtake tick at 500 Hz. Count display frames using
+    // elapsed time; never couple a MIDI/LED cursor to a long serial query sweep.
+    // Check cadence BEFORE any page predicates. In particular,
+    // customMidiContext() resolves the menu and must not run at host tick rate.
+    if(sequenceUi.active){
+        const now=Date.now();
+        if(now>=uiPolling.lastFrame&&now-uiPolling.lastFrame<16)return;
+        uiPolling.lastFrame=now;
+    }
+    const sequencePolling=sequenceUi.active&&uiPolling.supported!==false
+        &&!['projects','sliceEdit','bankRecovery'].includes(state.view)&&!customMidiContext();
+    if(sequencePolling){
+        const ok=fetchUiPoll('fast');
+        if(uiPolling.supported===null)uiPolling.supported=ok;
+        if(!ok&&uiPolling.supported)return; // Retain the last complete frame on a transient failure.
+    }
+    if(sequenceUi.active)noteUiFrame();else uiTiming.last=null;
+    const profileWanted=state.view==='help';
+    if(profileWanted!==renderProfileRequested){const ok=setParamBlocking('render_profile_enable',profileWanted?1:0);if(ok!==false&&ok!==0)renderProfileRequested=profileWanted;}
     state.ticks++;
-    tickLayersCornerGesture();tickSequenceGesture();if(sequenceUi.active)readSequence();
+    tickLayersCornerGesture();tickSequenceGesture();
     if(!sequenceUi.active&&state.focusButtonHeld && state.performanceArmed && !state.shiftHeld && !state.focusButtonUsed
         && state.ticks-state.captureStartTick>=10) {
         state.focusButtonUsed=true;state.performanceVisible=true;rebuildLedQueue();
     }
-    if (state.ticks % 3 === 0) {pollDsp();pollMidiControls();if(state.view==='projects'||projectUi.pending)readProject();}
-    tickMidiFeedback();
+    if(sequencePolling&&uiPolling.supported){
+        // At most two synchronous query transactions per display frame.
+        // One fast coherent cursor snapshot; one slow job OR MIDI feedback.
+        const recoveringEditor=uiPolling.editorPending;
+        if(recoveringEditor)refreshEditorSnapshot(false);
+        else if(state.ticks%3!==0)fetchUiPoll(UI_POLL_JOBS[uiPolling.job++%UI_POLL_JOBS.length]);
+        withUiPollCache(()=>{
+            if(state.ticks%3===0){pollDsp();pollMidiControls();}
+            readSequenceCursor();
+        });
+        if(state.ticks%3===0&&!recoveringEditor)tickMidiFeedback();
+    }else{
+        if (state.ticks % 3 === 0) {pollDsp();pollMidiControls();if(state.view==='projects'||projectUi.pending)readProject();}
+        if(sequenceUi.active)readSequenceCursor();
+        tickMidiFeedback();
+    }
     if (state.ticks % 180 === 0) setParam('maintenance', 1);
     if(state.savedTicks>0)state.savedTicks--;
     if (state.messageTicks > 0) state.messageTicks--;
     if (state.actionMessageTicks > 0) state.actionMessageTicks--;
     rebuildIconLedQueue();
     drainLedQueue();
-    draw();
+    if(sequencePolling&&uiPolling.supported)withUiPollCache(draw);else draw();
 };
 
 globalThis.onMidiMessageInternal = function(data) {
@@ -5715,7 +6004,7 @@ globalThis.onMidiMessageInternal = function(data) {
     if(number===MoveDelete && state.view==='help' && state.shiftHeld) {
         state.deleteHeld=false;
         setParam('delete_held',0);
-        if(value>0){setParamBlocking('performance_reset',1);pollDiagnostics();draw();}
+        if(value>0){resetUiTiming();setParamBlocking('performance_reset',1);pollDiagnostics();draw();}
         return;
     }
     if (number === MoveDelete) {
@@ -5988,6 +6277,7 @@ globalThis.onMidiMessageInternal = function(data) {
 };
 
 globalThis.onUnload = function() {
+    setParamBlocking('render_profile_enable',0);renderProfileRequested=false;
     setParamBlocking('midi_custom_cancel',1);
     setParamBlocking('slice_editor_open',0);
     remoteE16.stop();

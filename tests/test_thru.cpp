@@ -1761,6 +1761,11 @@ int main()
     assert(get(api, instance, "name") == "s3g Thru");
     assert(get(api, instance, "captures_directory")
         == persistenceDir + "/captures");
+    assert(get(api, instance, "pattern_fade_lookahead") == "1");
+    // Existing low-latency API/DSP goldens explicitly choose Off. Production
+    // defaults and first-sample behavior are tested by the lookahead suite.
+    api->set_param(instance, "pattern_fade_lookahead", "0");
+    assert(get(api, instance, "pattern_fade_lookahead") == "0");
 
     assert(get(api, instance, "polyphony") == "8");
     constexpr const char* noPlayheads = "-1,-1,-1,-1,-1,-1,-1,-1";

@@ -24,6 +24,9 @@
 #include <bitset>
 #include "thru_effect_order.h"
 #include "thru_background_thread.h"
+#include "thru_thread_signal.h"
+#include "thru_audio_float.h"
+#include "thru_fade_lookahead.h"
 #include "thru_schwung_abi.h"
 
 #include <algorithm>
@@ -51,6 +54,9 @@
 namespace {
 
 using Engine = s3g_daisy::SampleMotionApp;
+bool readRenderCpuClock(timespec& value);
+std::uint64_t elapsedNanos(const timespec& before,const timespec& after);
+void recordMaximum(std::atomic<std::uint64_t>& maximum,std::uint64_t value);
 
 constexpr std::size_t kLaneCount = Engine::kStackLanes;
 constexpr std::size_t kChannelCount = Engine::kChannels;
@@ -966,6 +972,7 @@ constexpr const char kChainParams[] = R"json([
 {"key":"pad_mode","name":"Pad Mode","short_name":"PADS","type":"enum","options":["Keys","Slices","Cues","Rolls"],"default":0},
 {"key":"lane_variation","name":"Lane Variation","short_name":"VARIATION","type":"enum","options":["Manual","Cycle","Random","No Repeat","Velocity"],"default":0},
 {"key":"preview_level","name":"Browser Preview","short_name":"PREVIEW","type":"float","min":0,"max":1,"step":0.01,"default":0.7},
+{"key":"pattern_fade_lookahead","name":"Fade Lookahead","short_name":"LOOK","type":"enum","options":["Off","12ms"],"default":1},
 {"key":"pattern_fade_ms","name":"Pattern Fade Time","type":"float","min":0,"max":30000,"default":0},
 {"key":"pattern_fade_mode","name":"Pattern Timing Mode","short_name":"MODE","type":"enum","options":["Fixed","Random"],"default":0},
 {"key":"pattern_fade_low_ms","name":"Minimum Pattern Fade","short_name":"LOW","type":"float","min":0,"max":30000,"default":2000,"unit":"ms"},
@@ -1250,7 +1257,7 @@ constexpr const char kUiHierarchy[] = R"json({
 "effects":{"name":"Effects","knobs":["effect_tone","effect_drive","effect_bits","effect_rate","effect_delay","effect_feedback","effect_width","effect_mix"],"params":[{"key":"effect_tone"},{"key":"effect_drive"},{"key":"effect_bits"},{"key":"effect_rate"},{"key":"effect_delay"},{"key":"effect_feedback"},{"key":"effect_width"},{"key":"effect_mix"},{"key":"effect_cross_pan"},{"key":"effect_rotary_rate"},{"key":"effect_rotary_depth"},{"key":"effect_rotary_mix"},{"key":"effect_rotary_ramp"},{"key":"effect_rotary_balance"},{"key":"effect_rotary_crossover"},{"key":"effect_rotary_spread"},{"key":"effect_tape_format"},{"key":"effect_tape_drive"},{"key":"effect_tape_age"},{"key":"effect_tape_crinkle"},{"key":"effect_tape_mechanics"},{"key":"effect_tape_inertia"},{"key":"effect_tape_hiss"},{"key":"effect_tape_mix"}]},
 "lane_mix":{"name":"Lane Mix","knobs":["lane_1_gain","lane_2_gain","lane_3_gain","lane_4_gain","lanes_stretch","stretch_ratio","pressure_mode","output_gain"],"params":[{"key":"lane_1_gain"},{"key":"lane_2_gain"},{"key":"lane_3_gain"},{"key":"lane_4_gain"},{"key":"lanes_stretch"},{"key":"stretch_ratio"},{"key":"pressure_mode"},{"key":"output_gain"}]},
 "pattern_fade":{"name":"Pattern Fade","knobs":["pattern_fade_ms","pattern_fade_curve","pattern_fade_position","pattern_fade_hold","pattern_fade_low_ms","pattern_fade_high_ms","pattern_fade_mode","pattern_fade_finish"],"params":[{"key":"pattern_fade_ms"},{"key":"pattern_fade_curve"},{"key":"pattern_fade_position"},{"key":"pattern_fade_hold"},{"key":"pattern_fade_low_ms"},{"key":"pattern_fade_high_ms"},{"key":"pattern_fade_mode"}]},
-"performance_loop":{"name":"Performance Loop","knobs":["clip_rate","clip_timing","launch_quantize","tempo_bpm","clip_record_mode","tempo_swing","pressure_mode"],"params":[{"key":"clip_rate"},{"key":"clip_timing"},{"key":"launch_quantize"},{"key":"tempo_bpm"},{"key":"clip_record_mode"},{"key":"tempo_swing"},{"key":"pressure_mode"}]}
+"performance_loop":{"name":"Performance Loop","knobs":["clip_rate","clip_timing","launch_quantize","tempo_bpm","clip_record_mode","tempo_swing","pattern_fade_lookahead"],"params":[{"key":"clip_rate"},{"key":"clip_timing"},{"key":"launch_quantize"},{"key":"tempo_bpm"},{"key":"clip_record_mode"},{"key":"tempo_swing"},{"key":"pattern_fade_lookahead"}]}
 }
 })json";
 
@@ -2219,6 +2226,30 @@ struct PlaybackVoice {
     bool panicRelease = false;
 };
 
+// Two preallocated banks let a fade transfer live DSP ownership without
+// copying the large per-voice histories on the audio callback.
+class PlaybackVoiceBank {
+    using Storage=std::array<PlaybackVoice,kVoiceCount>;
+    std::unique_ptr<Storage> values_;
+public:
+    PlaybackVoiceBank()=default;
+    PlaybackVoiceBank(const PlaybackVoiceBank&)=delete;
+    PlaybackVoiceBank& operator=(const PlaybackVoiceBank&)=delete;
+    PlaybackVoiceBank(PlaybackVoiceBank&&) noexcept=default;
+    PlaybackVoiceBank& operator=(PlaybackVoiceBank&&) noexcept=default;
+    bool allocate(){if(!values_)values_.reset(new(std::nothrow) Storage {});return bool(values_);}
+    void swap(PlaybackVoiceBank& other) noexcept {values_.swap(other.values_);}
+    std::size_t size() const {return values_?kVoiceCount:0;}
+    PlaybackVoice* data(){return values_?values_->data():nullptr;}
+    const PlaybackVoice* data() const {return values_?values_->data():nullptr;}
+    PlaybackVoice* begin(){return data();}
+    PlaybackVoice* end(){auto* p=data();return p?p+kVoiceCount:p;}
+    const PlaybackVoice* begin() const {return data();}
+    const PlaybackVoice* end() const {const auto* p=data();return p?p+kVoiceCount:p;}
+    PlaybackVoice& operator[](std::size_t i){return (*values_)[i];}
+    const PlaybackVoice& operator[](std::size_t i) const {return (*values_)[i];}
+};
+
 struct AudioRoll {
     float* left = nullptr;
     float* right = nullptr;
@@ -2368,7 +2399,7 @@ struct ThruInstance : PlaybackEffectsState {
     std::array<std::uint64_t, kLaneCount> wavesetSourceRevisions {1u,1u,1u,1u};
     std::atomic<std::uint32_t> wavesetReadyMask {0u}, wavesetPendingMask {0u};
     std::size_t wavesetNextLane = 0u;
-    std::array<PlaybackVoice, kVoiceCount> voices {};
+    PlaybackVoiceBank voices;
     std::array<s3g_daisy::ThruStochasticPartMeter,4> stochasticPartMeters {};
     std::array<std::array<std::array<float,kBlockFrames>,2>,4> stochasticListenBus {};
     Engine::Controls controls;
@@ -2385,13 +2416,16 @@ struct ThruInstance : PlaybackEffectsState {
     bool sequenceClipboardReady=false;
     int sequenceStep=0,sequenceChild=0,sequenceEditStep=-1;
     double sequenceBeat=0;
+    std::array<double,4> sequenceBeatOffsets{};
     std::array<int,4> sequenceCursor{-1,-1,-1,-1};
+    std::array<std::atomic<int>,4> sequencePublishedCursor{};
     std::array<std::uint64_t,4> sequenceEventCount{};
     std::array<std::uint64_t,32> sequencePadTimes{};
     std::array<int,32> sequencePadParts{};
     std::array<int,4> sequenceSteps{},sequenceChildren{};
     std::array<std::array<std::array<std::int64_t,8>,32>,4> sequenceLastEvent{};
     std::array<int,4> sequenceLastRate{-1,-1,-1,-1};
+    std::array<std::atomic<int>,4> sequenceRequestedRate{};
     std::array<bool,32> sequencePadConsumed{};
     std::array<bool,4> sequenceMuted{};
     std::array<std::array<bool,10>,4> sequenceOverrides{};
@@ -2670,9 +2704,12 @@ struct ThruInstance : PlaybackEffectsState {
 
     bool prepare(const char* moduleDir, bool renderOnly = false)
     {
+        if(!voices.allocate()){setError("Cannot allocate playback voice bank");return false;}
         const int hostRate = g_host && g_host->sample_rate > 0
             ? g_host->sample_rate : MOVE_SAMPLE_RATE;
         sampleRate = static_cast<float>(hostRate);
+        fadeLookahead.prepare(sampleRate);
+        fadeLookahead.setEnabled(patternLookahead!=0,true);
         laneCapacityFrames = static_cast<std::size_t>(hostRate) * kLaneSeconds;
         planeCapacityFrames = laneCapacityFrames * Engine::kLaneChannels;
         const std::size_t totalFloats = planeCapacityFrames * kChannelCount;
@@ -6124,7 +6161,7 @@ struct ThruInstance : PlaybackEffectsState {
     {
         Engine::Controls effective = voice.clipOwned ? recordedControls : liveControls;
         const auto owner = settingsForPart(voice.part);
-        if(voice.assignedAlgorithm>=0&&!layersLive.active&&!sequenceMode())effective.algorithm=static_cast<Engine::PlaybackAlgorithm>(voice.assignedAlgorithm);
+        if(voice.assignedAlgorithm>=0&&!sequenceMode())effective.algorithm=static_cast<Engine::PlaybackAlgorithm>(voice.assignedAlgorithm);
         if (splitEnabled) {
             effective.stackFirstLane = sharedDual?0.0f:static_cast<float>(firstLaneForPart(voice.part));
             effective.stackLastLane = sharedDual?3.0f:effective.stackFirstLane+(isQuad()?0.0f:1.0f);
@@ -7258,7 +7295,7 @@ struct ThruInstance : PlaybackEffectsState {
         const bool previousSplit=splitEnabled,previousShared=sharedDual,previousQuad=quadMode;
         splitMixerOverrides.fill(false);
         restoreSplitClip(target);
-        layersLive=layersRecorded=target.layers;layersOverrides.reset();clearLayersTouches();layersRack.prime(layersLive);
+        layersLive=layersRecorded=target.layers;layersOverrides.reset();clearLayersTouches();if(layersLive.active)layersRack.prime(layersLive);
         if((previousSplit!=splitEnabled||previousShared!=sharedDual||previousQuad!=quadMode) && voices[0].engine.prepared())refreshPlaybackVoices();
         clipControls = controls;
         clipOutputGain = outputGain;
@@ -7332,7 +7369,21 @@ struct ThruInstance : PlaybackEffectsState {
         if(sequenceMode()&&preparedClip.load(std::memory_order_relaxed)==activeClip){preparedClip.store(-1,std::memory_order_relaxed);clipPrepareState.store(static_cast<int>(ClipPrepareState::idle),std::memory_order_release);queuedClip=-1;return true;}
         if(patternBusy())return false;
         if(wantsPatternFade(fade) && (previewActive||previewTransitionRemaining)) {stopPreviewWithFade();return false;}
+        if(wantsPatternFade(fade)&&(!fadeLookahead.ready() || (renderProfileActive&&renderAudioStarted))) {
+            // Do not add another source render to a callback that has already
+            // produced audio. Retry this boundary before the next callback's
+            // first DSP block, with the original source still running.
+            patternDeferredClip=preparedClip.load(std::memory_order_relaxed);
+            patternDeferredSource=activeClip;
+            return false;
+        }
         const bool fading=beginPatternFade(preparedClip.load(std::memory_order_relaxed),fade);
+        if(fading) {
+            primePatternWarmup();
+#ifdef S3G_THRU_FADE_TESTING
+            if(patternHandoffTestReady)patternHandoffTestReady(*this);
+#endif
+        }
         if(!fading)beginSourceTransitionTail();
         closeSliceEditor();
         allNotesOff();
@@ -7388,7 +7439,16 @@ struct ThruInstance : PlaybackEffectsState {
                               : (preparedLaneFrames[lane] != 0u
                                   ? "SAMPLE" : "EMPTY"));
         }
-        for (auto& voice : voices) {
+        // A layout change is rebound by activateStoredClip after restoring
+        // the destination's ownership masks. Do not bind all eight voices to
+        // the previous layout first and immediately repeat that work.
+        const auto& destinationClip=clipSlots[static_cast<std::size_t>(preparedClip.load(std::memory_order_relaxed))];
+        const bool rebindOnRecall=splitEnabled!=destinationClip.splitEnabled
+            || sharedDual!=destinationClip.sharedDual || quadMode!=destinationClip.quadMode;
+        std::size_t reboundVoice=0;
+        if(!rebindOnRecall)for (auto& voice : voices) {
+            voice.part=splitEnabled?int(reboundVoice/voicesPerPart()):0;
+            ++reboundVoice;
             voice.engine.rebindStorage(
                 storage.get() + planeCapacityFrames * 0u,
                 storage.get() + planeCapacityFrames * 1u,
@@ -8545,7 +8605,17 @@ struct ThruInstance : PlaybackEffectsState {
     void render(int16_t* interleaved, int frames, float* rawStereo = nullptr)
     {
         if ((!interleaved && !rawStereo) || frames <= 0) return;
+        renderProfileActive=true;renderAudioStarted=false;
+        beginRenderProfile();
         captureMidiInbox();
+        // These jobs have a per-host-callback copy/analysis budget. A trig can
+        // split this block many times; it must not multiply that budget.
+        if(!patternRenderOnly){
+            serviceSampleLoad();serviceClipSourceQueue();serviceBackgroundWork();
+            serviceWavesetAnalysis();serviceSpectralAnalysis();
+        }
+        markRenderProfile(0);
+        if(!patternRenderOnly)serviceDeferredPatternLaunch();
         const int16_t* audioInput = nullptr;
         if (!patternRenderOnly && g_host && g_host->mapped_memory) {
             audioInput = reinterpret_cast<const int16_t*>(
@@ -8556,9 +8626,6 @@ struct ThruInstance : PlaybackEffectsState {
         while (rendered < frames) {
             std::size_t count = std::min<std::size_t>(
                 kBlockFrames, static_cast<std::size_t>(frames - rendered));
-            if(!patternRenderOnly) {
-                serviceSampleLoad();serviceClipSourceQueue();serviceBackgroundWork();
-            }
             for (std::size_t frame = 0u; frame < count; ++frame) {
                 const std::size_t sourceFrame = static_cast<std::size_t>(rendered) + frame;
                 const float left = audioInput
@@ -8576,19 +8643,23 @@ struct ThruInstance : PlaybackEffectsState {
                 voiceEnvelopePower[frame] = 0.0f;
             }
 
-            if(!patternRenderOnly)servicePatternReturn();
-            if(!patternRenderOnly && patternWarmup) {
-                renderPatternWarmup(interleaved,rawStereo,rendered,count);rendered+=static_cast<int>(count);continue;
+            if(!patternRenderOnly){servicePatternReturn();count=patternReturnRenderFrames(count);}
+            if(!patternRenderOnly && patternWarmup && !patternLookaheadFrames) {
+                markRenderProfile(1);
+                renderAudioStarted=true;
+                rendered+=static_cast<int>(renderPatternWarmup(interleaved,rawStereo,rendered,count));continue;
             }
             servicePadHoldDeadlines();
             serviceMidiClock();
             serviceClipBeforeBlock();
-            if(!patternRenderOnly && patternWarmup) {
-                renderPatternWarmup(interleaved,rawStereo,rendered,count);rendered+=static_cast<int>(count);continue;
+            if(!patternRenderOnly && patternWarmup && !patternLookaheadFrames) {
+                markRenderProfile(1);
+                renderAudioStarted=true;
+                rendered+=static_cast<int>(renderPatternWarmup(interleaved,rawStereo,rendered,count));continue;
             }
+            renderAudioStarted=true;
             count=serviceSequenceBeforeBlock(count);
             serviceVoiceLaneSync();
-            if(!patternRenderOnly){serviceWavesetAnalysis();serviceSpectralAnalysis();}
             advancePerformanceControls(count);
             // All voices and the post-engine chain consume one coherent
             // control snapshot for this audio block. Rapid UI/MIDI updates
@@ -8602,6 +8673,7 @@ struct ThruInstance : PlaybackEffectsState {
                 splitEnvelopePower[part].fill(0);
             }
             for(auto& part:stochasticListenBus)for(auto& channel:part)channel.fill(0);
+            markRenderProfile(1);
             for (auto& voice : voices) {
                 // Inactive voices have no envelope or playback state to
                 // advance. Processing all eight dormant engines multiplied
@@ -8694,6 +8766,7 @@ struct ThruInstance : PlaybackEffectsState {
                 }
             }
 
+            markRenderProfile(2);
             for(int part=0;part<4;++part) {
                 float energy=0;const auto& bus=stochasticListenBus[part];
                 for(std::size_t frame=0;frame<count;++frame)energy+=.5f*(bus[0][frame]*bus[0][frame]+bus[1][frame]*bus[1][frame]);
@@ -8806,6 +8879,7 @@ struct ThruInstance : PlaybackEffectsState {
             lastVoiceMixSample[0u] = voiceMix[0u][count - 1u];
             lastVoiceMixSample[1u] = voiceMix[1u][count - 1u];
 
+            markRenderProfile(3);
             Engine::Controls effectControlSnapshot = clipPlaying
                 ? clipControlSnapshot : liveControlSnapshot;
             applyPerformanceSends(effectControlSnapshot);
@@ -8814,8 +8888,16 @@ struct ThruInstance : PlaybackEffectsState {
             for(std::size_t frame=0;frame<count;++frame)
                 for(std::size_t ch=0;ch<2;++ch)voiceMix[ch][frame]+=directPreview[ch][frame];
 
-            if(!patternRenderOnly)mixPatternFade(count);
+            if(!patternRenderOnly){
+                const bool delayed=fadeLookahead.enabled()||!fadeLookahead.ready();
+                if(delayed)processLiveLookahead(count);
+                mixPatternFade(count);
+                // While Off, retain actual audible history for a later enable,
+                // including a just-returned source rather than the spare bus.
+                if(!delayed)processLiveLookahead(count);
+            }
 
+            markRenderProfile(4);
             if(bankMode && !patternRenderOnly)recordBankBus(count);
 
             if (audioRecording() && recordSource == 1) {
@@ -8872,9 +8954,13 @@ struct ThruInstance : PlaybackEffectsState {
                     outputRight, ditherState[1u]);
             }
             updateLimiterTelemetry(minimumLimiterGain);
+            markRenderProfile(5);
             serviceClipAfterBlock(count);
             rendered += static_cast<int>(count);
+            markRenderProfile(1);
         }
+        finishRenderProfile();
+        renderProfileActive=false;
     }
 
     bool persistencePath(const char* leaf, char* path, std::size_t pathSize) const
@@ -8935,212 +9021,8 @@ struct ThruInstance : PlaybackEffectsState {
     int serializeState(char* buffer, int bufferLength,
         std::uint64_t generation = kAnyPersistenceGeneration) const
     {
-        if (!buffer || bufferLength < 1) return -1;
-        const int length = std::snprintf(buffer, static_cast<std::size_t>(bufferLength),
-            "{\"version\":19,\"locus\":%.5f,\"field\":%.5f,\"speed\":%.5f,"
-            "\"manual_lane\":%.5f,\"lane_cycles\":%.5f,\"algorithm\":%d,"
-            "\"join\":%.5f,\"output_gain\":%.5f,\"polyphony_comp\":%d,"
-            "\"record_gain\":%.5f,"
-            "\"amp_attack\":%.5f,\"amp_decay\":%.5f,"
-            "\"amp_sustain\":%.5f,\"amp_release\":%.5f,"
-            "\"pressure_mode\":%d,\"hold_release_ms\":%d,"
-            "\"root_note\":%d,\"pad_octave\":%d,\"scale\":%d,"
-            "\"record_lane\":%u,\"record_source\":%d,\"motion_mode\":%d,"
-            "\"motion_sound\":%d,\"motion_rate\":%.5f,"
-            "\"motion_rate_basis\":%d,\"motion_path_rate\":%.5f,"
-            "\"motion_step\":%.5f,\"motion_seed\":%.0f,\"lanes_mode\":%d,"
-            "\"lane_path\":%d,\"lanes_stretch\":%d,\"stretch_ratio\":%.5f,"
-            "\"lane_1_gain\":%.5f,\"lane_2_gain\":%.5f,"
-            "\"lane_3_gain\":%.5f,\"lane_4_gain\":%.5f,"
-            "\"grain_mode\":%d,\"grain_size\":%.5f,"
-            "\"grain_density\":%.5f,\"grain_pitch\":%.5f,"
-            "\"grain_window\":%d,\"grain_spread\":%.5f,"
-            "\"cutups_mode\":%d,\"tempo_bpm\":%.5f,\"tempo_swing\":%.5f,"
-            "\"chain_enabled\":%d,"
-            "\"motion_travel\":%.5f,\"motion_jitter\":%.5f,"
-            "\"packet_duty\":%.5f,\"motor_rate\":%.5f,"
-            "\"motor_symmetry\":%.5f,\"motor_shape\":%d,"
-            "\"segment_trigger\":%d,\"segment_overlap\":%d,"
-            "\"segment_layers\":%.0f,\"segment_rate\":%.5f,"
-            "\"segment_repeats\":%.0f,\"segment_step\":%.5f,"
-            "\"segment_pitch\":%.5f,\"segment_level\":%.5f,"
-            "\"segment_curve\":%.5f,"
-            "\"lane_blend\":%d,\"lane_path_shape\":%d,"
-            "\"lane_path_offset\":%.5f,\"lane_path_skew\":%.5f,"
-            "\"lane_path_curve\":%.5f,\"lane_slew\":%.5f,"
-            "\"grain_spray\":%.5f,\"grain_bias\":%d,"
-            "\"grain_pitch_spray\":%.5f,\"grain_reverse\":%.5f,"
-            "\"grain_size_variation\":%.5f,\"grain_level_variation\":%.5f,"
-            "\"grain_timing\":%d,\"grain_timing_scatter\":%.5f,"
-            "\"grain_envelope_skew\":%.5f,\"grain_process\":%d,"
-            "\"grain_process_amount\":%.5f,\"grain_regions\":%.0f,"
-            "\"grain_advance\":%d,\"cut_clock\":%d,\"cut_division\":%d,"
-            "\"cut_rate\":%.5f,\"cut_time_variation\":%.5f,"
-            "\"cut_gate\":%.5f,\"cut_join\":%.5f,\"cut_regions\":%.0f,"
-            "\"cut_repeats\":%.0f,\"cut_reverse\":%.5f,"
-            "\"cut_pitch_variation\":%.5f,\"cut_level_variation\":%.5f,"
-            "\"cut_lane_advance\":%d,\"cut_lane_order\":%d,\"cut_poly_path\":%d,"
-            "\"cut_region_mode\":%d,\"sample_mode\":%d,"
-            "\"slice_region_mode\":%d,\"slice_regions\":%.0f,"
-            "\"glitch_mode\":%d,\"glitch_clock\":%d,"
-            "\"glitch_division\":%d,\"glitch_rate\":%.5f,"
-            "\"glitch_slice\":%.5f,\"glitch_repeats\":%.0f,"
-            "\"glitch_chance\":%.5f,\"glitch_mix\":%.5f,"
-            "\"glitch_steps\":%.0f,\"glitch_pulses\":%.0f,"
-            "\"glitch_rotate\":%.0f,\"glitch_jump\":%.5f,"
-            "\"glitch_pitch\":%.5f,\"glitch_reverse\":%.5f,"
-            "\"glitch_decay\":%.5f,\"glitch_seed\":%.0f,"
-            "\"effect_tone\":%.5f,\"effect_drive\":%.5f,"
-            "\"effect_bits\":%.5f,\"effect_rate\":%.0f,"
-            "\"effect_delay\":%.5f,\"effect_feedback\":%.5f,"
-            "\"effect_width\":%.5f,\"effect_mix\":%.5f,"
-            "\"effect_cross_pan\":%.5f,\"effect_rotary_rate\":%.5f,"
-            "\"effect_rotary_depth\":%.5f,\"effect_rotary_mix\":%.5f,"
-            "\"effect_rotary_ramp\":%.5f,\"effect_rotary_balance\":%.5f,"
-            "\"effect_rotary_crossover\":%.5f,\"effect_rotary_spread\":%.5f,"
-            "\"effect_tape_format\":%d,\"effect_tape_drive\":%.5f,"
-            "\"effect_tape_wow_rate\":%.5f,\"effect_tape_wow_depth\":%.5f,"
-            "\"effect_tape_flutter_rate\":%.5f,\"effect_tape_flutter_depth\":%.5f,"
-            "\"effect_tape_hiss\":%.5f,\"effect_tape_mix\":%.5f,"
-            "\"effect_tape_age\":%.5f,\"effect_tape_crinkle\":%.5f,"
-            "\"effect_tape_mechanics\":%.5f,\"effect_tape_inertia\":%.5f,"
-            "\"long_grain_mode\":%d,\"long_grain_length\":%.5f,"
-            "\"long_grain_layers\":%.0f,\"long_grain_pitch\":%.5f,"
-            "\"long_grain_shape\":%d,\"long_grain_edge\":%.5f,"
-            "\"long_grain_spread\":%.5f,\"long_grain_reverse\":%.5f,"
-            "\"long_grain_spray\":%.5f,\"long_grain_bias\":%d,"
-            "\"long_grain_duration_variation\":%.5f,"
-            "\"long_grain_pitch_spray\":%.5f,"
-            "\"long_grain_level_variation\":%.5f,"
-            "\"long_grain_phase\":%.5f,\"long_grain_advance\":%d,"
-            "\"waveset_group\":%.0f,\"waveset_repeats\":%.0f,"
-            "\"waveset_stride\":%.0f,\"waveset_advance\":%d,"
-            "\"waveset_direction\":%d,\"waveset_process\":%d,"
-            "\"waveset_amount\":%.5f,\"waveset_detail\":%d,"
-            "\"effect_reverb_algo\":%.5f,\"effect_reverb_decay\":%.5f,\"effect_reverb_pre\":%.5f,\"effect_reverb_damp\":%.5f,\"effect_reverb_diff\":%.5f,\"effect_reverb_mod\":%.5f,\"effect_reverb_width\":%.5f,\"effect_reverb_mix\":%.5f,\"effect_order\":%.5f,"
-            "\"pad_mode\":%d,\"lane_variation\":%d,\"clip_record_mode\":%d,"
-            "\"preview_level\":%.5f,\"preview_route\":%d,\"grain_quality\":%zu,"
-            "\"launch_quantize\":%d,\"midi_control_mode\":%d,"
-            "\"midi_cc_channel\":%d,\"midi_cc_base\":%d,"
-            "\"midi_takeover\":%d,\"midi_control_part\":%d,"
-            "\"midi_note_route\":%d,\"midi_note_channel\":%d,\"midi_bend_range\":%.4f,\"midi_mod_target\":%d,\"midi_velocity_depth\":%.4f,\"midi_sync_source\":%d,\"midi_sync_transport\":%d,"
-            "\"next_capture_id\":%llu,"
-            "\"generation\":%llu,\"complete\":1}",
-            controls.locus, controls.field, controls.speed,
-            controls.manualLane + 1.0f, controls.laneCycles,
-            static_cast<int>(controls.algorithm), controls.join,
-            outputGain, polyphonyCompensation ? 1 : 0, recordGain,
-            controls.ampAttackMs,
-            controls.ampDecayMs, controls.ampSustain * 100.0f,
-            controls.ampReleaseMs, pressureMode, holdReleaseMs,
-            rootNote, padOctave, static_cast<int>(padScale),
-            static_cast<unsigned>(selectedLane + 1u), recordSource,
-            static_cast<int>(controls.motion), static_cast<int>(controls.motionSound),
-            controls.motionSoundRateHz,
-            static_cast<int>(controls.motionRateBasis), controls.motionPathRate,
-            controls.motionStep, controls.motionSeed,
-            static_cast<int>(controls.lanes),
-            static_cast<int>(controls.lanePath), controls.lanesStretch ? 1 : 0,
-            controls.lanesStretchRatio,
-            controls.laneGains[0u], controls.laneGains[1u],
-            controls.laneGains[2u], controls.laneGains[3u],
-            static_cast<int>(controls.grains), controls.grainSizeMs,
-            controls.grainDensityHz, controls.grainPitch,
-            static_cast<int>(controls.grainWindow), controls.grainStereoSpread,
-            static_cast<int>(controls.cutups), tempoBpm,
-            tempoSwing * 100.0f,
-            chainEnabled ? 1 : 0,
-            controls.motionTravel, controls.motionJitter, controls.packetDuty,
-            controls.motorRateHz, controls.motorSymmetry,
-            static_cast<int>(controls.motorShape),
-            static_cast<int>(controls.segmentTrigger),
-            static_cast<int>(controls.segmentOverlap),
-            controls.segmentLayerLimit, controls.segmentRateHz,
-            controls.segmentRepeats, controls.segmentStep,
-            controls.segmentPitchScatter, controls.segmentLevelVariation,
-            controls.segmentIntervalCurve,
-            static_cast<int>(controls.laneBlend),
-            static_cast<int>(controls.lanePathShape), controls.lanePathOffset,
-            controls.lanePathSkew, controls.lanePathCurve, controls.laneSlewMs,
-            controls.grainSpray, static_cast<int>(controls.grainBias),
-            controls.grainPitchSpray, controls.grainReverseChance,
-            controls.grainSizeVariation, controls.grainLevelVariation,
-            static_cast<int>(controls.grainTiming), controls.grainTimingScatter,
-            controls.grainEnvelopeSkew, static_cast<int>(controls.grainProcess),
-            controls.grainProcessAmount, controls.grainRegionCount,
-            static_cast<int>(controls.grainAdvance),
-            static_cast<int>(controls.cutClock),
-            static_cast<int>(controls.cutDivision), controls.cutRateHz,
-            controls.cutTimeVariation, controls.cutGate, controls.cutJoinMs,
-            controls.cutRegionCount, controls.cutRepeats,
-            controls.cutReverseChance, controls.cutPitchVariation,
-            controls.cutLevelVariation, static_cast<int>(controls.cutLaneAdvance), static_cast<int>(controls.cutLaneOrder),
-            static_cast<int>(controls.cutPolyPath),
-            static_cast<int>(controls.cutRegionMode),
-            static_cast<int>(controls.sampleMode),
-            static_cast<int>(controls.sampleRegionMode),
-            controls.sampleRegionCount,
-            static_cast<int>(controls.glitchMode),
-            static_cast<int>(controls.glitchClock),
-            static_cast<int>(controls.glitchDivision), controls.glitchRateHz,
-            controls.glitchSliceMs, controls.glitchRepeats,
-            controls.glitchChance, controls.glitchMix,
-            controls.glitchSteps, controls.glitchPulses,
-            controls.glitchRotate, controls.glitchJumpMs,
-            controls.glitchPitch, controls.glitchReverseChance,
-            controls.glitchDecay, controls.glitchSeed,
-            controls.effectTone, controls.effectDrive, controls.effectBits,
-            controls.effectRate, controls.effectDelayMs,
-            controls.effectFeedback, controls.effectWidth, controls.effectMix,
-            controls.effectCrossPan, controls.effectRotaryRateHz,
-            controls.effectRotaryDepth, controls.effectRotaryMix,
-            controls.effectRotaryRampMs, controls.effectRotaryBalance,
-            controls.effectRotaryCrossoverHz, controls.effectRotarySpread,
-            controls.effectTapeFormat, controls.effectTapeDrive,
-            controls.effectTapeWowRateHz, controls.effectTapeWowDepth,
-            controls.effectTapeFlutterRateHz, controls.effectTapeFlutterDepth,
-            controls.effectTapeHissDb, controls.effectTapeMix,
-            controls.effectTapeAge, controls.effectTapeCrinkle,
-            controls.effectTapeMechanics, controls.effectTapeInertia,
-            static_cast<int>(controls.longGrainMode),
-            controls.longGrainLengthMs, controls.longGrainLayers,
-            controls.longGrainPitch, static_cast<int>(controls.longGrainShape),
-            controls.longGrainEdgeMs, controls.longGrainSpread,
-            controls.longGrainReverseChance, controls.longGrainSpray,
-            static_cast<int>(controls.longGrainBias),
-            controls.longGrainDurationVariation, controls.longGrainPitchSpray,
-            controls.longGrainLevelVariation, controls.longGrainPhaseSpread,
-            static_cast<int>(controls.longGrainAdvance),
-            controls.wavesetGroup, controls.wavesetRepeats,
-            controls.wavesetStride,
-            static_cast<int>(controls.wavesetAdvance),
-            static_cast<int>(controls.wavesetDirection),
-            static_cast<int>(controls.wavesetProcess),
-            controls.wavesetProcessAmount,
-            static_cast<int>(controls.wavesetDetail),
-            static_cast<double>(controls.effectReverbAlgorithm),
-            static_cast<double>(controls.effectReverbDecay),
-            static_cast<double>(controls.effectReverbPre),
-            static_cast<double>(controls.effectReverbDamp),
-            controls.effectReverbDiff * 100.0f,
-            controls.effectReverbMod * 100.0f,
-            controls.effectReverbWidth * 100.0f,
-            controls.effectReverbMix * 100.0f,
-            static_cast<double>(controls.effectOrder),
-            static_cast<int>(padMode),
-            static_cast<int>(laneVariation), static_cast<int>(clipRecordMode),
-            previewLevel, previewRoute, grainVoiceLimit,
-            static_cast<int>(launchQuantize),
-            midiControlMode, midiCcChannel, midiCcBase,
-            midiTakeover, midiControlPart,
-            midiNoteRoute,midiNoteChannel,midiBendRange,midiModTarget,midiVelocityDepth*100,midiSyncSource,midiSyncTransport,
-            static_cast<unsigned long long>(nextCaptureId),
-            static_cast<unsigned long long>(generation == kAnyPersistenceGeneration
-                ? persistenceGeneration : generation));
-        int result=appendLayersJson(buffer,bufferLength,appendPatternFadeJson(buffer,bufferLength,appendSplitJson(buffer,bufferLength,length)));
-        if(result<=0||result>=bufferLength)return -1;
-        const int extra=std::snprintf(buffer+result-1,bufferLength-result+1,",\"sequence_mode\":%d}",sequenceMode()?1:0);
-        return extra<0||extra>=bufferLength-result+1?-1:result-1+extra;
+        PersistentStateSnapshot snapshot; snapshot.capture(*this);
+        return snapshot.serializeState(buffer,bufferLength,generation);
     }
 
     bool writeStateFile(const PersistenceSnapshot* snapshot = nullptr, bool stageOnly = false)
@@ -10006,6 +9888,9 @@ struct ThruInstance : PlaybackEffectsState {
             || !jsonNumber(json, "complete", value)
             || static_cast<int>(value) != 1
             || !jsonUnsigned64(json, "generation", loadedGeneration)) return false;
+        patternLookahead=1;
+        if(jsonNumber(json,"pattern_fade_lookahead",value))patternLookahead=clampValue(static_cast<int>(value),0,1);
+        fadeLookahead.setEnabled(patternLookahead!=0,renderClockSamples.load(std::memory_order_relaxed)==0);
         patternFadeMs=0;patternCurve=0;patternTimingMode=0;patternFadeLowMs=2000;patternFadeHighMs=12000;
         if(jsonNumber(json,"pattern_fade_ms",value))patternFadeMs=clampValue(value,0.0f,kMaximumPatternFadeMs);
         if(jsonNumber(json,"pattern_fade_curve",value))patternCurve=static_cast<int>(clampValue(value,0.0f,4.0f));
@@ -10445,6 +10330,7 @@ void setParam(void* opaque, const char* key, const char* value)
     CallbackWorkTimer callbackTimer(*instance, false);
     if(instance->setProjectParam(key,value))return;
     if(instance->projectLocked()&&std::strcmp(key,"panic")&&std::strcmp(key,"all_notes_off")&&std::strcmp(key,"shift_held")&&std::strcmp(key,"delete_held"))return;
+    if(!std::strcmp(key,"render_profile_enable")){instance->renderProfileEnabled=isTruthy(value);instance->patternWorkerMeasure.store(instance->renderProfileEnabled,std::memory_order_release);return;}
     auto& controls = instance->controls;
     if(instance->setLayersParam(key,value))return;
     if(std::strcmp(key,"delete_held")==0){instance->setDeleteHeld(isTruthy(value));return;}
@@ -10467,6 +10353,7 @@ void setParam(void* opaque, const char* key, const char* value)
     if(instance->setChainPerformanceParam(key,value))return;
     if(instance->setChainBankParam(key,value))return;
 
+    if(std::strcmp(key,"pattern_fade_lookahead")==0) {instance->setPatternLookahead(clampValue(parseInteger(value,instance->patternLookahead),0,1));return;}
     if(std::strcmp(key,"pattern_fade_ms")==0) {instance->patternFadeMs=clampValue(parseFloat(value,instance->patternFadeMs),0.0f,ThruInstance::kMaximumPatternFadeMs);instance->markPersistentStateDirty();return;}
     if(std::strcmp(key,"pattern_fade_mode")==0) {instance->patternTimingMode=clampValue(parseInteger(value,instance->patternTimingMode),0,1);instance->markPersistentStateDirty();return;}
     if(std::strcmp(key,"pattern_fade_low_ms")==0) {instance->setPatternFadeLow(parseFloat(value,instance->patternFadeLowMs));instance->markPersistentStateDirty();return;}
@@ -10586,11 +10473,13 @@ void setParam(void* opaque, const char* key, const char* value)
     if (std::strcmp(key, "tempo_swing") == 0) { instance->tempoSwing = clampValue(parseFloat(value, instance->tempoSwing * 100.0f) / 100.0f, 0.5f, 0.75f); return; }
     if (std::strcmp(key, "undo") == 0) { if (isTruthy(value)) instance->restoreUndo(); return; }
     if (std::strcmp(key, "maintenance") == 0) { if (isTruthy(value)) instance->serviceMaintenance(); return; }
-    if (std::strcmp(key, "performance_reset") == 0) { if (isTruthy(value)) { instance->patternUnderflows=0; instance->maximumRenderMicros.store(0u, std::memory_order_relaxed); instance->renderOverruns.store(0u, std::memory_order_relaxed); instance->limiterMaximumReductionDb.store(0.0f, std::memory_order_relaxed);
+    if (std::strcmp(key, "performance_reset") == 0) { if (isTruthy(value)) { instance->patternUnderflows=0;instance->patternStartUnderflows=0;instance->patternMissingFrames=0;
+        instance->patternWorkerWallPeak.store(0,std::memory_order_relaxed);instance->patternWorkerCpuPeak.store(0,std::memory_order_relaxed);instance->patternMaximumQueued.store(0,std::memory_order_relaxed);instance->patternWorkerWakePeak.store(0,std::memory_order_relaxed);
+        instance->maximumRenderMicros.store(0u, std::memory_order_relaxed); instance->renderOverruns.store(0u, std::memory_order_relaxed); instance->limiterMaximumReductionDb.store(0.0f, std::memory_order_relaxed);
         instance->maximumControlMicros.store(0u, std::memory_order_relaxed);
         instance->maximumQueryMicros.store(0u, std::memory_order_relaxed);
         instance->maximumWorkMicros.store(0u, std::memory_order_relaxed);
-        instance->workOverruns.store(0u, std::memory_order_relaxed);
+        instance->workOverruns.store(0u, std::memory_order_relaxed);instance->resetRenderProfile();
         instance->pendingCallbackNanos.store(0u, std::memory_order_relaxed);
         instance->maximumRenderCpuMicros.store(0u,std::memory_order_relaxed);
         instance->maximumRenderWaitMicros.store(0u,std::memory_order_relaxed);
@@ -10802,12 +10691,26 @@ void setParam(void* opaque, const char* key, const char* value)
     if (std::strcmp(key, "effect_tape_inertia") == 0) { controls.effectTapeInertia = clampValue(parseFloat(value, controls.effectTapeInertia * 100.0f) / 100.0f, 0.0f, 1.0f); return; }
 }
 
-int formatEditorState(void* opaque, char* buffer, int bufferLength);
+int formatEditorState(void* opaque, char* buffer, int bufferLength, int chunk = -1);
+int formatUiPoll(void* opaque, const char* group, char* buffer, int bufferLength);
 
 int getParamValue(void* opaque, const char* key, char* buffer, int bufferLength)
 {
     auto* instance = static_cast<ThruInstance*>(opaque);
     if (!instance || !key || !buffer || bufferLength < 1) return -1;
+    if (std::strncmp(key,"ui_poll_",8)==0)
+        return formatUiPoll(opaque,key+8,buffer,bufferLength);
+    if(!std::strcmp(key,"pattern_worker_state"))return instance->formatPatternWorker(buffer,bufferLength);
+    if(!std::strcmp(key,"render_profile_state")){
+        const bool miss=instance->renderProfileMissTotal>0;
+        const auto& stages=miss?instance->renderProfileMiss:instance->renderProfilePeak;
+        int at=std::snprintf(buffer,bufferLength,"%d,%llu",miss?1:0,
+            static_cast<unsigned long long>((miss?instance->renderProfileMissTotal:instance->renderProfilePeakTotal)/1000u));
+        for(auto ns:stages){if(at<0||at>=bufferLength){buffer[0]=0;return -1;}
+            const int n=std::snprintf(buffer+at,bufferLength-at,",%llu",static_cast<unsigned long long>(ns/1000u));
+            if(n<0||n>=bufferLength-at){buffer[0]=0;return -1;}at+=n;}
+        return at;
+    }
     const int noteResult=instance->getMidiNoteParam(key,buffer,bufferLength);if(noteResult!=-2)return noteResult;
     if(std::strcmp(key,"midi_control_mode")==0)return std::snprintf(buffer,bufferLength,"%d",instance->midiControlMode);
     if(std::strcmp(key,"midi_cc_channel")==0)return std::snprintf(buffer,bufferLength,"%d",instance->midiCcChannel);
@@ -10846,6 +10749,7 @@ int getParamValue(void* opaque, const char* key, char* buffer, int bufferLength)
     }
     const int chainQuery=instance->getChainBankParam(key,buffer,bufferLength);if(chainQuery!=-2)return chainQuery;
     if(std::strcmp(key,"pattern_fade_state")==0)return instance->formatPatternFade(buffer,bufferLength);
+    if(std::strcmp(key,"pattern_fade_lookahead")==0)return std::snprintf(buffer,bufferLength,"%d",instance->patternLookahead);
     if(std::strcmp(key,"pattern_fade_ms")==0)return std::snprintf(buffer,bufferLength,"%.0f",instance->patternFadeMs);
     if(std::strcmp(key,"pattern_fade_mode")==0)return std::snprintf(buffer,bufferLength,"%d",instance->patternTimingMode);
     if(std::strcmp(key,"pattern_fade_low_ms")==0)return std::snprintf(buffer,bufferLength,"%.0f",instance->patternFadeLowMs);
@@ -10859,6 +10763,11 @@ int getParamValue(void* opaque, const char* key, char* buffer, int bufferLength)
     const int voiceEngineResult=instance->getVoiceEngineParam(key,buffer,bufferLength);
     if(voiceEngineResult!=-2)return voiceEngineResult;
     if (std::strcmp(key, "ui_editor_state") == 0) return formatEditorState(opaque,buffer,bufferLength);
+    if (!std::strncmp(key,"ui_editor_chunk:",16)) {
+        char* end=nullptr;const long chunk=std::strtol(key+16,&end,10);
+        if(end==key+16||*end||chunk<0||chunk>=16)return -1;
+        return formatEditorState(opaque,buffer,bufferLength,int(chunk));
+    }
     if (std::strcmp(key,"e16_remote_state")==0)return formatE16RemoteState(*instance,buffer,bufferLength);
     if (std::strcmp(key,"midi_state")==0)return formatMidiState(*instance,buffer,bufferLength);
     if (std::strcmp(key,"e16_native_state")==0)return formatE16NativeState(*instance,buffer,bufferLength);
@@ -10967,6 +10876,7 @@ int getParamValue(void* opaque, const char* key, char* buffer, int bufferLength)
         }
         return at;
     }
+    if (!std::strcmp(key,"seq_cursor_state"))return instance->sequenceCursorState(buffer,bufferLength);
     if (!std::strcmp(key,"seq_state"))return instance->sequenceState(buffer,bufferLength);
     if (instance->sequenceKeyKnown(key))return std::snprintf(buffer,bufferLength,"%.9g",instance->sequenceParameterValue(key));
     if (std::strcmp(key, "split_mode") == 0) return std::snprintf(buffer,bufferLength,"%d",instance->performanceMode());
@@ -11295,12 +11205,15 @@ int getParamValue(void* opaque, const char* key, char* buffer, int bufferLength)
     return -1;
 }
 
-int formatEditorState(void* opaque, char* buffer, int bufferLength)
+#include "thru_ui_poll.inc"
+
+int formatEditorState(void* opaque, char* buffer, int bufferLength, int chunk)
 {
     auto* instance = static_cast<ThruInstance*>(opaque);
     if (!instance || !buffer || bufferLength < 1) return -1;
-    // One read-only UI transaction. Reuse the scalar getters so parameter
-    // units and enum values cannot diverge from the existing public API.
+    // UI refreshes use at most 64 scalar getters per synchronous transaction.
+    // Schwung serves successive requests on separate audio callbacks. Keep the
+    // full snapshot for explicit readers; both paths retain identical units.
     static constexpr const char* extraKeys[] {
         "voice_engine_assign", "voice_engine_depth", "voice_engine_octave", "voice_engine_position", "voice_engine_stack", "voice_engine_pan",
         "voice_engine_active", "voice_engine_mode", "voice_engine_order", "voice_engine_edit",
@@ -11345,16 +11258,25 @@ int formatEditorState(void* opaque, char* buffer, int bufferLength)
         "record_lane",
         "stack_scan_paused",
         "glitch_buffer_lock",
+        "pattern_fade_lookahead",
     };
-    int at=0;bool ok=true,comma=false;
+    constexpr int perChunk=64;
+    constexpr int total=kLockParameterCount+sizeof(extraKeys)/sizeof(*extraKeys);
+    constexpr int chunks=(total+perChunk-1)/perChunk;
+    if(chunk>=chunks||chunk < -1){buffer[0]=0;return -1;}
+    const int first=chunk<0?0:chunk*perChunk,last=chunk<0?total:first+perChunk;
+    int at=0,index=0;bool ok=true,comma=false;
     const auto append=[&](const char* format,auto... values) {
         if (!ok) return;
         const int n=std::snprintf(buffer+at,static_cast<std::size_t>(bufferLength-at),format,values...);
         if (n<0 || n>=bufferLength-at) { ok=false;return; }
         at+=n;
     };
-    append("%s","{\"v\":1,\"values\":{");
+    if(chunk<0)append("%s","{\"v\":1,\"values\":{");
+    else append("{\"v\":1,\"chunk\":%d,\"chunks\":%d,\"owner\":%d,\"clip\":%d,\"values\":{",
+        chunk,chunks,instance->performanceMode()*4+instance->splitFocus,instance->activeClip);
     const auto parameter=[&](const char* key) {
+        const int slot=index++;if(slot<first||slot>=last)return;
         char value[64] {};
         const int n=getParamValue(opaque,key,value,sizeof(value));
         char* end=nullptr;const float number=std::strtof(value,&end);
@@ -11417,8 +11339,14 @@ void recordRenderTiming(ThruInstance &instance, int frames, std::uint64_t wallNa
         recordMaximum(instance.maximumRenderCpuMicros, (cpuNanos + 999u) / 1000u);
         recordMaximum(instance.maximumRenderWaitMicros,
                       (wallNanos > cpuNanos ? wallNanos - cpuNanos + 999u : 0u) / 1000u);
-        if (static_cast<double>(cpuNanos) > deadline)
+        if (static_cast<double>(cpuNanos) > deadline){
             instance.renderCpuOverruns.fetch_add(1u, std::memory_order_relaxed);
+            if(instance.renderProfileEnabled){
+                instance.renderProfileMiss=instance.renderProfileCurrent;
+                instance.renderProfileMissTotal=0;
+                for(auto ns:instance.renderProfileCurrent)instance.renderProfileMissTotal+=ns;
+            }
+        }
     }
 }
 void renderBlock(void *opaque, int16_t *output, int frames) {

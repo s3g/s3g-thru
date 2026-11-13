@@ -1,6 +1,7 @@
 #pragma once
 
 #include <pthread.h>
+#include <cerrno>
 #include <sched.h>
 #if defined(__linux__)
 #include <sys/resource.h>
@@ -39,6 +40,16 @@ inline void configureBackgroundThread(int niceness = 10)
     (void)setpriority(PRIO_PROCESS, 0, niceness);
 #else
     (void)niceness;
+#endif
+}
+// Observe the applied value: raising a SCHED_OTHER worker's share can be
+// restricted by the host. A failed request must never be reported as applied.
+inline int currentBackgroundNiceness() {
+#if defined(__linux__)
+    errno=0;const int value=getpriority(PRIO_PROCESS,0);
+    return errno?99:value;
+#else
+    return 0;
 #endif
 }
 } // namespace s3g_daisy

@@ -20,8 +20,8 @@
         <hr class="home-title-rule">
         <p class="lead">A stereo sample instrument with four audio lanes and eight independent voices. Play them as one stack, two independently configured instruments, or four instruments in Quad mode. A performance recorder captures notes, pressure, stack holds, and parameter motion as loopable data.</p>
         <p>s3g Thru is an adaptation and extension of the <a href="https://s3g.github.io/s3g-dsp/">s3g-dsp</a> Sample family, rebuilt around Move’s pads, controls, display, live input, and performance workflow.</p>
-        <span class="version-chip">manual · 0.31.0</span>
-        <p>This manual describes <strong>s3g Thru 0.31.0</strong>. The installed version appears briefly when takeover opens; see <a href="https://github.com/s3g/s3g-thru/releases">GitHub releases</a> for downloads and release notes.</p>
+        <span class="version-chip">manual · 0.31.1</span>
+        <p>This manual describes <strong>s3g Thru 0.31.1</strong>. The installed version appears briefly when takeover opens; see <a href="https://github.com/s3g/s3g-thru/releases">GitHub releases</a> for downloads and release notes.</p>
 
 
         <figure class="screen-figure">
@@ -34,6 +34,15 @@
         </figure>
 
         <p><a href="modes.html">Compare all seven instrument modes</a> to see their pad layouts, voice budgets, and recording roles. The mode diagrams cover Single, Split, Shared Dual, Quad, Bank, Layers, and Sequence.</p>
+
+        <h2 id="release-0311">New in 0.31.1</h2>
+        <ul>
+          <li><a href="sequence.html">Sequence</a> improves green playhead timing and pad updates at faster rates, with less overhead when selecting lanes or opening editors.</li>
+          <li><a href="performance.html#pattern-fade">Clip fades</a> use buffered background rendering and lower processing overhead. PERF LOOP’s LOOK control defaults to 12ms for additional fade-start margin; saved Off choices are retained, and input monitoring keeps its current response.</li>
+          <li>Background saving and editor updates place less work on the audio callback. Effects processing has also been optimized.</li>
+          <li><a href="layers.html#engine">Layers</a> now supports eight-entry Engine Lists for its note keyboard.</li>
+          <li><a href="shortcuts.html#report">Timing reports</a> add clearer callback, worker and fade-buffer diagnostics, with updated on-device help.</li>
+        </ul>
 
         <h2 id="release-0310">New in 0.31.0</h2>
         <ul>
@@ -135,7 +144,7 @@
         <div class="toc-section"><h2>Instrument modes</h2><a href="playing.html">Single · Basic playing</a><a href="modes.html">Compare modes</a><a href="split.html">Split</a><a href="shared-dual.html">Shared Dual</a><a href="quad.html">Quad</a><a href="bank.html">Bank</a><a href="layers.html">Layers</a><a href="sequence.html">Sequence</a></div>
         <div class="toc-section">
           <h2>On this page</h2>
-          <a href="#release-0310">New in 0.31.0</a><a href="#release-0301">New in 0.30.1</a>
+          <a href="#release-0311">New in 0.31.1</a><a href="#release-0310">New in 0.31.0</a><a href="#release-0301">New in 0.30.1</a>
           <a href="#release-0300">New in 0.30.0</a>
           <a href="#whats-new">New in 0.29</a>
           <a href="#quick-start">Quick start</a>

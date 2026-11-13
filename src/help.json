@@ -131,7 +131,7 @@
             "before takeover.",
             "",
             "Move Shift + Menu:",
-            "E16 Link 5/5. STATE,",
+            "E16 Link 5/8. STATE,",
             "LAST, ACK/NACK and",
             "PENDING PX.",
             "Counts are not audio",
@@ -918,6 +918,31 @@
             "DONE commits the",
             "destination."
           ]
+        },
+        {
+          "title": "Fade lookahead",
+          "lines": [
+            "PERF LOOP knob 7:",
+            "LOOK OFF or 12ms.",
+            "12ms adds about 12ms",
+            "to instrument audio.",
+            "It gives clip fades",
+            "extra startup margin.",
+            "",
+            "Input monitoring",
+            "keeps its response.",
+            "12ms is the default.",
+            "",
+            "Change LOOK between",
+            "performances.",
+            "Cannot change during",
+            "an active fade.",
+            "Choice is saved with",
+            "the project.",
+            "",
+            "Saved Off choices",
+            "remain Off."
+          ]
         }
       ]
     },
@@ -1382,6 +1407,8 @@
             "All four lanes and",
             "eight voices belong",
             "to instrument A.",
+            "ENGS LIST assigns",
+            "engines per note.",
             "",
             "The left screen shows",
             "four lane waveforms.",

@@ -43,6 +43,25 @@ void testSequenceScheduler() {
     assert(timeline(31) == timeline(128));
     assert(timeline(128) == timeline(511));
   }
+  const std::array<double,4> offsets{.375,-.5,1.125,0};
+  const auto offsetTimeline = [&](int block) {
+    std::vector<std::array<std::int64_t,5>> all;
+    EventList events;
+    constexpr int total = 22050;
+    for (int frame = 0; frame < total; frame += block) {
+      schedule(p, frame * 2.0 / 44100, 2.0 / 44100,
+               std::min(block, total - frame), events, offsets);
+      assert(!events.overflow);
+      for (int i = 0; i < events.size; ++i) {
+        const auto &event = events.items[i];
+        all.push_back({frame + event.offset, event.lane, event.step,
+                       event.child, event.tick});
+      }
+    }
+    return all;
+  };
+  assert(offsetTimeline(1) == offsetTimeline(31));
+  assert(offsetTimeline(31) == offsetTimeline(128));
   Pattern copy;
   for (int i = 0; i < patternSize; ++i)
     assert(set(copy, i, get(p, i)));
@@ -141,6 +160,139 @@ void testSequenceAudioAndTransport() {
             "fixed sample lanes/two voices, phase-preserving repeats and fresh "
             "clip/start resets: PASS");
 }
+void testSequenceRatePhaseContinuity() {
+  auto t = sequenceFixture();
+  t->tempoBpm = 120;
+  for (int part = 0; part < 4; ++part) {
+    auto &lane = t->sequenceLive.tracks[part];
+    lane.enabled = part < 2;
+    lane.length = 16;
+    lane.rate = 4;
+    for (auto &step : lane.trigs) step.enabled = true;
+  }
+  t->commitSequenceEdit();
+  t->startClipPlaybackNow();
+  renderSplit(*t, 2); // Prime the running lane clocks and first trig.
+  t->sequenceBeat = 2.625; // Old 1/16 clock is halfway through tick 10.
+  t->advanceSequenceClock(0); // Publish the audio-owned cursor.
+  const auto otherOffset = t->sequenceBeatOffsets[1];
+  const auto oldCursor = t->sequenceLaneCursor(0, t->sequencePlayback.tracks[0]);
+  assert(t->sequenceLaneTick(0, 4) == 10);
+  for (const int rate : {3, 8, 5, 0, 3}) {
+    setParam(t.get(), "seq_rate", std::to_string(rate).c_str());
+    assert(t->sequencePlayback.tracks[0].rate != rate);
+    t->serviceSequenceBeforeBlock(kBlockFrames);
+    t->advanceSequenceClock(0);
+    assert(t->sequencePlayback.tracks[0].rate == rate);
+    assert(t->sequenceLaneTick(0, rate) == 10);
+    assert(t->sequenceLaneCursor(0, t->sequencePlayback.tracks[0]) == oldCursor);
+    const double phase = (t->sequenceBeat + t->sequenceBeatOffsets[0]) /
+                         s3g_thru_sequence::rates[rate];
+    assert(std::abs(phase - 10.5) < 1e-7);
+    assert(t->sequenceBeatOffsets[1] == otherOffset);
+  }
+  char cursor[128]{};
+  assert(t->sequenceCursorState(cursor, sizeof(cursor)) > 0);
+  assert(std::strstr(cursor, "1,0,1,10,16,3,"));
+  const auto hits = t->sequenceEventCount[0];
+  renderSplit(*t, 35); // 0.203 beat: still in the same step.
+  assert(t->sequenceLaneTick(0, 3) == 10);
+  renderSplit(*t, 20); // Cross the next boundary at the new rate.
+  assert(t->sequenceLaneTick(0, 3) == 11);
+  assert(t->sequenceEventCount[0] == hits + 1);
+  t->setClipPlaying(false);
+  t->startClipPlaybackNow();
+  assert(t->sequenceBeat == 0 && t->sequenceBeatOffsets[0] == 0 &&
+         t->sequenceBeatOffsets[1] == 0);
+  std::puts("Sequence RATE phase: repeated live edits keep step/fraction, "
+            "other lanes stay independent, next trigger follows the new "
+            "period, and fresh Play resets anchors: PASS");
+}
+void testSequenceFastRateCursor() {
+  auto t = sequenceFixture();
+  t->tempoBpm = 120;
+  for (int part = 0; part < 4; ++part) {
+    auto &lane = t->sequenceLive.tracks[part];
+    lane.enabled = part == 0;
+    lane.length = 16;
+    for (auto &step : lane.trigs) step.enabled = true;
+  }
+  t->commitSequenceEdit();
+  t->startClipPlaybackNow();
+  renderSplit(*t, 2);
+  for (int rate = 3; rate <= 8; ++rate) {
+    setParam(t.get(), "seq_rate", std::to_string(rate).c_str());
+    assert(t->sequenceRequestedRate[0].load(std::memory_order_acquire) == rate);
+    t->serviceSequenceBeforeBlock(kBlockFrames);
+    assert(t->sequencePlayback.tracks[0].rate == rate);
+    std::int64_t previous = t->sequenceLaneTick(0, rate);
+    const auto firstEvent = t->sequenceEventCount[0];
+    for (int block = 0; block < 320; ++block) {
+      renderSplit(*t, 1);
+      const auto tick = t->sequenceLaneTick(0, rate);
+      assert(tick >= previous && tick <= previous + 1);
+      previous = tick;
+      char compact[128]{}, full[4096]{};
+      assert(t->sequenceCursorState(compact, sizeof(compact)) > 0);
+      assert(t->sequenceState(full, sizeof(full)) > 0);
+      const int step = t->sequenceLaneCursor(0, t->sequencePlayback.tracks[0]);
+      int mode = 0, focus = 0, running = 0, compactStep = -1;
+      assert(std::sscanf(compact, "%d,%d,%d,%d", &mode, &focus, &running,
+                         &compactStep) == 4);
+      assert(mode == 1 && focus == 0 && running == 1 && compactStep == step);
+      const auto marker = std::string("\"lanes\":[[") + std::to_string(step) + ",";
+      assert(std::strstr(full, marker.c_str()));
+    }
+    assert(t->sequenceEventCount[0] > firstEvent);
+  }
+  std::puts("Sequence fast RATE: 1/8 through 1/64 native cursor and full "
+            "snapshot advance monotonically across live edits: PASS");
+}
+void testSequenceConcurrentRateEdits() {
+  auto t = sequenceFixture();
+  t->tempoBpm = 102;
+  for (int part = 0; part < 4; ++part)
+    t->sequenceLive.tracks[part].enabled = part == 0;
+  auto &lane = t->sequenceLive.tracks[0];
+  lane.length = 16;
+  for (auto &step : lane.trigs) step.enabled = true;
+  t->commitSequenceEdit();
+  setParam(t.get(), "seq_rate", "3"); // Prime this lane's Undo before concurrent work.
+  t->startClipPlaybackNow();
+  std::atomic<bool> start{false}, finish{false};
+  std::atomic<int> edits{0};
+  std::thread editor([&] {
+    while (!start.load(std::memory_order_acquire))
+      std::this_thread::yield();
+    for (int n = 0; !finish.load(std::memory_order_acquire); ++n) {
+      setParam(t.get(), "seq_rate", std::to_string(2 + n % 7).c_str());
+      edits.fetch_add(1, std::memory_order_relaxed);
+      std::this_thread::sleep_for(std::chrono::microseconds(200));
+    }
+  });
+  start.store(true, std::memory_order_release);
+  std::int64_t previous = t->sequenceLaneTick(0, t->sequencePlayback.tracks[0].rate);
+  for (int block = 0; block < 2400; ++block) {
+    renderSplit(*t, 1);
+    const auto tick = t->sequenceLaneTick(0, t->sequencePlayback.tracks[0].rate);
+    assert(tick >= previous && tick <= previous + 1);
+    previous = tick;
+  }
+  finish.store(true, std::memory_order_release);
+  editor.join();
+  assert(edits.load() > 20 && t->sequenceEventCount[0] > 10 &&
+         t->sequenceOverflows == 0);
+  t->setClipPlaying(false);
+  setParam(t.get(), "seq_rate", "6");
+  assert(t->activeClipSlot()->sequence.tracks[0].rate == 6);
+  t->startClipPlaybackNow();
+  assert(t->sequencePlayback.tracks[0].rate == 6);
+  renderSplit(*t, 2);
+  assert(t->sequenceEventCount[0] == 1);
+  std::puts("Sequence concurrent RATE: one Sample lane at 102 BPM keeps its "
+            "audio-owned clock monotonic during control-thread edits, and "
+            "stopped edits survive restart: PASS");
+}
 void testSequenceLiveRateChange() {
   auto t = sequenceFixture();
   for (int p = 0; p < 4; ++p)
@@ -191,7 +343,13 @@ void testSequenceRecordedRateChange() {
   renderSplit(*t, 700);
   const auto fast = t->sequenceEventCount[0];
   assert(fast > 50);
-  renderSplit(*t, 1600);
+  std::int64_t previousTick = t->sequenceLaneTick(0, t->sequencePlayback.tracks[0].rate);
+  for (int block = 0; block < 1600; ++block) {
+    renderSplit(*t, 1);
+    const auto tick = t->sequenceLaneTick(0, t->sequencePlayback.tracks[0].rate);
+    assert(tick >= previousTick && tick <= previousTick + 1);
+    previousTick = tick;
+  }
   assert(t->sequenceEventCount[0] >= fast + 2);
   std::puts("Sequence recorded RATE: performance-gesture replay changes speed "
             "without silencing the sample lane: PASS");
@@ -327,15 +485,23 @@ void testSequenceDisplayedLength() {
   t->sequenceLive.tracks[0].length = 9;
   t->sequencePlayback.tracks[0].length = 24;
   t->sequenceBeat = 23 * s3g_thru_sequence::rates[4];
-  t->sequenceCursor[0] = 23;
+  t->advanceSequenceClock(0);
   char state[4096]{};
   assert(t->sequenceState(state, sizeof(state)) > 0);
   assert(std::strstr(state, "\"length\":24") &&
          std::strstr(state, "\"lanes\":[[23,24,"));
+  char cursor[128]{};
+  assert(t->sequenceCursorState(cursor, sizeof(cursor)) > 0);
+  assert(std::strstr(cursor, "1,0,1,23,24,4,"));
+  char tooSmall[8]{};
+  assert(t->sequenceCursorState(tooSmall, sizeof(tooSmall)) == -1);
   t->sequencePlayback.tracks[0].length = 9;
+  t->advanceSequenceClock(0);
   assert(t->sequenceState(state, sizeof(state)) > 0);
   assert(std::strstr(state, "\"length\":9") &&
          std::strstr(state, "\"lanes\":[[5,9,"));
+  assert(t->sequenceCursorState(cursor, sizeof(cursor)) > 0);
+  assert(std::strstr(cursor, "1,0,1,5,9,4,"));
   std::puts("Sequence overview: displayed cursor and length follow the same "
             "effective playback clock after recorded LEN gestures: PASS");
 }
@@ -395,7 +561,23 @@ void testSequenceRecordingAndMidi() {
     std::array<char, 16384> editor{};
     assert(formatEditorState(t.get(), editor.data(), editor.size()) > 0);
     std::ofstream out(path);
-    out << "{\"editor\":" << editor.data() << ",\"sequence\":" << state << "}";
+    out << "{\"editor\":" << editor.data() << ",\"chunks\":[";
+    int chunkCount=1;
+    for(int c=0;c<chunkCount;++c){
+      std::array<char,8192> part{};
+      assert(formatEditorState(t.get(),part.data(),part.size(),c)>0);
+      float count=0;assert(jsonNumber(part.data(),"chunks",count));chunkCount=int(count);
+      if(c)out << ',';out << part.data();
+    }
+    out << "],\"sequence\":" << state << ",\"poll\":{";
+    bool comma=false;
+    for(const char* group:{"fast","sequence","status","sources","composition","diagnostics","midi"}){
+      std::array<char,16384> poll{};
+      assert(formatUiPoll(t.get(),group,poll.data(),poll.size())>0);
+      if(comma)out << ',';
+      out << '"' << group << "\":" << poll.data();comma=true;
+    }
+    out << "}}";
   }
   std::puts("Sequence recording/MIDI: fixed audio take destination, "
             "independent edit selection, retained trigs, part-scoped MIDI and "
@@ -810,13 +992,86 @@ void testSequenceTempoEdges() {
   assert(events.size > 0 && !events.overflow);
   std::puts("Sequence tempo: 1–999 BPM clamp, slow clip span and fast bounded scheduling: PASS");
 }
+void testSequencePollSnapshots() {
+  auto t=sequenceFixture();t->tempoBpm=102;
+  for(int part=0;part<4;++part)t->sequenceLive.tracks[part].enabled=part==0;
+  auto& lane=t->sequenceLive.tracks[0];lane.rate=6;lane.length=16;
+  for(auto& step:lane.trigs)step.enabled=true;
+  t->commitSequenceEdit();t->startClipPlaybackNow();
+  const auto started=t->sequenceBeat;
+  const char* groups[]{"sequence","status","sources","composition","diagnostics","midi"};
+  double maximumQueryUs=0;std::array<char,16384> text{};
+  std::int64_t previous=-1;
+  for(int block=0;block<11000;++block){
+    // Match Schwung: serve live queries on the SPI callback, then render.
+    if(block%6==0){
+      for(const char* group:{"fast",groups[(block/6)%6]}){
+        const auto before=std::chrono::steady_clock::now();
+        const std::string key=std::string("ui_poll_")+group;
+        const int length=getParam(t.get(),key.c_str(),text.data(),text.size());
+        maximumQueryUs=std::max(maximumQueryUs,
+          std::chrono::duration<double,std::micro>(std::chrono::steady_clock::now()-before).count());
+        assert(length>0&&length<int(text.size())&&text[0]=='{'&&text[length-1]=='}');
+        assert(std::strstr(text.data(),"\"v\":1,\"values\":{"));
+        if(!std::strcmp(group,"fast")){
+          char cursor[256]{};assert(t->sequenceCursorState(cursor,sizeof(cursor))>0);
+          assert(std::strstr(text.data(),cursor));
+        }
+      }
+    }
+    renderSplit(*t,1);
+    const auto tick=t->sequenceLaneTick(0,6);
+    assert(tick>=previous&&tick<=previous+1);previous=tick;
+  }
+  assert(t->sequenceBeat>started+50&&t->sequenceEventCount[0]>400&&t->sequenceOverflows==0);
+  for(const char* group:{"fast","sequence","status","sources","composition","diagnostics","midi"}){
+    std::array<char,16> small;small.fill('X');
+    assert(formatUiPoll(t.get(),group,small.data(),8)==-1&&small[0]==0);
+    for(std::size_t i=8;i<small.size();++i)assert(small[i]=='X');
+  }
+  assert(formatUiPoll(t.get(),"unknown",text.data(),text.size())==-1&&text[0]==0);
+  std::printf("Sequence host polling: 102 BPM / 1/32, 32 seconds across clip loops, "
+              "SPI-ordered snapshots, monotonic cursor and bounded buffers: PASS (host query peak %.1f us)\n",maximumQueryUs);
+}
+void testSequenceCallbackWorkBudget(){
+  auto t=sequenceFixture();t->tempoBpm=999;
+  for(int p=0;p<4;++p)t->sequenceLive.tracks[p].enabled=p==0;
+  auto& lane=t->sequenceLive.tracks[0];lane.rate=8;lane.length=16;
+  for(auto& step:lane.trigs){step.enabled=true;s3g_thru_sequence::setCount(step,8);}
+  t->commitSequenceEdit();t->activeClipSlot()->clipRate=4;t->startClipPlaybackNow();
+  // No worker is started. Observe exactly how much work this callback copies.
+  t->backgroundStarted=true;t->laneJob.store(ThruInstance::backgroundCopying);
+  auto& job=t->laneSnapshot;job.lane=0;job.frames=job.sourceFrames=t->engine.laneFrames(0);
+  job.revision=t->wavesetSourceRevisions[0];job.copied=0;job.editorZoom=false;
+  setParam(t.get(),"render_profile_enable","1");
+  renderSplit(*t,1);
+  assert(t->sequenceEventCount[0]>2); // Multiple trig subdivisions in this one callback.
+  assert(job.copied==4096&&t->laneJob.load()==ThruInstance::backgroundCopying);
+  assert(t->renderProfilePeakTotal>0);
+  std::uint64_t sum=0;for(auto ns:t->renderProfilePeak)sum+=ns;
+  assert(sum==t->renderProfilePeakTotal);
+  char text[256]{};assert(getParam(t.get(),"render_profile_state",text,sizeof(text))>0);
+  assert(text[0]=='0');
+  recordRenderTiming(*t,128,4000000,0,true,4000000);
+  assert(getParam(t.get(),"render_profile_state",text,sizeof(text))>0&&text[0]=='1');
+  setParam(t.get(),"performance_reset","1");
+  assert(t->renderProfilePeakTotal==0&&t->renderProfileMissTotal==0);
+  t->backgroundStarted=false;t->laneJob.store(ThruInstance::backgroundIdle);
+  setParam(t.get(),"render_profile_enable","0");
+  std::puts("Sequence callback budget: dense Burst subdivisions perform one background copy; opt-in stage timing and reset: PASS");
+}
 void testSequence() {
+  testSequenceCallbackWorkBudget();
+  testSequencePollSnapshots();
   testSequenceTempoEdges();
   testSequenceEnginesAndNoteMidi();
   testSequenceScheduler();
   testSequenceAudioAndTransport();
   testSequenceDisplayedLength();
   testSequenceLiveRateChange();
+  testSequenceFastRateCursor();
+  testSequenceConcurrentRateEdits();
+  testSequenceRatePhaseContinuity();
   testSequenceRecordedRateChange();
   testSequenceGatesAndEditing();
   testSequenceRecordingAndMidi();

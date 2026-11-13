@@ -459,25 +459,9 @@ bool readLayersExtension(std::FILE *f,
   return true;
 }
 int appendLayersJson(char *b, int capacity, int length) const {
-  if (length <= 0 || length >= capacity)
-    return -1;
-  int at = length - 1;
-  const auto append = [&](const char *fmt, auto... args) {
-    const int n = std::snprintf(b + at, capacity - at, fmt, args...);
-    if (n < 0 || n >= capacity - at)
-      return false;
-    at += n;
-    return true;
-  };
-  if (!append(
-          ",\"layers_mode\":%d,\"layers_initialized\":%d,\"layers_values\":[",
-          layersLive.active ? 1 : 0, layersLive.initialized ? 1 : 0))
-    return -1;
-  for (std::size_t i = 0; i < LayerPatch::size; ++i)
-    if (!append("%s%.9g", i ? "," : "", layersLive.values[i]))
-      return -1;
-  return append("%s", "]}") ? at : -1;
-}
+        PersistentStateSnapshot snapshot; snapshot.capture(*this);
+        return snapshot.appendLayersJson(b,capacity,length);
+    }
 bool restoreLayersJson(const char *json) {
   LayerPatch next;
   float v = 0;

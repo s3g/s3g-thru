@@ -522,7 +522,9 @@ private:
 };
 
 class Rack {
-  std::array<Slot, 4> slots_;
+  using Slots = std::array<Slot, 4>;
+  // Keep spectral histories stationary when clip fades exchange racks.
+  std::unique_ptr<Slots> slots_;
   std::array<float, 4> weights_{1, 0, 0, 0};
   std::array<float, 4> trim_{1, 1, 1, 1};
   std::array<std::array<float, 512>, 2> dry_{};
@@ -531,9 +533,11 @@ class Rack {
 
 public:
   bool prepare(float r) {
+    if (!slots_) slots_.reset(new (std::nothrow) Slots {});
+    if (!slots_) return false;
     rate_ = r;
     for (int i = 0; i < 4; ++i)
-      if (!slots_[i].prepare(r, i))
+      if (!(*slots_)[i].prepare(r, i))
         return false;
     return true;
   }
@@ -573,7 +577,7 @@ public:
           int(patch.values[i + 5]) == 9)
         pressureMacro(int(patch.values[i]), z *patch.values[i + 6], params,
                       detail);
-      slots_[c].prime(int(patch.values[i]), params, detail);
+      (*slots_)[c].prime(int(patch.values[i]), params, detail);
       trim_[c] = patch.values[i + 7];
       weights_[c] =
           unit(patch.values[PatchType::config + PatchType::weight0 + c]);
@@ -586,7 +590,7 @@ public:
         w /= sum;
   }
   void reset() {
-    for (auto &slot : slots_)
+    if (slots_) for (auto &slot : *slots_)
       slot.reset();
     dry_ = {};
     write_ = 0;
@@ -603,7 +607,7 @@ public:
                 baseDepth = patch.setting(PatchType::depth);
     for (int c = 0; c < 4; ++c) {
       const auto i = PatchType::fx + c * 8;
-      slots_[c].request(int(patch.values[i]));
+      (*slots_)[c].request(int(patch.values[i]));
       for (int f = 0; f < 4; ++f) {
         params[c][f] = patch.values[i + 1 + f];
         if (patch.setting(PatchType::zMode) >= .5f &&
@@ -620,13 +624,13 @@ public:
           int(patch.values[i + 5]) == 9)
         pressureMacro(int(patch.values[i]), z *patch.values[i + 6], params[c],
                       details[c]);
-      slots_[c].context(
+      (*slots_)[c].context(
           clock,
           patch.values[PatchType::config + PatchType::weight0 + c] > .005f &&
               baseDepth > 1e-4f &&
               (patch.setting(PatchType::zMode) >= .5f || z > 1e-4f) &&
               patch.values[i + 7] > 1e-4f);
-      slots_[c].beginBlock(params[c], details[c]);
+      (*slots_)[c].beginBlock(params[c], details[c]);
       targets[c] =
           unit(patch.values[PatchType::config + PatchType::weight0 + c]);
       sum += targets[c];
@@ -655,7 +659,7 @@ public:
       for (int c = 0; c < 4; ++c) {
         slew(weights_[c], targets[c], coefficient);
         slew(trim_[c], patch.values[PatchType::fx + c * 8 + 7], fast);
-        const auto processed = slots_[c].process(in, params[c], details[c]);
+        const auto processed = (*slots_)[c].process(in, params[c], details[c]);
         for (int ch = 0; ch < 2; ++ch)
           out[ch] += processed[ch] * weights_[c] * trim_[c];
       }

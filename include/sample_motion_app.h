@@ -488,6 +488,8 @@ public:
         float stochasticSize=2,stochasticAmplitude=.65f,stochasticTiming=.7f,stochasticEvolution=100;
         float stochasticMemory=.8f,stochasticPull=.1f,stochasticLaw=2,stochasticDrift=0;
         float stochasticSourceHold=0,stochasticHoldPosition=.5f;
+        // Internal note stream; zero retains fresh, serial-based live variation.
+        std::uint32_t pulsarSeed=0;
         float pulsarRate=261.625565f,pulsarForm=500,pulsarSize=4,pulsarWindow=0,pulsarSkew=.5f,pulsarOmit=0,pulsarBurst=0,pulsarJitter=0;
         float pulsarSourceHold=0,pulsarHoldPosition=.5f;
         float pulsarEmitModRate=.13f,pulsarEmitModDepth=0,pulsarFormModRate=1.7f,pulsarFormModDepth=0;
@@ -786,6 +788,7 @@ public:
         pendingAlgorithm_ = PlaybackAlgorithm::motion;
         requestedAlgorithm_ = PlaybackAlgorithm::motion;
         algorithmFadeRemaining_ = 0u;
+        inaudibleNoteStart_ = false;
         windowFadeRemaining_ = 0u;
         retriggerFadeRemaining_ = 0u;
         retriggerTransitionRemaining_ = 0u;
@@ -1057,6 +1060,10 @@ public:
             }
         } else {
             resetReader();
+            // The caller has established silence (including voice stealing).
+            // Pulsar must start its pulse/modulation clocks at note onset,
+            // independent of the algorithm previously occupying this voice.
+            inaudibleNoteStart_ = true;
             retriggerFadeRemaining_ = retriggerFadeFrames_;
         }
         playing_ = true;
@@ -1155,6 +1162,13 @@ public:
         for (std::size_t lane = 0u; lane < kStackLanes; ++lane) {
             targetControlsLaneGains_[lane]
                 = clamp(controls.laneGains[lane], 0.0f, 4.0f);
+        }
+        if (inaudibleNoteStart_) {
+            if (controls.algorithm == PlaybackAlgorithm::pulsar) {
+                currentAlgorithm_ = pendingAlgorithm_ = requestedAlgorithm_ = controls.algorithm;
+                algorithmFadeRemaining_ = 0u;
+            }
+            inaudibleNoteStart_ = false;
         }
         requestAlgorithm(controls.algorithm);
         Controls preparedControls = controls;
@@ -6865,6 +6879,7 @@ private:
     bool seekPending_ = false;
     std::size_t algorithmFadeFrames_ = 480u;
     std::size_t algorithmFadeRemaining_ = 0u;
+    bool inaudibleNoteStart_ = false;
     std::size_t recordTransitionFrames_ = 240u;
     std::size_t recordTransitionRemaining_ = 0u;
     LaneTransition laneTransition_ = LaneTransition::none;

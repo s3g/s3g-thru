@@ -106,6 +106,29 @@
         applyPartSettings(source.settings);
     }
 
+    // Keep the physical preference when a layout temporarily restricts its
+    // available lanes. Actual edits replace the preference; a clamp does not.
+    float splitLaneOffset(int part) const {
+        return sharedDual?0.f:isQuad()?float(part):float(part*2);
+    }
+    std::array<float,4> preferredSplitLanes() const {
+        auto result=splitLanePreferences;
+        if(splitEnabled)for(int part=0;part<partCount();++part) {
+            const float lane=liveControlsForPart(part).manualLane;
+            if(result[part]<0 || lane!=splitLaneApplied[part])
+                result[part]=clampValue(lane+splitLaneOffset(part),0.f,3.f);
+        }
+        return result;
+    }
+    void acceptManualLaneEdit() {
+        if(!splitEnabled)return;
+        splitLaneApplied[splitFocus]=controls.manualLane;
+        splitLanePreferences[splitFocus]=clampValue(controls.manualLane+splitLaneOffset(splitFocus),0.f,3.f);
+    }
+    void resetSplitLaneReferences() {
+        for(int part=0;part<4;++part)splitLaneApplied[part]=splitParts[part].controls.manualLane;
+    }
+
     void initializeSplitState()
     {
         splitSingleControls = controls; splitSingleSettings = currentPartSettings();
@@ -150,7 +173,9 @@
     {
         const bool enabled=(mode>=1&&mode<=4)||mode==6,shared=mode==2||mode==4,quad=mode==3||mode==6;
         if(sequenceMode()==(mode==6)&&layersLive.active==(mode==5)&&enabled==splitEnabled&&bankMode==(mode==4)&&(!enabled||(shared==sharedDual&&quad==quadMode)))return;
-        if(audioRecording()||partCapturePublishing||clipRecording||bankJob.load(std::memory_order_acquire)){setError("Stop recording before changing mode");return;}
+        if(audioRecording()||clipRecording){setError("Stop recording before changing mode");return;}
+        if(partCapturePublishing){setError("Wait for capture publication");return;}
+        if(bankJob.load(std::memory_order_acquire)){setError("Wait for Bank sample job");return;}
         const int previousMode=performanceMode();
         if(mode>0)lastNonSingleMode=mode;
         else if(previousMode>0)lastNonSingleMode=previousMode;
@@ -174,10 +199,15 @@
                 for(int p=2;p<4;++p){splitParts[p].controls=controls;splitParts[p].settings=currentPartSettings();splitParts[p].settings.muted=0;}
                 quadInitialized=true;
             }
-            if(sharedDual!=shared||wasQuad!=quad)for(int part=0;part<4;++part) {
+            for(int part=0;part<4;++part) {
                 auto& lane=splitParts[part].controls.manualLane;
-                const float physical=lane+(sharedDual?0.0f:wasQuad?static_cast<float>(part):part*2.0f);
-                lane=clampValue(physical-(shared?0.0f:quad?static_cast<float>(part):part*2.0f),0.0f,shared?3.0f:quad?0.0f:1.0f);
+                const float offset=shared?0.f:quad?float(part):float(part*2);
+                const float physical=splitLanePreferences[part]>=0?splitLanePreferences[part]
+                    :lane+(sharedDual?0.f:wasQuad?float(part):float(part*2));
+                lane=clampValue(physical-offset,0.f,shared?3.f:quad?0.f:1.f);
+                if(splitLanePreferences[part]<0)
+                    splitLanePreferences[part]=clampValue(lane+offset,0.f,3.f);
+                splitLaneApplied[part]=lane;
             }
             sharedDual=shared;quadMode=quad;splitEnabled=true;
             if(!wasMulti)splitFocus=0;
@@ -260,6 +290,8 @@
     void captureSplitClip(ClipSlot& clip)
     {
         storeFocusedPart();
+        splitLanePreferences=preferredSplitLanes();
+        clip.splitLanePreferences=splitLanePreferences;
         captureCurrentStackPaths(clip);
         clip.layers=layersLive;
         clip.sequence=sequenceLive;
@@ -281,6 +313,7 @@
 
     void restoreSplitClip(const ClipSlot& clip)
     {
+        splitLanePreferences=clip.splitLanePreferences;
         layersLive=layersRecorded=clip.layers;layersOverrides.reset();clearLayersTouches();
         sequenceLive=sequencePlayback=clip.sequence;
         publishSequenceRates();
@@ -306,6 +339,7 @@
                 applyLockedValue(controls,outputGain,p,clip.splitValues[0][p]);
             loadPartEditor(splitFocus);
         } else {controls.stackPath=clip.stackPaths[0];applyPartSettings(clip.singleSettings);}
+        resetSplitLaneReferences();
         for(int part=0;part<4;++part)splitClipControls[part]=liveControlsForPart(part);
     }
 
@@ -359,7 +393,7 @@
 
     int formatSplitState(char* buffer,int capacity) const
     {
-        int at=std::snprintf(buffer,capacity,"{\"enabled\":%d,\"shared\":%d,\"quad\":%d,\"bank\":%d,\"focus\":%d,\"blend\":%.5f,\"parts\":[",splitEnabled?1:0,sharedDual?1:0,quadMode?1:0,bankMode?1:0,splitFocus,splitBlendState);
+        int at=std::snprintf(buffer,capacity,"{\"mode\":%d,\"enabled\":%d,\"shared\":%d,\"quad\":%d,\"bank\":%d,\"focus\":%d,\"blend\":%.5f,\"parts\":[",performanceMode(),splitEnabled?1:0,sharedDual?1:0,quadMode?1:0,bankMode?1:0,splitFocus,splitBlendState);
         for(int p=0;p<partCount();++p) {
             if(at<0||at>=capacity)return -1;
             const auto ui=settingsForPart(p);const auto& c=liveControlsForPart(p);
@@ -687,6 +721,16 @@
             char key[40]{};float value=0;std::snprintf(key,sizeof(key),"%s_voice_mode",names[group]);
             if(jsonNumber(json,key,value))settings[group].voiceMode=clampValue(static_cast<int>(value),0,2);
         }
+        std::array<float,4> preferences {-1,-1,-1,-1};
+        const char* preferred=std::strstr(json,"\"split_lane_preferences\":[");
+        if(preferred) {
+            preferred+=std::strlen("\"split_lane_preferences\":[");
+            for(std::size_t i=0;i<preferences.size();++i) {
+                char* end=nullptr;const float v=std::strtof(preferred,&end);
+                if(end==preferred||!std::isfinite(v)||(v!=-1.f&&(v<0.f||v>3.f))||*end!=(i+1==preferences.size()?']':','))return false;
+                preferences[i]=v;preferred=end+1;
+            }
+        }
         float bank=0;jsonNumber(json,"bank_mode",bank);bankMode=bank>=.5f && enabled>=.5f && shared>=.5f && quad<.5f;
         float master=1,source=0,sourceVersion=1;jsonNumber(json,"bank_master_rate",master);
         bankMasterRate=clampValue(master,.125f,8.f);bankRecordSource=2;
@@ -698,6 +742,7 @@
         if(jsonNumber(json,"split_return_mode",returnMode)&&(!std::isfinite(returnMode)||returnMode<1||returnMode>6||std::floor(returnMode)!=returnMode))return false;
         lastNonSingleMode=static_cast<int>(returnMode);
         splitMixerOverrides.fill(false);voiceEngineTraversal={};
+        splitLanePreferences=preferences;
         splitSingleControls=restored[0];splitSingleSettings=settings[0];
         for(std::size_t p=0;p<4;++p){splitParts[p].controls=restored[p+1];splitParts[p].settings=settings[p+1];}
         splitEnabled=enabled>=.5f;sharedDual=shared>=.5f;quadMode=quad>=.5f;quadInitialized=quadInit>=.5f;splitInitialized=initialized>=.5f;splitFocus=clampValue(static_cast<int>(focus),0,partCount()-1);
@@ -707,6 +752,21 @@
             for(std::size_t p=0;p<kLockParameterCount;++p)if(!splitPartParameter(p))applyLockedValue(controls,ignored,p,lockedValue(restored[1],outputGain,p));
             loadPartEditor(splitFocus);
         }
+        resetSplitLaneReferences();
         for(int part=0;part<4;++part)splitClipControls[part]=liveControlsForPart(part);
+        return true;
+    }
+
+    static bool writeSplitLanePreferences(std::FILE* file,const std::array<ClipSlot,kClipSlotCount>& clips) {
+        if(!writeU32(file,0x31504c53u))return false; // SLP1
+        for(const auto& clip:clips)for(float value:clip.splitLanePreferences)
+            if(!writeF32(file,value))return false;
+        return true;
+    }
+    static bool readSplitLanePreferences(std::FILE* file,std::array<ClipSlot,kClipSlotCount>& clips) {
+        std::uint32_t magic=0;
+        if(!readU32(file,magic)||magic!=0x31504c53u)return false;
+        for(auto& clip:clips)for(float& value:clip.splitLanePreferences)
+            if(!readF32(file,value)||(value!=-1.f&&(value<0.f||value>3.f)))return false;
         return true;
     }

@@ -87,7 +87,7 @@ void commitSequenceEdit(bool deferPlayback = false) {
   ++sequenceRevision;
 }
 void startSequenceVoice(int part, int row, int child, double gateBeats,
-                        bool audition = false) {
+                        bool audition = false, std::int64_t tick = -1) {
   if (part < 0 || part >= 4 || !engine.laneLoaded(part))
     return;
   const auto &lane = sequencePlayback.tracks[part];
@@ -154,6 +154,7 @@ void startSequenceVoice(int part, int row, int child, double gateBeats,
   voice.age = ++noteClock;
   voice.clipOwned = !audition;
   voice.clipNoteIndex = -1;
+  voice.pulsarSeed = audition ? 0u : sequencePulsarSeed(part, row, child, tick);
   voice.midiExternal = false;
   voice.midiGain = velocity / 127.f;
   voice.midiValue = voice.midiTarget = {};
@@ -369,7 +370,7 @@ std::size_t serviceSequenceBeforeBlock(std::size_t maximum) {
       continue;
     last = event.tick;
     if (!sequenceMuted[event.lane]) {
-      startSequenceVoice(event.lane, event.step, event.child, event.gateBeats);
+      startSequenceVoice(event.lane, event.step, event.child, event.gateBeats, false, event.tick);
       ++sequenceEventCount[event.lane];
     }
   }

@@ -1,6 +1,6 @@
 {
   "name": "s3g-thru",
-  "version": "0.31.1",
+  "version": "0.31.2",
   "private": true,
   "type": "module",
   "description": "s3g Thru takeover sampler for Ableton Move and Schwung.",

@@ -29,9 +29,8 @@ press **Step 2** for Global Settings. **Shift + main encoder click** opens its
 section picker: choose **System → Help → Modules → s3g Thru**. Inside Thru,
 **Shift + Menu** opens the diagnostic reports and shortcut reminder.
 
-Version 0.31.1 improves sequencer display timing, editing responsiveness and
-clip-fade stability. See the
-[release notes](release-notes/RELEASE_NOTES_0.31.1.md).
+Version 0.31.2 improves mode selection, setting recall and Pulsar playback
+consistency. See the [release notes](release-notes/RELEASE_NOTES_0.31.2.md).
 Use the manual's [Projects guide](https://s3g.github.io/s3g-thru/projects.html)
 for backup and restore.
 

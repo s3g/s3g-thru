@@ -1,7 +1,23 @@
 #pragma once
 #include "thru_sequence.h"
 // Convert a current, checksum-free payload to the preceding format for migration fixtures.
+inline void stripPulsarSeedExtension(std::vector<unsigned char>& bytes) {
+    if(bytes.size()<12||bytes[8]!=42)return;
+    constexpr std::size_t extra=4+64*4*4;
+    assert(bytes.size()>extra);const auto at=bytes.size()-extra;
+    assert(bytes[at]=='P'&&bytes[at+1]=='S'&&bytes[at+2]=='E'&&bytes[at+3]=='1');
+    bytes.resize(at);bytes[8]=41;
+}
+inline void stripSplitLanePreferences(std::vector<unsigned char>& bytes) {
+    stripPulsarSeedExtension(bytes);
+    if(bytes.size()<12||bytes[8]!=41)return;
+    constexpr std::size_t extra=4+64*4*4;
+    assert(bytes.size()>extra);const auto at=bytes.size()-extra;
+    assert(bytes[at]=='S'&&bytes[at+1]=='L'&&bytes[at+2]=='P'&&bytes[at+3]=='1');
+    bytes.resize(at);bytes[8]=40;
+}
 inline void stripSequenceCycleExtension(std::vector<unsigned char>& bytes) {
+    stripSplitLanePreferences(bytes);
     if(bytes.size()<12||bytes[8]!=40)return;
     constexpr std::size_t extra=4+64*4*32*2;
     assert(bytes.size()>extra);const auto at=bytes.size()-extra;

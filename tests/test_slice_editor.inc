@@ -193,7 +193,7 @@ void testSliceEditorPersistence() {
     assert(!std::strcmp(copied.edited.labels[1].data(),"Clap")&&copied.file.count==3&&copied.file.points==lane.file.points);
     auto* f=std::fopen(path.c_str(),"rb");assert(f);std::fseek(f,0,SEEK_END);const auto size=std::ftell(f);std::rewind(f);
     SliceBytes bytes(static_cast<std::size_t>(size)-4);assert(std::fread(bytes.data(),1,bytes.size(),f)==bytes.size());std::fclose(f);
-    assert(bytes[8]==40);stripLayersExtension(bytes);assert(bytes[8]==36);stripSliceExtension(bytes);assert(bytes[8]==35);
+    assert(bytes[8]==42);stripLayersExtension(bytes);assert(bytes[8]==36);stripSliceExtension(bytes);assert(bytes[8]==35);
     std::uint32_t checksum=2166136261u;for(auto b:bytes){checksum^=b;checksum*=16777619u;}
     f=std::fopen(path.c_str(),"wb");assert(f);assert(std::fwrite(bytes.data(),1,bytes.size(),f)==bytes.size());assert(writeU32(f,checksum));std::fclose(f);
     assert(fresh->readClipFileFromPath(path.c_str()));assert(!fresh->clipSlots[9].sliceLanes[2].edited.count);

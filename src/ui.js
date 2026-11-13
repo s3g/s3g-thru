@@ -1,4 +1,4 @@
-/* s3g Thru 0.31.1 — polyphonic sampler/performance-looper takeover for Move. */
+/* s3g Thru 0.31.2 — polyphonic sampler/performance-looper takeover for Move. */
 
 import * as moveConstants from '/data/UserData/schwung/shared/constants.mjs';
 import * as moveInputFilter from '/data/UserData/schwung/shared/input_filter.mjs';
@@ -89,7 +89,7 @@ const setButtonLED = typeof moveInputFilter.setButtonLED === 'function'
         }
     };
 
-const UI_VERSION = '0.31.1';
+const UI_VERSION = '0.31.2';
 const HELP_PAGE_COUNT=8;
 const WAVE_BINS = 112;
 const ALGORITHMS = ['MOTION', 'LANES', 'GRAINS', 'CUTUPS', 'SAMPLE', 'SLICES',
@@ -796,7 +796,7 @@ const SHORT_LABELS = {
 
 const state = {
     ticks: 0,
-    splitEnabled:false,sharedDual:false,quadMode:false,modeSelection:0,lastNonSingleMode:1,splitFocus:0,splitBlend:.5,splitParts:[{},{}],splitPages:[0,0,0,0],
+    splitEnabled:false,sharedDual:false,quadMode:false,modeSelection:0,modeRequest:null,lastNonSingleMode:1,splitFocus:0,splitBlend:.5,splitParts:[{},{}],splitPages:[0,0,0,0],
     pathReady:false,pathCount:4,pathPoint:0,pathPoints:Array.from({length:8},(_,i)=>({time:[0,.25,.5,.75,.8,.85,.9,.95][i],lane:[0,.5,1,.5,.4,.3,.2,.1][i],curve:0})),
     focusButtonHeld:false,focusButtonUsed:false,captureStartTick:0,performanceVisible:false,performanceArmed:false,performanceOwner:0,performancePads:new Set(),performancePadLive:new Set(),performanceValues:Array(8).fill(0),voiceAlgorithms:Array(8).fill(-1),
     editorReady:false,engineListReturn:false,engineListVoices:false,
@@ -1158,9 +1158,9 @@ function setParamBlocking(key, value) {
         if (typeof host_module_set_param_blocking === 'function') {
             return host_module_set_param_blocking(key, String(value), 180);
         } else {
-            host_module_set_param(key, String(value));
+            return host_module_set_param(key, String(value));
         }
-    } catch (error) {}
+    } catch (error) {return false;}
 }
 
 function readEditorSnapshot() {
@@ -1197,6 +1197,7 @@ function refreshEditorSnapshot(readDetails=true) {
     const values=snapshot?.values,split=snapshot?.split;
     if(snapshot?.v!==1 || !values || typeof values!=='object'
         || !split || ![0,1].includes(split.enabled) || !Number.isInteger(split.focus)||split.focus<0||split.focus>(split.enabled&&split.quad?3:1)
+        || !decodeSplitState({...split,mode:values.split_mode})
         || !Array.isArray(split.parts) || split.parts.length!==(split.enabled&&split.quad?4:2)
         || split.parts.some((part)=>!part || typeof part!=='object')) return false;
     // Validate the complete response before replacing any displayed controls.
@@ -1206,7 +1207,7 @@ function refreshEditorSnapshot(readDetails=true) {
         if(!Number.isFinite(values[key])) return false;
     for(const [key,control] of Object.entries(PARAMS))
         if(!key.startsWith('layers_') && !key.startsWith('seq_')) control.value=control.momentary?0:clamp(values[key],control.min,control.max);
-    parseSplitState(split,false);
+    parseSplitState({...split,mode:values.split_mode},false);
     state.engineListVoices=Number(values.voice_engine_active)===1;
     state.algorithm=Math.round(PARAMS.algorithm.value);
     state.padMode=Math.round(PARAMS.pad_mode.value);state.scale=Math.round(PARAMS.scale.value);
@@ -1338,7 +1339,10 @@ function readSequence(skipCursorLeds=false){
  const headsChanged=JSON.stringify(previous?.heads)!==JSON.stringify(data.heads);
  const stepsChanged=JSON.stringify(previous?.steps)!==JSON.stringify(data.steps);
  const cursorChanged=previous?.active!==data.active||previous?.playing!==data.playing||previous?.edit!==data.edit||lanesChanged;
+ const wasActive=sequenceUi.active;
  sequenceUi.active=Boolean(data.active);sequenceUi.data=data;
+ if(sequenceUi.active){PARAMS.split_mode.value=6;state.lastNonSingleMode=6;}
+ else if(wasActive&&PARAMS.split_mode.value===6)PARAMS.split_mode.value=state.splitEnabled?(state.quadMode?3:state.sharedDual?2:1):layersUi.active?5:0;
  // Moving cursors and sample readers have their own partial redraw paths.
  // They must not invalidate the whole OLED on every full-state poll.
  const staticRaw=JSON.stringify({...data,lanes:undefined,heads:undefined});
@@ -1833,13 +1837,13 @@ function layersPages(engine,pads,enginePages,lists){
 }
 function readLayers(){
     let data;try{data=JSON.parse(String(getParam('layers_view','{}')));}catch(_){return;}
-    if(!data||typeof data!=='object')return;
+    if(!data||![0,1].includes(data.active))return;
     const oldPage=state.view==='settings'&&layersUi.active?currentSettingsPage():null;
     const was=layersUi.active,previous=layersUi.data;
     layersUi.active=data.active===1;layersUi.data=data;
     const redrawLeds=was!==layersUi.active||data.fxPads!==previous?.fxPads||(data.touches||[]).some((value,index)=>value!==previous?.touches?.[index]);
     if(layersUi.active){PARAMS.split_mode.value=5;state.lastNonSingleMode=5;}
-    else if(was){layersUi.focus=0;layersUi.pages=['','FX CORNER'];layersUi.returnView=null;layersUi.editCorner=-1;layersUi.holdPad=-1;layersUi.tapPad=-1;layersUi.wave=false;resetParameterEncoderMotion();rebuildLedQueue();}
+    else if(was){if(PARAMS.split_mode.value===5)PARAMS.split_mode.value=0;layersUi.focus=0;layersUi.pages=['','FX CORNER'];layersUi.returnView=null;layersUi.editCorner=-1;layersUi.holdPad=-1;layersUi.tapPad=-1;layersUi.wave=false;resetParameterEncoderMotion();rebuildLedQueue();}
     if(!layersUi.active){if(state.view==='layerFxPicker')state.view='main';return;}
     PARAMS.layers_corner.value=Number(data.fxCorner??data.corner)||0;
     const values=data.values||[],config=values.slice(32);
@@ -1987,10 +1991,22 @@ function isSendPage(page){return page===SPLIT_MIX_PAGE||page===QUAD_SEND_PAGE;}
 function isSetupPage(page){return page===SPLIT_SETUP_PAGE||page===QUAD_SETUP_PAGE;}
 function quadIdle(index){return [ScaleNoteGrey,SplitBIdle,DarkYellowOlive,SharedBIdle][padPart(index)];}
 
-function parseSplitState(text, refresh=true) {
+function decodeSplitState(text) {
     let data;
-    try { data=typeof text==='object'?text:JSON.parse(String(text||'{}')); } catch (_) { return; }
-    if(!data || typeof data!=='object')return;
+    try {data=typeof text==='object'?text:JSON.parse(String(text));}catch(_){return null;}
+    if(!data||typeof data!=='object'||![0,1].includes(data.enabled)
+        ||!Number.isInteger(data.focus)||data.focus<0||data.focus>(data.enabled&&data.quad?3:1)
+        ||!Array.isArray(data.parts)||data.parts.length!==(data.enabled&&data.quad?4:2)
+        ||data.parts.some(part=>!part||typeof part!=='object'))return null;
+    if(data.mode!==undefined&&(!Number.isInteger(data.mode)||data.mode<0||data.mode>6
+        ||Boolean(data.enabled)!==[1,2,3,4,6].includes(data.mode)
+        ||(data.enabled&&(Boolean(data.quad)!==[3,6].includes(data.mode)
+            ||Boolean(data.shared)!==[2,4].includes(data.mode)))
+        ||Boolean(data.bank)!==(data.mode===4)))return null;
+    return data;
+}
+function parseSplitState(text, refresh=true) {
+    const data=decodeSplitState(text);if(!data)return;
     const enabled=Number(data.enabled)===1;
     const quad=Number(data.quad)===1;
     const focus=clamp(Number(data.focus)||0,0,enabled&&quad?3:1);
@@ -2009,7 +2025,9 @@ function parseSplitState(text, refresh=true) {
                 part[key] !== state.splitParts[index]?.[key]));
         state.splitParts = data.parts;
     }
-    PARAMS.split_mode.value=bank?4:enabled?(quad?3:shared?2:1):0;PARAMS.split_focus.value=focus;
+    PARAMS.split_mode.value=data.mode??(bank?4:enabled?(quad?(sequenceUi.active?6:3):shared?2:1):layersUi.active?5:0);
+    if(data.mode!==undefined){sequenceUi.active=data.mode===6;layersUi.active=data.mode===5;}
+    PARAMS.split_focus.value=focus;
     if(PARAMS.split_mode.value>0)state.lastNonSingleMode=PARAMS.split_mode.value;
     if(changed) {
         state.engineListReturn=false;
@@ -2039,21 +2057,69 @@ function setSplitFocus(part) {
     rebuildLedQueue();draw();
 }
 const MODE_MESSAGES=['SINGLE STACK','SPLIT A / B','SHARED DUAL A B','QUAD A B C D','BANK A + 16 SAMPLES','LAYERS ENGINE + FX','FOUR LANE SEQUENCE'];
-function currentPerformanceMode(){return layersUi.active?5:state.bankMode?4:state.splitEnabled?(isQuad()?3:state.sharedDual?2:1):0;}
-function toggleSplitMode() {
-    endPerformanceLayer();
-    parseSplitState(getParam('split_state','{}'));readLayers();
-    const current=currentPerformanceMode();
-    if(current>0)state.lastNonSingleMode=current;
-    const previous=clamp(Math.round(getNumber('split_return_mode',state.lastNonSingleMode)),1,5);
-    const wanted=current>0?0:previous;
-    setParamBlocking('split_mode',wanted);
-    parseSplitState(getParam('split_state','{}'));readLayers();
-    const actual=currentPerformanceMode();
-    const error=String(getParam('last_error','')||'');
-    showMessage(error|| (actual===wanted?MODE_MESSAGES[actual]:'STOP RECORD FIRST'));rebuildLedQueue();
-    primePadLeds();
+function currentPerformanceMode(){return Math.round(PARAMS.split_mode.value);}
+// Queue until the next host tick: Schwung flushes accumulated jog turns
+// before tick, while its click callback arrives immediately.
+function queueModeChange(picker,wanted=null) {
+    if(state.modeRequest)return;
+    state.editorReady=false;
+    state.modeRequest={picker,wanted,sent:false,tries:0,next:0,deadline:Date.now()+1500};
+    showActionMessage('SELECTING MODE');
 }
+function toggleSplitMode(){queueModeChange(false);}
+function freshModeState() {
+    const data=decodeSplitState(getParam('split_state',null));if(!data)return null;
+    if(data.mode===undefined){
+        const raw=getParam('split_mode',null),mode=raw===null||raw===''?NaN:Number(raw);
+        if(!Number.isInteger(mode)||mode<0||mode>6)return null;
+        return decodeSplitState({...data,mode});
+    }
+    return data;
+}
+function serviceModeChange() {
+    const request=state.modeRequest;if(!request)return false;
+    if(request.picker&&state.view!=='mode'){state.modeRequest=null;return false;}
+    const now=Date.now();if(now<request.next)return false;
+    request.next=now+40;
+    const fail=message=>{state.modeRequest=null;showMessage(message);showActionMessage(message);};
+    let data=freshModeState();
+    if(request.wanted===null){
+        if(request.picker)request.wanted=clamp(Math.round(state.modeSelection),0,6);
+        else if(data){
+            const raw=getParam('split_return_mode',null),previous=raw===null||raw===''?NaN:Number(raw);
+            if(data.mode>0)request.wanted=0;
+            else if(Number.isInteger(previous)&&previous>=1&&previous<=6)request.wanted=previous;
+        }
+    }
+    if(data&&request.wanted!==null&&data.mode!==request.wanted&&!request.sent&&request.tries<2){
+        endPerformanceLayer();
+        const result=setParamBlocking('split_mode',request.wanted);
+        request.sent=result===true||result===1;request.tries++;
+        data=freshModeState();
+    }
+    if(data&&data.mode===request.wanted){
+        parseSplitState(data,false);
+        state.editorReady=false;
+        refreshEditorSnapshot();readLayers();readSequence();
+        // A failed editor query retains the coherent mode and disables edits
+        // until the existing snapshot recovery obtains fresh parameter values.
+        parseSplitState(data,false);
+        if(!state.editorReady)uiPolling.editorPending=true;
+        if(request.picker){state.view='main';state.pageReturn=null;state.pageDestinationReturn=null;state.fxMenuReturn=false;}
+        state.modeRequest=null;state.actionMessageTicks=0;
+        showMessage(state.editorReady?MODE_MESSAGES[data.mode]:'UPDATING EDITOR');
+        primePadLeds();rebuildLedQueue();return true;
+    }
+    if(request.sent&&data&&data.mode!==request.wanted){
+        const error=String(getParam('last_error','')||'');
+        if(error==='Stop recording before changing mode'){fail('STOP RECORD FIRST');return true;}
+        if(error==='Wait for capture publication'){fail('WAIT FOR CAPTURE SAVE');return true;}
+        if(error==='Wait for Bank sample job'){fail('WAIT FOR BANK SAMPLES');return true;}
+    }
+    if(now>=request.deadline)fail('MODE NOT CONFIRMED');
+    return true;
+}
+
 function adjustSplitBlend(delta) {
     if(isQuad()){const previous=state.view;state.view='main';adjustControl(7,delta);state.view=previous;return;}
     if(!state.editorReady){showMessage('UPDATING EDITOR');return;}
@@ -4385,7 +4451,7 @@ function activatePageEntry(entry,returnToPicker=false) {
     }:null;
     if(entry.view==='mode'){
         state.pageDestinationReturn=destinationReturn;
-        state.modeSelection=Math.round(PARAMS.split_mode.value);state.view='mode';return;
+        state.modeSelection=currentPerformanceMode();state.view='mode';return;
     }
     if((state.pageReturn?.view==='library'||state.view==='library')&&entry.view!=='library')
         setParamBlocking('preview_stop',1);
@@ -4480,17 +4546,7 @@ function drawModePicker() {
     print(1,57,errorFooter(state.actionMessageTicks>0?state.actionMessage:'TURN PICK CLICK SET'),1);
 }
 
-function applyModePicker() {
-    endPerformanceLayer();
-    const wanted=state.modeSelection;
-    setParamBlocking('split_mode',wanted);parseSplitState(getParam('split_state','{}'));readLayers();readSequence();
-    if(Math.round(getNumber('split_mode',PARAMS.split_mode.value))!==wanted) {
-        showMessage('STOP RECORD FIRST');showActionMessage('STOP RECORD FIRST');return;
-    }
-    state.view='main';state.pageReturn=null;state.pageDestinationReturn=null;state.fxMenuReturn=false;
-    showMessage(MODE_MESSAGES[wanted]);
-    primePadLeds();rebuildLedQueue();
-}
+function applyModePicker(){queueModeChange(true);}
 
 function drawPagePicker() {
     clearDisplay();const entries=pagePickerEntries();
@@ -5351,6 +5407,7 @@ function adjustControl(index, delta) {
             readSequence();return;
         }
     }
+    if(control.key==='split_mode'){queueModeChange(false,value);return;}
     if(control.key==='pattern_fade_lookahead'){
         // Configuration is held fixed during a fade. Show the accepted value,
         // rather than leaving an optimistic 12ms label after a rejected edit.
@@ -5685,7 +5742,7 @@ globalThis.init = function() {
     if (typeof moveInputFilter.invalidateLedCache === 'function') {
         moveInputFilter.invalidateLedCache();
     }
-    state.ticks = 0;
+    state.ticks = 0;state.modeRequest=null;
     resetCustomMidiUi();
     resetMidiSurface();
     setParam('slice_editor_open',0);sliceUi.data=null;sliceUi.wave=null;
@@ -5780,6 +5837,7 @@ globalThis.init = function() {
 };
 
 globalThis.tick = function() {
+    if(state.modeRequest){if(serviceModeChange())draw();return;}
     // Schwung can call overtake tick at 500 Hz. Count display frames using
     // elapsed time; never couple a MIDI/LED cursor to a long serial query sweep.
     // Check cadence BEFORE any page predicates. In particular,
@@ -6126,7 +6184,7 @@ globalThis.onMidiMessageInternal = function(data) {
         return;
     }
     if (number === MoveUp && value > 0) {
-        if(state.view==='mode')state.modeSelection=clamp(state.modeSelection-1,0,6);
+        if(state.view==='mode'){if(!state.modeRequest||state.modeRequest.wanted===null)state.modeSelection=clamp(state.modeSelection-1,0,6);}
         else if(state.view==='pages')movePagePicker(-1);
         else if (state.view === 'fxMenu') moveSplitFxMenu(-1);
         else if (state.view === 'help') state.helpPage = Math.max(0, state.helpPage - 1);
@@ -6141,7 +6199,7 @@ globalThis.onMidiMessageInternal = function(data) {
         return;
     }
     if (number === MoveDown && value > 0) {
-        if(state.view==='mode')state.modeSelection=clamp(state.modeSelection+1,0,6);
+        if(state.view==='mode'){if(!state.modeRequest||state.modeRequest.wanted===null)state.modeSelection=clamp(state.modeSelection+1,0,6);}
         else if(state.view==='pages')movePagePicker(1);
         else if (state.view === 'fxMenu') moveSplitFxMenu(1);
         else if (state.view === 'help') state.helpPage = Math.min(HELP_PAGE_COUNT-1, state.helpPage + 1);
@@ -6157,7 +6215,7 @@ globalThis.onMidiMessageInternal = function(data) {
     }
     if (number === MoveMainKnob) {
         const delta = decodeDelta(value);
-        if(state.view==='mode')state.modeSelection=clamp(state.modeSelection+delta,0,6);
+        if(state.view==='mode'){if(!state.modeRequest||state.modeRequest.wanted===null)state.modeSelection=clamp(state.modeSelection+delta,0,6);}
         else if(state.view==='pages')movePagePicker(delta);
         else if (state.view === 'fxMenu') moveSplitFxMenu(delta);
         else if (state.view === 'help' && delta !== 0) {
@@ -6277,6 +6335,7 @@ globalThis.onMidiMessageInternal = function(data) {
 };
 
 globalThis.onUnload = function() {
+    state.modeRequest=null;
     setParamBlocking('render_profile_enable',0);renderProfileRequested=false;
     setParamBlocking('midi_custom_cancel',1);
     setParamBlocking('slice_editor_open',0);

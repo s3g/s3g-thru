@@ -48,14 +48,19 @@
         decltype(ThruInstance::bankRecordSource) bankRecordSource {};
         decltype(ThruInstance::splitSingleControls) splitSingleControls {};
         decltype(ThruInstance::splitParts) splitParts {};
+        decltype(ThruInstance::splitLanePreferences) splitLanePreferences {};
         decltype(ThruInstance::splitSingleSettings) splitSingleSettings {};
         decltype(ThruInstance::layersLive) layersLive {};
         float patternFadeMs=0,patternFadeLowMs=0,patternFadeHighMs=0;
         int patternCurve=0,patternTimingMode=0,patternLookahead=0,returnMode=0;
         bool sequenceActive=false;
+        std::array<std::uint32_t,4> pulsarSeeds {};
         PartSettings currentSettings {};
         void capture(const ThruInstance& source) {
             controls=source.controls;
+            const auto* clip=source.activeClipSlot();
+            for(int part=0;part<4;++part)pulsarSeeds[part]=clip&&clip->pulsarSeeds[part]
+                ?clip->pulsarSeeds[part]:ThruInstance::defaultPulsarSeed(source.activeClip,part);
             outputGain=source.outputGain;
             polyphonyCompensation=source.polyphonyCompensation;
             recordGain=source.recordGain;
@@ -101,6 +106,7 @@
             bankRecordSource=source.bankRecordSource;
             splitSingleControls=source.splitSingleControls;
             splitParts=source.splitParts;
+            splitLanePreferences=source.preferredSplitLanes();
             splitSingleSettings=source.splitSingleSettings;
             layersLive=source.layersLive;
             patternFadeMs=source.patternFadeMs;
@@ -131,7 +137,9 @@
                 const int n=std::snprintf(buffer+at,static_cast<std::size_t>(capacity-at),format,values...);
                 if(n<0||n>=capacity-at)at=capacity;else at+=n;
             };
+            for(int part=0;part<4;++part)append(",\"pulsar_seed_%d\":%u",part,unsigned(pulsarSeeds[part]));
             append(",\"split_return_mode\":%d",copyReturnMode());
+            append(",\"split_lane_preferences\":[%.9g,%.9g,%.9g,%.9g]",splitLanePreferences[0],splitLanePreferences[1],splitLanePreferences[2],splitLanePreferences[3]);
             append(",\"bank_mode\":%d,\"bank_master_rate\":%.9g,\"bank_record_source\":%d,\"bank_source_version\":2",bankMode?1:0,bankMasterRate,bankRecordSource);
             append(",\"split_enabled\":%d,\"split_shared\":%d,\"split_initialized\":%d,\"split_focus\":%d",splitEnabled?1:0,sharedDual?1:0,splitInitialized?1:0,splitFocus);
             append(",\"split_params_count\":%zu,\"split_parts\":4,\"split_quad\":%d,\"quad_initialized\":%d",kLockParameterCount,quadMode?1:0,quadInitialized?1:0);

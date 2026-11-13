@@ -322,6 +322,7 @@ void testPreviewIsolation()
 #include "test_reverb_routing.inc"
 #include "test_cutups_scan.inc"
 #include "test_split.inc"
+#include "test_mode_state.inc"
 #include "test_midi.inc"
 #include "test_midi_notes.inc"
 #include "test_midi_voice_modes.inc"
@@ -356,6 +357,7 @@ void testPreviewIsolation()
 #include "test_pulsar_mod.inc"
 #include "test_layers.inc"
 #include "test_sequence.inc"
+#include "test_pulsar_recall.inc"
 #include "test_drive.inc"
 #include "test_fade_lookahead.inc"
 } // namespace
@@ -416,6 +418,7 @@ int main(int argc,char** argv)
     testPriorityDuckingControls();
     testPriorityDuckingRoutingAndBypass();
     testPriorityDuckingAudio();
+    testPulsarSeededAudio();testPulsarClipAudioRecall();testPulsarRecordedIdentity();testPulsarSequenceIdentity();testPulsarSeedPersistence();testPulsarFadeRecall();
     testPulsarModulationSound();
     testPulsarModulationPersistence();
     testPulsarLongDuration();
@@ -526,6 +529,7 @@ int main(int argc,char** argv)
     testNativeE16AndMonolitMode();
     testNativeE16HeldNoteResponse();
     testNativeE16RingSnapshots();
+    testModeStatePreservation();
     testSplitInstruments();
     testSplitCuesRollsAndLoad();
     testSplitMixer();

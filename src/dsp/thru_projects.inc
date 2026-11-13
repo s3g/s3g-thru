@@ -247,7 +247,7 @@
         const std::string temporary=stage+"/archive.tmp";mz_zip_archive zip{};
         s3g_thru_project::ZipBudget zipBudget;s3g_thru_project::setupZip(zip,zipBudget);
         if(!mz_zip_writer_init_file_v2(&zip,temporary.c_str(),0,MZ_ZIP_FLAG_WRITE_ZIP64))return false;
-        const std::string manifest="{\"format\":\"s3g-thru-project\",\"version\":1,\"clip_format\":40,\"assets\":"+std::to_string(assets.size())+"}";
+        const std::string manifest="{\"format\":\"s3g-thru-project\",\"version\":1,\"clip_format\":42,\"assets\":"+std::to_string(assets.size())+"}";
         bool ok=mz_zip_writer_add_mem(&zip,"manifest.json",manifest.data(),manifest.size(),0)!=0
             &&addProjectFile(zip,"thru-state.json",stage+"/thru-state.json")&&addProjectFile(zip,"thru-clips.bin",stage+"/thru-clips.bin");
         for(const auto& asset:assets)if(ok)ok=addProjectFile(zip,asset.second,asset.first);
@@ -278,7 +278,7 @@
         std::array<char,4097> manifest{};float version=0,format=0,assetCount=0;
         if(!mz_zip_reader_extract_to_mem(&zip,manifestIndex,manifest.data(),4096,0)
             ||!std::strstr(manifest.data(),"\"format\":\"s3g-thru-project\"")||!jsonNumber(manifest.data(),"version",version)||version!=1
-            ||!jsonNumber(manifest.data(),"clip_format",format)||(format!=36 && format!=37 && format!=38 && format!=39 && format!=40)
+            ||!jsonNumber(manifest.data(),"clip_format",format)||(format!=36 && format!=37 && format!=38 && format!=39 && format!=40 && format!=41 && format!=42)
             ||!jsonNumber(manifest.data(),"assets",assetCount)||assetCount!=count-3){projectNote("UNSUPPORTED PROJECT");return false;}
         std::array<char,kPersistencePathSize> dataRoot{},stageName{};
         if(!rootDataPath("project-data",dataRoot.data(),dataRoot.size())||!projectMakeDirectory(dataRoot.data()))return false;

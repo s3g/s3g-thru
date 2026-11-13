@@ -100,7 +100,7 @@ void testFormerTransitionTakeMigration() {
     constexpr long sequenceTailBytes=4+64*s3g_thru_sequence::patternSize*4
         +4+64*(4*(2+32*9)+4*6+8)*4
         +4+64*4*32*2;
-    constexpr long engineTailBytes=4+64*5*11*4+4+64*5*18*4+4+64*5*8*4+bankTailBytes+layersTailBytes+sequenceTailBytes;
+    constexpr long engineTailBytes=4+64*5*11*4+4+64*5*18*4+4+64*5*8*4+bankTailBytes+layersTailBytes+sequenceTailBytes+2*(4+64*4*4); // Lane preferences and Pulsar seeds.
     assert(std::fseek(file,-8-engineTailBytes,SEEK_END)==0);std::uint32_t voicePlayBytes=0;assert(readU32(file,voicePlayBytes));
     assert(std::fseek(file,-static_cast<long>(4100+37128+15364+voicePlayBytes+engineTailBytes),SEEK_END)==0);std::uint32_t count=99;
     for(std::size_t i=0;i<kSavedChainCount*kClipChainLength;++i){assert(readU32(file,count));assert(count==0u);}

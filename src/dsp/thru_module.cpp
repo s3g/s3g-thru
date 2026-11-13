@@ -539,6 +539,8 @@ struct ClipSlot {
     std::array<std::array<float, kLockParameterCount>, 4u> splitValues {};
     std::array<PartSettings, 4u> splitSettings {};
     PartSettings singleSettings {};
+    std::array<float,4> splitLanePreferences {-1,-1,-1,-1};
+    std::array<std::uint32_t,4> pulsarSeeds {};
     bool splitEnabled = false, splitInitialized = false, sharedDual = false, quadMode = false, quadInitialized = false;
     int splitFocus = 0;
     std::array<std::array<char, kPersistencePathSize>, kLaneCount>
@@ -2216,6 +2218,7 @@ struct PlaybackVoice {
     std::size_t stealFadeRemaining = 0u;
     AmpEnvelopeStage envelopeStage = AmpEnvelopeStage::idle;
     int clipNoteIndex = -1;
+    std::uint32_t pulsarSeed = 0;
     bool active = false;
     bool held = false;
     bool clipOwned = false;
@@ -2408,6 +2411,8 @@ struct ThruInstance : PlaybackEffectsState {
     std::array<s3g_daisy::ThruPartEffects,4u> splitInserts;
     Engine::Controls splitSingleControls;
     PartSettings splitSingleSettings;
+    std::array<float,4> splitLanePreferences {-1,-1,-1,-1};
+    std::array<float,4> splitLaneApplied {};
     bool splitEnabled = false, splitInitialized = false, sharedDual = false, quadMode = false, quadInitialized = false;
     s3g_thru_sequence::Pattern sequenceLive,sequencePlayback;
     s3g_thru_sequence::StripProcessor sequenceStripProcessor;
@@ -2551,6 +2556,7 @@ struct ThruInstance : PlaybackEffectsState {
     float clipOutputGain = 1.0f;
     double clipPositionMs = 0.0;
     double clipAbsolutePositionMs = 0.0;
+    std::uint64_t pulsarClipCycle = 0;
     std::atomic<std::uint64_t> renderClockSamples { 0u };
     std::uint64_t clipRecordStartSample = 0u;
     std::array<int, 544u> clipOpenNoteIndices {};
@@ -2697,6 +2703,7 @@ struct ThruInstance : PlaybackEffectsState {
 #include "thru_stack_paths.inc"
 #include "thru_capture.inc"
 #include "thru_spectral.inc"
+#include "thru_pulsar_recall.inc"
 #include "thru_pattern_fades.inc"
 #include "thru_chain_banks.inc"
 #include "thru_clipboard.inc"
@@ -6202,6 +6209,7 @@ struct ThruInstance : PlaybackEffectsState {
         const auto& scale=kScaleDefinitions[static_cast<std::size_t>(owner.scale)];
         for(int interval=0;interval<12;++interval)for(std::size_t degree=0;degree<scale.count;++degree)
             if((interval+(voice.note-owner.root)+1320)%12==scale.intervals[degree])effective.textureScaleMask|=static_cast<std::uint16_t>(1u<<interval);
+        effective.pulsarSeed = voice.clipOwned ? voice.pulsarSeed : 0u;
         effective.cutTempoBpm = tempoBpm;
         effective.cutSwing = tempoSwing;
         effective.cutVoiceIndex = static_cast<float>(voice.sourcePad >= 0
@@ -6444,6 +6452,7 @@ struct ThruInstance : PlaybackEffectsState {
         voice.held = true;
         voice.clipOwned = true;
         voice.clipNoteIndex = static_cast<int>(noteIndex);
+        voice.pulsarSeed = recordedPulsarSeed(clip, event, owner, pulsarClipCycle);
         initializeMidiVoice(voice,&clip,event.startMs);
         if (!reusingActiveVoice) {
             beginVoiceAttack(voice);
@@ -6486,6 +6495,7 @@ struct ThruInstance : PlaybackEffectsState {
                 if(settings.voiceMode==1)beginVoiceStealTransition(voice);
                 voice.sliceCached=false;
                 const auto& key=clip->clipNotes[prior];voice.note=key.note;
+                if(settings.voiceMode==1)voice.pulsarSeed=recordedPulsarSeed(*clip,key,voice.part,pulsarClipCycle);
                 voice.sourcePad=key.sourcePad<32?key.sourcePad:-1;voice.velocity=key.velocity;voice.clipNoteIndex=prior;
                 const auto values=voice.midiValue;initializeMidiVoice(voice,clip,clipPositionMs);voice.midiValue=values;
             } else {
@@ -6703,6 +6713,7 @@ struct ThruInstance : PlaybackEffectsState {
             clipPlaying = false;
             clipPositionMs = 0.0;
             clipAbsolutePositionMs = 0.0;
+            pulsarClipCycle = 0;
             releaseClipVoices();
         } else if (!clipPlaying) {
             clipPlaying = true;
@@ -6831,6 +6842,7 @@ struct ThruInstance : PlaybackEffectsState {
         if (clipReplacing) {
             clipPositionMs = 0.0;
             clipAbsolutePositionMs = 0.0;
+            pulsarClipCycle = 0;
             if(!clipRecording)layersOverrides.reset();
             clipNeedsStart = true;
         }
@@ -6876,6 +6888,7 @@ struct ThruInstance : PlaybackEffectsState {
             activeClipOccupied = clip.occupied;
             clipPositionMs = 0.0;
             clipAbsolutePositionMs = 0.0;
+            pulsarClipCycle = 0;
             clipPlaying = false;
             releaseClipVoices();
         }
@@ -7007,6 +7020,7 @@ struct ThruInstance : PlaybackEffectsState {
                 else if(!chainEnabled)activatePreparedClip();
                 clipPositionMs = 0.0;
                 clipAbsolutePositionMs = 0.0;
+                pulsarClipCycle = 0;
                 if(!clipRecording)layersOverrides.reset();
                 clipNeedsStart = true;
             }
@@ -7089,10 +7103,12 @@ struct ThruInstance : PlaybackEffectsState {
             releaseClipVoices();
             clipPositionMs = 0.0;
             clipAbsolutePositionMs = 0.0;
+            pulsarClipCycle = 0;
             if(!clipRecording)layersOverrides.reset();
             clipNeedsStart = true;
             return;
         }
+        ++pulsarClipCycle;
         next = std::fmod(next, duration);
         clipPositionMs = next;
         processClipEvents(*clip, 0.0, next, true);
@@ -7106,6 +7122,7 @@ struct ThruInstance : PlaybackEffectsState {
         releaseClipVoices();
         clipPositionMs = 0.0;
         clipAbsolutePositionMs = 0.0;
+        pulsarClipCycle = 0;
         if(!clipRecording)layersOverrides.reset();
         clipNeedsStart = true;
         if(chainLaunchBank>=0){prepareChainLaunch();return;}
@@ -7139,6 +7156,7 @@ struct ThruInstance : PlaybackEffectsState {
             releaseClipVoices();stopSequenceAudition();
             clipPositionMs = 0.0;
             clipAbsolutePositionMs = 0.0;
+            pulsarClipCycle = 0;
             clipNeedsStart = false;
             chainNextSlot = -1;chainAdvanceRequested=false;chainLaunchingFirst=false;
             if(chainEnabled)queuedClip=-1;
@@ -7152,6 +7170,7 @@ struct ThruInstance : PlaybackEffectsState {
             releaseClipVoices();
             clipPositionMs = 0.0;
             clipAbsolutePositionMs = 0.0;
+            pulsarClipCycle = 0;
             clipNeedsStart = false;
         }
     }
@@ -7269,6 +7288,7 @@ struct ThruInstance : PlaybackEffectsState {
             return;
         }
         ClipSlot& clip = clipSlots[static_cast<std::size_t>(activeClip)];
+        ensurePulsarSeeds(clip, activeClip);
         captureSplitClip(clip);
         clip.layers=layersLive;
         clip.occupied = forceOccupied || activeClipOccupied
@@ -7284,6 +7304,7 @@ struct ThruInstance : PlaybackEffectsState {
         ClipSlot& target = clipSlots[static_cast<std::size_t>(index)];
         if(activeClip!=index){resetSequenceClock();sequenceOverrides={};releaseClipVoices();}
         activeClip = index;
+        ensurePulsarSeeds(target, index);
         activateBankSources(index);
         stochasticPartMeters = {};
         activeClipOccupied = target.occupied;
@@ -7301,6 +7322,7 @@ struct ThruInstance : PlaybackEffectsState {
         clipOutputGain = outputGain;
         clipPositionMs = 0.0;
         clipAbsolutePositionMs = 0.0;
+        pulsarClipCycle = 0;
         clipNeedsStart = clipPlaying;
         if (queueSources) queueClipSources(index);
         if (queueSources) requestBankSourcesIfNeeded();
@@ -7518,6 +7540,7 @@ struct ThruInstance : PlaybackEffectsState {
                 target.baseValues[parameter] = lockedValue(
                     controls, outputGain, parameter);
             }
+            ensurePulsarSeeds(target, index);
             captureSplitClip(target);initializeSequenceClip(target);
             copyCurrentSourcesToClip(target);
             target.occupied = true;
@@ -7537,6 +7560,7 @@ struct ThruInstance : PlaybackEffectsState {
             target.baseValues[parameter] = lockedValue(
                 controls, outputGain, parameter);
         }
+        ensurePulsarSeeds(target, index);
         captureSplitClip(target);initializeSequenceClip(target);
         copyCurrentSourcesToClip(target);
         target.occupied = true;
@@ -7607,6 +7631,7 @@ struct ThruInstance : PlaybackEffectsState {
             clipPlaying = false;
             clipPositionMs = 0.0;
             clipAbsolutePositionMs = 0.0;
+            pulsarClipCycle = 0;
             clipNeedsStart = false;
             releaseClipVoices();
             queueClipSources(index);
@@ -9068,7 +9093,7 @@ struct ThruInstance : PlaybackEffectsState {
         if (!file) return false;
         const char magic[8] { 'S', '3', 'G', 'T', 'H', 'R', '3', '\0' };
         bool ok = writeBytes(file, magic, sizeof(magic))
-            && writeU32(file, 40u)
+            && writeU32(file, 42u)
             && writeU64(file, snapshot ? snapshot->generation : persistenceGeneration)
             && writeF32(file, snapshot ? snapshot->tempo : tempoBpm)
             && writeF32(file, snapshot ? snapshot->swing : tempoSwing)
@@ -9134,7 +9159,7 @@ struct ThruInstance : PlaybackEffectsState {
                     && writeU32(file, clipPointTake(point));
             }
         }
-        ok = ok && writeSplitExtension(file,savedClips) && writeStackPaths(file,savedClips) && writeChainBanks(file,savedBanks,savedBank) && writeChainPlaybackState(file,snapshot?snapshot->chainPlayBank:chainPlayBank) && writeNewEngineParameters(file,savedClips) && writeVoiceEngineExtension(file,savedClips) && writeVoicePlayExtension(file,savedClips) && writeStochasticParameters(file,savedClips) && writePulsarParameters(file,savedClips) && writePriorityParameters(file,savedClips) && writeBankExtension(file,savedClips) && writeBankPadExtension(file,savedClips) && writeSliceExtension(file,savedClips) && writeLayersExtension(file,savedClips) && writeSequenceExtension(file,savedClips) && writeSequenceMixExtension(file,savedClips) && writeSequenceCycleExtension(file,savedClips);
+        ok = ok && writeSplitExtension(file,savedClips) && writeStackPaths(file,savedClips) && writeChainBanks(file,savedBanks,savedBank) && writeChainPlaybackState(file,snapshot?snapshot->chainPlayBank:chainPlayBank) && writeNewEngineParameters(file,savedClips) && writeVoiceEngineExtension(file,savedClips) && writeVoicePlayExtension(file,savedClips) && writeStochasticParameters(file,savedClips) && writePulsarParameters(file,savedClips) && writePriorityParameters(file,savedClips) && writeBankExtension(file,savedClips) && writeBankPadExtension(file,savedClips) && writeSliceExtension(file,savedClips) && writeLayersExtension(file,savedClips) && writeSequenceExtension(file,savedClips) && writeSequenceMixExtension(file,savedClips) && writeSequenceCycleExtension(file,savedClips) && writeSplitLanePreferences(file,savedClips) && writePulsarSeeds(file,savedClips);
         const bool closed = std::fclose(file) == 0;
         ok = ok && closed && appendFileChecksum(temporary.data());
         if (!ok || (!stageOnly && !replaceFileWithBackup(temporary.data(), path.data()))) {
@@ -9198,7 +9223,7 @@ struct ThruInstance : PlaybackEffectsState {
             && (version == 1u || version == 2u || version == 3u
                 || version == 4u || version == 5u || version == 6u
                 || version == 7u || version == 8u || version == 9u
-                || version == 10u || version == 11u || version == 12u || version == 13u || version == 14u || version==15u || version==16u || version==17u || version==18u || version==19u || version==20u || version==21u || version==22u || version==23u || version==24u || version==25u || version==26u || version==27u || version==28u || version==29u || version==30u || version==31u || version==32u || version==33u || version==34u || version==35u || version==36u || version==37u || version==38u || version==39u || version==40u)
+                || version == 10u || version == 11u || version == 12u || version == 13u || version == 14u || version==15u || version==16u || version==17u || version==18u || version==19u || version==20u || version==21u || version==22u || version==23u || version==24u || version==25u || version==26u || version==27u || version==28u || version==29u || version==30u || version==31u || version==32u || version==33u || version==34u || version==35u || version==36u || version==37u || version==38u || version==39u || version==40u || version==41u || version==42u)
             && readU64(file, generation) && generation != 0u;
         std::fclose(file);
         return ok;
@@ -9235,7 +9260,7 @@ struct ThruInstance : PlaybackEffectsState {
             && (version == 1u || version == 2u || version == 3u
                 || version == 4u || version == 5u || version == 6u
                 || version == 7u || version == 8u || version == 9u
-                || version == 10u || version == 11u || version == 12u || version == 13u || version == 14u || version==15u || version==16u || version==17u || version==18u || version==19u || version==20u || version==21u || version==22u || version==23u || version==24u || version==25u || version==26u || version==27u || version==28u || version==29u || version==30u || version==31u || version==32u || version==33u || version==34u || version==35u || version==36u || version==37u || version==38u || version==39u || version==40u)
+                || version == 10u || version == 11u || version == 12u || version == 13u || version == 14u || version==15u || version==16u || version==17u || version==18u || version==19u || version==20u || version==21u || version==22u || version==23u || version==24u || version==25u || version==26u || version==27u || version==28u || version==29u || version==30u || version==31u || version==32u || version==33u || version==34u || version==35u || version==36u || version==37u || version==38u || version==39u || version==40u || version==41u || version==42u)
             && readU64(file, loadedGeneration)
             && loadedGeneration != 0u
             && (expectedGeneration == kAnyPersistenceGeneration
@@ -9439,6 +9464,9 @@ struct ThruInstance : PlaybackEffectsState {
         if(ok && version>=38u)ok=readSequenceExtension(file,*loadedClips);
         if(ok && version>=39u)ok=readSequenceMixExtension(file,*loadedClips);
         if(ok && version>=40u)ok=readSequenceCycleExtension(file,*loadedClips);
+        if(ok && version>=41u)ok=readSplitLanePreferences(file,*loadedClips);
+        if(ok && version>=42u)ok=readPulsarSeeds(file,*loadedClips);
+        else if(ok)for(std::size_t i=0;i<loadedClips->size();++i)ensurePulsarSeeds((*loadedClips)[i],int(i));
         // A legacy automatic policy preserves 1 ms for Transients and zero
         // for Equal independently, including shared lanes used by both parts.
         const bool atEnd = ok && std::ftell(file) == payloadSize;
@@ -10133,6 +10161,7 @@ struct ThruInstance : PlaybackEffectsState {
             nextCaptureId = std::max<std::uint64_t>(1u, loadedNextCaptureId);
         }
         const bool previousSplit = splitEnabled, previousShared = sharedDual, previousQuad=quadMode;
+        if(!restorePulsarSeedsJson(json))return false;
         if(!restoreSplitJson(json))return false;
         if(!restoreLayersJson(json))return false;
         sequenceLive.active=jsonNumber(json,"sequence_mode",value)&&value>=.5f;
@@ -10412,7 +10441,7 @@ void setParam(void* opaque, const char* key, const char* value)
     if (std::strcmp(key, "locus") == 0) { controls.locus = clampValue(parseFloat(value, controls.locus), 0.0f, 1.0f); return; }
     if (std::strcmp(key, "field") == 0) { controls.field = clampValue(parseFloat(value, controls.field), 0.02f, 1.0f); return; }
     if (std::strcmp(key, "speed") == 0) { controls.speed = clampValue(parseFloat(value, controls.speed), 0.05f, 4.0f); return; }
-    if (std::strcmp(key, "manual_lane") == 0) { instance->setManualStackStart(parseFloat(value,controls.manualLane+1.0f)-1.0f); return; }
+    if (std::strcmp(key, "manual_lane") == 0) { instance->setManualStackStart(parseFloat(value,controls.manualLane+1.0f)-1.0f); instance->acceptManualLaneEdit(); return; }
     if (std::strcmp(key, "lane_cycles") == 0) { controls.laneCycles = clampValue(parseFloat(value, controls.laneCycles), 0.125f, 16.0f); return; }
     if (std::strcmp(key, "stack_scan_paused") == 0) { instance->setStackScanPaused(isTruthy(value)); return; }
     if (std::strcmp(key, "glitch_buffer_lock") == 0) { instance->glitchBufferLocked = isTruthy(value); return; }

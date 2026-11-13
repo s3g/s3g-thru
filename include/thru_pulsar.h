@@ -77,6 +77,16 @@ struct ThruPulsar {
         const auto &b = bursts[std::clamp(pattern, 0, 8)];
         return event % static_cast<unsigned>(b[0] + b[1]) < static_cast<unsigned>(b[0]);
     }
+    // Integer-only stream identity: independent of allocator/reset history.
+    static std::uint32_t mixSeed(std::uint32_t value) {
+        value ^= value >> 16; value *= 0x7feb352du;
+        value ^= value >> 15; value *= 0x846ca68bu;
+        value ^= value >> 16;
+        return value ? value : 1u;
+    }
+    static std::uint32_t combineSeed(std::uint32_t seed, std::uint32_t value) {
+        return mixSeed(seed ^ mixSeed(value + 0x9e3779b9u));
+    }
     static float random(std::uint32_t &state) {
         state ^= state << 13;
         state ^= state >> 17;

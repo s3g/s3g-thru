@@ -148,7 +148,7 @@ void renderPulsarFrame(const Controls &c, float *wet) {
         phase_ =
             clamp((clamp01(c.pulsarHoldPosition) * sourceFrames_ - window.low) / width, 0., 1.);
     if (!pulsarInitialized_) {
-        pulsarRandom_ =
+        pulsarRandom_ = c.pulsarSeed ? c.pulsarSeed :
             (static_cast<std::uint32_t>(clamp(c.cutVoiceIndex, 0.f, 127.f)) + 1) * 2654435761u +
             pulsarSerial_ * 2246822519u + 1;
         if (!pulsarRandom_)

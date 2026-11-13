@@ -277,6 +277,7 @@
         copyLayersRuntimeTo(s);copySequenceRuntimeTo(s);
         copyPatternClip(s.clipSlots[0],*activeClipSlot());s.activeClip=0;s.clipPlaying=clipPlaying;s.clipNeedsStart=clipNeedsStart;
         s.clipPositionMs=clipPositionMs;s.clipAbsolutePositionMs=clipAbsolutePositionMs;
+        s.pulsarClipCycle=pulsarClipCycle;
         s.tempoBpm=tempoBpm;s.tempoSwing=tempoSwing;s.transportBeats=transportBeats;
         s.renderClockSamples.store(renderClockSamples.load(std::memory_order_relaxed),std::memory_order_relaxed);
         s.rootNote=rootNote;s.padOctave=padOctave;s.padScale=padScale;s.padMode=padMode;s.pressureMode=pressureMode;
@@ -290,6 +291,7 @@
         s.splitEnabled=splitEnabled;s.sharedDual=sharedDual;s.quadMode=quadMode;s.splitFocus=splitFocus;s.voiceEngineSettings=voiceEngineSettings;s.voiceEngineRandom=voiceEngineRandom;s.voiceEngineTraversal=voiceEngineTraversal;
         s.splitInitialized=splitInitialized;s.quadInitialized=quadInitialized;
         s.splitParts=splitParts;s.splitSingleControls=splitSingleControls;s.splitSingleSettings=splitSingleSettings;
+        s.splitLanePreferences=preferredSplitLanes();s.splitLaneApplied=splitLaneApplied;
         s.splitClipControls=splitClipControls;s.splitMixerOverrides=splitMixerOverrides;
         s.splitPolyGain=splitPolyGain;s.splitBlendState=splitBlendState;s.splitCurveState=splitCurveState;
         s.splitLevelState=splitLevelState;s.splitDelayState=splitDelayState;s.splitReverbState=splitReverbState;
@@ -376,6 +378,7 @@
         clipNeedsStart=s.clipNeedsStart;
         clipPositionMs=s.clipPositionMs;
         clipAbsolutePositionMs=s.clipAbsolutePositionMs;
+        pulsarClipCycle=s.pulsarClipCycle;
         tempoBpm=s.tempoBpm;
         tempoSwing=s.tempoSwing;
         transportBeats=s.transportBeats;
@@ -415,6 +418,7 @@
         splitInitialized=s.splitInitialized;
         quadInitialized=s.quadInitialized;
         splitParts=s.splitParts;
+        splitLanePreferences=s.splitLanePreferences;splitLaneApplied=s.splitLaneApplied;
         splitSingleControls=s.splitSingleControls;
         splitSingleSettings=s.splitSingleSettings;
         splitClipControls=s.splitClipControls;

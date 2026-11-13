@@ -3708,7 +3708,7 @@ int main()
         == sizeof(clipMagic));
     assert(std::memcmp(clipMagic, "S3GTHR3", 7u) == 0);
     assert(std::fread(&clipVersion, sizeof(clipVersion), 1u, clipFile) == 1u);
-    assert(clipVersion == 40u);
+    assert(clipVersion == 42u);
     std::fclose(stateFile);
     std::fclose(laneFile);
     std::fclose(clipFile);
@@ -3906,7 +3906,7 @@ int main()
     assert(std::fread(clipMagic, 1u, sizeof(clipMagic), clipFile)
         == sizeof(clipMagic));
     assert(std::fread(&clipVersion, sizeof(clipVersion), 1u, clipFile) == 1u);
-    assert(clipVersion == 40u);
+    assert(clipVersion == 42u);
     assert(std::fclose(clipFile) == 0);
 
     std::remove(statePath.c_str());

@@ -10,15 +10,22 @@ with zipfile.ZipFile(sys.argv[1]) as archive:
         'manifest.json', 'thru-state.json', 'thru-clips.bin', 'assets/a000000.wav'}
     manifest = json.loads(archive.read('manifest.json'))
     assert manifest == {'format': 's3g-thru-project', 'version': 1,
-                        'clip_format': 40, 'assets': 1}
+                        'clip_format': 42, 'assets': 1}
     state = json.loads(archive.read('thru-state.json'))
     clips = archive.read('thru-clips.bin')
     version, generation = struct.unpack_from('<IQ', clips, 8)
-    assert version == 40 and generation == state['generation']
+    assert version == 42 and generation == state['generation']
     checksum = 2166136261
     for value in clips[:-4]:
         checksum = ((checksum ^ value) * 16777619) & 0xffffffff
     assert checksum == struct.unpack('<I', clips[-4:])[0]
+    assert clips[-1032:-1028] == b'PSE1'
+    seeds = struct.unpack_from('<256I', clips, len(clips)-1028)
+    assert all(seeds) and len(set(seeds)) == 256
+    assert tuple(seeds[:4]) == tuple(state[f'pulsar_seed_{i}'] for i in range(4))
+    assert clips[-2060:-2056] == b'SLP1'
+    preferences = struct.unpack_from('<256f', clips, len(clips)-2056)
+    assert all(v == -1 or 0 <= v <= 3 for v in preferences)
     assert b'assets/a000000.wav' in clips and b'/thru-project-source.' not in clips
     wave = archive.read('assets/a000000.wav')
     assert wave[:4] == b'RIFF' and wave[8:12] == b'WAVE'

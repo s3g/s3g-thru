@@ -84,7 +84,7 @@ const params = {
     cut_lane_advance: '1', lane_cycles: '1', stack_scan_paused: '0', clip_stack_hold: '0',
     algorithm: '0', join: '1', output_gain: '1', polyphony_comp: '1',
     glitch_buffer_lock: '0',
-    record_lane: '1', pad_octave: '0', record_source: '0',
+    split_return_mode:'1',record_lane: '1', pad_octave: '0', record_source: '0',
     record_gain: '1', monitor_level: '0', preview_level: '0.7',
     hold_release_ms: '0', shift_held: '0',
     amp_attack: '3', amp_decay: '0', amp_sustain: '100', amp_release: '25',
@@ -138,7 +138,7 @@ globalThis.host_module_get_param = (key) => {
             .map(([key,p]) => [key, Number(params[key] ?? p.value)]));
         const split = JSON.parse(params.split_state || '{"enabled":0,"focus":0,"blend":0.5,"parts":[{},{}]}');
         if(!split.enabled||!split.quad)split.parts=split.parts.slice(0,2);
-        values.split_mode = JSON.parse(params.layers_view||'{}').active===1?5:split.bank?4:split.enabled ? (split.quad ? 3 : split.shared ? 2 : 1) : 0; values.split_focus = split.focus;
+        values.split_mode = split.mode??(JSON.parse(params.layers_view||'{}').active===1?5:split.bank?4:split.enabled ? (split.quad ? (params.split_mode==='6'?6:3) : split.shared ? 2 : 1) : 0); values.split_focus = split.focus;
         values.part_mute = split.parts[split.focus]?.mute || 0;
         for (const key of ['pad_octave','record_lane','stack_scan_paused','glitch_buffer_lock'])
             values[key]=Number(params[key] || 0);
@@ -148,6 +148,10 @@ globalThis.host_module_get_param = (key) => {
         return JSON.stringify({...full,chunk,chunks:Math.ceil(rows.length/64),
             owner:values.split_mode*4+split.focus,clip:parseInt(params.clip_bank_state||'0',10),
             values:Object.fromEntries(rows.slice(chunk*64,(chunk+1)*64))});
+    }
+    if(key==='split_mode') {
+        const split=JSON.parse(params.split_state||'{}');
+        return String(split.mode??(JSON.parse(params.layers_view||'{}').active===1?5:split.bank?4:split.enabled?(split.quad?(params.split_mode==='6'?6:3):split.shared?2:1):0));
     }
     if (key === 'waveforms') waveformReads++;
     if(key==='ui_state') {
@@ -242,6 +246,7 @@ globalThis.__testPageBuildCount=()=>testPageBuilds;
 globalThis.__testRebuildLeds=rebuildLedQueue;
 globalThis.__testPulsar={parse:parsePulsarState,footer:pulsarDurationFooter};
 globalThis.__testSplit = {pages:parameterPages,parse:parseSplitState,keys:activeControlKeys};
+globalThis.__testMode={queue:queueModeChange,service:serviceModeChange,current:currentPerformanceMode,decode:decodeSplitState};
 globalThis.__testSequence={model:sequenceUi,read:readSequence,cursor:readSequenceCursor,tickGesture:tickSequenceGesture,control:controlForKey,adjust:adjustControl,page:adjustSettingsPage,drain:drainLedQueue};
 globalThis.__testLayers={model:layersUi,read:readLayers,action:applyMomentaryControl,padNote:padMidiNote,control:controlForKey,gesture:layersCornerGesture,tickGesture:tickLayersCornerGesture,pageSide:layersPageSide,iconStates:iconLedStates,groups:LAYERS_FX_GROUPS,order:LAYERS_FX_ORDER,picker:layersPicker,openPicker:openLayersPicker};
 globalThis.__testResetEncoders = resetParameterEncoderMotion;
@@ -1082,27 +1087,29 @@ let rejectModeSwitch=false;
 globalThis.host_module_set_param_blocking=(key,value)=>{
     priorSet(key,value);
     if(key==='midi_view')return; // read-only view selection cannot change a part
-    if(key==='split_mode'&&rejectModeSwitch){params.split_mode=String(JSON.parse(params.layers_view||'{}').active===1?5:splitState.bank?4:splitState.enabled?(splitState.quad?3:splitState.shared?2:1):0);return;}
+    if(key==='split_mode'&&rejectModeSwitch){params.last_error='Stop recording before changing mode';params.split_mode=String(JSON.parse(params.layers_view||'{}').active===1?5:splitState.bank?4:splitState.enabled?(splitState.quad?3:splitState.shared?2:1):0);return true;}
     if(key==='split_mode'){
+        params.last_error='';
         const layers=JSON.parse(params.layers_view||'{}');
         const previous=layers.active===1?5:splitState.bank?4:splitState.enabled?(splitState.quad?3:splitState.shared?2:1):0;
         const wanted=Number(value);
         if(wanted>0)params.split_return_mode=String(wanted);else if(previous>0)params.split_return_mode=String(previous);
-        splitState.enabled=wanted>=1&&wanted<=4?1:0;splitState.bank=wanted===4?1:0;
-        if(splitState.enabled){splitState.shared=wanted===2||wanted===4?1:0;splitState.quad=wanted===3?1:0;}
+        splitState.enabled=(wanted>=1&&wanted<=4)||wanted===6?1:0;splitState.bank=wanted===4?1:0;
+        if(splitState.enabled){splitState.shared=wanted===2||wanted===4?1:0;splitState.quad=wanted===3||wanted===6?1:0;}
         layers.active=wanted===5?1:0;params.layers_view=JSON.stringify(layers);
     }
     if(key==='split_focus'){splitState.focus=Number(value);if(splitState.quad)params.record_lane=String(splitState.focus+1);}
     if(key==='record_lane'&&splitState.enabled&&!splitState.shared)splitState.focus=splitState.quad?Number(value)-1:Number(value)>2?1:0;
     if(key==='part_mute')splitState.parts[splitState.focus].mute=Number(value);
     const p=splitState.parts[splitState.focus];
-    Object.assign(params,{split_state:JSON.stringify(splitState),algorithm:String(p.algorithm),
+    Object.assign(params,{split_state:JSON.stringify({...splitState,parts:splitState.enabled&&splitState.quad?splitState.parts:splitState.parts.slice(0,2)}),algorithm:String(p.algorithm),
         root_note:String(p.root),scale:String(p.scale),pad_mode:String(p.mode),pad_octave:String(p.octave),part_mute:String(p.mute)});
+    return true;
 };
 params.split_state=JSON.stringify(splitState);
 params.voice_algorithms='4,-1,-1,-1,2,-1,-1,-1';
 globalThis.init();
-const cc=(key,value=127)=>globalThis.onMidiMessageInternal([0xb0,key,value]);
+const cc=(key,value=127)=>{globalThis.onMidiMessageInternal([0xb0,key,value]);if(key===60&&value>0&&globalThis.__testFx.state().modeRequest)globalThis.tick();};
 cc(60); assert(fx.state().splitEnabled);assert.equal(fx.state().splitFocus,0);
 assert.equal(split.keys().at(-1),'split_blend');
 assert.equal(globalThis.__testPadMidiNote(0),48);
@@ -1479,10 +1486,11 @@ for(let engine=0;engine<9;++engine)for(let focus=0;focus<2;++focus) {
 // Fresh backend values and an immediate redraw on each focus change.
 const focusSetter=globalThis.host_module_set_param_blocking;
 globalThis.host_module_set_param_blocking=(key,value)=>{
-    focusSetter(key,value);
+    const result=focusSetter(key,value);
     if(key==='split_focus')Object.assign(params,Number(value)
         ?{locus:'0.83',effect_drive:'0.42',amp_release:'1234'}
         :{locus:'0.17',effect_drive:'0.12',amp_release:'250'});
+    return result;
 };
 fx.state().view='main';
 if(fx.state().splitFocus!==0){cc(52);cc(52,0);}
@@ -1608,7 +1616,7 @@ const idleClip=params.clip_state.split(',');idleClip[0]='0';params.clip_state=id
 globalThis.init();
 const lastButton=(id)=>buttonWrites.filter(w=>w[0]===id).at(-1)?.[1];
 const settleIcons=()=>{for(let i=0;i<6;++i)globalThis.tick();};
-function tapIcon(id){cc(id);cc(id,0);}
+function tapIcon(id){cc(id);cc(id,0);if(id===3&&globalThis.__testFx.state().modeRequest)globalThis.tick();}
 for(const id of [49,50,51,52,54,55,58,60,62,63,119])assert.equal(lastButton(id),16,'available icon '+id);
 assert.equal(lastButton(88),0,'Mute is unassigned in Single');
 assert.equal(lastButton(56),0,'Undo is dark without a safety undo point');
@@ -3138,7 +3146,15 @@ console.log('s3g Thru hub visibility: every entry drawn/selected in five layouts
  if(process.env.S3G_THRU_EDITOR_FIXTURE){
   const fixture=JSON.parse(fs.readFileSync(process.env.S3G_THRU_EDITOR_FIXTURE,'utf8'));
   const oldGet=globalThis.host_module_get_param;
-  globalThis.host_module_get_param=key=>key==='ui_editor_state'?JSON.stringify(fixture.editor):key==='layers_view'?JSON.stringify(fixture.layers):oldGet(key);
+  globalThis.host_module_get_param=key=>{
+   if(key.startsWith('ui_editor_chunk:')){
+    const index=Number(key.slice(16)),rows=Object.entries(fixture.editor.values);
+    return JSON.stringify({...fixture.editor,chunk:index,chunks:Math.ceil(rows.length/64),
+     owner:fixture.editor.values.split_mode*4+fixture.editor.split.focus,clip:0,
+     values:Object.fromEntries(rows.slice(index*64,(index+1)*64))});
+   }
+   return key==='ui_editor_state'?JSON.stringify(fixture.editor):key==='layers_view'?JSON.stringify(fixture.layers):oldGet(key);
+  };
   Object.assign(state,{view:'main',editorReady:false});assert(globalThis.__testRefreshEditor());
   assert(state.editorReady);assert.equal(P.layers_fx0.value,2);assert(Math.abs(P.layers_fx1.value-.73)<1e-6);
   state.view='settings';state.settingsPage=tools.pages().findIndex(p=>p.title==='FX CORNER');
@@ -3632,4 +3648,73 @@ console.log('s3g Thru Layers UI: real split-keyboard pitch, normal engine pages,
    assert(cached.missed>32,name+': cache-only delivery reproduces the skipped LED failure');
    console.log('s3g Thru LED delivery '+name+': accepted-then-dropped green and restore writes, both caches, hardware queue and Stop: PASS ('+repaired.drops+' refusals; '+repaired.missed+' missed steps vs '+cached.missed+' without forced retry)');
  }
+}
+
+// Mode changes use the same ordering as Schwung: jog batches arrive before
+// tick, while the click itself arrives immediately. No second click is needed.
+{
+ const mode=globalThis.__testMode,view=globalThis.__testFx.state();
+ const oldGet=globalThis.host_module_get_param,oldSet=globalThis.host_module_set_param_blocking,oldNow=Date.now;
+ let now=10000,writes=0,attempts=0,readFailures=0,loseAck=false,rejectWrite=false,rejectMode=false,delayAfterWrite=false,modeUnavailable=false;
+ Date.now=()=>now;
+ const install=m=>{
+  params.split_mode=String(m);
+  params.split_state=JSON.stringify({mode:m,enabled:[1,2,3,4,6].includes(m)?1:0,
+   shared:[2,4].includes(m)?1:0,quad:[3,6].includes(m)?1:0,bank:m===4?1:0,focus:0,blend:.5,
+   parts:Array.from({length:[3,6].includes(m)?4:2},()=>({algorithm:14,root:60,octave:0,scale:0,mode:0,mute:0,position:0,window:[0,1]}))});
+  params.layers_view=JSON.stringify({active:m===5?1:0,values:Array(49).fill(0)});
+  params.seq_state=JSON.stringify({...JSON.parse(params.seq_state||'{}'),active:m===6?1:0});
+ };
+ globalThis.host_module_get_param=key=>{
+  if(key==='split_state'&&(modeUnavailable||readFailures-->0))return null;
+  return oldGet(key);
+ };
+ globalThis.host_module_set_param_blocking=(key,value)=>{
+  if(key!=='split_mode'){if(Object.hasOwn(params,key))params[key]=String(value);return true;}
+  attempts++;
+  if(rejectWrite){rejectWrite=false;return false;}
+  if(rejectMode){params.last_error='Stop recording before changing mode';return true;}
+  const previous=Number(params.split_mode);install(Number(value));writes++;
+  params.split_return_mode=String(Number(value)>0?Number(value):previous);
+  params.last_error='';if(delayAfterWrite)readFailures=2;
+  if(loseAck){loseAck=false;return false;}return true;
+ };
+ const reset=(m=0)=>{
+  install(m);globalThis.init();view.view='mode';view.modeSelection=m;
+  writes=attempts=readFailures=0;loseAck=rejectWrite=rejectMode=delayAfterWrite=modeUnavailable=false;
+ };
+ const click=()=>globalThis.onMidiMessageInternal([0xb0,3,127]);
+ const frame=()=>{now+=50;globalThis.tick();};
+ try{
+  reset();view.modeSelection=1;click();assert.equal(attempts,0);
+  globalThis.onMidiMessageInternal([0xb0,14,1]); // queued host turn before tick
+  assert.equal(view.modeSelection,2);frame();
+  assert.equal(params.split_mode,'2');assert.equal(writes,1);assert.equal(view.view,'main');
+  reset();view.modeSelection=2;delayAfterWrite=true;click();frame();
+  assert(view.modeRequest);assert(!view.editorReady);assert.equal(writes,1);
+  click();frame();frame();assert.equal(view.view,'main');assert.equal(attempts,1);
+  reset();view.modeSelection=2;loseAck=true;click();frame();
+  assert.equal(view.view,'main');assert.equal(attempts,1,'lost ACK with a fresh successful readback never resends');
+  reset();view.modeSelection=2;rejectWrite=true;click();frame();
+  assert(view.modeRequest);frame();assert.equal(view.view,'main');assert.equal(attempts,2);assert.equal(writes,1);
+  reset(2);const before=JSON.stringify(view.splitParts);modeUnavailable=true;
+  mode.queue(true);frame();assert.equal(mode.current(),2);assert.equal(JSON.stringify(view.splitParts),before);
+  now+=1600;globalThis.tick();assert.equal(view.modeRequest,null);assert.equal(view.actionMessage,'MODE NOT CONFIRMED');
+  assert.equal(attempts,0,'unavailable readback must never guess or write a mode');
+  reset(2);view.modeSelection=1;rejectMode=true;click();frame();
+  assert.equal(view.modeRequest,null);assert.equal(view.actionMessage,'STOP RECORD FIRST');assert.equal(params.split_mode,'2');
+  reset();view.modeSelection=2;readFailures=1;click();frame();assert.equal(attempts,0);
+  frame();assert.equal(view.view,'main');assert.equal(writes,1,'a pre-write read failure recovers automatically');
+  reset(2);view.view='settings';view.settingsPage=globalThis.__testSplit.pages().findIndex(p=>p.title==='DUAL SETUP');
+  assert(view.settingsPage>=0);globalThis.__testResetEncoders();
+  globalThis.onMidiMessageInternal([0xb0,71,3]);
+  assert(view.modeRequest);assert.equal(mode.current(),2,'Setup MODE must retain the accepted mode until confirmed');
+  frame();assert.equal(mode.current(),3);assert.equal(writes,1);
+  reset(6);assert.equal(mode.current(),6);assert.equal(globalThis.__testParams.split_mode.value,6);
+  params.split_return_mode='6';view.view='main';mode.queue(false);frame();assert.equal(params.split_mode,'0');
+  mode.queue(false);frame();assert.equal(params.split_mode,'6');assert.equal(mode.current(),6);
+  const stable=JSON.stringify(view.splitParts);globalThis.__testSplit.parse('{}',false);
+  assert.equal(mode.current(),6);assert.equal(JSON.stringify(view.splitParts),stable);
+  console.log('s3g Thru mode confirmation: host jog/click order, delayed readback, duplicate clicks, lost ACK, bounded retry, transport timeout, recording refusal, Sequence Copy return and invalid-state retention: PASS');
+ }finally{Date.now=oldNow;globalThis.host_module_get_param=oldGet;globalThis.host_module_set_param_blocking=oldSet;}
 }

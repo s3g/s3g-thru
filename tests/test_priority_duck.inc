@@ -87,8 +87,8 @@ void testPriorityDuckingRoutingAndBypass()
         q->splitBus[1][1][frame]=.5f;
     }
     q->processSplitBuses(kBlockFrames,live,c);
-    // Quad bypasses the dual-part detector immediately, even while its
-    // dormant smoothing state is still returning to unity.
+    // Quad starts from its own neutral mixer, without inheriting the
+    // outgoing dual-mode gain reduction.
     assert(q->splitFrameGain[1][0]>.49f);
 }
 

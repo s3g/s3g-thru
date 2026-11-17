@@ -8,8 +8,8 @@
     <text x="110" y="5.5" fill="#dce8e1">1/9</text>
     <rect x="0" y="8" width="128" height="1" fill="#dce8e1"/>
     <rect x="0" y="10" width="124" height="8" fill="#dce8e1"/>
-    <text x="1" y="15.5" fill="#050706">&gt; 1 VOICE</text>
-    <text x="1" y="24.5" fill="#dce8e1">  2 LANE</text>
+    <text x="1" y="15.5" fill="#050706">&gt; 1 PLAY</text>
+    <text x="1" y="24.5" fill="#dce8e1">  2 SAMPLE</text>
     <text x="1" y="33.5" fill="#dce8e1">  3 MIX / FX</text>
     <text x="1" y="42.5" fill="#dce8e1">  4 PERFORMANCE</text>
     <text x="1" y="51.5" fill="#dce8e1">  MODE</text>

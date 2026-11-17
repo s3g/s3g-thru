@@ -252,6 +252,7 @@
         patternDurationMs=choosePatternDuration(fade);patternFrom=activeClip;patternTo=target;
         patternPlaybackCurve=fade?fade->curve:patternCurve;patternFadeOverridden=fade!=nullptr;
         if(patternDurationMs<=0 && !startHeld)return false;
+        cancelSequenceGenerate();
         captureActiveClip(false);
         auto& s=*patternShadow;
         s.releaseBankIndices(s.bankAssets);

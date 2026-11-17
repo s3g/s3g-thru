@@ -272,9 +272,9 @@ source = source.replace(
 source = source.replace(
     /import \* as os[^;]+;/,
     'const os = globalThis.__os;');
-source += '\nglobalThis.__docSequence={read:readSequence,model:sequenceUi};';
+source += '\nglobalThis.__docSequence={read:readSequence,model:sequenceUi};globalThis.__docGenerate={ui:sequenceGeneratorUi,read:readSequenceGenerator};';
 source += '\nglobalThis.__docLayers={read:readLayers,model:layersUi,openPicker:openLayersPicker,picker:layersPicker};';
-source += '\nglobalThis.__docSplit = {state, projectUi, readProject, openProjects, openBankRecovery, customMidiUi, readCustomMidi, openCustomMidiList, sliceUi, openSliceEditor, readSliceEditor, params:PARAMS, pages:parameterPages, redraw:()=>{clearDisplay();draw();}};';
+source += '\nglobalThis.__docSplit = {state, readMixerState, projectUi, readProject, openProjects, openBankRecovery, customMidiUi, readCustomMidi, openCustomMidiList, sliceUi, openSliceEditor, readSliceEditor, params:PARAMS, pages:parameterPages, redraw:()=>{clearDisplay();draw();}};';
 await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
 
 function escapeXml(value) {
@@ -531,7 +531,7 @@ captureEnginePages(8, [
 ]);
 
 selectAlgorithm(1);
-moveSettingsPage(10);
+globalThis.__docSplit.state.settingsPage=globalThis.__docSplit.pages().findIndex(p=>p.title==='EFFECTS');globalThis.__docSplit.redraw();
 capture('effects.svg', 'Effects parameter page', 'EFFECTS');
 moveSettingsPage(1);
 capture('effects-stereo-rotary.svg', 'Stereo and Rotary effects parameter page',
@@ -646,6 +646,11 @@ for(const [heading,filename,title] of splitExamples) {
 }
 
 const fxDoc=globalThis.__docSplit;
+params.mixer_state=JSON.stringify({mode:1,count:2,layers:0,strips:[[0,0,0,900,0,0],[-2,1,0,1800,0,0],[0,0,0,900,0,0],[0,0,0,900,0,0]],pan:[-.25,.25,0,0],duck:[0,0,-24,12,40,220,100,6]});
+fxDoc.readMixerState();fxDoc.state.view='settings';
+fxDoc.state.settingsPage=fxDoc.pages().findIndex(p=>p.title==='MIXER');fxDoc.redraw();capture('output-mixer.svg','Dual-mode output mixer with levels and balances','MIXER');
+fxDoc.state.settingsPage=fxDoc.pages().findIndex(p=>p.title==='STRIP B');fxDoc.redraw();capture('output-strip.svg','Part B output EQ, Solo and Mute','STRIP B');
+delete params.mixer_state;
 fxDoc.state.view='settings';fxDoc.state.settingsPage=fxDoc.pages().findIndex((page)=>page.title==='FX SENDS');
 cc(3);tick();capture('split-fx-menu.svg','Split FX Pages menu');
 cc(51);params.effect_mix='0';params.effect_reverb_mix='0';
@@ -862,7 +867,33 @@ seqExample.held=6;params.seq_state=JSON.stringify(seqExample);globalThis.__docSe
 seqExample.step_ms=83.3333;params.seq_state=JSON.stringify(seqExample);globalThis.__docSequence.read();
 seqDoc.state.settingsPage=seqDoc.pages().findIndex(p=>p.title==='SEQ AMP');seqDoc.redraw();capture('sequence-amp.svg','Sequence envelope with applied attack, decay and release inside DUR','B SEQ AMP T07');
 seqExample.child=3;seqExample.burst=[0,.18,.625,.88];seqExample.values[9]=3;seqExample.values[16]=4;seqExample.values[17]=.625;params.seq_state=JSON.stringify(seqExample);globalThis.__docSequence.read();seqDoc.state.settingsPage=seqDoc.pages().findIndex(p=>p.title==='BURST');seqDoc.redraw();capture('sequence-burst.svg','Burst step-time ruler with selected retrigger and unified event controls','L2 T07 BURST');
-seqDoc.state.settingsPage=seqDoc.pages().findIndex(p=>p.title==='SEQ STRIP 3');seqDoc.redraw();capture('sequence-strip.svg','Third sequence channel strip in the Mix/FX page group','SEQ STRIP 3');
+seqDoc.state.settingsPage=seqDoc.pages().findIndex(p=>p.title==='STRIP 3');seqDoc.redraw();capture('sequence-strip.svg','Third sequence channel strip in the Mix/FX page group','STRIP 3');
+
+// Persistent types, displayed through the production settings renderer.
+seqExample.held=-1;seqExample.child=0;seqExample.values.length=67;
+seqExample.values.fill(0,19);seqExample.values[19]=1;seqExample.values[20]=1000;seqExample.values[21]=1000;
+seqExample.values[41]=1;
+[5,2,0,2,0,1,27,7,0,.08,.92,3,12,2,.5,2,50,1000,.03,-1].forEach((v,i)=>seqExample.values[44+i]=v);
+seqExample.values[64]=2;seqExample.values[65]=2;seqExample.values[66]=1;seqExample.values[41]=0;params.seq_state=JSON.stringify(seqExample);globalThis.__docSequence.read();
+Object.assign(seqDoc.state,{view:'settings',recording:false,saveStatus:0,savedTicks:0});
+seqDoc.state.settingsPage=seqDoc.pages().findIndex(p=>p.title==='SEQ SETUP');seqDoc.redraw();
+capture('sequence-setup-normal.svg','Normal Sequence setup with reserved generation actions','B SEQ SETUP');
+seqExample.values[41]=1;
+seqExample.type_status='5/13';params.seq_state=JSON.stringify(seqExample);globalThis.__docSequence.read();
+Object.assign(seqDoc.state,{view:'settings',recording:false,saveStatus:0,savedTicks:0});
+for(const [title,file] of [['SEQ SETUP','sequence-setup'],['EUCLIDEAN','sequence-euclidean'],['EUC SOURCE','sequence-euclidean-source'],['EUC VALUES','sequence-euclidean-values']]){
+ seqDoc.state.settingsPage=seqDoc.pages().findIndex(p=>p.title===title);seqDoc.redraw();capture(file+'.svg',title+' controls for the selected sequence lane',title==='SEQ SETUP'?'B SEQ SETUP':'L2 '+title);
+}
+seqExample.values[41]=2;params.seq_state=JSON.stringify(seqExample);globalThis.__docSequence.read();
+for(const [title,file] of [['ONSET','sequence-onset'],['ONSET SOURCE','sequence-onset-source'],['ONSET VALUES','sequence-onset-values']]){
+ seqDoc.state.settingsPage=seqDoc.pages().findIndex(p=>p.title===title);seqDoc.redraw();capture(file+'.svg',title+' controls for the selected sequence lane',title==='SEQ SETUP'?'B SEQ SETUP':'L2 '+title);
+}
+
+// Show the two task groups beside the Sequence page-order explanation.
+Object.assign(seqDoc.state,{view:'pages',pageTier:'category',pageCategory:0,pageSelection:1});
+seqDoc.redraw();capture('sequence-play-pages.svg','Sequence Play pages with Setup second','PLAY');
+Object.assign(seqDoc.state,{pageCategory:1,pageSelection:0,lane:seqExample.edit+1});
+seqDoc.redraw();capture('sample-pages.svg','Sample group for recording, editing and browsing source audio','SAMPLE');
 
 if (checkOnly && mismatches !== 0) process.exit(1);
 if (checkOnly) console.log('s3g Thru documentation screens: current');

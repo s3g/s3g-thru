@@ -105,6 +105,9 @@ void testPortableProjects(bool bank=true,int legacyImport=0) {
     t->currentLaneSourceKinds[0]=LaneSourceKind::file;std::snprintf(t->currentLaneSourcePaths[0].data(),kPersistencePathSize,"%s",wav.c_str());
     std::snprintf(t->bankSlots[0].path.data(),kPersistencePathSize,"%s",wav.c_str());t->bankSlots[1]=t->bankSlots[0];t->bankSlots[1].pan=.4f;
     t->copyCurrentSourcesToClip(*t->activeClipSlot());t->captureActiveClip(true);t->initializeClipIfNeeded(1);
+    t->clipSlots[1].sequence.tracks[2].direction=4;t->clipSlots[1].sequence.tracks[2].directionSeed=1979;
+    auto& recipe=t->clipSlots[1].sequence.tracks[2].generator;recipe.type=1;recipe.ready=true;recipe.values[1]=5;recipe.enabledMask=4;recipe.enabledValues=4;recipe.burstMask=4;recipe.base[2].count=3;
+    t->clipSlots[1].sequence.modeMixes[2].strips[1].midDb=-4.5f;
     auto& slices=t->clipSlots[1].sliceLanes[0];slices.preRollMs=7;slices.edited.count=2;slices.edited.points[0]=0;slices.edited.points[1]=.4f;slices.edited.points[2]=1;
     t->clipSlots[1].clipDurationMs=2000;t->clipSlots[1].clipNoteCount=1;t->clipSlots[1].clipNotes[0].note=67;t->clipSlots[1].clipNotes[0].durationMs=1200;
     t->observePersistenceGeneration(100000u);
@@ -153,6 +156,9 @@ void testPortableProjects(bool bank=true,int legacyImport=0) {
     assert(t->customMaps.profiles[1].bindings[0].cc==75);
     assert(t->clipSlots[1].sliceLanes[0].edited.count==2&&t->clipSlots[1].sliceLanes[0].preRollMs==7);
     assert(t->clipSlots[1].clipNoteCount==1&&t->clipSlots[1].clipNotes[0].note==67);
+    const auto& importedRecipe=t->clipSlots[1].sequence.tracks[2].generator;assert(importedRecipe.type==1&&importedRecipe.ready&&importedRecipe.values[1]==5&&importedRecipe.enabledMask==4&&importedRecipe.enabledValues==4&&importedRecipe.burstMask==4&&importedRecipe.base[2].count==3);
+    assert(t->clipSlots[1].sequence.modeMixes[2].strips[1].midDb==-4.5f);
+    assert(t->clipSlots[1].sequence.tracks[2].direction==4&&t->clipSlots[1].sequence.tracks[2].directionSeed==1979);
     assert(t->bankSlots[1].pan==.4f&&std::string(t->bankSlots[0].path.data()).find(activeDirectory)==0);
     for(int i=0;i<10000&&(!t->engine.laneLoaded(0)||(bank&&t->bankAssets[0]<0));++i){renderSplit(*t,1);usleep(200);}
     if(!t->engine.laneLoaded(0)||(bank&&t->bankAssets[0]<0))std::fprintf(stderr,"Import load: lane=%d asset=%d clipjob=%d samplejob=%d error=%s last=%s path=%s kind=%d queued=%d active=%d\n",t->engine.laneLoaded(0),t->bankAssets[0],t->clipPrepareState.load(),t->sampleLoadState.load(),t->sampleLoadError.data(),t->lastError.data(),t->clipSlots[0].laneSourcePaths[0].data(),static_cast<int>(t->clipSlots[0].laneSourceKinds[0]),t->queuedClip,t->activeClip);
@@ -213,8 +219,10 @@ void testProjectBackgroundWorkflow() {
     auto t=std::make_unique<ThruInstance>();assert(t->prepare(folder));
     // Durable import performs multiple flushes plus a safety export. Poll by
     // wall-clock time so a busy filesystem does not fail a healthy worker.
+    // Import includes a durable safety export and multiple fsyncs. This is a
+    // completion/correctness check, not an audio or disk-latency benchmark.
     const auto waitForProject=[&] {
-        const auto deadline=std::chrono::steady_clock::now()+std::chrono::seconds(30);
+        const auto deadline=std::chrono::steady_clock::now()+std::chrono::seconds(120);
         while(t->projectJob.load()!=ThruInstance::projectIdle&&std::chrono::steady_clock::now()<deadline) {
             renderSplit(*t,1);usleep(1000);
         }

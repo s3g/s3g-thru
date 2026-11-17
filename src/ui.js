@@ -1,4 +1,4 @@
-/* s3g Thru 0.31.2 — polyphonic sampler/performance-looper takeover for Move. */
+/* s3g Thru 0.32.0 — polyphonic sampler/performance-looper takeover for Move. */
 
 import * as moveConstants from '/data/UserData/schwung/shared/constants.mjs';
 import * as moveInputFilter from '/data/UserData/schwung/shared/input_filter.mjs';
@@ -89,7 +89,7 @@ const setButtonLED = typeof moveInputFilter.setButtonLED === 'function'
         }
     };
 
-const UI_VERSION = '0.31.2';
+const UI_VERSION = '0.32.0';
 const HELP_PAGE_COUNT=8;
 const WAVE_BINS = 112;
 const ALGORITHMS = ['MOTION', 'LANES', 'GRAINS', 'CUTUPS', 'SAMPLE', 'SLICES',
@@ -437,6 +437,7 @@ const PARAMS = {
     pattern_fade_lookahead: { key: 'pattern_fade_lookahead', label: 'FADE LOOKAHEAD', shortLabel: 'LOOK', min: 0, max: 1, step: 1, value: 1, integer: true, labels: ['OFF', '12ms'] },
     clip_rate: { key: 'clip_rate', label: 'LOOP RATE', min: 0.25, max: 4, step: 0.05, value: 1 },
     clip_record_mode: { key: 'clip_record_mode', label: 'REC MODE', min: 0, max: 1, step: 1, value: 0, integer: true, labels: ['REPLACE', 'OVERDUB'] },
+    clip_clear_recording: { key:'clip_clear_recording',label:'CLEAR RECORDING',shortLabel:'CLR',min:0,max:1,step:1,value:0,integer:true,labels:['TURN','CLEAR'],momentary:true },
     clip_take_undo: { key: 'clip_take_undo', label: 'UNDO TAKE', min: 0, max: 1, step: 1, value: 0, integer: true, labels: ['TURN', 'UNDO'], momentary: true, result: 'TAKE UNDONE' },
     clip_timing: { key: 'clip_timing', label: 'TIMING', min: 0, max: 1, step: 1, value: 0, integer: true, labels: ['FREE', 'BEAT SYNC'] },
     launch_quantize: { key: 'launch_quantize', label: 'LAUNCH', min: 0, max: 2, step: 1, value: 0, integer: true, labels: ['OFF', 'BEAT', 'BAR'] },
@@ -592,7 +593,7 @@ const QUAD_SEND_PAGE={title:'FX SENDS',global:true,keys:['split_delay_a','split_
 const QUAD_SETUP_PAGE={title:'QUAD SETUP',global:true,keys:['split_mode','split_focus','split_copy','part_mute']};
 const SPLIT_SETUP_PAGE = {title:'DUAL SETUP',global:true,keys:['split_mode','split_focus','split_copy','part_mute']};
 const SPLIT_SEND_KEYS = ['split_delay_a','split_reverb_a','split_delay_b','split_reverb_b'];
-const SPLIT_MIX_PAGE = {title:'FX SENDS',global:true,keys:[...SPLIT_SEND_KEYS,'split_priority','split_duck_threshold','split_curve','split_blend']};
+const SPLIT_MIX_PAGE = {title:'FX SENDS',global:true,keys:[...SPLIT_SEND_KEYS,'split_duck_route',null,'split_curve','split_blend']};
 const PRIORITY_PAGE = {title:'PRIORITY DUCK',global:true,keys:['split_duck_attack','split_duck_hold','split_duck_release','split_duck_hpf','split_duck_knee','split_duck_route']};
 const PART_COLOR_PAGE = {title:'PART COLOR',keys:['effect_tone','effect_drive','effect_bits','effect_rate']};
 const DELAY_RETURN_PAGE = {title:'DELAY RETURN',global:true,keys:['effect_delay','effect_feedback','effect_width']};
@@ -625,7 +626,7 @@ const SAMPLE_PAGE = { title: 'SAMPLE EDIT', keys: ['sample_trim_start',
 // title row. The manual continues to use the unabbreviated page name.
 const LOOP_PAGE = { title: 'PERF LOOP', global:true,scopeLabel:'',keys: ['clip_rate',
     'clip_timing', 'launch_quantize', 'tempo_bpm', 'clip_record_mode',
-    'tempo_swing', 'pattern_fade_lookahead'] };
+    'tempo_swing', 'pattern_fade_lookahead', 'clip_clear_recording'] };
 const PATTERN_FADE_PAGE = { title: 'PATTERN FADE', patternFade: true, global: true,scopeLabel:'', keys: Array(8).fill(null) };
 const FADE_CURVES=['LIN','IN','OUT','SMTH','PWR'];
 const MAX_PATTERN_FADE_MS=30000;
@@ -1202,11 +1203,11 @@ function refreshEditorSnapshot(readDetails=true) {
         || split.parts.some((part)=>!part || typeof part!=='object')) return false;
     // Validate the complete response before replacing any displayed controls.
     for(const [key,control] of Object.entries(PARAMS))
-        if(!control.momentary && !key.startsWith('layers_') && !key.startsWith('seq_') && !Number.isFinite(values[key])) return false;
+        if(!control.momentary && !key.startsWith('layers_') && !key.startsWith('seq_') && key!=='mix_mute' && !Number.isFinite(values[key])) return false;
     for(const key of ['pad_octave','record_lane','stack_scan_paused','glitch_buffer_lock'])
         if(!Number.isFinite(values[key])) return false;
     for(const [key,control] of Object.entries(PARAMS))
-        if(!key.startsWith('layers_') && !key.startsWith('seq_')) control.value=control.momentary?0:clamp(values[key],control.min,control.max);
+        if(!key.startsWith('layers_') && !key.startsWith('seq_') && key!=='mix_mute') control.value=control.momentary?0:clamp(values[key],control.min,control.max);
     parseSplitState({...split,mode:values.split_mode},false);
     state.engineListVoices=Number(values.voice_engine_active)===1;
     state.algorithm=Math.round(PARAMS.algorithm.value);
@@ -1264,23 +1265,25 @@ function parseUiState(text) {
 
 
 // Layers uses the existing Thru renderer, encoder response and page browser.
-const SEQUENCE_KEYS=['seq_length','seq_rate','seq_rotation','seq_active','seq_mute','seq_velocity','seq_gate','seq_scale','seq_step','seq_child','seq_pos','seq_note','seq_vel','seq_trig_gate','seq_micro','seq_prob','seq_burst','seq_when','seq_clip_beats','seq_duration_mode','seq_time_ms','seq_trig_time_ms','seq_pan_1','seq_pan_2','seq_pan_3','seq_pan_4','seq_eq_low','seq_eq_mid','seq_eq_high','seq_eq_freq','seq_eq_solo','seq_duck_key','seq_duck_depth','seq_duck_threshold','seq_duck_attack','seq_duck_hold','seq_duck_release','seq_duck_hpf','seq_duck_knee','seq_cycle_hit','seq_cycle_every'];
+const SEQUENCE_KEYS=['seq_length','seq_rate','seq_rotation','seq_active','seq_mute','seq_velocity','seq_gate','seq_scale','seq_step','seq_child','seq_pos','seq_note','seq_vel','seq_trig_gate','seq_micro','seq_prob','seq_burst','seq_when','seq_clip_beats','seq_duration_mode','seq_time_ms','seq_trig_time_ms','seq_pan_1','seq_pan_2','seq_pan_3','seq_pan_4','seq_eq_low','seq_eq_mid','seq_eq_high','seq_eq_freq','seq_eq_solo','seq_duck_key','seq_duck_depth','seq_duck_threshold','seq_duck_attack','seq_duck_hold','seq_duck_release','seq_duck_hpf','seq_duck_knee','seq_cycle_hit','seq_cycle_every','seq_type','seq_to_normal','seq_regenerate','seq_recipe_hits','seq_recipe_map','seq_recipe_order','seq_recipe_repeat','seq_recipe_write','seq_recipe_amount','seq_recipe_seed','seq_recipe_regions','seq_recipe_preroll','seq_recipe_from','seq_recipe_to','seq_recipe_pitch','seq_recipe_span','seq_recipe_accents','seq_recipe_depth','seq_recipe_duration','seq_recipe_min','seq_recipe_max','seq_recipe_human','seq_recipe_probability','seq_direction','seq_recipe_shift','seq_path'];
 const sequenceUi={active:false,data:null,pad:-1,downAt:0,held:false,copy:false,copyReady:false,fullRaw:'',revision:0,cursorRevision:0,headRevision:0,cursorLedPad:-1,cursorLedRefresh:-Infinity,cursorRestores:new Map()};
 const sequenceDisplay={valid:false,revision:-1,cursorRevision:-1,headRevision:-1,waves:null,mask:-1,recording:false,tempo:NaN,selectedCursor:-1};
 const sequenceLaneDisplay={valid:false,signature:''};
 const SEQUENCE_LANE_PAGE={title:'SEQ LANE',sequence:true,keys:['seq_length','seq_rate','seq_rotation','seq_active','seq_velocity','seq_gate','tempo_bpm','seq_clip_beats']};
 const SEQUENCE_TRIG_PAGE={title:'TRIG',sequence:true,sequenceTrig:true,keys:['seq_pos','seq_note','seq_vel','seq_trig_gate','seq_micro','seq_prob','seq_cycle_hit','seq_cycle_every']};
 const SEQUENCE_BURST_PAGE={title:'BURST',sequence:true,sequenceBurst:true,keys:['seq_pos','seq_note','seq_vel','seq_trig_gate','seq_burst','seq_child','seq_when',null]};
-const SEQUENCE_PITCH_PAGE={title:'SEQ SETUP',sequence:true,keys:['root_note','scale','seq_scale','seq_duration_mode',null,null,null,null]};
-const SEQUENCE_MIX_PAGE={title:'SEQ MIX',sequenceMix:true,global:true,keys:['split_level_a','split_level_b','split_level_c','split_level_d','seq_pan_1','seq_pan_2','seq_pan_3','seq_pan_4']};
-const SEQUENCE_STRIP_KEYS=['seq_eq_low','seq_eq_mid','seq_eq_high','seq_eq_freq','seq_eq_solo',null,null,null];
-const SEQUENCE_STRIP_PAGES=Array.from({length:4},(_,lane)=>({title:'SEQ STRIP '+(lane+1),sequenceMix:true,sequenceStrip:lane,global:true,keys:SEQUENCE_STRIP_KEYS}));
-const SEQUENCE_DUCK_PAGE={title:'SEQ DUCK',sequenceMix:true,global:true,keys:['seq_duck_key','seq_duck_depth','seq_duck_threshold','seq_duck_attack','seq_duck_hold','seq_duck_release','seq_duck_hpf','seq_duck_knee']};
+const SEQUENCE_PITCH_PAGE={title:'SEQ SETUP',sequence:true,keys:['root_note','scale','seq_scale','seq_duration_mode','seq_type','seq_direction','seq_path',null]};
+const SEQUENCE_MIX_PAGE={title:'MIXER',sequenceMix:true,mixerOverview:true,global:true,keys:['split_level_a','split_level_b','split_level_c','split_level_d','seq_pan_1','seq_pan_2','seq_pan_3','seq_pan_4']};
+const SEQUENCE_STRIP_KEYS=['seq_eq_low','seq_eq_mid','seq_eq_high','seq_eq_freq','seq_eq_solo','mix_mute',null,null];
+const SEQUENCE_STRIP_PAGES=Array.from({length:4},(_,lane)=>({title:'STRIP '+(lane+1),sequenceMix:true,sequenceStrip:lane,global:true,keys:SEQUENCE_STRIP_KEYS}));
+const SEQUENCE_DUCK_PAGE={title:'PRIORITY DUCK',sequenceMix:true,global:true,keys:['seq_duck_key','seq_duck_depth','seq_duck_threshold','seq_duck_attack','seq_duck_hold','seq_duck_release','seq_duck_hpf','seq_duck_knee']};
 const sequenceSpecs={
  seq_length:['LEN',1,32,1,16,true],seq_rate:['RATE',0,8,1,4,true,['1/1','1/2','1/4','1/8','1/16','1/16T','1/32','1/32T','1/64']],seq_rotation:['ROT',0,31,1,0,true],seq_active:['ON',0,1,1,1,true,['OFF','ON']],seq_mute:['MUTE',0,1,1,0,true,['OFF','ON']],
  seq_velocity:['VEL',1,127,1,100,true],seq_gate:['DUR',.01,32,.01,.8,false],seq_scale:['ENTRY',0,1,1,0,true,['CHROM','SCALE']],seq_step:['STEP',1,32,1,1,true],seq_child:['EVENT',0,8,1,0,true],
  seq_pos:['POS',0,1,.005,0,false],seq_note:['NOTE',-48,48,1,0,true],seq_vel:['VEL',1,127,1,100,true],seq_trig_gate:['DUR',.01,32,.01,.8,false],seq_micro:['MICRO',-.5,.5,.01,0,false],seq_prob:['PROB',0,1,.01,1,false],seq_cycle_hit:['HIT',1,8,1,1,true],seq_cycle_every:['EVERY',1,8,1,1,true],seq_burst:['BURST',1,8,1,1,true],seq_when:['WHEN',0,.999,.01,0,false],seq_clip_beats:['CLIP',1,64,1,4,true],seq_clear:['CLEAR',0,4,1,4,true],seq_delete:['DEL',0,1,1,1,true],
- seq_duration_mode:['UNIT',0,1,1,0,true,['STEP','TIME']],seq_time_ms:['DUR',10,30000,1,1000,false],seq_trig_time_ms:['DUR',10,30000,1,1000,false],
+ seq_direction:['DIR',0,4,1,0,true,['FWD','REV','PING','F+B','RAND']],
+ seq_path:['PATH',0,2,1,0,true,['HORIZ','VERT','DIAG']],
+ seq_duration_mode:['UNIT',0,1,1,1,true,['STEP','TIME']],seq_time_ms:['DUR',10,30000,1,1000,false],seq_trig_time_ms:['DUR',10,30000,1,1000,false],
  seq_pan_1:['PAN1',-1,1,.01,0,false],seq_pan_2:['PAN2',-1,1,.01,0,false],seq_pan_3:['PAN3',-1,1,.01,0,false],seq_pan_4:['PAN4',-1,1,.01,0,false],
  seq_eq_low:['LOW',-12,12,.25,0,false],seq_eq_mid:['MID',-12,12,.25,0,false],seq_eq_high:['HIGH',-12,12,.25,0,false],seq_eq_freq:['FREQ',120,8000,1,900,false],seq_eq_solo:['SOLO',0,1,1,0,true,['OFF','ON']],
  seq_duck_key:['KEY',0,4,1,0,true,['OFF','L1','L2','L3','L4']],seq_duck_depth:['DEPTH',0,24,.5,0,false],seq_duck_threshold:['THR',-60,0,.5,-24,false],seq_duck_attack:['ATK',1,250,1,12,false],seq_duck_hold:['HOLD',0,1000,1,40,false],seq_duck_release:['REL',10,3000,1,220,false],seq_duck_hpf:['HPF',20,2000,1,100,false],seq_duck_knee:['KNEE',0,24,.5,6,false]
@@ -1354,6 +1357,7 @@ function readSequence(skipCursorLeds=false){
  const timed=PARAMS.seq_duration_mode.value>=.5;
  SEQUENCE_LANE_PAGE.keys[5]=timed?'seq_time_ms':'seq_gate';
  SEQUENCE_TRIG_PAGE.keys[3]=timed?'seq_trig_time_ms':'seq_trig_gate';
+ SEQUENCE_BURST_PAGE.keys[3]=timed?'seq_trig_time_ms':'seq_trig_gate';
  if(!skipCursorLeds||!sequenceUi.active)syncSequenceCursorLeds();
  if(cursorChanged||previous?.held!==data.held||stepsChanged)rebuildLedQueue();
 }
@@ -1369,13 +1373,15 @@ function readSequenceCursor(){
    lanes.push(row);
  }
  const selected=lanes[data.edit];
+ const direction=Number.isInteger(data.values?.[64])?data.values[64]:0;
  if(values[2]&&selected[0]>=0){
    if(uiTiming.lane===data.edit&&uiTiming.length===selected[1]&&uiTiming.rate===selected[2]
-      &&uiTiming.clip===state.activeClip&&uiTiming.step>=0){
+      &&uiTiming.clip===state.activeClip&&uiTiming.direction===direction&&uiTiming.step>=0){
      const delta=(selected[0]-uiTiming.step+selected[1])%selected[1];
-     if(delta>1)uiTiming.jumps++;
+     const distance=direction===1?(selected[1]-delta)%selected[1]:direction===2||direction===3?Math.min(delta,selected[1]-delta):delta;
+     if(direction!==4&&distance>1)uiTiming.jumps++;
    }
-   Object.assign(uiTiming,{lane:data.edit,length:selected[1],rate:selected[2],step:selected[0],clip:state.activeClip});
+   Object.assign(uiTiming,{lane:data.edit,length:selected[1],rate:selected[2],step:selected[0],clip:state.activeClip,direction});
  }else uiTiming.step=-1;
  const changed=data.playing!==values[2]||JSON.stringify(data.lanes)!==JSON.stringify(lanes);
  if(!changed){syncSequenceCursorLeds();return;}
@@ -1384,11 +1390,228 @@ function readSequenceCursor(){
  syncSequenceCursorLeds();
  rebuildLedQueue();
 }
+// Sequence drafting is a temporary transaction; generated notes remain normal
+// clip content. Its controls are local tools, outside the fixed MIDI registry.
+const sequenceGeneratorUi={data:null,raw:'',page:0};
+const GEN_PAGES=[
+ {title:'SEQ GENERATE',fields:[0,1,2,3,4,5,6,7]},
+ {title:'GEN SOURCE',fields:[8,9,10,11,12,13,14,15]},
+ {title:'GEN VALUES',fields:[16,17,18,19,20,null,null,null]},
+].map((page,generatorPage)=>({...page,sequence:true,sequenceGenerator:true,generatorPage,keys:[]}));
+const SEQUENCE_GENERATE_PAGE=GEN_PAGES[0];
+const GEN_SPECS=[
+ ['RHYM',0,2,1,['KEEP','EUC','AUDIO']],['HITS',0,32,1],['MAP',0,5,1,['KEEP','AUTO','TRANS','FILE','EDIT','EQUAL']],
+ ['ORDER',0,6,1,['FWD','REV','PAL','RAND','WALK','CYCLE','SPRD']],['REPT',1,16,1],['LOCKS',0,1,1,['KEEP','RPLC']],['AMT',0,1,.01],['VAR',0,65535,1],
+ ['COUNT',1,64,1],['PRER',-1,30,1],['FROM',0,1,.005],['TO',0,1,.005],['PITCH',0,5,1,['KEEP','UP','DOWN','PAL','RAND','WALK']],['SPAN',0,24,1],['ACCNT',0,32,1],['DEPTH',0,1,.01],
+ ['DUR',0,3,1,['KEEP','SHORT','GAP','RAND']],['MIN',.01,32,.01],['MAX',.01,32,.01],['HUMAN',0,.25,.005],['PROB',-1,1,.01],
+];
+
+const RECIPE_KEYS=[null,...SEQUENCE_KEYS.slice(44,64),'seq_recipe_shift'];
+PARAMS.seq_type={key:'seq_type',label:'SEQUENCER TYPE',shortLabel:'TYPE',min:0,max:2,step:1,integer:true,value:0,labels:['NORM','EUC','ONSET']};
+for(const [key,label] of [['seq_to_normal','PRINT'],['seq_regenerate','REGEN']])PARAMS[key]={key,label,shortLabel:label,min:0,max:1,step:1,integer:true,value:0,momentary:true};
+PARAMS.mix_mute={key:'mix_mute',label:'CHANNEL MUTE',shortLabel:'MUTE',min:0,max:1,step:1,integer:true,value:0,labels:['OFF','ON']};
+for(let i=1;i<21;++i){const [label,min,max,step,labels]=GEN_SPECS[i];const key=RECIPE_KEYS[i];PARAMS[key]={key,label,shortLabel:label,min,max,step,integer:step===1,value:[1,8,0,0,1,0,1,1,16,-1,0,1,0,12,0,.5,0,50,1000,0,-1][i],...(labels?{labels}:{}),recipeField:i};}
+PARAMS.seq_recipe_shift={key:'seq_recipe_shift',label:'HIT SHIFT',shortLabel:'SHIFT',min:0,max:31,step:1,integer:true,value:0,recipeField:21};
+const recipePage=(title,fields)=>({title,sequence:true,sequenceRecipe:true,keys:fields.map(i=>typeof i==='string'?i:i===null?null:RECIPE_KEYS[i])});
+const EUCLIDEAN_PAGES=[recipePage('EUCLIDEAN',[1,21,14,15,7,6,3,4]),recipePage('EUC SOURCE',[2,8,10,11,9,5,'seq_to_normal','seq_regenerate']),recipePage('EUC VALUES',[12,13,19,20,16,17,18,null])];
+const ONSET_PAGES=[recipePage('ONSET',[2,8,9,null,7,6,14,15]),recipePage('ONSET SOURCE',[3,4,10,11,null,5,'seq_to_normal','seq_regenerate']),recipePage('ONSET VALUES',[12,13,19,20,16,17,18,null])];
+const mixerUi={data:null,raw:'',visible:false};
+function readMixerState(){
+ const raw=String(getParam('mixer_state','{}'));if(raw===mixerUi.raw)return;
+ let d;try{d=JSON.parse(raw);}catch(_){return;}
+ if(!d||!Number.isInteger(d.mode)||d.mode<0||d.mode>6||!Number.isInteger(d.count)||d.count<1||d.count>4||!Array.isArray(d.strips)||d.strips.length!==4||d.strips.some(row=>!Array.isArray(row)||row.length!==6||row.some(v=>!Number.isFinite(v)))||!Array.isArray(d.pan)||d.pan.length!==4||!Array.isArray(d.duck)||d.duck.length!==8)return;
+ mixerUi.raw=raw;mixerUi.data=d;
+ d.pan.forEach((v,i)=>{PARAMS['seq_pan_'+(i+1)].value=v;});
+ ['seq_duck_key','seq_duck_depth','seq_duck_threshold','seq_duck_attack','seq_duck_hold','seq_duck_release','seq_duck_hpf','seq_duck_knee'].forEach((key,i)=>{PARAMS[key].value=d.duck[i];});
+}
+function currentSequenceType(){return sequenceUi.active?Math.round(PARAMS.seq_type.value):0;}
+function recipeControl(key){
+ const p=PARAMS[key],f=p?.recipeField;if(!p||!Number.isInteger(f))return null;
+ const value=n=>PARAMS[RECIPE_KEYS[n]].value;
+ if([1,21].includes(f)&&currentSequenceType()!==1)return null;
+ if([3,4,9,10,11].includes(f)&&value(2)===0)return null;
+ if(f===8&&!(value(2)===5||(value(2)===1&&(sequenceUi.data?.source_kind??0)===0)))return null;
+ if(f===13&&value(12)===0)return null;
+ if(f===15&&value(14)===0)return null;
+ if([17,18].includes(f)&&(value(16)===0||(f===18&&value(16)===1)))return null;
+ const timed=PARAMS.seq_duration_mode.value>=.5;
+ return {...p,min:f===2&&currentSequenceType()===2?1:[17,18].includes(f)&&timed?10:p.min,max:[1,21].includes(f)?Math.max(f===21?0:1,(sequenceUi.data?.length||32)-(f===21?1:0)):[17,18].includes(f)&&timed?30000:p.max,step:[17,18].includes(f)&&timed?1:p.step};
+}
+function recipeValue(control){
+ const v=control.value,f=control.recipeField;
+ if(control.labels)return control.labels[Math.round(v)];
+ if(f===9)return v<0?'AUTO':Math.round(v)+'ms';
+ if(f===20&&v<0)return 'KEEP';
+ if([6,10,11,15,19,20].includes(f))return Math.round(v*100)+'%';
+ if(f===14&&v===0)return 'OFF';
+ if([17,18].includes(f))return PARAMS.seq_duration_mode.value>=.5?sequenceTimeText(v):sequenceStepText(v);
+ if(f===13)return Math.round(v)+'st';
+ return String(Math.round(v));
+}
+function outputMixerPages(base){
+ const count=state.splitEnabled?partCount():1;
+ const labels=Array.from({length:count},(_,i)=>sequenceUi.active?String(i+1):state.splitEnabled?'ABCD'[i]:'1');
+ const levels=state.splitEnabled?['split_level_a','split_level_b','split_level_c','split_level_d']:['output_gain'];
+ const overview={...SEQUENCE_MIX_PAGE,keys:Array.from({length:8},(_,i)=>i<4?(i<count?levels[i]:null):(i-4<count?'seq_pan_'+(i-3):null))};
+ const strips=Array.from({length:count},(_,i)=>({...SEQUENCE_STRIP_PAGES[i],title:'STRIP '+labels[i]}));
+ const output=[overview,...strips,...(count>1?[SEQUENCE_DUCK_PAGE]:[])];
+ const pages=base.filter(p=>!p.sequenceMix&&p!==PRIORITY_PAGE);
+ const index=pages.findIndex(p=>MIX_PAGE_TITLES.has(p.title));pages.splice(index<0?pages.length:index,0,...output);return pages;
+}
+function sequenceRecipeStatus(){
+ const status=String(sequenceUi.data?.type_status||'');
+ if(!/[A-Z]{3}/.test(status))return '';
+ return ({'TRANSIENTS NOT READY':'WAIT: TRANSIENTS','NO STARTS IN RANGE':'NO STARTS: RANGE'}[status]||status).slice(0,16);
+}
+function drawSequenceRecipePage(){
+ const page=currentSettingsPage(),d=sequenceUi.data;
+ drawSettingsTitle('L'+((d?.edit||0)+1)+' '+page.title);drawRect(0,8,128,1,1);
+ for(let i=0;i<8;++i)drawParameterCell(i,controlForKey(page.keys[i]),false,5);
+ const status=sequenceRecipeStatus();if(status)print(1,58,status,1);
+}
+
+function readSequenceGenerator(){
+ const raw=String(getParam('seq_gen_state','{}'));if(raw===sequenceGeneratorUi.raw)return;
+ let d;try{d=JSON.parse(raw);}catch(_){return;}
+ if(d?.active===0){
+   if(state.view==='seqGenerate')closeSequenceGenerator(false);
+   return;
+ }
+ if(d?.active!==1||!Number.isInteger(d.part)||d.part<0||d.part>3||!Array.isArray(d.config)||d.config.length!==21||d.config.some(v=>!Number.isFinite(v))||!Array.isArray(d.steps)||d.steps.length!==32||!Number.isInteger(d.length)||d.length<1||d.length>32)return;
+ sequenceGeneratorUi.raw=raw;sequenceGeneratorUi.data=d;rebuildLedQueue();
+}
+function openSequenceGenerator(page=0){
+ const target=GEN_PAGES[clamp(page,0,GEN_PAGES.length-1)];
+ state.settingsPage=Math.max(0,parameterPages().indexOf(target));
+ if(state.view!=='seqGenerate'||!sequenceGeneratorUi.data?.active){
+   sequenceGeneratorUi.data=null;sequenceGeneratorUi.raw='';setParamBlocking('seq_gen_begin',1);readSequenceGenerator();
+ }
+ if(!sequenceGeneratorUi.data?.active){state.view='settings';showActionMessage(String(getParam('last_error','GEN UNAVAILABLE')).slice(0,21));return;}
+ sequenceUi.pad=-1;sequenceUi.held=false;sequenceGeneratorUi.page=target.generatorPage;
+ state.view='seqGenerate';state.actionMessageTicks=0;resetParameterEncoderMotion();rebuildLedQueue();
+}
+function closeSequenceGenerator(applied=false,cancel=true){
+ if(cancel)setParamBlocking('seq_gen_cancel',1);
+ sequenceGeneratorUi.data=null;sequenceGeneratorUi.raw='';
+ state.view='main';state.settingsPage=Math.max(0,parameterPages().indexOf(SEQUENCE_LANE_PAGE));
+ if(!applied)returnToPagePicker();
+ else {state.pageReturn=null;state.pageDestinationReturn=null;}
+ resetParameterEncoderMotion();readSequence();rebuildLedQueue();
+}
+function generatorControl(field){
+ const d=sequenceGeneratorUi.data;if(!d||field===null)return null;
+ const v=d.config;
+ if(field===1&&v[0]!==1)return null;
+ if([3,4,9,10,11].includes(field)&&v[2]===0)return null;
+ if(field===8&&![1,5].includes(v[2]))return null;
+ if(field===13&&v[12]===0)return null;
+ if(field===15&&v[14]===0)return null;
+ if([17,18].includes(field)&&(v[16]===0||(field===18&&v[16]===1)))return null;
+ const [label,min,max,step,labels]=GEN_SPECS[field];
+ return {key:'gen_'+field,label,shortLabel:label,min:field===1?0:field===2&&v[0]===2?1:[17,18].includes(field)&&d.timed?10:min,
+   max:field===1?d.length:[17,18].includes(field)&&d.timed?30000:max,
+   step:[17,18].includes(field)&&d.timed?1:step,integer:step===1,value:v[field],...(labels?{labels}:{}),field};
+}
+function generatorValue(control){
+ const {value:v,field:f}=control;
+ if(control.labels)return control.labels[Math.round(v)];
+ if(f===9)return v<0?'AUTO':Math.round(v)+'ms';
+ if(f===20&&v<0)return 'KEEP';
+ if([6,10,11,15,19,20].includes(f))return Math.round(v*100)+'%';
+ if(f===14&&v===0)return 'OFF';
+ if([17,18].includes(f)){
+   if(sequenceGeneratorUi.data.timed)return sequenceTimeText(v);
+   return sequenceStepText(v);
+ }
+ if(f===13)return Math.round(v)+'st';
+ return String(Math.round(v));
+}
+function adjustSequenceGenerator(index,delta){
+ const field=GEN_PAGES[sequenceGeneratorUi.page].fields[index],control=generatorControl(field);if(!control||!delta)return;
+ delta=parameterEncoderDelta(index,control.key,delta);if(!delta)return;
+ let value=nextControlValue(control,delta);
+ if(field===20)value=control.value<0?(delta>0?0:-1):value<0?-1:value;
+ if(field===9&&value<0)value=-1;
+ state.actionMessageTicks=0;setParamBlocking('seq_gen_edit',field+','+value);sequenceGeneratorUi.raw='';readSequenceGenerator();
+}
+function generatorPadColor(pad){
+ const d=sequenceGeneratorUi.data;if(state.view!=='seqGenerate'||!d)return null;
+ const step=(3-Math.floor(pad/8))*8+pad%8;if(step>=d.length)return Black;
+ if(sequenceUi.data?.playing&&sequenceUi.data.lanes?.[d.part]?.[0]===step)return NeonGreen;
+ if(step===d.selected)return White;
+ const row=d.steps[step];
+ if(row[0])return row[2]?BrightYellow:Cyan;
+ return row[2]?BrightRed:DeepRed;
+}
+function drawSequenceGenerator(){
+ const d=sequenceGeneratorUi.data;clearDisplay();
+ if(!d){print(1,0,'GEN UNAVAILABLE',1);return;}
+ const page=GEN_PAGES[sequenceGeneratorUi.page];
+ drawTitleWithFraction('L'+(d.part+1)+' '+page.title,settingsPagePosition());drawRect(0,8,128,1,1);
+ drawWaveformLane(d.part,[0,1],16,4,120);
+ for(const p of d.source||[])drawRect(4+Math.round(clamp(p,0,1)*119),10,1,2,1);
+ for(let i=0;i<d.length;++i)if(d.steps[i][0])drawRect(4+Math.round(clamp(d.steps[i][1],0,1)*119),20,1,2,1);
+ const selected=d.steps[d.selected];if(selected?.[0]){
+   const x=4+Math.round(clamp(selected[1],0,1)*119);drawRect(x,11,1,11,1);drawRect(x-1,10,3,1,1);
+ }
+ const count=d.steps.slice(0,d.length).filter(s=>s[0]).length;
+ const info=state.actionMessageTicks>0?state.actionMessage:d.valid?count+'/'+d.length+(d.dropped?' LIMIT '+d.dropped:d.events!==count?' '+d.events+'EV APPLY':d.config[2]===1?' '+d.source_kind+' CLICK':(state.clipPlaying?' LIVE CLICK':' PLAY/CLICK')):String(d.status||'REOPEN GENERATOR');
+ print(1,23,info.slice(0,21),1);
+ for(let i=0;i<8;++i){
+   const c=generatorControl(page.fields[i]),x=i%4*32,y=i<4?32:48;
+   if(!c){drawRect(x+14,y+5,4,4,1);drawRect(x+15,y+6,2,2,0);continue;}
+   print(x+1,y,c.shortLabel.slice(0,5),1);print(x+1,y+7,generatorValue(c).slice(0,5),1);
+ }
+}
+function handleSequenceGeneratorCc(number,value){
+ if(state.view!=='seqGenerate')return false;
+ if(number===MoveBack||number===MoveMenu){
+   if(value>0)closeSequenceGenerator(false);
+   return !state.shiftHeld&&!state.focusButtonHeld;
+ }
+ if(number===MoveUndo){if(value>0)closeSequenceGenerator(false);return true;}
+ if(number===MovePlay){
+   if(value>0){
+     if(state.deleteHeld)return false;
+     if(state.shiftHeld){closeSequenceGenerator(false);return false;}
+     setParamBlocking('seq_gen_play',1);parseClipState(getParam('clip_state',''));readSequence();
+     const error=String(getParam('last_error','')||'');
+     if(error)showActionMessage(error.slice(0,21));
+     rebuildLedQueue();
+   }
+   return true;
+ }
+ if(number===MoveRecord||number===MoveRecordAlt||number===MoveCopy){if(value>0)closeSequenceGenerator(false);return false;}
+ if(number===MoveMainButton){
+   if(value>0){
+     if(state.shiftHeld){const d=sequenceGeneratorUi.data;setParamBlocking('seq_gen_edit','7,'+((Math.round(d.config[7])+1)%65536));readSequenceGenerator();}
+     else if(!sequenceGeneratorUi.data?.valid){setParamBlocking('seq_gen_refresh',1);sequenceGeneratorUi.raw='';readSequenceGenerator();}
+     else {setParamBlocking('seq_gen_apply',1);const error=String(getParam('last_error','')||'');if(error){showActionMessage(error.includes('transition')?'WAIT: CLIP TRANSITION':error.slice(0,21));readSequenceGenerator();}else closeSequenceGenerator(true,false);}
+   }
+   return true;
+ }
+ if(number===MoveMainKnob||number===MoveUp||number===MoveDown){
+   const delta=number===MoveMainKnob?decodeDelta(value):value>0?(number===MoveUp?1:-1):0;
+   if(delta){adjustSettingsPage(delta);resetParameterEncoderMotion();}
+   return true;
+ }
+ if(number>=MoveKnob1&&number<MoveKnob1+8){if(state.focusButtonHeld)return false;adjustSequenceGenerator(number-MoveKnob1,decodeDelta(value));return true;}
+ return false;
+}
+
 function sequencePages(base){
  const pages=base.filter(page=>!page.voiceEngines&&!page.voiceSetup&&page!==AMP_ENVELOPE_PAGE&&page.title!==STACK_PATH_PAGE.title&&page.title!=='PADS & SCALE'&&page!==QUAD_SETUP_PAGE&&page!==SPLIT_MIX_PAGE&&page!==PRIORITY_PAGE);
- return [SEQUENCE_LANE_PAGE,SEQUENCE_TRIG_PAGE,SEQUENCE_PITCH_PAGE,SEQUENCE_BURST_PAGE,SEQUENCE_ENVELOPE_PAGE,SEQUENCE_MIX_PAGE,...SEQUENCE_STRIP_PAGES,SEQUENCE_DUCK_PAGE,...pages];
+ const generator=currentSequenceType()===1?EUCLIDEAN_PAGES:currentSequenceType()===2?ONSET_PAGES:[];
+ // Keep lane setup ahead of conditional pages, and the selected engine's
+ // sound pages together before its fitted envelope and gain compensation.
+ const soundPages=pages.filter(page=>page!==PLAY_GAIN_PAGE&&pageCategoryForPage(page)===0);
+ const otherPages=pages.filter(page=>page!==PLAY_GAIN_PAGE&&pageCategoryForPage(page)!==0);
+ return [SEQUENCE_LANE_PAGE,SEQUENCE_PITCH_PAGE,...generator,SEQUENCE_TRIG_PAGE,SEQUENCE_BURST_PAGE,
+   ...soundPages,SEQUENCE_ENVELOPE_PAGE,PLAY_GAIN_PAGE,
+   SEQUENCE_MIX_PAGE,...SEQUENCE_STRIP_PAGES,SEQUENCE_DUCK_PAGE,...otherPages];
 }
 function sequencePadColor(pad){
+ const preview=generatorPadColor(pad);if(preview!==null)return preview;
  const d=sequenceUi.data;if(!sequenceUi.active||!d)return null;
  const step=(3-Math.floor(pad/8))*8+pad%8;if(step>=d.length)return Black;
  if(sequenceUi.pad===pad&&sequenceUi.held)return White;
@@ -1396,6 +1619,10 @@ function sequencePadColor(pad){
  return d.steps?.[step]?.[0]?Cyan:DeepRed;
 }
 function sequencePadGesture(pad,pressed){
+ if(state.view==='seqGenerate'){
+   if(pressed){const step=(3-Math.floor(pad/8))*8+pad%8;if(step<sequenceGeneratorUi.data.length){setParamBlocking('seq_gen_select',step);sequenceGeneratorUi.raw='';readSequenceGenerator();}}
+   return;
+ }
  const step=(3-Math.floor(pad/8))*8+pad%8;
  if(pressed&&(state.shiftHeld||sequenceUi.copy)){
    if(state.shiftHeld&&!sequenceUi.copyReady){showMessage('COPY TRIG FIRST');return;}
@@ -1473,8 +1700,8 @@ function drawSequenceOverview(d){
 function drawSequenceFooter(d){
  const heads=sequenceHeads();
  const duration=heads.length?sequenceTimeText(heads[0][3]):PARAMS.seq_duration_mode.value>=.5
-   ?sequenceTimeText(PARAMS.seq_time_ms.value):sequenceDurationText(PARAMS.seq_gate.value);
- print(1,57,'BPM '+Math.round(PARAMS.tempo_bpm.value)+'  DUR '+duration,1);
+   ?sequenceTimeText(PARAMS.seq_time_ms.value):sequenceTimeText(Math.max(.25,PARAMS.seq_gate.value*sequenceStepMs()));
+ print(1,57,'BPM '+Math.round(PARAMS.tempo_bpm.value)+'  TIME '+duration,1);
 }
 function drawSequence(){
  const d=sequenceUi.data;
@@ -1519,7 +1746,8 @@ function sequenceStepMs(){
  const beats=[4,2,1,.5,.25,1/6,.125,1/12,.0625][clamp(Math.round(PARAMS.seq_rate.value),0,8)];
  return Number.isFinite(stepMs)&&stepMs>0?stepMs:beats*60000/(Math.max(1,PARAMS.tempo_bpm.value)*clamp(PARAMS.clip_rate.value,.25,4));
 }
-function sequenceDurationText(value){return sequenceTimeText(Math.max(.25,value*sequenceStepMs()));}
+// STEP values are counts; reserve explicit ms/s suffixes for TIME values.
+function sequenceStepText(value){const v=clamp(value,.01,32);return String(Number(v.toFixed(v<10?3:2)));}
 function sequenceAmpDurationMs(){
  const locked=Boolean((sequenceUi.data?.mask||0)&8);
  if(PARAMS.seq_duration_mode.value>=.5)return clamp(locked?PARAMS.seq_trig_time_ms.value:PARAMS.seq_time_ms.value,10,30000);
@@ -1538,9 +1766,11 @@ function sequenceAmpTiming(){
 }
 function sequenceValue(control){
  const v=control.value,key=control.key;
+ if(key.startsWith('seq_recipe_'))return recipeValue(control);
+ if(key==='seq_to_normal'||key==='seq_regenerate')return 'APPLY';
  if(key==='seq_note')return sequenceNoteName(v);
  if(key==='seq_child')return v===0?'TRIG':String(Math.round(v));
- if(key==='seq_gate'||key==='seq_trig_gate')return sequenceDurationText(v);
+ if(key==='seq_gate'||key==='seq_trig_gate')return sequenceStepText(v);
  if(key==='seq_time_ms'||key==='seq_trig_time_ms'||['seq_duck_attack','seq_duck_hold','seq_duck_release'].includes(key))return sequenceTimeText(v);
  if(/^seq_pan_[1-4]$/.test(key))return Math.abs(v)<.005?'C':(v<0?'L':'R')+Math.round(Math.abs(v)*100);
  if(['seq_eq_low','seq_eq_mid','seq_eq_high'].includes(key))return (v>0?'+':'')+Number(v.toFixed(1));
@@ -2533,13 +2763,13 @@ function sendLedNow(type, id, color, force = false) {
 }
 
 function iconLedStates() {
-    const menu=['settings','pages','mode','fxMenu','help','projects'].includes(state.view);
-    const upDown=['bankRecovery','projects'].includes(state.view)||customMidiViews.includes(state.view)||['main','settings','pages','mode','fxMenu','help','library','chain','sliceEdit'].includes(state.view);
+    const menu=['seqGenerate','settings','pages','mode','fxMenu','help','projects'].includes(state.view);
+    const upDown=['bankRecovery','projects'].includes(state.view)||customMidiViews.includes(state.view)||['seqGenerate','main','settings','pages','mode','fxMenu','help','library','chain','sliceEdit'].includes(state.view);
     const leftRight=['main','settings','help'].includes(state.view);
     return [
         [MoveMenu,menu?WhiteLedBright:IconLedDim],
         [MoveBack,state.view!=='main'?WhiteLedBright:IconLedDim],
-        [MoveUndo,customMidiContext()?(customMidiUi.data?.undo||['midiMapEdit','midiMapPicker'].includes(state.view)?WhiteLedBright:Black):state.undoAvailable&&!state.recording&&!state.clipRecording?WhiteLedBright:Black],
+        [MoveUndo,customMidiContext()?(customMidiUi.data?.undo||['midiMapEdit','midiMapPicker'].includes(state.view)?WhiteLedBright:Black):(state.view==='seqGenerate'||state.undoAvailable)&&!state.recording&&!state.clipRecording?WhiteLedBright:Black],
         [MoveShift,state.shiftHeld?WhiteLedBright:IconLedDim],
         [MoveDelete,state.deleteHeld?WhiteLedBright:IconLedDim],
         [MoveUp,upDown?IconLedDim:Black],[MoveDown,upDown?IconLedDim:Black],
@@ -3374,8 +3604,8 @@ function drawFxOrder() {
 function splitFxPages() {
     const part=partName();
     return [
-        {title:isQuad()?'ALL PART SENDS':'PART SENDS + PRIORITY',page:isQuad()?QUAD_SEND_PAGE:SPLIT_MIX_PAGE},
-        ...(!isQuad()?[{title:'PRIORITY DUCK',page:PRIORITY_PAGE}]:[]),
+        {title:isQuad()?'ALL PART SENDS':'PART SENDS',page:isQuad()?QUAD_SEND_PAGE:SPLIT_MIX_PAGE},
+        {title:'PRIORITY DUCK',page:SEQUENCE_DUCK_PAGE},
         {title:'DELAY',page:DELAY_RETURN_PAGE},
         {title:'REVERB',page:REVERB_PAGE},
         {title:part+' COLOR INSERT',page:PART_COLOR_PAGE},
@@ -3387,7 +3617,7 @@ function splitFxPages() {
 
 function syncSplitFxValues() {
     for(const key of [...SPLIT_MIX_PAGE.keys,...PRIORITY_PAGE.keys,...QUAD_SEND_PAGE.keys,'split_level_a','split_level_b','split_level_c','split_level_d']) {
-        const control=PARAMS[key];
+        const control=PARAMS[key];if(!control)continue;
         control.value=clamp(getNumber(key,control.value),control.min,control.max);
     }
 }
@@ -3520,21 +3750,27 @@ function maskInactivePage(page) {
     if(!page.keys.some(inactiveControl))return page;
     return {...page,keys:page.keys.map(key=>inactiveControl(key)?null:key)};
 }
-function parameterPages(){const pages=parameterPagesBase();return (sequenceUi.active?sequencePages(pages):pages).map(maskInactivePage);}
+function parameterPages(){const pages=parameterPagesBase();return outputMixerPages(sequenceUi.active?sequencePages(pages):pages).map(maskInactivePage);}
 function controlForKey(key) {
+    if(!key)return null;
+    if(key.startsWith('seq_recipe_'))return recipeControl(key);
+    if(/^seq_pan_[1-4]$/.test(key))return {...PARAMS[key],shortLabel:sequenceUi.active?'PAN'+key.slice(-1):state.splitEnabled?'PAN'+'ABCD'[Number(key.slice(-1))-1]:'PAN'};
+    if(key==='seq_duck_key')return {...PARAMS[key],max:state.splitEnabled?partCount():1,labels:sequenceUi.active?['OFF','L1','L2','L3','L4']:['OFF','A','B','C','D']};
+    if(key==='seq_to_normal'||key==='seq_regenerate')return currentSequenceType()?PARAMS[key]:null;
     if(key==='seq_child')return {...PARAMS.seq_child,max:PARAMS.seq_burst.value};
     if(key==='seq_cycle_hit')return {...PARAMS.seq_cycle_hit,max:PARAMS.seq_cycle_every.value};
     if(key==='seq_note'){const root=sequenceUi.data?.root||60;return {...PARAMS.seq_note,min:Math.max(-48,-root),max:Math.min(48,127-root)};}
     // Only channel-strip EQ controls depend on which strip page is open.
     // Ordinary labels/values must not rebuild every menu for each of 8 cells.
     const stripField=SEQUENCE_STRIP_KEYS.indexOf(key);
-    if(stripField>=0&&sequenceUi.active&&state.view==='settings'){
+    if(stripField>=0&&state.view==='settings'){
         const stripPage=currentSettingsPage();
         if(Number.isInteger(stripPage?.sequenceStrip)){
-            const value=sequenceUi.data?.strips?.[stripPage.sequenceStrip]?.[stripField];
+            const value=(mixerUi.data?.mode===currentPerformanceMode()?mixerUi.data.strips:sequenceUi.data?.strips)?.[stripPage.sequenceStrip]?.[stripField];
             return {...PARAMS[key],value:Number.isFinite(value)?value:PARAMS[key].value};
         }
     }
+    if(key==='mix_mute'&&state.view==='settings'){const page=currentSettingsPage();const p=Number.isInteger(page.sequenceStrip)?page.sequenceStrip:state.splitFocus;return {...PARAMS[key],value:mixerUi.data?.strips?.[p]?.[5]||0};}
     if(key?.startsWith('layers_fx')&&/^layers_fx(?:[0-9]|1[01])$/.test(key))return layersFxControl(key);
     const control = PARAMS[key];
     if(control&&key==='voice_engine_edit')return {...control,max:voiceEngineCount(),shortLabel:'EDIT'};
@@ -3548,7 +3784,7 @@ function controlForKey(key) {
     if (control && state.splitEnabled) {
         if (key==='effect_mix') return {...control,shortLabel:'DRTN',label:'DELAY RETURN %'};
         if (key==='effect_reverb_mix') return {...control,shortLabel:'RRTN',label:'REVERB RETURN %'};
-        if (['split_level_a','split_level_b','split_level_c','split_level_d'].includes(key)) return {...control,shortLabel:sequenceUi.active?'LVL'+('abcd'.indexOf(key.slice(-1))+1):'LEVL',label:sequenceUi.active?'SEQUENCE LANE LEVEL':'PART LEVEL'};
+        if (['split_level_a','split_level_b','split_level_c','split_level_d'].includes(key)) return {...control,shortLabel:sequenceUi.active?'LVL'+('abcd'.indexOf(key.slice(-1))+1):state.view==='settings'&&mixerUi.visible?'LVL'+key.slice(-1).toUpperCase():'LEVL',label:sequenceUi.active?'SEQUENCE LANE LEVEL':'PART LEVEL'};
     }
     if(control && key==='manual_lane' && state.splitEnabled&&!state.sharedDual) return {...control,max:2,value:clamp(control.value,1,2),...(state.algorithm===3?{label:'LANE',shortLabel:'LANE',integer:true,step:1,value:clamp(Math.round(control.value),1,2)}:{})};
     if (control && key === 'manual_lane' && state.algorithm === 3) {
@@ -3834,12 +4070,15 @@ function compactControlValue(control) {
     return control.value.toFixed(2).slice(0, 4);
 }
 
-function drawParameterCell(index, control, compact = false) {
+function drawParameterCell(index, control, compact = false, maxLabelChars = null) {
+    // A page slot can resolve to no control when its action is unavailable
+    // (for example PRINT/REGEN with the Normal sequencer type).
+    if (!control) { drawReservedParameterCell(index, compact); return; }
     const column = index % 4;
     const row = Math.floor(index / 4);
     const x = column * 32;
     const y = (compact ? 11 : 13) + row * (compact ? 24 : 26);
-    const label = String(control.shortLabel || SHORT_LABELS[control.key] || control.label).slice(0, 4);
+    const label = String(control.shortLabel || SHORT_LABELS[control.key] || control.label).slice(0, maxLabelChars ?? (['seq_to_normal','seq_regenerate'].includes(control.key)?5:4));
     const value = compactControlValue(control);
     print(x + 3, y, label, 1);
     print(x + 3, y + 11, value, 1);
@@ -3934,7 +4173,10 @@ function drawSequenceEnvelopePage() {
     const xDecay=Math.min(x1,xAttack+Math.round(width*decay/timing.dur));
     const xGate=Math.max(xDecay,x1-Math.round(width*release/timing.dur));
     const sustainY=Math.round(baseline-timing.sustain*(baseline-peak));
-    print(3,10,'DUR '+sequenceTimeText(timing.dur),1);
+    const locked=Boolean((sequenceUi.data?.mask||0)&8);
+    const duration=PARAMS.seq_duration_mode.value>=.5?sequenceTimeText(timing.dur)
+        :sequenceStepText(locked?PARAMS.seq_trig_gate.value:PARAMS.seq_gate.value)+'='+sequenceTimeText(timing.dur);
+    print(3,10,'DUR '+duration,1);
     if(timing.scale<.9999)print(100,10,'FIT',1);
     drawRect(x0,baseline,width+1,1,1);
     drawPixelLine(x0,baseline,xAttack,peak);
@@ -4096,26 +4338,30 @@ function adjustPathEditor(index,delta) {
 }
 function drawSettings() {
     const page = currentSettingsPage();
+    if(page.sequenceMix&&!mixerUi.visible)readMixerState();
+    mixerUi.visible=Boolean(page.sequenceMix);
     // SEQ LANE is often left open while a fast sequence runs. Its eight
     // readouts are static between edits, so avoid a full OLED clear and text
     // transfer on every UI tick. The main Sequence view owns the playheads.
     let laneSignature='';
-    if(page===SEQUENCE_LANE_PAGE&&state.editorReady){
+    if((page===SEQUENCE_LANE_PAGE||page.sequenceMix||page.sequenceRecipe)&&state.editorReady){
         laneSignature=JSON.stringify([
-            state.settingsPage,state.algorithm,state.splitFocus,
-            state.clipPlaying,state.clipRecording,
+            state.settingsPage,page.title,state.algorithm,state.splitFocus,
+            state.clipPlaying,state.clipRecording,page.sequenceRecipe?sequenceRecipeStatus():null,
             state.actionMessageTicks>0?state.actionMessage:'',
             ...page.keys.map(key=>{
                 if(!key)return null;
                 const control=controlForKey(key);
-                return [control.shortLabel||SHORT_LABELS[key]||control.label,
-                    compactControlValue(control)];
+                return control?[control.shortLabel||SHORT_LABELS[key]||control.label,
+                    compactControlValue(control)]:null;
             }),
         ]);
         if(sequenceLaneDisplay.valid&&sequenceLaneDisplay.signature===laneSignature)return;
     }
     clearDisplay();
     if(!state.editorReady){print(1,0,'UPDATING EDITOR',1);return;}
+    if(page.sequenceRecipe){drawSequenceRecipePage();sequenceLaneDisplay.valid=true;sequenceLaneDisplay.signature=laneSignature;return;}
+    if(page.sequenceGenerator){drawSettingsTitle('SEQ GENERATE');print(1,23,state.actionMessageTicks>0?state.actionMessage:'CLICK TO OPEN',1);return;}
     if(page.sequenceTrig){drawSequenceTrig();return;}
     if(page.sequenceBurst){drawSequenceBurst();return;}
     if(page.customMaps){drawCustomMidiProfile();return;}
@@ -4166,7 +4412,7 @@ function drawSettings() {
     else if (state.splitEnabled && isSendPage(page)) print(1,57,splitSendFooter(),1);
     else if (state.splitEnabled && !isQuad() && (page===DELAY_RETURN_PAGE || page.title===REVERB_PAGE.title))
         print(1,57,'RETURN: FX SENDS',1);
-    if(page===SEQUENCE_LANE_PAGE){
+    if(page===SEQUENCE_LANE_PAGE||page.sequenceMix){
         sequenceLaneDisplay.signature=laneSignature;
         sequenceLaneDisplay.valid=true;
     }
@@ -4303,8 +4549,8 @@ function pageEntries() {
     return result;
 }
 
-const PAGE_CATEGORY_NAMES=['VOICE','LANE','MIX / FX','PERF'];
-const LANE_PAGE_TITLES=new Set(['MIX / REC','SAMPLE EDIT']);
+const PAGE_CATEGORY_NAMES=['PLAY','SAMPLE','MIX / FX','PERFORMANCE'];
+const SAMPLE_PAGE_TITLES=new Set(['MIX / REC','SAMPLE EDIT']);
 const MIX_PAGE_TITLES=new Set(['FX SENDS','PRIORITY DUCK','PART COLOR',
     'EFFECTS','STEREO / ROTARY','DELAY RETURN','TAPE','REVERB','FX ORDER']);
 const PERF_PAGE_TITLES=new Set(['PERF LOOP','PATTERN FADE','OVERDUB TAKES',
@@ -4316,7 +4562,7 @@ function pageCategoryForPage(page) {
     if(page?.layerFx)return 2;
     if(page?.layersSetup)return 2;
     if(!page||isMidiPage(page)||isSetupPage(page))return -1;
-    if(LANE_PAGE_TITLES.has(page.title))return 1;
+    if(SAMPLE_PAGE_TITLES.has(page.title))return 1;
     if(MIX_PAGE_TITLES.has(page.title))return 2;
     if(PERF_PAGE_TITLES.has(page.title))return 3;
     return 0;
@@ -4388,7 +4634,7 @@ function midiPageEntry() {
 
 function pageHubEntries() {
     return [
-        ...PAGE_CATEGORY_NAMES.map((title,category)=>({title:category===3?'PERFORMANCE':title,category,hub:'category'})),
+        ...PAGE_CATEGORY_NAMES.map((title,category)=>({title,category,hub:'category'})),
         {title:'MODE',view:'mode',hub:'mode'},
         {...setupPageEntry(),title:sequenceUi.active?'SEQ SETUP':'SETUP',hub:'setup'},
         {...midiPageEntry(),title:'MIDI',hub:'midi'},
@@ -4398,7 +4644,7 @@ function pageHubEntries() {
 }
 
 function currentPageCategory() {
-    if(state.view==='settings')return pageCategoryForPage(currentSettingsPage());
+    if(state.view==='settings'||state.view==='seqGenerate')return pageCategoryForPage(currentSettingsPage());
     if(state.view==='library')return 1;
     if(state.view==='mixStatus'||state.view==='fxMenu')return 2;
     if(state.view==='clips'||state.view==='chain')return 3;
@@ -4406,7 +4652,7 @@ function currentPageCategory() {
 }
 
 function currentEntryIndex(entries) {
-    if(state.view==='settings')return entries.findIndex(entry=>
+    if(state.view==='settings'||state.view==='seqGenerate')return entries.findIndex(entry=>
         entry.view==='settings'&&entry.index===state.settingsPage);
     return entries.findIndex(entry=>entry.view===state.view);
 }
@@ -4449,6 +4695,7 @@ function activatePageEntry(entry,returnToPicker=false) {
     const destinationReturn=returnToPicker?{
         tier:state.pageTier,category:state.pageCategory,selection:state.pageSelection,
     }:null;
+    if(entry.view==='settings'&&parameterPages()[entry.index]?.sequenceGenerator){state.pageDestinationReturn=destinationReturn;openSequenceGenerator(parameterPages()[entry.index].generatorPage);return;}
     if(entry.view==='mode'){
         state.pageDestinationReturn=destinationReturn;
         state.modeSelection=currentPerformanceMode();state.view='mode';return;
@@ -4829,7 +5076,7 @@ function drawPerformanceLayer() {
     print(1,57,'RELEASE TO RETURN',1);
 }
 function draw() {
-    if(state.view!=='settings'||state.performanceVisible)sequenceLaneDisplay.valid=false;
+    if(state.view!=='settings'||state.performanceVisible){sequenceLaneDisplay.valid=false;mixerUi.visible=false;}
     const overlay=state.saveStatus===2?'saving':state.savedTicks>0&&state.saveStatus===3?'saved':'';
     if(overlay!==state.saveOverlayLast){splitDisplay.footer=null;layersDisplay.fx=null;sequenceDisplay.valid=false;sequenceLaneDisplay.valid=false;state.saveOverlayLast=overlay;}
     if(state.performanceVisible)drawPerformanceLayer();
@@ -4837,6 +5084,7 @@ function draw() {
     else if(state.view==='layerFxPicker')drawLayersPicker();
     else if(state.view==='projects')drawProjects();
     else if(state.view==='bankRecovery')drawBankRecovery();
+    else if(state.view==='seqGenerate')drawSequenceGenerator();
     else if(state.view==='sliceEdit')drawSliceEditor();
     else if(state.view==='mode')drawModePicker();
     else if(state.view==='pages')drawPagePicker();
@@ -4853,7 +5101,7 @@ function draw() {
 }
 
 function drawSaveIndicator() {
-    if(state.view==='projects')return; // The project panel owns progress and completion feedback.
+    if(state.view==='projects'||(state.view==='seqGenerate'&&state.saveStatus!==4))return; // Dedicated panels own their available space.
     // Fixed footer overlay: parameter cells and waveform coordinates stay put.
     if(state.saveStatus===4) {
         if((state.view!=='main'&&state.view!=='bankRecovery'&&state.view!=='projects')||state.performanceVisible) {
@@ -5110,7 +5358,17 @@ function selectClipSlot(step) {
     }
     if (state.deleteHeld) {
         setParamBlocking('clip_reset', clip);
-        showMessage('CLEARED LOOP ' + clipLabel(clip));
+        const error=String(getParam('last_error','')||'');
+        if(error){showMessage(error.slice(0,21));return;}
+        if(clip===state.activeClip){
+            parseClipState(getParam('clip_state',''));
+            if(sequenceUi.active){
+                sequenceUi.pad=-1;sequenceUi.held=false;
+                if(state.view==='seqGenerate')closeSequenceGenerator(false,false);
+                else readSequence();
+            }
+        }
+        showMessage('CLEARED CLIP ' + clipLabel(clip));
     } else if (state.shiftHeld) {
         setParamBlocking('clip_copy', clip);
         if (clip < 32) state.clipMaskLow |= 1 << clip;
@@ -5147,6 +5405,19 @@ function toggleRecording() {
     if (!state.recording) setParamBlocking('maintenance', 1);
     showMessage(state.recording ? 'RECORDING LANE ' + state.lane : 'RECORD STOPPED');
     rebuildLedQueue();
+}
+
+function clearPerformanceRecording(){
+    if(state.recording||state.clipRecording){showActionMessage('STOP RECORDING FIRST');return;}
+    setParamBlocking('clip_clear_recording',1);
+    const error=String(getParam('last_error','')||'');
+    if(error){showActionMessage('CLEAR REC NOT READY');return;}
+    parseClipState(getParam('clip_state',''));
+    parseClipTakeState(getParam('clip_take_state','0,0,0'));
+    parseClipCapacityState(getParam('clip_capacity_state',''));
+    parseClipBankState(getParam('clip_bank_state',''));
+    readSequence();readLayers();rebuildLedQueue();
+    showActionMessage('RECORDING CLEARED');
 }
 
 function togglePerformanceRecording() {
@@ -5232,12 +5503,18 @@ function adjustSettingsPage(delta) {
         resetParameterEncoderMotion();
     state.actionMessageTicks = 0;
     rememberLayersPage();
+    if(currentSettingsPage().sequenceGenerator){openSequenceGenerator(currentSettingsPage().generatorPage);return;}
+    if(previous?.sequenceGenerator&&state.view==='seqGenerate'){
+        setParamBlocking('seq_gen_cancel',1);sequenceGeneratorUi.data=null;sequenceGeneratorUi.raw='';
+        state.view='settings';readSequence();rebuildLedQueue();
+    }
     if(currentSettingsPage().pathEditor)readStackPath();
     if(currentSettingsPage().patternFade)readPatternFade();
 }
 
 function applyMomentaryControl(control) {
     control.value = 0;
+    if(control.key==='clip_clear_recording'){clearPerformanceRecording();return;}
     if (['layers_copy', 'layers_paste'].includes(control.key)) {
         setParamBlocking(control.key, 1);
         const error = String(getParam('last_error', '') || '');
@@ -5286,6 +5563,12 @@ function applyMomentaryControl(control) {
 }
 
 function nextControlValue(control,delta,fine=false) {
+    if(control.key==='seq_recipe_probability') {
+        const divisions=Math.round(1/(fine?control.step*.1:control.step));
+        const index=control.value<0?0:1+Math.round(control.value*divisions);
+        const next=clamp(index+delta,0,divisions+1);
+        return next===0?-1:(next-1)/divisions;
+    }
     if(control.values){const index=Math.max(0,control.values.indexOf(Math.round(control.value)));return control.values[clamp(index+delta,0,control.values.length-1)];}
     if(control.choiceCount)return clamp(Math.round(control.value*(control.choiceCount-1))+delta,0,control.choiceCount-1)/(control.choiceCount-1);
     if(fine&&!control.labels)return clamp(control.value+delta*(control.integer?Math.max(1,control.step):control.step*.1),control.min,control.max);
@@ -5389,7 +5672,8 @@ function adjustControl(index, delta) {
         return;
     }
     if(control.key.startsWith('seq_')&&state.deleteHeld){const field=['seq_pos','seq_note','seq_vel','seq_trig_gate'].indexOf(control.key);if(field>=0||control.key==='seq_trig_time_ms'){setParamBlocking('seq_clear',control.key==='seq_trig_time_ms'?3:field);readSequence();showMessage('INHERIT LANE');return;}}
-    if(control.key.startsWith('seq_')&&control.momentary){setParamBlocking(control.key,control.key==='seq_clear'?4:1);readSequence();return;}
+    if(control.key.startsWith('seq_')&&control.momentary){if(['seq_to_normal','seq_regenerate'].includes(control.key)&&delta<0)return;setParamBlocking(control.key,control.key==='seq_clear'?4:1);readSequence();if(control.key==='seq_to_normal'){state.view='main';state.settingsPage=0;resetParameterEncoderMotion();}return;}
+    if(control.key==='clip_clear_recording'&&delta<=0)return;
     if (control.momentary) {
         parameterEncoderMotion[index].key = control.key;
         parameterEncoderMotion[index].remainder = 0;
@@ -5404,7 +5688,7 @@ function adjustControl(index, delta) {
         const field=SEQUENCE_STRIP_KEYS.indexOf(control.key);
         if(field>=0){
             setParamBlocking('seq_strip_edit',stripPage.sequenceStrip+','+field+','+value);
-            readSequence();return;
+            readSequence();readMixerState();return;
         }
     }
     if(control.key==='split_mode'){queueModeChange(false,value);return;}
@@ -5419,7 +5703,18 @@ function adjustControl(index, delta) {
     }
     control.value = value;
     PARAMS[control.key].value = value;
-    if(control.key.startsWith('seq_')){setParamBlocking(control.key,value);readSequence();return;}
+    if(control.key.startsWith('seq_')){
+        // TYPE inserts/removes pages as soon as its displayed value changes.
+        // Use the page resolved before that change, not the shifted index.
+        const title=stripPage?.title;
+        setParamBlocking(control.key,value);readSequence();
+        if(control.key==='seq_type'&&title){
+            state.settingsPage=Math.max(0,parameterPages().findIndex(page=>page.title===title));
+            resetParameterEncoderMotion();
+        }
+        if(control.key.startsWith('seq_pan_')||control.key.startsWith('seq_duck_'))readMixerState();
+        return;
+    }
     if (control.key === 'algorithm') {
         selectAlgorithm(value);
         return;
@@ -5513,6 +5808,7 @@ function pollDsp() {
     state.voiceAlgorithms=String(getParam('voice_algorithms','')).split(',').map(Number);
     parseSaveStatus(getParam('save_status',''));
     parseMixStatus(getParam('mix_status',''));
+    if(mixerUi.visible||uiPolling.cached)readMixerState();
     PARAMS.preview_route.value=clamp(getNumber('preview_route',PARAMS.preview_route.value),0,1);
     parseUiState(getParam('ui_state', ''));
     parsePlayheads(getParam('playheads', ''));
@@ -5748,6 +6044,7 @@ globalThis.init = function() {
     setParam('slice_editor_open',0);sliceUi.data=null;sliceUi.wave=null;
     state.view = 'main';
     state.settingsPage = 0;
+    sequenceGeneratorUi.data=null;sequenceGeneratorUi.raw='';sequenceGeneratorUi.page=0;mixerUi.data=null;mixerUi.raw='';mixerUi.visible=false;
     state.pathReady=false;state.pathPoint=0;
     state.helpPage = 0;
     projectUi.data=null;projectUi.files=[];projectUi.pending=null;projectUi.mode='menu';
@@ -5818,7 +6115,7 @@ globalThis.init = function() {
         0, SCALE_LABELS.length - 1);
     parseWaveforms(getParam('waveforms', ''));
     readBankState();
-    readLayers();
+    readLayers();readMixerState();
     if (state.recalled) {
         state.message = 'RECALLED ' + state.mask.toString(2).replace(/0/g, '').length
             + ' STEREO LANES';
@@ -5842,7 +6139,7 @@ globalThis.tick = function() {
     // elapsed time; never couple a MIDI/LED cursor to a long serial query sweep.
     // Check cadence BEFORE any page predicates. In particular,
     // customMidiContext() resolves the menu and must not run at host tick rate.
-    if(sequenceUi.active){
+    if(sequenceUi.active||mixerUi.visible){
         const now=Date.now();
         if(now>=uiPolling.lastFrame&&now-uiPolling.lastFrame<16)return;
         uiPolling.lastFrame=now;
@@ -5868,6 +6165,7 @@ globalThis.tick = function() {
         // One fast coherent cursor snapshot; one slow job OR MIDI feedback.
         const recoveringEditor=uiPolling.editorPending;
         if(recoveringEditor)refreshEditorSnapshot(false);
+        else if(state.view==='seqGenerate'&&state.ticks%6===1)readSequenceGenerator();
         else if(state.ticks%3!==0)fetchUiPoll(UI_POLL_JOBS[uiPolling.job++%UI_POLL_JOBS.length]);
         withUiPollCache(()=>{
             if(state.ticks%3===0){pollDsp();pollMidiControls();}
@@ -5877,6 +6175,7 @@ globalThis.tick = function() {
     }else{
         if (state.ticks % 3 === 0) {pollDsp();pollMidiControls();if(state.view==='projects'||projectUi.pending)readProject();}
         if(sequenceUi.active)readSequenceCursor();
+        if(state.view==='seqGenerate'&&state.ticks%6===1)readSequenceGenerator();
         tickMidiFeedback();
     }
     if (state.ticks % 180 === 0) setParam('maintenance', 1);
@@ -5994,6 +6293,7 @@ globalThis.onMidiMessageInternal = function(data) {
         if(value>0)state.iconPressed.add(number);else state.iconPressed.delete(number);
         rebuildIconLedQueue();
     }
+    if(handleSequenceGeneratorCc(number,value))return;
     if(handleProjects(number,value))return;
     if(handleBankRecovery(number,value))return;
     if(handleCustomMidiCcUi(number,value))return;
@@ -6001,6 +6301,7 @@ globalThis.onMidiMessageInternal = function(data) {
     if(number===MoveUndo&&value>0){triggerSafetyUndo();readSliceEditor();return;}
     if(handleLayersPicker(number,value))return;
     if(number===MoveMainButton&&value>0&&sequenceUi.active&&(state.view==='main'||(state.view==='settings'&&currentSettingsPage().sequence))){
+        if(state.view==='settings'&&currentSettingsPage().sequenceGenerator){openSequenceGenerator(currentSettingsPage().generatorPage);return;}
         if(state.view==='settings'&&currentSettingsPage().sequenceTrig)setParamBlocking('seq_hold',sequenceUi.data?.step||0);
         else{state.view='settings';state.settingsPage=parameterPages().indexOf(SEQUENCE_LANE_PAGE);resetParameterEncoderMotion();}
         return;
@@ -6023,6 +6324,7 @@ globalThis.onMidiMessageInternal = function(data) {
     }
     if(number===MoveCapture){
         if(value>0) {
+            if(state.deleteHeld&&!state.shiftHeld){state.focusButtonUsed=true;clearPerformanceRecording();return;}
             if(state.shiftHeld) {state.focusButtonUsed=true;setParam('performance_capture',0);return;}
             state.focusButtonHeld=true;state.focusButtonUsed=false;
             state.performanceArmed=true;
@@ -6036,10 +6338,10 @@ globalThis.onMidiMessageInternal = function(data) {
         }
         return;
     }
-    if(number===MoveMute&&value>0&&state.splitEnabled){
+    if(number===MoveMute&&value>0){
         parseSplitState(getParam('split_state','{}'));
-        const muted=!(state.splitParts[state.splitFocus]?.mute);
-        setParamBlocking('part_mute',muted?1:0);parseSplitState(getParam('split_state','{}'));showMessage(muted?'PART MUTED':'PART UNMUTED');return;
+        const muted=state.splitEnabled?!(state.splitParts[state.splitFocus]?.mute):!(mixerUi.data?.strips?.[0]?.[5]);
+        setParamBlocking('part_mute',muted?1:0);readMixerState();parseSplitState(getParam('split_state','{}'));showMessage(muted?'PART MUTED':'PART UNMUTED');return;
     }
     if(number===MoveKnob1+7&&state.splitEnabled&&state.focusButtonHeld){state.focusButtonUsed=true;adjustSplitBlend(decodeDelta(value));return;}
     if(state.focusButtonHeld && number>=MoveKnob1 && number<MoveKnob1+8){if(layersUi.active)state.focusButtonUsed=true;return;}

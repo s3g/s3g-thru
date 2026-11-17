@@ -156,7 +156,7 @@
     {
         part = clampValue(part,0,partCount()-1);
         if (!splitEnabled || part == splitFocus) return;
-        if(notify) {closeSliceEditor();cancelPerformanceGestures();}
+        if(notify) {cancelSequenceGenerate();closeSliceEditor();cancelPerformanceGestures();}
         if(sequenceMode()){sequenceSteps[splitFocus]=sequenceStep;sequenceChildren[splitFocus]=sequenceChild;sequenceStep=sequenceSteps[part];sequenceChild=sequenceChildren[part];}
         storeFocusedPart(); splitFocus = part; loadPartEditor(part);
         if (notify && !audioRecording() && !sharedDual) selectedLane = static_cast<std::size_t>(firstLaneForPart(part));
@@ -176,6 +176,7 @@
         if(audioRecording()||clipRecording){setError("Stop recording before changing mode");return;}
         if(partCapturePublishing){setError("Wait for capture publication");return;}
         if(bankJob.load(std::memory_order_acquire)){setError("Wait for Bank sample job");return;}
+        cancelSequenceGenerate();
         const int previousMode=performanceMode();
         if(mode>0)lastNonSingleMode=mode;
         else if(previousMode>0)lastNonSingleMode=previousMode;
@@ -225,7 +226,8 @@
             // Keep its current controls instead of restoring a stale split cache.
             splitEnabled=false;splitFocus=0;
         }
-        sequenceLive.active=mode==6;sequenceEditStep=-1;sequencePads=0;sequenceUndoLane=sequenceUndoStep=-1;resetSequenceClock();
+        if(mode==6&&!sequenceLive.initialized){for(auto& lane:sequenceLive.tracks){lane.timeMode=true;lane.timeMs=1000;}sequenceLive.initialized=true;}
+        sequenceLive.active=mode==6;syncOutputMixerMode(mode);sequenceEditStep=-1;sequencePads=0;sequenceUndoLane=sequenceUndoStep=-1;resetSequenceClock();
         if(sequenceMode())ensureSequenceClip();
         bankMode=mode==4;
         layersLive.active=mode==5;
@@ -289,6 +291,7 @@
 
     void captureSplitClip(ClipSlot& clip)
     {
+        syncOutputMixerMode(performanceMode());
         storeFocusedPart();
         splitLanePreferences=preferredSplitLanes();
         clip.splitLanePreferences=splitLanePreferences;
@@ -315,7 +318,9 @@
     {
         splitLanePreferences=clip.splitLanePreferences;
         layersLive=layersRecorded=clip.layers;layersOverrides.reset();clearLayersTouches();
+        if(sequenceLive.mixerMode!=clip.sequence.mixerMode)resetOutputMixerRuntime();
         sequenceLive=sequencePlayback=clip.sequence;
+        sequenceTypeSourceStamp.fill(0);sequenceTypeStatus={};
         publishSequenceRates();
         bankMode=clip.bankMode;bankSlots=clip.bankSlots;
         bankMasterRate=clip.bankMasterRate;bankRecordSource=clip.bankRecordSource;
@@ -454,8 +459,7 @@
             applyPerformanceInsert(insertControls,static_cast<int>(part));
             splitInserts[part].process(frames,splitBus[part],insertControls);
         }
-        if(sequenceMode())
-            sequenceStripProcessor.process(frames,splitBus,sequencePlayback.mix,sampleRate);
+        sequenceStripProcessor.process(frames,splitBus,sequenceMode()?sequencePlayback.mix:sequenceLive.mix,sampleRate,partCount());
         for(std::size_t part=0;part<static_cast<std::size_t>(partCount());++part) {
             if(partCaptureRecording && recordSource==static_cast<int>(part)+2)
                 for(std::size_t channel=0;channel<2;++channel)
@@ -468,8 +472,8 @@
         std::array<float,4u> peaks {};
         // Sequence adapts Opps's protected-lane priority to all four Quad
         // buses. Existing dual-mode priority retains its original semantics.
-        const bool sequencePriority=sequenceMode();
-        const auto& sequenceMix=sequencePlayback.mix;
+        const bool sequencePriority=isQuad();
+        const auto& sequenceMix=sequenceMode()?sequencePlayback.mix:sequenceLive.mix;
         const bool priorityBypassed=isQuad()&&!sequencePriority;
         const int priorityKey=sequencePriority
             ?sequenceMix.priority-1

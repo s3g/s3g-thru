@@ -19,6 +19,20 @@
 
 namespace {
 
+// File/analysis workers run on ordinary host threads. Instrumented runs
+// can finish substantially later; this allowance is only for asynchronous
+// completion, never render timing or audio correctness assertions.
+#if defined(__SANITIZE_ADDRESS__)
+constexpr int kAsyncWaitScale = 8;
+#elif defined(__clang__)
+#if __has_feature(address_sanitizer)
+constexpr int kAsyncWaitScale = 8;
+#else
+constexpr int kAsyncWaitScale = 1;
+#endif
+#else
+constexpr int kAsyncWaitScale = 1;
+#endif
 constexpr int kFrames = MOVE_FRAMES_PER_BLOCK;
 constexpr int kInputOffset = 4096;
 constexpr float kOutputCeiling = 0.8912509381337456f;
@@ -1041,16 +1055,20 @@ std::uint32_t unsignedStateField(const std::string& state, int index)
 
 void waitForBackgroundAudio(plugin_api_v2_t* api, void* instance)
 {
-    for (int attempt = 0; attempt < 4000; ++attempt) {
+    for (int attempt = 0; attempt < 4000 * kAsyncWaitScale; ++attempt) {
         const auto background = get(api, instance, "background_state");
         const auto ui = get(api, instance, "ui_state");
         if (stateField(background, 1) == 0 && stateField(background, 2) == 0
-            && stateField(ui, 13) == 0) return;
+            && stateField(ui, 13) == 0) {
+            if(attempt>=4000)std::fprintf(stderr,"Instrumented background completion needed %d polls\n",attempt);
+            return;
+        }
         render(api, instance, 1);
         usleep(1000);
     }
-    std::fprintf(stderr, "Background audio work did not complete: %s\n",
-        get(api, instance, "last_error").c_str());
+    std::fprintf(stderr, "Background audio work did not complete: error=%s background=%s ui=%s sample=%s\n",
+        get(api, instance, "last_error").c_str(),get(api,instance,"background_state").c_str(),
+        get(api,instance,"ui_state").c_str(),get(api,instance,"sample_load_state").c_str());
     assert(false);
 }
 
@@ -3272,14 +3290,17 @@ int main()
     api->set_param(instance, "record_lane", "3");
     const std::string cueLoadCommand = "3," + cueSample;
     api->set_param(instance, "load_lane_file", cueLoadCommand.c_str());
-    int cueLoadState = 0;
-    for (int attempt = 0; attempt < 500
-         && cueLoadState != 6 && cueLoadState != 7; ++attempt) {
+    int cueLoadState = 0, cueLoadAttempt = 0;
+    for (; cueLoadAttempt < 500 * kAsyncWaitScale
+         && cueLoadState != 6 && cueLoadState != 7; ++cueLoadAttempt) {
         render(api, instance, 1);
         usleep(1000);
         cueLoadState = stateField(
             get(api, instance, "sample_load_state"), 0);
     }
+    if(cueLoadAttempt>=500)std::fprintf(stderr,"Instrumented cue completion needed %d polls\n",cueLoadAttempt);
+    if(cueLoadState!=6)std::fprintf(stderr,"Cue load failed: sample=%s background=%s error=%s\n",
+        get(api,instance,"sample_load_state").c_str(),get(api,instance,"background_state").c_str(),get(api,instance,"last_error").c_str());
     assert(cueLoadState == 6);
     api->set_param(instance, "algorithm", "Sample");
     api->set_param(instance, "sample_mode", "Loop");
@@ -3708,7 +3729,7 @@ int main()
         == sizeof(clipMagic));
     assert(std::memcmp(clipMagic, "S3GTHR3", 7u) == 0);
     assert(std::fread(&clipVersion, sizeof(clipVersion), 1u, clipFile) == 1u);
-    assert(clipVersion == 42u);
+    assert(clipVersion == 46u);
     std::fclose(stateFile);
     std::fclose(laneFile);
     std::fclose(clipFile);
@@ -3906,7 +3927,7 @@ int main()
     assert(std::fread(clipMagic, 1u, sizeof(clipMagic), clipFile)
         == sizeof(clipMagic));
     assert(std::fread(&clipVersion, sizeof(clipVersion), 1u, clipFile) == 1u);
-    assert(clipVersion == 42u);
+    assert(clipVersion == 46u);
     assert(std::fclose(clipFile) == 0);
 
     std::remove(statePath.c_str());

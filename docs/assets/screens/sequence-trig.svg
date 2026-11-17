@@ -5,7 +5,7 @@
   <rect width="128" height="64" fill="#050706"/>
   <g shape-rendering="crispEdges" font-family="DejaVu Sans Mono, IBM Plex Mono, monospace" font-size="6" font-style="normal" font-weight="400" text-rendering="geometricPrecision">
     <text x="1" y="5.5" fill="#dce8e1">L2 T07 TRIG</text>
-    <text x="104" y="5.5" fill="#dce8e1">2/10</text>
+    <text x="104" y="5.5" fill="#dce8e1">3/10</text>
     <rect x="0" y="8" width="128" height="1" fill="#dce8e1"/>
     <rect x="4" y="18" width="1" height="1" fill="#dce8e1"/>
     <rect x="5" y="18" width="1" height="1" fill="#dce8e1"/>
@@ -142,7 +142,7 @@
     <text x="65" y="36.5" fill="#dce8e1">VEL</text>
     <text x="65" y="43.5" fill="#dce8e1">100</text>
     <text x="97" y="36.5" fill="#dce8e1">DUR</text>
-    <text x="97" y="43.5" fill="#dce8e1">67ms</text>
+    <text x="97" y="43.5" fill="#dce8e1">1.0s</text>
     <text x="1" y="52.5" fill="#dce8e1">MICRO</text>
     <text x="1" y="59.5" fill="#dce8e1">-10%</text>
     <text x="33" y="52.5" fill="#dce8e1">PROB</text>

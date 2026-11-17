@@ -2,6 +2,8 @@ std::unique_ptr<ThruInstance> sequenceFixture() {
   auto t = splitFixture();
   t->stopBackgroundWork();
   t->setPerformanceMode(6);
+  for(auto& lane:t->sequenceLive.tracks)lane.timeMode=false;
+  t->resetSequenceClock();
   assert(t->performanceMode() == 6 && t->isQuad() && t->voicesPerPart() == 2);
   t->launchQuantize = LaunchQuantize::off;
   return t;
@@ -852,12 +854,9 @@ void testSequenceMuteAndPosition() {
          recorded->activeClipSlot()->splitSettings[0].muted);
   const std::size_t muteCurve = kClipSequenceOffset + 4u;
   const auto *recordedClip = recorded->activeClipSlot();
-  assert(recordedClip->clipPointCounts[muteCurve] > 0u);
-  assert(recordedClip->clipPoints[recordedClip->clipPointStarts[muteCurve]].timeMs == 0u);
-  assert(recordedClip->clipPoints[recordedClip->clipPointStarts[muteCurve]].value == 1.f);
+  assert(recordedClip->clipPointCounts[muteCurve] == 0u);
 
-  // A timed mute gesture still plays at its recorded time after a manual
-  // change to the starting mute state.
+  // A manual Sequence mute replaces only that lane's recorded mute curve.
   auto gestures=sequenceFixture();
   gestures->beginClipRecording();
   renderSplit(*gestures,70);
@@ -876,8 +875,7 @@ void testSequenceMuteAndPosition() {
   gestures->startClipPlaybackNow();renderSplit(*gestures,2);
   assert(!gestures->sequenceMuted[0]);
   renderSplit(*gestures,100);
-  assert(gestures->sequenceMuted[0]);
-  assert(gestureClip->clipPoints[gestureStart+1].value==1.f);
+  assert(!gestures->sequenceMuted[0]&&gestureClip->clipPointCounts[muteCurve]==0u);
 
   setParam(t.get(),"seq_pos",".8");
   setParam(t.get(),"seq_burst","2");
@@ -1060,7 +1058,78 @@ void testSequenceCallbackWorkBudget(){
   setParam(t.get(),"render_profile_enable","0");
   std::puts("Sequence callback budget: dense Burst subdivisions perform one background copy; opt-in stage timing and reset: PASS");
 }
+void testSequenceClipReset() {
+  auto t=sequenceFixture();
+  t->controls.speed=.73f;
+  for(int p=0;p<4;++p){
+    t->selectSplitPart(p);
+    setParam(t.get(),"seq_length",std::to_string(9+p).c_str());
+    setParam(t.get(),"seq_step","32");setParam(t.get(),"seq_toggle","1");
+    setParam(t.get(),"seq_pos",".75");setParam(t.get(),"seq_note","7");
+    setParam(t.get(),"seq_cycle_every","3");setParam(t.get(),"seq_cycle_hit","2");
+    setParam(t.get(),"seq_burst","4");setParam(t.get(),"seq_child","2");setParam(t.get(),"seq_vel","61");
+    t->currentLaneSourceKinds[p]=LaneSourceKind::file;
+    std::snprintf(t->currentLaneSourcePaths[p].data(),t->currentLaneSourcePaths[p].size(),"library/lane-%d.wav",p);
+    std::snprintf(t->laneSourceLabels[p].data(),t->laneSourceLabels[p].size(),"LANE %d",p+1);
+  }
+  t->selectSplitPart(0);setParam(t.get(),"seq_step","1");setParam(t.get(),"seq_toggle","1");
+  t->captureActiveClip(true);t->copyCurrentSourcesToClip(*t->activeClipSlot());const auto original=t->sequenceLive;
+  auto& clip=*t->activeClipSlot();clip.clipNoteCount=1;clip.clipNotes[0].note=60;
+  clip.clipPointCount=1;clip.clipPoints[0].value=.6f;t->rebuildClipPointIndex(clip);
+  t->startClipPlaybackNow();renderSplit(*t,4);assert(t->sequenceEventCount[0]>0);
+  t->clipSlots[5]=clip;
+  const auto beforeRefusal=t->persistentRevision;
+  t->clipRecording=true;t->resetClip(0);t->clipRecording=false;
+  assert(t->lastError[0]&&t->sequenceLive.tracks[0].trigs[0].enabled&&t->persistentRevision==beforeRefusal);
+  t->partCaptureRecording=true;t->resetClip(0);t->partCaptureRecording=false;
+  assert(t->lastError[0]&&t->sequenceLive.tracks[0].trigs[0].enabled&&t->persistentRevision==beforeRefusal);
+  t->bankJob.store(1);t->resetClip(0);t->bankJob.store(0);
+  assert(t->lastError[0]&&t->sequenceLive.tracks[0].trigs[0].enabled&&t->persistentRevision==beforeRefusal);
+  const auto beat=t->sequenceBeat;const auto phase=t->sequenceBeatOffsets;
+  setParam(t.get(),"clip_reset","5");
+  assert(t->clipPlaying&&t->sequenceBeat==beat&&t->sequenceBeatOffsets==phase);
+  assert(s3g_thru_generate::sameLane(t->sequenceLive.tracks[0],original.tracks[0]));
+  assert(!t->clipSlots[5].occupied&&!t->clipSlots[5].sequence.tracks[0].trigs[31].enabled);
+  setParam(t.get(),"seq_gen_begin","1");assert(t->sequenceGenerateActive);
+  setParam(t.get(),"clip_reset","0");
+  assert(t->sequenceMode()&&t->performanceMode()==6&&!t->sequenceGenerateActive);
+  assert(!t->clipPlaying&&!t->clipLaunchPending&&t->sequenceEditStep==-1&&t->sequencePads==0);
+  assert(t->sequenceBeat==0&&t->controls.speed==.73f&&t->undoAvailable);
+  for(int p=0;p<4;++p){
+    auto expected=original.tracks[p];for(auto& step:expected.trigs)step={};
+    assert(s3g_thru_generate::sameLane(t->sequenceLive.tracks[p],expected));
+    assert(s3g_thru_generate::sameLane(t->sequencePlayback.tracks[p],expected));
+    assert(s3g_thru_generate::sameLane(t->activeClipSlot()->sequence.tracks[p],expected));
+    assert(t->currentLaneSourceKinds[p]==LaneSourceKind::empty&&t->currentLaneSourcePaths[p][0]==0);
+    assert(t->activeClipSlot()->laneSourceKinds[p]==LaneSourceKind::empty);
+  }
+  assert(!t->activeClipSlot()->clipRecorded&&t->activeClipSlot()->clipNoteCount==0&&t->activeClipSlot()->clipPointCount==0);
+  t->sequencePadUp(24);t->cancelSequenceGenerate();t->captureActiveClip(false);
+  assert(!t->sequenceLive.tracks[0].trigs[0].enabled&&!t->activeClipSlot()->sequence.tracks[0].trigs[0].enabled);
+  t->startClipPlaybackNow();renderSplit(*t,4);assert((t->sequenceEventCount==std::array<std::uint64_t,4>{}));
+  t->setClipPlaying(false);
+  char folder[]="/tmp/thru-seq-reset.XXXXXX";assert(mkdtemp(folder));
+  t->persistenceEnabled=true;std::snprintf(t->moduleDirectory.data(),t->moduleDirectory.size(),"%s",folder);
+  assert(t->savePersistentState());
+  auto reopened=std::make_unique<ThruInstance>();assert(reopened->prepare(folder));reopened->stopBackgroundWork();
+  assert(reopened->sequenceMode());
+  for(int p=0;p<4;++p){
+    assert(reopened->currentLaneSourceKinds[p]==LaneSourceKind::empty);
+    for(const auto& step:reopened->sequenceLive.tracks[p].trigs)assert(!step.enabled&&step.locks.mask==0&&step.count==1&&step.cycleEvery==1);
+  }
+  reopened.reset();
+  t->restoreUndo();assert(t->sequenceMode()&&!t->undoAvailable);
+  for(int p=0;p<4;++p){
+    assert(s3g_thru_generate::sameLane(t->sequenceLive.tracks[p],original.tracks[p]));
+    assert(t->activeClipSlot()->laneSourceKinds[p]==LaneSourceKind::file);
+    assert(std::strcmp(t->activeClipSlot()->laneSourcePaths[p].data(),t->undoClip.laneSourcePaths[p].data())==0);
+  }
+  assert(t->activeClipSlot()->clipNoteCount==1&&t->activeClipSlot()->clipPointCount==1);
+  t->persistenceEnabled=false;t.reset();std::filesystem::remove_all(folder);
+  std::puts("Sequence clip reset: inactive isolation, all four lanes/32 trigs/locks/Bursts/conditions, preview cancellation, source detach, live/save/reopen consistency, retained mode/setup and full Undo: PASS");
+}
 void testSequence() {
+  testSequenceClipReset();
   testSequenceCallbackWorkBudget();
   testSequencePollSnapshots();
   testSequenceTempoEdges();

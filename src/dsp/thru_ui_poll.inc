@@ -10,7 +10,7 @@ int formatUiPoll(void* opaque, const char* group, char* buffer, int capacity)
     if(!std::strcmp(group,"fast")){keys=fast;count=sizeof(fast)/sizeof(*fast);}
     static constexpr const char* sequence[]{"seq_state"};
     if(!std::strcmp(group,"sequence")){keys=sequence;count=sizeof(sequence)/sizeof(*sequence);}
-    static constexpr const char* status[]{"algorithm","split_state","voice_engine_state","voice_algorithms","save_status","mix_status","preview_route","pad_mode","scale","root_note","undo_available","stack_scan_paused","clip_stack_hold","glitch_buffer_lock"};
+    static constexpr const char* status[]{"algorithm","split_state","voice_engine_state","voice_algorithms","save_status","mix_status","mixer_state","preview_route","pad_mode","scale","root_note","undo_available","stack_scan_paused","clip_stack_hold","glitch_buffer_lock"};
     if(!std::strcmp(group,"status")){keys=status;count=sizeof(status)/sizeof(*status);}
     static constexpr const char* sources[]{"waveforms","region_state","cue_state","sample_load_state","lane_source","lane_source_state"};
     if(!std::strcmp(group,"sources")){keys=sources;count=sizeof(sources)/sizeof(*sources);}

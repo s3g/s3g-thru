@@ -28,7 +28,10 @@ for(const name of ['PACKETS_PAGE','MOTOR_PAGE','EVENT_CLOCK_PAGE','EVENT_SHAPE_P
 }
 const extraStart=rows.length-3;
 const color=add('PART COLOR',d.PART_COLOR_PAGE.keys),rotary=add('STEREO ROTARY',d.STEREO_ROTARY_PAGE.keys);
-const sends=add('FX SENDS',d.SPLIT_MIX_PAGE.keys),quadSends=add('FX SENDS',d.QUAD_SEND_PAGE.keys);
+// Keep the twelve-page controller's live priority macros even though Move
+// groups its complete detector controls on the shared Priority Duck page.
+const dualPerformanceSends=['split_delay_a','split_reverb_a','split_delay_b','split_reverb_b','split_priority','split_duck_threshold','split_curve','split_blend'];
+const sends=add('FX SENDS',dualPerformanceSends),quadSends=add('FX SENDS',d.QUAD_SEND_PAGE.keys);
 const delay=add('DELAY RETURN',[...d.DELAY_RETURN_PAGE.keys,null,null,null,null,'effect_mix']);
 const reverb=add('REVERB',d.REVERB_PAGE.keys),tape=add('TAPE',d.TAPE_PAGE.keys);
 const labels={};

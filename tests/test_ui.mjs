@@ -133,8 +133,10 @@ globalThis.host_module_get_param = (key) => {
     }
     if(key==='ui_editor_state'||key.startsWith('ui_editor_chunk:')) {
         if (corruptEditorSnapshot) return '{truncated';
+        // Match native formatEditorState: sequence controls arrive in seq_state,
+        // not in the engine/editor scalar chunks.
         const values = Object.fromEntries(Object.entries(globalThis.__testParams || {})
-            .filter(([key,p]) => !p.momentary&&!key.startsWith('layers_'))
+            .filter(([key,p]) => !p.momentary&&!key.startsWith('layers_')&&!key.startsWith('seq_')&&key!=='mix_mute')
             .map(([key,p]) => [key, Number(params[key] ?? p.value)]));
         const split = JSON.parse(params.split_state || '{"enabled":0,"focus":0,"blend":0.5,"parts":[{},{}]}');
         if(!split.enabled||!split.quad)split.parts=split.parts.slice(0,2);
@@ -247,7 +249,7 @@ globalThis.__testRebuildLeds=rebuildLedQueue;
 globalThis.__testPulsar={parse:parsePulsarState,footer:pulsarDurationFooter};
 globalThis.__testSplit = {pages:parameterPages,parse:parseSplitState,keys:activeControlKeys};
 globalThis.__testMode={queue:queueModeChange,service:serviceModeChange,current:currentPerformanceMode,decode:decodeSplitState};
-globalThis.__testSequence={model:sequenceUi,read:readSequence,cursor:readSequenceCursor,tickGesture:tickSequenceGesture,control:controlForKey,adjust:adjustControl,page:adjustSettingsPage,drain:drainLedQueue};
+globalThis.__testSequence={model:sequenceUi,timing:uiTiming,read:readSequence,cursor:readSequenceCursor,tickGesture:tickSequenceGesture,control:controlForKey,adjust:adjustControl,page:adjustSettingsPage,drain:drainLedQueue};
 globalThis.__testLayers={model:layersUi,read:readLayers,action:applyMomentaryControl,padNote:padMidiNote,control:controlForKey,gesture:layersCornerGesture,tickGesture:tickLayersCornerGesture,pageSide:layersPageSide,iconStates:iconLedStates,groups:LAYERS_FX_GROUPS,order:LAYERS_FX_ORDER,picker:layersPicker,openPicker:openLayersPicker};
 globalThis.__testResetEncoders = resetParameterEncoderMotion;
 globalThis.__testNextControlValue = nextControlValue;
@@ -284,6 +286,7 @@ globalThis.__testFx = { adjust: adjustFxOrder, sync: syncFxOrder,
     parseClip: parseClipBankState, draw: drawSettings,
     pageIndex: () => parameterPages().indexOf(FX_ORDER_PAGE) };
 `;
+source += '\nglobalThis.__testSequenceGenerate={ui:sequenceGeneratorUi,open:openSequenceGenerator,close:closeSequenceGenerator,read:readSequenceGenerator,pages:GEN_PAGES,control:generatorControl,draw:drawSequenceGenerator,green:NeonGreen,color:generatorPadColor,position:settingsPagePosition,activate:activatePageEntry};';
 await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
 
 assert.equal(typeof globalThis.init, 'function');
@@ -1114,7 +1117,7 @@ cc(60); assert(fx.state().splitEnabled);assert.equal(fx.state().splitFocus,0);
 assert.equal(split.keys().at(-1),'split_blend');
 assert.equal(globalThis.__testPadMidiNote(0),48);
 assert.equal(globalThis.__testPadMidiNote(4),67);
-const keys=split.pages().flatMap((p)=>p.keys||[]).filter(Boolean);
+const keys=split.pages().filter(p=>!p.mixerOverview).flatMap(p=>(p.keys||[]).filter(Boolean).map(key=>Number.isInteger(p.sequenceStrip)?key+':'+p.sequenceStrip:key));
 assert.equal(new Set(keys).size,keys.length,'Split pages must not duplicate parameters');
 assert(split.pages().some((p)=>p.title==='PART COLOR'));
 assert(!split.pages().some((p)=>p.title==='EFFECTS'));
@@ -1430,18 +1433,18 @@ Object.assign(params,{split_state:JSON.stringify(splitState),effect_mix:'0',effe
 globalThis.init();cc(52);cc(50);cc(52,0);fx.state().pageSelection=2;cc(3);cc(3,0);
 fx.state().pageSelection=globalThis.__testTools.categories(2).findIndex(e=>e.title==='FX SENDS');cc(3);cc(3,0);
 const sendsKeys=['split_delay_a','split_reverb_a','split_delay_b','split_reverb_b',
-    'split_priority','split_duck_threshold','split_curve','split_blend'];
+    'split_duck_route',null,'split_curve','split_blend'];
 assert.deepEqual(split.keys(),sendsKeys);
 let fxDrawStart=drawWrites.length;globalThis.tick();
 let fxText=drawWrites.slice(fxDrawStart).filter(([kind])=>kind==='print').map((w)=>String(w[3]));
 assert(fxText.some(text=>text.includes('FX SENDS')));
-assert(fxText.includes('PRIO')&&fxText.includes('THR')&&fxText.includes('25%'));
+assert(fxText.includes('ROUT')&&fxText.includes('25%'));
 assert(fxText.includes('RETURNS OFF: CLICK'));
 globalThis.__testResetEncoders();cc(71,2);
 assert.equal(fx.state().actionMessage,'RAISE DRTN: DELAY');
 cc(72,2);assert.equal(fx.state().actionMessage,'RAISE RRTN: REVERB');
 for(let i=0;i<3;++i)cc(75,3);
-assert(Number(params.split_priority)>0);
+assert(globalThis.__testParams.split_duck_route.value>=0);
 fx.state().actionMessageTicks=0;
 fxDrawStart=drawWrites.length;globalThis.tick();
 assert(drawWrites.slice(fxDrawStart).some((w)=>w[0]==='print'&&w[3]==='RETURNS OFF: CLICK'));
@@ -1452,10 +1455,9 @@ assert(!paramWrites.slice(menuWrites).some(([key])=>key==='clip_record'||key==='
 const laneWrites=blockingWrites.filter(([key])=>key==='record_lane').length;
 cc(14,1);cc(3);
 assert.equal(split.pages()[fx.state().settingsPage].title,'PRIORITY DUCK');
-assert.deepEqual(split.keys(),['split_duck_attack','split_duck_hold','split_duck_release',
-    'split_duck_hpf','split_duck_knee','split_duck_route']);
+assert.deepEqual(split.keys(),['seq_duck_key','seq_duck_depth','seq_duck_threshold','seq_duck_attack','seq_duck_hold','seq_duck_release','seq_duck_hpf','seq_duck_knee']);
 const priorityDrawStart=drawWrites.length;globalThis.tick();
-assert(drawWrites.slice(priorityDrawStart).some((w)=>w[0]==='print'&&w[3]==='D+S'));
+assert(drawWrites.slice(priorityDrawStart).some((w)=>w[0]==='print'&&w[3]==='KEY'));
 cc(51);assert.equal(fx.state().view,'fxMenu');cc(14,1);cc(3);
 assert.equal(split.pages()[fx.state().settingsPage].title,'DELAY RETURN');
 assert(!split.keys().includes('effect_mix'),'Delay return level must not be duplicated');
@@ -1480,7 +1482,7 @@ fxDrawStart=drawWrites.length;globalThis.tick();
 assert(drawWrites.slice(fxDrawStart).some((w)=>w[0]==='print'&&w[3]==='LEVL'));
 for(let engine=0;engine<9;++engine)for(let focus=0;focus<2;++focus) {
     fx.state().algorithm=engine;fx.state().splitFocus=focus;
-    const controls=split.pages().flatMap((page)=>page.keys||[]).filter(Boolean);
+    const controls=split.pages().filter(p=>!p.mixerOverview).flatMap(p=>(p.keys||[]).filter(Boolean).map(key=>Number.isInteger(p.sequenceStrip)?key+':'+p.sequenceStrip:key));
     assert.equal(new Set(controls).size,controls.length);
 }
 // Fresh backend values and an immediate redraw on each focus change.
@@ -1529,6 +1531,7 @@ cc(52);cc(50);cc(50,0);cc(52,0);
 assert.equal(ui.view,'pages');
 assert(!blockingWrites.slice(toolWrites).some(([k])=>['clip_record','record_gate','split_focus'].includes(k)));
 assert.equal(ui.pageTier,'hub');assert.equal(tools.hub().length,9);
+assert.deepEqual(tools.hub().slice(0,4).map(entry=>entry.title),['PLAY','SAMPLE','MIX / FX','PERFORMANCE']);
 tapIcon(43);assert.equal(ui.view,'pages');assert.equal(ui.pageTier,'category');assert.equal(ui.pageCategory,0);
 ui.pageSelection=1;tapIcon(3);assert.equal(ui.view,'settings');
 assert.equal(globalThis.__testSplit.pages()[ui.settingsPage].title,'PADS & SCALE');
@@ -1548,7 +1551,7 @@ cc(52);tapIcon(43);cc(52,0);assert.equal(globalThis.__testSplit.pages()[ui.setti
 assert.equal(ui.lane,laneBeforeBank);
 cc(52);tapIcon(43);cc(52,0);assert.equal(globalThis.__testSplit.pages()[ui.settingsPage].title,'PADS & SCALE');
 cc(52);tapIcon(42);cc(52,0);assert.equal(globalThis.__testSplit.pages()[ui.settingsPage].title,'MIX / REC');
-cc(52);tapIcon(41);cc(52,0);assert.equal(globalThis.__testSplit.pages()[ui.settingsPage].title,'EFFECTS');
+cc(52);tapIcon(41);cc(52,0);assert.equal(globalThis.__testSplit.pages()[ui.settingsPage].title,'MIXER');
 cc(52);tapIcon(40);cc(52,0);assert.equal(globalThis.__testSplit.pages()[ui.settingsPage].title,'PERF LOOP');
 tapIcon(55);assert.equal(globalThis.__testSplit.pages()[ui.settingsPage].title,'PATTERN FADE');
 tapIcon(54);assert.equal(globalThis.__testSplit.pages()[ui.settingsPage].title,'PERF LOOP');
@@ -1708,7 +1711,7 @@ assert.equal(globalThis.__testParams.split_mode.value,2);
 assert.equal(padWrites.filter(w=>w[0]===73).at(-1)[1],35,'Shared B idle pads use muted plum');
 assert.equal(padWrites.filter(w=>w[0]===69).at(-1)[1],0,'A retains its chromatic idle color');
 // Both programs expose all four lane gains, one time each.
-const sharedKeys=split.pages().flatMap(p=>p.keys||[]).filter(Boolean);
+const sharedKeys=split.pages().filter(p=>!p.mixerOverview).flatMap(p=>(p.keys||[]).filter(Boolean).map(key=>Number.isInteger(p.sequenceStrip)?key+':'+p.sequenceStrip:key));
 assert.equal(new Set(sharedKeys).size,sharedKeys.length);
 const mixRec=split.pages().find(p=>p.title==='MIX / REC');
 assert.deepEqual(mixRec.keys.slice(0,4),['lane_1_gain','lane_2_gain','lane_3_gain','lane_4_gain']);
@@ -1801,7 +1804,7 @@ for(let p=0;p<4;++p) {
 }
 for(let p=0;p<4;++p){tapIcon([43,42,41,40][p]);assert.equal(ui.splitFocus,p);assert.equal(ui.lane,p+1);assert(ui.editorReady,'all four editors must accept snapshots');}
 tapIcon(52);assert.equal(ui.splitFocus,0);tapIcon(52);assert.equal(ui.splitFocus,1);
-const quadPages=split.pages();const quadKeys=quadPages.flatMap(p=>p.keys||[]).filter(Boolean);
+const quadPages=split.pages();const quadKeys=quadPages.filter(p=>!p.mixerOverview).flatMap(p=>(p.keys||[]).filter(Boolean).map(key=>Number.isInteger(p.sequenceStrip)?key+':'+p.sequenceStrip:key));
 assert.equal(quadKeys.length,new Set(quadKeys).size,'Quad parameters appear in one place each');
 assert(!quadPages.some(p=>p.title==='STACK PATH'));
 assert(!quadKeys.includes('manual_lane')&&!quadKeys.includes('lane_cycles'));
@@ -1811,7 +1814,7 @@ assert.equal(quadPages.find(p=>p.title==='DELAY RETURN').keys[7],'effect_mix');
 const quadSkipbackPage=ui.settingsPage;cc(49);tapIcon(52);cc(49,0);assert.equal(ui.settingsPage,quadSkipbackPage);
 cc(52);cc(50);cc(52,0);ui.pageSelection=2;tapIcon(3);
 ui.pageSelection=globalThis.__testTools.categories(2).findIndex(e=>e.title==='FX SENDS');tapIcon(3);
-tapIcon(3);assert.equal(ui.view,'fxMenu');ui.fxMenuSelection=1;tapIcon(3);
+tapIcon(3);assert.equal(ui.view,'fxMenu');ui.fxMenuSelection=2;tapIcon(3);
 assert.equal(split.pages()[ui.settingsPage].title,'DELAY RETURN');
 // C/D controls, focus indicators and one-lane cursors fit the display.
 ui.view='main';ui.messageTicks=0;ui.mask=15;ui.waves=Array.from({length:4},()=>Array.from({length:112},()=>[0,0]));
@@ -2532,7 +2535,7 @@ console.log('s3g Thru group-local, right-aligned parameter page positions: PASS'
  state.settingsPage=0;const valueStart=drawWrites.length;tools.drawAll();
  assert(drawWrites.slice(valueStart).some(w=>w[0]==='print'&&w[3]==='50%'));
  assert(drawWrites.slice(valueStart).some(w=>w[0]==='print'&&w[3]==='100%'));
- const keys=pages.flatMap(p=>p.keys||[]).filter(Boolean);
+ const keys=pages.filter(p=>!p.mixerOverview).flatMap(p=>(p.keys||[]).filter(Boolean).map(key=>Number.isInteger(p.sequenceStrip)?key+':'+p.sequenceStrip:key));
  assert.equal(new Set(keys).size,keys.length,'Bank pages must not repeat parameters');
  const colors=[4,5,6,7,12].map(pad=>tools.led(pad));assert.equal(new Set(colors).size,5,'Bank states need distinct pad colors');
  for(let index=0;index<pages.length;++index) {
@@ -3195,7 +3198,7 @@ console.log('s3g Thru Layers UI: real split-keyboard pitch, normal engine pages,
  const cc=(number,value=127)=>globalThis.onMidiMessageInternal([0xb0,number,value]);
  const fixture=process.env.S3G_THRU_SEQUENCE_FIXTURE?JSON.parse(fs.readFileSync(process.env.S3G_THRU_SEQUENCE_FIXTURE,'utf8')):null;
  const native=fixture?.sequence||{active:1,edit:0,rec:0,step:0,held:-1,child:0,root:60,mask:0,length:13,playing:1,lanes:[[3,13,4,1,0],[6,7,5,1,0],[8,11,6,1,0],[2,9,4,1,0]],steps:Array.from({length:32},(_,i)=>[i%3===0?1:0,i/32]),values:[13,4,0,1,0,100,.8,0,1,0,.25,7,100,.8,0,1,1,0,4]};
- const data=JSON.parse(JSON.stringify(native));data.length=13;data.edit=0;data.rec=0;data.playing=1;data.step_ms=125;data.lanes[0]=[3,13,4,1,0];data.steps[0]=[1,.25];data.steps[1]=[0,.5];data.values[6]=.8;data.values[13]=.8;
+ const data=JSON.parse(JSON.stringify(native));data.length=13;data.edit=0;data.rec=0;data.playing=1;data.step_ms=125;data.lanes[0]=[3,13,4,1,0];data.steps[0]=[1,.25];data.steps[1]=[0,.5];data.values[6]=.8;data.values[13]=.8;data.values[19]=0;
  params.seq_state=JSON.stringify(data);params.split_mode='6';ui.read();
  state.splitEnabled=state.quadMode=true;state.sharedDual=false;state.splitFocus=0;state.editorReady=true;state.view='main';
  assert(ui.model.active);assert.equal(tools.pages()[0].title,'SEQ LANE');
@@ -3219,30 +3222,30 @@ console.log('s3g Thru Layers UI: real split-keyboard pitch, normal engine pages,
  globalThis.__testParams.sample_mode.value=priorMode;
  assert.equal(tools.hub().find(e=>e.hub==='setup').title,'SEQ SETUP');
  assert.equal(tools.hub().find(e=>e.hub==='setup').index,tools.pages().findIndex(p=>p.title==='SEQ SETUP'));
- assert(tools.pages().some(p=>p.title==='SEQ MIX'));
+ assert(tools.pages().some(p=>p.title==='MIXER'));
  assert.deepEqual(tools.pages().filter(p=>Number.isInteger(p.sequenceStrip)).map(p=>p.title),
-   ['SEQ STRIP 1','SEQ STRIP 2','SEQ STRIP 3','SEQ STRIP 4']);
- assert(tools.pages().some(p=>p.title==='SEQ DUCK'));
+   ['STRIP 1','STRIP 2','STRIP 3','STRIP 4']);
+ assert(tools.pages().some(p=>p.title==='PRIORITY DUCK'));
  assert(tools.pages().some(p=>p.title==='SEQ AMP')&&!tools.pages().some(p=>p.title==='AMP ENVELOPE'));
  const mixPages=tools.categories(2).map(p=>p.title);
- assert.deepEqual(mixPages.slice(mixPages.indexOf('SEQ MIX'),mixPages.indexOf('SEQ MIX')+6),
-   ['SEQ MIX','SEQ STRIP 1','SEQ STRIP 2','SEQ STRIP 3','SEQ STRIP 4','SEQ DUCK'],
+ assert.deepEqual(mixPages.slice(mixPages.indexOf('MIXER'),mixPages.indexOf('MIXER')+6),
+   ['MIXER','STRIP 1','STRIP 2','STRIP 3','STRIP 4','PRIORITY DUCK'],
    'all four channel strips are adjacent in the Mix/FX page group');
  assert(mixPages.includes('FX ORDER')&&!mixPages.includes('A FX ORDER')
    &&mixPages.includes('DELAY RETURN')&&!mixPages.includes('A DELAY RETURN'),
    'shared effects routing and delay return have no part prefix');
- assert(!tools.pages().some(p=>p.title==='PRIORITY DUCK'));
+ assert.equal(tools.pages().filter(p=>p.title==='PRIORITY DUCK').length,1);
  assert(!tools.pages().some(p=>p.title==='STACK PATH'||p.title==='PADS & SCALE'||p.voiceEngines));
  const originalAmp=['amp_attack','amp_decay','amp_sustain','amp_release'].map(key=>globalThis.__testParams[key].value);
  ['amp_attack','amp_decay','amp_sustain','amp_release'].forEach((key,i)=>{globalThis.__testParams[key].value=[500,500,100,3000][i];});
  state.view='settings';state.settingsPage=tools.pages().findIndex(p=>p.title==='SEQ AMP');
  const ampDraw=drawWrites.length;tools.drawAll();const ampWrites=drawWrites.slice(ampDraw);
- assert(ampWrites.some(w=>w[0]==='print'&&w[3]==='DUR 100ms'));
+ assert(ampWrites.some(w=>w[0]==='print'&&w[3]==='DUR 0.8=100ms'));
  assert(ampWrites.some(w=>w[0]==='print'&&w[3]==='FIT'));
  assert(ampWrites.some(w=>w[0]==='print'&&w[3]==='75ms'),'Release readout must show played time, not requested 3000 ms');
  data.mask=8;data.values[13]=.4;params.seq_state=JSON.stringify(data);ui.read();
  const shorterDraw=drawWrites.length;tools.drawAll();
- assert(drawWrites.slice(shorterDraw).some(w=>w[0]==='print'&&w[3]==='DUR 50ms'),
+ assert(drawWrites.slice(shorterDraw).some(w=>w[0]==='print'&&w[3]==='DUR 0.4=50ms'),
    'locked trig DUR changes the Sequence envelope preview');
  data.mask=0;data.values[13]=.8;params.seq_state=JSON.stringify(data);ui.read();
  const ampWrite=paramWrites.length;ui.adjust(3,4);
@@ -3285,13 +3288,13 @@ console.log('s3g Thru Layers UI: real split-keyboard pitch, normal engine pages,
  assert.equal(globalThis.__testParams.seq_trig_gate.shortLabel,'DUR');
  data.strips=[[1.25,0,0,900,0],[0,0,0,900,0],[-3,1,0,1800,1],[0,0,0,900,0]];
  params.seq_state=JSON.stringify(data);ui.read();
- state.view='settings';state.settingsPage=tools.pages().findIndex(p=>p.title==='SEQ MIX');
+ state.view='settings';state.settingsPage=tools.pages().findIndex(p=>p.title==='MIXER');
  const originalFocus=state.splitFocus,originalRecord=data.rec;
  ui.page(1);
- assert.equal(tools.pages()[state.settingsPage].title,'SEQ STRIP 1');
+ assert.equal(tools.pages()[state.settingsPage].title,'STRIP 1');
  assert.equal(ui.control('seq_eq_low').value,1.25);
  ui.page(1);ui.page(1);
- assert.equal(tools.pages()[state.settingsPage].title,'SEQ STRIP 3');
+ assert.equal(tools.pages()[state.settingsPage].title,'STRIP 3');
  assert.equal(ui.control('seq_eq_low').value,-3);
  assert.equal(ui.control('seq_eq_freq').value,1800);
  assert.equal(ui.control('seq_eq_solo').value,1);
@@ -3303,22 +3306,67 @@ console.log('s3g Thru Layers UI: real split-keyboard pitch, normal engine pages,
    'encoder writes the third strip directly');
  assert.equal(state.splitFocus,originalFocus);
  assert.equal(ui.model.data.rec,originalRecord);
- ui.page(1);assert.equal(tools.pages()[state.settingsPage].title,'SEQ STRIP 4');
- ui.page(1);assert.equal(tools.pages()[state.settingsPage].title,'SEQ DUCK');
+ ui.page(1);assert.equal(tools.pages()[state.settingsPage].title,'STRIP 4');
+ ui.page(1);assert.equal(tools.pages()[state.settingsPage].title,'PRIORITY DUCK');
  state.view='settings';state.settingsPage=0;
  let durationDraw=drawWrites.length;tools.drawAll();
- assert(drawWrites.slice(durationDraw).some(w=>w[0]==='print'&&w[3]==='100ms'),'lane default duration shows audible time');
+ assert(drawWrites.slice(durationDraw).some(w=>w[0]==='print'&&w[3]==='0.8'),'STEP lane default shows a count');
  data.values[19]=1;data.values[20]=5000;data.values[21]=7500;
  params.seq_state=JSON.stringify(data);ui.read();
  assert.equal(tools.pages()[0].keys[5],'seq_time_ms');
  assert.equal(tools.pages().find(p=>p.title==='TRIG').keys[3],'seq_trig_time_ms');
+ assert.equal(tools.pages().find(p=>p.title==='BURST').keys[3],'seq_trig_time_ms');
  assert(globalThis.__testNextControlValue(globalThis.__testParams.seq_time_ms,1)>5000);
  assert(globalThis.__testNextControlValue(globalThis.__testParams.seq_time_ms,-1)<5000);
  durationDraw=drawWrites.length;tools.drawAll();
  assert(drawWrites.slice(durationDraw).some(w=>w[0]==='print'&&w[3]==='5.0s'));
  data.values[19]=0;params.seq_state=JSON.stringify(data);ui.read();
  assert.equal(tools.pages()[0].keys[5],'seq_gate');
+ assert.equal(tools.pages().find(p=>p.title==='BURST').keys[3],'seq_trig_gate');
  assert.equal(globalThis.__testNextControlValue({...globalThis.__testParams.seq_gate,value:4},1),4.5);
+ {
+ const preserved=JSON.parse(JSON.stringify(data));
+ const format=globalThis.__testFormatControlValue,compact=globalThis.__testCompactControlValue;
+ for(const [value,text] of [[.01,'0.01'],[.5,'0.5'],[.805,'0.805'],[2,'2'],[2.25,'2.25'],[2.001,'2.001'],[31.5,'31.5'],[32,'32']]){
+   assert.equal(format({...ui.control('seq_gate'),value}),text);
+   assert.equal(compact({...ui.control('seq_trig_gate'),value}),text);
+   assert(text.length<=5,'step counts fit a parameter cell');
+ }
+ data.values[6]=2;data.values[13]=2;data.values[19]=0;data.mask=8;data.step_ms=125;
+ params.seq_state=JSON.stringify(data);ui.read();
+ for(const title of ['SEQ LANE','TRIG','BURST']){
+   state.view='settings';state.settingsPage=tools.pages().findIndex(p=>p.title===title);
+   const at=drawWrites.length;tools.drawAll();
+   assert(drawWrites.slice(at).some(w=>w[0]==='print'&&w[3]==='2'),title+' shows two STEP units');
+ }
+ state.settingsPage=tools.pages().findIndex(p=>p.title==='SEQ AMP');
+ let at=drawWrites.length;tools.drawAll();assert(drawWrites.slice(at).some(w=>w[0]==='print'&&w[3]==='DUR 2=250ms'));
+ // A slower step changes the played-time report while the authored count remains two.
+ data.step_ms=250;params.seq_state=JSON.stringify(data);ui.read();
+ at=drawWrites.length;tools.drawAll();assert(drawWrites.slice(at).some(w=>w[0]==='print'&&w[3]==='DUR 2=500ms'));
+ assert.equal(format(ui.control('seq_trig_gate')),'2');
+ data.values[19]=1;data.values[20]=250;data.values[21]=250;
+ params.seq_state=JSON.stringify(data);ui.read();
+ for(const title of ['SEQ LANE','TRIG','BURST']){
+   state.settingsPage=tools.pages().findIndex(p=>p.title===title);
+   at=drawWrites.length;tools.drawAll();
+   assert(drawWrites.slice(at).some(w=>w[0]==='print'&&w[3]==='250ms'),title+' shows TIME in milliseconds');
+ }
+ state.settingsPage=tools.pages().findIndex(p=>p.title==='BURST');
+ const beforeTime=[blockingWrites.length,paramWrites.length];globalThis.__testResetEncoders();ui.adjust(3,10);
+ const timeWrites=[...blockingWrites.slice(beforeTime[0]),...paramWrites.slice(beforeTime[1])];
+ assert(timeWrites.some(([key])=>key==='seq_trig_time_ms'),'Burst encoder edits TIME when selected');
+ assert(!timeWrites.some(([key])=>key==='seq_trig_gate'),'Burst TIME edit cannot alter the stored step count');
+ data.step_ms=500;params.seq_state=JSON.stringify(data);ui.read();
+ assert.equal(format(ui.control('seq_trig_time_ms')),'250ms');
+ // Changing UNIT restores each unit's separately stored duration.
+ data.values[19]=0;params.seq_state=JSON.stringify(data);ui.read();
+ assert.equal(format(ui.control('seq_trig_gate')),'2');
+ Object.assign(data,preserved);params.seq_state=JSON.stringify(data);ui.read();
+ state.view='settings';state.settingsPage=0;globalThis.__testResetEncoders();
+ console.log('s3g Thru Sequence units: STEP counts, TIME ms/s, lane/trig/Burst bindings, independent values, tempo-derived envelope time and correct Burst TIME edits: PASS');
+ }
+
  state.view='main';
  data.values[10]=.2;data.steps[0]=[1,.8];data.steps[3]=[1,.65];params.seq_state=JSON.stringify(data);ui.read();
  const parentMarkerAt=drawWrites.length;tools.drawAll();
@@ -3332,7 +3380,7 @@ console.log('s3g Thru Layers UI: real split-keyboard pitch, normal engine pages,
  const activeDraw=drawWrites.slice(headDraw);
  assert(!activeDraw.some(w=>w[0]==='clear'),
    'moving sample readers redraw the waveform without clearing the full OLED');
- assert(activeDraw.some(w=>w[0]==='print'&&String(w[3]).includes('DUR 250ms')),'latest sounding trig duration is shown');
+ assert(activeDraw.some(w=>w[0]==='print'&&String(w[3]).includes('TIME 250ms')),'latest sounding trig duration is shown');
  assert(activeDraw.some(w=>w[0]==='rect'&&w[1]===4+Math.round(.39*119)&&w[2]===11&&w[4]===14),'current sample cursor is drawn');
  assert(activeDraw.some(w=>w[0]==='rect'&&w[1]===4+Math.round(.25*119)-2&&w[2]===27&&w[3]===5),
    'voice launch position remains marked below the waveform');
@@ -3409,11 +3457,11 @@ console.log('s3g Thru Layers UI: real split-keyboard pitch, normal engine pages,
    &&drawn.some(w=>w[0]==='print'&&w[2]===47&&w[3]==='MICRO'),
    'TRIG parameter rows have extra vertical spacing');
  assert(drawn.some(w=>w[0]==='rect'&&w[3]===1&&w[4]===15),'highlighted POS marker is drawn');
- assert(drawn.some(w=>w[0]==='print'&&w[3]==='100ms'),'inherited trig duration shows lane default');
+ assert(drawn.some(w=>w[0]==='print'&&w[3]==='0.8'),'inherited trig duration shows the lane step count');
  data.values[13]=2;data.mask=8;params.seq_state=JSON.stringify(data);ui.read();
  durationDraw=drawWrites.length;tools.drawAll();
  assert(drawWrites.slice(durationDraw).some(w=>w[0]==='print'&&w[3]==='DUR*'),'locked trig duration is marked');
- assert(drawWrites.slice(durationDraw).some(w=>w[0]==='print'&&w[3]==='250ms'),'trig duration shows its own time');
+ assert(drawWrites.slice(durationDraw).some(w=>w[0]==='print'&&w[3]==='2'),'trig duration shows its own step count');
  const burstPage=tools.pages().find(p=>p.title==='BURST');
  assert.deepEqual(burstPage.keys.slice(4,7),['seq_burst','seq_child','seq_when']);
  data.burst=[0,.25,.5,.75];data.values[16]=4;data.values[9]=2;data.values[17]=.25;
@@ -3717,4 +3765,386 @@ console.log('s3g Thru Layers UI: real split-keyboard pitch, normal engine pages,
   assert.equal(mode.current(),6);assert.equal(JSON.stringify(view.splitParts),stable);
   console.log('s3g Thru mode confirmation: host jog/click order, delayed readback, duplicate clicks, lost ACK, bounded retry, transport timeout, recording refusal, Sequence Copy return and invalid-state retention: PASS');
  }finally{Date.now=oldNow;globalThis.host_module_get_param=oldGet;globalThis.host_module_set_param_blocking=oldSet;}
+}
+
+// Saved type pages expose only applicable controls and share UNIT.
+{
+ const seq=globalThis.__testSequence,state=globalThis.__testFx.state(),tools=globalThis.__testTools;
+ const values=Array(64).fill(0);Object.assign(values,{0:16,1:4,3:1,5:100,6:.8,8:1,10:.5,12:100,13:.8,15:1,16:1,18:4,19:1,20:1000,21:1000,41:0});
+ [8,0,0,1,0,1,1,16,-1,0,1,0,12,0,.5,0,50,1000,0,-1].forEach((v,i)=>values[44+i]=v);
+ const data={active:1,edit:0,rec:0,step:0,held:-1,child:0,root:60,mask:0,length:16,playing:0,clipboard:1,lanes:Array.from({length:4},()=>[0,16,4,1,0]),heads:[],steps:Array.from({length:32},()=>[0,.5]),burst:[0],values};
+ params.seq_state=JSON.stringify(data);params.split_mode='6';params.last_error='';
+ state.modeRequest=null;state.view='main';state.editorReady=true;state.splitEnabled=true;state.quadMode=true;state.splitFocus=0;state.activeClip=0;state.recording=false;state.clipRecording=false;
+ seq.read();assert(!tools.pages().some(p=>p.sequenceRecipe));
+ assert.equal(tools.pages().find(p=>p.title==='SEQ SETUP').keys[4],'seq_type');
+ assert.deepEqual(tools.pages().find(p=>p.title==='SEQ SETUP').keys.slice(4),['seq_type','seq_direction','seq_path',null]);
+ assert.equal(seq.control('seq_duration_mode').value,1);
+ // Sequence PLAY order is stable at its beginning and end, even when
+ // engine-specific pages and a saved generator type change its length.
+ const orderAlgorithm=state.algorithm,orderMotion=globalThis.__testParams.motion_sound.value;
+ for(const type of [0,1,2])for(let algorithm=0;algorithm<15;++algorithm){
+   for(const motion of algorithm===0?[0,3,7]:[0]){
+     data.values[41]=type;params.seq_state=JSON.stringify(data);seq.read();
+     state.algorithm=algorithm;globalThis.__testParams.algorithm.value=algorithm;globalThis.__testParams.motion_sound.value=motion;
+     const all=tools.pages(),play=tools.categories(0).map(entry=>all[entry.index].title);
+     const generated=type===1?['EUCLIDEAN','EUC SOURCE','EUC VALUES']:type===2?['ONSET','ONSET SOURCE','ONSET VALUES']:[];
+     const details=(algorithm===0?globalThis.__testMotionPages[motion].map(page=>page.title):globalThis.__testPlaybackPageTitles[algorithm]).filter(title=>title!=='STACK PATH');
+     assert.deepEqual(play,['SEQ LANE','SEQ SETUP',...generated,'TRIG','BURST','ENGINE',...details,'SEQ AMP','PLAY GAIN'],
+       `Sequence PLAY order, type ${type}, engine ${algorithm}, motion ${motion}`);
+     assert.equal(tools.hub().find(entry=>entry.hub==='setup').index,1,'hub Setup targets the same second page');
+     state.view='settings';state.settingsPage=1;const at=drawWrites.length;tools.drawAll();
+     assert(hasRightFraction(drawWrites.slice(at),'2/'+play.length),'Setup keeps the second group-local page fraction');
+     assert.deepEqual(tools.categories(1).filter(entry=>entry.view==='settings').map(entry=>all[entry.index].title),['MIX / REC','SAMPLE EDIT']);
+   }
+ }
+ state.algorithm=orderAlgorithm;globalThis.__testParams.algorithm.value=orderAlgorithm;globalThis.__testParams.motion_sound.value=orderMotion;
+ data.values[41]=0;params.seq_state=JSON.stringify(data);seq.read();state.view='main';
+ const bankMidi=(number,value=127)=>globalThis.onMidiMessageInternal([0xb0,number,value]);
+ const openBank=track=>{bankMidi(52);bankMidi(track);bankMidi(track,0);bankMidi(52,0);};
+ const orderLane=state.lane,orderFocus=state.splitFocus,orderRec=seq.model.data.rec;
+ const orderWrites=blockingWrites.length;
+ openBank(43);assert.equal(tools.pages()[state.settingsPage].title,'SEQ LANE');
+ openBank(43);assert.equal(tools.pages()[state.settingsPage].title,'SEQ SETUP');
+ seq.page(-1);assert.equal(tools.pages()[state.settingsPage].title,'SEQ LANE');
+ seq.page(-1);assert.equal(tools.pages()[state.settingsPage].title,'PLAY GAIN');
+ seq.page(1);assert.equal(tools.pages()[state.settingsPage].title,'SEQ LANE');
+ openBank(42);assert.equal(tools.pages()[state.settingsPage].title,'MIX / REC');
+ assert.equal(state.lane,orderLane);assert.equal(state.splitFocus,orderFocus);assert.equal(seq.model.data.rec,orderRec);
+ assert(!blockingWrites.slice(orderWrites).some(([key])=>['record_lane','split_focus','record_gate','clip_record'].includes(key)),
+   'task-group navigation cannot change edit ownership, audio destination or recording');
+ state.view='main';
+ console.log('s3g Thru PLAY/SAMPLE navigation: all sequencer types/15 engines, fixed Setup second, contiguous engine pages, envelope/gain last, group fractions, bank shortcuts/wrap and lane/record ownership: PASS');
+ // Enter through the actual Capture + Menu hub, including its first draw.
+ // Normal has no PRINT/REGEN actions, even though their page slots exist.
+ const midi=(number,value=127)=>globalThis.onMidiMessageInternal([0xb0,number,value]);
+ state.focusButtonHeld=state.focusButtonUsed=state.shiftHeld=state.deleteHeld=false;
+ state.pageDestinationReturn=null;state.actionMessageTicks=0;
+ midi(52);midi(50);midi(50,0);midi(52,0);
+ assert.equal(state.view,'pages');assert.equal(state.pageTier,'hub');
+ state.pageSelection=tools.hub().findIndex(entry=>entry.hub==='setup');
+ const setupExitCount=exitCount;
+ const setupDrawStart=drawWrites.length;
+ assert.doesNotThrow(()=>{midi(3);midi(3,0);tools.drawAll();},
+   'Normal SEQ SETUP must render unavailable actions as reserved cells');
+ assert.equal(state.view,'settings');assert.equal(tools.pages()[state.settingsPage].title,'SEQ SETUP');
+ assert.equal(exitCount,setupExitCount);
+ assert.equal(seq.control('seq_to_normal'),null);assert.equal(seq.control('seq_regenerate'),null);
+ for(const x of [110])assert(drawWrites.slice(setupDrawStart).some(w=>w[0]==='rect'&&w[1]===x&&w[2]===46&&w[3]===4&&w[4]===4),
+   'unavailable Normal action draws a reserved square');
+ const setupWrites=blockingWrites.length;seq.adjust(7,4);
+ assert.equal(blockingWrites.length,setupWrites,'inactive actions cannot write parameters');
+ // Exercise the whole Sequence settings bank in both units and transport
+ // states. Conditional actions must survive redraws as the type changes.
+ for(const type of [0,1,2])for(const timed of [0,1])for(const playing of [0,1]){
+   data.values[41]=type;data.values[19]=timed;data.values[60]=timed?50:.25;data.values[61]=timed?1000:4;
+   data.playing=playing;params.seq_state=JSON.stringify(data);seq.read();state.clipPlaying=Boolean(playing);
+   const pages=tools.pages();
+   for(let index=0;index<pages.length;++index){
+     state.view='settings';state.settingsPage=index;
+     assert.doesNotThrow(()=>tools.drawAll(),`Sequence page ${pages[index].title}, type ${type}, unit ${timed}, playing ${playing}`);
+   }
+   assert.equal(exitCount,setupExitCount);
+ }
+ data.values[41]=0;data.values[19]=1;data.values[60]=50;data.values[61]=1000;data.playing=0;
+ params.seq_state=JSON.stringify(data);seq.read();state.clipPlaying=false;
+ state.view='settings';state.settingsPage=tools.pages().findIndex(p=>p.title==='SEQ SETUP');
+ const originalSetupSet=globalThis.host_module_set_param_blocking;
+ globalThis.host_module_set_param_blocking=(key,value)=>{
+   const result=originalSetupSet(key,value);
+   if(key==='seq_type'){data.values[41]=Number(value);params.seq_state=JSON.stringify(data);}
+   return result;
+ };
+ try{
+   globalThis.__testResetEncoders();
+   for(const wanted of [1,2,0]){
+     for(let turn=0;turn<32&&seq.control('seq_type').value!==wanted;++turn){
+       seq.adjust(4,wanted>seq.control('seq_type').value?1:-1);tools.drawAll();
+     }
+     assert.equal(seq.control('seq_type').value,wanted);
+     assert.equal(tools.pages()[state.settingsPage].title,'SEQ SETUP','TYPE retains the current setup page');
+   }
+   assert.equal(seq.control('seq_to_normal'),null);assert.equal(exitCount,setupExitCount);
+ }finally{globalThis.host_module_set_param_blocking=originalSetupSet;}
+ console.log('s3g Thru SEQ SETUP: Normal hub entry, reserved/inert actions, all-page STEP/TIME stopped/playing sweep and TYPE page retention: PASS');
+ state.view='main';
+ data.values[41]=1;params.seq_state=JSON.stringify(data);seq.read();
+ assert.deepEqual(tools.pages().filter(p=>p.sequenceRecipe).map(p=>p.title),['EUCLIDEAN','EUC SOURCE','EUC VALUES']);
+ state.view='settings';state.settingsPage=tools.pages().findIndex(p=>p.title==='EUCLIDEAN');
+ let start=drawWrites.length;tools.drawAll();assert(drawWrites.slice(start).some(w=>w[0]==='print'&&w[3]==='HITS'));
+ assert.equal(seq.control('seq_recipe_hits').max,16);
+ globalThis.onMidiMessageInternal([0xb0,51,127]);assert.equal(seq.control('seq_type').value,1,'Back preserves saved type');
+ data.values[41]=2;params.seq_state=JSON.stringify(data);seq.read();
+ assert.deepEqual(tools.pages().filter(p=>p.sequenceRecipe).map(p=>p.title),['ONSET','ONSET SOURCE','ONSET VALUES']);
+ assert.equal(seq.control('seq_recipe_map').min,1);
+ assert.equal(seq.control('seq_duration_mode').value,1,'all types share TIME');
+ data.values[19]=0;params.seq_state=JSON.stringify(data);seq.read();assert.equal(seq.control('seq_duration_mode').value,0,'saved STEP selection is retained');
+ data.values[41]=0;params.seq_state=JSON.stringify(data);seq.read();assert(!tools.pages().some(p=>p.sequenceRecipe));
+ for(const type of [0,1,2])for(let dir=0;dir<5;dir++){
+   data.values[41]=type;data.values[64]=dir;params.seq_state=JSON.stringify(data);seq.read();
+   state.view='settings';state.settingsPage=tools.pages().findIndex(p=>p.title==='SEQ SETUP');
+   assert.equal(tools.pages()[state.settingsPage].keys[5],'seq_direction');
+   assert.equal(seq.control('seq_direction').value,dir);
+   const begin=drawWrites.length;tools.drawAll();
+   assert(drawWrites.slice(begin).some(w=>w[0]==='print'&&w[3]===['FWD','REV','PING','F+B','RAND'][dir]));
+ }
+ data.values[64]=0;params.seq_state=JSON.stringify(data);seq.read();
+ const dirWrites=blockingWrites.length;seq.adjust(5,12);
+ assert(blockingWrites.slice(dirWrites).some(([key])=>key==='seq_direction'));
+ const directionData=JSON.parse(JSON.stringify(data));
+ const cursorBefore=params.seq_cursor_state;
+ for(const [dir,route] of [[0,[0,1,2,3,0]],[1,[3,2,1,0,3]],[2,[0,1,2,3,2,1,0]],[3,[0,1,2,3,3,2,1,0,0]],[4,[0,3,1,1,2,0]]]){
+   data.edit=0;data.length=4;data.playing=1;data.values[64]=dir;data.lanes[0]=[route[0],4,4,1,0];
+   params.seq_state=JSON.stringify(data);seq.read();seq.timing.step=-1;
+   const jumps=seq.timing.jumps;
+   for(const step of route){const lanes=data.lanes.map(row=>row.slice());lanes[0]=[step,4,4,1,0];params.seq_cursor_state=[1,0,1,...lanes.flat()].join(',');seq.cursor();}
+   assert.equal(seq.timing.jumps,jumps,'direction turns and RAND are legitimate cursor moves');
+ }
+ Object.assign(data,directionData);params.seq_state=JSON.stringify(data);params.seq_cursor_state=cursorBefore;seq.read();
+ console.log('s3g Thru DIR UI: shared Setup knob 6, all five labels, native snapshot readback and encoder writes across all sequencer types: PASS');
+ state.view='main';console.log('s3g Thru saved Sequence types UI: Normal, Euclidean, Onset, conditional pages, source bounds, persistent Back and shared duration units: PASS');
+}
+
+{
+ const state=globalThis.__testFx.state(),tools=globalThis.__testTools,seq=globalThis.__testSequence;
+ for(const [mode,count] of [[0,1],[1,2],[2,2],[3,4],[4,2],[6,4]]){
+  Object.assign(state,{view:'settings',splitEnabled:mode>0,quadMode:mode===3||mode===6,sharedDual:mode===2||mode===4,bankMode:mode===4,splitFocus:0,editorReady:true});
+  globalThis.__testParams.split_mode.value=mode;seq.model.active=mode===6;
+  const pages=tools.pages();assert.equal(pages.filter(p=>Number.isInteger(p.sequenceStrip)).length,count);
+  assert.equal(pages.filter(p=>p.title==='PRIORITY DUCK').length,count>1?1:0);
+  const mix=pages.find(p=>p.mixerOverview);assert.equal(mix.keys.filter(Boolean).length,count*2);
+ }
+ state.view='main';console.log('s3g Thru common mixer UI: one/two/four strips, inactive output squares and one priority page per multi-instrument layout: PASS');
+}
+
+// Sequence clip reset refreshes the displayed trigs immediately, while a
+// refused reset reports the module error and leaves the grid intact.
+{
+ const state=globalThis.__testFx.state(),seq=globalThis.__testSequence;
+ const oldSet=globalThis.host_module_set_param_blocking;
+ const seed=JSON.parse(params.seq_state);
+ const filled={...seed,active:1,edit:0,held:0,step:0,playing:1,heads:[],steps:Array.from({length:32},()=>[1,.75])};
+ const cleared={...filled,held:-1,playing:0,heads:[],steps:Array.from({length:32},()=>[0,.5])};
+ let refusal=false;
+ const cc=(n,v=127)=>globalThis.onMidiMessageInternal([0xb0,n,v]);
+ globalThis.host_module_set_param_blocking=(key,value)=>{
+   const result=oldSet(key,value);
+   if(key==='clip_reset'){
+     params.last_error=refusal?'Stop recording before clearing a clip':'';
+     if(!refusal&&Number(value)===state.activeClip){
+       params.seq_state=JSON.stringify(cleared);
+       const clip=params.clip_state.split(',');clip[0]='0';clip[1]='0';clip[4]='0';params.clip_state=clip.join(',');
+     }
+   }
+   return result;
+ };
+ try{
+   Object.assign(state,{view:'main',activeClip:0,clipBank:0,clipRecording:false,recording:false,clipPlaying:true,shiftHeld:false,focusButtonHeld:false,deleteHeld:false,copyShortcut:null});
+   params.seq_state=JSON.stringify(filled);params.last_error='';seq.read();seq.model.pad=24;seq.model.held=true;
+   cc(119);globalThis.onMidiMessageInternal([0x90,16,100]);cc(119,0);
+   assert.equal(seq.model.data.steps.filter(s=>s[0]).length,0);assert.equal(seq.model.pad,-1);assert.equal(seq.model.held,false);assert.equal(state.clipPlaying,false);
+   assert.equal(state.message,'CLEARED CLIP A01');
+   params.seq_state=JSON.stringify(filled);seq.read();refusal=true;
+   cc(119);globalThis.onMidiMessageInternal([0x90,16,100]);cc(119,0);
+   assert.equal(seq.model.data.steps.filter(s=>s[0]).length,32);assert(state.message.startsWith('Stop recording'));
+   refusal=false;params.last_error='';const live=seq.model.data;
+   cc(119);globalThis.onMidiMessageInternal([0x90,17,100]);cc(119,0);
+   assert.equal(seq.model.data,live);
+   console.log('s3g Thru Sequence reset UI: X + bottom clip, immediate trig/transport refresh, held editor reset, refusal and other-clip isolation: PASS');
+ }finally{globalThis.host_module_set_param_blocking=oldSet;}
+}
+
+// Clear only recorded performance; keep the authored grid and lane ownership.
+{
+ const state=globalThis.__testFx.state(),seq=globalThis.__testSequence,tools=globalThis.__testTools;
+ const oldSet=globalThis.host_module_set_param_blocking;
+ const seed=JSON.parse(params.seq_state);const grid=Array.from({length:32},(_,i)=>[i%3===0?1:0,i/32]);
+ const content={...seed,active:1,edit:0,held:-1,playing:1,steps:grid};
+ let refusal=false;
+ globalThis.host_module_set_param_blocking=(key,value)=>{
+   const result=oldSet(key,value);
+   if(key==='clip_clear_recording'){
+     params.last_error=refusal?'Finish recording before clearing performance':'';
+     if(!refusal){params.clip_state='0,1,0,250,1000,0,0,1000,0,1,12000,2000';params.clip_capacity_state='0,1024,0,8192,0,0';params.clip_take_state='1,0,0';params.seq_state=JSON.stringify(content);}
+   }
+   return result;
+ };
+ const cc=(number,value=127)=>globalThis.onMidiMessageInternal([0xb0,number,value]);
+ try{
+   Object.assign(state,{view:'main',activeClip:0,clipRecording:false,recording:false,clipPlaying:true,shiftHeld:false,deleteHeld:false,focusButtonHeld:false,focusButtonUsed:false,splitFocus:0,copyShortcut:null,editorReady:true});
+   params.seq_state=JSON.stringify(content);params.clip_state='0,1,0,250,1000,4,12,1000';params.clip_bank_state='0,-1,1,0';seq.read();
+   const start=blockingWrites.length;cc(119);cc(52);cc(52,0);cc(119,0);
+   assert.equal(blockingWrites.slice(start).filter(([key])=>key==='clip_clear_recording').length,1);
+   assert(!blockingWrites.slice(start).some(([key])=>['clip_reset','clip_clear','clear_lane','clip_record','record_gate','split_focus'].includes(key)));
+   assert.deepEqual(seq.model.data.steps,grid);assert.equal(state.clipDuration,1000);assert.equal(state.clipPointCount,0);assert.equal(state.clipNoteCount,0);assert.equal(state.clipPlaying,true);
+   assert.equal(state.focusButtonHeld,false);assert.equal(state.actionMessage,'RECORDING CLEARED');
+   state.view='settings';state.settingsPage=tools.pages().findIndex(page=>page.title==='PERF LOOP');
+   assert.equal(tools.pages()[state.settingsPage].keys[7],'clip_clear_recording');
+   let at=blockingWrites.length;seq.adjust(7,-12);assert(!blockingWrites.slice(at).some(([key])=>key==='clip_clear_recording'));
+   seq.adjust(7,12);assert(blockingWrites.slice(at).some(([key])=>key==='clip_clear_recording'));
+   state.clipRecording=true;at=blockingWrites.length;cc(119);cc(52);cc(52,0);cc(119,0);
+   assert(!blockingWrites.slice(at).some(([key])=>key==='clip_clear_recording'));assert.equal(state.actionMessage,'STOP RECORDING FIRST');state.clipRecording=false;
+   refusal=true;cc(119);cc(52);cc(52,0);cc(119,0);assert.equal(state.actionMessage,'CLEAR REC NOT READY');assert.deepEqual(seq.model.data.steps,grid);
+   refusal=false;params.last_error='';state.clipTakeCanUndo=true;state.clipTakeCount=2;at=blockingWrites.length;
+   cc(119);cc(86);cc(86,0);cc(119,0);assert(blockingWrites.slice(at).some(([key])=>key==='clip_take_undo'));assert(!blockingWrites.slice(at).some(([key])=>key==='clip_clear_recording'));
+   console.log('s3g Thru Clear Recording UI: X+Capture, PERF LOOP CLR, unchanged grid/span/transport/focus, clockwise-only action, recording/refusal feedback and separate take Undo: PASS');
+ }finally{globalThis.host_module_set_param_blocking=oldSet;state.view='main';}
+}
+
+// KEEP is one detent before 0%; it must not occupy a floating-point gap.
+{
+ const next=globalThis.__testNextControlValue,format=globalThis.__testFormatControlValue;
+ const base=globalThis.__testParams.seq_recipe_probability;
+ const native=value=>value<0?-1:Math.max(0,Math.min(1,value));
+ let value=-1;
+ for(let percent=0;percent<=100;percent++){
+   value=native(next({...base,value},1));
+   assert(Math.abs(value-percent/100)<1e-9,'PROB must traverse KEEP -> 0% -> 100%');
+   assert.equal(format({...base,value}),percent+'%');
+ }
+ assert.equal(next({...base,value:0},-1),-1);assert.equal(format({...base,value:-1}),'KEEP');
+ assert.equal(next({...base,value:-1},-12),-1);assert.equal(next({...base,value:1},12),1);
+ assert.equal(next({...base,value:-1},3),.02);assert.equal(next({...base,value:.01},-3),-1);
+ assert.equal(next({...base,value:-1},1,true),0);assert.equal(next({...base,value:0},1,true),.001);
+ const state=globalThis.__testFx.state(),seq=globalThis.__testSequence,tools=globalThis.__testTools;
+ const oldSet=globalThis.host_module_set_param_blocking;
+ const data=JSON.parse(params.seq_state);
+ globalThis.host_module_set_param_blocking=(key,value)=>{
+   const result=oldSet(key,value);
+   if(key==='seq_recipe_probability'){data.values[63]=native(Number(value));params.seq_state=JSON.stringify(data);}
+   return result;
+ };
+ try{
+   Object.assign(state,{view:'settings',editorReady:true,recording:false,clipRecording:false,deleteHeld:false,shiftHeld:false,focusButtonHeld:false});
+   for(const [type,title] of [[1,'EUC VALUES'],[2,'ONSET VALUES']]){
+     data.active=1;data.values[41]=type;data.values[63]=-1;params.seq_state=JSON.stringify(data);seq.read();
+     state.settingsPage=tools.pages().findIndex(page=>page.title===title);
+     assert.equal(tools.pages()[state.settingsPage].keys[3],'seq_recipe_probability');
+     globalThis.__testResetEncoders();const at=blockingWrites.length;seq.adjust(3,4);
+     assert(data.values[63]>=0&&blockingWrites.slice(at).some(([key,value])=>key==='seq_recipe_probability'&&Number(value)>=0));
+     data.values[63]=0;params.seq_state=JSON.stringify(data);seq.read();globalThis.__testResetEncoders();seq.adjust(3,-4);assert.equal(data.values[63],-1);
+     data.values[63]=.37;params.seq_state=JSON.stringify(data);seq.read();const begin=drawWrites.length;tools.drawAll();assert(drawWrites.slice(begin).some(w=>w[0]==='print'&&w[3]==='37%'));
+   }
+   console.log('s3g Thru recipe PROB: contiguous KEEP/0-100%, reverse/fine/accelerated/bounds and actual EUC/ONSET encoder -> native-normalized readback -> display: PASS');
+ }finally{globalThis.host_module_set_param_blocking=oldSet;state.view='main';}
+}
+
+// Actual native replay snapshots: UNIT, encoder range and duration-page keys
+// must agree even when the clip's canonical end state uses the other unit.
+if(process.env.S3G_THRU_UNIT_FIXTURE){
+ const fixtures=JSON.parse(fs.readFileSync(process.env.S3G_THRU_UNIT_FIXTURE,'utf8'));
+ const seq=globalThis.__testSequence,tools=globalThis.__testTools,state=globalThis.__testFx.state();
+ state.view='settings';state.splitEnabled=true;state.quadMode=true;state.splitFocus=0;state.clipRecording=false;
+ assert.equal(fixtures.length,2);
+ for(const [index,data] of fixtures.entries()){
+   params.seq_state=JSON.stringify(data);seq.read();
+   const timed=index===0;
+   assert.equal(seq.control('seq_duration_mode').value,timed?1:0);
+   assert.equal(seq.control('seq_recipe_min').max,timed?30000:32);
+   assert.equal(seq.control('seq_recipe_min').min,timed?10:.01);
+   assert.equal(tools.pages().find(p=>p.title==='SEQ LANE').keys[5],timed?'seq_time_ms':'seq_gate');
+   state.settingsPage=tools.pages().findIndex(p=>p.title==='EUC VALUES');
+   assert(state.settingsPage>=0);tools.drawAll();
+ }
+ state.view='main';console.log('s3g Thru native UNIT replay UI: TIME/STEP readback, duration bounds and lane page key remain aligned: PASS');
+}
+
+// Euclidean hit displacement has a dedicated physical encoder. Existing ROT
+// and LOCKS parameter identities remain available in their own pages.
+{
+ const seq=globalThis.__testSequence,tools=globalThis.__testTools,state=globalThis.__testFx.state();
+ const data=JSON.parse(params.seq_state);data.active=1;data.edit=0;data.length=8;data.values.length=66;data.values[41]=1;data.values[65]=2;
+ params.seq_state=JSON.stringify(data);seq.read();state.view='settings';state.settingsPage=tools.pages().findIndex(p=>p.title==='EUCLIDEAN');
+ assert.deepEqual(tools.pages()[state.settingsPage].keys,['seq_recipe_hits','seq_recipe_shift','seq_recipe_accents','seq_recipe_depth','seq_recipe_seed','seq_recipe_amount','seq_recipe_order','seq_recipe_repeat']);
+ assert.equal(seq.control('seq_recipe_shift').value,2);assert.equal(seq.control('seq_recipe_shift').max,7);
+ const start=drawWrites.length;tools.drawAll();assert(drawWrites.slice(start).some(w=>w[0]==='print'&&w[3]==='SHIFT'));
+ const at=blockingWrites.length;globalThis.__testResetEncoders();seq.adjust(1,4);assert(blockingWrites.slice(at).some(([key])=>key==='seq_recipe_shift'));
+ assert.equal(tools.pages().find(p=>p.title==='EUC SOURCE').keys[5],'seq_recipe_write');
+ assert.deepEqual(seq.control('seq_recipe_write').labels,['KEEP','RPLC']);
+ data.values[41]=2;params.seq_state=JSON.stringify(data);seq.read();assert.equal(seq.control('seq_recipe_shift'),null);
+ assert.equal(tools.pages().find(p=>p.title==='ONSET SOURCE').keys[5],'seq_recipe_write');
+ assert.deepEqual(tools.pages().find(p=>p.title==='ONSET').keys.slice(4),['seq_recipe_seed','seq_recipe_amount','seq_recipe_accents','seq_recipe_depth']);
+ state.view='main';console.log('s3g Thru Euclidean SHIFT UI: HITS/SHIFT/ACCNT/DEPTH, knob-2 binding/bounds, separate ROT and shared source-page LOCKS: PASS');
+}
+
+// PATH is shared by all types; action destinations have one visible home.
+{
+ const seq=globalThis.__testSequence,tools=globalThis.__testTools,state=globalThis.__testFx.state();
+ const data=JSON.parse(params.seq_state);data.active=1;data.edit=0;data.values.length=67;
+ for(const type of [0,1,2])for(let path=0;path<3;path++){
+   data.values[41]=type;data.values[66]=path;params.seq_state=JSON.stringify(data);seq.read();state.view='settings';
+   const pages=tools.pages();state.settingsPage=pages.findIndex(p=>p.title==='SEQ SETUP');
+   assert.deepEqual(pages[state.settingsPage].keys.slice(4),['seq_type','seq_direction','seq_path',null]);
+   assert.equal(seq.control('seq_path').value,path);const at=drawWrites.length;tools.drawAll();
+   assert(drawWrites.slice(at).some(w=>w[0]==='print'&&w[3]===['HORIZ','VERT','DIAG'][path]));
+   for(const key of ['seq_to_normal','seq_regenerate']){
+     const homes=pages.filter(p=>(p.keys||[]).includes(key));assert.equal(homes.length,type?1:0);
+     if(type)assert.equal(homes[0].title,type===1?'EUC SOURCE':'ONSET SOURCE');
+   }
+   if(type){const source=pages.find(p=>p.title===(type===1?'EUC SOURCE':'ONSET SOURCE'));
+     assert.deepEqual(source.keys.slice(5),['seq_recipe_write','seq_to_normal','seq_regenerate']);}
+ }
+ state.settingsPage=tools.pages().findIndex(p=>p.title==='SEQ SETUP');
+ const before=blockingWrites.length;globalThis.__testResetEncoders();seq.adjust(6,-4);assert(blockingWrites.slice(before).some(([key])=>key==='seq_path'));
+ // Exercise the relocated actions through their physical encoder slots.
+ const originalSourceSet=globalThis.host_module_set_param_blocking,sourceExitCount=exitCount;
+ state.shiftHeld=state.deleteHeld=state.focusButtonHeld=false;state.editorReady=true;state.recording=state.clipRecording=false;
+ globalThis.host_module_set_param_blocking=(key,value)=>{
+   const result=originalSourceSet(key,value);
+   if(key==='seq_to_normal'){data.values[41]=0;params.seq_state=JSON.stringify(data);}
+   return result;
+ };
+ try{
+   for(const type of [1,2]){
+     data.values[41]=type;params.seq_state=JSON.stringify(data);seq.read();state.view='settings';
+     state.settingsPage=tools.pages().findIndex(p=>p.title===(type===1?'EUC SOURCE':'ONSET SOURCE'));
+     let at=blockingWrites.length;globalThis.__testResetEncoders();seq.adjust(6,-4);seq.adjust(7,-4);
+     assert(!blockingWrites.slice(at).some(([key])=>['seq_to_normal','seq_regenerate'].includes(key)));
+     at=blockingWrites.length;seq.adjust(7,4);assert(blockingWrites.slice(at).some(([key])=>key==='seq_regenerate'));
+     assert.equal(tools.pages()[state.settingsPage].title,type===1?'EUC SOURCE':'ONSET SOURCE');
+     at=blockingWrites.length;seq.adjust(6,4);assert(blockingWrites.slice(at).some(([key])=>key==='seq_to_normal'));
+     assert.equal(seq.control('seq_type').value,0);assert.equal(state.view,'main');assert.equal(exitCount,sourceExitCount);
+   }
+ }finally{globalThis.host_module_set_param_blocking=originalSourceSet;}
+ // Cursor cell IDs from the real scheduler are already pad coordinates;
+ // the UI must neither transpose nor rotate them a second time.
+ if(process.env.S3G_THRU_PATH_FIXTURE){
+   const fixtures=JSON.parse(fs.readFileSync(process.env.S3G_THRU_PATH_FIXTURE,'utf8'));assert.equal(fixtures.length,36);
+   for(const frame of fixtures){params.seq_state=JSON.stringify(frame);seq.read();
+     const cell=frame.lanes[0][0];assert.equal(seq.model.cursorLedPad,(3-Math.floor(cell/8))*8+cell%8);
+     assert.equal(seq.control('seq_path').value,frame.values[66]);}
+ }
+ state.view='main';console.log('s3g Thru PATH UI: all types/DIR-ready PATH, encoder 7, single Source-only PRINT/REGEN, shared LOCKS position and native grid cursor coordinates: PASS');
+}
+
+{
+ const seq=globalThis.__testSequence,tools=globalThis.__testTools,state=globalThis.__testFx.state();
+ const data=JSON.parse(params.seq_state);data.active=1;data.edit=0;data.values.length=67;
+ Object.assign(state,{view:'settings',recording:false,clipRecording:false,editorReady:true,splitFocus:0,shiftHeld:false,deleteHeld:false,focusButtonHeld:false});
+ const check=(d,expected,draw=false)=>{
+   params.seq_state=JSON.stringify(d);seq.read();state.view='settings';
+   const page=tools.pages().find(p=>(p.keys||[]).includes('seq_recipe_regions'));assert(page);
+   state.settingsPage=tools.pages().indexOf(page);const knob=page.keys.indexOf('seq_recipe_regions');
+   assert.equal(Boolean(seq.control('seq_recipe_regions')),expected,'COUNT depends on resolved source');
+   if(!expected){
+     const begin=blockingWrites.length;globalThis.__testResetEncoders();seq.adjust(knob,12);seq.adjust(knob,-12);
+     assert.equal(blockingWrites.length,begin,'inactive AUTO COUNT ignores both turn directions');
+     if(draw){const start=drawWrites.length;tools.drawAll();const x=(knob%4)*32+14,y=20+Math.floor(knob/4)*26;
+       assert(drawWrites.slice(start).some(w=>w[0]==='rect'&&w[1]===x&&w[2]===y&&w[3]===4&&w[4]===4));}
+   }
+ };
+ for(const type of [1,2]){
+   data.values[41]=type;data.values[45]=1;data.source_kind=0;check(data,true);tools.drawAll();
+   for(const kind of [1,2,3,-1]){data.source_kind=kind;check(data,false,kind===1);}
+   data.source_kind=0;check(data,true);
+   const page=tools.pages()[state.settingsPage],knob=page.keys.indexOf('seq_recipe_regions');
+   const before=blockingWrites.length;globalThis.__testResetEncoders();seq.adjust(knob,12);
+   assert(blockingWrites.slice(before).some(([key])=>key==='seq_recipe_regions'),'equal fallback immediately restores COUNT');
+   data.values[45]=5;data.source_kind=0;check(data,true);
+ }
+ // Real module snapshots cover source priority and the effective playback MAP.
+ if(process.env.S3G_THRU_SOURCE_KIND_FIXTURE){
+   const frames=JSON.parse(fs.readFileSync(process.env.S3G_THRU_SOURCE_KIND_FIXTURE,'utf8'));assert.equal(frames.length,7);
+   for(const frame of frames)check(frame,frame.values[45]===5||(frame.values[45]===1&&frame.source_kind===0));
+ }
+ state.view='main';console.log('s3g Thru AUTO COUNT: resolved equal/transient/file/edited/unavailable snapshots, native playback values, reserved square, inert turns and immediate re-enable: PASS');
 }

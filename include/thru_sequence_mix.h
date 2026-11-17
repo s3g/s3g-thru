@@ -22,14 +22,17 @@ class StripProcessor {
   bool active_ = false;
 
  public:
+  bool active() const {return active_;}
+  void reset(){states_={};rate_=0;active_=false;}
   template <std::size_t Block>
   void process(std::size_t frames,
                std::array<std::array<std::array<float, Block>, 2>, lanes> &bus,
-               const Mix &mix, float sampleRate) {
+               const Mix &mix, float sampleRate, std::size_t count=lanes) {
+    count=std::min(count,std::size_t(lanes));
     if (!active_) {
-      for (const auto &strip : mix.strips)
+      for (std::size_t i=0;i<count;++i) {const auto& strip=mix.strips[i];
         active_ |= strip.pan != 0 || strip.lowDb != 0 || strip.midDb != 0 ||
-                   strip.highDb != 0 || strip.solo;
+                   strip.highDb != 0 || strip.solo || strip.muted;}
       if (!active_)
         return;
     }
@@ -43,15 +46,14 @@ class StripProcessor {
         state.lowGain = state.midGain = state.highGain = state.audible = 1;
     }
     bool anySolo = false;
-    for (const auto &strip : mix.strips)
-      anySolo |= strip.solo;
-    for (std::size_t lane = 0; lane < lanes; ++lane) {
+    for (std::size_t i=0;i<count;++i)anySolo |= mix.strips[i].solo;
+    for (std::size_t lane = 0; lane < count; ++lane) {
       const auto &strip = mix.strips[lane];
       auto &state = states_[lane];
       const float targetLow = std::pow(10.f, strip.lowDb / 20.f);
       const float targetMid = std::pow(10.f, strip.midDb / 20.f);
       const float targetHigh = std::pow(10.f, strip.highDb / 20.f);
-      const float targetAudible = !anySolo || strip.solo ? 1.f : 0.f;
+      const float targetAudible = !strip.muted&&(!anySolo || strip.solo) ? 1.f : 0.f;
       const float frequency = std::clamp(strip.midHz, 120.f, 8000.f);
       const float midLowCoefficient =
           1 - std::exp(-6.28318530718f * frequency * .70710678f / rate_);

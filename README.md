@@ -7,6 +7,7 @@ polyphonic voices. Single uses one four-lane stack; Split and Shared Dual offer
 two independent instruments; Quad offers four instruments with one lane each.
 Bank pairs a four-lane instrument with sixteen saved stereo sample pads.
 Layers pairs one note keyboard with four independent parallel stereo effects.
+Sequence provides four polymetric lanes with Normal, Euclidean and Onset patterns.
 
 Read the illustrated [s3g Thru manual](https://s3g.github.io/s3g-thru/) for the
 complete control map, recording workflow, playback-engine reference, effects,
@@ -29,8 +30,9 @@ press **Step 2** for Global Settings. **Shift + main encoder click** opens its
 section picker: choose **System → Help → Modules → s3g Thru**. Inside Thru,
 **Shift + Menu** opens the diagnostic reports and shortcut reminder.
 
-Version 0.31.2 improves mode selection, setting recall and Pulsar playback
-consistency. See the [release notes](release-notes/RELEASE_NOTES_0.31.2.md).
+Version 0.32.0 adds saved Euclidean and Onset sequencers, new grid paths,
+a mixer in every mode, and improved sequence editing and stability.
+See the [release notes](release-notes/RELEASE_NOTES_0.32.0.md).
 Use the manual's [Projects guide](https://s3g.github.io/s3g-thru/projects.html)
 for backup and restore.
 

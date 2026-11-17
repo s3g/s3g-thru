@@ -100,8 +100,8 @@
             <tr><td>Main click on Slice Source</td><td>Open <a href="engine-slices.html#slice-edit">Slice Edit</a>. Knobs 1–5 select a slice, move start/end, zoom and set pre-roll. Main turn positions the cursor; click adds a cut; X removes the highlighted interior cut; Loop repeats audition; Back returns.</td></tr>
             <tr><td>Main click on Stack Path with DRAW</td><td>Open <a href="engines.html#path-editor">Path Editor</a>. Knobs 1–4 select and edit a point; knob 5 changes the point count. Back returns to Stack Path.</td></tr>
             <tr><td>Shift + knob 8 in Path Editor</td><td>Turn clockwise to reset the path to a four-point triangle.</td></tr>
-            <tr><td>Capture + Menu</td><td>Open the <a href="interface.html#page-picker">Pages hub</a>. Its four banks are Voice, Lane, Mix/FX, and Perf; Mode, Setup, MIDI, and All occupy the lower row.</td></tr>
-            <tr><td>Capture + Track 1–4</td><td>Jump directly to Voice, Lane, Mix/FX, or Performance. Repeat the same chord to advance through that bank.</td></tr>
+            <tr><td>Capture + Menu</td><td>Open the <a href="interface.html#page-picker">Pages hub</a>. Its four banks are Play, Sample, Mix/FX and Performance. Scroll to Mode, Setup, MIDI, All and Projects for the remaining destinations.</td></tr>
+            <tr><td>Capture + Track 1–4</td><td>Jump directly to Play, Sample, Mix/FX, or Performance. Repeat the same chord to advance through that bank.</td></tr>
             <tr><td>Delete + Play</td><td><a href="performance.html#panic">Panic</a>: stop the data loop, finish an active performance take, and release notes, latches, Rolls, and audition. Effect tails decay naturally.</td></tr>
             <tr><td>Copy</td><td>Outside the clip and chain editors, toggle Single / your last other mode, including Split, Shared Dual, Quad, Bank and Layers. The return mode is saved with the project. Choose a mode via Capture + Menu → Mode. See <a href="modes.html">Modes</a>.</td></tr>
             <tr><td>Capture in multi-instrument modes / Layers</td><td>A quick tap switches editing focus on release. Hold Capture for the <a href="playing.html#capture-performance">bottom-row performance controls</a>. Split highlights lane numbers 1–2 or 3–4; Shared Dual highlights A/B in the waveform header. Quad cycles A–D and highlights its lane and header letter. Layers switches A/FX editing and remembers each side’s last page. See <a href="interface.html#split-buttons">the physical button guide</a>.</td></tr>
@@ -111,7 +111,7 @@
             <tr><td>Mute in multi-instrument modes</td><td>Fade the focused part out/in, including Part-mode preview; playheads keep running. Mute persists across mode changes. See <a href="split.html#silent">silent-part recovery</a>.</td></tr>
             <tr><td>Track 1–4</td><td>Select the lane used by audio record, load, clear, and sample edit. Split also focuses the owning A/B part. Shared Dual keeps focus unchanged. Quad focuses the corresponding A–D part.</td></tr>
             <tr><td>Main encoder turn</td><td>Select the previous/next lane.</td></tr>
-            <tr><td>Up / Down</td><td>Transpose the pad grid by octave on the waveform page. On parameter pages, move within the current Voice, Lane, Mix/FX, or Performance bank.</td></tr>
+            <tr><td>Up / Down</td><td>Transpose the pad grid by octave on the waveform page. On parameter pages, move within the current Play, Sample, Mix/FX, or Performance bank.</td></tr>
             <tr><td>Left / Right</td><td>Select performance-clip bank A–D. In the Chain grid or Chain parameter pages, select entry pages 1–4 instead.</td></tr>
             <tr><td>Step 1–16</td><td>Select or queue that clip in the current bank. In the Chain grid or Chain parameter pages, select an entry on the current page.</td></tr>
             <tr><td>Main click on Layers FX CORNER</td><td>Open the grouped effect picker. Click a family, then an effect. Back returns to families, then the editor. Record still controls performance-data recording.</td></tr><tr><td>Record or main click</td><td>Start/stop performance-data recording. Main click has a contextual action on pages such as Layers FX CORNER and Slice Source.</td></tr>
@@ -137,12 +137,13 @@
             <tr><td>Undo (curved arrow)</td><td>Undo the most recent clip, source, sample-edit or chain-edit action, including saved transition changes. Stop audio or performance recording first. Back handles navigation and exit.</td></tr>
             <tr><td>Shift + knob 8 on Pattern Fade</td><td>Return smoothly to the source and commit it; automatic chaining turns off.</td></tr>
             <tr><td>Shift + knob 8 / NEXT in Chain</td><td>Queue the selected entry of the chain being edited, without interrupting current playback.</td></tr>
+            <tr><td>Delete/X + Capture</td><td>Clear recorded notes and parameter data in the current clip, retaining authored trigs, locks, pad on/off overrides, samples and clip length. Finish recording first; Undo restores it.</td></tr>
             <tr><td>Delete + Record</td><td>After finishing recording with Record, remove the newest Overdub take while playback can continue. The base remains protected. See <a href="performance.html#takes">Overdub undo</a>.</td></tr>
             <tr><td>Shift + Step</td><td>Copy the current clip to the destination Step slot.</td></tr>
             <tr><td>Copy tap / Shift + Copy tap</td><td>In Clip Overview, Performance Loop, Overdub Takes, or Pattern Fade: copy/paste the current clip. In the Chain grid and chain pages: copy the selected entry’s recorded clip; paste an independent duplicate into an unused clip slot and assign it to the selected destination entry. Whole-chain copying stays on Chain Tools. Tap actions run when Copy is released.</td></tr>
             <tr><td>Copy + Step</td><td>In those clip pages, copy the addressed clip to a temporary clipboard without launching it. In chain editors, copy the recorded clip referenced by that entry.</td></tr>
             <tr><td>Shift + Copy + Step</td><td>Paste to the addressed clip or chain position without launching it. A chain paste creates a new independent clip. Keep Copy held and add Shift for each paste; releasing Copy after a Step does not perform another action. Undo restores the last destination; stop playback to replace the current clip. See <a href="performance.html#clip-copy">Clip copy/paste</a>.</td></tr>
-            <tr><td>Delete + Step</td><td>Reset the destination clip and its four source assignments.</td></tr>
+            <tr><td>Delete + Step</td><td>Reset the destination clip and its four source assignments. In Sequence, also clear all four sequences and trig locks; retain the active mode and lane settings. Undo restores the last reset.</td></tr>
             <tr><td>Shift + pad in Cues</td><td>Store the displayed playhead in a local Cue (eight in Single, four per dual side, two per Quad part), snapped to the safest nearby stereo zero crossing on the selected lane.</td></tr>
             <tr><td>Delete + pad in Cues</td><td>Clear that pad’s local Cue.</td></tr>
           </tbody>
@@ -180,7 +181,7 @@
             <tr><td>Arrows</td><td>Dim in views where they navigate, bright while pressed; otherwise off.</td></tr>
             <tr><td>Copy / Capture / Mute</td><td>Copy bright in multi-instrument modes, dim in Single, off while recording blocks mode changes. Capture is dim in Single and A focus, bright for any non-A focus or the Pages hub. Mute is available only in multi-instrument modes and bright when its focused part is muted.</td></tr>
             <tr><td>Loop</td><td>Bright white for Glitch Buffer Lock or a live Stack Hold; medium white for a recorded Stack Hold; dim white while scans run. The footer identifies the hold. In Quad, Loop is dark unless Glitch or Tape Inertia gives it a role.</td></tr>
-            <tr><td>Tracks</td><td>Selected lane on ordinary pages; selected clip bank in Clip Overview. While Capture or the Pages hub is active, they identify Voice, Lane, Mix/FX, and Performance.</td></tr>
+            <tr><td>Tracks</td><td>Selected lane on ordinary pages; selected clip bank in Clip Overview. While Capture or the Pages hub is active, they identify Play, Sample, Mix/FX, and Performance.</td></tr>
           </tbody>
         </table>
 

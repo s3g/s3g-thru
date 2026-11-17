@@ -160,7 +160,7 @@
     <rect x="98" y="40" width="27" height="1" fill="#dce8e1"/>
     <rect x="104" y="39" width="2" height="3" fill="#dce8e1"/>
     <text x="97" y="51.5" fill="#dce8e1">03/09</text>
-    <text x="1" y="62.5" fill="#dce8e1">BPM 120  DUR 300ms</text>
+    <text x="1" y="62.5" fill="#dce8e1">BPM 120  TIME 300ms</text>
   </g>
   <rect x="0.25" y="0.25" width="127.5" height="63.5" fill="none" stroke="#5b6661" stroke-width="0.5"/>
 </svg>

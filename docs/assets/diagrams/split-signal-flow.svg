@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="740" viewBox="0 0 1200 740" role="img" aria-labelledby="title desc">
   <title id="title">s3g Thru Split audio signal flow</title>
-  <desc id="desc">A and B each have two stereo lanes, four source voices, private Color and Rotary inserts, independent level and mute, and optional priority duck gain. Blend sets their contributions to the dry sum and parallel Delay and Reverb sends. Shared returns join the dry sum. This example places Tape after both returns, before the program compressor and final limiter.</desc>
+  <desc id="desc">A and B each have two stereo lanes, four source voices, private Color and Rotary inserts, output EQ and balance, independent level and mute, and optional priority duck gain. Blend sets their contributions to the dry sum and parallel Delay and Reverb sends. Shared returns join the dry sum. This example places Tape after both returns, before the program compressor and final limiter.</desc>
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" markerWidth="8" markerHeight="8" refX="9" refY="5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0L10 5L0 10Z" fill="#202020"/></marker>
     <style>
@@ -41,9 +41,9 @@
   <text x="135" y="158" class="sub">4 source voices</text>
   <text x="135" y="180" class="sub">engine + envelope</text>
   <rect x="270" y="100" width="285" height="95" class="box"/>
-  <text x="412" y="132" class="title">A PRIVATE INSERTS</text>
+  <text x="412" y="132" class="title">A INSERTS + OUTPUT STRIP</text>
   <text x="412" y="158" class="sub">Tone / Drive → Bits / Rate</text>
-  <text x="412" y="180" class="sub">→ Stereo / Rotary</text>
+  <text x="412" y="180" class="sub">→ Rotary → EQ / Pan</text>
   <rect x="595" y="100" width="170" height="95" class="box"/>
   <text x="680" y="132" class="title">A PART MIX</text>
   <text x="680" y="158" class="small">LEVL · MUTE · BLEND</text>
@@ -54,9 +54,9 @@
   <text x="135" y="348" class="sub">4 source voices</text>
   <text x="135" y="370" class="sub">engine + envelope</text>
   <rect x="270" y="290" width="285" height="95" class="box"/>
-  <text x="412" y="322" class="title">B PRIVATE INSERTS</text>
+  <text x="412" y="322" class="title">B INSERTS + OUTPUT STRIP</text>
   <text x="412" y="348" class="sub">Tone / Drive → Bits / Rate</text>
-  <text x="412" y="370" class="sub">→ Stereo / Rotary</text>
+  <text x="412" y="370" class="sub">→ Rotary → EQ / Pan</text>
   <rect x="595" y="290" width="170" height="95" class="box"/>
   <text x="680" y="322" class="title">B PART MIX</text>
   <text x="680" y="348" class="small">LEVL · MUTE · BLEND</text>

@@ -1,7 +1,33 @@
 #pragma once
 #include "thru_sequence.h"
 // Convert a current, checksum-free payload to the preceding format for migration fixtures.
+inline void stripSequencePaths(std::vector<unsigned char>& bytes){
+    if(bytes.size()<16||bytes[8]!=46)return;
+    constexpr std::size_t size=4+64*4*4;const auto at=bytes.size()-size;
+    assert(bytes[at]=='P'&&bytes[at+1]=='T'&&bytes[at+2]=='H'&&bytes[at+3]=='1');bytes.resize(at);bytes[8]=45;
+}
+inline void stripSequenceShifts(std::vector<unsigned char>& bytes){
+    stripSequencePaths(bytes);
+    if(bytes.size()<16||bytes[8]!=45)return;
+    constexpr std::size_t size=4+64*4*4;const auto at=bytes.size()-size;
+    assert(bytes[at]=='S'&&bytes[at+1]=='H'&&bytes[at+2]=='T'&&bytes[at+3]=='1');bytes.resize(at);bytes[8]=44;
+}
+inline void stripSequenceDirections(std::vector<unsigned char>& bytes) {
+    stripSequenceShifts(bytes);
+    if(bytes.size()<16||bytes[8]!=44)return;
+    constexpr std::size_t size=4+64*4*8;
+    assert(bytes.size()>size);const auto at=bytes.size()-size;
+    assert(bytes[at]=='S'&&bytes[at+1]=='D'&&bytes[at+2]=='I'&&bytes[at+3]=='1');bytes.resize(at);bytes[8]=43;
+}
+inline void stripSequenceTypes(std::vector<unsigned char>& bytes) {
+    stripSequenceDirections(bytes);
+    if(bytes.size()<16||bytes[8]!=43)return;
+    const auto n=bytes.size();std::uint32_t length=0;for(int i=0;i<4;++i)length|=std::uint32_t(bytes[n-4+i])<<(8*i);
+    assert(length>=4&&length<n-12);const auto at=n-4-length;
+    assert(bytes[at]=='S'&&bytes[at+1]=='Y'&&bytes[at+2]=='T'&&bytes[at+3]=='1');bytes.resize(at);bytes[8]=42;
+}
 inline void stripPulsarSeedExtension(std::vector<unsigned char>& bytes) {
+    stripSequenceTypes(bytes);
     if(bytes.size()<12||bytes[8]!=42)return;
     constexpr std::size_t extra=4+64*4*4;
     assert(bytes.size()>extra);const auto at=bytes.size()-extra;

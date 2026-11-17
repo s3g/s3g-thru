@@ -357,6 +357,13 @@ void testPreviewIsolation()
 #include "test_pulsar_mod.inc"
 #include "test_layers.inc"
 #include "test_sequence.inc"
+#include "test_sequence_generate.inc"
+#include "test_sequence_types.inc"
+#include "test_sequence_directions.inc"
+#include "test_sequence_safety.inc"
+#include "test_euclidean_shift.inc"
+#include "test_sequence_paths.inc"
+#include "test_sequence_route_repairs.inc"
 #include "test_pulsar_recall.inc"
 #include "test_drive.inc"
 #include "test_fade_lookahead.inc"
@@ -364,6 +371,18 @@ void testPreviewIsolation()
 
 int main(int argc,char** argv)
 {
+    if(argc==2&&std::strcmp(argv[1],"--project-worker")==0){testProjectBackgroundWorkflow();return 0;}
+    if(argc==2&&std::strcmp(argv[1],"--sequence-reset")==0){testSequenceClipReset();return 0;}
+    if(argc==2&&std::strcmp(argv[1],"--directions")==0){testSequenceDirections();testSequenceRecipeRecording();testAllRecipeGestures();return 0;}
+    if(argc==2&&std::strcmp(argv[1],"--authored-edits")==0){testSequencePersistentEdits();return 0;}
+    if(argc==2&&std::strcmp(argv[1],"--clear-recording")==0){testClearRecordedPerformance();return 0;}
+    if(argc==2&&std::strcmp(argv[1],"--typed-pads")==0){testTypedSequencePhysicalPads();testTypedPadsOverRecordedRecipes();testClearRecordedPerformance();testSequencePersistentEdits();return 0;}
+    if(argc==2&&std::strcmp(argv[1],"--route-repairs")==0){testSequenceRouteRepairs();return 0;}
+    if(argc==2&&std::strcmp(argv[1],"--paths")==0){testSequencePaths();testSequenceDirections();testSequenceRecipeRecording();testAllRecipeGestures();return 0;}
+    if(argc==2&&std::strcmp(argv[1],"--euclid-shift")==0){testEuclideanHitShift();testSequenceAuditRepairs();return 0;}
+    if(argc==2&&std::strcmp(argv[1],"--sequence-safety")==0){testSequenceAuditRepairs();return 0;}
+    if(argc==2&&std::strcmp(argv[1],"--types")==0){testSavedSequenceTypes();testCommonOutputMixer();testPriorityDuckingRoutingAndBypass();testPriorityDuckingAudio();return 0;}
+    if(argc==2&&std::strcmp(argv[1],"--generate")==0){testSequenceGenerate();return 0;}
     testDriveFilterAndIdleContinuity();
     testFadeLookahead();
     if(argc==2 && std::strcmp(argv[1],"--lookahead")==0)return 0;
@@ -378,6 +397,7 @@ int main(int argc,char** argv)
     if(argc==2 && std::strcmp(argv[1],"--sequence")==0){testSequence();return 0;}
     if(argc==2 && std::strcmp(argv[1],"--layers")==0){testLayers();testPatternFadePlaybackAndHeldMidpoint();testManualPatternCrossfader();return 0;}
     testSequence();
+    testSequenceGenerate();testSavedSequenceTypes();testCommonOutputMixer();testTypedSequencePhysicalPads();testTypedPadsOverRecordedRecipes();testClearRecordedPerformance();testSequencePersistentEdits();testSequenceDirections();testSequenceRecipeRecording();testAllRecipeGestures();testSequenceAuditRepairs();testEuclideanHitShift();testSequencePaths();testSequenceRouteRepairs();
     testLayers();
     if(argc==2 && std::strcmp(argv[1],"--pulsar")==0) {
         testPulsarLongDuration();testPulsarExtendedSize();testPulsarWindowsAndClock();testPulsarEditsAndParts();testPulsarPersistenceAndMidi();return 0;

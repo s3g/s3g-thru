@@ -77,7 +77,7 @@
             <tr><td>6</td><td>SWNG</td><td>50–75%</td><td>Applies swing to tempo-clocked Cutups.</td></tr>
 
             <tr><td>7</td><td>LOOK</td><td>Off / 12ms</td><td>Fade lookahead. Adds about 12 ms to instrument playback so outgoing audio is ready while a clip fade starts. The input monitor keeps its current response. 12ms is the default.</td></tr>
-            <tr><td>8</td><td>Reserved</td><td>—</td><td>Inactive and available for a future Performance Loop control.</td></tr>
+            <tr><td>8</td><td>CLR</td><td>Action</td><td>Clear the current clip’s recorded notes and parameter data. Retains authored sequences, samples, sound settings and clip length. Finish recording first.</td></tr>
           </tbody>
         </table>
 
@@ -87,8 +87,11 @@
         <div class="callout"><p><strong>Live multi-instrument mixing:</strong> moving a part level or send, or dual-mode Blend/Curve, overrides that parameter’s recorded curve until playback restarts or another clip launches. Use Overdub to save the new movement. Mute is saved part state rather than a recorded mixer gesture. See <a href="split.html#live-mix">Mix over a playing clip</a>.</p></div>
         <h2 id="takes">Replace, Overdub, and takes</h2>
 
+        <p><strong>Sequence editing:</strong> with Record off, an edited control replaces its own recorded automation and remains set after Stop/Play. Other recorded controls continue. With Record on, changes become timed gestures. Other instrument modes retain their temporary live-override behavior.</p>
         <p>Replace clears the old event data and establishes take 1 as a protected base. Every completed, non-empty Overdub pass adds a take containing its new notes and pressure/parameter gestures. An empty pass adds nothing.</p>
 
+        <h3>Clear the recording, keep the sequence</h3>
+        <p>Hold <kbd>Delete/X</kbd> and press <kbd>Capture</kbd>, or turn <strong>PERF LOOP → CLR</strong> (knob 8). Finish recording first. This removes all recorded notes, gestures and starting parameter values from the current clip. In Sequence mode it preserves trigs, pad on/off overrides, locks, samples, engine settings, clip length and the running lane phases. The curved-arrow Undo restores the recording. An empty Replace take still records starting values; use CLR when those values should also be removed.</p>
         <h3>Undo an overdub</h3>
         <ol>
           <li>If recording is active, press <kbd>Record</kbd> to finish the take.</li>

@@ -23,6 +23,16 @@ void resumeTestBackgroundWorker(ThruInstance& instance)
     instance.backgroundStarted = true;
 }
 
+// Disk flushes in a sanitizer process are asynchronous correctness checks,
+// not callback-budget measurements. Keep a bounded wall-clock deadline.
+void waitForTestPersistenceCompletion(ThruInstance& instance)
+{
+    const auto deadline=std::chrono::steady_clock::now()+std::chrono::seconds(15);
+    while(instance.persistenceJob.load(std::memory_order_acquire)!=ThruInstance::backgroundComplete
+          &&std::chrono::steady_clock::now()<deadline)usleep(500);
+    assert(instance.persistenceJob.load(std::memory_order_acquire)==ThruInstance::backgroundComplete);
+}
+
 void waitForTestBackground(ThruInstance& instance, bool metadata)
 {
     std::array<std::int16_t, kBlockFrames * 2u> output {};
@@ -126,10 +136,7 @@ void testBoundedBackgroundPersistence()
     setParam(instance.get(), "effect_drive", "0.75");
     instance->clipSlots[1u].clipPoints[0u].value = 0.75f;
     resumeTestBackgroundWorker(*instance);
-    for (int attempt = 0; attempt < 4000
-         && instance->persistenceJob.load(std::memory_order_acquire)
-            != ThruInstance::backgroundComplete; ++attempt) usleep(500);
-    assert(instance->persistenceJob.load() == ThruInstance::backgroundComplete);
+    waitForTestPersistenceCompletion(*instance);
     assert(instance->persistenceSnapshot->success);
     auto restored = std::make_unique<ThruInstance>();
     assert(restored->prepare(path));
@@ -159,10 +166,7 @@ void testBoundedBackgroundPersistence()
         renderBlock(instance.get(), output.data(), kBlockFrames);
     assert(instance->persistenceJob.load() == ThruInstance::backgroundRequested);
     resumeTestBackgroundWorker(*instance);
-    for (int attempt = 0; attempt < 4000
-         && instance->persistenceJob.load(std::memory_order_acquire)
-            != ThruInstance::backgroundComplete; ++attempt) usleep(500);
-    assert(instance->persistenceJob.load() == ThruInstance::backgroundComplete);
+    waitForTestPersistenceCompletion(*instance);
     assert(!instance->persistenceSnapshot->success);
     restored = std::make_unique<ThruInstance>();
     assert(restored->prepare(path));

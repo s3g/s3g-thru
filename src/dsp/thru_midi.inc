@@ -29,12 +29,16 @@ bool e16RemoteLive(ThruInstance& t) {
     return t.e16RemoteRequested || t.e16RemoteActive;
 }
 
-float midiMaximum(const ThruInstance& t,const MidiParameter& p) {
+float midiMaximum(const ThruInstance& t,const MidiParameter& p,int part=-1) {
+    const int owner=clampValue(part<0?t.splitFocus:part,0,3);
     if(std::strcmp(p.key,"manual_lane")==0)return t.isQuad()?1.0f:t.splitEnabled&&!t.sharedDual?2.0f:4.0f;
     if(std::strcmp(p.key,"cue_trigger")==0 || std::strcmp(p.key,"cue_clear")==0)return t.splitEnabled?static_cast<float>(t.cuesPerPart()-1):7.0f;
     if(std::strcmp(p.key,"record_source")==0)return t.splitEnabled?(t.isQuad()?5.0f:3.0f):1.0f;
     if(std::strcmp(p.key,"voice_engine_edit")==0)return static_cast<float>(t.engineSlotCount());
     if(std::strcmp(p.key,"split_focus")==0)return t.isQuad()?3.0f:1.0f;
+    if(!std::strcmp(p.key,"seq_recipe_hits")||!std::strcmp(p.key,"seq_recipe_shift"))return float((t.sequenceRunning()?t.sequencePlayback:t.sequenceLive).tracks[owner].length-(!std::strcmp(p.key,"seq_recipe_shift")?1:0));
+    if(!std::strcmp(p.key,"seq_recipe_min")||!std::strcmp(p.key,"seq_recipe_max"))return (t.sequenceRunning()?t.sequencePlayback:t.sequenceLive).tracks[owner].timeMode?30000.f:32.f;
+    if(!std::strcmp(p.key,"seq_duck_key"))return float(t.outputMixerCount());
     return p.maximum;
 }
 
@@ -49,6 +53,7 @@ float midiRead(ThruInstance& t,const MidiParameter& p,int part) {
     if(std::strcmp(key,"waveset_process")==0)return static_cast<float>(
         Engine::wavesetProcessIndex(t.liveControlsForPart(part).wavesetProcess));
     if(!std::strncmp(key,"seq_",4))return t.sequenceParameterValue(key,part);
+    if(!std::strcmp(key,"mix_mute")){float v=0;t.outputMixerValue(key,part,v);return v;}
     const int index=p.lock;
     if(index>=0)return lockedValue(p.part?t.liveControlsForPart(part):t.controls,t.outputGain,index);
     if(p.part) {
@@ -84,7 +89,7 @@ void midiWrite(ThruInstance& t,const MidiParameter& p,int part,float value) {
     const int focus=t.splitFocus,previousMidi=t.midiPart;
     if(p.part && t.splitEnabled)t.selectSplitPart(part,false);
     t.midiPart=p.part?part:0;
-    value=clampValue(value,p.minimum,midiMaximum(t,p));
+    value=clampValue(value,p.minimum,midiMaximum(t,p,part));
     if(p.integer)value=std::round(value);
     const char* key=p.key;
     if(std::strcmp(key,"part_level")==0)key=kLockParameterKeys[t.partLevelParameter(part)];
@@ -130,7 +135,7 @@ bool applyAbsoluteCc(ThruInstance& t,const MidiParameter& p,int part,
     if(pickup.id!=p.id || pickup.part!=part) {
         pickup={};pickup.id=p.id;pickup.part=part;
     }
-    const float maximum=midiMaximum(t,p);
+    const float maximum=midiMaximum(t,p,part);
     const bool boundedInteger=p.integer && maximum-p.minimum<=127.0f;
     const auto decodedInteger=[&](int cc) {
         const int raw=cc>=127?16383:clampValue(cc,0,127)*129;
@@ -192,9 +197,9 @@ void applyNrpn(ThruInstance& t,int channel,int id,int raw,int /*source*/) {
         t.midiWatched[static_cast<std::size_t>(part+1)*s3g_thru_midi::count+index]=true;
         // Echoing feedback must not write state, record redundant automation,
         // or start another feedback exchange.
-        if(s3g_thru_midi::encode(*p,midiRead(t,*p,part),midiMaximum(t,*p))==raw)return;
+        if(s3g_thru_midi::encode(*p,midiRead(t,*p,part),midiMaximum(t,*p,part))==raw)return;
     }
-    midiWrite(t,*p,part,s3g_thru_midi::decode(*p,raw,midiMaximum(t,*p)));
+    midiWrite(t,*p,part,s3g_thru_midi::decode(*p,raw,midiMaximum(t,*p,part)));
 }
 
 int e16HoldTime(int index) {
@@ -231,7 +236,7 @@ bool handleE16NativeResetCc(ThruInstance& t,int channel,int number,int value) {
     // Ring feedback remains an absolute reading and never changes this sign.
     const int ticks=value>0 && value<64?-value:value>64?128-value:0;
     if(!reset && (ticks==0 || std::abs(ticks)>8))return true;
-    const float current=midiRead(t,*p,part),maximum=midiMaximum(t,*p);
+    const float current=midiRead(t,*p,part),maximum=midiMaximum(t,*p,part);
     float next=p->initial;
     if(!reset) {
         const bool lane=std::strcmp(p->key,"manual_lane")==0
@@ -407,7 +412,7 @@ int formatMidiFeedback(ThruInstance& t,char* buffer,int size) {
         const int part=static_cast<int>(index/s3g_thru_midi::count)-1;
         if(part>=(t.splitEnabled?t.partCount():1))continue;
         append("%s[%d,%d,%d]",count?",":"",part<0?16:part+5,p.id,
-            s3g_thru_midi::encode(p,midiRead(t,p,part),midiMaximum(t,p)));++count;
+            s3g_thru_midi::encode(p,midiRead(t,p,part),midiMaximum(t,p,part)));++count;
     }
     append("%s","]");if(!ok){buffer[0]=0;return -1;}return at;
 }
@@ -598,7 +603,7 @@ bool handleE16RemoteMidi(ThruInstance& t,const std::uint8_t* b,int length,int so
     e16RemoteNormalizePage(t);
     const int index=n-1;
     int part=-1;const auto* p=e16PhysicalParameter(t,index,part);if(!p || p->action)return true;
-    const float maximum=midiMaximum(t,*p),current=midiRead(t,*p,part);
+    const float maximum=midiMaximum(t,*p,part),current=midiRead(t,*p,part);
     const bool lane=p->id==3 && static_cast<int>(t.liveControlsForPart(part).algorithm)==3;
     float next=current;
     if(p->integer || lane)next=clampValue(current+(ticks>0?1.0f:-1.0f),p->minimum,maximum);
@@ -636,7 +641,7 @@ int formatE16RemotePageState(ThruInstance& t,char* buffer,int size,bool active) 
     append("%s","],\"values\":[");bool comma=false;
     for(int physical=0;physical<16;++physical) {
         int part=-1;const auto* p=e16PhysicalParameter(t,physical,part);if(!p)continue;
-        const float maximum=midiMaximum(t,*p);
+        const float maximum=midiMaximum(t,*p,part);
         const bool lane=p->id==3 && static_cast<int>(t.liveControlsForPart(part).algorithm)==3;
         const int steps=(p->integer || lane) && maximum-p->minimum<=127.0f?static_cast<int>(std::round(maximum-p->minimum)):0;
         append("%s[%d,%d,%d,%d,%d,%.8g]",comma?",":"",physical,
@@ -670,7 +675,7 @@ int formatE16NativeState(ThruInstance& t,char* buffer,int size) {
                 const float value=midiRead(t,*p,part);
                 raw=std::strcmp(p->key,"hold_release_ms")==0
                     ?static_cast<int>(std::lround(e16HoldIndex(value)*16383.0/67))
-                    :s3g_thru_midi::encode(*p,value,midiMaximum(t,*p));
+                    :s3g_thru_midi::encode(*p,value,midiMaximum(t,*p,part));
                 color=shared || physical<8?30:100;
             }
         }

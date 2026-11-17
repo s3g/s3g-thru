@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="520" viewBox="0 0 1200 520" role="img" aria-labelledby="title desc">
   <title id="title">s3g Thru audio signal flow</title>
-  <desc id="desc">Block diagram showing microphone or line input and sample files entering four clip-local lanes, the eight-voice playback engine, lane gains, effects, stereo-linked program compression, output limiting, monitoring, and the resample return.</desc>
+  <desc id="desc">Block diagram showing microphone or line input and sample files entering four clip-local lanes, the eight-voice playback engine, source gains, instrument EQ and balance, effects, stereo-linked program compression, output limiting, monitoring, and the resample return.</desc>
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" markerWidth="8" markerHeight="8" refX="9" refY="5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0L10 5L0 10Z" fill="#202020"/></marker>
     <style>
@@ -52,14 +52,14 @@
 
   <rect x="475" y="126" width="190" height="122" class="soft"/>
   <text x="570" y="161" class="title">PLAYBACK · 8 VOICES</text>
-  <text x="570" y="186" class="sub">Motion · Lanes · Grains</text>
-  <text x="570" y="207" class="sub">Cutups · Sample · Slices</text>
-  <text x="570" y="228" class="sub">Glitch · Weave · Wavesets</text>
+  <text x="570" y="186" class="sub">15 sample engines</text>
+  <text x="570" y="207" class="sub">source gains · envelope</text>
+  <text x="570" y="228" class="sub">polyphony compensation</text>
 
   <rect x="700" y="126" width="120" height="122" class="box"/>
-  <text x="760" y="161" class="title">LANE MIX</text>
-  <text x="760" y="185" class="sub">four gains</text>
-  <text x="760" y="207" class="sub">poly balance</text>
+  <text x="760" y="161" class="title">OUT STRIP</text>
+  <text x="760" y="185" class="sub">EQ · balance</text>
+  <text x="760" y="207" class="sub">Solo · Mute</text>
 
   <rect x="850" y="126" width="130" height="122" class="soft"/>
   <text x="915" y="155" class="title">EFFECTS</text>

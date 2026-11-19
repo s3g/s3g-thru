@@ -286,6 +286,7 @@ globalThis.__testFx = { adjust: adjustFxOrder, sync: syncFxOrder,
     parseClip: parseClipBankState, draw: drawSettings,
     pageIndex: () => parameterPages().indexOf(FX_ORDER_PAGE) };
 `;
+source += '\nglobalThis.__testSynth={model:synthUi,open:openSynth,read:readSynth,draw:drawSynth,color:synthPadColor,pages:synthGroupPages,allPages:synthPageIds,decode:decodeSynthRecipe,locks:synthLockEntries,actions:synthActions};';
 source += '\nglobalThis.__testSequenceGenerate={ui:sequenceGeneratorUi,open:openSequenceGenerator,close:closeSequenceGenerator,read:readSequenceGenerator,pages:GEN_PAGES,control:generatorControl,draw:drawSequenceGenerator,green:NeonGreen,color:generatorPadColor,position:settingsPagePosition,activate:activatePageEntry};';
 await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
 
@@ -4147,4 +4148,248 @@ if(process.env.S3G_THRU_UNIT_FIXTURE){
    for(const frame of frames)check(frame,frame.values[45]===5||(frame.values[45]===1&&frame.source_kind===0));
  }
  state.view='main';console.log('s3g Thru AUTO COUNT: resolved equal/transient/file/edited/unavailable snapshots, native playback values, reserved square, inert turns and immediate re-enable: PASS');
+}
+
+{
+ const ui=globalThis.__testSynth,tools=globalThis.__testTools,state=globalThis.__testFx.state();
+ const point=i=>[i/7,0,2];
+ const fixture=process.env.S3G_THRU_SYNTH_FIXTURE?JSON.parse(fs.readFileSync(process.env.S3G_THRU_SYNTH_FIXTURE,'utf8')):
+   {open:1,job:0,op:0,progress:100,ready:1,preview:0,rev:1,row:0,point:0,seed:1,locks:0x113f,name:'Spline',message:'READY',values:[.12,60,0,5,20,.75,4,16,0,100,1,.2,0],curves:Array.from({length:4},()=>[129,...Array.from({length:8},(_,i)=>point(i))]),wave:[]};
+ if(fixture.recipe){assert(ui.decode(fixture.recipe,fixture));delete fixture.recipe;}
+ const originalSet=globalThis.host_module_set_param_blocking;
+ globalThis.host_module_set_param_blocking=(key,value)=>{
+   const result=originalSet(key,value);
+   // Native Synth commands are ignored after the tool closes.
+   if(key.startsWith('synth_')&&!['synth_open','synth_close'].includes(key)&&!fixture.open)return result;
+   fixture.type??=0;fixture.osc??=[0,.5,0,0,20000,0,0];fixture.packets??=[0,0,8,150,.2,10,20,120,.2,.2,.2,0,.1,0,0,1];fixture.mod??=[0,.5,0,1,0,0,0];fixture.spectral??=[0,0,0,1,0,0,24,-96];fixture.protected??='0'.repeat(62);
+   fixture.additive??=[16,0,1,0,0,0,.5,0];fixture.noise??=[8,3,0,1,0,0,.5,0];fixture.fmOsc??=[0,1,1,2,0,0,0,1];
+   fixture.plucked??=[110,1200,.35,.65,.08,.35,.1,8];fixture.sub??=[8,4,.25,-6,0,0,.25,0];fixture.hybridParams??=[0,2,0,.8,.65,.35,140,.1];fixture.trace??=[0,1,120,0,0,144,.5,0];fixture.events??=[0,8,1,0,0,500,0,.35];fixture.timing??=[1,120,5,.7,0,0,0,0];fixture.drumExtra??=[.94,4,80,.12,0,0,.35,.15];fixture.drumColor??=[24,48000,20000,1,0,0,0,0];fixture.dustParams??=[0,20,1.2,.2,10000,0,16,.75,0,0,1,.25];fixture.dustProtected??='100000000000';fixture.inputs??=[];
+   fixture.workProtected??=Array.from({length:64},(_,i)=>[0,8,9,16,17,24,32,33,40,41,42,43,44,54,55,56,57,58,59].includes(i)?'1':'0').join('');
+   fixture.conv??=[0,12000,0,1000,0,0,1,1];fixture.drums??=[0,48,600,.7,.25,.2,.5,0,12,40,.3,.4,0,.6,.4,.7];fixture.extendedLocks??=0x10f;
+   fixture.partials??=Array.from({length:8},(_,i)=>[i+1,i?0:1]);fixture.partial_masks??=[1,1,1,1];fixture.spectrum??=0;fixture.component??=0;
+   if(key==='synth_type'){fixture.type=Number(value);fixture.row=fixture.point=0;}
+   for(const [command,name] of [['synth_wave','osc'],['synth_bloom','packets'],['synth_mod','mod'],['synth_resynth','spectral'],['synth_additive','additive'],['synth_noise','noise'],['synth_fm','fmOsc'],['synth_conv','conv'],['synth_drum','drums'],['synth_pluck','plucked'],['synth_sub','sub'],['synth_hybrid','hybridParams'],['synth_trace','trace'],['synth_events','events'],['synth_timing','timing'],['synth_attack','drumExtra'],['synth_color','drumColor'],['synth_dust','dustParams']])if(key===command){const [field,v]=String(value).split(',').map(Number);fixture[name][field]=v;}
+   if(key==='synth_spec_select'){const [row,point]=String(value).split(',').map(Number);fixture.spectrum=row;fixture.component=point;}
+   if(key==='synth_spec_edit'){const [row,point,field,v]=String(value).split(',').map(Number);fixture.spectrum=row;fixture.partials[point][field]=v;}
+   if(key==='synth_detail_lock'){const field=Number(value),bits=fixture.protected.split('');bits[field]=bits[field]==='1'?'0':'1';fixture.protected=bits.join('');}
+   if(key==='synth_clean'){fixture.mod[2]=0;fixture.osc=[fixture.osc[0],.5,0,0,20000,0,0];}
+   if(key==='synth_source')fixture.source='Input.wav';
+   if(key==='synth_primary_file')fixture.primary='Primary.wav';
+   if(key==='synth_impulse_file')fixture.impulse='Impulse.wav';
+   if(/^synth_hybrid[0-3]_file$/.test(key))fixture.inputs[Number(key[12])]='Source '+String.fromCharCode(65+Number(key[12]))+'.wav';
+   if(key==='synth_work_lock'){const bits=fixture.workProtected.split(''),f=Number(value);bits[f]=bits[f]==='1'?'0':'1';fixture.workProtected=bits.join('');}
+   if(key==='synth_dust_lock'){const bits=fixture.dustProtected.split(''),f=Number(value);bits[f]=bits[f]==='1'?'0':'1';fixture.dustProtected=bits.join('');}
+   if(key==='synth_extended_lock')fixture.extendedLocks^=1<<Number(value);
+   if(key==='synth_open')fixture.open=1;
+   if(key==='synth_close')fixture.open=0;
+   if(key==='synth_edit'){const [f,v]=String(value).split(',').map(Number);if(f===13)fixture.seed=v;else fixture.values[f]=v;}
+   if(['synth_select','synth_point','synth_delete'].includes(key)){const [r,p]=String(value).split(',').map(Number);fixture.row=r;fixture.point=p;if(key==='synth_point')fixture.curves[r][0]|=1<<p;}
+   if(key==='synth_point_edit'){const [r,p,f,v]=String(value).split(',').map(Number);fixture.curves[r][p+1][f]=v;}
+   if(key==='synth_name')fixture.name=String(value);
+   if(key==='synth_preview')fixture.preview=Number(value);
+   params.synth_state=JSON.stringify(fixture);return result;
+ };
+ try{
+   params.synth_state=JSON.stringify(fixture);
+   Object.assign(state,{view:'main',recording:false,clipRecording:false,shiftHeld:false,deleteHeld:false,focusButtonHeld:false,modeRequest:null});
+   ui.open();assert.equal(state.view,'synth');assert.equal(ui.model.data.ready,1);
+   assert(tools.categories(1).some(e=>e.view==='synth'));
+   for(const [index,page] of ui.pages().entries()){ui.model.page=page;const before=drawWrites.length;ui.draw();assert(hasRightFraction(drawWrites.slice(before),(index+1)+'/'+ui.pages().length));}
+   const pad=(p,on=true)=>globalThis.onMidiMessageInternal([on?0x90:0x80,68+p,on?100:0]);
+   const cc=(n,v=127)=>globalThis.onMidiMessageInternal([0xb0,n,v]);
+   pad(24);pad(24,false);assert.equal(ui.model.page,2);assert.equal(ui.model.row,0);assert.equal(ui.model.point,0);
+   pad(7);pad(7,false);assert.equal(ui.model.row,3);assert.equal(ui.model.point,7);
+   assert.notEqual(ui.color(7),ui.color(24));
+   // Dial 8 navigates the selected pad; selection alone never edits the recipe.
+   const recipe=()=>JSON.stringify([fixture.values,fixture.curves,fixture.seed,fixture.locks]);
+   const cyan=ui.color(7);let savedRecipe=recipe(),at=blockingWrites.length;
+   globalThis.__testResetEncoders();cc(78,124);
+   assert.equal(ui.model.row,3);assert.equal(ui.model.point,6);assert.equal(ui.color(6),cyan);
+   assert.notEqual(ui.color(7),cyan);assert.equal(recipe(),savedRecipe);
+   assert.deepEqual(blockingWrites.slice(at).filter(([k])=>k.startsWith('synth_')).map(([k])=>k),['synth_select']);
+   // Inactive TIME/SHAP cells are squares and ignore turns. Interior TIME is editable.
+   pad(24);pad(24,false);at=blockingWrites.length;globalThis.__testResetEncoders();cc(75,8);
+   assert.equal(blockingWrites.length,at);
+   let drawn=drawWrites.length;ui.draw();let frame=drawWrites.slice(drawn);
+   assert(frame.some(w=>w[0]==='rect'&&w[1]===14&&w[2]===46&&w[3]===4&&w[4]===4));
+   assert(!frame.some(w=>w[0]==='print'&&w[3]==='TIME'));
+   globalThis.__testResetEncoders();savedRecipe=recipe();cc(78,1);assert.equal(ui.model.point,0);cc(78,1);
+   assert.equal(ui.model.point,1);assert.equal(recipe(),savedRecipe);assert.equal(ui.color(25),cyan);
+   drawn=drawWrites.length;ui.draw();frame=drawWrites.slice(drawn);
+   assert(frame.some(w=>w[0]==='rect'&&w[3]===2&&w[4]===2&&w[5]===0),'unused selected point has a hollow marker');
+   at=blockingWrites.length;globalThis.__testResetEncoders();cc(75,4);
+   assert(blockingWrites.slice(at).some(([k,v])=>k==='synth_point_edit'&&v.startsWith('0,1,0,')));
+   for(let i=0;i<12;++i)cc(78,63);assert.equal(ui.model.point,7);
+   at=blockingWrites.length;cc(78,63);cc(75,8);cc(77,8);assert.equal(blockingWrites.length,at);
+   drawn=drawWrites.length;ui.draw();frame=drawWrites.slice(drawn);
+   assert(!frame.some(w=>w[0]==='print'&&['TIME','SHAP'].includes(w[3])));
+   assert(frame.some(w=>w[0]==='rect'&&w[1]===78&&w[2]===46&&w[3]===4&&w[4]===4));
+   for(let row=0;row<4;++row){
+     const selected=(3-row)*8+3;pad(selected);pad(selected,false);savedRecipe=recipe();
+     globalThis.__testResetEncoders();cc(78,4);
+     assert.equal(ui.model.row,row);assert.equal(ui.model.point,4);assert.equal(ui.color(selected+1),cyan);
+     assert.equal(recipe(),savedRecipe);
+   }
+   pad(7);pad(7,false);
+
+   let start=blockingWrites.length;cc(60);pad(7);cc(60,0);assert(ui.model.clipboard);assert(!blockingWrites.slice(start).some(([k])=>k==='split_mode'));
+   ui.model.page=2;globalThis.__testResetEncoders();cc(76,4);assert(blockingWrites.slice(start).some(([k])=>k==='synth_point_edit'));
+   cc(49);pad(25);cc(49,0);assert(blockingWrites.slice(start).some(([k])=>k==='synth_point_edit'));
+   cc(119);pad(26);cc(119,0);assert(blockingWrites.slice(start).some(([k])=>k==='synth_delete'));
+   ui.model.page=0;globalThis.__testResetEncoders();start=blockingWrites.length;cc(72,4);assert(blockingWrites.slice(start).some(([k])=>k==='synth_edit'));
+   fixture.values[12]=1;params.synth_state=JSON.stringify(fixture);ui.read();start=blockingWrites.length;cc(75,8);cc(76,8);assert(!blockingWrites.slice(start).some(([k])=>k==='synth_edit'));
+   cc(42);assert.equal(state.lane,2);assert.equal(state.view,'synth');
+   start=blockingWrites.length;cc(86);assert(!blockingWrites.slice(start).some(([k])=>k==='clip_record'||k==='record'));
+   cc(58);assert.equal(fixture.preview,1);
+   ui.model.overlay='actions';ui.model.selection=2;cc(3);assert.equal(ui.model.overlay,'name');
+   ui.model.name='';ui.model.cursor=0;pad(24);pad(25);assert.equal(ui.model.name,'AB');cc(3);assert.equal(fixture.name,'AB');
+   ui.model.overlay='name';ui.model.nameBefore='AB';ui.model.name='discard';cc(51);assert.equal(ui.model.name,'AB');assert.equal(state.view,'synth');
+   cc(51);assert.equal(ui.model.overlay,'nav');cc(51);assert.equal(state.view,'pages');assert.equal(state.pageCategory,1);assert.equal(fixture.open,0);
+   ui.open();cc(52);cc(50);cc(52,0);assert.equal(state.view,'pages');assert.equal(state.pageTier,'hub');assert.equal(fixture.open,0);
+   // TYPE and all new controls use their own transient commands and contextual pages.
+   ui.open();fixture.type=1;params.synth_state=JSON.stringify(fixture);ui.read();ui.model.page=0;globalThis.__testResetEncoders();cc(71,124);assert.equal(fixture.type,1);
+   assert.equal(ui.pages().length,2);ui.model.page=1;
+   let before=blockingWrites.length;globalThis.__testResetEncoders();cc(72,8);cc(76,8);
+   assert(!blockingWrites.slice(before).some(([k])=>k==='synth_wave'),'inactive pulse width and resonance are inert');
+   for(let i=0;i<4;++i)cc(71,4);assert.equal(fixture.osc[0],3);
+   before=blockingWrites.length;globalThis.__testResetEncoders();cc(72,4);assert(blockingWrites.slice(before).some(([k,v])=>k==='synth_wave'&&v.startsWith('1,')));
+   ui.model.page=5;fixture.mod[2]=0;params.synth_state=JSON.stringify(fixture);ui.read();before=blockingWrites.length;cc(72,8);assert.equal(blockingWrites.length,before);
+   globalThis.__testResetEncoders();cc(73,4);assert(fixture.mod[2]>0);before=blockingWrites.length;cc(72,4);assert(blockingWrites.slice(before).some(([k,v])=>k==='synth_mod'&&v.startsWith('1,')));
+   fixture.type=0;params.synth_state=JSON.stringify(fixture);ui.read();ui.model.page=0;globalThis.__testResetEncoders();cc(71,4);assert.equal(fixture.type,2);assert.equal(ui.pages().length,6);
+   ui.model.page=6;before=blockingWrites.length;globalThis.__testResetEncoders();cc(78,4);assert(blockingWrites.slice(before).some(([k,v])=>k==='synth_bloom'&&v.startsWith('15,')));
+   ui.model.page=7;pad(17);pad(17,false);assert.equal(fixture.spectrum,1);assert.equal(fixture.component,1);
+   before=blockingWrites.length;globalThis.__testResetEncoders();cc(75,4);cc(76,4);cc(78,4);
+   assert(blockingWrites.slice(before).some(([k,v])=>k==='synth_spec_edit'&&v.startsWith('1,1,0,')));assert.equal(fixture.component,2);
+   ui.model.page=0;globalThis.__testResetEncoders();cc(71,4);assert.equal(fixture.type,3);assert.equal(ui.pages().length,2);
+   ui.model.overlay='actions';ui.model.selection=0;cc(3);assert.equal(fixture.source,'Input.wav');
+   ui.model.page=1;fixture.spectral[0]=0;params.synth_state=JSON.stringify(fixture);ui.read();before=blockingWrites.length;globalThis.__testResetEncoders();cc(77,8);assert.equal(blockingWrites.length,before);
+   cc(71,4);before=blockingWrites.length;cc(77,4);assert(blockingWrites.slice(before).some(([k,v])=>k==='synth_resynth'&&v.startsWith('6,')));
+   ui.model.overlay='locks';ui.model.selection=ui.locks().findIndex(e=>e.family==='detail_lock'&&e.field===37);assert(ui.model.selection>=0);const bit=fixture.protected[37];cc(3);assert.notEqual(fixture.protected[37],bit);ui.model.overlay='';
+   for(const [type,family] of [[4,'additive'],[5,'noise'],[6,'fm']]){
+     fixture.type=type;fixture.protected=fixture.protected.padEnd(62,'0');params.synth_state=JSON.stringify(fixture);ui.read();ui.model.page=1;
+     before=blockingWrites.length;globalThis.__testResetEncoders();cc(71,4);assert(blockingWrites.slice(before).some(([k])=>k==='synth_'+family));
+     for(const [i,page]of ui.pages().entries()){ui.model.page=page;const at=drawWrites.length;ui.draw();assert(hasRightFraction(drawWrites.slice(at),(i+1)+'/'+ui.pages().length));}
+     if(type!==6){
+       ui.model.page=7;pad(7);assert.equal(fixture.spectrum,3);assert.equal(fixture.component,7);
+       before=blockingWrites.length;globalThis.__testResetEncoders();cc(75,4);assert(blockingWrites.slice(before).some(([k,v])=>k==='synth_spec_edit'&&v.startsWith('3,7,0,')));
+       globalThis.__testResetEncoders();cc(78,124);assert.equal(fixture.component,6);assert.equal(fixture.spectrum,3);
+       fixture.spectrum=1;fixture.component=0;params.synth_state=JSON.stringify(fixture);ui.read();globalThis.__testResetEncoders();cc(78,124);assert.equal(fixture.spectrum,0);assert.equal(fixture.component,7);
+     } else {
+       fixture.fmOsc[0]=1;
+       for(const [dest,label]of [[2,'IDX1'],[3,'IDX2']]){fixture.mod[3]=dest;params.synth_state=JSON.stringify(fixture);ui.read();ui.model.page=5;const at=drawWrites.length;ui.draw();assert(drawWrites.slice(at).some(w=>w[0]==='print'&&w[3]===label));}
+       fixture.fmOsc[0]=0;params.synth_state=JSON.stringify(fixture);ui.read();ui.model.page=1;
+       before=blockingWrites.length;globalThis.__testResetEncoders();cc(74,8);cc(75,8);assert.equal(blockingWrites.length,before);
+       ui.model.overlay='locks';ui.model.selection=ui.locks().findIndex(e=>e.field===61);assert(ui.model.selection>=0);const bit=fixture.protected[61];cc(3);assert.notEqual(fixture.protected[61],bit);ui.model.overlay='';
+     }
+   }
+   // TYPE walks the musical presentation order while sending stable recipe IDs.
+   const typeOrder=[[1,'WAVE'],[8,'DRUM'],[9,'PLUCK'],[4,'PART'],[5,'NOISE'],[12,'DUST'],[6,'FM'],[10,'SUB'],[0,'SPLN'],[2,'BLOOM'],[3,'RSYN'],[11,'HYBR'],[7,'CONV']];
+   const selectType=id=>{fixture.type=id;params.synth_state=JSON.stringify(fixture);ui.read();ui.model.page=0;ui.model.overlay='';};
+   const assertType=(id,label)=>{assert.equal(fixture.type,id);const at=drawWrites.length;ui.draw();assert(drawWrites.slice(at).some(w=>w[0]==='print'&&w[3]===label),'stable recipe ID displays '+label);};
+   selectType(typeOrder[0][0]);
+   for(const [i,[id,label]] of typeOrder.entries()){if(i){globalThis.__testResetEncoders();cc(71,4);}assertType(id,label);}
+   globalThis.__testResetEncoders();cc(71,4);assertType(7,'CONV');
+   for(const [id,label] of [...typeOrder].reverse().slice(1)){globalThis.__testResetEncoders();cc(71,124);assertType(id,label);}
+   globalThis.__testResetEncoders();cc(71,124);assertType(1,'WAVE');
+   for(const [id,label] of typeOrder){selectType(id);assertType(id,label);}
+   // Menu groups retain the editing page, and Up/Down stay inside the active group.
+   ui.model.page=1;ui.model.overlay='';cc(50);assert.equal(ui.model.overlay,'nav');cc(14,1);cc(3);assert.equal(ui.model.page,5);assert.equal(ui.model.overlay,'');cc(54);assert.equal(ui.model.page,2);cc(54);assert.equal(ui.model.page,3);cc(54);assert.equal(ui.model.page,3);
+   cc(50);ui.model.selection=0;cc(3);assert.equal(ui.model.page,1);cc(50);ui.model.selection=1;cc(3);assert.equal(ui.model.page,3);
+   cc(50);ui.model.selection=2;cc(3);assert.equal(ui.model.page,4);assert.deepEqual(ui.pages(),[4]);
+   // The primary and impulse pickers return to Synth without loading or selecting an audio lane.
+   fixture.type=7;params.synth_state=JSON.stringify(fixture);ui.read();ui.model.page=8;ui.model.overlay='actions';ui.model.selection=0;
+   const nativeUiState=params.ui_state.split(',');nativeUiState[0]=String(state.lane);params.ui_state=nativeUiState.join(',');
+   const dest=state.lane;before=blockingWrites.length;cc(3);assert.equal(state.view,'library');assert.equal(ui.model.browserTarget,'primary');
+   // A real user spends multiple display frames browsing before choosing a WAV.
+   const browseFrames=()=>{const now=Date.now;let frame=now();Date.now=()=>frame;try{for(let i=0;i<12;++i){frame+=20;globalThis.tick();}}finally{Date.now=now;}};
+   browseFrames();assert.equal(fixture.open,1,'Synth stays open while browsing its inputs');assert.equal(ui.model.opened,true);
+   cc(40);assert.equal(state.lane,dest);state.libraryItems=[{name:'Primary.wav',path:'/tmp/Primary.wav',directory:false}];state.libraryIndex=0;cc(3);
+   assert.equal(fixture.primary,'Primary.wav','primary reaches the still-open native tool');
+   assert.equal(state.view,'synth');assert.equal(ui.model.browserTarget,'');assert.equal(state.lane,dest);assert(blockingWrites.slice(before).some(([k,v])=>k==='synth_primary_file'&&v==='/tmp/Primary.wav'));assert(!blockingWrites.slice(before).some(([k])=>k==='load_lane_file'||k==='record_lane'));
+   ui.model.overlay='actions';ui.model.selection=1;cc(3);assert.equal(ui.model.browserTarget,'impulse');browseFrames();cc(50);assert.equal(state.view,'synth');assert.equal(ui.model.browserTarget,'');assert.equal(fixture.open,1);
+   ui.model.overlay='actions';ui.model.selection=1;cc(3);browseFrames();state.libraryItems=[{name:'Impulse.wav',path:'/tmp/Impulse.wav',directory:false}];state.libraryIndex=0;cc(3);assert.equal(fixture.impulse,'Impulse.wav');assert.equal(fixture.open,1);assert(!blockingWrites.slice(before).some(([k])=>k==='synth_close'));
+   before=blockingWrites.length;cc(86);assert(blockingWrites.slice(before).some(([k,v])=>k==='synth_save'&&v==='1'));before=blockingWrites.length;cc(49);cc(86);cc(49,0);assert(blockingWrites.slice(before).some(([k,v])=>k==='synth_save'&&v==='0'));
+   fixture.type=8;fixture.drums[0]=2;params.synth_state=JSON.stringify(fixture);ui.read();ui.model.page=1;before=blockingWrites.length;globalThis.__testResetEncoders();cc(75,8);assert.equal(blockingWrites.length,before);
+   fixture.drums[0]=4;params.synth_state=JSON.stringify(fixture);ui.read();ui.model.page=6;before=blockingWrites.length;globalThis.__testResetEncoders();cc(71,8);cc(72,8);assert.equal(blockingWrites.length,before);
+   ui.model.overlay='locks';ui.model.selection=ui.locks().findIndex(e=>e.family==='extended_lock'&&e.field===15);assert(ui.model.selection>=0);const held=fixture.extendedLocks;cc(3);assert.equal(fixture.extendedLocks,held^(1<<15));ui.model.overlay='';
+   // New models use contextual labels, active enum controls and all eight Detail cells.
+   for(const [model,mainLabel,detailLabel] of [[6,'TUNE','SHAP'],[7,'MASS','MATL'],[8,'SPED','EXCT']]){
+     fixture.type=8;fixture.drums=[model,model===6?43:model===7?180:343,600,.7,.25,.2,.5,0,12,40,.3,.4,0,.6,.4,.7];params.synth_state=JSON.stringify(fixture);ui.read();ui.model.page=1;
+     let start=drawWrites.length;ui.draw();assert(drawWrites.slice(start).some(w=>w[0]==='print'&&w[3]===mainLabel));
+     ui.model.page=6;start=drawWrites.length;ui.draw();assert(drawWrites.slice(start).some(w=>w[0]==='print'&&w[3]===detailLabel));
+     before=blockingWrites.length;globalThis.__testResetEncoders();cc(75,4);assert(blockingWrites.slice(before).some(([k,v])=>k==='synth_drum'&&v.startsWith('12,')));
+     before=blockingWrites.length;globalThis.__testResetEncoders();cc(76,4);cc(77,4);cc(78,4);for(const field of [13,14,15])assert(blockingWrites.slice(before).some(([k,v])=>k==='synth_drum'&&v.startsWith(field+',')));
+     if(model>=7){before=blockingWrites.length;globalThis.__testResetEncoders();cc(71,8);cc(72,8);assert.equal(blockingWrites.length,before,'modal/waveguide bend and sweep are unavailable');}
+     if(model===8){fixture.drums[4]=0;fixture.mod[0]=0;params.synth_state=JSON.stringify(fixture);ui.read();ui.model.page=0;before=blockingWrites.length;globalThis.__testResetEncoders();cc(78,8);assert.equal(blockingWrites.length,before,'Medium SEED is unavailable without noise or random modulation');fixture.drums[4]=.25;params.synth_state=JSON.stringify(fixture);ui.read();}
+   }
+   // All three new types send their stable parameter-family commands.
+   for(const [type,family]of [[9,'pluck'],[10,'sub'],[11,'hybrid']]){
+     selectType(type);ui.model.page=1;before=blockingWrites.length;globalThis.__testResetEncoders();cc(73,4);assert(blockingWrites.slice(before).some(([k])=>k==='synth_'+family));
+     const at=drawWrites.length;ui.draw();assert(hasAnyRightFraction(drawWrites.slice(at)));
+   }
+   for(const type of [2,4,8,9]){
+     selectType(type);assert(ui.pages().includes(9));ui.model.page=9;fixture.events[0]=0;params.synth_state=JSON.stringify(fixture);ui.read();before=blockingWrites.length;globalThis.__testResetEncoders();cc(72,8);assert.equal(blockingWrites.length,before);
+     cc(71,4);assert.equal(fixture.events[0],1);before=blockingWrites.length;globalThis.__testResetEncoders();cc(72,4);assert(blockingWrites.slice(before).some(([k,v])=>k==='synth_timing'&&v.startsWith('1,')));
+   }
+   selectType(9);fixture.events[0]=1;fixture.timing=[1,120,5,.7,0,0,0,0];fixture.values[2]=1;params.synth_state=JSON.stringify(fixture);ui.read();ui.model.page=9;
+   let musicalStart=drawWrites.length;ui.draw();for(const text of ['MODE','BPM','DIV','EVTS','GATE','SWNG','SPAN','PAN'])assert(drawWrites.slice(musicalStart).some(w=>w[0]==='print'&&w[3]===text),text);
+   for(const [knob,command,field] of [[73,'synth_timing',2],[74,'synth_events',1],[75,'synth_timing',3],[76,'synth_timing',4]]){before=blockingWrites.length;globalThis.__testResetEncoders();cc(knob,4);assert(blockingWrites.slice(before).some(([k,v])=>k===command&&v.startsWith(field+',')));}
+   ui.model.page=12;musicalStart=drawWrites.length;ui.draw();assert(!drawWrites.slice(musicalStart).some(w=>w[0]==='print'&&w[3]==='LIFE'),'BEAT reserves absolute LIFE');
+   before=blockingWrites.length;globalThis.__testResetEncoders();cc(76,4);assert.equal(blockingWrites.length,before);
+   globalThis.__testResetEncoders();cc(75,124);assert.equal(fixture.timing[0],0);musicalStart=drawWrites.length;ui.draw();assert(drawWrites.slice(musicalStart).some(w=>w[0]==='print'&&w[3]==='LIFE'));
+   selectType(10);ui.model.page=1;fixture.sub=[8,4,.25,-6,0,0,.25,0];params.synth_state=JSON.stringify(fixture);ui.read();assert(ui.pages().includes(7));
+   musicalStart=drawWrites.length;ui.draw();for(const text of ['HARM','SUBS','BAL','TILT','DETN','DRFT','REG'])assert(drawWrites.slice(musicalStart).some(w=>w[0]==='print'&&w[3]===text),text);
+   before=blockingWrites.length;globalThis.__testResetEncoders();cc(77,4);assert.equal(blockingWrites.length,before,'Sub RATE has no effect without drift');
+   ui.model.page=7;fixture.spectrum=2;fixture.component=0;params.synth_state=JSON.stringify(fixture);ui.read();musicalStart=drawWrites.length;ui.draw();assert(drawWrites.slice(musicalStart).some(w=>w[0]==='print'&&w[3]==='DIV'));
+   before=blockingWrites.length;globalThis.__testResetEncoders();cc(75,4);assert(blockingWrites.slice(before).some(([k,v])=>k==='synth_spec_edit'&&v.startsWith('2,0,0,')));
+   selectType(8);fixture.drums=[9,44,3200,.88,.62,.72,.38,0,.56,.45,.5,.22,0,.2,.28,.55];fixture.drumExtra=[.65,320,140,.35,0,0,.35,.15];params.synth_state=JSON.stringify(fixture);ui.read();assert(ui.pages().includes(13));
+   ui.model.page=1;{const at=drawWrites.length;ui.draw();for(const text of ['CBAS','AIR','IMPT'])assert(drawWrites.slice(at).some(w=>w[0]==='print'&&w[3]===text),text);}
+   ui.model.page=6;{const at=drawWrites.length;ui.draw();for(const text of ['SIZE','TENS','BLOM','ART','POS','SHEL'])assert(drawWrites.slice(at).some(w=>w[0]==='print'&&w[3]===text),text);}
+   before=blockingWrites.length;globalThis.__testResetEncoders();cc(72,4);assert(blockingWrites.slice(before).some(([k,v])=>k==='synth_drum'&&v.startsWith('9,0.')));
+   ui.model.page=13;{const at=drawWrites.length;ui.draw();for(const text of ['HARD','SNAP','EDGE'])assert(drawWrites.slice(at).some(w=>w[0]==='print'&&w[3]===text),text);}
+   before=blockingWrites.length;globalThis.__testResetEncoders();cc(71,4);cc(76,4);cc(77,4);cc(78,4);for(const field of [0,6,7])assert(blockingWrites.slice(before).some(([k,v])=>k==='synth_attack'&&v.startsWith(field+',')));
+   before=blockingWrites.length;globalThis.__testResetEncoders();cc(72,4);cc(73,4);cc(74,4);cc(75,4);assert.equal(blockingWrites.length,before,'center reserves mute/rim and inactive bias controls');
+   fixture.drums[12]=1;params.synth_state=JSON.stringify(fixture);ui.read();before=blockingWrites.length;globalThis.__testResetEncoders();cc(72,4);assert(blockingWrites.slice(before).some(([k,v])=>k==='synth_attack'&&v.startsWith('1,')));
+   fixture.drums[12]=2;params.synth_state=JSON.stringify(fixture);ui.read();before=blockingWrites.length;globalThis.__testResetEncoders();cc(73,4);cc(74,4);assert(blockingWrites.slice(before).some(([k,v])=>k==='synth_attack'&&v.startsWith('2,')));assert(blockingWrites.slice(before).some(([k,v])=>k==='synth_attack'&&v.startsWith('3,')));
+   fixture.drums[0]=6;params.synth_state=JSON.stringify(fixture);ui.read();before=blockingWrites.length;globalThis.__testResetEncoders();cc(71,4);assert.equal(blockingWrites.length,before,'membrane keeps its native Punch on the main page');
+   ui.model.overlay='actions';ui.model.selection=0;before=blockingWrites.length;cc(3);assert(blockingWrites.slice(before).some(([k])=>k==='synth_drum_start'));
+   ui.model.page=14;assert(ui.pages().includes(14));{const at=drawWrites.length;ui.draw();for(const text of ['DRIV','COMP','BITS','RATE','TONE','MIX'])assert(drawWrites.slice(at).some(w=>w[0]==='print'&&w[3]===text),text);}
+   before=blockingWrites.length;globalThis.__testResetEncoders();cc(71,4);cc(73,4);cc(75,124);cc(76,124);cc(77,124);cc(78,124);assert(blockingWrites.slice(before).some(([k,v])=>k==='synth_drum'&&v.startsWith('7,')));assert(blockingWrites.slice(before).some(([k,v])=>k==='synth_attack'&&v.startsWith('5,')));for(const field of [0,1,2,3])assert(blockingWrites.slice(before).some(([k,v])=>k==='synth_color'&&v.startsWith(field+',')));
+   fixture.drums=[10,80,650,.8,.025,.3,.7,0,24,30,1.5,.12,0,.35,.35,0];params.synth_state=JSON.stringify(fixture);ui.read();ui.model.page=6;{const at=drawWrites.length;ui.draw();for(const text of ['RATI','FDBK','WAVE','FM','FDEC','MOD'])assert(drawWrites.slice(at).some(w=>w[0]==='print'&&w[3]===text),text);}
+   // Every generator and every page has the same bounded randomize shortcut.
+   for(let type=0;type<13;++type){selectType(type);for(const page of ui.pages()){ui.model.page=page;ui.model.overlay='';before=blockingWrites.length;cc(49);cc(58);cc(58,0);cc(49,0);assert.equal(blockingWrites.slice(before).filter(([k])=>k==='synth_mutate').length,1);assert(!blockingWrites.slice(before).some(([k])=>k==='synth_preview'||k==='synth_save'));assert.equal(ui.model.page,page);}}
+   ui.model.overlay='name';before=blockingWrites.length;cc(49);cc(58);cc(58,0);cc(49,0);assert(!blockingWrites.slice(before).some(([k])=>k==='synth_mutate'));ui.model.overlay='';
+   selectType(12);assert.deepEqual(ui.pages(),[0,1,6]);ui.model.page=1;{const at=drawWrites.length;ui.draw();for(const text of ['MODE','RATE','SIZE','CLMP','TONE','EDGE','BITS','VAR'])assert(drawWrites.slice(at).some(w=>w[0]==='print'&&w[3]===text),text);}
+   before=blockingWrites.length;globalThis.__testResetEncoders();for(let i=71;i<=78;++i)cc(i,4);assert.equal(blockingWrites.slice(before).filter(([k])=>k==='synth_dust').length,8);
+   ui.model.page=6;fixture.dustParams[0]=0;params.synth_state=JSON.stringify(fixture);ui.read();before=blockingWrites.length;globalThis.__testResetEncoders();cc(74,4);cc(75,4);cc(78,4);assert.equal(blockingWrites.length,before,'FAULT and unused detail cells are reserved');
+   fixture.dustParams[0]=5;params.synth_state=JSON.stringify(fixture);ui.read();before=blockingWrites.length;globalThis.__testResetEncoders();cc(74,4);assert(blockingWrites.slice(before).some(([k,v])=>k==='synth_dust'&&v.startsWith('11,')));
+   fixture.dustParams[8]=0;params.synth_state=JSON.stringify(fixture);ui.read();before=blockingWrites.length;globalThis.__testResetEncoders();cc(72,4);assert.equal(blockingWrites.length,before,'ERROR noise color is unused with FLOOR off');fixture.dustParams[8]=.1;params.synth_state=JSON.stringify(fixture);ui.read();cc(72,4);assert(blockingWrites.slice(before).some(([k,v])=>k==='synth_dust'&&v.startsWith('9,')));
+   ui.model.overlay='locks';ui.model.selection=ui.locks().findIndex(e=>e.family==='dust_lock'&&e.field===0);assert(ui.model.selection>=0);const dustModeLock=fixture.dustProtected[0];cc(3);assert.notEqual(fixture.dustProtected[0],dustModeLock);ui.model.overlay='';
+   ui.model.page=5;fixture.mod[3]=1;params.synth_state=JSON.stringify(fixture);ui.read();{const at=drawWrites.length;ui.draw();assert(drawWrites.slice(at).some(w=>w[0]==='print'&&w[3]==='DENS'));}
+   selectType(3);fixture.spectral[0]=0;params.synth_state=JSON.stringify(fixture);ui.read();assert(!ui.pages().includes(10));
+   ui.model.page=1;before=blockingWrites.length;globalThis.__testResetEncoders();cc(72,124);assert(fixture.spectral[1]<0,'RSYN TUNE uses semitones and can go below zero');
+   fixture.spectral[0]=1;params.synth_state=JSON.stringify(fixture);ui.read();assert(ui.pages().includes(10));ui.model.page=10;fixture.trace[0]=0;params.synth_state=JSON.stringify(fixture);ui.read();before=blockingWrites.length;globalThis.__testResetEncoders();cc(73,8);cc(75,8);cc(77,8);assert.equal(blockingWrites.length,before);
+   globalThis.__testResetEncoders();cc(71,4);assert.equal(fixture.trace[0],1);before=blockingWrites.length;globalThis.__testResetEncoders();cc(73,4);assert(blockingWrites.slice(before).some(([k,v])=>k==='synth_trace'&&v.startsWith('2,')));
+   // Four-source file picks keep the native session across frames and never load lanes.
+   selectType(11);fixture.hybridParams[1]=4;params.synth_state=JSON.stringify(fixture);ui.read();ui.model.page=11;
+   const filesStart=blockingWrites.length;
+   for(let i=0;i<4;++i){ui.model.overlay='actions';ui.model.selection=i;cc(3);assert.equal(ui.model.browserTarget,'hybrid'+i);browseFrames();state.libraryItems=[{name:'Source.wav',path:'/tmp/Source'+i+'.wav',directory:false}];state.libraryIndex=0;cc(3);assert.equal(state.view,'synth');assert.equal(ui.model.page,11);assert(fixture.inputs[i]);}
+   assert(!blockingWrites.slice(filesStart).some(([key])=>key==='load_lane_file'||key==='record_lane'||key==='synth_close'));
+   ui.model.overlay='locks';ui.model.selection=ui.locks().findIndex(e=>e.family==='work_lock'&&e.field===17);assert(ui.model.selection>=0);const protectedSources=fixture.workProtected[17];cc(3);assert.notEqual(fixture.workProtected[17],protectedSources);ui.model.overlay='';
+   ui.model.overlay='name';ui.model.name='Quick Hit';before=blockingWrites.length;cc(86);assert.equal(ui.model.overlay,'');assert.equal(fixture.name,'Quick Hit');const commit=blockingWrites.slice(before);assert(commit.findIndex(([k])=>k==='synth_name')<commit.findIndex(([k])=>k==='synth_save'));
+   // Decode real callback snapshots for every generator, including both source states.
+   if(process.env.S3G_THRU_SYNTH_TYPES_FIXTURE){
+     const frames=JSON.parse(fs.readFileSync(process.env.S3G_THRU_SYNTH_TYPES_FIXTURE,'utf8'));assert(frames.length>=11);
+     for(const {label,frame} of frames){params.synth_state=JSON.stringify(frame);ui.read();assert(ui.model.data.type>=0&&ui.model.data.type<=12,label);
+       for(const page of ui.allPages()){ui.model.page=page;const start=drawWrites.length;ui.draw();assert(hasRightFraction(drawWrites.slice(start),(ui.pages().indexOf(page)+1)+'/'+ui.pages().length),label);}
+       if(label==='bloom'){assert(Math.abs(ui.model.data.partials[2][0]-2.76)<1e-5);assert.equal(ui.model.data.protected[37],'1');}
+       if(label==='resynth-empty')assert.equal(ui.model.data.source,'');if(label==='resynth-ready')assert(ui.model.data.source.length>0);
+     }
+   }
+   ui.model.overlay='';cc(51);assert.equal(ui.model.overlay,'nav');cc(51);assert.equal(state.view,'pages');
+   browseFrames();assert.equal(fixture.open,0,'leaving Synth still closes the native tool');
+   fixture.type=7;params.synth_state=JSON.stringify(fixture);ui.open();ui.model.overlay='actions';ui.model.selection=0;cc(3);browseFrames();assert.equal(fixture.open,1);
+   state.view='main';browseFrames();assert.equal(fixture.open,0);assert.equal(ui.model.browserTarget,'','leaving the picker clears its source target');
+   console.log('s3g Thru Synth UI: thirteen generator types in basic-to-advanced order with stable recipe IDs, grouped navigation, safe dual file picks across display refreshes, cancellation and cleanup, commit shortcuts, 32-component banks, contextual controls, native recipe codec, generator-aware page fractions, PT encoder/pad selection, unchanged recipe on navigation, inactive endpoint controls, hollow marker, curve editing, copy/paste/delete, destination, preview, pad naming and Back: PASS');
+ }finally{globalThis.host_module_set_param_blocking=originalSet;}
 }

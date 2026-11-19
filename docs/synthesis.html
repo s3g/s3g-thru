@@ -1,0 +1,441 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Synthesis - s3g Thru manual</title>
+    <meta name="description" content="Create Spline, Wave, Bloom, Resynth, Partials, Noise Bank, Dust, FM, Drum and Convolution samples, compose curves, preview and save WAV files in s3g Thru.">
+    <link rel="stylesheet" href="assets/styles.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="index.html">s3g Thru <span>manual</span></a>
+      <nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="synthesis.html">Synthesis</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="midi.html">MIDI</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav>
+    </header>
+
+    <div class="page-shell">
+      <main class="content" id="content">
+        <p class="eyebrow">Sample creation</p>
+        <h1>Synthesis</h1>
+        <p class="lead">Create new samples with Wave, Drum, Pluck, Partials, Noise Bank, Dust, FM, Subharmonic, Spline and Bloom. Rebuild a saved sample with Resynth, combine source traits with Hybrid, or convolve two recordings. Events can compose multiple excitations into one file. The Synth tool is in the Sample group, available in every instrument mode. Its WAV files can be used by any of Thru's fifteen playback engines.</p>
+        <h2 id="start">Make a first sound</h2>
+        <ol>
+          <li>Finish any recording or clip transition. Open <kbd>Capture</kbd> + <kbd>Menu</kbd> → <strong>Sample</strong> → <strong>Synth</strong>.</li>
+          <li>On Synth Setup, choose TYPE, LEN and ROOT. TYPE runs from basic sound generation to sample processing: WAVE, DRUM, PLUCK, PART, NOISE, DUST, FM, SUB, SPLN, BLOOM, RSYN, HYBR and CONV. A new workspace starts from the focused part’s root and scale.</li>
+          <li>Press Move’s physical <kbd>Loop</kbd> key to audition the rendered sound. Press Menu to choose Sound, Motion or Output. Up/Down and the main encoder move through the pages within that group.</li>
+          <li>For Spline, change <code>PTS</code> and <code>EVOL</code> on its sound page. Thru renders the new settings in the background after you stop turning. The previous preview stays available until the new render is ready.</li>
+          <li>Press a Track button to choose the destination lane. Press <kbd>Record</kbd> when the render is ready, or click the main encoder and choose <strong>Save &amp; Load</strong>. The new WAV replaces that lane's source through the usual loading transition.</li>
+        </ol>
+        <p><kbd>Play</kbd> retains its clip-transport role. <kbd>Loop</kbd> toggles Synth preview. Preview uses the shared <code>PREV</code> level on Mix / Rec and plays directly, outside the instrument's effects and part mixer. Menu opens the Synth group overview. Back returns to that overview; a second Back stops preview and returns to the Sample page list. Exit Synth before making an audio or performance recording. Each generator keeps its own settings while Thru remains open; switching TYPE and returning restores them. Save a WAV to retain a recipe after leaving Thru.</p>
+        <h2 id="navigation">Synth navigation</h2>
+        <p>Use Synth to design material, then commit a sample for Thru's playback engines. After saving, keep shaping the source to make another variation. Synth settings remain separate from the playing clip and instrument parameters.</p>
+        <figure><div class="doc-graphic move-screen"><img src="assets/screens/synth-groups.svg" alt="Synth navigation with Sound, Motion, Output and Actions"></div><figcaption>Menu jumps between three groups. The fraction at the upper right counts pages within the current group.</figcaption></figure>
+        <table class="readout-table"><thead><tr><th>Display</th><th>What it controls</th></tr></thead><tbody>
+          <tr><td>SOUND</td><td>TYPE, file setup, the selected generator's sound controls, source files and component editors.</td></tr>
+          <tr><td>MOTION</td><td>Shared LFO, four curve rows and bounded randomization. Unused targets show squares.</td></tr>
+          <tr><td>OUTPUT</td><td>Preview waveform, completed duration, filename, render status and destination lane.</td></tr>
+          <tr><td>ACTIONS</td><td>Render, preview, name, save, recipe recall, source selection, mutation and Clean. Also available by clicking the main encoder on any page.</td></tr>
+        </tbody></table>
+        <p><kbd>Record</kbd> saves the completed render and loads it into the selected lane. <kbd>Shift</kbd> + <kbd>Record</kbd> saves a copy without loading it. The Record light brightens when the current render is ready. These shortcuts commit the generated WAV; leave Synth to record audio from the inputs or a performance clip. <kbd>Capture</kbd> + <kbd>Menu</kbd> returns to Thru's main page overview.</p>
+        <h2 id="setup">Synth Setup</h2>
+        <figure><div class="doc-graphic move-screen"><img src="assets/screens/synth-setup.svg" alt="Spline setup with length, root, stereo width, attack, release, level and seed"></div><figcaption>The standard eight cells match knobs 1–8. TYPE identifies the generator. LOOP reserves the attack and release cells.</figcaption></figure>
+        <table class="readout-table"><thead><tr><th>Knob</th><th>Display</th><th>What it controls</th></tr></thead><tbody>
+          <tr><td>1</td><td>TYPE</td><td>Generator, in dial order: WAVE, DRUM, PLUCK, PART (Partials), NOISE (Noise Bank), DUST, FM, SUB (Subharmonic), SPLN (Spline), BLOOM, RSYN (Resynth), HYBR (Hybrid) and CONV (Convolution). Each has its own sound controls and curves.</td></tr>
+          <tr><td>2</td><td>LEN</td><td>Length of the new file, 0.04–12 seconds. Convolution labels this MAX: it limits the output, including the tail. A shorter result keeps its natural duration.</td></tr>
+          <tr><td>3</td><td>ROOT</td><td>Root pitch, C1–C7. In Resynth, Convolution, Drum, Pluck and Hybrid this is the output file’s pitch reference. Subharmonic uses ROOT as its base frequency. Use Resynth TUNE to shift the sound or Drum TUNE to set its actual frequency. Match the instrument’s root for predictable keyboard playback.</td></tr>
+          <tr><td>4</td><td>WID</td><td>Stereo width. Spline separates waveform shapes; Wave separates detuned oscillators and noise; Bloom spreads packets; Resynth scales the source’s stereo width; Partials and Noise Bank spread components or bands; FM separates detuned voices; Pluck separates its strings; Subharmonic spreads harmonic and subharmonic components; Hybrid scales the mixed source image. Dust spreads individual artifacts and its noise bed. Events can also spread individual excitations. Zero is mono.</td></tr>
+          <tr><td>5</td><td>ATK</td><td>Attack, 0–2000 ms. Available for one-shot files. Attack and release shorten proportionally if they cannot fit LEN.</td></tr>
+          <tr><td>6</td><td>REL</td><td>Release, 0–4000 ms. Available for one-shot files.</td></tr>
+          <tr><td>7</td><td>LVL</td><td>Output peak level. At 100%, the generated file peaks at −1 dBFS.</td></tr>
+          <tr><td>8</td><td>SEED</td><td>Repeatable random identity, 0–65535. Unavailable when the chosen type has no active random process. A recipe and seed reproduce the same audio at the same sample rate.</td></tr>
+        </tbody></table>
+        <h2 id="wave">Wave</h2>
+        <p>Wave creates clean sine, triangle, saw and square/pulse sources. It starts with a single tone, an open filter, and detuning, sub and noise off. Optional modulation and curves add movement.</p>
+        <figure><div class="doc-graphic move-screen"><img src="assets/screens/synth-wave.svg" alt="Wave generator with pulse waveform, width, detune, sub, filter and noise controls"></div><figcaption>Pulse width is available for PULS. Resonance is available when the filter is active. Unused controls show squares.</figcaption></figure>
+        <table class="readout-table"><thead><tr><th>Knob</th><th>Display</th><th>What it controls</th></tr></thead><tbody>
+          <tr><td>1</td><td>WAVE</td><td>SINE, TRI, SAW or PULS. Saw and pulse sources are band-limited during generation.</td></tr>
+          <tr><td>2</td><td>PW</td><td>Pulse width, 5–95%. Available for PULS.</td></tr>
+          <tr><td>3</td><td>DETN</td><td>Detune the second oscillator by 0–50 cents. Zero keeps both oscillators aligned.</td></tr>
+          <tr><td>4</td><td>SUB</td><td>Level of a sine oscillator one octave below ROOT.</td></tr>
+          <tr><td>5</td><td>CUTO</td><td>Low-pass cutoff, 20 Hz–20 kHz. The open setting bypasses filtering when no cutoff movement is applied.</td></tr>
+          <tr><td>6</td><td>RES</td><td>Filter resonance. Unavailable while the filter is bypassed.</td></tr>
+          <tr><td>7</td><td>NOIS</td><td>Level of the optional noise source. Zero adds no noise.</td></tr>
+          <tr><td>8</td><td>□</td><td>Reserved.</td></tr>
+        </tbody></table>
+        <p>WID on Setup separates the two detuned oscillator signals and the noise channels. It is unavailable when both DETN and NOIS are zero. The Wave curve rows are <strong>Pitch / Pulse Width / Cutoff / Level</strong>; pulse-width motion is unavailable for the other waveforms.</p>
+        <h2 id="drum">Drum</h2>
+        <p>DRUM creates one synthesized percussion hit, ready to save as a sample. Choose a model, shape the hit, audition, then press Record to commit it to the selected lane. The loaded sample can use any playback engine and sequence like other lane sources.</p>
+        <div class="screen-gallery"><figure><div class="doc-graphic move-screen"><img src="assets/screens/synth-drum.svg" alt="Drum model, tune, decay, body, noise, hit, tone and character"></div><figcaption>Eleven models share one main page. Names adapt to the selected model.</figcaption></figure><figure><div class="doc-graphic move-screen"><img src="assets/screens/synth-drum-detail.svg" alt="Drum pitch bend, sweep, ring and damping"></div><figcaption>Drum Detail adds model-specific controls. Unused slots show a square.</figcaption></figure></div>
+<table class="readout-table"><thead><tr><th>Knob</th><th>Display</th><th>What it controls</th></tr></thead><tbody>
+          <tr><td>1</td><td>MODL</td><td>KICK, SNAR, TOM, BELL, HAT, CRSH, MEMB, MODAL, MEDM, CBAS or FMD. Changing model loads a suitable starting sound for that model. Common file setup and curves are retained.</td></tr>
+          <tr><td>2</td><td>TUNE / SPED</td><td>Tuning: actual model frequency in Hz. Medium shows SPED, the propagation speed in metres per second; SPED and SIZE set its register together. ROOT remains the saved sample’s keyboard reference.</td></tr>
+          <tr><td>3</td><td>DEC</td><td>Decay in milliseconds. Its available range follows the model. LEN limits the saved file; a shorter LEN can crop a long decay.</td></tr>
+          <tr><td>4</td><td>BODY / MASS / SIZE</td><td>Body strength or metal-mode density. Concert Bass uses BODY for the pressure response. Membrane Kick uses BODY for fundamental punch. Modal shows MASS: loading changes the body’s modal balance. Medium shows SIZE: the cube’s half extent, 0.02–4 metres.</td></tr>
+          <tr><td>5</td><td>NOIS / IRRG</td><td>Noise or variation. Texture, snare wires, bell noise, cymbal wash or a short Medium noise impulse. Modal shows IRRG: irregularity between resonances. Concert Bass shows AIR. Unavailable for Tom and Membrane Kick.</td></tr>
+          <tr><td>6</td><td>HIT</td><td>Attack component: click, stick, chick or onset shape, depending on the model. Concert Bass shows IMPT, the force of the beater.</td></tr>
+          <tr><td>7</td><td>TONE</td><td>Overall brightness and the model’s attack/noise color.</td></tr>
+          <tr><td>8</td><td>□</td><td>Reserved. Drive, bias and compression are together on Drum Color.</td></tr>
+        </tbody></table>
+<table class="readout-table"><thead><tr><th>Knob</th><th>Display</th><th>What it controls</th></tr></thead><tbody>
+          <tr><td>1</td><td>BEND / SIZE</td><td>Initial pitch excursion for Kick, Snare, Tom, Bell and Membrane Kick. Concert Bass shows SIZE: move between a focused kettle-like head and a large taiko-like body.</td></tr>
+          <tr><td>2</td><td>SWP / TENS</td><td>Pitch-excursion time for those models. Concert Bass shows TENS, normalized head tension.</td></tr>
+          <tr><td>3</td><td>RING / COUP / DISP / BLOM</td><td>Harmonics, shell ring, bell interval, hat sizzle or cymbal bell. Modal shows COUP: movement and beating between modes. Medium shows DISP: frequency-dependent wave travel. Concert Bass shows BLOM, the low-body bloom. Unavailable for Membrane Kick.</td></tr>
+          <tr><td>4</td><td>DAMP</td><td>Tail, wire tension, body damping or air reduction, depending on the model.</td></tr>
+          <tr><td>5</td><td>SHAP / MATL / EXCT / ART</td><td>Membrane shape, Modal material, Medium exciter or Concert Bass articulation: CNTR, MUTE or RIM. Reserved for the first six models.</td></tr>
+          <tr><td>6</td><td>X / POS</td><td>Horizontal strike or actuator position in the physical body, 0–100%. Concert Bass shows POS, the strike position. Reserved for the first six models.</td></tr>
+          <tr><td>7</td><td>Y / SHEL</td><td>Second strike or actuator position, 0–100%. Concert Bass shows SHEL, shell resonance. Reserved for the first six models.</td></tr>
+          <tr><td>8</td><td>AMNT / BODS / Z / RLEV</td><td>Membrane shape amount; Modal body count, 4–8; or Medium excitation depth, 0–100%. Concert Bass shows RLEV for rim level, available with ART RIM. Reserved for the first six models.</td></tr>
+        </tbody></table>
+        <table class="readout-table"><thead><tr><th>Display</th><th>Model</th><th>TUNE / SPED range</th><th>DEC range</th></tr></thead><tbody>
+          <tr><td>KICK</td><td>Pitch-swept low body, click and texture</td><td>20–180 Hz</td><td>30–8000 ms</td></tr>
+          <tr><td>SNAR</td><td>Modal shell, wires and impact</td><td>70–420 Hz</td><td>30–3000 ms</td></tr>
+          <tr><td>TOM</td><td>Membrane, shell and stick</td><td>35–180 Hz</td><td>40–4000 ms</td></tr>
+          <tr><td>BELL</td><td>Coupled inharmonic tones, body and strike</td><td>180–2400 Hz</td><td>30–2000 ms</td></tr>
+          <tr><td>HAT</td><td>Closed metal hit, wash and chick</td><td>320–3200 Hz</td><td>30–1000 ms</td></tr>
+          <tr><td>CRSH</td><td>Modal metal, wash and bell</td><td>180–2400 Hz</td><td>80–8000 ms</td></tr>
+          <tr><td>MEMB</td><td>Shared membrane with sixteen stereo pickups</td><td>25–90 Hz</td><td>80–6000 ms</td></tr>
+          <tr><td>MODAL</td><td>Four to eight material bodies sharing 96 modes</td><td>30–1200 Hz</td><td>50–12000 ms</td></tr>
+          <tr><td>MEDM</td><td>Eight-node waveguide body</td><td>20–2000 m/s</td><td>50–12000 ms</td></tr>
+          <tr><td>FMD</td><td>FM percussion with pitch, noise and transient envelopes</td><td>20–3200 Hz</td><td>30–8000 ms</td></tr>
+          <tr><td>CBAS</td><td>Large pressure-based concert bass drum</td><td>24–96 Hz</td><td>150–8000 ms</td></tr>
+        </tbody></table>
+        <p>WID controls stereo spread; zero produces identical left/right audio. Native model envelopes shape the hit, with ATK/REL controlling file edges. With Events OFF, Drum uses only the Level curve and Level modulation. With Events on, its rows become Pitch / Density / Lifetime / Level. BEND and SWP still shape each hit’s pitch transient.</p>
+        <h3 id="drum-membrane">Membrane Kick</h3>
+        <p>MEMB strikes one shared twelve-mode membrane and mixes its sixteen physical pickups to stereo. Choose CIRC, ELLIP, SQUAR, TRI or IRREG with SHAP. AMNT moves from the circular body toward that shape. X/Y place the strike: the center favors the fundamental, while edge positions excite more asymmetric upper modes. Positions remain inside the membrane.</p>
+        <p>BODY sets fundamental punch; HIT sets the beater click. BEND and SWP control its downward pitch trajectory, and DAMP shortens upper modes. CHAR drives the local pickups before mixing. NOIS and RING are unavailable.</p>
+        <div class="screen-gallery"><figure><div class="doc-graphic move-screen"><img src="assets/screens/synth-membrane.svg" alt="Membrane Kick main controls"></div><figcaption>MEMB retains the main Drum layout.</figcaption></figure><figure><div class="doc-graphic move-screen"><img src="assets/screens/synth-membrane-detail.svg" alt="Membrane shape, amount and strike position"></div><figcaption>Detail exposes the membrane shape and strike position.</figcaption></figure></div>
+        <h3 id="drum-modal">Modal</h3>
+        <p>MODAL excites four to eight related bodies, sharing a fixed pool of 96 resonant modes. BODS sets the body count: fewer bodies give each one more detail. Their individual outputs spread across stereo. X/Y move their actuator contacts; MASS changes loading, IRRG changes modal variation, COUP adds beating, and DAMP removes energy. TUNE sets the first body’s reference mode; the other bodies retain their related tuning. DEC scales that mode’s reference decay and the relative decays of the ensemble. SEED produces repeatable body variations.</p>
+        <table class="readout-table"><thead><tr><th>MATL</th><th>Material starting point</th></tr></thead><tbody>
+          <tr><td>DEEP / TIER / BROAD / BRGHT</td><td>Deep, tiered, broad and bright bronze.</td></tr>
+          <tr><td>CARBN / GLASS / ALUM / SPRC</td><td>Carbon laminate, glass, aluminum and spruce plates.</td></tr>
+          <tr><td>STEEL / PORC / EARTH</td><td>Steel shell, porcelain and porous earthenware.</td></tr>
+          <tr><td>SKIN / LOAD / COUP / CAV / LOOSE</td><td>Tensioned skin, loaded, coupled, cavity and loose membranes.</td></tr>
+        </tbody></table>
+        <div class="screen-gallery"><figure><div class="doc-graphic move-screen"><img src="assets/screens/synth-modal.svg" alt="Modal mass, irregularity and tuning"></div><figcaption>Modal uses MASS and IRRG in the shared main-page positions.</figcaption></figure><figure><div class="doc-graphic move-screen"><img src="assets/screens/synth-modal-detail.svg" alt="Modal material, contact position, coupling and body count"></div><figcaption>MATL selects a material; BODS selects the ensemble size.</figcaption></figure></div>
+        <h3 id="drum-medium">Medium</h3>
+        <p>MEDM excites one cube-shaped waveguide body. Waves travel between eight connected nodes. SPED and SIZE set the body’s register; DEC, DAMP and DISP shape its ringing and spectral spread. EXCT chooses HIT, BOW, REED or AIR. Each render starts one finite gesture; there is no continuous autonomous sequencer. NOIS adds a short windowed noise excitation, while HIT sets the initial force. X/Y/Z distribute that force between the cube’s corners. SEED fixes the noise impulse.</p>
+        <p>WID spreads the resulting stereo pickups, with zero producing mono. Try longer LEN and DEC for resonant objects or struck textures. A shorter LEN crops the ringing with the file’s release fade. The two tuning controls can move the model through very different registers, so change one at a time while auditioning.</p>
+        <div class="screen-gallery"><figure><div class="doc-graphic move-screen"><img src="assets/screens/synth-medium.svg" alt="Medium propagation speed, size and decay"></div><figcaption>SPED and SIZE set the physical travel time.</figcaption></figure><figure><div class="doc-graphic move-screen"><img src="assets/screens/synth-medium-detail.svg" alt="Medium exciter, dispersion and three-dimensional excitation position"></div><figcaption>EXCT selects the finite excitation gesture; X/Y/Z place it.</figcaption></figure></div>
+        <h3 id="drum-concert">Concert Bass</h3>
+        <p>CBAS builds the mass of a large drum from broad pressure bands, a restrained pitched anchor, air and shell resonance. ART selects CNTR, MUTE or RIM. SIZE moves through concert, kettle-like and taiko-like responses; TENS, POS and HARD change how the head is excited. IMPT sets beater force, BLOM controls the low-pressure bloom and AIR adds the surrounding pressure response.</p>
+        <p>DEC controls the center strike’s body decay. MUTE uses MDEC and RIM uses RDEC on Drum Attack. RIM also enables RLEV and RTON. Controls that do not affect the selected articulation show squares. Longer sounds need enough LEN to retain the body and tail.</p>
+        <div class="screen-gallery"><figure><div class="doc-graphic move-screen"><img src="assets/screens/synth-concert.svg" alt="Concert Bass tuning, body decay, air and impact"></div><figcaption>CBAS retains the main Drum page layout.</figcaption></figure><figure><div class="doc-graphic move-screen"><img src="assets/screens/synth-concert-detail.svg" alt="Concert Bass size, tension, bloom, articulation and strike position"></div><figcaption>ART selects the strike; SIZE, TENS and POS shape the physical response.</figcaption></figure></div>
+        <h3 id="drum-attack">Drum Attack</h3>
+        <p>The third Drum sound page exposes native excitation controls and transient shaping. Parameter names adapt to the chosen model. Try the starting sound with ATK zero, SNAP around 35%, EDGE 0.15 ms and COMP zero on Drum Color before adding drive or compression.</p>
+        <div class="screen-gallery"><figure><div class="doc-graphic move-screen"><img src="assets/screens/synth-drum-attack.svg" alt="Kick native punch, click and noise decays, pitch settling, compression, snap and edge"></div><figcaption>Kick exposes its native Punch and independent click/texture decays.</figcaption></figure><figure><div class="doc-graphic move-screen"><img src="assets/screens/synth-concert-attack.svg" alt="Concert Bass beater hardness, rim decay and tone, compression and onset controls"></div><figcaption>Concert Bass shows controls for the selected articulation.</figcaption></figure></div>
+<table class="readout-table"><thead><tr><th>Knob</th><th>Display</th><th>What it controls</th></tr></thead><tbody><tr><td>1</td><td>PNCH / SHAP / ATK / TEXT / HARD</td><td>Native excitation control: Punch for Kick, Snare and Tom; waveform Shape for Bell; Attack for Hat; Texture for Crash; beater Hardness for Concert Bass; short onset emphasis for FM Drum. Reserved for Membrane Kick, Modal and Medium, whose excitation controls are on their existing pages.</td></tr><tr><td>2</td><td>HDEC / BDEC / MDEC</td><td>Click decay for Kick, stick decay for Tom, body decay for Bell, the muted decay of Concert Bass, or the FM Drum click decay. Ranges follow the source model. Reserved where unused.</td></tr><tr><td>3</td><td>NDEC / WDEC / RDEC</td><td>Texture decay for Kick, wire decay for Snare, noise decay for Bell, wash decay for Crash, or rim decay for Concert Bass. FM Drum uses NDEC for its noise tail. Independent of the main body DEC.</td></tr><tr><td>4</td><td>PSET / RATL / DETN / ALLO / RTON</td><td>Pitch settling for Kick; wire rattle for Snare; detuning for Bell; alloy for Hat and Crash; rim tone for Concert Bass. Reserved where unused.</td></tr><tr><td>5–6</td><td>□</td><td>Reserved. BIAS and COMP are on Drum Color.</td></tr><tr><td>7</td><td>SNAP</td><td>Short onset emphasis across the first few tens of milliseconds. Raises the attack relative to the tail; final LVL still sets file peak level.</td></tr><tr><td>8</td><td>EDGE</td><td>Click-safe onset fade, 0.05–2 ms. The starting value is 0.15 ms, preserving short beater and click transients. File ATK can apply a slower attack if wanted.</td></tr></tbody></table>
+        <p>Loop preview plays the generated file directly. After Save &amp; Load, the instrument’s note envelope also shapes it: try the Sample engine with Amp Envelope ATK at 0 ms to retain the beater attack. BANK has its own per-pad ATK, with a minimum of 1 ms. These playback controls are separate from Synth’s file envelope.</p>
+        <p>Choose <strong>Drum Start</strong> in Actions to reload the selected model’s starting sound. Existing saved recipes retain their settings when recalled. The export is still peak-normalized according to LVL: transient shaping changes the attack/tail balance, rather than raising the file above its peak limit. The short EDGE fade also applies to Drum Events, while the ends of gates stay faded.</p>
+        <h3 id="fm-drum">FM Drum</h3>
+        <p>FMD makes electronic percussion from a carrier, a decaying FM modulator, noise and a short click. Low tuning and a fast pitch drop make kicks; inharmonic ratios and longer FM decay make metallic drums, bells and industrial hits. BODY sets the carrier, NOIS adds the noise tail and HIT adds the click. TONE controls the voice filter. NDEC and HDEC on Drum Attack set the noise and click durations.</p>
+        <div class="screen-gallery"><figure><div class="doc-graphic move-screen"><img src="assets/screens/synth-fm-drum.svg" alt="FM Drum tuning, decay, body, noise and hit controls"></div><figcaption>FMD is a Drum model; the separate FM generator remains available.</figcaption></figure><figure><div class="doc-graphic move-screen"><img src="assets/screens/synth-fm-drum-detail.svg" alt="FM Drum ratio, feedback, wave and modulation envelopes"></div><figcaption>Drum Detail shapes the electronic percussion voice.</figcaption></figure></div>
+        <table class="readout-table"><thead><tr><th>Knob</th><th>Display</th><th>What it controls</th></tr></thead><tbody>
+          <tr><td>1</td><td>BEND</td><td>Initial pitch rise, 0–48 semitones, which settles toward TUNE.</td></tr>
+          <tr><td>2</td><td>SWP</td><td>Pitch settling time, 2–500 ms.</td></tr>
+          <tr><td>3</td><td>RATI</td><td>Modulator frequency ratio, 0.125–16 times the carrier. Integer ratios sound more harmonic; fractional ratios add metal and dissonance.</td></tr>
+          <tr><td>4</td><td>FDBK</td><td>Modulator feedback, 0–100%. Adds roughness before the carrier is shaped.</td></tr>
+          <tr><td>5</td><td>WAVE</td><td>Carrier shape: SINE, TRI, SAW or PULS.</td></tr>
+          <tr><td>6</td><td>FM</td><td>Initial FM depth. Zero gives an unmodulated carrier.</td></tr>
+          <tr><td>7</td><td>FDEC</td><td>FM decay, 2–4000 ms, with finer adjustment at short times. Longer values retain the metallic spectrum into the tail.</td></tr>
+          <tr><td>8</td><td>MOD</td><td>Direct modulator level. Adds its pitched tone beside the carrier.</td></tr>
+        </tbody></table>
+        <h3 id="drum-color">Drum Color</h3>
+        <p>The fourth Drum sound page groups drive and compression with offline bit/rate processing. The result is written into the generated WAV; it adds no playback effect to the lane. Start with DRIV 30–50%, COMP low or off, BITS 10–12 and RATE around 16 kHz. Lower bits and rates deliberately add grit and aliasing. TONE and MIX soften or blend that texture.</p>
+        <figure><div class="doc-graphic move-screen"><img src="assets/screens/synth-drum-color.svg" alt="Drum drive, bias, compression, bit depth, rate, tone and mix"></div><figcaption>Drive replaces the earlier CHAR cell; BIAS and COMP move here from Drum Attack.</figcaption></figure>
+        <table class="readout-table"><thead><tr><th>Knob</th><th>Display</th><th>What it controls</th></tr></thead><tbody>
+          <tr><td>1</td><td>DRIV</td><td>Native drive, 0–100%. Saturation raises density relative to the file peak. Zero bypasses drive.</td></tr>
+          <tr><td>2</td><td>BIAS</td><td>Drive asymmetry, −100 to +100%. Available when DRIV is active, except Membrane Kick and Medium which use local nonlinearities.</td></tr>
+          <tr><td>3</td><td>COMP</td><td>Native compression, 0–100%. Starts off to preserve the attack; increase for a more even, dense hit.</td></tr>
+          <tr><td>4</td><td>□</td><td>Reserved.</td></tr>
+          <tr><td>5</td><td>BITS</td><td>Bit depth, 4–24. The 24-bit setting bypasses quantization. Processing is level-conditioned so every model responds usefully.</td></tr>
+          <tr><td>6</td><td>RATE</td><td>Sample-and-hold rate, 375 Hz up to FULL. FULL bypasses rate reduction. The WAV retains its normal sample rate.</td></tr>
+          <tr><td>7</td><td>TONE</td><td>Post-reduction low-pass filter, 20 Hz to OPEN. Reduces the added high-frequency edge.</td></tr>
+          <tr><td>8</td><td>MIX</td><td>Blend the bit/rate/tone stage with its unprocessed input. DRIV, BIAS and COMP apply before this blend. Zero bypasses the reduction stage.</td></tr>
+        </tbody></table>
+        <p>Color starts neutral and protected from mutation. Unprotect its controls to include them in randomization. Settings carry across Drum model changes. Clean resets Color, drive, bias, compression and SNAP. Existing saved recipes retain their sound. LVL still sets the output peak; processing increases density or changes texture rather than exceeding the peak ceiling.</p>
+        <h2 id="pluck">Pluck</h2>
+        <p>PLUCK excites a pair of tuned string delay lines. Events starts enabled for a small field of plucks. Set Events MODE to OFF for one sustained pluck. DEC sets the string’s decay; LEN bounds the complete saved file. ROOT is the file’s keyboard reference, while TUNE sets the string frequency.</p>
+<figure><div class="doc-graphic move-screen"><img src="assets/screens/synth-pluck.svg" alt="Pluck tuning, decay, damping, brightness, dispersion, pick, hardness and detune"></div><figcaption>WID spreads the detuned strings and, when Events is on, the event positions.</figcaption></figure>
+<table class="readout-table"><thead><tr><th>Knob</th><th>Display</th><th>What it controls</th></tr></thead><tbody>
+          <tr><td>1</td><td>TUNE</td><td>String frequency, 20–2000 Hz.</td></tr>
+          <tr><td>2</td><td>DEC</td><td>String decay, 30–8000 ms. Damping can shorten the bright part of the tail.</td></tr>
+          <tr><td>3</td><td>DAMP</td><td>Feedback damping, 0–98%. Higher values soften the recirculating string.</td></tr>
+          <tr><td>4</td><td>BRIT</td><td>Brightness of the initial excitation and output tone.</td></tr>
+          <tr><td>5</td><td>DISP</td><td>Dispersion: changes the relative timing of frequencies in the string.</td></tr>
+          <tr><td>6</td><td>PICK</td><td>Pluck position: changes which harmonics are emphasized by the excitation.</td></tr>
+          <tr><td>7</td><td>HARD</td><td>Nonlinear string hardness. Zero removes this added nonlinear stage.</td></tr>
+          <tr><td>8</td><td>DETN</td><td>Detuning between the strings, 0–50 cents. WID is available with detuning or event panning.</td></tr>
+        </tbody></table>
+        <p>The curve rows are <strong>Pitch / Damping / Brightness / Level</strong>. With Events enabled, their values are sampled for each pluck, while Level follows the full file.</p>
+        <h2 id="partials">Partials</h2>
+        <p>PART builds a continuous sound from up to 32 sine components. Each has its own frequency ratio and signed level. Start with harmonic components, edit an inharmonic spectrum, or use motion to make the tuning evolve through the saved file. Bloom instead creates separate packets with individual envelopes.</p>
+        <figure><div class="doc-graphic move-screen"><img src="assets/screens/synth-partials.svg" alt="Partials count, tilt, stretch, detune, phase, drift, rate and decay controls"></div><figcaption>PART controls the audible count. Fractional settings fade in the next component.</figcaption></figure>
+<table class="readout-table"><thead><tr><th>Knob</th><th>Display</th><th>What it controls</th></tr></thead><tbody>
+          <tr><td>1</td><td>PART</td><td>Component count, 1–32. Components above the count remain editable but are silent.</td></tr>
+          <tr><td>2</td><td>TILT</td><td>Spectral level change, −24 to +12 dB per octave of component frequency ratio, added to the individual levels.</td></tr>
+          <tr><td>3</td><td>STRC</td><td>Stretch the component ratios with an exponent of 0.25–4. At 1 the authored ratios are unchanged; larger values spread them farther apart.</td></tr>
+          <tr><td>4</td><td>DETN</td><td>Fixed, seeded component detuning, up to ±30 cents.</td></tr>
+          <tr><td>5</td><td>PHAS</td><td>Seeded initial phase variation, from aligned sine phases to a full cycle.</td></tr>
+          <tr><td>6</td><td>DRFT</td><td>Independent smooth pitch drift per component, up to ±30 cents.</td></tr>
+          <tr><td>7</td><td>RATE</td><td>Drift speed, 0.01–20 Hz. Available when DRFT is above zero.</td></tr>
+          <tr><td>8</td><td>DEC</td><td>Gradually fade higher component numbers over the file, while the lowest component remains steady.</td></tr>
+        </tbody></table>
+        <p>WID spreads components across stereo. The curve rows are <strong>Pitch / Count / Stretch / Level</strong>. Stretch offsets use octaves: +1 doubles the STRC exponent and −1 halves it. Components near the upper frequency limit fade out.</p>
+        <h2 id="noise">Noise Bank</h2>
+        <p>NOISE creates up to 32 tuned bands of filtered noise. Each band has its own center ratio and signed level. Narrow bands create pitched textures; wider bands, moving centers and unfiltered noise make broader sounds. Every render is repeatable from its seed.</p>
+        <figure><div class="doc-graphic move-screen"><img src="assets/screens/synth-noise.svg" alt="Noise Bank count, bandwidth, tilt, stretch, color, movement, rate and leak controls"></div><figcaption>BW is the width of each band in semitones, independent of the number of bands.</figcaption></figure>
+<table class="readout-table"><thead><tr><th>Knob</th><th>Display</th><th>What it controls</th></tr></thead><tbody>
+          <tr><td>1</td><td>BAND</td><td>Band count, 1–32. Fractional values fade in the next band.</td></tr>
+          <tr><td>2</td><td>BW</td><td>Band width, 0.1–48 semitones. Small settings emphasize the individual center frequencies.</td></tr>
+          <tr><td>3</td><td>TILT</td><td>Spectral level change, −24 to +12 dB per octave of center ratio.</td></tr>
+          <tr><td>4</td><td>STRC</td><td>Stretch band-center ratios with an exponent of 0.25–4.</td></tr>
+          <tr><td>5</td><td>COLR</td><td>Noise color: WHT is white noise, WARM softens the high end, and DARK emphasizes slower variation.</td></tr>
+          <tr><td>6</td><td>MOVE</td><td>Independent smooth random movement of each center, up to ±24 semitones.</td></tr>
+          <tr><td>7</td><td>RATE</td><td>Movement speed, 0.01–20 Hz. Available when MOVE or its curve/modulation produces movement.</td></tr>
+          <tr><td>8</td><td>LEAK</td><td>Mix in unfiltered white noise, independently of the band levels.</td></tr>
+        </tbody></table>
+        <p>WID spreads the bands across stereo. The curve rows are <strong>Pitch / Bandwidth / Motion / Level</strong>. Bandwidth offsets use octaves: +1 doubles BW and −1 halves it. Motion offsets add semitones to MOVE.</p>
+        <h3 id="component-bank">Edit components and bands</h3>
+        <div class="screen-gallery"><figure><div class="doc-graphic move-screen"><img src="assets/screens/synth-partial-bank.svg" alt="Partial components 25 through 32 with ratio and signed level controls"></div><figcaption>Partials: each of the 32 pads selects one component.</figcaption></figure><figure><div class="doc-graphic move-screen"><img src="assets/screens/synth-noise-bands.svg" alt="Noise bands 9 through 16 with ratio and level controls"></div><figcaption>Noise Bank uses the same editor for its band centers and levels.</figcaption></figure></div>
+        <p>Open the component editor, then select a pad from top-left, moving right and then down. The screen shows the eight components in that pad row. Dial 5 sets RATIO, 1–64 times ROOT; hold Shift for finer ratio edits. Dial 6 sets signed LEVEL, −100% to +100%. Dial 8 moves through all 32 components, including across rows. Dial 7 is reserved. Unlike Bloom's four alternative spectra, all four rows belong to one bank.</p>
+        <p><kbd>Delete/X</kbd> + pad mutes a component. <kbd>Copy</kbd> + pad copies its ratio and level; <kbd>Shift</kbd> + pad pastes them. A grey pad has no level or is above the active count. Editing a component above PART or BAND retains it for use when the count increases. On other pages the pads edit curves.</p>
+        <h2 id="dust">Dust</h2>
+        <p>DUST creates crackles, clicks, static, chopped noise and digital-error textures from scratch. Choose a mode, audition with Loop, then save the result as a sample. These sounds deliberately include sharp edges. EDGE softens individual events; TONE darkens their high-frequency content. SEED reproduces a texture or makes another variation.</p>
+        <div class="screen-gallery"><figure><div class="doc-graphic move-screen"><img src="assets/screens/synth-dust.svg" alt="Dust main controls for event rate, duration, clustering, tone, edges, bits and variation"></div><figcaption>The main page shapes the selected artifact. RATE counts arrivals per second.</figcaption></figure><figure><div class="doc-graphic move-screen"><img src="assets/screens/synth-dust-detail.svg" alt="Dust background noise level, color, repeated bursts and error variation"></div><figcaption>Detail in DATA mode, with its noise bed enabled. ERR changes the repeating data pattern.</figcaption></figure></div>
+        <table class="readout-table"><thead><tr><th>Display</th><th>Mode</th><th>What it produces</th></tr></thead><tbody>
+          <tr><td>DUST</td><td>Dust</td><td>Sparse short impulses, from fine ticks to heavier specks.</td></tr>
+          <tr><td>CRKL</td><td>Crackle</td><td>Asymmetric pops with a brief body and noisy edge. CLMP gathers them into busy and quiet regions.</td></tr>
+          <tr><td>STAT</td><td>Static</td><td>Continuous noise interrupted by short level cuts. RATE and SIZE control those interruptions. BED is unavailable.</td></tr>
+          <tr><td>CLIK</td><td>Clicks</td><td>Bipolar pulses. SIZE sets their width; EDGE softens both the outside edges and the change in polarity.</td></tr>
+          <tr><td>CUTS</td><td>Cuts</td><td>Short openings in a noise source. Low rates leave gaps; high rates and longer durations form dense, chopped textures.</td></tr>
+          <tr><td>DATA</td><td>Data error</td><td>Repeating digital-word patterns, abrupt steps and occasional missing words. REPT and ERR move between repeated blocks and changing corruption.</td></tr>
+        </tbody></table>
+        <table class="readout-table"><thead><tr><th>Knob</th><th>Display</th><th>What it controls</th></tr></thead><tbody>
+          <tr><td>1</td><td>MODE</td><td>DUST, CRKL, STAT, CLIK, CUTS or DATA. Starts protected from randomization.</td></tr>
+          <tr><td>2</td><td>RATE</td><td>Average event rate, 0.1–2000 arrivals per second. Events are irregular; this is not a musical pitch or a clock division.</td></tr>
+          <tr><td>3</td><td>SIZE</td><td>Individual event duration, 0.02–500 ms. Very short settings resolve to at least one sample. In Static, sets interruption duration.</td></tr>
+          <tr><td>4</td><td>CLMP</td><td>Clustering, 0–100%. Higher values concentrate events into bursts with quieter gaps.</td></tr>
+          <tr><td>5</td><td>TONE</td><td>Low-pass tone, 20 Hz–20 kHz. High settings retain sharp clicks; lower values give darker pops and rumble.</td></tr>
+          <tr><td>6</td><td>EDGE</td><td>Event-edge softness, 0–100% of the available edge region. Zero keeps hard cuts. This is separate from the complete file’s ATK and REL.</td></tr>
+          <tr><td>7</td><td>BITS</td><td>Internal bit depth, 2–24. Lower values add quantization and stepped levels. Input conditioning keeps quiet materials usable at low bit depths. The saved WAV remains 32-bit float.</td></tr>
+          <tr><td>8</td><td>VAR</td><td>Event level and duration variation, 0–100%. Zero keeps their nominal size and strength; arrival times remain irregular.</td></tr>
+        </tbody></table>
+        <table class="readout-table"><thead><tr><th>Knob</th><th>Display</th><th>What it controls</th></tr></thead><tbody>
+          <tr><td>1</td><td>BED</td><td>Continuous noise-bed level underneath the artifacts. Reserved in Static, which already uses a continuous bed.</td></tr>
+          <tr><td>2</td><td>COLR</td><td>Noise color: WHT, PINK, BRWN or BLUE. Pink and brown emphasize lower frequencies; blue emphasizes sharper differences. Also colors the optional bed. Reserved in Data while BED is zero.</td></tr>
+          <tr><td>3</td><td>REPT</td><td>Repeated segments per arrival, 1–16, with a short gap between them. In Data, repeats the captured digital pattern unless ERR changes it.</td></tr>
+          <tr><td>4</td><td>ERR</td><td>Error-pattern variation, 0–100%. Available only in DATA. Higher values replace more repeated blocks with altered patterns.</td></tr>
+          <tr><td>5–8</td><td>□</td><td>Reserved.</td></tr>
+        </tbody></table>
+        <p>The four curve rows are <strong>Density / Size / Tone / Level</strong>. Density varies RATE over ±4 octaves; Size varies event duration over ±4 octaves; Tone varies cutoff over ±4 octaves. Their LFO destinations use the same meanings. Density curves use continuous values rather than scale notes. ROOT is the saved file’s keyboard reference, not a source oscillator. WID spreads artifacts and noise across stereo. LVL sets the final file peak.</p>
+        <p>Try low RATE and short SIZE for isolated specks; CRKL with moderate CLMP for clustered pops; STAT with low BITS for rough static; or DATA with REPT around 4–8 and ERR raised for broken digital loops. Shift + Loop makes a bounded variation. Saving and Open Source Recipe retain the complete sound and seed.</p>
+        <h2 id="fm">FM</h2>
+        <p>FM shapes a sine carrier with one or two sine modulators. Ratios follow ROOT, so harmonic and fractional relationships remain consistent when changing the base pitch. The render uses 4× oversampling and filtered downsampling; very high modulator frequencies and indices are bounded to reduce aliasing.</p>
+        <figure><div class="doc-graphic move-screen"><img src="assets/screens/synth-fm.svg" alt="FM algorithm, modulator ratios, indices, feedback, detune and mix controls"></div><figcaption>2OP reserves RAT2, IDX2 and the Index 2 curve. Other algorithms use both modulators.</figcaption></figure>
+<table class="readout-table"><thead><tr><th>Knob</th><th>Display</th><th>What it controls</th></tr></thead><tbody>
+          <tr><td>1</td><td>ALG</td><td>Operator routing: 2OP, SER, PAR or RING. See the routing table below.</td></tr>
+          <tr><td>2</td><td>RAT1</td><td>Modulator 1 frequency ratio, 0.125–32 times the carrier.</td></tr>
+          <tr><td>3</td><td>IDX1</td><td>Modulator 1 phase-modulation depth, 0–12 radians.</td></tr>
+          <tr><td>4</td><td>RAT2</td><td>Modulator 2 frequency ratio, 0.125–32 times the carrier. Unavailable in 2OP.</td></tr>
+          <tr><td>5</td><td>IDX2</td><td>Modulator 2 depth, 0–12. In RING this blends toward full multiplication. Unavailable in 2OP.</td></tr>
+          <tr><td>6</td><td>FDBK</td><td>Smoothed self-feedback of modulator 1, 0–90%.</td></tr>
+          <tr><td>7</td><td>DETN</td><td>Spread two copies of the complete FM voice by up to 30 cents total. WID separates the copies in stereo; at zero width they are mixed to mono.</td></tr>
+          <tr><td>8</td><td>MIX</td><td>Blend from the sine carrier to the processed FM sound.</td></tr>
+        </tbody></table>
+        <table class="readout-table"><thead><tr><th>Display</th><th>What it controls</th></tr></thead><tbody>
+          <tr><td>2OP</td><td>Modulator 1 changes the carrier's phase.</td></tr>
+          <tr><td>SER</td><td>Modulator 2 changes modulator 1, which changes the carrier.</td></tr>
+          <tr><td>PAR</td><td>Both modulators change the carrier in parallel.</td></tr>
+          <tr><td>RING</td><td>Modulator 1 changes the carrier; modulator 2 multiplies the resulting sound. IDX2 sets the multiplication amount.</td></tr>
+        </tbody></table>
+        <p>The curve rows are <strong>Pitch / Index 1 / Index 2 / Level</strong>. Index offsets add to IDX1 and IDX2. WID is unavailable when DETN is zero. SEED is needed only if random modulation is active.</p>
+        <h2 id="subharmonic">Subharmonic</h2>
+        <p>SUB is an additive bank of clean sine components, combining harmonics above ROOT with subharmonics below it. It starts with eight harmonics, four subharmonics and a gentle lower-layer blend. Detuning and drift start off.</p>
+        <figure><div class="doc-graphic move-screen"><img src="assets/screens/synth-subharmonic.svg" alt="Harmonic count, subharmonic count, balance, tilt, detuning, drift, rate and register"></div><figcaption>HARM and SUBS select the active components; BAL blends the two layers.</figcaption></figure>
+<table class="readout-table"><thead><tr><th>Knob</th><th>Display</th><th>What it controls</th></tr></thead><tbody><tr><td>1</td><td>HARM</td><td>Number of upper harmonic components, 1–16, including the fundamental.</td></tr><tr><td>2</td><td>SUBS</td><td>Number of lower subharmonic components, 0–16. Dividers start at 2, 3, 4 and so on.</td></tr><tr><td>3</td><td>BAL</td><td>Balance between upper harmonics and lower subharmonics. Zero is harmonics; 100% is subharmonics. Unavailable with SUBS zero.</td></tr><tr><td>4</td><td>TILT</td><td>Component slope, −18 to +6 dB per doubling of multiplier or divider. Negative values soften the upper harmonics and deepest undertones.</td></tr><tr><td>5</td><td>DETN</td><td>Optional fixed detuning, 0–30 cents per component. Zero keeps exact ratios.</td></tr><tr><td>6</td><td>DRFT</td><td>Optional smooth frequency movement, 0–30 cents. Zero keeps tuning still.</td></tr><tr><td>7</td><td>RATE</td><td>Speed of the optional drift, 0.01–4 Hz. Unavailable with DRFT zero.</td></tr><tr><td>8</td><td>REG</td><td>Whole-bank register, −2 to +2 octaves relative to ROOT.</td></tr></tbody></table>
+        <p>The component editor uses all 32 pads. The upper two rows edit sixteen harmonic multipliers; the lower two rows edit sixteen subharmonic dividers. Select a pad, turn knob 5 to change its RATIO or DIV, and knob 6 to change its signed LEVEL. Knob 8 moves between components. Delete/X + pad silences a component; Copy + pad and Shift + pad copy and paste its settings.</p>
+        <figure><div class="doc-graphic move-screen"><img src="assets/screens/synth-sub-bank.svg" alt="Selected subharmonic divider and component level"></div><figcaption>A divider of 2 sounds one octave below ROOT. A divider of 3 sounds at one third of its frequency.</figcaption></figure>
+        <p>WID spreads components across stereo. Frequencies below 5 Hz are omitted, with a gradual fade into the audible range; they are not moved to a different octave. The curve rows are <strong>Pitch / Sub Balance / Tilt / Level</strong>. All components keep running continuously; there is no random voice gating, pulse blend or folding.</p>
+        <h2 id="sound">Spline sound controls</h2>
+        <p>Spline draws alternating positive and negative waveform halves through random points, then smoothly changes one waveform into the next. ROOT controls cycle pitch; the following controls shape its changing character.</p>
+        <table class="readout-table"><thead><tr><th>Knob</th><th>Display</th><th>What it controls</th></tr></thead><tbody>
+          <tr><td>1</td><td>PTS</td><td>Points within each waveform half, 1–32. More points introduce finer internal detail.</td></tr>
+          <tr><td>2</td><td>EVOL</td><td>Evolution time, 1–4096 waveform cycles between successive shapes. Higher values change the timbre more slowly.</td></tr>
+          <tr><td>3</td><td>DRFT</td><td>Pitch-drift depth, 0–12 semitones around ROOT and the Pitch curve.</td></tr>
+          <tr><td>4</td><td>DRT</td><td>Pitch-drift time, 1–1000 ms between smoothly connected random targets.</td></tr>
+          <tr><td>5</td><td>CURV</td><td>Waveform curvature. Zero joins internal waveform points with straight lines; 100% uses smooth curves.</td></tr>
+          <tr><td>6</td><td>DYN</td><td>Random level variation between evolving waveforms. Zero keeps this variation off.</td></tr>
+          <tr><td>7</td><td>□</td><td>Reserved. The shared LOOP setting is on Synth Mod, knob 8.</td></tr>
+          <tr><td>8</td><td>□</td><td>Reserved.</td></tr>
+        </tbody></table>
+        <p>LOOP prepares the audio seam; choose a looping playback setting in the destination engine to repeat it. Curvature changes waveform shape, while the Curve editor's SHAP control changes motion over the file's length.</p>
+        <h2 id="bloom">Bloom</h2>
+        <p>Bloom creates a stream of overlapping pitched sound packets. Each packet has a rise, sustain and decay, and a spectrum assembled from up to eight partials. Four editable spectra provide fixed tones, evolving combinations or random changes.</p>
+        <div class="screen-gallery"><figure><div class="doc-graphic move-screen"><img src="assets/screens/synth-bloom.svg" alt="Bloom packet spectrum, spacing and envelope controls"></div><figcaption>Bloom sets the basic sound and timing.</figcaption></figure><figure><div class="doc-graphic move-screen"><img src="assets/screens/synth-bloom-var.svg" alt="Bloom envelope, pitch, amplitude and octave variation controls"></div><figcaption>Bloom Var adds bounded variations to individual packets.</figcaption></figure></div>
+        <table class="readout-table"><thead><tr><th>Knob</th><th>Display</th><th>What it controls</th></tr></thead><tbody>
+          <tr><td>1</td><td>MODE</td><td>FIX uses the chosen spectrum. EVOL moves A → B → C → D across the file. RAND chooses a spectrum for each packet.</td></tr>
+          <tr><td>2</td><td>SPEC</td><td>Fixed spectrum A–D. Available in FIX.</td></tr>
+          <tr><td>3</td><td>PART</td><td>Number of components, 1–8. Fractional values fade in the next component.</td></tr>
+          <tr><td>4</td><td>GAP</td><td>Average time between packet starts, 50–1000 ms, before spacing curves or modulation.</td></tr>
+          <tr><td>5</td><td>SCAT</td><td>Random variation of the start interval.</td></tr>
+          <tr><td>6</td><td>RISE</td><td>Base rise time, 2–200 ms.</td></tr>
+          <tr><td>7</td><td>SUS</td><td>Base sustain time, 0–200 ms.</td></tr>
+          <tr><td>8</td><td>DEC</td><td>Base decay time, 20–2000 ms.</td></tr>
+        </tbody></table>
+        <table class="readout-table"><thead><tr><th>Knob</th><th>Display</th><th>What it controls on Bloom Var</th></tr></thead><tbody>
+          <tr><td>1</td><td>RVAR</td><td>Random rise variation around RISE. For example, 20% around 10 ms gives 8–12 ms, within the allowed time range.</td></tr>
+          <tr><td>2</td><td>SVAR</td><td>Random sustain variation around SUS.</td></tr>
+          <tr><td>3</td><td>DVAR</td><td>Random decay variation around DEC.</td></tr>
+          <tr><td>4</td><td>PJIT</td><td>Random packet pitch offset, up to ±1 semitone.</td></tr>
+          <tr><td>5</td><td>AJIT</td><td>Random packet-level reduction. Zero keeps levels even.</td></tr>
+          <tr><td>6</td><td>BEND</td><td>Upward pitch bend across a packet, up to one semitone.</td></tr>
+          <tr><td>7</td><td>OCT</td><td>Lower-octave reinforcement.</td></tr>
+          <tr><td>8</td><td>SHAP</td><td>Rise and decay curvature, 0.25–4. A short edge fade remains in place.</td></tr>
+        </tbody></table>
+        <p>WID spreads packets across stereo. The curve rows are <strong>Pitch / Partials / Spacing / Level</strong>. Pitch, spectrum, component count and spacing are evaluated for each packet; its tail continues independently. Spacing offsets of +1 double the interval and −1 halve it. Density is bounded to at most 32 overlapping packet envelopes.</p>
+        <h3 id="spectra">Edit the spectra</h3>
+        <figure><div class="doc-graphic move-screen"><img src="assets/screens/synth-spectrum.svg" alt="Bloom partial spectrum editor with ratio and signed level controls"></div><figcaption>On Spectrum, the four pad rows select spectra A–D; the eight columns select their components. Negative levels invert that component's phase.</figcaption></figure>
+        <p>Open the <strong>Spectrum</strong> page before using the pads to edit partials. Dial 5 sets the selected component's frequency ratio, 1–64 times ROOT; hold Shift for finer changes. Dial 6 sets its signed level, −100% to +100%. Dial 8 selects components 1–8. Dial 7 is reserved. In FIX, selecting a spectrum also auditions that choice.</p>
+        <p>Delete + pad mutes a component. Copy + pad copies its ratio and level; Shift + pad pastes them. On other Synth pages, the pads continue to select the four motion curves.</p>
+        <h2 id="resynth">Resynth</h2>
+        <p>Resynth rebuilds a saved lane sample. PVOC retains the broader spectrum and supports pitch-independent stretching. SINE rebuilds the strongest tracked partials; it emphasizes pitched content and does not reproduce noise or attacks as faithfully.</p>
+        <ol><li>Load or record a sample into a lane. Wait for its save to finish.</li><li>Choose <strong>RSYN</strong> with TYPE. Press the Track key for the source lane.</li><li>Click the main encoder and select <strong>Use Lane as Source</strong>.</li><li>Set the source window and processing. LEN on Setup sets the output duration independently of TUNE.</li><li>Press Loop to audition. Choose Save, or select a destination with Track and choose Save &amp; Load.</li></ol>
+        <p>Once selected, the source stays fixed while other lanes are selected for saving. Choose Use Lane as Source again to replace it. The original file is preserved. Sources use the first twelve seconds and are converted to Move's sample rate when needed.</p>
+        <figure><div class="doc-graphic move-screen"><img src="assets/screens/synth-resynth.svg" alt="Resynth mode, pitch, source window, blur, smoothing, partial count and spectral floor"></div><figcaption>PART is available in SINE mode. The Preview page also identifies the captured source.</figcaption></figure>
+        <table class="readout-table"><thead><tr><th>Knob</th><th>Display</th><th>What it controls</th></tr></thead><tbody>
+          <tr><td>1</td><td>MODE</td><td>PVOC spectral resynthesis or SINE partial tracking.</td></tr>
+          <tr><td>2</td><td>TUNE</td><td>Pitch shift, −24 to +24 semitones. Changing LEN does not change this pitch setting.</td></tr>
+          <tr><td>3</td><td>STRT</td><td>Start of the input window, as a percentage of the captured source.</td></tr>
+          <tr><td>4</td><td>END</td><td>End of the input window. STRT and END remain at least 1% apart.</td></tr>
+          <tr><td>5</td><td>BLUR</td><td>Spread spectral detail across neighboring frequencies.</td></tr>
+          <tr><td>6</td><td>SMTH</td><td>Slow changes of spectral level over time.</td></tr>
+          <tr><td>7</td><td>PART</td><td>Maximum tracked partial count, 4–64. Available in SINE.</td></tr>
+          <tr><td>8</td><td>FLOR</td><td>Spectral floor, −96 to −6 dB relative to the frame peak. Higher settings discard more quiet detail.</td></tr>
+        </tbody></table>
+        <p>The curve rows are <strong>Pitch / Blur / Smooth / Level</strong>. ROOT is the pitch reference written into the resulting WAV; TUNE changes the sound. WID begins at 100% for a new Resynth workspace to preserve stereo; zero sums the channels to mono.</p>
+        <p>A saved Resynth WAV embeds its original input as well as its recipe. Open Source Recipe can therefore reconstruct the result after the original file has been removed or the project has been imported elsewhere. These WAVs can be larger than other generated files.</p>
+        <h3 id="trace">RSYN Trace</h3>
+        <p>Choose SINE on Resynth to reveal the Trace page in Sound. LINK follows changing partials continuously. POINT makes separate windowed partial events; SMEAR overlaps longer versions of them; FREEZ repeatedly draws from the analysis position selected by HOLD. The Resynth source window, tuning, floor, blur and smoothing still apply.</p>
+        <div class="screen-gallery"><figure><div class="doc-graphic move-screen"><img src="assets/screens/synth-trace-linked.svg" alt="Linked partial trace controls with inactive event settings"></div><figcaption>LINK uses TOL to decide which peaks belong to the same continuing partial.</figcaption></figure>
+<figure><div class="doc-graphic move-screen"><img src="assets/screens/synth-trace-freeze.svg" alt="Frozen partial trace controls with analysis-position selection"></div><figcaption>FREEZ uses HOLD to choose one point inside STRT–END. HOLD is unrelated to note-pad latch.</figcaption></figure>
+</div>
+<table class="readout-table"><thead><tr><th>Knob</th><th>Display</th><th>What it controls</th></tr></thead><tbody>
+          <tr><td>1</td><td>TRCE</td><td>Behaviour: LINK, POINT, SMEAR or FREEZ.</td></tr>
+          <tr><td>2</td><td>DENS</td><td>Proportion of admitted partial traces, 0–100%. Zero makes a silent render.</td></tr>
+          <tr><td>3</td><td>LIFE</td><td>Base partial-event length, 10–2000 ms. SMEAR lengthens it by 2.8×; FREEZ by 7.5×. LEN bounds the saved result. Unavailable in LINK.</td></tr>
+          <tr><td>4</td><td>DRFT</td><td>Smooth pitch drift within traces.</td></tr>
+          <tr><td>5</td><td>JITR</td><td>Partial-event timing variation. Unavailable in LINK.</td></tr>
+          <tr><td>6</td><td>TOL</td><td>Linked-track matching tolerance, 10–600 cents. Available only in LINK.</td></tr>
+          <tr><td>7</td><td>HOLD</td><td>Analysis position inside the selected source window, 0–100%. Available only in FREEZ.</td></tr>
+          <tr><td>8</td><td>SPRD</td><td>Additional seeded placement of partials across stereo, scaled by WID. Unavailable at WID zero.</td></tr>
+        </tbody></table>
+        <div class="screen-gallery"><figure><div class="doc-graphic move-screen"><img src="assets/screens/synth-trace-point.svg" alt="Point partial events and their duration controls"></div><figcaption>POINT can leave spaces between short partial events.</figcaption></figure>
+<figure><div class="doc-graphic move-screen"><img src="assets/screens/synth-trace-smear.svg" alt="Smear partial events with longer overlap"></div><figcaption>SMEAR uses longer overlapping windows to soften the field.</figcaption></figure>
+</div>
+        <p>These are offline treatments: changing a control renders a new preview. A saved Resynth WAV includes its source, so its trace behaviour can be recalled later.</p>
+        <h2 id="hybrid">Hybrid</h2>
+        <p>HYBR combines the spectral traits of two to four recordings. It analyzes their partials, assigns timing, pitch and amplitude roles, then makes new windowed oscillator and noise material. This creates a new sample rather than mixing the original files directly.</p>
+        <ol><li>Choose HYBR, then set SRCS on the Hybrid sound page.</li><li>Click the main encoder and choose Pick Source A, then B, and C/D if required. Each selection returns to Hybrid Files. It does not replace a lane sample.</li><li>Choose MODE and processing. Loop auditions the completed render.</li><li>Set a name and destination, then press Record to save and load, or Shift + Record to save only.</li></ol>
+        <div class="screen-gallery"><figure><div class="doc-graphic move-screen"><img src="assets/screens/synth-hybrid-files.svg" alt="Four independently chosen Hybrid input filenames"></div><figcaption>SRCS sets how many inputs are required. All required inputs must be chosen before rendering.</figcaption></figure>
+<figure><div class="doc-graphic move-screen"><img src="assets/screens/synth-hybrid.svg" alt="Hybrid role assignment, pitch, density, mutation, texture, lifetime and drift"></div><figcaption>Use recordings with contrasting pitch, rhythm or spectral character.</figcaption></figure>
+</div>
+<table class="readout-table"><thead><tr><th>Knob</th><th>Display</th><th>What it controls</th></tr></thead><tbody>
+          <tr><td>1</td><td>MODE</td><td>CHIM independently exchanges traits; GRAFT uses A’s timing and B’s pitch; MASK admits A’s peaks where B has nearby frequencies; MIRAG favors A’s timing with changing traits; SWARM cycles roles across the sources.</td></tr>
+          <tr><td>2</td><td>SRCS</td><td>Required source count, 2–4. Change this before choosing additional files.</td></tr>
+          <tr><td>3</td><td>TUNE</td><td>Pitch offset for the resynthesized material, −24 to +24 semitones.</td></tr>
+          <tr><td>4</td><td>DENS</td><td>Proportion of admitted partial events. Zero makes a silent render.</td></tr>
+          <tr><td>5</td><td>MUT</td><td>Cross-source role mutation. In MASK, it widens the frequency-match tolerance.</td></tr>
+          <tr><td>6</td><td>TEXT</td><td>Blend toward shorter, noisier partial events instead of a strongly tonal result.</td></tr>
+          <tr><td>7</td><td>LIFE</td><td>Base partial-event length, 20–2000 ms. TEXT shortens it; LEN controls the whole output file.</td></tr>
+          <tr><td>8</td><td>DRFT</td><td>Pitch movement within each partial event.</td></tr>
+        </tbody></table>
+        <p>The curve rows are <strong>Pitch / Density / Mutation / Level</strong>. WID controls the complete stereo image; zero produces mono. MASK can be quiet or silent when the inputs have no matching spectral components. Start with CHIM or GRAFT when learning the processor.</p>
+        <p>Saved Hybrid WAVs embed every active source. Open Source Recipe and project export/import therefore work after the original files are removed. These self-contained files can be larger than ordinary generated samples.</p>
+        <h2 id="convolve">Convolution</h2>
+        <p>CONV combines a primary recording with an impulse recording to make a new stereo sample. The impulse can be a room response, a short attack, a resonant object, another musical sample or the same file as the primary. Processing happens in the background.</p>
+        <ol><li>Select CONV, then open the Convolution Files page in Sound.</li><li>Click the main encoder and choose <strong>Pick Primary</strong>. Browse the usual sample sources and click a WAV to select it.</li><li>Choose <strong>Pick Impulse</strong> the same way. Choosing either input leaves the audio lanes unchanged. Menu cancels the picker.</li><li>Set the two regions, impulse window and processing on Convolve. Press Loop to audition the result.</li><li>Choose the destination lane with Track 1–4, then press Record to save and load the result.</li></ol>
+        <p>Each file selection returns to Synth and shows the chosen filename on Convolve Files. Once both files are selected, rendering starts automatically. Press Loop to audition the combined result.</p>
+        <div class="screen-gallery"><figure><div class="doc-graphic move-screen"><img src="assets/screens/synth-conv-files.svg" alt="Separate primary and impulse filenames"></div><figcaption>Both files are chosen independently. The browser's normal preview controls remain available.</figcaption></figure><figure><div class="doc-graphic move-screen"><img src="assets/screens/synth-convolve.svg" alt="Convolution region, window, tone, mix and tail controls"></div><figcaption>PLEN and ILEN are region lengths in milliseconds, measured from their position settings.</figcaption></figure></div>
+<table class="readout-table"><thead><tr><th>Knob</th><th>Display</th><th>What it controls</th></tr></thead><tbody>
+          <tr><td>1</td><td>PPOS</td><td>Start position in the primary file, 0–99.99%.</td></tr>
+          <tr><td>2</td><td>PLEN</td><td>Primary region length, 1–12000 ms, or the remaining audio if shorter.</td></tr>
+          <tr><td>3</td><td>IPOS</td><td>Start position in the impulse file, 0–99.99%.</td></tr>
+          <tr><td>4</td><td>ILEN</td><td>Impulse region length, 0.05–12000 ms. The first starting point uses up to one second.</td></tr>
+          <tr><td>5</td><td>WIN</td><td>Impulse envelope: FLAT leaves it unchanged, TRI and HANN taper both ends, EXP emphasizes the beginning and decays to the end.</td></tr>
+          <tr><td>6</td><td>TONE</td><td>Impulse brightness. Positive values emphasize changes and high frequencies; negative values soften the impulse.</td></tr>
+          <tr><td>7</td><td>MIX</td><td>Blend primary audio with the convolved result. The wet signal is peak-matched before blending; LVL sets the final peak.</td></tr>
+          <tr><td>8</td><td>TAIL</td><td>FULL keeps the convolution tail up to MAX. TRIM ends at the primary region length, also limited by MAX.</td></tr>
+        </tbody></table>
+        <p>Each source uses its first twelve seconds and is converted to Move's sample rate when needed. MAX on Setup defaults to 12 seconds, matching a Thru lane's capacity. Output shows the completed duration. LOOP uses a short overlapping seam and slightly shortens the result.</p>
+        <p>Stereo processing pairs primary left with impulse left, and primary right with impulse right. A mono file feeds both channels. WID applies to the whole dry/wet result; zero produces mono. Only the Level curve and Level modulation apply to Convolution.</p>
+        <p>Saved convolution WAVs include both captured inputs and the recipe. Open Source Recipe rebuilds the result without the original files. Project export preserves these embedded inputs when the saved WAV is assigned to a lane. The source files are preserved.</p>
+        <h2 id="events">Compose events into a sample</h2>
+        <p>Drum, Bloom, Partials and Pluck share two Events pages in Sound. MODE OFF keeps the ordinary generator. GRID starts from clear musical spacing, with timing, pitch and level variation off. Events is enabled initially for Pluck.</p>
+        <div class="screen-gallery"><figure><div class="doc-graphic move-screen"><img src="assets/screens/synth-events.svg" alt="Musical Events mode, BPM, subdivision, count, gate, swing, pitch and pan"></div><figcaption>Musical timing is on the first page. GATE below 100% leaves a gap between events.</figcaption></figure><figure><div class="doc-graphic move-screen"><img src="assets/screens/synth-event-var.svg" alt="Event probability, bounded humanization, variation and clock options"></div><figcaption>Event Var holds optional variation and the FREE clock choice.</figcaption></figure></div>
+<table class="readout-table"><thead><tr><th>Knob</th><th>Display</th><th>What it controls</th></tr></thead><tbody><tr><td>1</td><td>MODE</td><td>OFF; GRID for every candidate; CHANC for probabilistic grid hits; SWELL for soft envelopes; GROUP for three hits followed by a rest.</td></tr><tr><td>2</td><td>BPM</td><td>Render tempo, 1–999 BPM, independent of clip playback. A beat is a quarter note.</td></tr><tr><td>3</td><td>DIV</td><td>Spacing: whole notes through 1/64, with triplet (T) and dotted (D) choices. At 120 BPM, 1/8 places starts every 250 ms.</td></tr><tr><td>4</td><td>EVTS</td><td>Candidate count, 1–64. LEN on Setup limits the finished file. The footer shows how many candidates fit, such as FIT 8/16.</td></tr><tr><td>5</td><td>GATE</td><td>Event length relative to DIV, 5–400%. At 120 BPM, DIV 1/8 and GATE 70% give 175 ms of material followed by a 75 ms gap. Above 100%, events can overlap.</td></tr><tr><td>6</td><td>SWNG</td><td>Delays alternate grid positions without changing the overall tempo. Zero gives straight spacing.</td></tr><tr><td>7</td><td>SPAN</td><td>Optional scale-based pitch range, 0–48 semitones. Zero keeps one pitch; model tuning limits still apply.</td></tr><tr><td>8</td><td>PAN</td><td>Optional stereo placement of events, scaled by WID. Unavailable at WID zero.</td></tr></tbody></table>
+        <h3>Event Var</h3>
+<table class="readout-table"><thead><tr><th>Knob</th><th>Display</th><th>What it controls</th></tr></thead><tbody><tr><td>1</td><td>DENS</td><td>Admission probability. GRID at 100% admits every candidate; CHANC also applies its own 75% chance. GROUP keeps its regular rest.</td></tr><tr><td>2</td><td>JITR</td><td>Humanization around the grid. Zero is exact; 100% allows at most one tenth of the spacing in either direction. Neighbouring events remain ordered.</td></tr><tr><td>3</td><td>VAR</td><td>Random level reduction. Zero keeps levels even.</td></tr><tr><td>4</td><td>□</td><td>Reserved.</td></tr><tr><td>5</td><td>CLCK</td><td>BEAT uses BPM, DIV, GATE and SWNG. FREE spaces EVTS evenly across LEN and uses LIFE in milliseconds.</td></tr><tr><td>6</td><td>LIFE</td><td>Event length in FREE clock, 40–4000 ms. Unavailable in BEAT clock.</td></tr><tr><td>7</td><td>□</td><td>Reserved.</td></tr><tr><td>8</td><td>□</td><td>Reserved.</td></tr></tbody></table>
+        <p>Change LEN on Setup to fit more or fewer beats, up to twelve seconds. For example, LEN 2 seconds, BPM 120, DIV 1/8 and EVTS 8 make one bar of eight equally spaced starts. Raising EVTS beyond the file’s capacity does not squeeze the events together: FIT reports the number that can be rendered. Triplets and dotted notes retain their proper timing.</p>
+        <p>Pitch curves are sampled at event starts. Partials also samples Count and Stretch; Bloom samples partial count and spacing; Pluck samples Damping and Brightness. Drum’s rows become Pitch / Density / Lifetime / Level; a +1 Lifetime offset doubles the event gate. Model DEC acts inside that gate. Short gates fade to silence at their boundaries, including when shorter than the generator’s material window. SEED repeats optional variations; New Seed makes another variation. Level follows the complete render.</p>
+        <figure><div class="doc-graphic move-screen"><img src="assets/screens/synth-events-off.svg" alt="Events disabled with inactive controls reserved"></div><figcaption>MODE OFF reserves the other event controls.</figcaption></figure>
+        <h2 id="mod">Shared modulation</h2>
+        <figure><div class="doc-graphic move-screen"><img src="assets/screens/synth-mod.svg" alt="Shared generator LFO controls and file loop setting"></div><figcaption>Set DEST and raise AMT to enable modulation. LOOP is independent of the LFO.</figcaption></figure>
+        <table class="readout-table"><thead><tr><th>Knob</th><th>Display</th><th>What it controls</th></tr></thead><tbody>
+          <tr><td>1</td><td>LFO</td><td>SINE, TRI, SAW, SQR or smoothly changing RAND.</td></tr>
+          <tr><td>2</td><td>RATE / CYCL</td><td>FREE rate, 0.01–40 Hz, or 1–64 complete cycles across the file when FIT is FILE.</td></tr>
+          <tr><td>3</td><td>AMT</td><td>Depth. Zero adds no LFO movement.</td></tr>
+          <tr><td>4</td><td>DEST</td><td>OFF, pitch, either of the generator's two middle curve targets, or level.</td></tr>
+          <tr><td>5</td><td>FADE</td><td>Time for the LFO depth to rise from zero, 0–12 seconds.</td></tr>
+          <tr><td>6</td><td>PHAS</td><td>Starting phase, 0–360 degrees.</td></tr>
+          <tr><td>7</td><td>FIT</td><td>FREE uses Hz. FILE fits the chosen number of cycles into LEN.</td></tr>
+          <tr><td>8</td><td>LOOP</td><td>Prepare the WAV with an overlapping loop seam. When enabled, one-shot ATK and REL are unavailable.</td></tr>
+        </tbody></table>
+        <p>Inactive destinations and controls show squares. LFO and authored curves add together, with bounded values and smoothing where needed. Bloom applies its pitch, component-count and spacing modulation at packet starts; level modulation acts across the mixed result.</p>
+        <h3 id="clean">Clean</h3>
+        <p>Choose <strong>Clean</strong> in Synth Actions to remove optional movement. It clears the four curves and LFO, and preserves length, root, file envelope, level, loop choice and filename. Wave keeps the selected waveform and resets extra oscillators, noise and filtering. Spline keeps its waveform-shaping controls and clears pitch drift and random dynamics. Bloom keeps its edited spectra and base envelope, selects FIX, and clears scatter, jitter and octave reinforcement. Resynth returns to a full-window, pitch-neutral PVOC starting point with the original stereo width. Partials keeps its edited components, count, tilt and stretch, and clears detuning, phase variation, drift and component decay. Noise Bank keeps its band tuning, levels, width and color, and clears movement and leak. Dust keeps mode, rate, size, tone and edge; Clean removes the added bed, clustering, variation and faults, selects white noise, one repeat and 24-bit depth. FM keeps its core routing, ratios, indices and mix, and clears feedback and detuning. Convolution resets TONE and MIX while retaining its files, regions and window. Drum resets Color and clears DRIV, BIAS, COMP and SNAP while retaining its model, native excitation controls and timbre. Pluck clears hardness and detuning; Subharmonic clears detuning and drift; Hybrid clears role mutation and drift. Trace clears drift, jitter and spread. Events keeps its mode, count, density and lifetime while clearing timing jitter, pitch spread, level variation and pan.</p>
+
+        <h2 id="curves">Compose four curves on the pads</h2>
+        <p>Outside Bloom’s Spectrum page and the Partials/Noise Bank component editors, the four horizontal pad rows select the generator’s four curves, from top to bottom. Spline uses <strong>Pitch / Points / Evolution / Level</strong>; the other generators’ targets are described above. Each row contains eight points in time order, left to right. Tap a pad to enable and select its point. The display switches to its curve.</p>
+        <figure><div class="doc-graphic move-screen"><img src="assets/screens/synth-curve.svg" alt="Spline Pitch curve with point markers and time, value and shape controls"></div><figcaption>The selected point has a larger marker and a cyan pad. Turn PT or tap a pad to select another point. An unused selected point has a hollow marker; colored pads are enabled points and grey pads are unused.</figcaption></figure>
+        <table class="readout-table"><thead><tr><th>Knob</th><th>Display</th><th>What it controls</th></tr></thead><tbody>
+          <tr><td>5</td><td>TIME</td><td>Move the selected point in time within LEN, independently of its pad column. Interior points stay between their neighbors. The fixed start/end points show an unavailable square.</td></tr>
+          <tr><td>6</td><td>VALUE</td><td>Offset from the base parameter. Pitch is ±24 semitones and Level ±24 dB. Spline Points is ±16 and Evolution ±4 octaves of time. Wave Pulse Width is ±45 percentage points and Cutoff ±4 octaves. Bloom Partials is ±7 and Spacing ±4 octaves. Resynth Blur and Smooth are ±100 percentage points. Final values remain bounded.</td></tr>
+          <tr><td>7</td><td>SHAP</td><td>Shape from this point to the next: HOLD, LIN or SMTH. Unavailable at the final point, which has no following segment. Level changes are additionally smoothed to reduce clicks.</td></tr>
+          <tr><td>8</td><td>PT</td><td>Turn to select points 1–8 across the current pad row. The cyan pad and waveform marker follow. Selecting an unused point leaves the curve unchanged; editing its TIME, VALUE or SHAP enables it.</td></tr>
+        </tbody></table>
+        <div class="screen-gallery"><figure><div class="doc-graphic move-screen"><img src="assets/screens/synth-curve-end.svg" alt="Final Spline point with unavailable TIME and SHAP cells"></div><figcaption>Point 8 has a fixed end time and no outgoing segment. TIME and SHAP are unavailable.</figcaption></figure><figure><div class="doc-graphic move-screen"><img src="assets/screens/synth-curve-unused.svg" alt="Hollow marker for an unused Spline point selected using the PT dial"></div><figcaption>PT can select an unused point without changing the sound. Turn an available editing dial to enable it.</figcaption></figure></div>
+        <p><kbd>Delete/X</kbd> + pad removes an interior point. At the endpoints it resets the value to zero. <kbd>Copy</kbd> + pad copies a point's value and shape; <kbd>Shift</kbd> + pad pastes them, keeping the destination time. These pad shortcuts edit curves while Synth is open.</p>
+        <h2 id="random">Bounded randomization</h2>
+        <p><kbd>Shift</kbd> + <kbd>Loop</kbd> applies <strong>Mutate Sound</strong> from any Synth page, for every generator. It uses the Random page’s AMT (initially 25%) and respects Protect Params. The page and preview selection stay in place; the updated sound renders in the background. AMT zero makes no change. Release the keys before repeating. The shortcut is inactive inside menus, filename entry and source-file browsing. <kbd>Loop</kbd> alone still toggles audition. No file is saved until you choose Save or press Record.</p>
+        <p>The Random page sets <code>AMT</code>, curve <code>ROW</code>, <code>MIN</code>, <code>MAX</code> and whether <code>ENDS</code> are kept. Click the main encoder to choose <strong>Random Curve</strong>, <strong>Mutate Sound</strong>, <strong>New Seed</strong> or <strong>Protect Params</strong>.</p>
+        <ul>
+          <li><strong>Random Curve</strong> moves points toward random targets inside MIN/MAX. Pitch targets follow the scale captured when the workspace was first opened. AMT blends toward the targets; KEEP leaves endpoint values intact.</li>
+          <li><strong>Mutate Sound</strong> varies unprotected sound controls by AMT. Setup controls, envelope, output level, pitch drift and LOOP start protected.</li>
+          <li><strong>Protect Params</strong> lists the selected generator’s controls, including its event or trace controls. Turn the main encoder to select one; click to toggle LOCKED/FREE. Back returns to the editor.</li>
+          <li><strong>New Seed</strong> advances the random identity without changing the control values or curves. Mutation and curve randomization also advance the seed. AMT zero leaves the recipe unchanged.</li>
+        </ul>
+        <h2 id="save">Name, save and recall</h2>
+        <figure><div class="doc-graphic move-screen"><img src="assets/screens/synth-name.svg" alt="Spline file naming with a pad keyboard"></div><figcaption>Each screen character matches a pad. The main encoder moves the text cursor; its click accepts the name. Back cancels name editing.</figcaption></figure>
+        <p>Choose <strong>Name</strong> in the action menu to use the pad keyboard. Names support up to forty letters, numbers, spaces, dashes and underscores. SP inserts a space, BK removes the previous character, Aa changes case, and 09 selects digits.</p>
+        <p><strong>Save</strong> writes a new stereo 32-bit-float WAV at Move's sample rate. <strong>Save &amp; Load</strong> also assigns it to the Track-selected lane. Existing files are preserved: a repeated name receives a numeric suffix. Saving requires a completed render of the current settings.</p>
+        <p><strong>Saved - Load Error</strong> means the WAV was saved but could not be applied to the lane. The file remains available; resolve the load error and choose it again through the sample browser.</p>
+        <p>Files appear at <code>UserLibrary/Samples/s3g Thru/Synths</code>, also available as <strong>Thru Synths</strong> in the sample browser. Download them through Schwung Manager's Files page. If a clip changes while saving, the file is retained without loading it into the new clip.</p>
+        <p>Each WAV carries its generator type and recipe. Load a generated WAV into a lane, open Synth and choose <strong>Open Source Recipe</strong> to edit it again. A project export preserves the recipe with every referenced generated WAV. Resynth’s embedded original input travels with its saved WAV. Unassigned files and unsaved workspaces are not included in project backups; save and assign sounds you want to keep.</p>
+
+        <nav class="page-nav" aria-label="Page navigation">
+          <a class="page-nav-link" href="recording.html"><span>Previous</span>Samples and Recording</a>
+          <a class="page-nav-link next" href="projects.html"><span>Next</span>Projects and Backups</a>
+        </nav>
+      </main>
+
+      <aside class="toc" aria-label="Page navigation">
+        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="synthesis.html">Synthesis</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="midi.html">MIDI</a><a href="shortcuts.html">Shortcuts</a></div>
+        <div class="toc-section"><h2>Instrument modes</h2><a href="playing.html">Single · Basic playing</a><a href="modes.html">Compare modes</a><a href="split.html">Split</a><a href="shared-dual.html">Shared Dual</a><a href="quad.html">Quad</a><a href="bank.html">Bank</a><a href="layers.html">Layers</a><a href="sequence.html">Sequence</a></div>
+        <div class="toc-section"><h2>On this page</h2><a href="#start">First sound</a><a href="#navigation">Synth navigation</a><a href="#setup">Synth Setup</a><a href="#wave">Wave</a><a href="#drum">Drum</a><a href="#fm-drum">FM Drum</a><a href="#drum-color">Drum Color</a><a href="#pluck">Pluck</a><a href="#partials">Partials</a><a href="#noise">Noise Bank</a><a href="#component-bank">Component editing</a><a href="#dust">Dust</a><a href="#fm">FM</a><a href="#subharmonic">Subharmonic</a><a href="#sound">Spline controls</a><a href="#bloom">Bloom</a><a href="#resynth">Resynth</a><a href="#trace">RSYN Trace</a><a href="#hybrid">Hybrid</a><a href="#convolve">Convolution</a><a href="#events">Event composition</a><a href="#mod">Shared modulation</a><a href="#clean">Clean</a><a href="#curves">Curve composition</a><a href="#random">Randomization</a><a href="#save">Name, save and recall</a></div>
+      </aside>
+    </div>
+    <footer class="manual-footer">Save and assign a generated sound to include it in a project backup.</footer>
+    <script src="assets/lightbox.js"></script>
+  </body>
+</html>

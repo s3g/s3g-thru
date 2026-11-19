@@ -275,6 +275,7 @@ source = source.replace(
 source += '\nglobalThis.__docSequence={read:readSequence,model:sequenceUi};globalThis.__docGenerate={ui:sequenceGeneratorUi,read:readSequenceGenerator};';
 source += '\nglobalThis.__docLayers={read:readLayers,model:layersUi,openPicker:openLayersPicker,picker:layersPicker};';
 source += '\nglobalThis.__docSplit = {state, readMixerState, projectUi, readProject, openProjects, openBankRecovery, customMidiUi, readCustomMidi, openCustomMidiList, sliceUi, openSliceEditor, readSliceEditor, params:PARAMS, pages:parameterPages, redraw:()=>{clearDisplay();draw();}};';
+source += '\nglobalThis.__docSynth={ui:synthUi,read:readSynth,draw:drawSynth};';
 await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
 
 function escapeXml(value) {
@@ -894,6 +895,76 @@ Object.assign(seqDoc.state,{view:'pages',pageTier:'category',pageCategory:0,page
 seqDoc.redraw();capture('sequence-play-pages.svg','Sequence Play pages with Setup second','PLAY');
 Object.assign(seqDoc.state,{pageCategory:1,pageSelection:0,lane:seqExample.edit+1});
 seqDoc.redraw();capture('sample-pages.svg','Sample group for recording, editing and browsing source audio','SAMPLE');
+
+// Spline source-creation workspace, using the actual production renderer.
+const synthDoc=globalThis.__docSynth;
+const synthExample={open:1,job:0,op:0,progress:100,ready:1,preview:0,rev:1,row:0,point:3,seed:37,locks:0x113f,name:'Glass Current',message:'READY',values:[2,60,.3,5,20,.75,7,32,.2,100,1,.25,0],
+ curves:Array.from({length:4},()=>[255,...Array.from({length:8},(_,i)=>[i/7,0,2])]),
+ wave:Array.from({length:112},(_,i)=>[-.55*Math.abs(Math.sin(i*.37)),.55*Math.abs(Math.cos(i*.31))])};
+synthExample.curves[0]=[255,...[0,3,7,12,7,3,0,0].map((v,i)=>[i/7,v,2])];
+params.synth_state=JSON.stringify(synthExample);synthDoc.read();
+Object.assign(seqDoc.state,{view:'synth',saveStatus:0,savedTicks:0});
+for(const [page,file,heading] of [[0,'setup','SYNTH SETUP'],[1,'sound','SPLINE'],[2,'curve','CURVE PITCH'],[3,'random','RANDOM'],[4,'preview','PREVIEW']]){
+ synthDoc.ui.page=page;synthDoc.ui.overlay='';synthDoc.draw();capture('synth-'+file+'.svg','Spline '+file+' page',heading);
+}
+synthDoc.ui.page=2;synthExample.point=7;params.synth_state=JSON.stringify(synthExample);synthDoc.read();synthDoc.draw();
+capture('synth-curve-end.svg','Final Spline point with fixed time and no outgoing shape','CURVE PITCH');
+synthExample.point=3;synthExample.curves[0][0]&=~(1<<3);params.synth_state=JSON.stringify(synthExample);synthDoc.read();synthDoc.draw();
+capture('synth-curve-unused.svg','Unused Spline point selected with PT, before editing enables it','CURVE PITCH');
+// Contextual generator and shared-modulation pages.
+synthExample.curves=Array.from({length:4},()=>[129,...Array.from({length:8},(_,i)=>[i/7,0,2])]);
+synthExample.type=0;synthExample.mod=[1,5,.35,3,150,.25,1];synthExample.curves[0][0]=255;
+params.synth_state=JSON.stringify(synthExample);synthDoc.read();synthDoc.ui.page=5;synthDoc.draw();capture('synth-mod.svg','Shared generator modulation and file loop controls','SYNTH MOD');
+synthExample.type=1;synthExample.osc=[3,.37,7.5,.15,3200,.25,.08];params.synth_state=JSON.stringify(synthExample);synthDoc.read();synthDoc.ui.page=1;synthDoc.draw();capture('synth-wave.svg','Wave generator pulse, detune, sub, filter and noise controls','WAVE');
+synthExample.type=2;synthExample.packets=[1,0,6.4,170,.3,12,30,240,.25,.3,.4,.2,.3,.4,.2,1.5];synthExample.spectrum=2;synthExample.component=2;
+synthExample.partials=[[1,1],[1.414,.7],[2.76,-.4],[3.414,.3],[4.8,.2],[6.1,0],[8.3,.1],[11,.05]];synthExample.partial_masks=[255,85,223,255];
+params.synth_state=JSON.stringify(synthExample);synthDoc.read();
+for(const [page,file,heading] of [[1,'bloom','BLOOM'],[6,'bloom-var','BLOOM VAR'],[7,'spectrum','SPECTRUM C']]){synthDoc.ui.page=page;synthDoc.draw();capture('synth-'+file+'.svg','Bloom '+file+' controls',heading);}
+synthExample.type=3;synthExample.spectral=[1,-7,.08,.92,.18,.25,24,-60];synthExample.source='glass-loop.wav';
+params.synth_state=JSON.stringify(synthExample);synthDoc.read();synthDoc.ui.page=1;synthDoc.draw();capture('synth-resynth.svg','Resynth source window, tuning and spectral controls','RESYNTH');
+synthDoc.ui.page=4;synthDoc.draw();capture('synth-resynth-source.svg','Resynth preview identifies its captured source','PREVIEW');
+synthExample.type=4;synthExample.additive=[24,-3,1.02,7,.4,.2,.5,.3];synthExample.spectrum=3;synthExample.component=7;
+synthExample.partials=Array.from({length:8},(_,i)=>[i+25,(i%2?-1:1)/(i+1)]);synthExample.partial_masks=[255,255,255,255];
+params.synth_state=JSON.stringify(synthExample);synthDoc.read();synthDoc.ui.page=1;synthDoc.draw();capture('synth-partials.svg','Continuous additive partial bank controls','PARTIALS');
+synthDoc.ui.page=7;synthDoc.draw();capture('synth-partial-bank.svg','Partial components 25 to 32 with selected ratio and level','PART 25-32');
+synthExample.type=5;synthExample.noise=[12,3,-2,1,1,4,.7,.05];synthExample.spectrum=1;synthExample.component=2;synthExample.partials=Array.from({length:8},(_,i)=>[i+9,1/(i+1)]);
+params.synth_state=JSON.stringify(synthExample);synthDoc.read();synthDoc.ui.page=1;synthDoc.draw();capture('synth-noise.svg','Noise Bank tuned bands, bandwidth, color and motion controls','NOISE BANK');
+synthDoc.ui.page=7;synthDoc.draw();capture('synth-noise-bands.svg','Noise band centers and levels selected with the pads','BANDS 9-16');
+synthExample.type=12;synthExample.dustParams=[1,28,3.2,.6,11000,.1,12,.8,.05,1,3,.4];params.synth_state=JSON.stringify(synthExample);synthDoc.read();synthDoc.ui.page=1;synthDoc.draw();capture('synth-dust.svg','Dust crackles rate duration clustering edges and bit depth','DUST');
+synthExample.dustParams[0]=5;params.synth_state=JSON.stringify(synthExample);synthDoc.read();synthDoc.ui.page=6;synthDoc.draw();capture('synth-dust-detail.svg','Dust noise bed color repeats and data-pattern variation','DUST DETAIL');
+synthExample.type=6;synthExample.fmOsc=[1,2,3.5,1.5,2.2,.15,8,.85];params.synth_state=JSON.stringify(synthExample);synthDoc.read();synthDoc.ui.page=1;synthDoc.draw();capture('synth-fm.svg','FM operator routing, ratios, indices, feedback, detune and mix','FM');
+synthExample.type=7;synthExample.conv=[.12,900,0,180,3,.35,.8,1];synthExample.primary='spoken-air.wav';synthExample.impulse='metal-hit.wav';synthExample.seconds=1.08;
+params.synth_state=JSON.stringify(synthExample);synthDoc.read();synthDoc.ui.page=8;synthDoc.draw();capture('synth-conv-files.svg','Convolution primary and impulse file choices','CONV FILES');
+synthDoc.ui.page=1;synthDoc.draw();capture('synth-convolve.svg','Convolution regions, impulse window, tone, blend and tail controls','CONVOLVE');
+synthExample.type=8;synthExample.drumExtra=[.94,6.5,340,.18,0,0,.35,.15];synthExample.drums=[1,210,420,.65,.7,.15,.6,.1,7,22,.35,.45];synthExample.values[0]=2;synthExample.values[3]=0;synthExample.values[4]=2;
+params.synth_state=JSON.stringify(synthExample);synthDoc.read();synthDoc.ui.page=1;synthDoc.draw();capture('synth-drum.svg','Compact physical drum sample generator','DRUM');
+synthDoc.ui.page=6;synthDoc.draw();capture('synth-drum-detail.svg','Drum bend, sweep, ring and damping controls','DRUM DETAIL');
+synthExample.drums=[0,48,850,.25,.04,.2,.55,0,24,45,.1,.78,0,.6,.4,.7];synthExample.drumExtra=[.94,4,80,.12,0,0,.35,.15];params.synth_state=JSON.stringify(synthExample);synthDoc.read();synthDoc.ui.page=13;synthDoc.draw();capture('synth-drum-attack.svg','Native Kick attack and transient controls','DRUM ATTACK');
+for(const [model,name] of [[6,'membrane'],[7,'modal'],[8,'medium']]){
+  synthExample.drums=[model,model===6?43:model===7?180:343,1800,.55,.3,.4,.5,.15,24,42,.35,.4,model===6?1:model===7?5:2,.7,.3,.75];
+  params.synth_state=JSON.stringify(synthExample);synthDoc.read();synthDoc.ui.page=1;synthDoc.draw();capture('synth-'+name+'.svg',name+' stereo sample generation','DRUM');
+  synthDoc.ui.page=6;synthDoc.draw();capture('synth-'+name+'-detail.svg',name+' material and excitation controls','DRUM DETAIL');
+}
+synthExample.type=8;synthExample.drums=[9,44,3200,.88,.62,.72,.38,0,.56,.45,.5,.22,0,.2,.28,.55];synthExample.drumExtra=[.65,320,140,.35,0,0,.35,.15];params.synth_state=JSON.stringify(synthExample);synthDoc.read();synthDoc.ui.page=1;synthDoc.draw();capture('synth-concert.svg','Concert Bass main controls','DRUM');
+synthDoc.ui.page=6;synthDoc.draw();capture('synth-concert-detail.svg','Concert Bass head and articulation controls','DRUM DETAIL');
+synthExample.drums[12]=2;params.synth_state=JSON.stringify(synthExample);synthDoc.read();synthDoc.ui.page=13;synthDoc.draw();capture('synth-concert-attack.svg','Concert Bass rim excitation and transient controls','DRUM ATTACK');
+synthExample.type=8;synthExample.drums=[10,80,650,.8,.025,.3,.7,.4,24,30,1.5,.12,0,.35,.35,0];synthExample.drumExtra=[.8,3,120,0,0,0,.35,.15];synthExample.drumColor=[12,16000,9000,.7,0,0,0,0];params.synth_state=JSON.stringify(synthExample);synthDoc.read();synthDoc.ui.page=1;synthDoc.draw();capture('synth-fm-drum.svg','FM Drum carrier and transient controls','DRUM');
+synthDoc.ui.page=6;synthDoc.draw();capture('synth-fm-drum-detail.svg','FM Drum ratio feedback and decay controls','DRUM DETAIL');
+synthDoc.ui.page=14;synthDoc.draw();capture('synth-drum-color.svg','Native drive compression and offline bit rate coloration','DRUM COLOR');
+synthExample.type=9;synthExample.plucked=[110,1400,.35,.65,.1,.4,.2,12];synthExample.events=[1,8,1,0,0,500,0,.35];synthExample.timing=[1,120,5,.7,0,0,0,0];synthExample.eventfit=8;
+params.synth_state=JSON.stringify(synthExample);synthDoc.read();synthDoc.ui.page=1;synthDoc.draw();capture('synth-pluck.svg','Pluck string synthesis controls','PLUCK');
+synthDoc.ui.page=9;synthDoc.draw();capture('synth-events.svg','Shared event composition controls','SYNTH EVENTS');
+synthDoc.ui.page=12;synthDoc.draw();capture('synth-event-var.svg','Optional event variation and clock controls','EVENT VAR');
+synthExample.events[0]=0;params.synth_state=JSON.stringify(synthExample);synthDoc.read();synthDoc.ui.page=9;synthDoc.draw();capture('synth-events-off.svg','Inactive event controls','SYNTH EVENTS');
+synthExample.type=10;synthExample.sub=[8,4,.25,-6,0,0,.25,0];params.synth_state=JSON.stringify(synthExample);synthDoc.read();synthDoc.ui.page=1;synthDoc.draw();capture('synth-subharmonic.svg','Additive harmonic and subharmonic layers','SUBHARMONIC');
+synthExample.spectrum=2;synthExample.component=1;synthExample.partials=Array.from({length:8},(_,i)=>[i+2,i===1?.7:1]);params.synth_state=JSON.stringify(synthExample);synthDoc.read();synthDoc.ui.page=7;synthDoc.draw();capture('synth-sub-bank.svg','Subharmonic divisors and component levels','SUBS 1-8');
+synthExample.type=3;synthExample.spectral=[1,-3,0,1,.1,.2,24,-60];
+for(const [mode,name]of [[0,'linked'],[1,'point'],[2,'smear'],[3,'freeze']]){synthExample.trace=[mode,.75,150,.2,.15,144,.6,.5];params.synth_state=JSON.stringify(synthExample);synthDoc.read();synthDoc.ui.page=10;synthDoc.draw();capture('synth-trace-'+name+'.svg',name+' partial trace controls','RSYN TRACE');}
+synthExample.type=11;synthExample.hybridParams=[1,4,-2,.8,.65,.35,160,.2];synthExample.inputs=['voice.wav','bell.wav','rain.wav','strings.wav'];
+params.synth_state=JSON.stringify(synthExample);synthDoc.read();synthDoc.ui.page=11;synthDoc.draw();capture('synth-hybrid-files.svg','Four Hybrid source selections','HYBRID FILES');
+synthDoc.ui.page=1;synthDoc.draw();capture('synth-hybrid.svg','Multi-source trait Hybrid controls','HYBRID');
+synthDoc.ui.overlay='nav';synthDoc.ui.selection=0;synthDoc.draw();capture('synth-groups.svg','Synth Sound, Motion, Output and Actions navigation','SYNTH GROUPS');synthDoc.ui.overlay='';
+Object.assign(synthDoc.ui,{overlay:'name',name:'Glass Current',cursor:13});synthDoc.draw();capture('synth-name.svg','Name a generated Spline WAV with the pad keyboard','NAME WAV');
 
 if (checkOnly && mismatches !== 0) process.exit(1);
 if (checkOnly) console.log('s3g Thru documentation screens: current');

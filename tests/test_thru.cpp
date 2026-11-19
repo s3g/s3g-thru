@@ -1579,7 +1579,8 @@ void downgradeClipBankToV2(const std::string& path)
 
 void waitForClip(plugin_api_v2_t* api, void* instance, int clip)
 {
-    for (int attempt = 0; attempt < 1200
+    // This waits for filesystem-backed background preparation, not an audio deadline.
+    for (int attempt = 0; attempt < 5000
          && stateField(get(api, instance, "clip_bank_state"), 0) != clip;
          ++attempt) {
         render(api, instance, 1);

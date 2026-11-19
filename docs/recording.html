@@ -10,7 +10,7 @@
   <body>
     <header class="site-header">
       <a class="brand" href="index.html">s3g Thru <span>manual</span></a>
-      <nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="midi.html">MIDI</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav>
+      <nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="synthesis.html">Synthesis</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="midi.html">MIDI</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav>
     </header>
 
     <div class="page-shell">
@@ -71,7 +71,7 @@
           <div class="doc-graphic doc-screenshot move-screen">
             <button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/library.svg" aria-label="Open the sample browser figure"><img src="assets/screens/library.svg" alt="s3g Thru sample browser showing folders and WAV files"></button>
           </div>
-          <figcaption>Hold Shift and press a Track key to open this browser for that lane. Choose Move Samples or the saved Thru Recordings archive.</figcaption>
+          <figcaption>Hold Shift and press a Track key to open this browser for that lane. Choose Move Samples, the saved Thru Recordings archive, or Thru Synths.</figcaption>
         </figure>
 
         <table class="readout-table">
@@ -83,7 +83,7 @@
           </tbody>
         </table>
 
-        <p>The browser starts with two sources. <strong>Move Samples</strong> opens <code>/data/UserData/UserLibrary/Samples</code>. <strong>Thru Recordings</strong> opens the module's capture archive with the newest files first. It accepts mono or stereo PCM 16/24/32-bit and 32-bit-float WAV files. Mono files play from both channels, other sample rates are converted automatically, and material beyond the 12-second lane capacity is truncated.</p>
+        <p>The browser starts with three sources. <strong>Move Samples</strong> opens <code>/data/UserData/UserLibrary/Samples</code>. <strong>Thru Recordings</strong> opens the module's capture archive with the newest files first. <strong>Thru Synths</strong> opens the generated WAV folder; see <a href="synthesis.html">synthesis</a>. The browser accepts mono or stereo PCM 16/24/32-bit and 32-bit-float WAV files. Mono files play from both channels, other sample rates are converted automatically, and material beyond the 12-second lane capacity is truncated.</p>
 
         <h3 id="preview">Sample preview</h3><p>In Shared Dual, each lane is a source for both instruments. Track selects the destination without changing A/B focus. Part preview follows the focused instrument’s level, mute, and Blend; Capture changes that preview destination smoothly. Direct preview bypasses the part mixer. See <a href="shared-dual.html#start">Shared Dual</a>.</p>
         <p>Highlight a WAV to audition it before loading. Preview Level is knob 8, <code>PREV</code>, on Mix / Rec. Clicking the highlighted file loads it into the chosen lane; recording a new take assigns that capture automatically, without a trip to the browser.</p>
@@ -144,12 +144,12 @@
 
         <nav class="page-nav" aria-label="Page navigation">
           <a class="page-nav-link" href="playing.html"><span>Previous</span>Basic Playing · Single</a>
-          <a class="page-nav-link next" href="projects.html"><span>Next</span>Projects and Backups</a>
+          <a class="page-nav-link next" href="synthesis.html"><span>Next</span>Synthesis</a>
         </nav>
       </main>
 
       <aside class="toc" aria-label="Page navigation">
-        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="midi.html">MIDI</a><a href="shortcuts.html">Shortcuts</a></div>
+        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="synthesis.html">Synthesis</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="midi.html">MIDI</a><a href="shortcuts.html">Shortcuts</a></div>
         <div class="toc-section"><h2>Instrument modes</h2><a href="playing.html">Single · Basic playing</a><a href="modes.html">Compare modes</a><a href="split.html">Split</a><a href="shared-dual.html">Shared Dual</a><a href="quad.html">Quad</a><a href="bank.html">Bank</a><a href="layers.html">Layers</a><a href="sequence.html">Sequence</a></div>
         <div class="toc-section"><h2>On this page</h2><a href="#signal-flow">Signal flow</a><a href="#input">Input safety</a><a href="#capture">Audio capture</a><a href="#library">Sample library</a><a href="#preview">Sample preview</a><a href="#ownership">Clip ownership</a><a href="#editing">Sample edits</a><a href="#gain-staging">Gain staging</a><a href="#saving">Saving</a><a href="#backup">Project backup</a><a href="#restore">Restore a project</a></div>
       </aside>

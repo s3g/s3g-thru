@@ -1,4 +1,4 @@
-/* s3g Thru 0.32.0 — polyphonic sampler/performance-looper takeover for Move. */
+/* s3g Thru 0.33.0-test.13 — polyphonic sampler/performance-looper takeover for Move. */
 
 import * as moveConstants from '/data/UserData/schwung/shared/constants.mjs';
 import * as moveInputFilter from '/data/UserData/schwung/shared/input_filter.mjs';
@@ -89,7 +89,7 @@ const setButtonLED = typeof moveInputFilter.setButtonLED === 'function'
         }
     };
 
-const UI_VERSION = '0.32.0';
+const UI_VERSION = '0.33.0-test.13';
 const HELP_PAGE_COUNT=8;
 const WAVE_BINS = 112;
 const ALGORITHMS = ['MOTION', 'LANES', 'GRAINS', 'CUTUPS', 'SAMPLE', 'SLICES',
@@ -1402,7 +1402,7 @@ const SEQUENCE_GENERATE_PAGE=GEN_PAGES[0];
 const GEN_SPECS=[
  ['RHYM',0,2,1,['KEEP','EUC','AUDIO']],['HITS',0,32,1],['MAP',0,5,1,['KEEP','AUTO','TRANS','FILE','EDIT','EQUAL']],
  ['ORDER',0,6,1,['FWD','REV','PAL','RAND','WALK','CYCLE','SPRD']],['REPT',1,16,1],['LOCKS',0,1,1,['KEEP','RPLC']],['AMT',0,1,.01],['VAR',0,65535,1],
- ['COUNT',1,64,1],['PRER',-1,30,1],['FROM',0,1,.005],['TO',0,1,.005],['PITCH',0,5,1,['KEEP','UP','DOWN','PAL','RAND','WALK']],['SPAN',0,24,1],['ACCNT',0,32,1],['DEPTH',0,1,.01],
+ ['EVTS',1,64,1],['PRER',-1,30,1],['FROM',0,1,.005],['TO',0,1,.005],['PITCH',0,5,1,['KEEP','UP','DOWN','PAL','RAND','WALK']],['SPAN',0,24,1],['ACCNT',0,32,1],['DEPTH',0,1,.01],
  ['DUR',0,3,1,['KEEP','SHORT','GAP','RAND']],['MIN',.01,32,.01],['MAX',.01,32,.01],['HUMAN',0,.25,.005],['PROB',-1,1,.01],
 ];
 
@@ -2692,6 +2692,7 @@ function basePadColor(owner = padSettings(0), index = 0) {
 }
 
 function padColor(index) {
+    if(state.view==='synth')return synthPadColor(index);
     if(sequenceUi.active)return sequencePadColor(index);
     if(state.view==='sliceEdit'&&!state.performanceVisible){const color=sliceEditorPadColor(index);if(color!==null)return color;}
     if(state.performanceVisible && index<8 && !state.activePads.has(MovePads[index])) {
@@ -2763,21 +2764,21 @@ function sendLedNow(type, id, color, force = false) {
 }
 
 function iconLedStates() {
-    const menu=['seqGenerate','settings','pages','mode','fxMenu','help','projects'].includes(state.view);
-    const upDown=['bankRecovery','projects'].includes(state.view)||customMidiViews.includes(state.view)||['seqGenerate','main','settings','pages','mode','fxMenu','help','library','chain','sliceEdit'].includes(state.view);
-    const leftRight=['main','settings','help'].includes(state.view);
+    const menu=['synth','seqGenerate','settings','pages','mode','fxMenu','help','projects'].includes(state.view);
+    const upDown=['synth','bankRecovery','projects'].includes(state.view)||customMidiViews.includes(state.view)||['seqGenerate','main','settings','pages','mode','fxMenu','help','library','chain','sliceEdit'].includes(state.view);
+    const leftRight=['synth','main','settings','help'].includes(state.view);
     return [
         [MoveMenu,menu?WhiteLedBright:IconLedDim],
         [MoveBack,state.view!=='main'?WhiteLedBright:IconLedDim],
-        [MoveUndo,customMidiContext()?(customMidiUi.data?.undo||['midiMapEdit','midiMapPicker'].includes(state.view)?WhiteLedBright:Black):(state.view==='seqGenerate'||state.undoAvailable)&&!state.recording&&!state.clipRecording?WhiteLedBright:Black],
+        [MoveUndo,state.view==='synth'?Black:customMidiContext()?(customMidiUi.data?.undo||['midiMapEdit','midiMapPicker'].includes(state.view)?WhiteLedBright:Black):(state.view==='seqGenerate'||state.undoAvailable)&&!state.recording&&!state.clipRecording?WhiteLedBright:Black],
         [MoveShift,state.shiftHeld?WhiteLedBright:IconLedDim],
         [MoveDelete,state.deleteHeld?WhiteLedBright:IconLedDim],
         [MoveUp,upDown?IconLedDim:Black],[MoveDown,upDown?IconLedDim:Black],
         [MoveLeft,leftRight?IconLedDim:Black],[MoveRight,leftRight?IconLedDim:Black],
         [MoveCopy,state.recording||state.clipRecording?Black:currentPerformanceMode()>0?WhiteLedBright:IconLedDim],
         [MoveCapture,state.focusButtonHeld||state.view==='pages'||(state.splitEnabled&&state.splitFocus)||(layersUi.active&&layersUi.focus)?WhiteLedBright:IconLedDim],
-        [MoveMute,state.splitEnabled?(state.splitParts[state.splitFocus]?.mute?WhiteLedBright:IconLedDim):Black],
-        [MoveLoop,state.view==='sliceEdit'?(sliceUi.data?.loop?WhiteLedBright:IconLedDim):!loopAvailable()?Black:state.glitchBufferLocked||state.stackScanPaused?WhiteLedBright:state.recordedStackHold?IconLedMedium:IconLedDim],
+        [MoveMute,state.view==='synth'?Black:state.splitEnabled?(state.splitParts[state.splitFocus]?.mute?WhiteLedBright:IconLedDim):Black],
+        [MoveLoop,state.view==='synth'?(synthUi.data?.preview?WhiteLedBright:IconLedDim):state.view==='sliceEdit'?(sliceUi.data?.loop?WhiteLedBright:IconLedDim):!loopAvailable()?Black:state.glitchBufferLocked||state.stackScanPaused?WhiteLedBright:state.recordedStackHold?IconLedMedium:IconLedDim],
     ].map(([id,value])=>[id,value!==Black&&state.iconPressed.has(id)?WhiteLedBright:value]);
 }
 
@@ -2839,14 +2840,9 @@ function rebuildLedQueue() {
                 :(i + 1 === state.lane ? WhiteLedBright : WhiteLedDim);
         queueLed('cc', MoveTracks[i],color,2);
     }
-    queueLed('cc', MoveRecord,
-        state.clipRecording ? BrightRed
-            : (state.recording ? BrightOrange : WhiteLedDim), 1);
-    if (MoveRecordAlt !== MoveRecord) {
-        queueLed('cc', MoveRecordAlt,
-            state.clipRecording ? BrightRed
-                : (state.recording ? BrightOrange : WhiteLedDim), 1);
-    }
+    const recordColor=state.view==='synth'?(synthUi.data?.ready&&synthUi.data.job===0?BrightRed:WhiteLedDim):state.clipRecording?BrightRed:state.recording?BrightOrange:WhiteLedDim;
+    queueLed('cc',MoveRecord,recordColor,1);
+    if(MoveRecordAlt!==MoveRecord)queueLed('cc',MoveRecordAlt,recordColor,1);
 }
 
 function primePadLeds() {
@@ -3522,7 +3518,7 @@ function syncFxOrder() {
     // A lifted block is protected even before its first move. Audio/recorded
     // automation can advance behind the editor until the user drops or cancels.
     if (clipChanged || (!state.fxRoutePending && !state.fxRouteGrabbed)) {
-        state.fxOrder = state.splitEnabled?decodeFxOrder(code).filter((block)=>[2,4,5].includes(block)):decodeFxOrder(code);
+        state.fxOrder = state.splitEnabled?decodeFxOrder(code).filter((block)=>[2,4,5,10].includes(block)):decodeFxOrder(code);
         state.fxSavedOrder = state.splitEnabled?routeCode(state.fxOrder):code;
         state.fxRoutePending = false;
         state.fxRouteClip = state.activeClip;
@@ -4546,6 +4542,7 @@ function pageEntries() {
     }
     result.push({title:'CLIP OVERVIEW',view:'clips'});
     result.push({title:'SAMPLE BROWSER L'+state.lane,view:'library'});
+    result.push({title:'SYNTH',view:'synth'});
     return result;
 }
 
@@ -4611,6 +4608,7 @@ function categoryPageEntries(category) {
     }
     if(category===1)result.push({title:'SAMPLE BROWSER L'+state.lane,
         view:'library',category});
+    if(category===1)result.push({title:'SYNTH',view:'synth',category});
     if(category===2&&state.splitEnabled)result.push({
         title:isQuad()?'QUAD MIX STATUS':'A/B MIX STATUS',view:'mixStatus',category});
     if(category===3)result.splice(Math.min(1,result.length),0,
@@ -4645,7 +4643,7 @@ function pageHubEntries() {
 
 function currentPageCategory() {
     if(state.view==='settings'||state.view==='seqGenerate')return pageCategoryForPage(currentSettingsPage());
-    if(state.view==='library')return 1;
+    if(state.view==='library'||state.view==='synth')return 1;
     if(state.view==='mixStatus'||state.view==='fxMenu')return 2;
     if(state.view==='clips'||state.view==='chain')return 3;
     return -1;
@@ -4702,7 +4700,8 @@ function activatePageEntry(entry,returnToPicker=false) {
     }
     if((state.pageReturn?.view==='library'||state.view==='library')&&entry.view!=='library')
         setParamBlocking('preview_stop',1);
-    if(entry.view==='projects')openProjects();
+    if(entry.view==='synth')openSynth();
+    else if(entry.view==='projects')openProjects();
     else if(entry.view==='library')openLibrary(state.lane);
     else {
         state.view=entry.view;state.fxMenuReturn=false;
@@ -5010,7 +5009,7 @@ function libraryLeaf(path) {
 function drawLibrary() {
     clearDisplay();
     const leaf = libraryLeaf(state.libraryDir);
-    const heading='L'+state.libraryLane+' '+PARAMS.preview_route.labels[Math.round(PARAMS.preview_route.value)]+(state.splitEnabled&&state.sharedDual&&PARAMS.preview_route.value===0?' '+partName():'')+' '+leaf;
+    const heading=synthUi.browserTarget?'PICK '+(synthUi.browserTarget.startsWith('hybrid')?'SOURCE '+String.fromCharCode(65+Number(synthUi.browserTarget.slice(6))):synthUi.browserTarget.toUpperCase()):'L'+state.libraryLane+' '+PARAMS.preview_route.labels[Math.round(PARAMS.preview_route.value)]+(state.splitEnabled&&state.sharedDual&&PARAMS.preview_route.value===0?' '+partName():'')+' '+leaf;
     print(1, 0, heading.slice(0, 21), 1);
     drawRect(0, 8, 128, 1, 1);
     if (state.libraryItems.length === 0) {
@@ -5082,6 +5081,7 @@ function draw() {
     if(state.performanceVisible)drawPerformanceLayer();
     else if(customMidiViews.includes(state.view))drawCustomMidi();
     else if(state.view==='layerFxPicker')drawLayersPicker();
+    else if(state.view==='synth')drawSynth();
     else if(state.view==='projects')drawProjects();
     else if(state.view==='bankRecovery')drawBankRecovery();
     else if(state.view==='seqGenerate')drawSequenceGenerator();
@@ -5101,7 +5101,7 @@ function draw() {
 }
 
 function drawSaveIndicator() {
-    if(state.view==='projects'||(state.view==='seqGenerate'&&state.saveStatus!==4))return; // Dedicated panels own their available space.
+    if(state.view==='synth'||state.view==='projects'||(state.view==='seqGenerate'&&state.saveStatus!==4))return; // Dedicated panels own their available space.
     // Fixed footer overlay: parameter cells and waveform coordinates stay put.
     if(state.saveStatus===4) {
         if((state.view!=='main'&&state.view!=='bankRecovery'&&state.view!=='projects')||state.performanceVisible) {
@@ -5155,6 +5155,7 @@ function scanLibrary(path) {
                 path: state.capturesDirectory,
             });
         }
+        items.push({name:'Thru Synths',directory:true,path:SYNTH_DIRECTORY});
         state.libraryDir = path;
         state.libraryItems = items;
         state.libraryIndex = 0;
@@ -5169,7 +5170,7 @@ function scanLibrary(path) {
     } catch (error) {}
     if (!Array.isArray(names)) names = [];
     const items = [];
-    if (path !== LIBRARY_ROOT && path !== state.capturesDirectory) {
+    if (path !== LIBRARY_ROOT && path !== state.capturesDirectory && path !== SYNTH_DIRECTORY) {
         items.push({ name: '..', directory: true, path: LIBRARY_HOME });
     }
     for (const name of names) {
@@ -5236,7 +5237,7 @@ function libraryBack() {
         return;
     }
     if (state.libraryDir === LIBRARY_ROOT
-        || state.libraryDir === state.capturesDirectory) {
+        || state.libraryDir === state.capturesDirectory || state.libraryDir === SYNTH_DIRECTORY) {
         scanLibrary(LIBRARY_HOME);
         return;
     }
@@ -5257,6 +5258,7 @@ function activateLibraryItem() {
         previewLibraryItem();
         return;
     }
+    if(synthUi.browserTarget){const which=synthUi.browserTarget;setParamBlocking('synth_'+which+'_file',path);returnSynthBrowser();synthUi.notice=String(getParam('last_error',''));return;}
     setParamBlocking('load_lane_file', state.libraryLane + ',' + path);
     state.sampleLoadState = 1;
     state.sampleLoadProgress = 0;
@@ -6134,12 +6136,16 @@ globalThis.init = function() {
 };
 
 globalThis.tick = function() {
+    // The input picker is part of Synth; keep its native worker/session alive.
+    if(synthUi.opened&&!synthContext()){
+        synthCommand('close');synthUi.opened=false;synthUi.copy=false;synthUi.browserTarget='';
+    }
     if(state.modeRequest){if(serviceModeChange())draw();return;}
     // Schwung can call overtake tick at 500 Hz. Count display frames using
     // elapsed time; never couple a MIDI/LED cursor to a long serial query sweep.
     // Check cadence BEFORE any page predicates. In particular,
     // customMidiContext() resolves the menu and must not run at host tick rate.
-    if(sequenceUi.active||mixerUi.visible){
+    if(sequenceUi.active||mixerUi.visible||synthContext()){
         const now=Date.now();
         if(now>=uiPolling.lastFrame&&now-uiPolling.lastFrame<16)return;
         uiPolling.lastFrame=now;
@@ -6165,6 +6171,7 @@ globalThis.tick = function() {
         // One fast coherent cursor snapshot; one slow job OR MIDI feedback.
         const recoveringEditor=uiPolling.editorPending;
         if(recoveringEditor)refreshEditorSnapshot(false);
+        else if(state.view==='synth'&&state.ticks%6===1)readSynth();
         else if(state.view==='seqGenerate'&&state.ticks%6===1)readSequenceGenerator();
         else if(state.ticks%3!==0)fetchUiPoll(UI_POLL_JOBS[uiPolling.job++%UI_POLL_JOBS.length]);
         withUiPollCache(()=>{
@@ -6175,6 +6182,7 @@ globalThis.tick = function() {
     }else{
         if (state.ticks % 3 === 0) {pollDsp();pollMidiControls();if(state.view==='projects'||projectUi.pending)readProject();}
         if(sequenceUi.active)readSequenceCursor();
+        if(state.view==='synth'&&state.ticks%6===1)readSynth();
         if(state.view==='seqGenerate'&&state.ticks%6===1)readSequenceGenerator();
         tickMidiFeedback();
     }
@@ -6192,6 +6200,7 @@ globalThis.onMidiMessageInternal = function(data) {
     const status = data[0] & 0xF0;
     const number = data[1] | 0;
     const value = data[2] | 0;
+    if(handleSynthMidi(status,number,value))return;
 
     if (status === 0x90 || status === 0x80) {
         const pressed = status === 0x90 && value > 0;
@@ -6657,6 +6666,546 @@ globalThis.onUnload = function() {
 };
 
 
+
+
+// Source creation is a transient tool, separate from performance automation.
+const synthUi={data:null,raw:'',page:0,overlay:'',selection:0,row:0,point:0,
+    amount:.25,low:-12,high:12,keepEnds:true,copy:false,clipboard:null,
+    name:'',nameBefore:'',cursor:0,lower:false,numbers:false,notice:'',opened:false,groupMemory:[0,5,4],browserTarget:''};
+const SYNTH_FIELDS=['LEN','ROOT','WID','ATK','REL','LVL','PTS','EVOL','DRFT','DRT','CURV','DYN','LOOP'];
+const SYNTH_ROWS=['PITCH','POINTS','EVOLUTION','LEVEL'];
+const SYNTH_LIMITS=[24,16,4,24];
+const SYNTH_PAGES=['SYNTH SETUP','SPLINE','CURVES','RANDOM','PREVIEW'];
+const SYNTH_ACTIONS=['RENDER','PREVIEW','NAME','SAVE','SAVE & LOAD','OPEN SOURCE RECIPE',
+    'NEW SEED','MUTATE SOUND','RANDOM CURVE','PROTECT PARAMS','CANCEL RENDER','CLEAN'];
+const SYNTH_DIRECTORY=LIBRARY_ROOT+'/s3g Thru/Synths';
+const SYNTH_TYPES=['SPLN','WAVE','BLOOM','RSYN','PART','NOISE','FM','CONV','DRUM','PLUCK','SUB','HYBR','DUST'];
+// Presentation order only: saved recipe IDs and per-type workspaces stay fixed.
+const SYNTH_TYPE_ORDER=[1,8,9,4,5,12,6,10,0,2,3,11,7];
+const SYNTH_FAMILIES=['','wave','bloom','resynth','additive','noise','fm','conv','drum','pluck','sub','hybrid','dust'];
+const SYNTH_TITLES=['SPLINE','WAVE','BLOOM','RESYNTH','PARTIALS','NOISE BANK','FM','CONVOLVE','DRUM','PLUCK','SUBHARMONIC','HYBRID','DUST'];
+const SYNTH_ADDITIVE_SPECS=[['PART',1,32,.1],['TILT',-24,12,.5,'db'],['STRC',.25,4,.01,'ratio'],['DETN',0,30,.1,'cent'],['PHAS',0,1,.01,'pct'],['DRFT',0,1,.01,'pct'],['RATE',.01,20,0,'hz'],['DEC',0,1,.01,'pct']];
+const SYNTH_NOISE_SPECS=[['BAND',1,32,.1],['BW',.1,48,.1,'st'],['TILT',-24,12,.5,'db'],['STRC',.25,4,.01,'ratio'],['COLR',0,2,1,['WHT','WARM','DARK']],['MOVE',0,24,.1,'st'],['RATE',.01,20,0,'hz'],['LEAK',0,1,.01,'pct']];
+const SYNTH_FM_SPECS=[['ALG',0,3,1,['2OP','SER','PAR','RING']],['RAT1',.125,32,.125,'ratio'],['IDX1',0,12,.05],['RAT2',.125,32,.125,'ratio'],['IDX2',0,12,.05],['FDBK',0,.9,.01,'pct'],['DETN',0,30,.1,'cent'],['MIX',0,1,.01,'pct']];
+const SYNTH_WAVE_SPECS=[['WAVE',0,3,1,['SINE','TRI','SAW','PULS']],['PW',.05,.95,.01,'pct'],['DETN',0,50,.1,'cent'],['SUB',0,1,.01,'pct'],['CUTO',20,20000,0,'hz'],['RES',0,.95,.01,'pct'],['NOIS',0,1,.01,'pct']];
+const SYNTH_BLOOM_SPECS=[['MODE',0,2,1,['FIX','EVOL','RAND']],['SPEC',0,3,1,['A','B','C','D']],['PART',1,8,.1],['GAP',50,1000,0,'ms'],['SCAT',0,1,.01,'pct'],['RISE',2,200,0,'ms'],['SUS',0,200,0,'ms'],['DEC',20,2000,0,'ms'],['RVAR',0,1,.01,'pct'],['SVAR',0,1,.01,'pct'],['DVAR',0,1,.01,'pct'],['PJIT',0,1,.01,'st'],['AJIT',0,1,.01,'pct'],['BEND',0,1,.01,'st'],['OCT',0,1,.01,'pct'],['SHAP',.25,4,.01]];
+const SYNTH_MOD_SPECS=[['LFO',0,4,1,['SINE','TRI','SAW','SQR','RAND']],['RATE',.01,40,0,'hz'],['AMT',0,1,.01,'pct'],['DEST',0,4,1],['FADE',0,12000,0,'ms'],['PHAS',0,1,.01,'phase'],['FIT',0,1,1,['FREE','FILE']]];
+const SYNTH_RESYNTH_SPECS=[['MODE',0,1,1,['PVOC','SINE']],['TUNE',-24,24,.1,'st'],['STRT',0,.99,.005,'pct'],['END',.01,1,.005,'pct'],['BLUR',0,1,.01,'pct'],['SMTH',0,1,.01,'pct'],['PART',4,64,1],['FLOR',-96,-6,1,'db']];
+const SYNTH_CONV_SPECS=[['PPOS',0,.9999,.001,'pct1'],['PLEN',1,12000,0,'ms'],['IPOS',0,.9999,.001,'pct1'],['ILEN',.05,12000,0,'ms'],['WIN',0,3,1,['FLAT','TRI','HANN','EXP']],['TONE',-1,1,.01,'pct'],['MIX',0,1,.01,'pct'],['TAIL',0,1,1,['TRIM','FULL']]];
+const SYNTH_DRUM_SPECS=[['MODL',0,10,1,['KICK','SNAR','TOM','BELL','HAT','CRSH','MEMB','MODAL','MEDM','CBAS','FMD']],['TUNE',18,3200,0,'hz'],['DEC',30,8000,0,'ms'],['BODY',0,1,.01,'pct'],['NOIS',0,1,.01,'pct'],['HIT',0,1,.01,'pct'],['TONE',0,1,.01,'pct'],['DRIV',0,1,.01,'pct'],['BEND',0,48,.5,'st'],['SWP',2,500,0,'ms'],['RING',0,1,.01,'pct'],['DAMP',0,1,.01,'pct'],['FORM',0,15,1],['X',0,1,.01,'pct'],['Y',0,1,.01,'pct'],['AMNT',0,1,.01,'pct']];
+const SYNTH_DUST_SPECS=[['MODE',0,5,1,['DUST','CRKL','STAT','CLIK','CUTS','DATA']],['RATE',.1,2000,0,'hz'],['SIZE',.02,500,0,'ms'],['CLMP',0,1,.01,'pct'],['TONE',20,20000,0,'hz'],['EDGE',0,1,.01,'pct'],['BITS',2,24,1],['VAR',0,1,.01,'pct'],['BED',0,1,.01,'pct'],['COLR',0,3,1,['WHT','PINK','BRWN','BLUE']],['REPT',1,16,1],['ERR',0,1,.01,'pct']];
+const SYNTH_DUST_DEFAULTS=[0,20,1.2,.2,10000,0,16,.75,0,0,1,.25];
+const SYNTH_PLUCK_SPECS=[['TUNE',20,2000,0,'hz'],['DEC',30,8000,0,'ms'],['DAMP',0,.98,.01,'pct'],['BRIT',0,1,.01,'pct'],['DISP',0,1,.01,'pct'],['PICK',0,1,.01,'pct'],['HARD',0,1,.01,'pct'],['DETN',0,50,.5,'cent']];
+const SYNTH_SUB_SPECS=[['HARM',1,16,1],['SUBS',0,16,1],['BAL',0,1,.01,'pct'],['TILT',-18,6,.5,'db'],['DETN',0,30,.1,'cent'],['DRFT',0,30,.1,'cent'],['RATE',.01,4,0,'hz'],['REG',-2,2,1]];
+const SYNTH_HYBRID_SPECS=[['MODE',0,4,1,['CHIM','GRAFT','MASK','MIRAG','SWARM']],['SRCS',2,4,1],['TUNE',-24,24,.1,'st'],['DENS',0,1,.01,'pct'],['MUT',0,1,.01,'pct'],['TEXT',0,1,.01,'pct'],['LIFE',20,2000,0,'ms'],['DRFT',0,1,.01,'pct']];
+const SYNTH_TRACE_SPECS=[['TRCE',0,3,1,['LINK','POINT','SMEAR','FREEZ']],['DENS',0,1,.01,'pct'],['LIFE',10,2000,0,'ms'],['DRFT',0,1,.01,'pct'],['JITR',0,1,.01,'pct'],['TOL',10,600,1,'centInt'],['HOLD',0,1,.01,'pct'],['SPRD',0,1,.01,'pct']];
+const SYNTH_EVENT_SPECS=[['MODE',0,4,1,['OFF','GRID','CHANC','SWELL','GROUP']],['EVTS',1,64,1],['DENS',0,1,.01,'pct'],['JITR',0,1,.01,'pct'],['SPAN',0,48,.5,'st'],['LIFE',40,4000,0,'ms'],['VAR',0,1,.01,'pct'],['PAN',0,1,.01,'pct']];
+const SYNTH_TIMING_SPECS=[['CLCK',0,1,1,['FREE','BEAT']],['BPM',1,999,1],['DIV',0,13,1,['1/1','1/2','1/2T','1/4','1/4T','1/8','1/8T','1/16','1/16T','1/32','1/32T','1/64','1/8D','1/16D']],['GATE',.05,4,.01,'pct'],['SWNG',0,.75,.01,'pct'],['',0,0,0],['',0,0,0],['',0,0,0]];
+const SYNTH_ATTACK_SPECS=[['PNCH',0,1,.01,'pct'],['HDEC',.25,4000,0,'ms'],['NDEC',1,12000,0,'ms'],['EXCT',0,1,.01,'pct'],['BIAS',-1,1,.01,'pct'],['COMP',0,1,.01,'pct'],['SNAP',0,1,.01,'pct'],['EDGE',.05,2,0,'ms']];
+const SYNTH_COLOR_SPECS=[['BITS',4,24,1],['RATE',375,48000,0,'colorHz'],['TONE',20,20000,0,'colorTone'],['MIX',0,1,.01,'pct'],['',0,0,0],['',0,0,0],['',0,0,0],['',0,0,0]];
+const SYNTH_WORK_FAMILIES=['pluck','sub','hybrid','trace','events','timing','attack','color'];
+const SYNTH_WORK_DEFAULTS=[[110,1200,.35,.65,.08,.35,.1,8],[8,4,.25,-6,0,0,.25,0],[0,2,0,.8,.65,.35,140,.1],[0,1,120,0,0,144,.5,0],[0,8,1,0,0,500,0,.35],[1,120,5,.7,0,0,0,0],[.94,4,80,.12,0,0,.35,.15],[24,48000,20000,1,0,0,0,0]];
+function synthEventsAvailable(){return [2,4,8,9].includes(synthType());}
+function synthEventsActive(){return synthEventsAvailable()&&synthUi.data?.events?.[0]>0;}
+function synthWorkshopFamily(page=synthUi.page){return page===9?'events':page===10?'trace':page===13?'attack':SYNTH_FAMILIES[synthType()];}
+function synthDuration(){return synthType()===7?(synthUi.data?.seconds||synthUi.data.values[0]):synthUi.data.values[0];}
+function synthSoundPages(){const t=synthType();return [0,...(t===7?[8]:t===11?[11]:[]),1,...(t===2||t===8||t===12?[6]:[]),...(t===8?[13,14]:[]),...([2,4,5,10].includes(t)?[7]:[]),...(synthEventsAvailable()?[9,12]:[]),...(t===3&&synthUi.data?.spectral?.[0]===1?[10]:[])];}
+function synthGroup(){return [5,2,3].includes(synthUi.page)?1:synthUi.page===4?2:0;}
+function synthGroupPages(group=synthGroup()){return group===0?synthSoundPages():group===1?[5,2,3]:[4];}
+function synthNav(){synthUi.groupMemory[synthGroup()]=synthUi.page;synthUi.selection=synthGroup();synthUi.overlay='nav';resetParameterEncoderMotion();}
+function selectSynthGroup(){const group=synthUi.selection;if(group===3){synthUi.overlay='actions';synthUi.selection=0;return;}const pages=synthGroupPages(group);synthUi.page=pages.includes(synthUi.groupMemory[group])?synthUi.groupMemory[group]:pages[0];synthUi.overlay='';resetParameterEncoderMotion();}
+function synthContext(){return state.view==='synth'||(state.view==='library'&&Boolean(synthUi.browserTarget));}
+function openSynthBrowser(which){if(which.startsWith('hybrid'))synthUi.page=11;synthUi.browserTarget=which;synthUi.overlay='';synthCommand('preview',0);setParam('preview_stop',1);state.libraryLane=state.lane;state.capturesDirectory=String(getParam('captures_directory',state.capturesDirectory)||'');scanLibrary(LIBRARY_HOME);state.view='library';rebuildLedQueue();}
+function returnSynthBrowser(){setParam('preview_stop',1);synthUi.browserTarget='';state.view='synth';readSynth();resetParameterEncoderMotion();rebuildLedQueue();}
+function synthType(){return synthUi.data?.type||0;}
+function synthPageIds(){return [...synthSoundPages(),5,2,3,4];}
+function moveSynthPage(delta){const pages=synthGroupPages(),index=Math.max(0,pages.indexOf(synthUi.page));synthUi.page=pages[clamp(index+Math.sign(delta),0,pages.length-1)];resetParameterEncoderMotion();}
+function synthRowNames(){if(synthType()===12)return ['DENSITY','SIZE','TONE','LEVEL'];if(synthType()===8&&synthEventsActive())return ['PITCH','DENSITY','LIFETIME','LEVEL'];return [['PITCH','POINTS','EVOLUTION','LEVEL'],['PITCH','PWIDTH','CUTOFF','LEVEL'],['PITCH','PARTIALS','SPACING','LEVEL'],['PITCH','BLUR','SMOOTH','LEVEL'],['PITCH','COUNT','STRETCH','LEVEL'],['PITCH','BANDWIDTH','MOTION','LEVEL'],['PITCH','INDEX 1','INDEX 2','LEVEL'],['RESERVED','RESERVED','RESERVED','LEVEL'],['RESERVED','RESERVED','RESERVED','LEVEL'],['PITCH','DAMPING','BRIGHTNESS','LEVEL'],['PITCH','SUB BALANCE','TILT','LEVEL'],['PITCH','DENSITY','MUTATION','LEVEL']][synthType()];}
+function synthRowLabel(row){return synthType()===6&&[1,2].includes(row)?'IDX'+row:synthRowNames()[row].slice(0,4);}
+function synthLimits(){return [[24,16,4,24],[24,.45,4,24],[24,7,4,24],[24,1,1,24],[24,31,2,24],[24,4,24,24],[24,12,12,24],[24,1,1,24],[24,1,1,24],[24,1,1,24],[24,1,12,24],[24,1,1,24],[4,4,4,24]][synthType()];}
+function synthCurveAvailable(row){if((synthType()===7||(synthType()===8&&!synthEventsActive()))&&row!==3)return false;return !(synthType()===1&&row===1&&synthUi.data.osc[0]!==3)&&!(synthType()===6&&row===2&&synthUi.data.fmOsc[0]===0);}
+function synthModActive(){const m=synthUi.data?.mod;return m&&m[2]>0&&m[3]>0&&synthCurveAvailable(m[3]-1);}
+function synthToneActive(){const d=synthUi.data,c=d.curves[2];return d.osc[4]<19999||(synthModActive()&&d.mod[3]===3)||c.slice(1).some((p,i)=>(c[0]&(1<<i))&&p[1]<0);}
+function synthDetailAvailable(family,field){
+    const d=synthUi.data;
+    if(family==='dust')return !(field===8&&d.dustParams[0]===2)&&!(field===9&&d.dustParams[0]===5&&d.dustParams[8]===0)&&!(field===11&&d.dustParams[0]!==5);
+    if(family==='wave')return (field!==1||d.osc[0]===3)&&(field!==5||synthToneActive());
+    if(family==='bloom')return field!==1||d.packets[0]===0;
+    if(family==='resynth')return field!==6||d.spectral[0]===1;
+    if(family==='additive')return field!==6||d.additive[5]>0;
+    if(family==='noise')return field!==6||d.noise[5]>0||(synthModActive()&&d.mod[3]===3)||d.curves[2].slice(1).some((p,i)=>(d.curves[2][0]&(1<<i))&&p[1]>0);
+    if(family==='fm')return d.fmOsc[0]!==0||![3,4].includes(field);
+    if(family==='events')return synthEventsAvailable()&&(field===0||d.events[0]>0)&&!(field===7&&d.values[2]===0)&&!(field===5&&d.timing[0]===1);
+    if(family==='trace')return d.spectral[0]===1&&!(field===2&&d.trace[0]===0)&&!(field===4&&d.trace[0]===0)&&!(field===5&&d.trace[0]!==0)&&!(field===6&&d.trace[0]!==3)&&!(field===7&&d.values[2]===0)&&!(field===5&&d.timing[0]===1);
+    if(family==='sub')return !(field===6&&d.sub[5]===0)&&!(field===2&&d.sub[1]===0);
+    if(family==='timing')return synthEventsActive()&&field<5&&(field===0||d.timing[0]===1);
+    if(['pluck','hybrid'].includes(family))return true;
+    if(family==='conv')return true;
+    if(family==='attack')return synthAttackAvailable(field);
+    if(family==='color')return synthType()===8&&field<4;
+    if(family==='drum'&&d.drums[0]===10)return true;
+    if(family==='drum'){const m=d.drums[0];if(m===9)return !(field===15&&d.drums[12]!==2)&&!(field===2&&d.drums[12]!==0);return !(field>=12&&m<6)&&!(field===4&&[2,6].includes(m))&&!(field===10&&m===6)&&!([8,9].includes(field)&&[4,5,7,8].includes(m));}
+    if(field===3)return true;
+    if(field===2)return d.mod[3]>0&&synthCurveAvailable(d.mod[3]-1);
+    return synthModActive();
+}
+function synthSetupAvailable(field){
+    const d=synthUi.data;if(field===13&&synthType()===10)return d.values[2]>0||d.sub[4]>0||d.sub[5]>0||(synthModActive()&&d.mod[0]===4);if(field===13&&(synthType()>=9||synthEventsActive()||(synthType()===3&&d.spectral[0]===1&&(d.trace[0]>0||d.trace[1]<1||d.trace[3]>0||d.trace[7]>0))))return true;
+    if(field===2&&synthType()===9&&d.plucked[7]===0&&(!synthEventsActive()||d.events[7]===0))return false;
+    if(field===13&&synthType()>=7&&!(synthType()===8&&(d.drums[0]===7||(d.drums[0]===8&&d.drums[4]>0)||(d.drums[0]===10&&(d.drums[4]>0||d.drums[5]>0))))&&!(synthModActive()&&d.mod[0]===4))return false;
+    if([3,4].includes(field)&&d.values[12]>.5)return false;
+    if(field===2&&synthType()===1&&d.osc[2]===0&&d.osc[6]===0)return false;
+    if(field===13&&[1,3].includes(synthType())&&!(synthModActive()&&d.mod[0]===4)&&(synthType()!==1||d.osc[6]===0))return false;
+    if(field===2&&synthType()===6&&d.fmOsc[6]===0)return false;
+    if(field===13&&synthType()===6&&!(synthModActive()&&d.mod[0]===4))return false;
+    if(field===13&&synthType()===4&&d.additive[3]===0&&d.additive[4]===0&&d.additive[5]===0&&d.values[2]===0&&!(synthModActive()&&d.mod[0]===4))return false;
+    return true;
+}
+function synthSpecs(family){if(family==='dust')return SYNTH_DUST_SPECS;const work={pluck:SYNTH_PLUCK_SPECS,sub:SYNTH_SUB_SPECS,hybrid:SYNTH_HYBRID_SPECS,trace:SYNTH_TRACE_SPECS,events:SYNTH_EVENT_SPECS,timing:SYNTH_TIMING_SPECS,attack:synthAttackSpecs(),color:SYNTH_COLOR_SPECS};if(work[family])return work[family];return family==='wave'?SYNTH_WAVE_SPECS:family==='bloom'?SYNTH_BLOOM_SPECS:family==='resynth'?SYNTH_RESYNTH_SPECS:family==='additive'?SYNTH_ADDITIVE_SPECS:family==='noise'?SYNTH_NOISE_SPECS:family==='fm'?SYNTH_FM_SPECS:family==='conv'?SYNTH_CONV_SPECS:family==='drum'?synthDrumSpecs():SYNTH_MOD_SPECS;}
+function synthDrumSpecs(){
+    const m=synthUi.data?.drums?.[0]||0,s=SYNTH_DRUM_SPECS.map(v=>[...v]);
+    s[1][1]=[20,70,35,180,320,180,25,30,20,24,20][m];s[1][2]=[180,420,180,2400,3200,2400,90,1200,2000,96,3200][m];
+    s[2][1]=[30,30,40,30,30,80,80,50,50,150,30][m];s[2][2]=[8000,3000,4000,2000,1000,8000,6000,12000,12000,8000,8000][m];
+    s[8][2]=[48,36,30,24,48,48,48,48,48,1,48][m];s[9][1]=m===3?3:m===6?5:2;s[9][2]=[500,250,300,500,500,500,250,500,500,1,500][m];
+    if(m===6){s[12]=['SHAP',0,4,1,['CIRC','ELLIP','SQUAR','TRI','IRREG']];s[15][0]='AMNT';}
+    if(m===7){s[3][0]='MASS';s[4][0]='IRRG';s[10][0]='COUP';s[12]=['MATL',0,15,1,['DEEP','TIER','BROAD','BRGHT','CARBN','GLASS','ALUM','SPRC','STEEL','PORC','EARTH','SKIN','LOAD','COUP','CAV','LOOSE']];s[15]=['BODS',0,1,.25,'bodies'];}
+    if(m===8){s[1][0]='SPED';s[1][4]='';s[3][0]='SIZE';s[3][4]='metres';s[10][0]='DISP';s[12]=['EXCT',0,3,1,['HIT','BOW','REED','AIR']];s[15][0]='Z';}
+    if(m===9){s[4][0]='AIR';s[5][0]='IMPT';s[8]=['SIZE',0,1,.01,'pct'];s[9]=['TENS',0,1,.01,'pct'];s[10][0]='BLOM';s[12]=['ART',0,2,1,['CNTR','MUTE','RIM']];s[13][0]='POS';s[14][0]='SHEL';s[15][0]='RLEV';}
+    if(m===10){s[10]=['RATI',.125,16,.025,'ratio'];s[11][0]='FDBK';s[12]=['WAVE',0,3,1,['SINE','TRI','SAW','PULS']];s[13][0]='FM';s[14]=['FDEC',0,1,.01,'fmDecay'];s[15][0]='MOD';}
+    return s;
+}
+function synthColorCells(){return [['drum',7],['attack',4],['attack',5],null,['color',0],['color',1],['color',2],['color',3]];}
+function synthAttackAvailable(field){
+ const d=synthUi.data,m=d.drums[0];
+ if(synthType()!==8)return false;
+ if(field===0)return m<6||m>=9;
+ if(field===1)return [0,2,3,10].includes(m)||(m===9&&d.drums[12]===1);
+ if(field===2)return [0,1,3,5,10].includes(m)||(m===9&&d.drums[12]===2);
+ if(field===3)return (m<6&&m!==2)||(m===9&&d.drums[12]===2);
+ if(field===4)return ![6,8].includes(m)&&d.drums[7]>0;
+ return true;
+}
+function synthAttackSpecs(){
+ const m=synthUi.data?.drums?.[0]||0,s=SYNTH_ATTACK_SPECS.map(v=>[...v]);
+ s[0][0]=['PNCH','PNCH','PNCH','SHAP','ATK','TEXT','PNCH','PNCH','PNCH','HARD','PNCH'][m];
+ s[1][0]=m===3?'BDEC':m===9?'MDEC':'HDEC';s[2][0]=m===1?'WDEC':m===5?'WDEC':m===9?'RDEC':'NDEC';
+ s[3][0]=['PSET','RATL','EXCT','DETN','ALLO','ALLO','EXCT','EXCT','EXCT','RTON','EXCT'][m];
+ s[1][1]=m===2?.5:m===3?20:m===9?40:.25;s[1][2]=[3,9].includes(m)?1500:40;
+ s[2][1]=m===3?4:m===5?80:m===9?15:10;s[2][2]=m===3?400:m===5?8000:m===9?1000:4000;
+ return s;
+}
+function synthLegacyAttack(data){const m=data.drums?.[0]||0,decay=data.drums?.[2]||600,character=data.drums?.[7]||0;
+ const a=[.72,6.5,120,.25,0,character*.25,0,2];
+ if(m===1){a[0]=.78;a[2]=clamp(decay*.8,10,4000);a[3]=.18;}
+ if(m===2)a[1]=4.5;
+ if(m===3){a[0]=.68;a[1]=clamp(decay*.7,20,1500);a[2]=35;a[3]=.08;}
+ if(m===4){a[0]=.66;a[3]=.62;}
+ if(m===5){a[0]=.58;a[2]=decay;a[3]=.58;}
+ return a;
+}
+function synthDetailValues(family){const d=synthUi.data;if(family==='dust')return d.dustParams;const work={pluck:d.plucked,sub:d.sub,hybrid:d.hybridParams,trace:d.trace,events:d.events,timing:d.timing,attack:d.drumExtra,color:d.drumColor};if(work[family])return work[family];return family==='wave'?d.osc:family==='bloom'?d.packets:family==='resynth'?d.spectral:family==='additive'?d.additive:family==='noise'?d.noise:family==='fm'?d.fmOsc:family==='conv'?d.conv:family==='drum'?d.drums:d.mod;}
+function synthDetailValue(family,field){
+    const spec=synthSpecs(family)[field],v=synthDetailValues(family)[field],format=spec[4];
+    if(family==='mod'&&field===3)return ['OFF',...synthRowNames().map((_,row)=>synthRowLabel(row))][Math.round(v)];
+    if(family==='mod'&&field===1&&synthUi.data.mod[6])return Math.round(v)+'cy';
+    if(Array.isArray(format))return format[Math.round(v)];
+    if(format==='fmDecay'){const ms=2*Math.pow(2000,v);return ms>=1000?(ms/1000).toFixed(1)+'s':Math.round(ms)+'ms';}
+    if(format==='colorHz'||format==='colorTone')return v>=(format==='colorHz'?48000:19999)?(format==='colorHz'?'FULL':'OPEN'):v>=1000?(v/1000).toFixed(1)+'k':Math.round(v)+'Hz';
+    if(format==='bodies')return String(4+Math.round(v*4));
+    if(format==='metres')return (.02+v*3.98).toFixed(2)+'m';
+    if(format==='pct1')return (v*100).toFixed(1)+'%';
+    if(format==='pct')return Math.round(v*100)+'%';
+    if(format==='ratio')return v.toFixed(v<10?3:2).replace(/0+$/,'').replace(/\.$/,'');
+    if(format==='phase')return Math.round(v*360)+'d';
+    if(format==='ms'&&v<1)return v.toFixed(2).replace(/^0/,'')+'ms';
+    if(format==='ms')return v>=1000?(v/1000).toFixed(1)+'s':Math.round(v)+'ms';
+    if(format==='hz')return v>=1000?(v/1000).toFixed(1)+'k':v.toFixed(v<10?2:0);
+    if(format==='st')return v.toFixed(1);
+    if(format==='centInt')return Math.round(v)+'c';
+    if(format==='cent')return v.toFixed(1)+'c';
+    if(format==='db')return Math.round(v)+'dB';
+    return Number.isInteger(v)?String(v):v.toFixed(v<1?2:1);
+}
+function adjustSynthDetail(family,field,delta){
+    if(!synthDetailAvailable(family,field))return;
+    const spec=synthSpecs(family)[field],current=synthDetailValues(family)[field];let value=current+delta*spec[3];
+    if(Array.isArray(spec[4])||(spec[3]===1&&spec[2]-spec[1]<=8))value=current+Math.sign(delta);
+    if(family==='mod'&&field===1&&synthUi.data.mod[6])value=clamp(Math.round(current+delta),1,64);
+    else if(family==='dust'&&[1,2,4].includes(field))value=current*Math.pow(2,delta/12);
+    else if(spec[3]===0)value=Math.max(spec[1],(current+1)*Math.pow(2,delta/12)-1);
+    value=clamp(value,spec[1],family==='mod'&&field===1&&synthUi.data.mod[6]?64:spec[2]);
+    synthCommand(family,field+','+value);
+}
+function synthLockEntries(){
+    const d=synthUi.data,result=[0,1,2,3,4,5,12].map(field=>({family:'lock',field,label:SYNTH_FIELDS[field],on:Boolean(d.locks&(1<<field))}));
+    if(synthType()===0)for(let field=6;field<=11;++field)result.push({family:'lock',field,label:SYNTH_FIELDS[field],on:Boolean(d.locks&(1<<field))});
+    const family=SYNTH_FAMILIES[synthType()],offset=[0,0,7,30,38,46,54][synthType()];
+    const appendWork=(name)=>{const group=SYNTH_WORK_FAMILIES.indexOf(name);synthSpecs(name).forEach((spec,field)=>{if((name==='timing'&&field>=5)||(name==='color'&&field>=4))return;result.push({family:'work_lock',field:group*8+field,label:(name==='events'?'E ':name==='trace'?'T ':'')+spec[0],on:d.workProtected[group*8+field]==='1'});});};
+    if(synthType()===12)SYNTH_DUST_SPECS.forEach((spec,field)=>result.push({family:'dust_lock',field,label:spec[0],on:d.dustProtected[field]==='1'}));
+    else if(synthType()>=9)appendWork(family);
+    else if(family)synthSpecs(family).forEach((spec,field)=>result.push(synthType()>=7?{family:'extended_lock',field:(synthType()===8?8:0)+field,label:spec[0],on:Boolean(d.extendedLocks&(1<<((synthType()===8?8:0)+field)))}:{family:'detail_lock',field:offset+field,label:spec[0],on:d.protected?.[offset+field]==='1'}));
+    if(synthEventsAvailable()){appendWork('events');appendWork('timing');}if(synthType()===3&&d.spectral[0]===1)appendWork('trace');if(synthType()===8){appendWork('attack');appendWork('color');}
+    SYNTH_MOD_SPECS.forEach((spec,field)=>result.push({family:'detail_lock',field:23+field,label:'M '+spec[0],on:d.protected?.[23+field]==='1'}));
+    return result;
+}
+function synthActions(){
+    const entries=SYNTH_ACTIONS.map((title,id)=>({title,id}));
+    entries[1].title=synthUi.data?.preview?'PREVIEW OFF':'PREVIEW ON';entries[4].title='SAVE & LOAD L'+state.lane;
+    if(synthType()===8)entries.unshift({title:'DRUM START',id:24});
+    if(synthType()===11)entries.unshift(...Array.from({length:Math.round(synthUi.data.hybridParams[1])},(_,i)=>({title:'PICK SOURCE '+String.fromCharCode(65+i),id:20+i})));
+    if(synthType()===7)entries.unshift({title:'PICK PRIMARY',id:13},{title:'PICK IMPULSE',id:14});
+    if(synthType()===3)entries.unshift({title:'USE LANE '+state.lane+' AS SOURCE',id:12});
+    return entries;
+}
+function synthSpectrumPad(row,point){
+    const d=synthUi.data,current=d.partials?.[point];
+    if(synthUi.copy){
+        let p=current;if(row!==d.spectrum){const hex=getParam('synth_spectrum:'+row,'');if(!/^[0-9a-f]{128}$/.test(hex))return;const bytes=Uint8Array.from(hex.match(/../g).map(s=>parseInt(s,16))),view=new DataView(bytes.buffer);p=[view.getFloat32(point*8,true),view.getFloat32(point*8+4,true)];}
+        synthUi.clipboard={family:'spectrum',ratio:p[0],level:p[1]};synthUi.notice='PARTIAL COPIED';}
+    else if(state.shiftHeld&&synthUi.clipboard?.family==='spectrum'){
+        synthCommand('spec_select',row+','+point);synthCommand('spec_edit',[row,point,0,synthUi.clipboard.ratio].join(','));synthCommand('spec_edit',[row,point,1,synthUi.clipboard.level].join(','));
+    }else{synthCommand('spec_select',row+','+point);if(state.deleteHeld)synthCommand('spec_edit',[row,point,1,0].join(','));}
+    resetParameterEncoderMotion();
+}
+function synthComponentActive(row,point){
+ const d=synthUi.data,t=synthType(),i=row*8+point;
+ if(t===10)return i<16?i<d.sub[0]&&d.sub[2]<1:i-16<d.sub[1]&&d.sub[2]>0;
+ return t===2||i<(t===4?d.additive[0]:d.noise[0]);
+}
+function synthEventCells(){return synthUi.page===9?[['events',0],['timing',1],['timing',2],['events',1],['timing',3],['timing',4],['events',4],['events',7]]:[['events',2],['events',3],['events',6],null,['timing',0],['events',5],null,null];}
+function drawSynthSpectrum(){
+    const d=synthUi.data,selected=d.component||0;
+    for(let i=0;i<8;++i){const value=d.partials[i][1],x=5+i*15,y=25,height=Math.max(1,Math.round(Math.abs(value)*13));
+        drawRect(x,y-1,10,1,1);drawRect(x,value>=0?y-height:y,10,height,1);if(value<0&&height>2)drawRect(x+1,y+1,8,height-2,0);
+        if(i===selected)drawRect(x-1,10,12,2,1);
+    }
+    const p=d.partials[selected];for(const [index,label,value] of [[0,synthType()===10&&d.spectrum>=2?'DIV':'RATIO',p[0].toFixed(2)],[1,'LEVEL',Math.round(p[1]*100)+'%'],[3,synthType()===10?(d.spectrum<2?'HARM':'SUB'):'PART',(synthType()===10?d.spectrum%2*8+selected+1:synthType()===2?selected+1:d.spectrum*8+selected+1)+'/'+(synthType()===10?16:synthType()===2?8:32)]]){print(index*32+3,40,label.slice(0,5),1);print(index*32+3,51,String(value).slice(0,5),1);}drawReservedParameterCell(6);
+}
+
+function decodeSynthRecipe(hex,data){
+    if(typeof hex!=='string'||![1784,1976,2144,2176,2512,2576,2648,2712,2816].includes(hex.length)||!/^[0-9a-f]+$/.test(hex))return false;
+    const bytes=Uint8Array.from(hex.match(/../g).map(s=>parseInt(s,16))),view=new DataView(bytes.buffer);let at=0,crc=2166136261;
+    for(let i=0;i<bytes.length-4;++i)crc=Math.imul(crc^bytes[i],16777619)>>>0;
+    if(crc!==view.getUint32(bytes.length-4,true))return false;
+    const uint=()=>{const v=view.getUint32(at,true);at+=4;return v;},scalar=()=>{const v=view.getFloat32(at,true);at+=4;return v;},array=n=>Array.from({length:n},scalar);
+    const version=uint();if(!((version===2&&bytes.length===892)||(version===3&&bytes.length===988)||(version===4&&bytes.length===1072)||(version===5&&bytes.length===1088)||(version===6&&bytes.length===1256)||(version===7&&bytes.length===1288)||(version===8&&bytes.length===1324)||(version===9&&bytes.length===1356)||(version===10&&bytes.length===1408)))return false;data.type=uint();if(data.type<0||data.type>12||(version<10&&data.type>11)||(version<=5&&data.type>8)||(version===2&&data.type>3)||(version===3&&data.type>6))return false;data.seed=uint();data.locks=uint();data.scale=uint();data.values=array(13);
+    data.curves=Array.from({length:4},()=>[uint(),...Array.from({length:8},()=>[scalar(),scalar(),uint()])]);
+    const low=uint(),high=uint();data.protected=Array.from({length:62},(_,i)=>((i<32?low>>>i:high>>>(i-32))&1)?'1':'0').join('');
+    data.osc=array(7);data.packets=array(16);data.mod=array(7);data.spectral=array(8);const ratios=Array.from({length:4},()=>array(8)),partials=Array.from({length:4},()=>array(8));
+    data.partial_masks=partials.map(p=>p.reduce((mask,v,i)=>mask|(v!==0?1<<i:0),0));const spectrum=clamp(data.spectrum|0,0,3);data.partials=ratios[spectrum].map((v,i)=>[v,partials[spectrum][i]]);
+    if(version>=3){data.additive=array(8);data.noise=array(8);data.fmOsc=array(8);}
+    if(version>=4){data.conv=array(8);data.drums=array(version===4?12:16);if(version===4)data.drums.push(0,.6,.4,.7);data.extendedLocks=uint();}
+    if(version>=6){for(const key of ['plucked','sub','hybridParams','trace','events'])data[key]=array(8);const low=uint(),high=uint();data.workProtected=Array.from({length:64},(_,i)=>(i<32?low>>>i:high>>>(i-32))&1?'1':'0').join('');}
+    if(version>=7)data.timing=array(8);
+    else{
+      data.timing=[...SYNTH_WORK_DEFAULTS[5]];
+      data.workProtected=(data.workProtected||'0'.repeat(48)).slice(0,40)+'11111000';
+      if(version===6){
+        const previous=data.sub;data.sub=[...SYNTH_WORK_DEFAULTS[1]];
+        if(data.type===10){data.sub[0]=clamp(Math.round(previous[1]*.5),1,16);data.sub[1]=clamp(Math.round(previous[1]*.25),0,16);data.partials=Array.from({length:8},(_,i)=>[spectrum<2?spectrum*8+i+1:(spectrum-2)*8+i+2,1]);data.partial_masks=[255,255,255,255];}
+        if(data.events[0]>0)data.timing[1]=clamp(Math.round(30/(data.values[0]/Math.max(1,data.events[1]))),1,999);
+      }
+    }
+    if(version>=8){data.drumExtra=array(8);data.drumFlags=uint();}else{data.drumFlags=1;data.drumExtra=synthLegacyAttack(data);data.workProtected=(data.workProtected||'0'.repeat(56)).padEnd(54,'0').slice(0,54)+'11';}
+    if(version>=9)data.drumColor=array(8);else{data.drumColor=[...SYNTH_WORK_DEFAULTS[7]];data.workProtected=(data.workProtected||'0'.repeat(64)).padEnd(56,'0').slice(0,56)+'11110000';}
+    if(version>=10){data.dustParams=array(12);const mask=uint();data.dustProtected=Array.from({length:12},(_,i)=>(mask>>i)&1?'1':'0').join('');}else{data.dustParams=[...SYNTH_DUST_DEFAULTS];data.dustProtected='100000000000';}
+    return at===bytes.length-4;
+}
+function readSynth(){
+    const raw=getParam('synth_state','');if(!raw||raw===synthUi.raw)return;
+    let d;try{d=JSON.parse(raw);}catch{return;}
+    if(d?.recipe&&!decodeSynthRecipe(d.recipe,d))return;
+    if(!d||!Array.isArray(d.values)||d.values.length!==13||!d.values.every(Number.isFinite)
+        ||!Array.isArray(d.curves)||d.curves.length!==4
+        ||!d.curves.every(c=>Array.isArray(c)&&c.length===9&&c.slice(1).every(p=>Array.isArray(p)&&p.length===3&&p.every(Number.isFinite))))return;
+    d.type=d.type??0;if(!Number.isInteger(d.type)||d.type<0||d.type>12)return;
+    if(Array.isArray(d.drums)&&d.drums.length===12)d.drums=[...d.drums,0,.6,.4,.7];
+    for(const [i,key] of ['plucked','sub','hybridParams','trace','events','timing','drumExtra','drumColor'].entries())d[key]=d[key]||[...SYNTH_WORK_DEFAULTS[i]];
+    d.workProtected=d.workProtected||Array.from({length:64},(_,i)=>[0,8,9,16,17,24,32,33,40,41,42,43,44,54,55,56,57,58,59].includes(i)?'1':'0').join('');d.inputs=Array.isArray(d.inputs)?d.inputs:[];
+    const validArray=(value,count)=>Array.isArray(value)&&value.length===count&&value.every(Number.isFinite);
+    for(const [key,specs] of [['osc',SYNTH_WAVE_SPECS],['packets',SYNTH_BLOOM_SPECS],['mod',SYNTH_MOD_SPECS],['spectral',SYNTH_RESYNTH_SPECS],['additive',SYNTH_ADDITIVE_SPECS],['noise',SYNTH_NOISE_SPECS],['fmOsc',SYNTH_FM_SPECS],['conv',SYNTH_CONV_SPECS],['drums',SYNTH_DRUM_SPECS],['plucked',SYNTH_PLUCK_SPECS],['sub',SYNTH_SUB_SPECS],['hybridParams',SYNTH_HYBRID_SPECS],['trace',SYNTH_TRACE_SPECS],['events',SYNTH_EVENT_SPECS],['timing',SYNTH_TIMING_SPECS],['drumExtra',SYNTH_ATTACK_SPECS],['drumColor',SYNTH_COLOR_SPECS]]){
+        if(d[key]!==undefined&&!validArray(d[key],specs.length))return;
+    }
+    d.dustParams=d.dustParams||[...SYNTH_DUST_DEFAULTS];d.dustProtected=d.dustProtected||'100000000000';if(!validArray(d.dustParams,12))return;
+    d.osc=d.osc||[0,.5,0,0,20000,0,0];d.packets=d.packets||[0,0,8,150,.2,10,20,120,.2,.2,.2,0,.1,0,0,1];d.mod=d.mod||[0,.5,0,1,0,0,0];d.spectral=d.spectral||[0,0,0,1,0,0,24,-96];
+    d.additive=d.additive||[16,0,1,0,0,0,.5,0];d.noise=d.noise||[8,3,0,1,0,0,.5,0];d.fmOsc=d.fmOsc||[0,1,1,2,0,0,0,1];
+    d.conv=d.conv||[0,12000,0,1000,0,0,1,1];d.drums=d.drums||[0,48,600,.7,.25,.2,.5,0,12,40,.3,.4,0,.6,.4,.7];d.extendedLocks=d.extendedLocks??0x10f;
+    d.partials=d.partials||Array.from({length:8},(_,i)=>[i+1,i===0?1:0]);d.partial_masks=d.partial_masks||[1,1,1,1];d.spectrum=d.spectrum||0;d.component=d.component||0;
+    if(!Array.isArray(d.partials)||d.partials.length!==8||!d.partials.every(p=>validArray(p,2))||!validArray(d.partial_masks,4))return;
+    const oldType=synthUi.data?.type;
+    if(typeof d.wave==='string')d.wave=/^[0-9a-e]{224}$/.test(d.wave)?Array.from({length:112},(_,i)=>[(parseInt(d.wave[i*2],16)-7)/7,(parseInt(d.wave[i*2+1],16)-7)/7]):[];
+    synthUi.raw=raw;synthUi.data=d;synthUi.row=clamp(d.row|0,0,3);synthUi.point=clamp(d.point|0,0,7);
+    if(oldType!==undefined&&oldType!==d.type){synthUi.row=0;synthUi.point=0;synthUi.low=-synthLimits()[0]/2;synthUi.high=synthLimits()[0]/2;resetParameterEncoderMotion();}
+    if(!synthPageIds().includes(synthUi.page))synthUi.page=0;
+    if(synthUi.overlay!=='name')synthUi.name=String(d.name||'Spline');
+    rebuildLedQueue();
+}
+function synthCommand(key,value=1){setParamBlocking('synth_'+key,value);readSynth();}
+function openSynth(){
+    endPerformanceLayer();synthCommand('open');
+    if(!synthUi.data?.open){showActionMessage(String(getParam('last_error','SYNTH UNAVAILABLE')).slice(0,21));return;}
+    synthUi.opened=true;synthUi.overlay='';synthUi.notice='';synthUi.copy=false;
+    state.view='synth';state.actionMessageTicks=0;resetParameterEncoderMotion();rebuildLedQueue();
+}
+function closeSynth(){
+    synthUi.browserTarget='';setParam('preview_stop',1);
+    synthCommand('close');synthUi.opened=false;synthUi.copy=false;synthUi.overlay='';
+    if(!returnToPagePicker()){
+        state.view='pages';state.pageTier='category';state.pageCategory=1;
+        state.pageSelection=Math.max(0,categoryPageEntries(1).findIndex(e=>e.view==='synth'));
+    }
+    resetParameterEncoderMotion();rebuildLedQueue();
+}
+function synthPadIndex(index){return (3-Math.floor(index/8))*8+index%8;}
+function synthNameKeys(){return (synthUi.numbers?'0123456789ABCDEFGHIJKLMNOP':synthUi.lower?'abcdefghijklmnopqrstuvwxyz':'ABCDEFGHIJKLMNOPQRSTUVWXYZ').padEnd(26,' ').slice(0,26).split('').concat(['SP','BK','Aa','09','-','_']);}
+function synthPad(index,pressed){
+    if(!pressed)return;
+    const logical=synthPadIndex(index),row=Math.floor(logical/8),point=logical%8;
+    if(synthUi.overlay==='name'){
+        const key=synthNameKeys()[logical];
+        if(logical===27){if(synthUi.cursor>0){synthUi.name=synthUi.name.slice(0,synthUi.cursor-1)+synthUi.name.slice(synthUi.cursor);--synthUi.cursor;}}
+        else if(logical===28)synthUi.lower=!synthUi.lower;
+        else if(logical===29)synthUi.numbers=!synthUi.numbers;
+        else if(synthUi.name.length<40&&/^[A-Za-z0-9 _-]$/.test(key==='SP'?' ':key)){
+            const char=key==='SP'?' ':key;synthUi.name=synthUi.name.slice(0,synthUi.cursor)+char+synthUi.name.slice(synthUi.cursor);++synthUi.cursor;
+        }
+    }else if(!synthUi.overlay&&synthUi.page===7&&[2,4,5,10].includes(synthType())){synthSpectrumPad(row,point);
+    }else if(!synthUi.overlay){
+        if(!synthCurveAvailable(row)){synthCommand('select',row+','+point);synthUi.page=2;rebuildLedQueue();return;}
+        const from=synthUi.data?.curves?.[row]?.[point+1];if(!from)return;
+        if(synthUi.copy){synthUi.clipboard={family:'curve',value:from[1],shape:from[2]};synthUi.notice='POINT COPIED';}
+        else if(state.shiftHeld&&synthUi.clipboard?.family==='curve'){
+            synthCommand('point',row+','+point);
+            synthCommand('point_edit',[row,point,1,synthUi.clipboard.value].join(','));
+            synthCommand('point_edit',[row,point,2,synthUi.clipboard.shape].join(','));synthUi.notice='POINT PASTED';
+        }else{
+            synthCommand(state.deleteHeld?'delete':'point',row+','+point);
+            synthUi.page=2;synthUi.notice='';
+        }
+        resetParameterEncoderMotion();
+    }
+    rebuildLedQueue();
+}
+function synthPadColor(index){
+    if(synthUi.overlay==='name')return synthPadIndex(index)>=26?BrightOrange:White;
+    const logical=synthPadIndex(index),row=Math.floor(logical/8),point=logical%8;
+    if(synthUi.page===7&&[2,4,5,10].includes(synthType())){const d=synthUi.data;return row===d.spectrum&&point===d.component?Cyan:(d.partial_masks[row]&(1<<point))&&synthComponentActive(row,point)?[BrightYellow,NeonGreen,Purple,BrightOrange][row]:ScaleNoteGrey;}
+    if(row===synthUi.row&&point===synthUi.point)return Cyan;
+    if(!synthCurveAvailable(row))return Black;
+    return (synthUi.data?.curves?.[row]?.[0]||0)&(1<<point)?[BrightYellow,NeonGreen,Purple,BrightOrange][row]:ScaleNoteGrey;
+}
+function synthFieldValue(f,v){
+    if(f===-1)return SYNTH_TYPES[synthType()];
+    if(f===13)return String(Math.round(v));
+    if(f===0)return v.toFixed(v<10?2:1)+'s';
+    if(f===1)return ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'][Math.round(v)%12]+(Math.floor(v/12)-1);
+    if([2,5,10,11].includes(f))return Math.round(v*100)+'%';
+    if(f===12)return v>.5?'ON':'OFF';
+    if([3,4,9].includes(f))return v>=1000?(v/1000).toFixed(1)+'s':Math.round(v)+'ms';
+    if(f===8)return v.toFixed(v<10?1:0)+'st';
+    return String(Math.round(v));
+}
+function drawSynthCell(index,label,value){
+    const x=index%4*32+3,y=11+Math.floor(index/4)*24;
+    print(x,y,label.slice(0,4),1);print(x,y+11,String(value).slice(0,5),1);
+}
+function drawSynthList(title,items,selected,footer){
+    drawTitleWithFraction(title,(selected+1)+'/'+items.length);drawRect(0,8,128,1,1);
+    const start=clamp(selected-1,0,Math.max(0,items.length-4));
+    for(let i=0;i<4&&start+i<items.length;++i){const active=start+i===selected,y=12+i*10;
+        if(active)drawRect(0,y-1,128,9,1);print(2,y,items[start+i].slice(0,20),active?0:1);
+    }
+    print(1,57,footer.slice(0,21),1);
+}
+function synthCurveControlAvailable(index){
+    if(!synthCurveAvailable(synthUi.row))return index===7;
+    if(index===4)return synthUi.point>0&&synthUi.point<7;
+    if(index===6)return synthUi.point<7;
+    return index===5||index===7;
+}
+function drawSynth(){
+    clearDisplay();const d=synthUi.data;if(!d){print(1,0,'SYNTH NOT READY',1);return;}
+    if(synthUi.overlay==='nav'){drawSynthList('SYNTH GROUPS',['SOUND','MOTION','OUTPUT','ACTIONS'],synthUi.selection,'CLICK SELECT  BACK');return;}
+    if(synthUi.overlay==='actions'){
+        const actions=synthActions().map(entry=>entry.title);
+        drawSynthList('SYNTH ACTIONS',actions,synthUi.selection,'CLICK SELECT  BACK');return;
+    }
+    if(synthUi.overlay==='locks'){
+        drawSynthList('PROTECT PARAMS',synthLockEntries().map(e=>e.label+(e.on?' LOCKED':' FREE')),synthUi.selection,'CLICK TOGGLE  BACK');return;
+    }
+    if(synthUi.overlay==='name'){
+        drawTitleWithFraction('NAME WAV',synthUi.name.length+'/40');
+        print(1,11,synthUi.name.slice(0,20),1);print(1,21,synthUi.name.slice(20,40),1);
+        drawRect(1+(Math.min(39,synthUi.cursor)%20)*6,19+Math.floor(Math.min(39,synthUi.cursor)/20)*10,5,1,1);
+        const keys=synthNameKeys();for(let i=0;i<32;++i)print(i%8*16+1,33+Math.floor(i/8)*7,keys[i].slice(0,2),1);
+        return;
+    }
+    const pages=synthGroupPages(),titles=['SYNTH SETUP',SYNTH_TITLES[synthType()],'CURVE '+synthRowNames()[synthUi.row],'RANDOM','PREVIEW','SYNTH MOD',synthType()===8?'DRUM DETAIL':synthType()===12?'DUST DETAIL':'BLOOM VAR',(synthType()===2?'SPECTRUM '+String.fromCharCode(65+d.spectrum):(synthType()===10?(d.spectrum<2?'HARM ':'SUBS '):synthType()===4?'PART ':'BANDS ')+(synthType()===10?d.spectrum%2*8+1:d.spectrum*8+1)+'-'+(synthType()===10?d.spectrum%2*8+8:d.spectrum*8+8)),'CONV FILES','SYNTH EVENTS','RSYN TRACE','HYBRID FILES','EVENT VAR','DRUM ATTACK','DRUM COLOR'];
+    drawTitleWithFraction(titles[synthUi.page],(pages.indexOf(synthUi.page)+1)+'/'+pages.length);
+    drawRect(0,8,128,1,1);
+    if(synthUi.page===11){for(let i=0;i<4;++i){print(1,12+i*11,String.fromCharCode(65+i),1);print(13,12+i*11,String(d.inputs[i]||'NOT SELECTED').slice(0,19),1);}print(1,57,'CLICK: PICK FILES',1);return;}
+    if(synthUi.page===8){print(1,11,'PRIMARY',1);print(1,22,String(d.primary||'NOT SELECTED').slice(0,21),1);print(1,34,'IMPULSE',1);print(1,45,String(d.impulse||'NOT SELECTED').slice(0,21),1);print(1,57,'CLICK: PICK FILES',1);return;}
+    if(synthUi.page===0){
+        [-1,0,1,2,3,4,5,13].forEach((f,i)=>{if(!synthSetupAvailable(f))drawReservedParameterCell(i,true);else drawSynthCell(i,f===-1?'TYPE':f===13?'SEED':f===0&&synthType()===7?'MAX':SYNTH_FIELDS[f],synthFieldValue(f,f===13?d.seed:d.values[f]));});
+    }else if(synthUi.page===14){
+        synthColorCells().forEach((cell,i)=>{if(!cell||!synthDetailAvailable(...cell))drawReservedParameterCell(i,true);else drawSynthCell(i,synthSpecs(cell[0])[cell[1]][0],synthDetailValue(...cell));});
+    }else if([9,12].includes(synthUi.page)){
+        synthEventCells().forEach((cell,i)=>{if(!cell||!synthDetailAvailable(...cell))drawReservedParameterCell(i,true);else drawSynthCell(i,synthSpecs(cell[0])[cell[1]][0],synthDetailValue(...cell));});
+    }else if(synthUi.page===1||synthUi.page===6||synthUi.page===10||synthUi.page===13){
+        if(synthType()===0){[6,7,8,9,10,11,null,null].forEach((f,i)=>f===null?drawReservedParameterCell(i,true):drawSynthCell(i,SYNTH_FIELDS[f],synthFieldValue(f,d.values[f])));}
+        else{const family=synthWorkshopFamily(),specs=synthSpecs(family),offset=synthUi.page===6?8:0;
+            for(let i=0;i<8;++i){const field=offset+i;if((synthType()===8&&((synthUi.page===1&&field===7)||(synthUi.page===13&&[4,5].includes(field))))||field>=specs.length||!synthDetailAvailable(family,field))drawReservedParameterCell(i,true);else drawSynthCell(i,specs[field][0],synthDetailValue(family,field));}}
+    }else if(synthUi.page===5){
+        for(let i=0;i<7;++i){if(!synthDetailAvailable('mod',i))drawReservedParameterCell(i,true);else drawSynthCell(i,i===1&&d.mod[6]?'CYCL':SYNTH_MOD_SPECS[i][0],synthDetailValue('mod',i));}drawSynthCell(7,'LOOP',synthFieldValue(12,d.values[12]));
+    }else if(synthUi.page===7){drawSynthSpectrum();return;
+    }else if(synthUi.page===2){
+        const c=d.curves[synthUi.row],limit=synthLimits()[synthUi.row];
+        drawPixelLine(3,23,124,23);let last=null;
+        for(let i=0;i<8;++i)if(c[0]&(1<<i)){
+            const p=c[i+1],xy=[3+p[0]*121,23-p[1]/limit*11];
+            if(last){const shape=last.shape;for(let k=1;k<=24;++k){let t=k/24,q=shape===0?(k===24?1:0):shape===2?t*t*(3-2*t):t;
+                drawPixelLine(last.x+(xy[0]-last.x)*(k-1)/24,last.y+(xy[1]-last.y)*last.q,last.x+(xy[0]-last.x)*t,last.y+(xy[1]-last.y)*q);last.q=q;}}
+            drawRect(Math.round(xy[0])-1,Math.round(xy[1])-1,i===synthUi.point?4:2,i===synthUi.point?4:2,1);
+            last={x:xy[0],y:xy[1],shape:p[2],q:0};
+        }
+        const p=c[synthUi.point+1],labels=['TIME','VALUE','SHAP','PT'],values=[p[0]*synthDuration()<1?Math.round(p[0]*synthDuration()*1000)+'ms':(p[0]*synthDuration()).toFixed(2)+'s',synthUi.row===1&&synthType()===1||[1,2].includes(synthUi.row)&&synthType()===3?Math.round(p[1]*100)+'%':p[1].toFixed(1),['HOLD','LIN','SMTH'][p[2]],(synthUi.point+1)+'/8'];
+        if(!(c[0]&(1<<synthUi.point))){
+            const x=Math.round(3+p[0]*121)-1,y=Math.round(23-p[1]/limit*11)-1;
+            drawRect(x,y,4,4,1);drawRect(x+1,y+1,2,2,0);
+        }
+        for(let i=0;i<4;++i){
+            if(!synthCurveControlAvailable(i+4)){drawReservedParameterCell(i+4);continue;}
+            print(i*32+3,40,labels[i],1);print(i*32+3,51,values[i].slice(0,5),1);
+        }
+        return;
+    }else if(synthUi.page===3){
+        [['AMT',Math.round(synthUi.amount*100)+'%'],['ROW',synthRowLabel(synthUi.row)],['MIN',synthUi.low.toFixed(1)],['MAX',synthUi.high.toFixed(1)],['ENDS',synthUi.keepEnds?'KEEP':'FREE']].forEach(([l,v],i)=>drawSynthCell(i,l,v));
+        for(let i=5;i<8;++i)drawReservedParameterCell(i,true);
+    }else{
+        print(1,11,synthUi.name.slice(0,20),1);
+        if(synthType()===7)print(1,20,(d.seconds?d.seconds.toFixed(2)+'s':'PICK TWO FILES'),1);
+        if(synthType()===3)print(1,20,String(d.source||'USE LANE SOURCE').slice(0,20),1);
+        for(let i=0;i<(d.wave?.length||0);++i){const p=d.wave[i],height=synthType()===3||synthType()===7?8:11,center=synthType()===3||synthType()===7?37:35;drawRect(i+8,Math.round(center-p[1]*height),1,Math.max(1,Math.round((p[1]-p[0])*height)),1);}
+        print(1,47,synthType()===3&&!d.source?'CHOOSE SOURCE':d.ready?'READY  LANE '+state.lane:'RENDERING '+d.progress+'%',1);
+    }
+    const busy=d.job===1||d.job===2;
+    const fit=[9,12].includes(synthUi.page)&&synthEventsActive()&&d.message==='READY'?'FIT '+(d.eventfit??'?')+'/'+Math.round(d.events[1]):'';
+    const status=synthUi.notice||(busy?(d.op===1?'SAVING':d.op===2?'OPENING RECIPE':'RENDER')+' '+d.progress+'%':fit||d.message||'CLICK: ACTIONS');
+    print(1,57,status.slice(0,21),1);
+}
+function adjustSynth(index,delta){
+    const d=synthUi.data;if(!d||synthUi.overlay)return;
+    if(synthUi.page===2&&!synthCurveControlAvailable(index))return;
+    const motionKey=synthUi.page===2&&index===7?'synth_point_'+synthUi.row
+        :'synth_'+synthUi.page+'_'+synthUi.row+'_'+synthUi.point+'_'+index;
+    delta=parameterEncoderDelta(index,motionKey,delta);if(!delta)return;synthUi.notice='';
+    if(synthUi.page===8||synthUi.page===11)return;
+    if(synthUi.page===0){
+        if(index===0){
+            const position=SYNTH_TYPE_ORDER.indexOf(synthType());
+            synthCommand('type',SYNTH_TYPE_ORDER[clamp(position+Math.sign(delta),0,SYNTH_TYPE_ORDER.length-1)]);return;
+        }
+        const f=[-1,0,1,2,3,4,5,13][index];if(!synthSetupAvailable(f))return;
+        const steps=[.02,1,.01,1,1,.01,1,0,.1,1,.01,.01,1,1];
+        const value=[3,4].includes(f)?Math.max(0,(d.values[f]+1)*Math.pow(2,delta/12)-1):(f===13?d.seed:d.values[f])+steps[f]*delta;synthCommand('edit',f+','+value);
+    }else if(synthUi.page===14){
+        const cell=synthColorCells()[index];if(cell)adjustSynthDetail(cell[0],cell[1],delta);
+    }else if([9,12].includes(synthUi.page)){
+        const cell=synthEventCells()[index];if(cell)adjustSynthDetail(cell[0],cell[1],delta);
+    }else if(synthUi.page===1||synthUi.page===6||synthUi.page===10||synthUi.page===13){
+        if(synthType()===0){if(index>=6)return;const f=6+index,steps=[1,0,.1,1,.01,.01];const value=f===7?d.values[f]*Math.pow(2,delta/8):f===9?Math.max(1,(d.values[f]+1)*Math.pow(2,delta/12)-1):d.values[f]+steps[index]*delta;synthCommand('edit',f+','+value);}
+        else{if(synthType()===8&&((synthUi.page===1&&index===7)||(synthUi.page===13&&[4,5].includes(index))))return;const family=synthWorkshopFamily(),field=index+(synthUi.page===6?8:0);if(field<synthSpecs(family).length)adjustSynthDetail(family,field,delta);}
+    }else if(synthUi.page===5){if(index===7)synthCommand('edit','12,'+clamp(d.values[12]+Math.sign(delta),0,1));else adjustSynthDetail('mod',index,delta);
+    }else if(synthUi.page===7){
+        if(index===7){const current=d.component+(synthType()===2?0:d.spectrum*8),component=clamp(current+Math.sign(delta),0,synthType()===2?7:31);if(component!==current)synthCommand('spec_select',(synthType()===2?d.spectrum:Math.floor(component/8))+','+(component%8));}
+        else if(index===4||index===5){const field=index-4,p=d.partials[d.component],step=field===0?(state.shiftHeld?.01:.1):.01;synthCommand('spec_edit',[d.spectrum,d.component,field,p[field]+delta*step].join(','));}
+    }else if(synthUi.page===2&&index===7){
+        const point=clamp(synthUi.point+Math.sign(delta),0,7);
+        if(point!==synthUi.point)synthCommand('select',synthUi.row+','+point);
+    }else if(synthUi.page===2&&index>=4&&index<7){
+        const p=d.curves[synthUi.row][synthUi.point+1],field=index-4;
+        synthCommand('point_edit',[synthUi.row,synthUi.point,field,p[field]+delta*([.005,synthUi.row===0?1:synthLimits()[synthUi.row]<2?.01:.1,1][field])].join(','));
+    }else if(synthUi.page===3){
+        const limit=synthLimits()[synthUi.row];
+        if(index===0)synthUi.amount=clamp(synthUi.amount+delta*.01,0,1);
+        if(index===1){const row=clamp(synthUi.row+delta,0,3);synthCommand('select',row+','+synthUi.point);synthUi.low=-synthLimits()[row]/2;synthUi.high=synthLimits()[row]/2;}
+        if(index===2)synthUi.low=clamp(synthUi.low+delta*.5,-limit,synthUi.high);
+        if(index===3)synthUi.high=clamp(synthUi.high+delta*.5,synthUi.low,limit);
+        if(index===4)synthUi.keepEnds=delta<0;
+    }
+}
+function synthAction(){
+    const action=synthActions()[synthUi.selection]?.id;synthUi.overlay='';synthUi.notice='';
+    if(action===0)synthCommand('render');
+    if(action===1)synthCommand('preview',synthUi.data?.preview?0:1);
+    if(action===2){synthUi.overlay='name';synthUi.nameBefore=synthUi.name;synthUi.cursor=synthUi.name.length;}
+    if(action===3||action===4){synthCommand('save',action===4?1:0);synthUi.notice=String(getParam('last_error',''));}
+    if(action===5)synthCommand('restore');
+    if(action===6)synthCommand('seed_next');
+    if(action===7)synthCommand('mutate',synthUi.amount);
+    if(action===8)synthCommand('curve_random',[synthUi.row,synthUi.low,synthUi.high,synthUi.amount,synthUi.keepEnds?1:0].join(','));
+    if(action===9){synthUi.overlay='locks';synthUi.selection=0;}
+    if(action===10)synthCommand('cancel');
+    if(action===11)synthCommand('clean');
+    if(action===24)synthCommand('drum_start');
+    if(action>=20&&action<=23){openSynthBrowser('hybrid'+(action-20));return;}
+    if(action===13||action===14){openSynthBrowser(action===13?'primary':'impulse');return;}
+    if(action===12){synthCommand('source');synthUi.notice=String(getParam('last_error',''));}
+    rebuildLedQueue();
+}
+function handleSynthMidi(status,number,value){
+    if(state.view==='library'&&synthUi.browserTarget){
+        if([0x80,0x90,0xa0].includes(status)&&MovePads.includes(number))return true;
+        if(status!==0xb0)return false;
+        if(number===MoveRecord||number===MoveRecordAlt||MoveTracks.includes(number))return true;
+        if(number===MoveMenu&&value>0){returnSynthBrowser();return true;}
+        if(number===MoveBack&&value>0&&state.libraryDir===LIBRARY_HOME){returnSynthBrowser();return true;}
+        return false;
+    }
+    if(state.view!=='synth')return false;
+    if(status===0x90||status===0x80){const pad=MovePads.indexOf(number);if(pad>=0){synthPad(pad,status===0x90&&value>0);return true;}}
+    if(status===0xa0&&MovePads.includes(number))return true;
+    if(status!==0xb0)return false;
+    if(number===MoveShift){state.shiftHeld=value>0;setParam('shift_held',state.shiftHeld?1:0);return true;}
+    if(number===MoveDelete){state.deleteHeld=value>0;setParam('delete_held',state.deleteHeld?1:0);return true;}
+    if(number===MoveCopy){synthUi.copy=value>0;return true;}
+    if(number===MoveCapture){state.focusButtonHeld=value>0;state.focusButtonUsed=true;return true;}
+    if(number===MoveRecord||number===MoveRecordAlt){if(value>0){if(synthUi.overlay==='name'){synthCommand('name',synthUi.name);synthUi.overlay='';}synthCommand('save',state.shiftHeld?0:1);synthUi.notice=String(getParam('last_error',''));}return true;}
+    const track=MoveTracks.indexOf(number);if(track>=0){if(value>0){if(state.focusButtonHeld){closeSynth();openPageCategory(track);return true;}state.lane=track+1;setParamBlocking('record_lane',state.lane);synthUi.notice='LOAD TO LANE '+state.lane;}return true;}
+    if(number>=MoveKnob1&&number<MoveKnob1+8){adjustSynth(number-MoveKnob1,decodeDelta(value));return true;}
+    if(number===MoveMainKnob){
+        const delta=decodeDelta(value);
+        if(synthUi.overlay==='name')synthUi.cursor=clamp(synthUi.cursor+delta,0,synthUi.name.length);
+        else if(synthUi.overlay)synthUi.selection=clamp(synthUi.selection+delta,0,synthUi.overlay==='locks'?synthLockEntries().length-1:synthUi.overlay==='nav'?3:synthActions().length-1);
+        else moveSynthPage(delta);return true;
+    }
+    if(value<=0)return [MoveBack,MoveMenu,MoveMainButton,MoveUp,MoveDown,MoveLeft,MoveRight,MoveLoop,MoveUndo,MoveMute].includes(number);
+    if(number===MoveMainButton){
+        if(synthUi.overlay==='nav')selectSynthGroup();
+        else if(synthUi.overlay==='actions')synthAction();
+        else if(synthUi.overlay==='locks'){const entry=synthLockEntries()[synthUi.selection];if(entry)synthCommand(entry.family,entry.field);}
+        else if(synthUi.overlay==='name'){synthCommand('name',synthUi.name);synthUi.overlay='';}
+        else{synthUi.overlay='actions';synthUi.selection=0;}
+        rebuildLedQueue();return true;
+    }
+    if(number===MoveBack||number===MoveMenu){
+        if(number===MoveMenu&&state.focusButtonHeld){closeSynth();openPagePicker();return true;}
+        if(synthUi.overlay==='nav'){if(number===MoveBack)closeSynth();else synthUi.overlay='';}
+        else if(synthUi.overlay){if(synthUi.overlay==='name')synthUi.name=synthUi.nameBefore;synthUi.overlay='';}
+        else synthNav();rebuildLedQueue();return true;
+    }
+    if(number===MoveUp||number===MoveDown||number===MoveLeft||number===MoveRight){
+        const delta=number===MoveUp||number===MoveLeft?-1:1;
+        if(['actions','locks','nav'].includes(synthUi.overlay))synthUi.selection=clamp(synthUi.selection+delta,0,synthUi.overlay==='locks'?synthLockEntries().length-1:synthUi.overlay==='nav'?3:synthActions().length-1);
+        else if(!synthUi.overlay)moveSynthPage(delta);return true;
+    }
+    if(number===MoveLoop){
+        if(state.shiftHeld){if(!synthUi.overlay){synthCommand('mutate',synthUi.amount);synthUi.notice=synthUi.amount>0?'RANDOM '+Math.round(synthUi.amount*100)+'%':'RANDOM AMT IS ZERO';}}
+        else synthCommand('preview',synthUi.data?.preview?0:1);return true;
+    }
+    if(number===MoveUndo||number===MoveMute)return true;
+    return false; // Play and bottom clip launchers retain their normal roles.
+}
 
 // BEGIN GENERATED MIDI ADAPTER
 // On-device Custom CC profiles. Draft edits are committed explicitly; entering

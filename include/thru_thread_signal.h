@@ -34,11 +34,11 @@ public:
             if(errno!=EINTR)break;
         }
     }
-    void wait() noexcept {
+    void wait(int timeoutMs=2) noexcept {
         pollfd descriptor{read_,POLLIN,0};
         // Timeout is a recovery path for an interrupted signal, not the normal
         // refill cadence. Notification wakes this wait immediately.
-        (void)poll(&descriptor,1,2);
+        (void)poll(&descriptor,1,timeoutMs);
         unsigned char tokens[4096];
         (void)read(read_,tokens,sizeof(tokens));
         // Every notification leaves a pipe token, or finds an already full

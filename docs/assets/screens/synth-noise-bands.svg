@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="768" height="384" viewBox="0 0 128 64" role="img" aria-labelledby="title desc">
+  <title id="title">Noise band centers and levels selected with the pads</title>
+  <desc id="desc">Noise band centers and levels selected with the pads shown as it appears on Ableton Move.</desc>
+  <rect width="128" height="64" fill="#050706"/>
+  <g shape-rendering="crispEdges" font-family="DejaVu Sans Mono, IBM Plex Mono, monospace" font-size="6" font-style="normal" font-weight="400" text-rendering="geometricPrecision">
+    <text x="1" y="5.5" fill="#dce8e1">BANDS 9-16</text>
+    <text x="110" y="5.5" fill="#dce8e1">3/3</text>
+    <rect x="0" y="8" width="128" height="1" fill="#dce8e1"/>
+    <rect x="5" y="24" width="10" height="1" fill="#dce8e1"/>
+    <rect x="5" y="12" width="10" height="13" fill="#dce8e1"/>
+    <rect x="20" y="24" width="10" height="1" fill="#dce8e1"/>
+    <rect x="20" y="18" width="10" height="7" fill="#dce8e1"/>
+    <rect x="35" y="24" width="10" height="1" fill="#dce8e1"/>
+    <rect x="35" y="21" width="10" height="4" fill="#dce8e1"/>
+    <rect x="34" y="10" width="12" height="2" fill="#dce8e1"/>
+    <rect x="50" y="24" width="10" height="1" fill="#dce8e1"/>
+    <rect x="50" y="22" width="10" height="3" fill="#dce8e1"/>
+    <rect x="65" y="24" width="10" height="1" fill="#dce8e1"/>
+    <rect x="65" y="22" width="10" height="3" fill="#dce8e1"/>
+    <rect x="80" y="24" width="10" height="1" fill="#dce8e1"/>
+    <rect x="80" y="23" width="10" height="2" fill="#dce8e1"/>
+    <rect x="95" y="24" width="10" height="1" fill="#dce8e1"/>
+    <rect x="95" y="23" width="10" height="2" fill="#dce8e1"/>
+    <rect x="110" y="24" width="10" height="1" fill="#dce8e1"/>
+    <rect x="110" y="23" width="10" height="2" fill="#dce8e1"/>
+    <text x="3" y="45.5" fill="#dce8e1">RATIO</text>
+    <text x="3" y="56.5" fill="#dce8e1">11.00</text>
+    <text x="35" y="45.5" fill="#dce8e1">LEVEL</text>
+    <text x="35" y="56.5" fill="#dce8e1">33%</text>
+    <text x="99" y="45.5" fill="#dce8e1">PART</text>
+    <text x="99" y="56.5" fill="#dce8e1">11/32</text>
+    <rect x="78" y="46" width="4" height="4" fill="#dce8e1"/>
+    <rect x="79" y="47" width="2" height="2" fill="#050706"/>
+  </g>
+  <rect x="0.25" y="0.25" width="127.5" height="63.5" fill="none" stroke="#5b6661" stroke-width="0.5"/>
+</svg>

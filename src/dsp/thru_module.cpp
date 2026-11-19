@@ -21,6 +21,7 @@
 #include "thru_layers.h"
 #include "thru_sequence.h"
 #include "thru_sequence_generate.h"
+#include "thru_synth_worker.h"
 #include "thru_sequence_mix.h"
 #include <bitset>
 #include "thru_effect_order.h"
@@ -2784,7 +2785,10 @@ struct ThruInstance : PlaybackEffectsState {
         pendingClipSourcePaths {};
     std::uint32_t pendingClipSourceMask = 0u;
 
+    #include "thru_synth.inc"
+
     ~ThruInstance() {
+        stopSynth();
         finishBankCapture();stopPatternFades();stopBackgroundWork();stopSampleWorker();wavesetWorker.stop();spectralWorker.stop();
         if(bankPool){for(auto& voice:voices)releaseBankVoice(voice);releaseBankIndices(bankAssets);releaseBankIndices(preparedBankAssets);if(bankUndoAsset>=0)bankUnpin(*bankPool,bankUndoAsset);}
     }
@@ -3008,6 +3012,7 @@ struct ThruInstance : PlaybackEffectsState {
             engine=Engine{};for(auto& voice:voices)voice.engine=Engine{};
             return true;
         }
+        if(!prepareSynth() && g_host && g_host->log)g_host->log("s3g Thru synthesis worker unavailable");
         sampleWorkerReady = startSampleWorker();
         if (!sampleWorkerReady && g_host && g_host->log) {
             g_host->log("s3g Thru sample-library worker unavailable");
@@ -4865,6 +4870,7 @@ struct ThruInstance : PlaybackEffectsState {
     // No file I/O; voices retain their click-safe release and stealing fades.
     void panic()
     {
+        synthPreviewWanted=false;
         finishBankCapture();
         postPatternCommand(3);finishPatternFade();
         allNotesOff();
@@ -8878,7 +8884,7 @@ struct ThruInstance : PlaybackEffectsState {
         // These jobs have a per-host-callback copy/analysis budget. A trig can
         // split this block many times; it must not multiply that budget.
         if(!patternRenderOnly){
-            serviceSampleLoad();serviceClipSourceQueue();serviceBackgroundWork();
+            serviceSynth();serviceSampleLoad();serviceClipSourceQueue();serviceBackgroundWork();
             serviceWavesetAnalysis();serviceSpectralAnalysis();
         }
         markRenderProfile(0);
@@ -9065,6 +9071,7 @@ struct ThruInstance : PlaybackEffectsState {
             lastPreviewSample.fill(0.0f);
             lastDirectPreviewSample.fill(0.0f);
             for (auto& channel : directPreview) std::fill_n(channel.begin(),count,0.0f);
+            mixSynth(count);
             if (previewActive && sampleStageFrames != 0u) {
                 const std::size_t available = previewFrame < sampleStageFrames
                     ? sampleStageFrames - previewFrame : 0u;
@@ -10495,6 +10502,7 @@ void destroyInstance(void* opaque)
 {
     auto* instance = static_cast<ThruInstance*>(opaque);
     if (!instance) return;
+    instance->stopSynth();
     instance->finishBankCapture();
     instance->stopPatternFades();
     instance->stopSampleWorker();
@@ -10520,6 +10528,13 @@ void dispatchMidi(void* opaque, const uint8_t* message, int length, int source, 
     const int type = message[0] & 0xf0;
     const int note = message[1] & 0x7f;
     const int value = length>=3?message[2]&0x7f:0;
+    if(instance->synthOpened&&source==MOVE_MIDI_SOURCE_INTERNAL){
+        if(note>=kFirstPadNote&&note<=kLastPadNote&&(type==0x90||type==0x80||type==0xa0)){
+            if(type==0x80||(type==0x90&&value==0))instance->padNoteOff(note);
+            return;
+        }
+        if(type==0xb0&&note==52)return;
+    }
     if(!fromInbox&&source==MOVE_MIDI_SOURCE_EXTERNAL&&instance->midiInboxAvailable()
         &&ThruInstance::midiInboxMessage(message[0],note))return;
     if(source!=MOVE_MIDI_SOURCE_INTERNAL&&type==0xb0
@@ -10610,6 +10625,7 @@ void setParam(void* opaque, const char* key, const char* value)
     CallbackWorkTimer callbackTimer(*instance, false);
     if(instance->setProjectParam(key,value))return;
     if(instance->projectLocked()&&std::strcmp(key,"panic")&&std::strcmp(key,"all_notes_off")&&std::strcmp(key,"shift_held")&&std::strcmp(key,"delete_held"))return;
+    if(instance->setSynthParam(key,value))return;
     if (std::strcmp(key,"clip_clear_recording")==0){if(isTruthy(value))instance->clearRecordedPerformance();return;}
     if(!std::strcmp(key,"render_profile_enable")){instance->renderProfileEnabled=isTruthy(value);instance->patternWorkerMeasure.store(instance->renderProfileEnabled,std::memory_order_release);return;}
     auto& controls = instance->controls;
@@ -10756,7 +10772,7 @@ void setParam(void* opaque, const char* key, const char* value)
     if (std::strcmp(key, "sample_fade") == 0) { if (isTruthy(value)) instance->fadeSelectedLane(); return; }
     if (std::strcmp(key, "sample_trim_apply") == 0) { if (isTruthy(value)) instance->trimSelectedLane(); return; }
     if (std::strcmp(key, "panic") == 0) { if(isTruthy(value))instance->panic(); return; }
-    if (std::strcmp(key, "all_notes_off") == 0) { instance->allNotesOff(); return; }
+    if (std::strcmp(key, "all_notes_off") == 0) { instance->synthPreviewWanted=false;instance->allNotesOff(); return; }
     if (std::strcmp(key, "clip_playing") == 0) { instance->setClipPlaying(isTruthy(value)); return; }
     if (std::strcmp(key, "tempo_bpm") == 0) { if(instance->midiSyncSource&&instance->midiClockLocked)return; instance->tempoBpm = clampValue(parseFloat(value, instance->tempoBpm), 1.0f, 999.0f); return; }
     if (std::strcmp(key, "tempo_swing") == 0) { instance->tempoSwing = clampValue(parseFloat(value, instance->tempoSwing * 100.0f) / 100.0f, 0.5f, 0.75f); return; }
@@ -11007,6 +11023,9 @@ int getParamValue(void* opaque, const char* key, char* buffer, int bufferLength)
     if(std::strcmp(key,"midi_takeover")==0)return std::snprintf(buffer,bufferLength,"%d",instance->midiTakeover);
     if(std::strcmp(key,"midi_control_part")==0)return std::snprintf(buffer,bufferLength,"%d",instance->midiControlPart);
     if(std::strcmp(key,"voice_mode")==0)return std::snprintf(buffer,bufferLength,"%d",instance->voiceMode);
+    if(!std::strncmp(key,"synth_spectrum:",15))return instance->formatSynthSpectrum(parseInteger(key+15,-1),buffer,bufferLength);
+    if(!std::strcmp(key,"synth_state"))return instance->formatSynth(buffer,bufferLength);
+    if(!std::strcmp(key,"synth_directory"))return std::snprintf(buffer,bufferLength,"%s",instance->synthDirectory.data());
     if(!std::strcmp(key,"project_state"))return instance->formatProjectState(buffer,bufferLength);
     if(!std::strcmp(key,"project_files"))return instance->formatProjectFiles(buffer,bufferLength);
     if(!std::strcmp(key,"project_directory")){return instance->projectDirectory(buffer,bufferLength)?static_cast<int>(std::strlen(buffer)):-1;}

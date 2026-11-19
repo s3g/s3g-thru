@@ -367,10 +367,12 @@ void testPreviewIsolation()
 #include "test_pulsar_recall.inc"
 #include "test_drive.inc"
 #include "test_fade_lookahead.inc"
+#include "test_spline.inc"
 } // namespace
 
 int main(int argc,char** argv)
 {
+    if(argc==2&&std::strcmp(argv[1],"--synth")==0){testSpline();return 0;}
     if(argc==2&&std::strcmp(argv[1],"--project-worker")==0){testProjectBackgroundWorkflow();return 0;}
     if(argc==2&&std::strcmp(argv[1],"--sequence-reset")==0){testSequenceClipReset();return 0;}
     if(argc==2&&std::strcmp(argv[1],"--directions")==0){testSequenceDirections();testSequenceRecipeRecording();testAllRecipeGestures();return 0;}
@@ -383,6 +385,7 @@ int main(int argc,char** argv)
     if(argc==2&&std::strcmp(argv[1],"--sequence-safety")==0){testSequenceAuditRepairs();return 0;}
     if(argc==2&&std::strcmp(argv[1],"--types")==0){testSavedSequenceTypes();testCommonOutputMixer();testPriorityDuckingRoutingAndBypass();testPriorityDuckingAudio();return 0;}
     if(argc==2&&std::strcmp(argv[1],"--generate")==0){testSequenceGenerate();return 0;}
+    testSpline();
     testDriveFilterAndIdleContinuity();
     testFadeLookahead();
     if(argc==2 && std::strcmp(argv[1],"--lookahead")==0)return 0;

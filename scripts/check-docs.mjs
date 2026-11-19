@@ -20,7 +20,7 @@ const htmlFiles = fs.readdirSync(docsRoot)
     .map((name) => path.join(docsRoot, name));
 
 const requiredPages = [
-    'index.html', 'interface.html', 'playing.html', 'recording.html', 'projects.html', 'engines.html',
+    'index.html', 'interface.html', 'playing.html', 'recording.html', 'synthesis.html', 'projects.html', 'engines.html',
     'control-availability.html', 'modes.html', 'split.html', 'shared-dual.html', 'quad.html', 'bank.html', 'layers.html', 'layers-effects.html', 'sequence.html',
     'engine-motion.html', 'engine-lanes.html', 'engine-grains.html',
     'engine-cutups.html', 'engine-sample.html', 'engine-slices.html',

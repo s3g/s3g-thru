@@ -8,6 +8,7 @@
     <rect x="0" y="8" width="128" height="1" fill="#dce8e1"/>
     <text x="1" y="17.5" fill="#dce8e1">&gt;Move Samples/</text>
     <text x="1" y="28.5" fill="#dce8e1"> Thru Recordings/</text>
+    <text x="1" y="39.5" fill="#dce8e1"> Thru Synths/</text>
     <text x="1" y="62.5" fill="#dce8e1">7:DIRECT 8:70% CLICK</text>
   </g>
   <rect x="0.25" y="0.25" width="127.5" height="63.5" fill="none" stroke="#5b6661" stroke-width="0.5"/>

@@ -85,7 +85,8 @@ a:focus-visible {
 
 .top-nav {
   display: flex;
-  gap: 22px;
+  flex-wrap: wrap;
+  gap: 8px 22px;
   align-items: center;
   font-size: 12px;
 }

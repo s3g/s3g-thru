@@ -43,8 +43,10 @@ float midiMaximum(const ThruInstance& t,const MidiParameter& p,int part=-1) {
 }
 
 float midiRead(ThruInstance& t,const MidiParameter& p,int part) {
+    if(t.sequenceSoundEditing()){int owner=p.part?part:t.splitFocus;const auto* mapped=t.sequenceSoundParameter(p.key,owner);float locked=0;if(mapped&&t.sequenceSoundEditValue(mapped->id,owner,locked))return locked;}
     part=clampValue(part,0,t.isQuad()?3:t.splitEnabled?1:0);
     const char* key=p.key;
+    {float value=0;if(t.tableParameterValue(key,part,value)||t.scannedParameterValue(key,part,value)||t.fmParameterValue(key,part,value)||t.controlLfoParameterValue(key,part,value))return value;}
     if(std::strcmp(key,"part_level")==0)return lockedValue(t.controls,t.outputGain,t.partLevelParameter(part));
     if(std::strcmp(key,"part_delay")==0)return lockedValue(t.controls,t.outputGain,t.partDelayParameter(part));
     if(std::strcmp(key,"part_reverb")==0)return lockedValue(t.controls,t.outputGain,t.partReverbParameter(part));
@@ -100,7 +102,7 @@ void midiWrite(ThruInstance& t,const MidiParameter& p,int part,float value) {
     char text[48]{};std::snprintf(text,sizeof(text),"%.9g",value);
     setParam(&t,key,text);
     const int index=lockParameterIndex(key);
-    if(index>=0 && t.clipRecording)t.captureClipParameter(index);
+    if(index>=0 && t.clipRecording && !t.sequenceSoundEditing(part))t.captureClipParameter(index);
     if(p.part && t.splitEnabled)t.selectSplitPart(focus,false);
     t.midiPart=previousMidi;++t.midiRevision;
 }
@@ -365,6 +367,8 @@ bool handleMidiControl(ThruInstance& t,const char* key,const char* value) {
     return false;
 }
 
+#include "thru_playback_readouts.inc"
+
 int formatMidiState(ThruInstance& t,char* buffer,int size) {
     int at=0;bool ok=true;
     const auto append=[&](const char* f,auto... args) {
@@ -380,7 +384,16 @@ int formatMidiState(ThruInstance& t,char* buffer,int size) {
         if(!p || (p->part && entry.part>=count))continue;
         append("%s[%d,%d,%.8g]",comma?",":"",entry.part,entry.id,midiRead(t,*p,entry.part));comma=true;
     }
-    append("%s","]}");if(!ok){buffer[0]=0;return -1;}return at;
+    append("],\"owner\":%d,\"clip\":%d,\"playing\":%d,\"corner\":%d,\"entry\":%d,\"playback\":[",
+        t.performanceMode()*4+(t.splitEnabled?t.splitFocus:0),t.activeClip,t.clipPlaying&&!t.clipRecording?1:0,
+        t.layersSelectedCorner[1],t.settingsForPart(t.splitEnabled?t.splitFocus:0).engines.edit);
+    comma=false;
+    for(std::size_t i=0;i<t.midiViewCount;++i) {
+        const auto& entry=t.midiView[i];const auto* p=s3g_thru_midi::find(entry.id);float value=0;
+        if(!p || (p->part && entry.part>=count) || !midiPlaybackReadout(t,*p,entry.part,value))continue;
+        append("%s[%d,%d,%.8g]",comma?",":"",entry.part,entry.id,double(value));comma=true;
+    }
+    append("%s", "]}");if(!ok){buffer[0]=0;return -1;}return at;
 }
 
 int formatMidiFeedback(ThruInstance& t,char* buffer,int size) {
@@ -432,6 +445,10 @@ int e16RowForPage(ThruInstance& t,int part,int page) {
             if(sound>=3)return k[2]+detail;
             return 0;
         }
+        if(algorithm==15){const auto& row=s3g_thru_midi::e16TableRows;const int variant=int(c.table.patches[t.tableEditLane(part)].v[s3g_thru_table::type]);
+            if(detail==0)return row[0];
+            if(variant<2)return detail==1?row[variant+1]:0;
+            return row[detail+2];}
         return s3g_thru_midi::e16EngineRows[algorithm][detail];
     }
     if(page==6)return t.isQuad()?k[6]:t.splitEnabled?k[5]:0;
@@ -448,6 +465,7 @@ const MidiParameter* e16PageSlotParameter(ThruInstance& t,int page,int slot,int&
         const auto* p=midiParameterForKey(key);if(p && !p->part)part=-1;
         return p;
     }
+    const auto& tableControls=t.liveControlsForPart(part);const auto& patch=tableControls.table.patches[t.tableEditLane(part)];
     const int row=e16RowForPage(t,part,page);if(row<1 || slot<0 || slot>=8)return nullptr;
     int id=s3g_thru_midi::e16Rows[row-1][slot];
     const auto& c=t.liveControlsForPart(part);const auto* k=s3g_thru_midi::e16Keys;
@@ -464,7 +482,21 @@ const MidiParameter* e16PageSlotParameter(ThruInstance& t,int page,int slot,int&
         || (t.isQuad() && (id==k[15] || id==k[16])))return nullptr;
     if(id==3205 && c.algorithm==Engine::PlaybackAlgorithm::stochastic
         && c.stochasticLaw>=2.5f)id=3210;
-    const auto* p=s3g_thru_midi::find(id);if(p && !p->part)part=-1;
+    const auto* p=s3g_thru_midi::find(id);
+    if(p&&tableControls.algorithm==Engine::PlaybackAlgorithm::table){const int field=s3g_thru_table::index(p->key);if(field>=0&&!s3g_thru_table::applicable(patch,field))return nullptr;if(!std::strcmp(p->key,"locus")||!std::strcmp(p->key,"field")||!std::strcmp(p->key,"speed")||!std::strcmp(p->key,"join"))return nullptr;}
+    if(p&&tableControls.algorithm==Engine::PlaybackAlgorithm::fm){
+      auto context=tableControls.fm.patches[t.tableEditLane(part)];for(int f:{s3g_thru_fm::mode,s3g_thru_fm::algorithm,s3g_thru_fm::bend,s3g_thru_fm::noise,s3g_thru_fm::impact}){float value=0;if(t.sequenceSoundEditValue(4400+f,part,value))s3g_thru_fm::set(context,f,value);}
+      const int f=s3g_thru_fm::index(p->key);if(f>=0&&!s3g_thru_fm::applicable(context,f))return nullptr;
+      if(!std::strcmp(p->key,"speed")||!std::strcmp(p->key,"join")||!std::strcmp(p->key,"locus")||!std::strcmp(p->key,"field"))return nullptr;
+    }
+    if(p&&tableControls.algorithm==Engine::PlaybackAlgorithm::scanned){
+      auto context=tableControls.scanned.patches[t.tableEditLane(part)];
+      for(int field:{s3g_thru_scanned::excitation,s3g_thru_scanned::profile,s3g_thru_scanned::art,s3g_thru_scanned::impact,s3g_thru_scanned::bend,s3g_thru_scanned::amp_mode}){float value=0;if(t.sequenceSoundEditValue(4300+field,part,value))s3g_thru_scanned::set(context,field,value);}
+      const int field=s3g_thru_scanned::index(p->key);if(field>=0&&!s3g_thru_scanned::applicable(context,field))return nullptr;
+      if(!std::strcmp(p->key,"speed")||!std::strcmp(p->key,"join"))return nullptr;
+      if((!std::strcmp(p->key,"locus")||!std::strcmp(p->key,"field"))&&context.v[s3g_thru_scanned::excitation]!=3)return nullptr;
+    }
+    if(p && !p->part)part=-1;
     return p;
 }
 

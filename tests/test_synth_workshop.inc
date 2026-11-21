@@ -277,6 +277,7 @@ void testSynthWorkshopWorkflow() {
   std::snprintf(t->synthDirectory.data(), t->synthDirectory.size(),
                 "%s/captures/Synths", dir);
   setParam(t.get(), "synth_open", "1");
+  setParam(t.get(), "synth_type", "0"); // Retained legacy Spline codec.
   waitSynth(*t);
   const auto spline = encode(t->synthRecipe);
   std::vector<std::string> frames;
@@ -484,6 +485,9 @@ void testSynthWorkshopWorkflow() {
                   kPersistencePathSize, "%s", drumSaved.c_str());
   }
   for (int model = 6; model < drumModelCount; ++model) {
+    // Bound the worker roundtrip duration independently of the legacy recipe
+    // opened above. Full-length modal synthesis is covered by the core tests.
+    setParam(t.get(), "synth_edit", "0,0.25");
     setParam(t.get(), "synth_drum", ("0," + std::to_string(model)).c_str());
     setParam(t.get(), "synth_drum", "12,1");
     setParam(t.get(), "synth_drum", "13,0.72");

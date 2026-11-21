@@ -19,9 +19,13 @@
 #include "thru_drive.h"
 #include "thru_reverb.h"
 #include "thru_layers.h"
+#include "thru_control_lfo.h"
+#include "thru_table_scope.h"
+#include "thru_control_lfo_mapping.h"
 #include "thru_sequence.h"
 #include "thru_sequence_generate.h"
 #include "thru_synth_worker.h"
+#include "thru_synth_session.h"
 #include "thru_sequence_mix.h"
 #include <bitset>
 #include "thru_effect_order.h"
@@ -225,7 +229,7 @@ enum class ClipPointType : std::uint8_t {
     stackPath,
     notePressure,
     midiExpression,
-    layersParameter, layersBaseline, sequenceLane, sequenceRecipe,
+    layersParameter, layersBaseline, sequenceLane, sequenceRecipe, controlLfo, pooledLfo, tableParameter, scannedParameter, fmParameter,
 };
 
 struct VoiceEntryVariation {
@@ -501,7 +505,12 @@ constexpr std::size_t kClipSequenceOffset=kClipLayersOffset+LayerPatch::size;
 constexpr std::size_t kClipRecipeOffset=kClipSequenceOffset+44;
 constexpr std::size_t kClipRecipeShiftOffset=kClipRecipeOffset+4*20;
 constexpr std::size_t kClipSequencePathOffset=kClipRecipeShiftOffset+4;
-constexpr std::size_t kClipCurveLaneCount=kClipSequencePathOffset+4;
+constexpr std::size_t kClipLfoOffset=kClipSequencePathOffset+4;
+constexpr std::size_t kClipPooledLfoOffset=kClipLfoOffset+4*2*s3g_thru_lfo::fields;
+constexpr std::size_t kClipTableOffset=kClipPooledLfoOffset+8*11;
+constexpr std::size_t kClipScannedOffset=kClipTableOffset+16*s3g_thru_table::fields;
+constexpr std::size_t kClipFmOffset=kClipScannedOffset+16*s3g_thru_scanned::fields;
+constexpr std::size_t kClipCurveLaneCount=kClipFmOffset+16*s3g_thru_fm::fields;
 static_assert(kClipSequenceOffset+s3g_thru_sequence::laneCurveOffset(0,11)==kClipSequencePathOffset,"PATH must follow existing curve identities");
 constexpr std::size_t sequenceRecipeCurve(int part,int field){
     return part>=0&&part<4&&field>=1&&field<=21
@@ -520,6 +529,7 @@ struct PartSettings {
     int holdMs = 0, stackHold = 0, glitchHold = 0, muted = 0, variation = 0;
     VoiceEngineSettings engines {};
     int voiceMode = 0; // Poly / Mono retrigger / Legato
+    s3g_thru_lfo::Part lfos{};
 };
 struct BankSlot {
     std::array<char,kPersistencePathSize> path {};
@@ -539,6 +549,9 @@ struct BankAudio {
 };
 struct BankPool { std::array<BankAudio,64> assets; };
 struct ClipSlot {
+    std::array<s3g_thru_table::Program,5> tablePrograms{};
+    std::array<s3g_thru_scanned::Program,5> scannedPrograms{};
+    std::array<s3g_thru_fm::Program,5> fmPrograms{};
     s3g_thru_sequence::Pattern sequence;
     LayerPatch layers;
     std::array<s3g_thru::SliceLaneSettings,kLaneCount> sliceLanes {};
@@ -551,6 +564,7 @@ struct ClipSlot {
     std::array<std::array<float, kLockParameterCount>, 4u> splitValues {};
     std::array<PartSettings, 4u> splitSettings {};
     PartSettings singleSettings {};
+    s3g_thru_lfo::Pool lfos{};
     std::array<float,4> splitLanePreferences {-1,-1,-1,-1};
     std::array<std::uint32_t,4> pulsarSeeds {};
     bool splitEnabled = false, splitInitialized = false, sharedDual = false, quadMode = false, quadInitialized = false;
@@ -639,7 +653,7 @@ constexpr const char* kStochasticLawNames[]{"Smooth","Uniform","Wide","Listen"};
 constexpr const char* kTextureModeNames[]{"Spray","Grouped","Motif","Ornament"};
 constexpr const char* kAlgorithmNames[] {
     "Motion", "Lanes", "Grains", "Cutups", "Sample", "Slices", "Glitch",
-    "Weave", "Wavesets", "Prism", "Morph", "Texture", "Formant", "Stochastic", "Pulsar"
+    "Weave", "Wavesets", "Prism", "Morph", "Texture", "Formant", "Stochastic", "Pulsar", "Table", "Scanned", "FM"
 };
 constexpr const char* kSampleModeNames[] {
     "Forward", "Reverse", "Loop", "Ping Pong"
@@ -768,17 +782,111 @@ constexpr const char kChainParams[] = R"json([
 {"key":"voice_engine_mode","name":"Engine Assignment","type":"int","min":0,"max":1},
 {"key":"voice_engine_order","name":"Engine List Order","type":"int","min":0,"max":5},
 {"key":"voice_engine_edit","name":"Engine List Edit Entry","type":"int","min":1,"max":8},
-{"key":"voice_engine_1","name":"Engine List Entry 1","type":"int","min":0,"max":13},
-{"key":"voice_engine_2","name":"Engine List Entry 2","type":"int","min":0,"max":13},
-{"key":"voice_engine_3","name":"Engine List Entry 3","type":"int","min":0,"max":13},
-{"key":"voice_engine_4","name":"Engine List Entry 4","type":"int","min":0,"max":13},
-{"key":"voice_engine_5","name":"Engine List Entry 5","type":"int","min":0,"max":13},
-{"key":"voice_engine_6","name":"Engine List Entry 6","type":"int","min":0,"max":13},
-{"key":"voice_engine_7","name":"Engine List Entry 7","type":"int","min":0,"max":13},
-{"key":"voice_engine_8","name":"Engine List Entry 8","type":"int","min":0,"max":13},
+{"key":"voice_engine_1","name":"Engine List Entry 1","type":"int","min":0,"max":15},
+{"key":"voice_engine_2","name":"Engine List Entry 2","type":"int","min":0,"max":15},
+{"key":"voice_engine_3","name":"Engine List Entry 3","type":"int","min":0,"max":15},
+{"key":"voice_engine_4","name":"Engine List Entry 4","type":"int","min":0,"max":15},
+{"key":"voice_engine_5","name":"Engine List Entry 5","type":"int","min":0,"max":15},
+{"key":"voice_engine_6","name":"Engine List Entry 6","type":"int","min":0,"max":15},
+{"key":"voice_engine_7","name":"Engine List Entry 7","type":"int","min":0,"max":15},
+{"key":"voice_engine_8","name":"Engine List Entry 8","type":"int","min":0,"max":15},
 {"key":"voice_engine_active","name":"Assigned Engine Voices Active","type":"int","min":0,"max":1,"access":"read","live":true},
 {"key":"voice_engine_state","name":"Engine List State","type":"string","access":"read","live":true},
-{"key":"algorithm","name":"Algorithm","short_name":"ALG","type":"enum","options":["Motion","Lanes","Grains","Cutups","Sample","Slices","Glitch","Weave","Wavesets","Prism","Morph","Texture","Formant","Stochastic","Pulsar"],"default":0},
+{"key":"algorithm","name":"Algorithm","short_name":"ALG","type":"enum","options":["Motion","Lanes","Grains","Cutups","Sample","Slices","Glitch","Weave","Wavesets","Prism","Morph","Texture","Formant","Stochastic","Pulsar","Table","Scanned","FM"],"default":0},
+{"key":"scanned_excitation","name":"Excitation","short_name":"EXC","type":"enum","default":0,"options":["PLUCK","STRIKE","NOISE","SAMPLE"]},
+{"key":"scanned_pick","name":"Excitation Position","short_name":"PICK","type":"float","default":24,"min":1,"max":99,"step":0.1},
+{"key":"scanned_hit","name":"Initial Energy","short_name":"HIT","type":"float","default":80,"min":0,"max":100,"step":1},
+{"key":"scanned_tune","name":"Transpose","short_name":"TUNE","type":"float","default":0,"min":-48,"max":48,"step":0.1},
+{"key":"scanned_motion","name":"Mechanical Motion","short_name":"MOTN","type":"float","default":1.2,"min":0.05,"max":6,"step":0.01},
+{"key":"scanned_damping","name":"Mechanical Damping","short_name":"DAMP","type":"float","default":12,"min":0,"max":100,"step":1},
+{"key":"scanned_brightness","name":"Readout Brightness","short_name":"BRGT","type":"float","default":75,"min":0,"max":100,"step":1},
+{"key":"scanned_width","name":"Stereo Width","short_name":"WID","type":"float","default":30,"min":0,"max":100,"step":1},
+{"key":"scanned_mass","name":"Mass Variation","short_name":"MASS","type":"float","default":30,"min":0,"max":100,"step":1},
+{"key":"scanned_tension","name":"Spring Variation","short_name":"TENS","type":"float","default":25,"min":0,"max":100,"step":1},
+{"key":"scanned_center","name":"Centering Springs","short_name":"CENT","type":"float","default":15,"min":0,"max":100,"step":1},
+{"key":"scanned_profile","name":"Physical Profile","short_name":"PROF","type":"enum","default":1,"options":["EVEN","TAPER","WAVE","RANDOM"]},
+{"key":"scanned_force","name":"Continuous Force","short_name":"FORC","type":"float","default":0,"min":0,"max":100,"step":1},
+{"key":"scanned_pressure","name":"Pressure Force Depth","short_name":"PRES","type":"float","default":20,"min":0,"max":100,"step":1},
+{"key":"scanned_freeze","name":"Freeze Motion","short_name":"FRZ","type":"enum","default":0,"options":["OFF","ON"]},
+{"key":"scanned_seed","name":"Profile Seed","short_name":"SEED","type":"int","default":1,"min":0,"max":65535,"step":1},
+{"key":"scanned_art","name":"Articulation","short_name":"ART","type":"enum","default":0,"options":["TONE","PERC"]},
+{"key":"scanned_impact","name":"Impact Level","short_name":"IMPT","type":"float","default":35,"min":0,"max":100,"step":1},
+{"key":"scanned_hardness","name":"Hammer Hardness","short_name":"HARD","type":"float","default":60,"min":0,"max":100,"step":1},
+{"key":"scanned_decay","name":"Percussion Decay","short_name":"DEC","type":"float","default":350,"min":10,"max":4000,"step":1},
+{"key":"scanned_bend","name":"Pitch Sweep","short_name":"BEND","type":"float","default":0,"min":-48,"max":48,"step":0.1},
+{"key":"scanned_sweep_time","name":"Pitch Sweep Time","short_name":"TIME","type":"float","default":35,"min":5,"max":2000,"step":1},
+{"key":"scanned_loss","name":"Harmonic Decay","short_name":"LOSS","type":"float","default":50,"min":0,"max":100,"step":1},
+{"key":"scanned_amp_mode","name":"Amplifier","short_name":"AMP","type":"enum","default":0,"options":["OFF","TUBE","FUZZ"]},
+{"key":"scanned_amp_gain","name":"Amp Gain","short_name":"GAIN","type":"float","default":35,"min":0,"max":100,"step":1},
+{"key":"scanned_amp_bass","name":"Amp Bass","short_name":"BASS","type":"float","default":0,"min":-12,"max":12,"step":0.1},
+{"key":"scanned_amp_mid","name":"Amp Midrange","short_name":"MID","type":"float","default":0,"min":-20,"max":10,"step":0.1},
+{"key":"scanned_amp_freq","name":"Amp Mid Frequency","short_name":"FREQ","type":"enum","default":2,"options":["220","450","800","1.6k","3k"]},
+{"key":"scanned_amp_treble","name":"Amp Treble","short_name":"TREB","type":"float","default":0,"min":-20,"max":15,"step":0.1},
+{"key":"scanned_amp_cab","name":"Cabinet Amount","short_name":"CAB","type":"float","default":70,"min":0,"max":100,"step":1},
+{"key":"scanned_amp_level","name":"Amp Output","short_name":"OUT","type":"float","default":0,"min":-18,"max":6,"step":0.1},
+{"key":"fm_mode","name":"FM Articulation","short_name":"MODE","type":"enum","default":0,"options":["TONE","DRUM"]},
+{"key":"fm_tune","name":"FM Transpose","short_name":"TUNE","type":"float","default":0,"min":-48,"max":48,"step":0.1},
+{"key":"fm_width","name":"FM Stereo Width","short_name":"WID","type":"float","default":35,"min":0,"max":100,"step":1},
+{"key":"fm_level","name":"FM Level","short_name":"LVL","type":"float","default":75,"min":0,"max":100,"step":1},
+{"key":"fm_algorithm","name":"FM Routing","short_name":"ALG","type":"enum","default":0,"options":["2OP","SER","PAR","RING"]},
+{"key":"fm_ratio1","name":"Modulator 1 Ratio","short_name":"RAT1","type":"float","default":1,"min":0.125,"max":32,"step":0.125},
+{"key":"fm_index1","name":"Modulator 1 Index","short_name":"IDX1","type":"float","default":1,"min":0,"max":12,"step":0.05},
+{"key":"fm_feedback","name":"FM Feedback","short_name":"FDBK","type":"float","default":0,"min":0,"max":90,"step":1},
+{"key":"fm_ratio2","name":"Modulator 2 Ratio","short_name":"RAT2","type":"float","default":2,"min":0.125,"max":32,"step":0.125},
+{"key":"fm_index2","name":"Modulator 2 Index","short_name":"IDX2","type":"float","default":0,"min":0,"max":12,"step":0.05},
+{"key":"fm_detune","name":"FM Stereo Detune","short_name":"DETN","type":"float","default":0,"min":0,"max":30,"step":0.1},
+{"key":"fm_mix","name":"FM Wet Mix","short_name":"MIX","type":"float","default":100,"min":0,"max":100,"step":1},
+{"key":"fm_cutoff","name":"FM Filter Cutoff","short_name":"CUTO","type":"float","default":18000,"min":20,"max":20000,"step":1},
+{"key":"fm_resonance","name":"FM Filter Resonance","short_name":"RES","type":"float","default":0,"min":0,"max":85,"step":1},
+{"key":"fm_drive","name":"FM Drive","short_name":"DRIV","type":"float","default":0,"min":0,"max":100,"step":1},
+{"key":"fm_decay","name":"FM Drum Decay","short_name":"DEC","type":"float","default":600,"min":10,"max":8000,"step":1},
+{"key":"fm_fm_decay","name":"FM Index Decay","short_name":"FDEC","type":"float","default":120,"min":2,"max":4000,"step":1},
+{"key":"fm_bend","name":"FM Pitch Sweep","short_name":"BEND","type":"float","default":24,"min":-48,"max":48,"step":0.1},
+{"key":"fm_sweep_time","name":"FM Pitch Sweep Time","short_name":"TIME","type":"float","default":25,"min":1,"max":2000,"step":1},
+{"key":"fm_impact","name":"FM Impact","short_name":"HIT","type":"float","default":20,"min":0,"max":100,"step":1},
+{"key":"fm_noise","name":"FM Noise Body","short_name":"NOIS","type":"float","default":0,"min":0,"max":100,"step":1},
+{"key":"fm_noise_decay","name":"FM Noise Decay","short_name":"NDEC","type":"float","default":70,"min":1,"max":4000,"step":1},
+{"key":"fm_hardness","name":"FM Impact Hardness","short_name":"HARD","type":"float","default":60,"min":0,"max":100,"step":1},
+{"key":"table_type","name":"Table Variant","short_name":"TYPE","type":"enum","default":0,"options":["WAVE","SPLINE","WT DRUM"]},
+{"key":"table_tune","name":"Transpose","short_name":"TUNE","type":"float","default":0,"min":-48,"max":48,"step":0.1},
+{"key":"table_width","name":"Stereo Width","short_name":"WID","type":"float","default":40,"min":0,"max":100,"step":1},
+{"key":"table_level","name":"Generator Level","short_name":"LVL","type":"float","default":75,"min":0,"max":100,"step":1},
+{"key":"table_art","name":"Articulation","short_name":"ART","type":"enum","default":0,"options":["TONE","HIT"]},
+{"key":"table_decay","name":"Hit Decay","short_name":"DEC","type":"float","default":650,"min":10,"max":12000,"step":1},
+{"key":"table_noise","name":"Noise Level","short_name":"NOIS","type":"float","default":0,"min":0,"max":100,"step":1},
+{"key":"table_drive","name":"Drive","short_name":"DRIV","type":"float","default":0,"min":0,"max":100,"step":1},
+{"key":"table_shape","name":"Wave Shape","short_name":"SHAP","type":"enum","default":0,"options":["SINE","TRI","SAW","SQR"]},
+{"key":"table_pulse","name":"Pulse Width","short_name":"PW","type":"float","default":50,"min":5,"max":95,"step":0.1},
+{"key":"table_detune","name":"Wave Detune","short_name":"DET","type":"float","default":0,"min":0,"max":50,"step":0.1},
+{"key":"table_sub","name":"Wave Sub Level","short_name":"SUB","type":"float","default":0,"min":0,"max":100,"step":1},
+{"key":"table_cutoff","name":"Filter Cutoff","short_name":"CUT","type":"float","default":18000,"min":20,"max":20000,"step":1},
+{"key":"table_resonance","name":"Filter Resonance","short_name":"RES","type":"float","default":0,"min":0,"max":95,"step":1},
+{"key":"table_points","name":"Spline Points","short_name":"PTS","type":"float","default":4,"min":1,"max":32,"step":0.1},
+{"key":"table_evolution","name":"Spline Evolution","short_name":"EVOL","type":"float","default":16,"min":1,"max":4096,"step":0.1},
+{"key":"table_curve","name":"Spline Curvature","short_name":"CURV","type":"float","default":100,"min":0,"max":100,"step":1},
+{"key":"table_drift","name":"Spline Pitch Drift","short_name":"DRFT","type":"float","default":0.15,"min":0,"max":12,"step":0.01},
+{"key":"table_drift_rate","name":"Spline Drift Time","short_name":"RATE","type":"float","default":100,"min":1,"max":1000,"step":1},
+{"key":"table_dynamics","name":"Spline Dynamics","short_name":"DYN","type":"float","default":20,"min":0,"max":100,"step":1},
+{"key":"table_seed","name":"Spline Seed","short_name":"SEED","type":"int","default":1,"min":0,"max":65535,"step":1},
+{"key":"table_model","name":"Drum Start","short_name":"MODL","type":"enum","default":0,"options":["KICK","SNARE","TOM","HAT","CLAP","METAL"]},
+{"key":"table_bank_a","name":"Oscillator A Bank","short_name":"BNKA","type":"enum","default":0,"options":["SINE","ROUND","SAW","ODD","METAL","FORM","HOLLOW","GLASS"]},
+{"key":"table_pos_a","name":"Oscillator A Position","short_name":"POSA","type":"float","default":0,"min":0,"max":100,"step":1},
+{"key":"table_bank_b","name":"Oscillator B Bank","short_name":"BNKB","type":"enum","default":1,"options":["SINE","ROUND","SAW","ODD","METAL","FORM","HOLLOW","GLASS"]},
+{"key":"table_pos_b","name":"Oscillator B Position","short_name":"POSB","type":"float","default":25,"min":0,"max":100,"step":1},
+{"key":"table_blend","name":"Oscillator Blend","short_name":"BLND","type":"float","default":15,"min":0,"max":100,"step":1},
+{"key":"table_ratio","name":"Oscillator Ratio","short_name":"RATI","type":"float","default":1,"min":0.125,"max":16,"step":0.01},
+{"key":"table_fm","name":"Phase Modulation","short_name":"FM","type":"float","default":0,"min":0,"max":100,"step":1},
+{"key":"table_wt_detune","name":"Drum Detune","short_name":"DET","type":"float","default":0,"min":0,"max":50,"step":0.1},
+{"key":"table_bend","name":"Pitch Sweep","short_name":"BEND","type":"float","default":24,"min":-48,"max":48,"step":0.1},
+{"key":"table_pitch_decay","name":"Pitch Sweep Time","short_name":"PDEC","type":"float","default":30,"min":1,"max":2000,"step":0.1},
+{"key":"table_scan","name":"Table Sweep","short_name":"SCAN","type":"float","default":30,"min":-100,"max":100,"step":1},
+{"key":"table_scan_decay","name":"Table Sweep Time","short_name":"SDEC","type":"float","default":60,"min":1,"max":4000,"step":0.1},
+{"key":"table_wt_sub","name":"Drum Sub Level","short_name":"SUB","type":"float","default":35,"min":0,"max":100,"step":1},
+{"key":"table_impact","name":"Impact Level","short_name":"IMPT","type":"float","default":25,"min":0,"max":100,"step":1},
+{"key":"table_noise_decay","name":"Noise Decay","short_name":"NDEC","type":"float","default":40,"min":1,"max":4000,"step":0.1},
+{"key":"table_color","name":"Noise Color","short_name":"COLR","type":"enum","default":0,"options":["WHITE","PINK","HP","METAL"]},
+{"key":"table_tone","name":"Drum Brightness","short_name":"TONE","type":"float","default":65,"min":0,"max":100,"step":1},
+{"key":"table_compression","name":"Drum Compression","short_name":"COMP","type":"float","default":10,"min":0,"max":100,"step":1},
 {"key":"join","name":"Join","short_name":"JOIN","type":"float","min":0,"max":1,"step":0.01,"default":1},
 {"key":"output_gain","name":"Level","short_name":"LEVEL","type":"float","min":0,"max":2,"step":0.01,"default":1},
 {"key":"bank_slot","name":"Bank Selected Pad","short_name":"PAD","type":"int","min":1,"max":16,"default":1},
@@ -1503,6 +1611,13 @@ bool validLockParameterText(const char* key,const char* text){
 void applyLockedValue(Engine::Controls& controls, float& outputGain,
                       std::size_t index, float value)
 {
+    if(index>=s3g_thru_fm::controlOffset&&index<s3g_thru_fm::controlOffset+s3g_thru_fm::fields){for(auto& p:controls.fm.patches)s3g_thru_fm::set(p,int(index)-s3g_thru_fm::controlOffset,value);return;}
+    if(index>=s3g_thru_scanned::controlOffset&&index<s3g_thru_scanned::controlOffset+s3g_thru_scanned::fields){for(auto& p:controls.scanned.patches)s3g_thru_scanned::set(p,int(index)-s3g_thru_scanned::controlOffset,value);return;}
+    if(index>=s3g_thru_table::controlOffset&&index<s3g_thru_table::controlOffset+s3g_thru_table::fields) {
+        const int field=int(index)-s3g_thru_table::controlOffset;
+        for(auto& patch:controls.table.patches)if(s3g_thru_table::applicable(patch,field))s3g_thru_table::set(patch,field,value);
+        return;
+    }
     switch (static_cast<LockParameter>(index)) {
         case LockParameter::locus: controls.locus = clampValue(value, 0.0f, 1.0f); break;
         case LockParameter::field: controls.field = clampValue(value, 0.02f, 1.0f); break;
@@ -1764,6 +1879,10 @@ void applyLockedValue(Engine::Controls& controls, float& outputGain,
 float lockedValue(const Engine::Controls& controls, float outputGain,
                   std::size_t index)
 {
+    if(index>=s3g_thru_fm::controlOffset&&index<s3g_thru_fm::controlOffset+s3g_thru_fm::fields)return controls.fm.patches[std::clamp(controls.tableEditor,0,3)].v[index-s3g_thru_fm::controlOffset];
+    if(index>=s3g_thru_scanned::controlOffset&&index<s3g_thru_scanned::controlOffset+s3g_thru_scanned::fields)return controls.scanned.patches[std::clamp(controls.tableEditor,0,3)].v[index-s3g_thru_scanned::controlOffset];
+    if(index>=s3g_thru_table::controlOffset&&index<s3g_thru_table::controlOffset+s3g_thru_table::fields)
+        return controls.table.patches[std::clamp(controls.tableEditor,0,3)].v[index-s3g_thru_table::controlOffset];
     switch (static_cast<LockParameter>(index)) {
         case LockParameter::locus: return controls.locus;
         case LockParameter::field: return controls.field;
@@ -2539,6 +2658,8 @@ struct ThruInstance : PlaybackEffectsState {
     std::array<int,4> sequenceCursor{-1,-1,-1,-1};
     std::array<std::atomic<int>,4> sequencePublishedCursor{};
     std::array<std::uint64_t,4> sequenceEventCount{};
+    struct SequenceWindowStart { std::int64_t tick=-1;float position=.5f; };
+    std::array<std::array<SequenceWindowStart,8>,4> sequenceWindowStarts{};
     std::array<std::uint64_t,32> sequencePadTimes{};
     std::array<int,32> sequencePadParts{};
     std::array<int,4> sequenceSteps{},sequenceChildren{};
@@ -2808,6 +2929,7 @@ struct ThruInstance : PlaybackEffectsState {
     std::uint64_t nextCaptureId = 1u;
 
 #include "thru_sequence.inc"
+#include "thru_sequence_sound_locks.inc"
 #include "thru_sequence_generate.inc"
 #include "thru_sequence_types.inc"
 #include "thru_output_mixer.inc"
@@ -4691,8 +4813,7 @@ struct ThruInstance : PlaybackEffectsState {
         if (voice.stealPending) return;
         voice.stealControls = effectiveControls(voice);
         voice.stealPan=voice.panState;voice.stealTone=voiceToneAmount(voice);
-        voice.stealOutputGain = (voice.clipOwned
-            ? clipOutputGain : outputGain)*voice.midiGain;
+        voice.stealOutputGain = controlLfoOutputGain(voice.part,voice.clipOwned?clipOutputGain:outputGain)*voice.midiGain;
         voice.stealFadeRemaining = voiceStealFadeFrames;
         voice.stealPending = true;
     }
@@ -4722,7 +4843,7 @@ struct ThruInstance : PlaybackEffectsState {
             return;
         }
 
-        voice.gainState = (voice.clipOwned ? clipOutputGain : outputGain)*voice.midiGain;
+        voice.gainState = controlLfoOutputGain(voice.part,voice.clipOwned?clipOutputGain:outputGain)*voice.midiGain;
         voice.panState=voice.entryVariation.pan;voice.pressureToneState={};voice.pressureToneMix=0;voice.pressureToneCoefficient=1;
         voice.envelopeSustain = clampValue(
             (voice.clipOwned ? clipControls : controls).ampSustain,
@@ -5097,12 +5218,17 @@ struct ThruInstance : PlaybackEffectsState {
 
     static std::size_t clipPointLane(const ClipPoint& point)
     {
+        if(point.type==ClipPointType::scannedParameter)return point.sourcePad<16&&(point.parameter&255u)<s3g_thru_scanned::fields?kClipScannedOffset+point.sourcePad*s3g_thru_scanned::fields+(point.parameter&255u):kClipCurveLaneCount;
+        if(point.type==ClipPointType::fmParameter)return point.sourcePad<16&&(point.parameter&255u)<s3g_thru_fm::fields?kClipFmOffset+point.sourcePad*s3g_thru_fm::fields+(point.parameter&255u):kClipCurveLaneCount;
+        if(point.type==ClipPointType::tableParameter)return point.sourcePad<16&&(point.parameter&255u)<s3g_thru_table::fields?kClipTableOffset+point.sourcePad*s3g_thru_table::fields+(point.parameter&255u):kClipCurveLaneCount;
         if(point.type==ClipPointType::sequenceLane) {
             const auto field=point.parameter&255u;
             return point.sourcePad<4u&&field<s3g_thru_sequence::laneFields
                 ?kClipSequenceOffset+s3g_thru_sequence::laneCurveOffset(point.sourcePad,field)
                 :kClipCurveLaneCount;
         }
+        if(point.type==ClipPointType::pooledLfo)return point.sourcePad<8u&&(point.parameter&255u)<11u?kClipPooledLfoOffset+point.sourcePad*11u+(point.parameter&255u):kClipCurveLaneCount;
+        if(point.type==ClipPointType::controlLfo)return point.sourcePad<4u&&(point.parameter&255u)<18u?kClipLfoOffset+point.sourcePad*18u+(point.parameter&255u):kClipCurveLaneCount;
         if(point.type==ClipPointType::sequenceRecipe)return sequenceRecipeCurve(point.sourcePad,point.parameter&255u);
         if(point.type==ClipPointType::layersParameter)return (point.sourcePad<6u && (point.parameter&255u)<192u && point.sourcePad*192u+(point.parameter&255u)<LayerPatch::size)?kClipLayersOffset+point.sourcePad*192u+(point.parameter&255u):kClipCurveLaneCount;
         if(point.type==ClipPointType::layersBaseline)return kClipCurveLaneCount;
@@ -5245,8 +5371,14 @@ struct ThruInstance : PlaybackEffectsState {
         // External keys follow VOICE independently of the physical pad layout.
         // Non-key pad voices retain their separate polyphonic behavior.
         return settings.voiceMode != 0
-            && (sourcePad < 0 || settings.mode == static_cast<int>(PadMode::keys));
+            && (sourcePad < 0 || settings.mode == static_cast<int>(PadMode::keys)
+                ||Engine::sourceFree(liveControlsForPart(part).algorithm));
     }
+
+#include "thru_table.inc"
+#include "thru_scanned.inc"
+#include "thru_fm.inc"
+#include "thru_control_lfo.inc"
 
     void captureClipNoteOn(int note, int velocity, int sourcePad, int owner = -1)
     {
@@ -5315,7 +5447,12 @@ struct ThruInstance : PlaybackEffectsState {
         if (!clipRecording || !clip) return;
         const std::uint32_t time = timeOverride==0xffffffffu ? clipCaptureTimeMs() : timeOverride;
         std::size_t curveLane = kClipCurveLaneCount;
-        if(type==ClipPointType::sequenceLane){curveLane=sourcePad>=0&&sourcePad<4&&parameter<s3g_thru_sequence::laneFields
+        if(type==ClipPointType::scannedParameter){curveLane=sourcePad>=0&&sourcePad<16&&parameter<s3g_thru_scanned::fields?kClipScannedOffset+sourcePad*s3g_thru_scanned::fields+parameter:kClipCurveLaneCount;}
+        if(type==ClipPointType::fmParameter){curveLane=sourcePad>=0&&sourcePad<16&&parameter<s3g_thru_fm::fields?kClipFmOffset+sourcePad*s3g_thru_fm::fields+parameter:kClipCurveLaneCount;}
+        else if(type==ClipPointType::tableParameter){curveLane=sourcePad>=0&&sourcePad<16&&parameter<s3g_thru_table::fields?kClipTableOffset+sourcePad*s3g_thru_table::fields+parameter:kClipCurveLaneCount;}
+        else if(type==ClipPointType::pooledLfo){curveLane=sourcePad>=0&&sourcePad<8&&parameter<11?kClipPooledLfoOffset+sourcePad*11+parameter:kClipCurveLaneCount;}
+        else if(type==ClipPointType::controlLfo){curveLane=sourcePad>=0&&sourcePad<4&&parameter<18?kClipLfoOffset+sourcePad*18+parameter:kClipCurveLaneCount;}
+        else if(type==ClipPointType::sequenceLane){curveLane=sourcePad>=0&&sourcePad<4&&parameter<s3g_thru_sequence::laneFields
             ?kClipSequenceOffset+s3g_thru_sequence::laneCurveOffset(sourcePad,parameter)
             :kClipCurveLaneCount;}
         else if(type==ClipPointType::sequenceRecipe){curveLane=sequenceRecipeCurve(sourcePad,int(parameter));}
@@ -5379,7 +5516,7 @@ struct ThruInstance : PlaybackEffectsState {
             ClipPoint& previous = clip->clipPoints[
                 static_cast<std::size_t>(previousIndex)];
             if((type==ClipPointType::pressure||type==ClipPointType::notePressure||type==ClipPointType::midiExpression)&&time==previous.timeMs){previous.value=value;return;}
-            if(type==ClipPointType::layersParameter&&time==previous.timeMs){previous.value=value;return;}
+            if((type==ClipPointType::layersParameter||type==ClipPointType::tableParameter||type==ClipPointType::scannedParameter||type==ClipPointType::fmParameter)&&time==previous.timeMs){previous.value=value;return;}
             if(formantEdge && !forceEdge && time>=previous.timeMs && value==previous.value)return;
             if(formantEdge && time==previous.timeMs){previous.value=value;return;}
             if (!formantEdge && time >= previous.timeMs
@@ -5663,6 +5800,7 @@ struct ThruInstance : PlaybackEffectsState {
             beginVoiceAttack(voice);
             voice.engine.retrigger(false);
         }
+        triggerControlLfos(voice.part);
         if (settingsForPart(voice.part).stackHold) restoreLiveStackPosition(voice);
         captureClipNoteOn(note, velocity, sourcePad);
         if (settingsForPart(voice.part).stackHold) captureClipStackPosition(voice);
@@ -5740,7 +5878,7 @@ struct ThruInstance : PlaybackEffectsState {
     {
         const int index = clampValue(hardwareNote - kFirstPadNote, 0, 31);
         const auto owner = settingsForPart(partForInput(index));
-        const auto localMode = static_cast<PadMode>(owner.mode);
+        const auto localMode = Engine::sourceFree(liveControlsForPart(partForInput(index)).algorithm)?PadMode::keys:static_cast<PadMode>(owner.mode);
         if (localMode == PadMode::slices || localMode == PadMode::rolls) {
             return owner.root;
         }
@@ -6101,7 +6239,7 @@ struct ThruInstance : PlaybackEffectsState {
         const int index = hardwareNote - kFirstPadNote;
         if (index < 0 || index >= static_cast<int>(padMappedNotes.size())) return;
         const std::size_t pad = static_cast<std::size_t>(index);
-        const auto mode = static_cast<PadMode>(settingsForPart(partForInput(index)).mode);
+        const auto mode = Engine::sourceFree(liveControlsForPart(partForInput(index)).algorithm)?PadMode::keys:static_cast<PadMode>(settingsForPart(partForInput(index)).mode);
         if (mode == PadMode::cues) {
             padMappedNotes[pad] = -1;
             return;
@@ -6343,6 +6481,14 @@ struct ThruInstance : PlaybackEffectsState {
         Engine::Controls effective = voice.clipOwned ? recordedControls : liveControls;
         const auto owner = settingsForPart(voice.part);
         if(voice.assignedAlgorithm>=0&&!sequenceMode())effective.algorithm=static_cast<Engine::PlaybackAlgorithm>(voice.assignedAlgorithm);
+        effective.tableEditor=tableEditLane(voice.part);
+        effective.scannedPressure=std::max(voice.pressureTarget,voice.midiValue[2]);
+        applyControlLfoVoice(effective,voice);
+        if(voice.sequence.active)applySequenceVoiceSound(effective,voice.sequence.soundLocks,voice.part);
+        if(Engine::sourceFree(effective.algorithm)){
+            effective.tableNoteHz=440.f*std::exp2((float((voice.note>=0?voice.note:owner.root)+12*voice.entryVariation.octave-69)+voice.midiValue[0])/12.f);
+            effective.tableNoteSeed=s3g_thru_table::Library::hash(std::uint32_t(voice.note+1)^std::uint32_t(voice.part*0x52474854u)^(voice.clipOwned?std::uint32_t(voice.clipNoteIndex+1):std::uint32_t(voice.age)));
+        }
         if (splitEnabled) {
             effective.stackFirstLane = sharedDual?0.0f:static_cast<float>(firstLaneForPart(voice.part));
             effective.stackLastLane = sharedDual?3.0f:effective.stackFirstLane+(isQuad()?0.0f:1.0f);
@@ -6535,7 +6681,7 @@ struct ThruInstance : PlaybackEffectsState {
         if(owner<0||owner>=partCount())return;
         if(bankMode && owner==1) {
             const int pad=event.sourcePad<32?event.sourcePad:-1,slot=pad>=0?localPad(pad):event.note-60;
-            if(slot>=0&&slot<16){startBankVoice(slot,pad,event.velocity,true,static_cast<int>(noteIndex));
+            if(slot>=0&&slot<16){triggerControlLfos(owner);startBankVoice(slot,pad,event.velocity,true,static_cast<int>(noteIndex));
                 for(auto& voice:voices)if(voice.clipOwned&&voice.clipNoteIndex==static_cast<int>(noteIndex))initializeMidiVoice(voice,&clip,event.startMs);}
             return;
         }
@@ -6632,6 +6778,7 @@ struct ThruInstance : PlaybackEffectsState {
             beginVoiceAttack(voice);
             voice.engine.retrigger(false);
         }
+        triggerControlLfos(voice.part);
         if (settingsForPart(voice.part).stackHold) restoreLiveStackPosition(voice);
     }
 
@@ -6764,6 +6911,26 @@ struct ThruInstance : PlaybackEffectsState {
         for (std::size_t lane = 0u; lane < kClipCurveLaneCount; ++lane) {
             if(clip.clipPointCounts[lane]==0)continue;
             float value = 0.0f;
+            if(lane>=kClipFmOffset){
+                const auto group=(lane-kClipFmOffset)/s3g_thru_fm::fields,field=(lane-kClipFmOffset)%s3g_thru_fm::fields;
+                if((splitEnabled||group/4==0)&&!fmOverrides.test(group*s3g_thru_fm::fields+field)&&sampleClipCurve(clip,lane,position,!s3g_thru_fm::discrete(int(field)),value)){
+                  auto& c=splitEnabled?splitClipControls[group/4]:clipControls;s3g_thru_fm::set(c.fm.patches[group%4],int(field),value);
+                }continue;
+            }
+            if(lane>=kClipScannedOffset){
+                const auto group=(lane-kClipScannedOffset)/s3g_thru_scanned::fields,field=(lane-kClipScannedOffset)%s3g_thru_scanned::fields;
+                if((splitEnabled||group/4==0)&&!scannedOverrides.test(group*s3g_thru_scanned::fields+field)&&sampleClipCurve(clip,lane,position,!s3g_thru_scanned::discrete(int(field)),value)){
+                  auto& c=splitEnabled?splitClipControls[group/4]:clipControls;s3g_thru_scanned::set(c.scanned.patches[group%4],int(field),value);
+                }continue;
+            }
+            if(lane>=kClipTableOffset){
+                const auto group=(lane-kClipTableOffset)/s3g_thru_table::fields,field=(lane-kClipTableOffset)%s3g_thru_table::fields;
+                if((splitEnabled||group/4==0)&&!tableOverrides.test(group*s3g_thru_table::fields+field)
+                    &&sampleClipCurve(clip,lane,position,!s3g_thru_table::discrete(int(field)),value)){
+                    auto& c=splitEnabled?splitClipControls[group/4]:clipControls;
+                    s3g_thru_table::set(c.table.patches[group%4],int(field),value);
+                }continue;
+            }
             if(lane>=kClipLayersOffset)continue;
             if (lane >= kClipPartParameterOffset && lane < kClipPartHoldOffset) {
                 const std::size_t part=(lane-kClipPartParameterOffset)/kLockParameterCount;
@@ -6892,7 +7059,7 @@ struct ThruInstance : PlaybackEffectsState {
             releaseClipVoices();
         } else if (!clipPlaying) {
             clipPlaying = true;
-            if(!clipRecording)layersOverrides.reset();
+            if(!clipRecording){layersOverrides.reset();tableOverrides.reset();scannedOverrides.reset();fmOverrides.reset();}
             clipNeedsStart = true;
         }
         clipOpenNoteIndices.fill(-1);
@@ -6910,6 +7077,8 @@ struct ThruInstance : PlaybackEffectsState {
         invalidateSequenceRecipePlayback();
         clipRecording = true;
         capturePerformanceInitialState();
+        seedControlLfoRecording();
+        seedTableRecording();
         seedMidiRecording();
         seedLayersRecording();seedSequenceRecording();
         if(splitEnabled) {
@@ -7014,7 +7183,7 @@ struct ThruInstance : PlaybackEffectsState {
         }
         clip->occupied = true;
         clipRecording = false;
-        layersOverrides.reset();
+        layersOverrides.reset();tableOverrides.reset();scannedOverrides.reset();fmOverrides.reset();
         sequenceOverrides={};sequenceRecipeOverrides={};
         clipFinishPending = false;
         clipPlaying = true;
@@ -7022,7 +7191,7 @@ struct ThruInstance : PlaybackEffectsState {
             clipPositionMs = 0.0;
             clipAbsolutePositionMs = 0.0;
             pulsarClipCycle = 0;
-            if(!clipRecording)layersOverrides.reset();
+            if(!clipRecording){layersOverrides.reset();tableOverrides.reset();scannedOverrides.reset();fmOverrides.reset();}
             clipNeedsStart = true;
         }
         markPersistentStateDirty();
@@ -7098,7 +7267,7 @@ struct ThruInstance : PlaybackEffectsState {
         }
         releaseClipRolls();
         for(auto& values:performanceRecorded)values.fill(0);
-        layersRecorded=layersLive;layersOverrides.reset();
+        layersRecorded=layersLive;layersOverrides.reset();tableOverrides.reset();scannedOverrides.reset();fmOverrides.reset();
         sequenceOverrides={};sequenceRecipeOverrides={};
         sequencePlayback=sequenceLive;invalidateSequenceRecipePlayback();syncSequenceRatePhases();
         if(sequenceMode()){
@@ -7243,7 +7412,7 @@ struct ThruInstance : PlaybackEffectsState {
                 clipPositionMs = 0.0;
                 clipAbsolutePositionMs = 0.0;
                 pulsarClipCycle = 0;
-                if(!clipRecording)layersOverrides.reset();
+                if(!clipRecording){layersOverrides.reset();tableOverrides.reset();scannedOverrides.reset();fmOverrides.reset();}
                 clipNeedsStart = true;
             }
             return;
@@ -7326,7 +7495,7 @@ struct ThruInstance : PlaybackEffectsState {
             clipPositionMs = 0.0;
             clipAbsolutePositionMs = 0.0;
             pulsarClipCycle = 0;
-            if(!clipRecording)layersOverrides.reset();
+            if(!clipRecording){layersOverrides.reset();tableOverrides.reset();scannedOverrides.reset();fmOverrides.reset();}
             clipNeedsStart = true;
             return;
         }
@@ -7338,14 +7507,14 @@ struct ThruInstance : PlaybackEffectsState {
 
     void startClipPlaybackNow()
     {
-        resetSequenceClock();sequenceOverrides={};sequenceRecipeOverrides={};
+        resetSequenceClock();resetControlLfos(true);sequenceOverrides={};sequenceRecipeOverrides={};
         splitMixerOverrides.fill(false);
         clipPlaying = true;
         releaseClipVoices();
         clipPositionMs = 0.0;
         clipAbsolutePositionMs = 0.0;
         pulsarClipCycle = 0;
-        if(!clipRecording)layersOverrides.reset();
+        if(!clipRecording){layersOverrides.reset();tableOverrides.reset();scannedOverrides.reset();fmOverrides.reset();}
         clipNeedsStart = true;
         if(chainLaunchBank>=0){prepareChainLaunch();return;}
         if (chainEnabled) {
@@ -7370,6 +7539,7 @@ struct ThruInstance : PlaybackEffectsState {
     void setClipPlaying(bool running)
     {
         postPatternCommand(2,running?1:0);
+        if(running&&!clipPlaying)resetControlLfos(true);
         if (!running) {
             chainLaunchBank=chainLaunchSlot=-1;
             if (!clipPlaying && !clipLaunchPending) return;
@@ -7400,8 +7570,11 @@ struct ThruInstance : PlaybackEffectsState {
     bool workingClipHasContent() const
     {
         const ClipSlot* clip = activeClipSlot();
-        return clip && clip->clipRecorded
-            && clip->clipDurationMs >= kClipMinimumDurationMs;
+        bool synth=listUsesAlgorithm(int(Engine::PlaybackAlgorithm::table))||listUsesAlgorithm(int(Engine::PlaybackAlgorithm::scanned))||listUsesAlgorithm(int(Engine::PlaybackAlgorithm::fm));
+        for(int part=0;part<(splitEnabled?partCount():1);++part)
+            synth|=Engine::sourceFree(liveControlsForPart(part).algorithm);
+        return synth || (clip && clip->clipRecorded
+            && clip->clipDurationMs >= kClipMinimumDurationMs);
     }
 
     void markPersistentStateDirty()
@@ -7542,8 +7715,9 @@ struct ThruInstance : PlaybackEffectsState {
         const bool previousSplit=splitEnabled,previousShared=sharedDual,previousQuad=quadMode;
         splitMixerOverrides.fill(false);
         restoreSplitClip(target);
+        resetControlLfos(freshSequence);
         if(freshSequence)resetSequenceClock();else invalidateSequenceRecipePlayback();
-        layersLive=layersRecorded=target.layers;layersOverrides.reset();clearLayersTouches();if(layersLive.active)layersRack.prime(layersLive);
+        layersLive=layersRecorded=target.layers;layersOverrides.reset();tableOverrides.reset();scannedOverrides.reset();fmOverrides.reset();clearLayersTouches();if(layersLive.active)layersRack.prime(layersLive);
         if((previousSplit!=splitEnabled||previousShared!=sharedDual||previousQuad!=quadMode) && voices[0].engine.prepared())refreshPlaybackVoices();
         clipControls = controls;
         clipOutputGain = outputGain;
@@ -8946,7 +9120,9 @@ struct ThruInstance : PlaybackEffectsState {
                 splitEnvelopePower[part].fill(0);
             }
             for(auto& part:stochasticListenBus)for(auto& channel:part)channel.fill(0);
+            for(auto& part:tableScopeBus)for(auto& lane:part)lane.fill(0);
             markRenderProfile(1);
+            advanceControlLfos(count);
             for (auto& voice : voices) {
                 // Inactive voices have no envelope or playback state to
                 // advance. Processing all eight dormant engines multiplied
@@ -8975,7 +9151,7 @@ struct ThruInstance : PlaybackEffectsState {
                 }
                 const float voiceGain = stealingVoice
                     ? voice.stealOutputGain
-                    : (voice.clipOwned ? clipOutputGain : outputGain)*voice.midiGain;
+                    : controlLfoOutputGain(voice.part,voice.clipOwned?clipOutputGain:outputGain)*voice.midiGain;
                 const float tone=stealingVoice?voice.stealTone:voiceToneAmount(voice);
                 const float toneCoefficient=tone>0?1-std::exp(-6.28318530718f*(20000.f*std::pow(.04f,tone))/sampleRate):1;
                 float listenEnergy = 0;
@@ -9013,6 +9189,8 @@ struct ThruInstance : PlaybackEffectsState {
                     auto& listenBus = stochasticListenBus[voice.part];
                     listenBus[0][frame] += listenLeft;listenBus[1][frame] += listenRight;
                     listenEnergy += .5f * (listenLeft*listenLeft + listenRight*listenRight);
+                    if(effective.algorithm==Engine::PlaybackAlgorithm::table||effective.algorithm==Engine::PlaybackAlgorithm::fm)for(int lane=0;lane<4;++lane)
+                        tableScopeBus[voice.part][lane][frame]+=voice.engine.tableScopeSample(lane,frame)*audibleEnvelope*voice.gainState;
                     target[0u][frame] += left * audibleEnvelope * voice.gainState;
                     target[1u][frame] += right * audibleEnvelope * voice.gainState;
                     if (splitEnabled) splitEnvelopePower[voice.part][frame] += audibleEnvelope * audibleEnvelope;
@@ -9039,6 +9217,7 @@ struct ThruInstance : PlaybackEffectsState {
                 }
             }
 
+            captureTableScopes(count);
             markRenderProfile(2);
             for(int part=0;part<4;++part) {
                 float energy=0;const auto& bus=stochasticListenBus[part];
@@ -9158,7 +9337,9 @@ struct ThruInstance : PlaybackEffectsState {
             Engine::Controls effectControlSnapshot = clipPlaying
                 ? clipControlSnapshot : liveControlSnapshot;
             applyPerformanceSends(effectControlSnapshot);
-            if(layersLive.active)layersRack.process(count,voiceMix,clipPlaying?layersRecorded:layersLive,{tempoBpm,transportBeats,clipPositionMs,clipLaunchSerial,clipPlaying,true});
+            if(!splitEnabled)applyControlLfoControls(effectControlSnapshot,0,s3g_thru_lfo::Domain::insert);
+            applyControlLfoControls(effectControlSnapshot,4,s3g_thru_lfo::Domain::shared);
+            if(layersLive.active)layersRack.process(count,voiceMix,clipPlaying?layersRecorded:layersLive,{tempoBpm,transportBeats,clipPositionMs,clipLaunchSerial,clipPlaying,true},controlLfoLayerOffset());
             else processEffects(count, effectControlSnapshot);
             for(std::size_t frame=0;frame<count;++frame)
                 for(std::size_t ch=0;ch<2;++ch)voiceMix[ch][frame]+=directPreview[ch][frame];
@@ -9343,7 +9524,7 @@ struct ThruInstance : PlaybackEffectsState {
         if (!file) return false;
         const char magic[8] { 'S', '3', 'G', 'T', 'H', 'R', '3', '\0' };
         bool ok = writeBytes(file, magic, sizeof(magic))
-            && writeU32(file, 46u)
+            && writeU32(file, 55u)
             && writeU64(file, snapshot ? snapshot->generation : persistenceGeneration)
             && writeF32(file, snapshot ? snapshot->tempo : tempoBpm)
             && writeF32(file, snapshot ? snapshot->swing : tempoSwing)
@@ -9409,7 +9590,7 @@ struct ThruInstance : PlaybackEffectsState {
                     && writeU32(file, clipPointTake(point));
             }
         }
-        ok = ok && writeSplitExtension(file,savedClips) && writeStackPaths(file,savedClips) && writeChainBanks(file,savedBanks,savedBank) && writeChainPlaybackState(file,snapshot?snapshot->chainPlayBank:chainPlayBank) && writeNewEngineParameters(file,savedClips) && writeVoiceEngineExtension(file,savedClips) && writeVoicePlayExtension(file,savedClips) && writeStochasticParameters(file,savedClips) && writePulsarParameters(file,savedClips) && writePriorityParameters(file,savedClips) && writeBankExtension(file,savedClips) && writeBankPadExtension(file,savedClips) && writeSliceExtension(file,savedClips) && writeLayersExtension(file,savedClips) && writeSequenceExtension(file,savedClips) && writeSequenceMixExtension(file,savedClips) && writeSequenceCycleExtension(file,savedClips) && writeSplitLanePreferences(file,savedClips) && writePulsarSeeds(file,savedClips) && writeSequenceTypes(file,savedClips) && writeSequenceDirections(file,savedClips) && writeSequenceShifts(file,savedClips) && writeSequencePaths(file,savedClips);
+        ok = ok && writeSplitExtension(file,savedClips) && writeStackPaths(file,savedClips) && writeChainBanks(file,savedBanks,savedBank) && writeChainPlaybackState(file,snapshot?snapshot->chainPlayBank:chainPlayBank) && writeNewEngineParameters(file,savedClips) && writeVoiceEngineExtension(file,savedClips) && writeVoicePlayExtension(file,savedClips) && writeStochasticParameters(file,savedClips) && writePulsarParameters(file,savedClips) && writePriorityParameters(file,savedClips) && writeBankExtension(file,savedClips) && writeBankPadExtension(file,savedClips) && writeSliceExtension(file,savedClips) && writeLayersExtension(file,savedClips) && writeSequenceExtension(file,savedClips) && writeSequenceMixExtension(file,savedClips) && writeSequenceCycleExtension(file,savedClips) && writeSplitLanePreferences(file,savedClips) && writePulsarSeeds(file,savedClips) && writeSequenceTypes(file,savedClips) && writeSequenceDirections(file,savedClips) && writeSequenceShifts(file,savedClips) && writeSequencePaths(file,savedClips) && writeControlLfos(file,savedClips) && writePooledLfos(file,savedClips) && writeLfoAutoExtension(file,savedClips) && writeTableExtension(file,savedClips) && writeSequenceSoundLocks(file,savedClips) && writeScannedExtension(file,savedClips) && writeScannedHitExtension(file,savedClips) && writeScannedAmpExtension(file,savedClips) && writeFmExtension(file,savedClips);
         const bool closed = std::fclose(file) == 0;
         ok = ok && closed && appendFileChecksum(temporary.data());
         if (!ok || (!stageOnly && !replaceFileWithBackup(temporary.data(), path.data()))) {
@@ -9473,7 +9654,7 @@ struct ThruInstance : PlaybackEffectsState {
             && (version == 1u || version == 2u || version == 3u
                 || version == 4u || version == 5u || version == 6u
                 || version == 7u || version == 8u || version == 9u
-                || version == 10u || version == 11u || version == 12u || version == 13u || version == 14u || version==15u || version==16u || version==17u || version==18u || version==19u || version==20u || version==21u || version==22u || version==23u || version==24u || version==25u || version==26u || version==27u || version==28u || version==29u || version==30u || version==31u || version==32u || version==33u || version==34u || version==35u || version==36u || version==37u || version==38u || version==39u || version==40u || version==41u || version==42u || version==43u || version==44u || version==45u || version==46u)
+                || version == 10u || version == 11u || version == 12u || version == 13u || version == 14u || version==15u || version==16u || version==17u || version==18u || version==19u || version==20u || version==21u || version==22u || version==23u || version==24u || version==25u || version==26u || version==27u || version==28u || version==29u || version==30u || version==31u || version==32u || version==33u || version==34u || version==35u || version==36u || version==37u || version==38u || version==39u || version==40u || version==41u || version==42u || version==43u || version==44u || version==45u || version==46u || version==47u || version==48u || version==49u || version==50u || version==51u || version==52u || version==53u || version==54u || version==55u)
             && readU64(file, generation) && generation != 0u;
         std::fclose(file);
         return ok;
@@ -9510,7 +9691,7 @@ struct ThruInstance : PlaybackEffectsState {
             && (version == 1u || version == 2u || version == 3u
                 || version == 4u || version == 5u || version == 6u
                 || version == 7u || version == 8u || version == 9u
-                || version == 10u || version == 11u || version == 12u || version == 13u || version == 14u || version==15u || version==16u || version==17u || version==18u || version==19u || version==20u || version==21u || version==22u || version==23u || version==24u || version==25u || version==26u || version==27u || version==28u || version==29u || version==30u || version==31u || version==32u || version==33u || version==34u || version==35u || version==36u || version==37u || version==38u || version==39u || version==40u || version==41u || version==42u || version==43u || version==44u || version==45u || version==46u)
+                || version == 10u || version == 11u || version == 12u || version == 13u || version == 14u || version==15u || version==16u || version==17u || version==18u || version==19u || version==20u || version==21u || version==22u || version==23u || version==24u || version==25u || version==26u || version==27u || version==28u || version==29u || version==30u || version==31u || version==32u || version==33u || version==34u || version==35u || version==36u || version==37u || version==38u || version==39u || version==40u || version==41u || version==42u || version==43u || version==44u || version==45u || version==46u || version==47u || version==48u || version==49u || version==50u || version==51u || version==52u || version==53u || version==54u || version==55u)
             && readU64(file, loadedGeneration)
             && loadedGeneration != 0u
             && (expectedGeneration == kAnyPersistenceGeneration
@@ -9638,7 +9819,7 @@ struct ThruInstance : PlaybackEffectsState {
                         && readU32(file, velocity)
                         && readU32(file, sourcePad)
                         && (version < 2u || readU32(file, take))
-                        && (take & 255u) < std::max(1u,takeCount) && (version<14u?take<256u:version<24u?(take>>8u)<=(version>=15u?4u:2u):((take>>8u)&255u)<=4u&&((take>>16u)&255u)<=8u&&(take>>24u)<=(version>=29u?15u:version>=26u?14u:13u)&&(!((take>>16u)&255u)||(take>>24u)));
+                        && (take & 255u) < std::max(1u,takeCount) && (version<14u?take<256u:version<24u?(take>>8u)<=(version>=15u?4u:2u):((take>>8u)&255u)<=4u&&((take>>16u)&255u)<=8u&&(take>>24u)<=(version>=52u?17u:version>=50u?16u:version>=29u?15u:version>=26u?14u:13u)&&(!((take>>16u)&255u)||(take>>24u)));
                     if (clip.clipDurationMs != 0u) {
                         note.startMs %= clip.clipDurationMs;
                     }
@@ -9669,10 +9850,15 @@ struct ThruInstance : PlaybackEffectsState {
                         && (version < 2u || readU32(file, take))
                         && parameter < kLockParameterCount
                         && type <= static_cast<std::uint32_t>(
-                            version>=44u?ClipPointType::sequenceRecipe:version>=38u?ClipPointType::sequenceLane:version>=37u?ClipPointType::layersBaseline:version>=35u?ClipPointType::midiExpression:version>=25u?ClipPointType::notePressure:version>=17u?ClipPointType::stackPath:version>=16u?ClipPointType::performance:ClipPointType::partHold)
-                        && (type<static_cast<std::uint32_t>(ClipPointType::layersParameter)||(sourcePad<6u && parameter<192u && sourcePad*192u+parameter<LayerPatch::size))
+                            version>=55u?ClipPointType::fmParameter:version>=52u?ClipPointType::scannedParameter:version>=50u?ClipPointType::tableParameter:version>=48u?ClipPointType::pooledLfo:version>=47u?ClipPointType::controlLfo:version>=44u?ClipPointType::sequenceRecipe:version>=38u?ClipPointType::sequenceLane:version>=37u?ClipPointType::layersBaseline:version>=35u?ClipPointType::midiExpression:version>=25u?ClipPointType::notePressure:version>=17u?ClipPointType::stackPath:version>=16u?ClipPointType::performance:ClipPointType::partHold)
+                        && (type!=static_cast<std::uint32_t>(ClipPointType::pooledLfo)||(sourcePad<8u&&parameter<11u&&validPooledLfoPoint(parameter,point.value)))
+                        && (type!=static_cast<std::uint32_t>(ClipPointType::controlLfo)||(sourcePad<4u&&parameter<18u&&validControlLfoPoint(parameter,point.value)))
+                        && (type<static_cast<std::uint32_t>(ClipPointType::layersParameter)||type==static_cast<std::uint32_t>(ClipPointType::controlLfo)||type==static_cast<std::uint32_t>(ClipPointType::pooledLfo)||type==static_cast<std::uint32_t>(ClipPointType::tableParameter)||type==static_cast<std::uint32_t>(ClipPointType::scannedParameter)||type==static_cast<std::uint32_t>(ClipPointType::fmParameter)||(sourcePad<6u && parameter<192u && sourcePad*192u+parameter<LayerPatch::size))
                         && (type!=static_cast<std::uint32_t>(ClipPointType::sequenceLane)||(sourcePad<4u&&parameter<(version>=46u?12u:version>=44u?11u:10u)&&std::isfinite(point.value)&&(parameter!=10u||(point.value>=0&&point.value<=4&&std::floor(point.value)==point.value))&&(parameter!=11u||(point.value>=0&&point.value<=2&&std::floor(point.value)==point.value))))
                         && (type!=static_cast<std::uint32_t>(ClipPointType::sequenceRecipe)||(sourcePad<4u&&parameter>=1u&&parameter<=(version>=45u?21u:20u)&&validSequenceRecipePoint(parameter,point.value)))
+                        && (type!=static_cast<std::uint32_t>(ClipPointType::fmParameter)||(sourcePad<16u&&parameter<s3g_thru_fm::fields&&point.value>=s3g_thru_fm::low[parameter]&&point.value<=s3g_thru_fm::high[parameter]&&(!s3g_thru_fm::discrete(int(parameter))||point.value==std::floor(point.value))))
+                        && (type!=static_cast<std::uint32_t>(ClipPointType::scannedParameter)||(sourcePad<16u&&parameter<std::uint32_t(version>=54u?s3g_thru_scanned::fields:version>=53u?s3g_thru_scanned::percussionFields:s3g_thru_scanned::legacyFields)&&point.value>=s3g_thru_scanned::low[parameter]&&point.value<=s3g_thru_scanned::high[parameter]&&(!s3g_thru_scanned::discrete(int(parameter))||point.value==std::floor(point.value))))
+                        && (type!=static_cast<std::uint32_t>(ClipPointType::tableParameter)||(sourcePad<16u&&parameter<s3g_thru_table::fields&&point.value>=s3g_thru_table::low[parameter]&&point.value<=s3g_thru_table::high[parameter]&&(!s3g_thru_table::discrete(int(parameter))||point.value==std::floor(point.value))))
                         && take < std::max(1u, takeCount)
                         && (type!=static_cast<std::uint32_t>(ClipPointType::notePressure)||(sourcePad<4u&&parameter<128u&&point.value>=0&&point.value<=1))
                         && (type!=static_cast<std::uint32_t>(ClipPointType::midiExpression)||(sourcePad<4u&&parameter<4u&&point.value>=(parameter==0?-24.f:0.f)&&point.value<=(parameter==0?24.f:1.f)));
@@ -9725,6 +9911,16 @@ struct ThruInstance : PlaybackEffectsState {
         else if(ok)migrateSequenceDirections(*loadedClips);
         if(ok&&version>=45u)ok=readSequenceShifts(file,*loadedClips);
         if(ok&&version>=46u)ok=readSequencePaths(file,*loadedClips);
+        if(ok&&version>=47u)ok=readControlLfos(file,*loadedClips);
+        if(ok&&version>=48u)ok=readPooledLfos(file,*loadedClips);
+        else if(ok)for(auto& clip:*loadedClips)migrateControlLfoPool(clip,version>=47u);
+        if(ok&&version>=49u)ok=readLfoAutoExtension(file,*loadedClips);
+        if(ok&&version>=50u)ok=readTableExtension(file,*loadedClips);
+        if(ok&&version>=51u)ok=readSequenceSoundLocks(file,*loadedClips);
+        if(ok&&version>=52u)ok=readScannedExtension(file,*loadedClips);
+        if(ok&&version>=53u)ok=readScannedHitExtension(file,*loadedClips);
+        if(ok&&version>=54u)ok=readScannedAmpExtension(file,*loadedClips);
+        if(ok&&version>=55u)ok=readFmExtension(file,*loadedClips);
         // A legacy automatic policy preserves 1 ms for Transients and zero
         // for Equal independently, including shared lanes used by both parts.
         const bool atEnd = ok && std::ftell(file) == payloadSize;
@@ -10421,6 +10617,7 @@ struct ThruInstance : PlaybackEffectsState {
         const bool previousSplit = splitEnabled, previousShared = sharedDual, previousQuad=quadMode;
         if(!restorePulsarSeedsJson(json))return false;
         if(!restoreSplitJson(json))return false;
+        if(!restoreTableJson(json)||!restoreScannedJson(json)||!restoreScannedHitJson(json)||!restoreScannedAmpJson(json)||!restoreFmJson(json))return false;
         if(!restoreLayersJson(json))return false;
         sequenceLive.active=jsonNumber(json,"sequence_mode",value)&&value>=.5f;
         if(sequenceMode()&&(!splitEnabled||!quadMode||layersLive.active||bankMode))return false;
@@ -10454,6 +10651,7 @@ struct ThruInstance : PlaybackEffectsState {
         for(auto& source:midiCcPickups)for(auto& pickup:source)pickup={};
         persistenceGeneration = loadedGeneration;
         observePersistenceGeneration(loadedGeneration);
+        if(!readControlLfoJson(json))return false;
         if(repairedE16ZeroSweep)markPersistentStateDirty();
         return true;
     }
@@ -10625,6 +10823,9 @@ void setParam(void* opaque, const char* key, const char* value)
     CallbackWorkTimer callbackTimer(*instance, false);
     if(instance->setProjectParam(key,value))return;
     if(instance->projectLocked()&&std::strcmp(key,"panic")&&std::strcmp(key,"all_notes_off")&&std::strcmp(key,"shift_held")&&std::strcmp(key,"delete_held"))return;
+    if(instance->setSequenceSoundParameter(key,value))return;
+    if(instance->setTableParam(key,value)||instance->setScannedParam(key,value)||instance->setFmParam(key,value))return;
+    if(instance->setControlLfoParam(key,value))return;
     if(instance->setSynthParam(key,value))return;
     if (std::strcmp(key,"clip_clear_recording")==0){if(isTruthy(value))instance->clearRecordedPerformance();return;}
     if(!std::strcmp(key,"render_profile_enable")){instance->renderProfileEnabled=isTruthy(value);instance->patternWorkerMeasure.store(instance->renderProfileEnabled,std::memory_order_release);return;}
@@ -11003,6 +11204,11 @@ int getParamValue(void* opaque, const char* key, char* buffer, int bufferLength)
 {
     auto* instance = static_cast<ThruInstance*>(opaque);
     if (!instance || !key || !buffer || bufferLength < 1) return -1;
+    if(!std::strcmp(key,"table_scope"))return instance->formatTableScopes(buffer,bufferLength);
+    if(!std::strcmp(key,"fm_state"))return instance->formatFmState(buffer,bufferLength);
+    if(!std::strcmp(key,"scanned_state"))return instance->formatScannedState(buffer,bufferLength);
+    if(!std::strcmp(key,"table_state"))return instance->formatTableState(buffer,bufferLength);
+    {float value=0;if((instance->tableParameterValue(key,instance->splitEnabled?instance->splitFocus:0,value)||instance->scannedParameterValue(key,instance->splitEnabled?instance->splitFocus:0,value)||instance->fmParameterValue(key,instance->splitEnabled?instance->splitFocus:0,value)))return std::snprintf(buffer,bufferLength,"%.9g",double(value));}
     if (std::strncmp(key,"ui_poll_",8)==0)
         return formatUiPoll(opaque,key+8,buffer,bufferLength);
     if(!std::strcmp(key,"pattern_worker_state"))return instance->formatPatternWorker(buffer,bufferLength);
@@ -11024,6 +11230,10 @@ int getParamValue(void* opaque, const char* key, char* buffer, int bufferLength)
     if(std::strcmp(key,"midi_control_part")==0)return std::snprintf(buffer,bufferLength,"%d",instance->midiControlPart);
     if(std::strcmp(key,"voice_mode")==0)return std::snprintf(buffer,bufferLength,"%d",instance->voiceMode);
     if(!std::strncmp(key,"synth_spectrum:",15))return instance->formatSynthSpectrum(parseInteger(key+15,-1),buffer,bufferLength);
+    if(!std::strcmp(key,"lfo_state"))return instance->formatControlLfo(buffer,bufferLength);
+    if(!std::strcmp(key,"lfo_live"))return instance->formatControlLfoLive(buffer,bufferLength);
+    {float lfoValue=0;if(instance->controlLfoParameterValue(key,instance->splitEnabled?instance->splitFocus:0,lfoValue))return std::snprintf(buffer,bufferLength,"%.9g",double(lfoValue));}
+    if(!std::strcmp(key,"synth_editor"))return instance->formatSynthEditor(buffer,bufferLength);
     if(!std::strcmp(key,"synth_state"))return instance->formatSynth(buffer,bufferLength);
     if(!std::strcmp(key,"synth_directory"))return std::snprintf(buffer,bufferLength,"%s",instance->synthDirectory.data());
     if(!std::strcmp(key,"project_state"))return instance->formatProjectState(buffer,bufferLength);
@@ -11186,6 +11396,7 @@ int getParamValue(void* opaque, const char* key, char* buffer, int bufferLength)
     }
     if (!std::strcmp(key,"seq_cursor_state"))return instance->sequenceCursorState(buffer,bufferLength);
     if (!std::strcmp(key,"seq_gen_state"))return instance->sequenceGenerateState(buffer,bufferLength);
+    if (!std::strcmp(key,"seq_sound_state"))return instance->formatSequenceSoundState(buffer,bufferLength);
     if (!std::strcmp(key,"mixer_state"))return instance->outputMixerState(buffer,bufferLength);
     if (!std::strcmp(key,"seq_state")){instance->serviceSequenceTypes();return instance->sequenceState(buffer,bufferLength);}
     if (instance->sequenceKeyKnown(key))return std::snprintf(buffer,bufferLength,"%.9g",instance->sequenceParameterValue(key));

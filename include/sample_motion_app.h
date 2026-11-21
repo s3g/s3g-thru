@@ -6,6 +6,9 @@
 #include "thru_formant.h"
 #include "thru_stochastic.h"
 #include "thru_pulsar.h"
+#include "thru_table_voice.h"
+#include "thru_scanned_voice.h"
+#include "thru_fm_voice.h"
 
 #include <algorithm>
 #include <cmath>
@@ -44,10 +47,11 @@ public:
         glitch,
         longGrains,
         wavesets,
-        prism, morph, texture, formant, stochastic, pulsar,
+        prism, morph, texture, formant, stochastic, pulsar, table, scanned, fm,
     };
 
-    static constexpr std::size_t kPlaybackAlgorithmCount = 15u;
+    static constexpr std::size_t kPlaybackAlgorithmCount = 18u;
+    static constexpr bool sourceFree(PlaybackAlgorithm a){return a==PlaybackAlgorithm::table||a==PlaybackAlgorithm::scanned||a==PlaybackAlgorithm::fm;}
 
     enum class SampleMode : std::uint8_t {
         forward,
@@ -385,9 +389,17 @@ public:
     };
 
     struct Controls {
+        s3g_thru_table::Program table;
+        s3g_thru_scanned::Program scanned;
+        s3g_thru_fm::Program fm;
+        float scannedPressure=0;
+        int tableEditor=0; // Physical patch lane; transient editor identity.
+        float tableNoteHz=261.625565f;
+        std::uint32_t tableNoteSeed=1;
         float locus = 0.5f;
         float noteStartOffset = 0.0f; // Cached per-note phase; never a live reader jump.
         float field = 1.0f;
+        bool sampleWindowModulation = false; // Ephemeral live window; never a stored parameter.
         float speed = 1.0f;
         float mix = 1.0f;
         float join = 1.0f;
@@ -640,6 +652,8 @@ public:
         capacityFrames_ = capacityFrames;
         laneCapacityFrames_ = capacityFrames_ / kLaneChannels;
         (void)s3g_daisy::ThruSpectralPlan::get();
+        tableInstrument_.prepare();
+        scannedInstrument_.prepare();fmInstrument_.prepare();
         outputSampleRate_ = outputSampleRate;
         windowFadeFrames_ = std::max<std::size_t>(
             32u, static_cast<std::size_t>(outputSampleRate_ * 0.030f));
@@ -1042,7 +1056,7 @@ public:
     void retrigger(bool currentOutputAudible)
     {
         if (sourceFrames_ == 0u) {
-            return;
+            resetReader();inaudibleNoteStart_=true;playing_=true;return;
         }
         const bool audiblePlayback = currentOutputAudible && playing_ && !sampleDone_
             && retriggerFadeRemaining_ != retriggerFadeFrames_;
@@ -1164,7 +1178,7 @@ public:
                 = clamp(controls.laneGains[lane], 0.0f, 4.0f);
         }
         if (inaudibleNoteStart_) {
-            if (controls.algorithm == PlaybackAlgorithm::pulsar) {
+            if (controls.algorithm == PlaybackAlgorithm::pulsar || sourceFree(controls.algorithm)) {
                 currentAlgorithm_ = pendingAlgorithm_ = requestedAlgorithm_ = controls.algorithm;
                 algorithmFadeRemaining_ = 0u;
             }
@@ -1183,6 +1197,10 @@ public:
         prepareLongGrainControls(controls);
         prepareWavesetControlsBlock(controls, frames, preparedControls);
 
+        if (controls.algorithm == PlaybackAlgorithm::table || currentAlgorithm_ == PlaybackAlgorithm::table)
+            tableInstrument_.beginBlock(controls.table.patches);
+        if(controls.algorithm==PlaybackAlgorithm::scanned||currentAlgorithm_==PlaybackAlgorithm::scanned)scannedInstrument_.beginBlock(controls.scanned.patches);
+        if(controls.algorithm==PlaybackAlgorithm::fm||currentAlgorithm_==PlaybackAlgorithm::fm)fmInstrument_.beginBlock(controls.fm.patches);
         std::size_t laneControlCountdown = 0u;
         for (std::size_t frame = 0u; frame < frames; ++frame) {
             for (std::size_t lane = 0u; lane < kStackLanes; ++lane) {
@@ -1201,7 +1219,7 @@ public:
                 }
             }
 
-            if (!playing_ || sourceFrames_ == 0u) {
+            if (!playing_ || (sourceFrames_ == 0u && !sourceFree(currentAlgorithm_))) {
                 for (std::size_t channel = 0u; channel < kChannels; ++channel) {
                     output[channel][frame] = input[channel][frame] * recordGain;
                 }
@@ -1214,12 +1232,12 @@ public:
             }
 
             constexpr std::size_t laneControlFrames = 48u;
-            if (stackMode_ && laneControlCountdown == 0u) {
+            if ((stackMode_ || sourceFree(currentAlgorithm_)) && laneControlCountdown == 0u) {
                 laneControlCountdown
                     = std::min(laneControlFrames, frames - frame);
                 prepareLaneScanBlock(controls, laneControlCountdown);
             }
-            if (stackMode_) {
+            if (stackMode_ || sourceFree(currentAlgorithm_)) {
                 advanceLaneWeights();
             }
             speed_ += (targetSpeed - speed_) * speedSlew_;
@@ -1232,7 +1250,8 @@ public:
             const float retriggerGain = retriggerTransitionGain();
             const float motionSoundGain = motionSoundTransitionGain(controls);
             const float motionSeedGain = motionSeedTransitionGain();
-            const float sampleTransition = controls.sampleEditCrossfade ? 1.0f : sampleTransitionGain();
+            const float sampleTransition = (controls.sampleEditCrossfade || controls.sampleWindowModulation
+                || currentSampleConfig_.modulatedWindow || sampleEditRemaining_) ? 1.0f : sampleTransitionGain();
             if(noteStartPending_&&currentAlgorithm_==controls.algorithm) {
                 noteStartPending_=false;
                 if(controls.noteStartOffset!=0) {
@@ -1274,6 +1293,9 @@ public:
                 case PlaybackAlgorithm::formant: renderFormantFrame(preparedControls, wetOutput); break;
                 case PlaybackAlgorithm::stochastic: renderStochasticFrame(preparedControls,wetOutput);break;
                 case PlaybackAlgorithm::pulsar: renderPulsarFrame(preparedControls,wetOutput);break;
+                case PlaybackAlgorithm::table: renderTableFrame(controls,wetOutput,frame);break;
+                case PlaybackAlgorithm::scanned: renderScannedFrame(controls,wetOutput);break;
+                case PlaybackAlgorithm::fm: renderFmFrame(controls,wetOutput,frame);break;
                 case PlaybackAlgorithm::texture: renderTextureFrame(preparedControls,wetOutput);break;
                 case PlaybackAlgorithm::wavesets:
                     // Wavesets glides continuous controls without rebuilding
@@ -1300,6 +1322,11 @@ public:
                     = (input[channel][frame] * (1.0f - dryWet) + wet * dryWet)
                         * recordGain;
             }
+            if(currentAlgorithm_==PlaybackAlgorithm::table||currentAlgorithm_==PlaybackAlgorithm::fm){
+                float gain=algorithmGain*retriggerGain*motionSoundGain*motionSeedGain*sampleTransition*dryWet*recordGain;
+                if(retriggerFadeRemaining_!=0u)gain*=smoothStep(1-float(retriggerFadeRemaining_)/float(retriggerFadeFrames_));
+                for(auto& lane:tableScope_)lane[frame%128]*=gain;
+            }
             if (recording_ && recordWriteActive_
                 && recordInputOffset_ == kResampleInputOffset) {
                 recordFrame(output[0u][frame], output[1u][frame]);
@@ -1314,9 +1341,11 @@ public:
                 --retriggerFadeRemaining_;
             }
         }
+        tableInstrument_.endBlock();scannedInstrument_.endBlock();fmInstrument_.endBlock();
         if (currentAlgorithm_ == PlaybackAlgorithm::wavesets) refreshWavesetTelemetry();
     }
 
+    float scannedProfile(int lane,int node)const{return lane>=0&&lane<4&&node>=0&&node<64?scannedInstrument_.models[lane].y[node]:0;}
     float* writableChannel(std::size_t channel)
     {
         return channel < kChannels ? storage_[channel] : nullptr;
@@ -1387,6 +1416,15 @@ public:
     PlaybackAlgorithm playbackAlgorithm() const { return currentAlgorithm_; }
     bool prepared() const { return prepared_; }
     bool playing() const { return playing_; }
+    float tableScopeSample(int lane,std::size_t frame)const{return lane>=0&&lane<4?tableScope_[lane][frame%128]:0;}
+
+    float tableScopeFrequency(int lane)const {
+        if(currentAlgorithm_==PlaybackAlgorithm::fm&&lane>=0&&lane<4)return fmInstrument_.models[lane].hz;
+        for(int slot=0;slot<2;++slot)if(tableInstrument_.lanes[slot]==lane&&tableInstrument_.voices[slot].initialized){
+            const auto& state=tableInstrument_.voices[slot].current;return state.hz*state.frequencyRatio;
+        }
+        return 261.625565f;
+    }
     bool recording() const { return recording_; }
     bool laneTransitionActive() const
     {
@@ -1801,6 +1839,7 @@ public:
 
     float normalizedPosition() const
     {
+        if(sourceFree(currentAlgorithm_))return -1;
         return sourceFrames_ == 0u
             ? 0.0f
             : clamp01(static_cast<float>(displayPosition_
@@ -1924,6 +1963,8 @@ private:
         bool sliced = false;
         bool overrideRegion = false, absoluteRegion = false;
         float low = 0, high = 1, lead = 0;
+        bool modulatedWindow = false;
+        Window window {};
     };
 
     struct WavesetUnit {
@@ -2390,6 +2431,7 @@ private:
 
     void resetPlaybackForAlgorithm()
     {
+        tableInstrument_.reset();scannedInstrument_.reset();fmInstrument_.reset();
         noteStartPending_=true;
         phase_ = 0.0;
         windowFadeRemaining_ = 0u;
@@ -2478,6 +2520,7 @@ private:
 
     void resetReader()
     {
+        tableInstrument_.reset();scannedInstrument_.reset();fmInstrument_.reset();
         noteStartPending_=true;
         phase_ = 0.0;
         lanePhase_ = 0.0f;
@@ -3059,7 +3102,8 @@ private:
         int lower = -1;
         int upper = -1;
         for (std::size_t lane = 0u; lane < kStackLanes; ++lane) {
-            if (laneFrames_[lane] == 0u) {
+            if ((laneFrames_[lane] == 0u && !sourceFree(controls.algorithm))
+                || (sourceFree(controls.algorithm) && (float(lane)<controls.stackFirstLane||float(lane)>controls.stackLastLane))) {
                 continue;
             }
             if (static_cast<float>(lane) <= result.position) {
@@ -3113,7 +3157,7 @@ private:
     {
         performanceEventTarget_=controls.performanceLaneFixed>=0 || (controls.lanePath==LanePath::manual || controls.lanePath==LanePath::custom) ? 1.0f
             : clamp01(controls.performanceLaneAmount);
-        if (!stackMode_ || currentAlgorithm_ == PlaybackAlgorithm::cutups) {
+        if ((!stackMode_ && !sourceFree(currentAlgorithm_)) || currentAlgorithm_ == PlaybackAlgorithm::cutups) {
             lanePhaseIncrement_ = 0.0f;
             return;
         }
@@ -3146,6 +3190,7 @@ private:
         const std::size_t firstLane = std::min(lanes.first, kStackLanes - 1u);
         const std::size_t secondLane = std::min(lanes.second, kStackLanes - 1u);
         lanePosition_ = lanes.position;
+        if(sourceFree(controls.algorithm))tableLaneTarget_=lanes.position;
         for (std::size_t lane = 0u; lane < kStackLanes; ++lane) {
             laneWeightTargets_[lane] = 0.0f;
         }
@@ -5051,8 +5096,10 @@ private:
     }
 
     static bool sameSampleConfig(const SampleReaderConfig& a,
-                                 const SampleReaderConfig& b)
+                                 const SampleReaderConfig& b, bool includeWindow = true)
     {
+        if(includeWindow && a.modulatedWindow!=b.modulatedWindow)return false;
+        if(includeWindow && a.modulatedWindow&&(std::abs(a.window.low-b.window.low)>=1.0||std::abs(a.window.high-b.window.high)>=1.0))return false;
         if(a.mode!=b.mode||a.lane!=b.lane||a.sliced!=b.sliced||a.overrideRegion!=b.overrideRegion)return false;
         if(a.overrideRegion)return a.absoluteRegion==b.absoluteRegion&&a.low==b.low&&a.high==b.high&&a.lead==b.lead;
         return a.regionMode==b.regionMode&&a.regionCount==b.regionCount&&a.slice==b.slice;
@@ -5071,6 +5118,8 @@ private:
             0.0f, std::floor(controls.sampleSlice)));
         config.lane = requestedSampleLane(controls);
         config.sliced = sliced;
+        config.modulatedWindow = !sliced && controls.sampleWindowModulation;
+        if(config.modulatedWindow)config.window=eventWindowInitialized_?eventWindow_:controlWindow(controls);
         if (sliced && controls.sampleRegionOverride) {
             config.overrideRegion = true; config.absoluteRegion = controls.sampleRegionAbsolute;
             config.low = clamp01(controls.sampleRegionLow);
@@ -5128,12 +5177,12 @@ private:
         }
     }
 
-    void renderSampleReader(const SampleReaderConfig& config, const Window& window,
+    void renderSampleReader(const SampleReaderConfig& config, const Window& requestedWindow,
                             const Controls& controls, double& phase, bool& done,
                             float* wet, bool display)
     {
-        fieldLow_ = window.low;
-        fieldHigh_ = window.high;
+        const Window &window=config.modulatedWindow?config.window:requestedWindow;
+        if(display){fieldLow_ = window.low;fieldHigh_ = window.high;}
         const std::size_t lane = config.lane;
         const double fieldWidth = std::max(1.0, window.high - window.low);
         double low = window.low;
@@ -5303,10 +5352,41 @@ private:
         }
     }
 
+    void renderScannedFrame(const Controls& c,float* wet){
+        if(!scannedInstrument_.started){
+          for(int lane=0;lane<4;++lane){const auto* src=laneData(lane,0);const auto n=laneFrames_[lane];
+            scannedInstrument_.hasSample[lane]=src&&n;
+            if(src&&n){const float width=clamp(c.field,.02f,1.f),start=clamp(c.locus-width*.5f,0.f,1.f-width);float mean=0,peak=0;
+              for(int i=0;i<64;++i){const auto at=std::min(n-1,std::size_t((start+width*float(i)/64)*float(n-1)));const float x=src[at];scannedInstrument_.sampleShape[lane][i]=x;mean+=x;}
+              mean/=64;for(auto& x:scannedInstrument_.sampleShape[lane]){x-=mean;peak=std::max(peak,std::abs(x));}if(peak>1e-6f)for(auto& x:scannedInstrument_.sampleShape[lane])x/=(std::max(1.f,peak));
+            }
+          }
+        }
+        const auto audio=scannedInstrument_.tick(c.scanned.patches,tableLaneTarget_,c.tableNoteHz,outputSampleRate_,c.laneSlewMs,activeControlsLaneGains_,c.scannedPressure);
+        lanePosition_=scannedInstrument_.position;
+        for(std::size_t channel=0;channel<kChannels;++channel)wet[channel]=audio[channel&1u];
+    }
+
+    void renderFmFrame(const Controls& c,float* wet,std::size_t frame){
+        if(!fmInstrument_.started)fmInstrument_.identity=c.tableNoteSeed;
+        const auto out=fmInstrument_.tick(c.fm.patches,tableLaneTarget_,c.tableNoteHz,outputSampleRate_,c.laneSlewMs,activeControlsLaneGains_);lanePosition_=fmInstrument_.position;
+        for(std::size_t ch=0;ch<kChannels;++ch)wet[ch]=out[ch&1u];
+        for(int lane=0;lane<4;++lane)tableScope_[lane][frame%128]=fmInstrument_.laneOutput[lane];
+    }
+    void renderTableFrame(const Controls& c,float* wet,std::size_t frame) {
+        if(!tableInstrument_.started)tableInstrument_.identity=c.tableNoteSeed;
+        const auto audio=tableInstrument_.tick(c.table.patches,tableLaneTarget_,c.tableNoteHz,outputSampleRate_,c.laneSlewMs,activeControlsLaneGains_);
+        lanePosition_=tableInstrument_.position;
+        for(int lane=0;lane<4;++lane)tableScope_[lane][frame%128]=tableInstrument_.laneOutput[lane];
+        for(std::size_t channel=0;channel<kChannels;++channel)wet[channel]=audio[channel&1u];
+    }
+
     void renderSampleFrame(const Controls& controls, bool sliced, float* wet)
     {
         const Window window = smoothEventWindow(controls);
-        if (!controls.sampleEditCrossfade || !sliced) {
+        const bool windowOverlap=!sliced&&(controls.sampleWindowModulation||currentSampleConfig_.modulatedWindow
+            ||(sampleEditRemaining_&&outgoingEditSample_.modulatedWindow));
+        if ((!controls.sampleEditCrossfade || !sliced) && !windowOverlap) {
             sampleEditRemaining_ = 0u;
             prepareSampleConfig(controls, sliced);
             renderSampleReader(currentSampleConfig_,window,controls,phase_,sampleDone_,wet,true);
@@ -5315,7 +5395,7 @@ private:
         // Editor audition owns one voice and at most two moving readers. Finish
         // each overlap before adopting the newest edit; do not replace its tail
         // with a frozen output sample or restart an overlap on every knob tick.
-        requestedSampleConfig_ = requestedSampleConfig(controls,true);
+        requestedSampleConfig_ = requestedSampleConfig(controls,sliced);
         sampleTransitionRemaining_ = 0u; sampleConfigPending_ = false;
         if (!sampleConfigInitialized_) {
             currentSampleConfig_ = requestedSampleConfig_;
@@ -5323,17 +5403,26 @@ private:
             sampleConfigInitialized_ = true;
         } else if (sampleEditRemaining_ == 0u
             && !sameSampleConfig(currentSampleConfig_,requestedSampleConfig_)) {
+            const bool resetPhase=!windowOverlap||!sameSampleConfig(currentSampleConfig_,requestedSampleConfig_,false);
             outgoingEditSample_ = currentSampleConfig_;
             outgoingEditPhase_ = phase_; outgoingEditDone_ = sampleDone_;
             currentSampleConfig_ = requestedSampleConfig_;
             currentSampleMode_ = currentSampleConfig_.mode;
-            phase_ = 0.0; sampleDone_ = false;
+            // Window motion relocates two running readers; it must never
+            // retrigger a held one-shot or reset its transport phase.
+            if(resetPhase){phase_ = 0.0; sampleDone_ = false;}
             sampleEditRemaining_ = readerTransitionFrames_ * 2u;
         }
+        const double oldStretch=stretchPhase_;
         renderSampleReader(currentSampleConfig_,window,controls,phase_,sampleDone_,wet,true);
+        const double nextStretch=stretchPhase_;
         if (sampleEditRemaining_ != 0u) {
             float outgoing[kChannels] {};
+            stretchPhase_=oldStretch;
             renderSampleReader(outgoingEditSample_,window,controls,outgoingEditPhase_,outgoingEditDone_,outgoing,false);
+            stretchPhase_=nextStretch;
+            if(windowOverlap){const auto old=outgoingEditSample_.modulatedWindow?outgoingEditSample_.window:window;
+                fieldLow_=std::min(fieldLow_,old.low);fieldHigh_=std::max(fieldHigh_,old.high);}
             const float mix = smoothStep(1.0f-static_cast<float>(sampleEditRemaining_)
                 / static_cast<float>(readerTransitionFrames_*2u));
             for (std::size_t ch=0;ch<kChannels;++ch) wet[ch]=outgoing[ch]+(wet[ch]-outgoing[ch])*mix;
@@ -6621,7 +6710,7 @@ private:
 
     void advanceLaneClock()
     {
-        if (!stackMode_) {
+        if (!stackMode_ && !sourceFree(currentAlgorithm_)) {
             return;
         }
         lanePhase_ += lanePhaseIncrement_;
@@ -6889,6 +6978,11 @@ private:
     double movingCenterTarget_ = 0.0;
     float lastControlLocus_ = -1.0f;
     bool prepared_ = false;
+    s3g_thru_table::Instrument tableInstrument_;
+    s3g_thru_scanned::Instrument scannedInstrument_;
+    s3g_thru_fm::Instrument fmInstrument_;
+    float tableLaneTarget_=0;
+    std::array<std::array<float,128>,4> tableScope_{};
     bool playing_ = false;
     bool recording_ = false;
     bool recordWriteActive_ = false;

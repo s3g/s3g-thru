@@ -1,7 +1,69 @@
 #pragma once
+inline void stripFmPrograms(std::vector<unsigned char>& bytes){
+ if(bytes.size()<16||bytes[8]!=55)return;constexpr std::size_t size=4+64*5*4*23*4;const auto at=bytes.size()-size;assert(bytes[at]=='F'&&bytes[at+1]=='M'&&bytes[at+2]=='P'&&bytes[at+3]=='1');bytes.resize(at);bytes[8]=54;
+}
+inline void stripScannedAmpPrograms(std::vector<unsigned char>& bytes){
+ stripFmPrograms(bytes);
+ if(bytes.size()<16||bytes[8]!=54)return;constexpr std::size_t size=4+64*5*4*8*4;const auto at=bytes.size()-size;
+ assert(bytes[at]=='S'&&bytes[at+1]=='A'&&bytes[at+2]=='P'&&bytes[at+3]=='1');bytes.resize(at);bytes[8]=53;
+}
 #include "thru_sequence.h"
+inline void stripScannedHitPrograms(std::vector<unsigned char>& bytes){
+ stripScannedAmpPrograms(bytes);
+ if(bytes.size()<16||bytes[8]!=53)return;constexpr std::size_t size=4+64*5*4*7*4;const auto at=bytes.size()-size;
+ assert(bytes[at]=='S'&&bytes[at+1]=='H'&&bytes[at+2]=='P'&&bytes[at+3]=='1');bytes.resize(at);bytes[8]=52;
+}
+inline void stripScannedPrograms(std::vector<unsigned char>& bytes){
+ stripScannedHitPrograms(bytes);
+ if(bytes.size()<16||bytes[8]!=52)return;constexpr std::size_t size=4+64*5*4*16*4;const auto at=bytes.size()-size;
+ assert(bytes[at]=='S'&&bytes[at+1]=='C'&&bytes[at+2]=='N'&&bytes[at+3]=='1');bytes.resize(at);bytes[8]=51;
+}
+inline void stripSequenceSoundLocks(std::vector<unsigned char>& bytes){
+ stripScannedPrograms(bytes);
+ if(bytes.size()<16||bytes[8]!=51)return;std::uint32_t size=0;for(int i=0;i<4;++i)size|=std::uint32_t(bytes[bytes.size()-4+i])<<(8*i);assert(size>=264&&size<bytes.size());const auto at=bytes.size()-size;assert(bytes[at]=='S'&&bytes[at+1]=='L'&&bytes[at+2]=='K'&&bytes[at+3]=='1');bytes.resize(at);bytes[8]=50;
+}
+inline void stripTablePrograms(std::vector<unsigned char>&bytes){
+ stripSequenceSoundLocks(bytes);
+ if(bytes.size()<16||bytes[8]!=50)return;constexpr std::size_t size=4+64*5*4*40*4;const auto at=bytes.size()-size;
+ assert(bytes[at]=='T'&&bytes[at+1]=='A'&&bytes[at+2]=='B'&&bytes[at+3]=='1');bytes.resize(at);bytes[8]=49;
+}
+inline void stripLfoAuto(std::vector<unsigned char>&bytes){
+ stripTablePrograms(bytes);
+ if(bytes.size()<16||bytes[8]!=49)return;constexpr std::size_t size=4+64*8*72;const auto at=bytes.size()-size;
+ assert(bytes[at]=='L'&&bytes[at+1]=='A'&&bytes[at+2]=='T'&&bytes[at+3]=='1');bytes.resize(at);bytes[8]=48;
+}
+inline void stripPooledLfos(std::vector<unsigned char>& bytes){
+ stripLfoAuto(bytes);
+ if(bytes.size()<16||bytes[8]!=48)return;constexpr std::size_t size=4+64*(8*200+4*2*32*72);const auto at=bytes.size()-size;
+ assert(bytes[at]=='L'&&bytes[at+1]=='F'&&bytes[at+2]=='P'&&bytes[at+3]=='2');bytes.resize(at);
+ const auto u32=[&](std::size_t n){assert(n+4<=bytes.size());std::uint32_t v=0;for(int i=0;i<4;++i)v|=std::uint32_t(bytes[n+i])<<(8*i);return v;};
+ std::vector<unsigned char> out(bytes.begin(),bytes.begin()+240);std::size_t pos=240;
+ const auto copy=[&](std::size_t n){assert(pos+n<=bytes.size());out.insert(out.end(),bytes.begin()+pos,bytes.begin()+pos+n);pos+=n;};
+ for(int c=0;c<64;++c){copy(4+176*4+4*(4+768+64)+16*4+36);const auto notes=u32(pos),points=u32(pos+4);copy(8);const auto countAt=out.size()-4;copy(notes*24);std::uint32_t kept=0;
+  for(std::uint32_t i=0;i<points;++i){if(u32(pos+16)<17){copy(24);++kept;}else pos+=24;}for(int i=0;i<4;++i)out[countAt+i]=static_cast<unsigned char>(kept>>(8*i));}
+ copy(bytes.size()-pos);bytes.swap(out);bytes[8]=47;
+}
+inline void stripControlLfos(std::vector<unsigned char>& bytes){
+ stripPooledLfos(bytes);
+ if(bytes.size()<16||bytes[8]!=47)return;
+ constexpr std::size_t size=4+64*(10*124+4*2*32*24);const auto at=bytes.size()-size;
+ assert(bytes[at]=='L'&&bytes[at+1]=='F'&&bytes[at+2]=='O'&&bytes[at+3]=='1');bytes.resize(at);
+ const auto u32=[&](std::size_t n){assert(n+4<=bytes.size());std::uint32_t v=0;for(int i=0;i<4;++i)v|=std::uint32_t(bytes[n+i])<<(8*i);return v;};
+ std::vector<unsigned char> out(bytes.begin(),bytes.begin()+240);std::size_t pos=240;
+ const auto copy=[&](std::size_t n){assert(pos+n<=bytes.size());out.insert(out.end(),bytes.begin()+pos,bytes.begin()+pos+n);pos+=n;};
+ for(int c=0;c<64;++c){copy(4+176*4+4*(4+768+64)+16*4+36);const auto notes=u32(pos),points=u32(pos+4);copy(8);const auto countAt=out.size()-4;copy(notes*24);std::uint32_t kept=0;
+  for(std::uint32_t i=0;i<points;++i){if(u32(pos+16)<16){copy(24);++kept;}else pos+=24;}
+  for(int i=0;i<4;++i)out[countAt+i]=static_cast<unsigned char>(kept>>(8*i));
+ }
+ copy(bytes.size()-pos);bytes.swap(out);bytes[8]=46;
+}
+inline std::size_t clipLegacyTailSize(const std::vector<unsigned char>& bytes){
+ auto clean=bytes;stripSequenceSoundLocks(clean);
+ return clean.size()-(bytes.size()>12&&bytes[8]>=50?(4+64*5*4*40*4):0)-(bytes.size()>12&&bytes[8]>=49?(4+64*8*72):0)-(bytes.size()>12&&bytes[8]>=48?(4+64*(8*200+4*2*32*72)):0)-(bytes.size()>12&&bytes[8]>=47?(4+64*(10*124+4*2*32*24)):0);
+}
 // Convert a current, checksum-free payload to the preceding format for migration fixtures.
 inline void stripSequencePaths(std::vector<unsigned char>& bytes){
+    stripControlLfos(bytes);
     if(bytes.size()<16||bytes[8]!=46)return;
     constexpr std::size_t size=4+64*4*4;const auto at=bytes.size()-size;
     assert(bytes[at]=='P'&&bytes[at+1]=='T'&&bytes[at+2]=='H'&&bytes[at+3]=='1');bytes.resize(at);bytes[8]=45;

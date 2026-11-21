@@ -276,6 +276,7 @@
         s.sampleRate=sampleRate;s.laneCapacityFrames=laneCapacityFrames;s.planeCapacityFrames=planeCapacityFrames;
         s.controls=controls;s.clipControls=clipControls;s.outputGain=outputGain;s.clipOutputGain=clipOutputGain;
         copyLayersRuntimeTo(s);copySequenceRuntimeTo(s);
+        s.legacyControlLfos=legacyControlLfos;s.controlLfoPool=controlLfoPool;s.controlLfoRouted=controlLfoRouted;s.controlLfoRuntime=controlLfoRuntime;s.controlLfoEffective=controlLfoEffective;s.controlLfoOverrides=controlLfoOverrides;
         copyPatternClip(s.clipSlots[0],*activeClipSlot());s.activeClip=0;s.clipPlaying=clipPlaying;s.clipNeedsStart=clipNeedsStart;
         s.clipPositionMs=clipPositionMs;s.clipAbsolutePositionMs=clipAbsolutePositionMs;
         s.pulsarClipCycle=pulsarClipCycle;
@@ -371,6 +372,7 @@
         padMappedNotes=s.padMappedNotes;
         ignorePadRelease=s.ignorePadRelease;
         s.copyLayersRuntimeTo(*this);s.copySequenceRuntimeTo(*this);
+        legacyControlLfos=s.legacyControlLfos;controlLfoPool=s.controlLfoPool;controlLfoRouted=s.controlLfoRouted;controlLfoRuntime=s.controlLfoRuntime;controlLfoEffective=s.controlLfoEffective;controlLfoOverrides=s.controlLfoOverrides;
         controls=s.controls;
         clipControls=s.clipControls;
         outputGain=s.outputGain;

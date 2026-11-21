@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <array>
 #include <cassert>
+#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -958,9 +959,10 @@ void midi(plugin_api_v2_t* api, void* instance,
 
 std::string get(plugin_api_v2_t* api, void* instance, const char* key)
 {
-    std::array<char, 16384> buffer {};
+    std::array<char, 32768> buffer {};
     const int length = api->get_param(instance, key, buffer.data(),
                                       static_cast<int>(buffer.size()));
+    if(length<0)std::fprintf(stderr,"get_param failed for %s (capacity %zu)\n",key,buffer.size());
     assert(length >= 0);
     assert(length < static_cast<int>(buffer.size()));
     return std::string(buffer.data(), static_cast<std::size_t>(length));
@@ -1055,7 +1057,8 @@ std::uint32_t unsignedStateField(const std::string& state, int index)
 
 void waitForBackgroundAudio(plugin_api_v2_t* api, void* instance)
 {
-    for (int attempt = 0; attempt < 4000 * kAsyncWaitScale; ++attempt) {
+    const auto deadline=std::chrono::steady_clock::now()+std::chrono::seconds(kAsyncWaitScale==1?15:32);
+    for (int attempt = 0; std::chrono::steady_clock::now()<deadline; ++attempt) {
         const auto background = get(api, instance, "background_state");
         const auto ui = get(api, instance, "ui_state");
         if (stateField(background, 1) == 0 && stateField(background, 2) == 0
@@ -1855,7 +1858,7 @@ int main()
     std::array<char, 16> removedParam {};
     assert(api->get_param(instance, "seq_bpm", removedParam.data(),
                           static_cast<int>(removedParam.size())) < 0);
-    std::vector<char> chainParamBuffer(65536u, '\0');
+    std::vector<char> chainParamBuffer(131072u, '\0');
     const int chainParamLength = api->get_param(instance, "chain_params",
         chainParamBuffer.data(), static_cast<int>(chainParamBuffer.size()));
     assert(chainParamLength > 0);
@@ -3730,7 +3733,7 @@ int main()
         == sizeof(clipMagic));
     assert(std::memcmp(clipMagic, "S3GTHR3", 7u) == 0);
     assert(std::fread(&clipVersion, sizeof(clipVersion), 1u, clipFile) == 1u);
-    assert(clipVersion == 46u);
+    assert(clipVersion == 55u);
     std::fclose(stateFile);
     std::fclose(laneFile);
     std::fclose(clipFile);
@@ -3928,7 +3931,7 @@ int main()
     assert(std::fread(clipMagic, 1u, sizeof(clipMagic), clipFile)
         == sizeof(clipMagic));
     assert(std::fread(&clipVersion, sizeof(clipVersion), 1u, clipFile) == 1u);
-    assert(clipVersion == 46u);
+    assert(clipVersion == 55u);
     assert(std::fclose(clipFile) == 0);
 
     std::remove(statePath.c_str());

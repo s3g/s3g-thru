@@ -62,7 +62,7 @@ void testPreviewRoutesAndTransitions()
         t->beginPreviewTransitionTail();t->previewActive=false;
         renderSplit(*t,1);assert(t->directPreview[0][0]>.19f);
         renderSplit(*t,5);assert(t->directPreview[0].back()==0);
-        char state[16384] {};assert(t->serializeState(state,sizeof(state))>0);
+        char state[kStateTextSize] {};assert(t->serializeState(state,sizeof(state))>0);
         t->previewRoute=0;t->restoreState(state);assert(t->previewRoute==1);
         std::string oversized(state);
         const std::string field="\"preview_route\":1,";

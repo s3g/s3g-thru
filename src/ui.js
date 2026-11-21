@@ -1,4 +1,4 @@
-/* s3g Thru 0.33.0-test.13 — polyphonic sampler/performance-looper takeover for Move. */
+/* s3g Thru 0.33.0-test.30 — polyphonic sampler/performance-looper takeover for Move. */
 
 import * as moveConstants from '/data/UserData/schwung/shared/constants.mjs';
 import * as moveInputFilter from '/data/UserData/schwung/shared/input_filter.mjs';
@@ -89,11 +89,12 @@ const setButtonLED = typeof moveInputFilter.setButtonLED === 'function'
         }
     };
 
-const UI_VERSION = '0.33.0-test.13';
+const UI_VERSION = '0.33.0-test.30';
 const HELP_PAGE_COUNT=8;
 const WAVE_BINS = 112;
 const ALGORITHMS = ['MOTION', 'LANES', 'GRAINS', 'CUTUPS', 'SAMPLE', 'SLICES',
-    'GLITCH', 'WEAVE', 'WAVESETS', 'PRISM', 'MORPH', 'TEXTURE', 'FORMANT', 'STOCH', 'PULSAR'];
+    'GLITCH', 'WEAVE', 'WAVESETS', 'PRISM', 'MORPH', 'TEXTURE', 'FORMANT', 'STOCH', 'PULSAR', 'TABLE', 'SCANNED', 'FM'];
+function isSynthAlgorithm(a){return a===15||a===16||a===17;}
 const ROLL_DIVISIONS = ['1/4', '1/8', '1/8T', '1/16', '1/16T', '1/32'];
 const SCALE_LABELS = [
     'CHROMATIC', 'MAJOR', 'MINOR', 'DORIAN', 'MIXOLYDIAN', 'LYDIAN',
@@ -176,7 +177,7 @@ const PARAMS = {
     voice_engine_mode:{key:'voice_engine_mode',label:'ENGINES',shortLabel:'ENGS',min:0,max:1,step:1,value:0,integer:true,labels:['ONE','LIST']},
     voice_engine_order:{key:'voice_engine_order',label:'LIST ORDER',shortLabel:'ORDR',min:0,max:5,step:1,value:0,integer:true,labels:['UP','DOWN','RAND','CYC+','CYC-','SHUF']},
     voice_engine_edit:{key:'voice_engine_edit',label:'EDIT SLOT',min:1,max:8,step:1,value:1,integer:true},
-    ...Object.fromEntries(Array.from({length:8},(_,i)=>['voice_engine_'+(i+1),{key:'voice_engine_'+(i+1),label:'SLOT '+(i+1),shortLabel:'E'+(i+1),min:0,max:14,step:1,value:0,integer:true,labels:ALGORITHMS}])),
+    ...Object.fromEntries(Array.from({length:8},(_,i)=>['voice_engine_'+(i+1),{key:'voice_engine_'+(i+1),label:'SLOT '+(i+1),shortLabel:'E'+(i+1),min:0,max:17,step:1,value:0,integer:true,labels:ALGORITHMS}])),
     split_mode: {key:'split_mode',label:'MODE',min:0,max:6,step:1,value:0,integer:true,labels:['SINGLE','SPLIT','SHARED','QUAD','BANK','LAYERS','SEQUENCE']},
     split_focus: {key:'split_focus',label:'EDIT PART',min:0,max:3,step:1,value:0,integer:true,labels:['A','B','C','D']},
     split_copy: {key:'split_copy',label:'COPY OTHER',min:0,max:1,step:1,value:0,integer:true,labels:['TURN','COPY'],momentary:true,result:'COPIED OTHER PART'},
@@ -266,7 +267,7 @@ const PARAMS = {
     texture_group: {"key":"texture_group","min":2,"max":8,"step":1,"label":"TEXTURE GROUP SIZE","value":4,"integer":true},
     texture_spread: {"key":"texture_spread","min":0,"max":100,"step":2,"label":"TEXTURE STEREO SPREAD","value":50},
     texture_seed: {"key":"texture_seed","min":1,"max":9999,"step":1,"label":"TEXTURE SEED","value":1,"integer":true},
-    algorithm: { key: 'algorithm', label: 'ALGORITHM', min: 0, max: 14, step: 1, value: 0, integer: true, labels: ALGORITHMS },
+    algorithm: { key: 'algorithm', label: 'ALGORITHM', min: 0, max: 17, step: 1, value: 0, integer: true, labels: ALGORITHMS },
     join: { key: 'join', label: 'JOIN', min: 0, max: 1, step: 0.01, value: 1 },
     output_gain: { key: 'output_gain', label: 'LEVEL', min: 0, max: 2, step: 0.02, value: 1 },
     polyphony_comp: { key: 'polyphony_comp', label: 'POLYPHONY COMP', shortLabel:'COMP', min: 0, max: 1, step: 1, value: 1, integer: true, labels: ['OFF', 'ON'] },
@@ -467,6 +468,7 @@ const MAIN_ENGINE_CONTROLS = MAIN_ENGINE_MODES.map((mode) => [
     'locus', 'field', 'speed', 'manual_lane',
     'lane_cycles', 'join', mode, 'output_gain',
 ]);
+MAIN_ENGINE_CONTROLS[16]=['locus','field',null,'manual_lane','lane_cycles',null,'scanned_freeze','output_gain'];
 MAIN_ENGINE_CONTROLS[3][4] = 'cut_lane_advance';
 for(const algorithm of [4,5])MAIN_ENGINE_CONTROLS[algorithm][4]=null;
 const ENGINE_PAGE = { title: 'ENGINE', keys: ['algorithm', 'locus', 'field',
@@ -508,6 +510,66 @@ const EVENT_CLOCK_PAGE = { title: 'EVENT CLOCK', keys: ['segment_trigger',
 const EVENT_SHAPE_PAGE = { title: 'EVENT SHAPE', keys: ['segment_overlap',
     'segment_layers', 'segment_pitch', 'segment_level', 'segment_curve',
     'motor_symmetry', 'motor_shape', 'packet_duty'] };
+// TABLE uses the four existing patch lanes; all sample engine IDs stay fixed.
+const TABLE_CONTROLS=[{"index":0,"key":"table_type","symbol":"type","label":"TYPE","name":"Table Variant","min":0,"max":2,"default":0,"step":1,"options":["WAVE","SPLINE","WT DRUM"],"page":"TABLE","curve":null},{"index":1,"key":"table_tune","symbol":"tune","label":"TUNE","name":"Transpose","min":-48,"max":48,"default":0,"step":0.1,"options":null,"page":"TABLE","curve":null},{"index":2,"key":"table_width","symbol":"width","label":"WID","name":"Stereo Width","min":0,"max":100,"default":40,"step":1,"options":null,"page":"TABLE","curve":null},{"index":3,"key":"table_level","symbol":"level","label":"LVL","name":"Generator Level","min":0,"max":100,"default":75,"step":1,"options":null,"page":"TABLE","curve":null},{"index":4,"key":"table_art","symbol":"art","label":"ART","name":"Articulation","min":0,"max":1,"default":0,"step":1,"options":["TONE","HIT"],"page":"TABLE","curve":null},{"index":5,"key":"table_decay","symbol":"decay","label":"DEC","name":"Hit Decay","min":10,"max":12000,"default":650,"step":1,"options":null,"page":"TABLE","curve":"log"},{"index":6,"key":"table_noise","symbol":"noise","label":"NOIS","name":"Noise Level","min":0,"max":100,"default":0,"step":1,"options":null,"page":"TABLE","curve":null},{"index":7,"key":"table_drive","symbol":"drive","label":"DRIV","name":"Drive","min":0,"max":100,"default":0,"step":1,"options":null,"page":"TABLE","curve":null},{"index":8,"key":"table_shape","symbol":"shape","label":"SHAP","name":"Wave Shape","min":0,"max":3,"default":0,"step":1,"options":["SINE","TRI","SAW","SQR"],"page":"TABLE WAVE","curve":null},{"index":9,"key":"table_pulse","symbol":"pulse","label":"PW","name":"Pulse Width","min":5,"max":95,"default":50,"step":0.1,"options":null,"page":"TABLE WAVE","curve":null},{"index":10,"key":"table_detune","symbol":"detune","label":"DET","name":"Wave Detune","min":0,"max":50,"default":0,"step":0.1,"options":null,"page":"TABLE WAVE","curve":null},{"index":11,"key":"table_sub","symbol":"sub","label":"SUB","name":"Wave Sub Level","min":0,"max":100,"default":0,"step":1,"options":null,"page":"TABLE WAVE","curve":null},{"index":12,"key":"table_cutoff","symbol":"cutoff","label":"CUT","name":"Filter Cutoff","min":20,"max":20000,"default":18000,"step":1,"options":null,"page":"TABLE WAVE","curve":"log"},{"index":13,"key":"table_resonance","symbol":"resonance","label":"RES","name":"Filter Resonance","min":0,"max":95,"default":0,"step":1,"options":null,"page":"TABLE WAVE","curve":null},{"index":14,"key":"table_points","symbol":"points","label":"PTS","name":"Spline Points","min":1,"max":32,"default":4,"step":0.1,"options":null,"page":"TABLE SPLINE","curve":null},{"index":15,"key":"table_evolution","symbol":"evolution","label":"EVOL","name":"Spline Evolution","min":1,"max":4096,"default":16,"step":0.1,"options":null,"page":"TABLE SPLINE","curve":"log"},{"index":16,"key":"table_curve","symbol":"curve","label":"CURV","name":"Spline Curvature","min":0,"max":100,"default":100,"step":1,"options":null,"page":"TABLE SPLINE","curve":null},{"index":17,"key":"table_drift","symbol":"drift","label":"DRFT","name":"Spline Pitch Drift","min":0,"max":12,"default":0.15,"step":0.01,"options":null,"page":"TABLE SPLINE","curve":null},{"index":18,"key":"table_drift_rate","symbol":"drift_rate","label":"RATE","name":"Spline Drift Time","min":1,"max":1000,"default":100,"step":1,"options":null,"page":"TABLE SPLINE","curve":"log"},{"index":19,"key":"table_dynamics","symbol":"dynamics","label":"DYN","name":"Spline Dynamics","min":0,"max":100,"default":20,"step":1,"options":null,"page":"TABLE SPLINE","curve":null},{"index":20,"key":"table_seed","symbol":"seed","label":"SEED","name":"Spline Seed","min":0,"max":65535,"default":1,"step":1,"options":null,"page":"TABLE SPLINE","curve":null},{"index":21,"key":"table_model","symbol":"model","label":"MODL","name":"Drum Start","min":0,"max":5,"default":0,"step":1,"options":["KICK","SNARE","TOM","HAT","CLAP","METAL"],"page":"TABLE WT OSC","curve":null},{"index":22,"key":"table_bank_a","symbol":"bank_a","label":"BNKA","name":"Oscillator A Bank","min":0,"max":7,"default":0,"step":1,"options":["SINE","ROUND","SAW","ODD","METAL","FORM","HOLLOW","GLASS"],"page":"TABLE WT OSC","curve":null},{"index":23,"key":"table_pos_a","symbol":"pos_a","label":"POSA","name":"Oscillator A Position","min":0,"max":100,"default":0,"step":1,"options":null,"page":"TABLE WT OSC","curve":null},{"index":24,"key":"table_bank_b","symbol":"bank_b","label":"BNKB","name":"Oscillator B Bank","min":0,"max":7,"default":1,"step":1,"options":["SINE","ROUND","SAW","ODD","METAL","FORM","HOLLOW","GLASS"],"page":"TABLE WT OSC","curve":null},{"index":25,"key":"table_pos_b","symbol":"pos_b","label":"POSB","name":"Oscillator B Position","min":0,"max":100,"default":25,"step":1,"options":null,"page":"TABLE WT OSC","curve":null},{"index":26,"key":"table_blend","symbol":"blend","label":"BLND","name":"Oscillator Blend","min":0,"max":100,"default":15,"step":1,"options":null,"page":"TABLE WT OSC","curve":null},{"index":27,"key":"table_ratio","symbol":"ratio","label":"RATI","name":"Oscillator Ratio","min":0.125,"max":16,"default":1,"step":0.01,"options":null,"page":"TABLE WT OSC","curve":"log"},{"index":28,"key":"table_fm","symbol":"fm","label":"FM","name":"Phase Modulation","min":0,"max":100,"default":0,"step":1,"options":null,"page":"TABLE WT OSC","curve":null},{"index":29,"key":"table_wt_detune","symbol":"wt_detune","label":"DET","name":"Drum Detune","min":0,"max":50,"default":0,"step":0.1,"options":null,"page":"TABLE WT COLOR","curve":null},{"index":30,"key":"table_bend","symbol":"bend","label":"BEND","name":"Pitch Sweep","min":-48,"max":48,"default":24,"step":0.1,"options":null,"page":"TABLE WT HIT","curve":null},{"index":31,"key":"table_pitch_decay","symbol":"pitch_decay","label":"PDEC","name":"Pitch Sweep Time","min":1,"max":2000,"default":30,"step":0.1,"options":null,"page":"TABLE WT HIT","curve":"log"},{"index":32,"key":"table_scan","symbol":"scan","label":"SCAN","name":"Table Sweep","min":-100,"max":100,"default":30,"step":1,"options":null,"page":"TABLE WT HIT","curve":null},{"index":33,"key":"table_scan_decay","symbol":"scan_decay","label":"SDEC","name":"Table Sweep Time","min":1,"max":4000,"default":60,"step":0.1,"options":null,"page":"TABLE WT HIT","curve":"log"},{"index":34,"key":"table_wt_sub","symbol":"wt_sub","label":"SUB","name":"Drum Sub Level","min":0,"max":100,"default":35,"step":1,"options":null,"page":"TABLE WT HIT","curve":null},{"index":35,"key":"table_impact","symbol":"impact","label":"IMPT","name":"Impact Level","min":0,"max":100,"default":25,"step":1,"options":null,"page":"TABLE WT HIT","curve":null},{"index":36,"key":"table_noise_decay","symbol":"noise_decay","label":"NDEC","name":"Noise Decay","min":1,"max":4000,"default":40,"step":0.1,"options":null,"page":"TABLE WT HIT","curve":"log"},{"index":37,"key":"table_color","symbol":"color","label":"COLR","name":"Noise Color","min":0,"max":3,"default":0,"step":1,"options":["WHITE","PINK","HP","METAL"],"page":"TABLE WT HIT","curve":null},{"index":38,"key":"table_tone","symbol":"tone","label":"TONE","name":"Drum Brightness","min":0,"max":100,"default":65,"step":1,"options":null,"page":"TABLE WT COLOR","curve":null},{"index":39,"key":"table_compression","symbol":"compression","label":"COMP","name":"Drum Compression","min":0,"max":100,"default":10,"step":1,"options":null,"page":"TABLE WT COLOR","curve":null}];
+Object.assign(PARAMS,{"table_type":{"key":"table_type","label":"TYPE","shortLabel":"TYPE","min":0,"max":2,"value":0,"step":1,"integer":true,"labels":["WAVE","SPLINE","WT DRUM"]},"table_tune":{"key":"table_tune","label":"TUNE","shortLabel":"TUNE","min":-48,"max":48,"value":0,"step":0.1,"integer":false},"table_width":{"key":"table_width","label":"WID","shortLabel":"WID","min":0,"max":100,"value":40,"step":1,"integer":false},"table_level":{"key":"table_level","label":"LVL","shortLabel":"LVL","min":0,"max":100,"value":75,"step":1,"integer":false},"table_art":{"key":"table_art","label":"ART","shortLabel":"ART","min":0,"max":1,"value":0,"step":1,"integer":true,"labels":["TONE","HIT"]},"table_decay":{"key":"table_decay","label":"DEC","shortLabel":"DEC","min":10,"max":12000,"value":650,"step":1,"integer":false,"curve":"log","unit":"ms"},"table_noise":{"key":"table_noise","label":"NOIS","shortLabel":"NOIS","min":0,"max":100,"value":0,"step":1,"integer":false},"table_drive":{"key":"table_drive","label":"DRIV","shortLabel":"DRIV","min":0,"max":100,"value":0,"step":1,"integer":false},"table_shape":{"key":"table_shape","label":"SHAP","shortLabel":"SHAP","min":0,"max":3,"value":0,"step":1,"integer":true,"labels":["SINE","TRI","SAW","SQR"]},"table_pulse":{"key":"table_pulse","label":"PW","shortLabel":"PW","min":5,"max":95,"value":50,"step":0.1,"integer":false},"table_detune":{"key":"table_detune","label":"DET","shortLabel":"DET","min":0,"max":50,"value":0,"step":0.1,"integer":false},"table_sub":{"key":"table_sub","label":"SUB","shortLabel":"SUB","min":0,"max":100,"value":0,"step":1,"integer":false},"table_cutoff":{"key":"table_cutoff","label":"CUT","shortLabel":"CUT","min":20,"max":20000,"value":18000,"step":1,"integer":false,"curve":"log","unit":"Hz"},"table_resonance":{"key":"table_resonance","label":"RES","shortLabel":"RES","min":0,"max":95,"value":0,"step":1,"integer":false},"table_points":{"key":"table_points","label":"PTS","shortLabel":"PTS","min":1,"max":32,"value":4,"step":0.1,"integer":false},"table_evolution":{"key":"table_evolution","label":"EVOL","shortLabel":"EVOL","min":1,"max":4096,"value":16,"step":0.1,"integer":false,"curve":"log"},"table_curve":{"key":"table_curve","label":"CURV","shortLabel":"CURV","min":0,"max":100,"value":100,"step":1,"integer":false},"table_drift":{"key":"table_drift","label":"DRFT","shortLabel":"DRFT","min":0,"max":12,"value":0.15,"step":0.01,"integer":false},"table_drift_rate":{"key":"table_drift_rate","label":"RATE","shortLabel":"RATE","min":1,"max":1000,"value":100,"step":1,"integer":false,"curve":"log","unit":"ms"},"table_dynamics":{"key":"table_dynamics","label":"DYN","shortLabel":"DYN","min":0,"max":100,"value":20,"step":1,"integer":false},"table_seed":{"key":"table_seed","label":"SEED","shortLabel":"SEED","min":0,"max":65535,"value":1,"step":1,"integer":true},"table_model":{"key":"table_model","label":"MODL","shortLabel":"MODL","min":0,"max":5,"value":0,"step":1,"integer":true,"labels":["KICK","SNARE","TOM","HAT","CLAP","METAL"]},"table_bank_a":{"key":"table_bank_a","label":"BNKA","shortLabel":"BNKA","min":0,"max":7,"value":0,"step":1,"integer":true,"labels":["SINE","ROUND","SAW","ODD","METAL","FORM","HOLLOW","GLASS"]},"table_pos_a":{"key":"table_pos_a","label":"POSA","shortLabel":"POSA","min":0,"max":100,"value":0,"step":1,"integer":false},"table_bank_b":{"key":"table_bank_b","label":"BNKB","shortLabel":"BNKB","min":0,"max":7,"value":1,"step":1,"integer":true,"labels":["SINE","ROUND","SAW","ODD","METAL","FORM","HOLLOW","GLASS"]},"table_pos_b":{"key":"table_pos_b","label":"POSB","shortLabel":"POSB","min":0,"max":100,"value":25,"step":1,"integer":false},"table_blend":{"key":"table_blend","label":"BLND","shortLabel":"BLND","min":0,"max":100,"value":15,"step":1,"integer":false},"table_ratio":{"key":"table_ratio","label":"RATI","shortLabel":"RATI","min":0.125,"max":16,"value":1,"step":0.01,"integer":false,"curve":"log"},"table_fm":{"key":"table_fm","label":"FM","shortLabel":"FM","min":0,"max":100,"value":0,"step":1,"integer":false},"table_wt_detune":{"key":"table_wt_detune","label":"DET","shortLabel":"DET","min":0,"max":50,"value":0,"step":0.1,"integer":false},"table_bend":{"key":"table_bend","label":"BEND","shortLabel":"BEND","min":-48,"max":48,"value":24,"step":0.1,"integer":false},"table_pitch_decay":{"key":"table_pitch_decay","label":"PDEC","shortLabel":"PDEC","min":1,"max":2000,"value":30,"step":0.1,"integer":false,"curve":"log","unit":"ms"},"table_scan":{"key":"table_scan","label":"SCAN","shortLabel":"SCAN","min":-100,"max":100,"value":30,"step":1,"integer":false},"table_scan_decay":{"key":"table_scan_decay","label":"SDEC","shortLabel":"SDEC","min":1,"max":4000,"value":60,"step":0.1,"integer":false,"curve":"log","unit":"ms"},"table_wt_sub":{"key":"table_wt_sub","label":"SUB","shortLabel":"SUB","min":0,"max":100,"value":35,"step":1,"integer":false},"table_impact":{"key":"table_impact","label":"IMPT","shortLabel":"IMPT","min":0,"max":100,"value":25,"step":1,"integer":false},"table_noise_decay":{"key":"table_noise_decay","label":"NDEC","shortLabel":"NDEC","min":1,"max":4000,"value":40,"step":0.1,"integer":false,"curve":"log","unit":"ms"},"table_color":{"key":"table_color","label":"COLR","shortLabel":"COLR","min":0,"max":3,"value":0,"step":1,"integer":true,"labels":["WHITE","PINK","HP","METAL"]},"table_tone":{"key":"table_tone","label":"TONE","shortLabel":"TONE","min":0,"max":100,"value":65,"step":1,"integer":false},"table_compression":{"key":"table_compression","label":"COMP","shortLabel":"COMP","min":0,"max":100,"value":10,"step":1,"integer":false}});
+const SCANNED_CONTROLS=[{"index":0,"key":"scanned_excitation","label":"EXC","name":"Excitation","min":0,"max":3,"default":0,"step":1,"options":["PLUCK","STRIKE","NOISE","SAMPLE"],"page":"SCANNED","curve":null,"symbol":"excitation"},{"index":1,"key":"scanned_pick","label":"PICK","name":"Excitation Position","min":1,"max":99,"default":24,"step":0.1,"options":null,"page":"SCANNED","curve":null,"symbol":"pick"},{"index":2,"key":"scanned_hit","label":"HIT","name":"Initial Energy","min":0,"max":100,"default":80,"step":1,"options":null,"page":"SCANNED","curve":null,"symbol":"hit"},{"index":3,"key":"scanned_tune","label":"TUNE","name":"Transpose","min":-48,"max":48,"default":0,"step":0.1,"options":null,"page":"SCANNED","curve":null,"symbol":"tune"},{"index":4,"key":"scanned_motion","label":"MOTN","name":"Mechanical Motion","min":0.05,"max":6,"default":1.2,"step":0.01,"options":null,"page":"SCANNED","curve":"log","symbol":"motion"},{"index":5,"key":"scanned_damping","label":"DAMP","name":"Mechanical Damping","min":0,"max":100,"default":12,"step":1,"options":null,"page":"SCANNED","curve":null,"symbol":"damping"},{"index":6,"key":"scanned_brightness","label":"BRGT","name":"Readout Brightness","min":0,"max":100,"default":75,"step":1,"options":null,"page":"SCANNED","curve":null,"symbol":"brightness"},{"index":7,"key":"scanned_width","label":"WID","name":"Stereo Width","min":0,"max":100,"default":30,"step":1,"options":null,"page":"SCANNED","curve":null,"symbol":"width"},{"index":8,"key":"scanned_mass","label":"MASS","name":"Mass Variation","min":0,"max":100,"default":30,"step":1,"options":null,"page":"SCAN BODY","curve":null,"symbol":"mass"},{"index":9,"key":"scanned_tension","label":"TENS","name":"Spring Variation","min":0,"max":100,"default":25,"step":1,"options":null,"page":"SCAN BODY","curve":null,"symbol":"tension"},{"index":10,"key":"scanned_center","label":"CENT","name":"Centering Springs","min":0,"max":100,"default":15,"step":1,"options":null,"page":"SCAN BODY","curve":null,"symbol":"center"},{"index":11,"key":"scanned_profile","label":"PROF","name":"Physical Profile","min":0,"max":3,"default":1,"step":1,"options":["EVEN","TAPER","WAVE","RANDOM"],"page":"SCAN BODY","curve":null,"symbol":"profile"},{"index":12,"key":"scanned_force","label":"FORC","name":"Continuous Force","min":0,"max":100,"default":0,"step":1,"options":null,"page":"SCAN BODY","curve":null,"symbol":"force"},{"index":13,"key":"scanned_pressure","label":"PRES","name":"Pressure Force Depth","min":0,"max":100,"default":20,"step":1,"options":null,"page":"SCAN BODY","curve":null,"symbol":"pressure"},{"index":14,"key":"scanned_freeze","label":"FRZ","name":"Freeze Motion","min":0,"max":1,"default":0,"step":1,"options":["OFF","ON"],"page":"SCAN BODY","curve":null,"symbol":"freeze"},{"index":15,"key":"scanned_seed","label":"SEED","name":"Profile Seed","min":0,"max":65535,"default":1,"step":1,"options":null,"page":"SCAN BODY","curve":null,"symbol":"seed"},{"index":16,"key":"scanned_art","label":"ART","name":"Articulation","min":0,"max":1,"default":0,"step":1,"options":["TONE","PERC"],"page":"SCAN HIT","curve":null,"symbol":"art"},{"index":17,"key":"scanned_impact","label":"IMPT","name":"Impact Level","min":0,"max":100,"default":35,"step":1,"options":null,"page":"SCAN HIT","curve":null,"symbol":"impact"},{"index":18,"key":"scanned_hardness","label":"HARD","name":"Hammer Hardness","min":0,"max":100,"default":60,"step":1,"options":null,"page":"SCAN HIT","curve":null,"symbol":"hardness"},{"index":19,"key":"scanned_decay","label":"DEC","name":"Percussion Decay","min":10,"max":4000,"default":350,"step":1,"options":null,"page":"SCAN HIT","curve":"log","symbol":"decay"},{"index":20,"key":"scanned_bend","label":"BEND","name":"Pitch Sweep","min":-48,"max":48,"default":0,"step":0.1,"options":null,"page":"SCAN HIT","curve":null,"symbol":"bend"},{"index":21,"key":"scanned_sweep_time","label":"TIME","name":"Pitch Sweep Time","min":5,"max":2000,"default":35,"step":1,"options":null,"page":"SCAN HIT","curve":"log","symbol":"sweep_time"},{"index":22,"key":"scanned_loss","label":"LOSS","name":"Harmonic Decay","min":0,"max":100,"default":50,"step":1,"options":null,"page":"SCAN HIT","curve":null,"symbol":"loss"},{"index":23,"key":"scanned_amp_mode","label":"AMP","name":"Amplifier","min":0,"max":2,"default":0,"step":1,"options":["OFF","TUBE","FUZZ"],"page":"SCAN AMP","curve":null,"symbol":"amp_mode"},{"index":24,"key":"scanned_amp_gain","label":"GAIN","name":"Amp Gain","min":0,"max":100,"default":35,"step":1,"options":null,"page":"SCAN AMP","curve":null,"symbol":"amp_gain"},{"index":25,"key":"scanned_amp_bass","label":"BASS","name":"Amp Bass","min":-12,"max":12,"default":0,"step":0.1,"options":null,"page":"SCAN AMP","curve":null,"symbol":"amp_bass"},{"index":26,"key":"scanned_amp_mid","label":"MID","name":"Amp Midrange","min":-20,"max":10,"default":0,"step":0.1,"options":null,"page":"SCAN AMP","curve":null,"symbol":"amp_mid"},{"index":27,"key":"scanned_amp_freq","label":"FREQ","name":"Amp Mid Frequency","min":0,"max":4,"default":2,"step":1,"options":["220","450","800","1.6k","3k"],"page":"SCAN AMP","curve":null,"symbol":"amp_freq"},{"index":28,"key":"scanned_amp_treble","label":"TREB","name":"Amp Treble","min":-20,"max":15,"default":0,"step":0.1,"options":null,"page":"SCAN AMP","curve":null,"symbol":"amp_treble"},{"index":29,"key":"scanned_amp_cab","label":"CAB","name":"Cabinet Amount","min":0,"max":100,"default":70,"step":1,"options":null,"page":"SCAN AMP","curve":null,"symbol":"amp_cab"},{"index":30,"key":"scanned_amp_level","label":"OUT","name":"Amp Output","min":-18,"max":6,"default":0,"step":0.1,"options":null,"page":"SCAN AMP","curve":null,"symbol":"amp_level"}];
+Object.assign(PARAMS,{"scanned_excitation":{"key":"scanned_excitation","label":"EXC","shortLabel":"EXC","min":0,"max":3,"value":0,"step":1,"integer":true,"labels":["PLUCK","STRIKE","NOISE","SAMPLE"]},"scanned_pick":{"key":"scanned_pick","label":"PICK","shortLabel":"PICK","min":1,"max":99,"value":24,"step":0.1,"integer":false},"scanned_hit":{"key":"scanned_hit","label":"HIT","shortLabel":"HIT","min":0,"max":100,"value":80,"step":1,"integer":false},"scanned_tune":{"key":"scanned_tune","label":"TUNE","shortLabel":"TUNE","min":-48,"max":48,"value":0,"step":0.1,"integer":false},"scanned_motion":{"key":"scanned_motion","label":"MOTN","shortLabel":"MOTN","min":0.05,"max":6,"value":1.2,"step":0.01,"integer":false,"curve":"log"},"scanned_damping":{"key":"scanned_damping","label":"DAMP","shortLabel":"DAMP","min":0,"max":100,"value":12,"step":1,"integer":false},"scanned_brightness":{"key":"scanned_brightness","label":"BRGT","shortLabel":"BRGT","min":0,"max":100,"value":75,"step":1,"integer":false},"scanned_width":{"key":"scanned_width","label":"WID","shortLabel":"WID","min":0,"max":100,"value":30,"step":1,"integer":false},"scanned_mass":{"key":"scanned_mass","label":"MASS","shortLabel":"MASS","min":0,"max":100,"value":30,"step":1,"integer":false},"scanned_tension":{"key":"scanned_tension","label":"TENS","shortLabel":"TENS","min":0,"max":100,"value":25,"step":1,"integer":false},"scanned_center":{"key":"scanned_center","label":"CENT","shortLabel":"CENT","min":0,"max":100,"value":15,"step":1,"integer":false},"scanned_profile":{"key":"scanned_profile","label":"PROF","shortLabel":"PROF","min":0,"max":3,"value":1,"step":1,"integer":true,"labels":["EVEN","TAPER","WAVE","RANDOM"]},"scanned_force":{"key":"scanned_force","label":"FORC","shortLabel":"FORC","min":0,"max":100,"value":0,"step":1,"integer":false},"scanned_pressure":{"key":"scanned_pressure","label":"PRES","shortLabel":"PRES","min":0,"max":100,"value":20,"step":1,"integer":false},"scanned_freeze":{"key":"scanned_freeze","label":"FRZ","shortLabel":"FRZ","min":0,"max":1,"value":0,"step":1,"integer":true,"labels":["OFF","ON"]},"scanned_seed":{"key":"scanned_seed","label":"SEED","shortLabel":"SEED","min":0,"max":65535,"value":1,"step":1,"integer":true},"scanned_art":{"key":"scanned_art","label":"ART","shortLabel":"ART","min":0,"max":1,"value":0,"step":1,"integer":true,"labels":["TONE","PERC"]},"scanned_impact":{"key":"scanned_impact","label":"IMPT","shortLabel":"IMPT","min":0,"max":100,"value":35,"step":1,"integer":false},"scanned_hardness":{"key":"scanned_hardness","label":"HARD","shortLabel":"HARD","min":0,"max":100,"value":60,"step":1,"integer":false},"scanned_decay":{"key":"scanned_decay","label":"DEC","shortLabel":"DEC","min":10,"max":4000,"value":350,"step":1,"integer":false,"curve":"log","unit":"ms"},"scanned_bend":{"key":"scanned_bend","label":"BEND","shortLabel":"BEND","min":-48,"max":48,"value":0,"step":0.1,"integer":false},"scanned_sweep_time":{"key":"scanned_sweep_time","label":"TIME","shortLabel":"TIME","min":5,"max":2000,"value":35,"step":1,"integer":false,"curve":"log","unit":"ms"},"scanned_loss":{"key":"scanned_loss","label":"LOSS","shortLabel":"LOSS","min":0,"max":100,"value":50,"step":1,"integer":false},"scanned_amp_mode":{"key":"scanned_amp_mode","label":"AMP","shortLabel":"AMP","min":0,"max":2,"value":0,"step":1,"integer":true,"labels":["OFF","TUBE","FUZZ"]},"scanned_amp_gain":{"key":"scanned_amp_gain","label":"GAIN","shortLabel":"GAIN","min":0,"max":100,"value":35,"step":1,"integer":false},"scanned_amp_bass":{"key":"scanned_amp_bass","label":"BASS","shortLabel":"BASS","min":-12,"max":12,"value":0,"step":0.1,"integer":false},"scanned_amp_mid":{"key":"scanned_amp_mid","label":"MID","shortLabel":"MID","min":-20,"max":10,"value":0,"step":0.1,"integer":false},"scanned_amp_freq":{"key":"scanned_amp_freq","label":"FREQ","shortLabel":"FREQ","min":0,"max":4,"value":2,"step":1,"integer":true,"labels":["220","450","800","1.6k","3k"]},"scanned_amp_treble":{"key":"scanned_amp_treble","label":"TREB","shortLabel":"TREB","min":-20,"max":15,"value":0,"step":0.1,"integer":false},"scanned_amp_cab":{"key":"scanned_amp_cab","label":"CAB","shortLabel":"CAB","min":0,"max":100,"value":70,"step":1,"integer":false},"scanned_amp_level":{"key":"scanned_amp_level","label":"OUT","shortLabel":"OUT","min":-18,"max":6,"value":0,"step":0.1,"integer":false}});
+const SCANNED_PAGE={title:"SCANNED",scanned:true,keys:["scanned_excitation", "scanned_pick", "scanned_hit", "scanned_tune", "scanned_motion", "scanned_damping", "scanned_brightness", "scanned_width"]};
+const SCANNED_BODY_PAGE={title:"SCAN BODY",scanned:true,keys:["scanned_mass", "scanned_tension", "scanned_center", "scanned_profile", "scanned_force", "scanned_pressure", "scanned_freeze", "scanned_seed"]};
+const SCANNED_HIT_PAGE={title:"SCAN HIT",scanned:true,keys:["scanned_art", "scanned_impact", "scanned_hardness", "scanned_decay", "scanned_bend", "scanned_sweep_time", "scanned_loss", null]};
+const SCANNED_AMP_PAGE={title:"SCAN AMP",scanned:true,keys:["scanned_amp_mode", "scanned_amp_gain", "scanned_amp_bass", "scanned_amp_mid", "scanned_amp_freq", "scanned_amp_treble", "scanned_amp_cab", "scanned_amp_level"]};
+const scannedUi={data:null,floor:0};
+function readScanned(cached=uiPolling.cached){let data;try{data=JSON.parse(String(cached?uiPolling.cache.get('scanned_state'):getParam('scanned_state','{}')));}catch(_){return;}
+ if(!data||data.part!==(state.splitEnabled?state.splitFocus:0)||!Number.isInteger(data.edit)||data.edit<0||data.edit>3||!Array.isArray(data.patches)||data.patches.length!==4||data.patches.some(p=>!Array.isArray(p)||p.length!==31||p.some(x=>!Number.isFinite(x)))||data.revision<scannedUi.floor)return;
+ const expected=state.splitEnabled&&!state.sharedDual?(isQuad()?state.splitFocus:Math.floor(clamp(state.lane-1,state.splitFocus*2,state.splitFocus*2+1))):state.lane-1;
+ if(data.edit!==expected)return;
+ scannedUi.data=data;if(!cached)scannedUi.floor=data.revision;
+ SCANNED_CONTROLS.forEach(p=>PARAMS[p.key].value=data.patches[data.edit][p.index]);
+}
+
+const FM_CONTROLS=[{"index":0,"key":"fm_mode","symbol":"mode","label":"MODE","name":"FM Articulation","min":0,"max":1,"default":0,"step":1,"options":["TONE","DRUM"],"curve":null,"page":"FM"},{"index":1,"key":"fm_tune","symbol":"tune","label":"TUNE","name":"FM Transpose","min":-48,"max":48,"default":0,"step":0.1,"options":null,"curve":null,"page":"FM"},{"index":2,"key":"fm_width","symbol":"width","label":"WID","name":"FM Stereo Width","min":0,"max":100,"default":35,"step":1,"options":null,"curve":null,"page":"FM"},{"index":3,"key":"fm_level","symbol":"level","label":"LVL","name":"FM Level","min":0,"max":100,"default":75,"step":1,"options":null,"curve":null,"page":"FM"},{"index":4,"key":"fm_algorithm","symbol":"algorithm","label":"ALG","name":"FM Routing","min":0,"max":3,"default":0,"step":1,"options":["2OP","SER","PAR","RING"],"curve":null,"page":"FM"},{"index":5,"key":"fm_ratio1","symbol":"ratio1","label":"RAT1","name":"Modulator 1 Ratio","min":0.125,"max":32,"default":1,"step":0.125,"options":null,"curve":null,"page":"FM"},{"index":6,"key":"fm_index1","symbol":"index1","label":"IDX1","name":"Modulator 1 Index","min":0,"max":12,"default":1,"step":0.05,"options":null,"curve":null,"page":"FM"},{"index":7,"key":"fm_feedback","symbol":"feedback","label":"FDBK","name":"FM Feedback","min":0,"max":90,"default":0,"step":1,"options":null,"curve":null,"page":"FM"},{"index":8,"key":"fm_ratio2","symbol":"ratio2","label":"RAT2","name":"Modulator 2 Ratio","min":0.125,"max":32,"default":2,"step":0.125,"options":null,"curve":null,"page":"FM COLOR"},{"index":9,"key":"fm_index2","symbol":"index2","label":"IDX2","name":"Modulator 2 Index","min":0,"max":12,"default":0,"step":0.05,"options":null,"curve":null,"page":"FM COLOR"},{"index":10,"key":"fm_detune","symbol":"detune","label":"DETN","name":"FM Stereo Detune","min":0,"max":30,"default":0,"step":0.1,"options":null,"curve":null,"page":"FM COLOR"},{"index":11,"key":"fm_mix","symbol":"mix","label":"MIX","name":"FM Wet Mix","min":0,"max":100,"default":100,"step":1,"options":null,"curve":null,"page":"FM COLOR"},{"index":12,"key":"fm_cutoff","symbol":"cutoff","label":"CUTO","name":"FM Filter Cutoff","min":20,"max":20000,"default":18000,"step":1,"options":null,"curve":"log","page":"FM COLOR"},{"index":13,"key":"fm_resonance","symbol":"resonance","label":"RES","name":"FM Filter Resonance","min":0,"max":85,"default":0,"step":1,"options":null,"curve":null,"page":"FM COLOR"},{"index":14,"key":"fm_drive","symbol":"drive","label":"DRIV","name":"FM Drive","min":0,"max":100,"default":0,"step":1,"options":null,"curve":null,"page":"FM COLOR"},{"index":15,"key":"fm_decay","symbol":"decay","label":"DEC","name":"FM Drum Decay","min":10,"max":8000,"default":600,"step":1,"options":null,"curve":"log","page":"FM HIT"},{"index":16,"key":"fm_fm_decay","symbol":"fm_decay","label":"FDEC","name":"FM Index Decay","min":2,"max":4000,"default":120,"step":1,"options":null,"curve":"log","page":"FM HIT"},{"index":17,"key":"fm_bend","symbol":"bend","label":"BEND","name":"FM Pitch Sweep","min":-48,"max":48,"default":24,"step":0.1,"options":null,"curve":null,"page":"FM HIT"},{"index":18,"key":"fm_sweep_time","symbol":"sweep_time","label":"TIME","name":"FM Pitch Sweep Time","min":1,"max":2000,"default":25,"step":1,"options":null,"curve":"log","page":"FM HIT"},{"index":19,"key":"fm_impact","symbol":"impact","label":"HIT","name":"FM Impact","min":0,"max":100,"default":20,"step":1,"options":null,"curve":null,"page":"FM HIT"},{"index":20,"key":"fm_noise","symbol":"noise","label":"NOIS","name":"FM Noise Body","min":0,"max":100,"default":0,"step":1,"options":null,"curve":null,"page":"FM HIT"},{"index":21,"key":"fm_noise_decay","symbol":"noise_decay","label":"NDEC","name":"FM Noise Decay","min":1,"max":4000,"default":70,"step":1,"options":null,"curve":"log","page":"FM HIT"},{"index":22,"key":"fm_hardness","symbol":"hardness","label":"HARD","name":"FM Impact Hardness","min":0,"max":100,"default":60,"step":1,"options":null,"curve":null,"page":"FM HIT"}];
+Object.assign(PARAMS,{"fm_mode":{"key":"fm_mode","label":"MODE","shortLabel":"MODE","min":0,"max":1,"value":0,"step":1,"integer":true,"labels":["TONE","DRUM"]},"fm_tune":{"key":"fm_tune","label":"TUNE","shortLabel":"TUNE","min":-48,"max":48,"value":0,"step":0.1,"integer":false},"fm_width":{"key":"fm_width","label":"WID","shortLabel":"WID","min":0,"max":100,"value":35,"step":1,"integer":false},"fm_level":{"key":"fm_level","label":"LVL","shortLabel":"LVL","min":0,"max":100,"value":75,"step":1,"integer":false},"fm_algorithm":{"key":"fm_algorithm","label":"ALG","shortLabel":"ALG","min":0,"max":3,"value":0,"step":1,"integer":true,"labels":["2OP","SER","PAR","RING"]},"fm_ratio1":{"key":"fm_ratio1","label":"RAT1","shortLabel":"RAT1","min":0.125,"max":32,"value":1,"step":0.125,"integer":false},"fm_index1":{"key":"fm_index1","label":"IDX1","shortLabel":"IDX1","min":0,"max":12,"value":1,"step":0.05,"integer":false},"fm_feedback":{"key":"fm_feedback","label":"FDBK","shortLabel":"FDBK","min":0,"max":90,"value":0,"step":1,"integer":false},"fm_ratio2":{"key":"fm_ratio2","label":"RAT2","shortLabel":"RAT2","min":0.125,"max":32,"value":2,"step":0.125,"integer":false},"fm_index2":{"key":"fm_index2","label":"IDX2","shortLabel":"IDX2","min":0,"max":12,"value":0,"step":0.05,"integer":false},"fm_detune":{"key":"fm_detune","label":"DETN","shortLabel":"DETN","min":0,"max":30,"value":0,"step":0.1,"integer":false},"fm_mix":{"key":"fm_mix","label":"MIX","shortLabel":"MIX","min":0,"max":100,"value":100,"step":1,"integer":false},"fm_cutoff":{"key":"fm_cutoff","label":"CUTO","shortLabel":"CUTO","min":20,"max":20000,"value":18000,"step":1,"integer":false,"curve":"log"},"fm_resonance":{"key":"fm_resonance","label":"RES","shortLabel":"RES","min":0,"max":85,"value":0,"step":1,"integer":false},"fm_drive":{"key":"fm_drive","label":"DRIV","shortLabel":"DRIV","min":0,"max":100,"value":0,"step":1,"integer":false},"fm_decay":{"key":"fm_decay","label":"DEC","shortLabel":"DEC","min":10,"max":8000,"value":600,"step":1,"integer":false,"curve":"log","unit":"ms"},"fm_fm_decay":{"key":"fm_fm_decay","label":"FDEC","shortLabel":"FDEC","min":2,"max":4000,"value":120,"step":1,"integer":false,"curve":"log","unit":"ms"},"fm_bend":{"key":"fm_bend","label":"BEND","shortLabel":"BEND","min":-48,"max":48,"value":24,"step":0.1,"integer":false},"fm_sweep_time":{"key":"fm_sweep_time","label":"TIME","shortLabel":"TIME","min":1,"max":2000,"value":25,"step":1,"integer":false,"curve":"log","unit":"ms"},"fm_impact":{"key":"fm_impact","label":"HIT","shortLabel":"HIT","min":0,"max":100,"value":20,"step":1,"integer":false},"fm_noise":{"key":"fm_noise","label":"NOIS","shortLabel":"NOIS","min":0,"max":100,"value":0,"step":1,"integer":false},"fm_noise_decay":{"key":"fm_noise_decay","label":"NDEC","shortLabel":"NDEC","min":1,"max":4000,"value":70,"step":1,"integer":false,"curve":"log","unit":"ms"},"fm_hardness":{"key":"fm_hardness","label":"HARD","shortLabel":"HARD","min":0,"max":100,"value":60,"step":1,"integer":false}});
+const FM_PAGE={title:"FM",fm:true,keys:["fm_mode", "fm_tune", "fm_width", "fm_level", "fm_algorithm", "fm_ratio1", "fm_index1", "fm_feedback"]};
+const FM_COLOR_PAGE={title:"FM COLOR",fm:true,keys:["fm_ratio2", "fm_index2", "fm_detune", "fm_mix", "fm_cutoff", "fm_resonance", "fm_drive", null]};
+const FM_HIT_PAGE={title:"FM HIT",fm:true,keys:["fm_decay", "fm_fm_decay", "fm_bend", "fm_sweep_time", "fm_impact", "fm_noise", "fm_noise_decay", "fm_hardness"]};
+const fmUi={data:null,floor:0};
+function readFm(cached=uiPolling.cached){let data;try{data=JSON.parse(String(cached?uiPolling.cache.get('fm_state'):getParam('fm_state','{}')));}catch(_){return;}
+ if(!data||data.part!==(state.splitEnabled?state.splitFocus:0)||!Number.isInteger(data.edit)||data.edit<0||data.edit>3||!Array.isArray(data.patches)||data.patches.length!==4||data.patches.some(p=>!Array.isArray(p)||p.length!==23||p.some(x=>!Number.isFinite(x)))||data.revision<fmUi.floor)return;
+ const expected=state.splitEnabled&&!state.sharedDual?(isQuad()?state.splitFocus:Math.floor(clamp(state.lane-1,state.splitFocus*2,state.splitFocus*2+1))):state.lane-1;
+ if(data.edit!==expected)return;
+ fmUi.data=data;if(!cached)fmUi.floor=data.revision;
+ FM_CONTROLS.forEach(p=>PARAMS[p.key].value=data.patches[data.edit][p.index]);
+}
+
+const TABLE_MAIN_PAGE={title:'TABLE',table:true,keys:['table_type','table_tune','table_width','table_level','table_art','table_decay','table_noise','table_drive']};
+const TABLE_WAVE_PAGE={title:'TABLE WAVE',table:true,keys:['table_shape','table_pulse','table_detune','table_sub','table_cutoff','table_resonance',null,null]};
+const TABLE_SPLINE_PAGE={title:'TABLE SPLINE',table:true,keys:['table_points','table_evolution','table_curve','table_drift','table_drift_rate','table_dynamics','table_seed',null]};
+const TABLE_OSC_PAGE={title:'TABLE WT OSC',table:true,keys:['table_model','table_bank_a','table_pos_a','table_bank_b','table_pos_b','table_blend','table_ratio','table_fm']};
+const TABLE_HIT_PAGE={title:'TABLE WT HIT',table:true,keys:['table_bend','table_pitch_decay','table_scan','table_scan_decay','table_wt_sub','table_impact','table_noise_decay','table_color']};
+const TABLE_COLOR_PAGE={title:'TABLE WT COLOR',table:true,keys:['table_wt_detune','table_tone','table_compression',null,null,null,null,null]};
+const tableUi={data:null,scopes:['','','',''],mask:0,revision:-1,floor:0,scopeKey:''};
+function readTable(cached=uiPolling.cached){let data;try{data=JSON.parse(String(cached?uiPolling.cache.get('table_state'):getParam('table_state','{}')));}catch(_){return;}
+ if(!data||data.part!==(state.splitEnabled?state.splitFocus:0)||!Number.isInteger(data.edit)||data.edit<0||data.edit>3||!Array.isArray(data.patches)||data.patches.length!==4||data.patches.some(p=>!Array.isArray(p)||p.length!==40||p.some(x=>!Number.isFinite(x)))||data.revision<tableUi.floor)return;
+ const expected=state.splitEnabled&&!state.sharedDual?(isQuad()?state.splitFocus:Math.floor(clamp(state.lane-1,state.splitFocus*2,state.splitFocus*2+1))):state.lane-1;
+ if(data.edit!==expected)return;
+ tableUi.data=data;if(!cached)tableUi.floor=data.revision;
+ TABLE_CONTROLS.forEach(p=>PARAMS[p.key].value=data.patches[data.edit][p.index]);
+}
+function readTableScope(cached=uiPolling.cached){let data;try{data=JSON.parse(String(cached?uiPolling.cache.get('table_scope'):getParam('table_scope','{}')));}catch(_){return;}
+ if(!data||data.mode!==currentPerformanceMode()||(data.focus??-1)!==(state.bankMode?0:state.splitEnabled&&state.sharedDual?state.splitFocus:-1)||!Number.isInteger(data.mask)||!Array.isArray(data.waves)||data.waves.length!==4||data.waves.some(w=>typeof w!=='string'||!(/^[0-9a-e]{128}$/).test(w)))return;
+ tableUi.mask=data.mask;tableUi.scopes=data.waves;tableUi.scopeKey=data.waves.join(':')+data.mask;
+}
+function drawTableScope(lane,center,left,width){const text=tableUi.scopes[lane];if(!text||text.length!==128)return false;
+ let previous=null;
+ for(let x=0;x<width;++x){const at=Math.min(63,Math.round(x*63/Math.max(1,width-1)))*2,low=parseInt(text[at],16)-7,high=parseInt(text[at+1],16)-7;
+   const top=center-Math.round(high*4/7),bottom=center-Math.round(low*4/7);const mid=Math.round((top+bottom)/2),from=previous===null?top:Math.min(top,previous),to=previous===null?bottom:Math.max(bottom,previous);
+   drawRect(left+x,from,1,Math.max(1,to-from+1),1);previous=mid;}
+ for(let v=0;v<state.stackPositions.length;++v)if((!state.sharedDual||state.bankMode||(v<4?0:1)===state.splitFocus)&&isSynthAlgorithm(state.voiceAlgorithms?.[v])&&state.stackPositions[v]>=0){const position=state.stackPositions[v]*3;
+   if(Math.abs(position-lane)<=.6){const y=center+Math.round((position-lane)*10);drawRect(left+width-2-(v%4)*3,y-1,2,2,1);}}
+ return true;
+}
+
 const PLAYBACK_PAGES = [
     [
         STACK_PATH_PAGE,
@@ -576,11 +638,17 @@ const PLAYBACK_PAGES = [
     [STACK_PATH_PAGE,{title:'TEXTURE',keys:['texture_mode','texture_rate','texture_length','texture_scatter','texture_range','texture_group','texture_spread','texture_seed']}],
     [STACK_PATH_PAGE,{title:'FORMANT',keys:['formant_pitch','formant_shift','formant_smoothing','formant_tune','formant_freeze','formant_keytrack','formant_rough','formant_sub']} ],
     [STACK_PATH_PAGE,{title:'STOCHASTIC',stochastic:true,keys:["stochastic_size","stochastic_amplitude","stochastic_timing","stochastic_evolution","stochastic_memory","stochastic_pull","stochastic_law","stochastic_drift"]}],
-    [STACK_PATH_PAGE,{title:'PULSAR',pulsar:true,keys:["pulsar_rate","pulsar_form","pulsar_size","pulsar_window","pulsar_skew","pulsar_omit","pulsar_burst","pulsar_jitter"]},{title:'PULSAR MOD',pulsar:true,keys:["pulsar_emit_mod_rate","pulsar_emit_mod_depth","pulsar_form_mod_rate","pulsar_form_mod_depth","pulsar_spray","pulsar_form_variation","pulsar_reverse","pulsar_keytrack"]}]
+    [STACK_PATH_PAGE,{title:'PULSAR',pulsar:true,keys:["pulsar_rate","pulsar_form","pulsar_size","pulsar_window","pulsar_skew","pulsar_omit","pulsar_burst","pulsar_jitter"]},{title:'PULSAR MOD',pulsar:true,keys:["pulsar_emit_mod_rate","pulsar_emit_mod_depth","pulsar_form_mod_rate","pulsar_form_mod_depth","pulsar_spray","pulsar_form_variation","pulsar_reverse","pulsar_keytrack"]}],
+    [STACK_PATH_PAGE,TABLE_MAIN_PAGE,TABLE_WAVE_PAGE,TABLE_SPLINE_PAGE,TABLE_OSC_PAGE,TABLE_HIT_PAGE,TABLE_COLOR_PAGE],
+    [STACK_PATH_PAGE,SCANNED_PAGE,SCANNED_BODY_PAGE,SCANNED_HIT_PAGE,SCANNED_AMP_PAGE],
+    [STACK_PATH_PAGE,FM_PAGE,FM_COLOR_PAGE,FM_HIT_PAGE]
 
 ];
 
 function playbackPagesForAlgorithm(algorithm, motionSound) {
+    if(algorithm===17)return [STACK_PATH_PAGE,FM_PAGE,FM_COLOR_PAGE,FM_HIT_PAGE];
+    if(algorithm===16)return [STACK_PATH_PAGE,SCANNED_PAGE,SCANNED_BODY_PAGE,SCANNED_HIT_PAGE,SCANNED_AMP_PAGE];
+    if(algorithm===15)return [STACK_PATH_PAGE,TABLE_MAIN_PAGE,...(Math.round(sequenceSoundValue('table_type',PARAMS.table_type.value))===0?[TABLE_WAVE_PAGE]:Math.round(sequenceSoundValue('table_type',PARAMS.table_type.value))===1?[TABLE_SPLINE_PAGE]:[TABLE_OSC_PAGE,TABLE_HIT_PAGE,TABLE_COLOR_PAGE])];
     const pages = [...(PLAYBACK_PAGES[algorithm] || PLAYBACK_PAGES[0])];
     if(algorithm===13 && typeof PARAMS!=='undefined' && PARAMS.stochastic_law.value>=2.5) return pages.map(p=>p.stochastic?{...p,keys:p.keys.map(k=>k==='stochastic_pull'?'stochastic_capture':k)}:p);
     if (algorithm !== 0) return pages;
@@ -637,6 +705,11 @@ const CHAIN_TOOLS_PAGE={title:'CHAIN TOOLS',chainTools:true,global:true,scopeLab
 const ENTRY_FADE_PAGE = {global:true,scopeLabel:'',title:'ENTRY FADE',chainFade:'entry',keys:Array(8).fill(null)};
 const CHAIN_PAGE = {global:true,scopeLabel:'', title: 'CHAIN', keys: ['chain_enabled', 'chain_slot',
     'chain_clip', 'chain_repeats', 'chain_clear', 'chain_bank', 'chain_end', 'chain_advance'] };
+
+/* SEQUENCE_SOUND_CATALOG_BEGIN */
+const SEQUENCE_SOUND_SCOPES={"1":"voice","2":"voice","5":"voice","6":"lane","7":"lane","8":"lane","256":"voice","257":"voice","258":"voice","259":"voice","385":"voice","394":"voice","395":"voice","512":"voice","513":"voice","514":"voice","515":"voice","516":"voice","517":"voice","518":"voice","519":"voice","520":"voice","521":"voice","522":"voice","523":"voice","524":"voice","525":"voice","526":"voice","527":"voice","528":"voice","529":"voice","530":"voice","531":"voice","532":"voice","533":"voice","640":"voice","641":"voice","642":"voice","644":"voice","645":"voice","646":"voice","647":"voice","648":"voice","649":"voice","650":"voice","651":"voice","652":"voice","653":"voice","654":"voice","655":"voice","656":"voice","657":"voice","658":"voice","659":"voice","768":"voice","769":"voice","770":"voice","771":"voice","772":"voice","773":"voice","774":"voice","775":"voice","776":"voice","777":"voice","778":"voice","779":"voice","780":"voice","781":"voice","782":"voice","896":"voice","897":"voice","898":"voice","899":"voice","900":"voice","901":"voice","902":"voice","903":"voice","904":"voice","905":"voice","906":"voice","907":"voice","908":"voice","909":"voice","910":"voice","911":"voice","1030":"voice","1031":"voice","1032":"voice","1152":"voice","1153":"voice","1154":"voice","1155":"voice","1156":"voice","1157":"voice","1158":"voice","1159":"voice","1160":"voice","1161":"voice","1162":"voice","1163":"voice","1164":"voice","1165":"voice","1166":"voice","1167":"voice","1280":"voice","1281":"voice","1282":"voice","1283":"voice","1284":"voice","1285":"voice","1286":"voice","1287":"voice","1408":"voice","1409":"voice","1410":"voice","1411":"voice","1412":"voice","1413":"voice","1536":"voice","1537":"voice","1538":"voice","1539":"voice","1540":"voice","1541":"voice","1664":"voice","1665":"voice","1666":"voice","1667":"voice","1668":"voice","1669":"voice","1670":"voice","1671":"voice","1792":"voice","1793":"voice","1794":"voice","1795":"voice","1797":"voice","1798":"voice","1799":"voice","1921":"lane","1922":"lane","1923":"lane","1924":"lane","1929":"lane","2048":"lane","2049":"lane","2050":"lane","2051":"lane","2052":"lane","2053":"lane","2054":"lane","3200":"voice","3201":"voice","3202":"voice","3203":"voice","3204":"voice","3205":"voice","3206":"voice","3207":"voice","3210":"voice","3328":"voice","3329":"voice","3330":"voice","3331":"voice","3332":"voice","3333":"voice","3334":"voice","3335":"voice","3338":"voice","3339":"voice","3340":"voice","3341":"voice","3342":"voice","3343":"voice","3344":"voice","3345":"voice","3867":"lane","3871":"lane","3872":"lane","3873":"lane","3874":"lane","4200":"voice","4201":"voice","4202":"voice","4203":"voice","4204":"voice","4205":"voice","4206":"voice","4207":"voice","4208":"voice","4209":"voice","4210":"voice","4211":"voice","4212":"voice","4213":"voice","4214":"voice","4215":"voice","4216":"voice","4217":"voice","4218":"voice","4219":"voice","4220":"voice","4222":"voice","4223":"voice","4224":"voice","4225":"voice","4226":"voice","4227":"voice","4228":"voice","4229":"voice","4230":"voice","4231":"voice","4232":"voice","4233":"voice","4234":"voice","4235":"voice","4236":"voice","4237":"voice","4238":"voice","4239":"voice","4300":"voice","4301":"voice","4302":"voice","4303":"voice","4304":"voice","4305":"voice","4306":"voice","4307":"voice","4308":"voice","4309":"voice","4310":"voice","4311":"voice","4312":"voice","4313":"voice","4314":"voice","4315":"voice","4316":"voice","4317":"voice","4318":"voice","4319":"voice","4320":"voice","4321":"voice","4322":"voice","4323":"voice","4324":"voice","4325":"voice","4326":"voice","4327":"voice","4328":"voice","4329":"voice","4330":"voice","4400":"voice","4401":"voice","4402":"voice","4403":"voice","4404":"voice","4405":"voice","4406":"voice","4407":"voice","4408":"voice","4409":"voice","4410":"voice","4411":"voice","4412":"voice","4413":"voice","4414":"voice","4415":"voice","4416":"voice","4417":"voice","4418":"voice","4419":"voice","4420":"voice","4421":"voice","4422":"voice"};
+const SEQUENCE_SOUND_IDS={"field":1,"speed":2,"join":5,"part_level":6,"part_delay":7,"part_reverb":8,"amp_attack":256,"amp_decay":257,"amp_sustain":258,"amp_release":259,"lanes_mode":385,"lanes_stretch":394,"stretch_ratio":395,"motion_mode":512,"motion_sound":513,"motion_rate":514,"motion_rate_basis":515,"motion_path_rate":516,"motion_step":517,"motion_seed":518,"motion_travel":519,"motion_jitter":520,"packet_duty":521,"motor_rate":522,"motor_symmetry":523,"motor_shape":524,"segment_trigger":525,"segment_overlap":526,"segment_layers":527,"segment_rate":528,"segment_repeats":529,"segment_step":530,"segment_pitch":531,"segment_level":532,"segment_curve":533,"grain_mode":640,"grain_size":641,"grain_density":642,"grain_pitch":644,"grain_window":645,"grain_spread":646,"grain_spray":647,"grain_bias":648,"grain_pitch_spray":649,"grain_reverse":650,"grain_size_variation":651,"grain_level_variation":652,"grain_timing":653,"grain_timing_scatter":654,"grain_envelope_skew":655,"grain_process":656,"grain_process_amount":657,"grain_regions":658,"grain_advance":659,"long_grain_mode":768,"long_grain_length":769,"long_grain_layers":770,"long_grain_pitch":771,"long_grain_shape":772,"long_grain_edge":773,"long_grain_spread":774,"long_grain_reverse":775,"long_grain_spray":776,"long_grain_bias":777,"long_grain_duration_variation":778,"long_grain_pitch_spray":779,"long_grain_level_variation":780,"long_grain_phase":781,"long_grain_advance":782,"cut_lane_advance":896,"cutups_mode":897,"cut_clock":898,"cut_division":899,"cut_rate":900,"cut_time_variation":901,"cut_gate":902,"cut_join":903,"cut_regions":904,"cut_repeats":905,"cut_reverse":906,"cut_pitch_variation":907,"cut_level_variation":908,"cut_lane_order":909,"cut_poly_path":910,"cut_region_mode":911,"sample_mode":1030,"slice_region_mode":1031,"slice_regions":1032,"glitch_mode":1152,"glitch_clock":1153,"glitch_division":1154,"glitch_rate":1155,"glitch_slice":1156,"glitch_repeats":1157,"glitch_chance":1158,"glitch_mix":1159,"glitch_steps":1160,"glitch_pulses":1161,"glitch_rotate":1162,"glitch_jump":1163,"glitch_pitch":1164,"glitch_reverse":1165,"glitch_decay":1166,"glitch_seed":1167,"waveset_group":1280,"waveset_repeats":1281,"waveset_stride":1282,"waveset_advance":1283,"waveset_direction":1284,"waveset_process":1285,"waveset_amount":1286,"waveset_detail":1287,"prism_mode":1408,"prism_blur":1409,"prism_decay":1410,"prism_pitch":1411,"prism_tilt":1412,"prism_smear":1413,"morph_mode":1536,"morph_amplitude":1537,"morph_frequency":1538,"morph_offset":1539,"morph_blur":1540,"morph_pitch":1541,"texture_mode":1664,"texture_rate":1665,"texture_length":1666,"texture_scatter":1667,"texture_range":1668,"texture_group":1669,"texture_spread":1670,"texture_seed":1671,"formant_pitch":1792,"formant_shift":1793,"formant_smoothing":1794,"formant_tune":1795,"formant_keytrack":1797,"formant_rough":1798,"formant_sub":1799,"effect_tone":1921,"effect_drive":1922,"effect_bits":1923,"effect_rate":1924,"effect_cross_pan":1929,"effect_rotary_rate":2048,"effect_rotary_depth":2049,"effect_rotary_mix":2050,"effect_rotary_ramp":2051,"effect_rotary_balance":2052,"effect_rotary_crossover":2053,"effect_rotary_spread":2054,"stochastic_size":3200,"stochastic_amplitude":3201,"stochastic_timing":3202,"stochastic_evolution":3203,"stochastic_memory":3204,"stochastic_pull":3205,"stochastic_law":3206,"stochastic_drift":3207,"stochastic_capture":3210,"pulsar_rate":3328,"pulsar_form":3329,"pulsar_size":3330,"pulsar_window":3331,"pulsar_skew":3332,"pulsar_omit":3333,"pulsar_burst":3334,"pulsar_jitter":3335,"pulsar_emit_mod_rate":3338,"pulsar_emit_mod_depth":3339,"pulsar_form_mod_rate":3340,"pulsar_form_mod_depth":3341,"pulsar_spray":3342,"pulsar_form_variation":3343,"pulsar_reverse":3344,"pulsar_keytrack":3345,"seq_pan_1":3867,"seq_eq_low":3871,"seq_eq_mid":3872,"seq_eq_high":3873,"seq_eq_freq":3874,"table_type":4200,"table_tune":4201,"table_width":4202,"table_level":4203,"table_art":4204,"table_decay":4205,"table_noise":4206,"table_drive":4207,"table_shape":4208,"table_pulse":4209,"table_detune":4210,"table_sub":4211,"table_cutoff":4212,"table_resonance":4213,"table_points":4214,"table_evolution":4215,"table_curve":4216,"table_drift":4217,"table_drift_rate":4218,"table_dynamics":4219,"table_seed":4220,"table_bank_a":4222,"table_pos_a":4223,"table_bank_b":4224,"table_pos_b":4225,"table_blend":4226,"table_ratio":4227,"table_fm":4228,"table_wt_detune":4229,"table_bend":4230,"table_pitch_decay":4231,"table_scan":4232,"table_scan_decay":4233,"table_wt_sub":4234,"table_impact":4235,"table_noise_decay":4236,"table_color":4237,"table_tone":4238,"table_compression":4239,"scanned_excitation":4300,"scanned_pick":4301,"scanned_hit":4302,"scanned_tune":4303,"scanned_motion":4304,"scanned_damping":4305,"scanned_brightness":4306,"scanned_width":4307,"scanned_mass":4308,"scanned_tension":4309,"scanned_center":4310,"scanned_profile":4311,"scanned_force":4312,"scanned_pressure":4313,"scanned_freeze":4314,"scanned_seed":4315,"scanned_art":4316,"scanned_impact":4317,"scanned_hardness":4318,"scanned_decay":4319,"scanned_bend":4320,"scanned_sweep_time":4321,"scanned_loss":4322,"scanned_amp_mode":4323,"scanned_amp_gain":4324,"scanned_amp_bass":4325,"scanned_amp_mid":4326,"scanned_amp_freq":4327,"scanned_amp_treble":4328,"scanned_amp_cab":4329,"scanned_amp_level":4330,"fm_mode":4400,"fm_tune":4401,"fm_width":4402,"fm_level":4403,"fm_algorithm":4404,"fm_ratio1":4405,"fm_index1":4406,"fm_feedback":4407,"fm_ratio2":4408,"fm_index2":4409,"fm_detune":4410,"fm_mix":4411,"fm_cutoff":4412,"fm_resonance":4413,"fm_drive":4414,"fm_decay":4415,"fm_fm_decay":4416,"fm_bend":4417,"fm_sweep_time":4418,"fm_impact":4419,"fm_noise":4420,"fm_noise_decay":4421,"fm_hardness":4422};
+/* SEQUENCE_SOUND_CATALOG_END */
 
 const LOCKABLE_KEYS = [
     'locus', 'field', 'speed', 'manual_lane', 'lane_cycles', 'algorithm',
@@ -797,7 +870,7 @@ const SHORT_LABELS = {
 
 const state = {
     ticks: 0,
-    splitEnabled:false,sharedDual:false,quadMode:false,modeSelection:0,modeRequest:null,lastNonSingleMode:1,splitFocus:0,splitBlend:.5,splitParts:[{},{}],splitPages:[0,0,0,0],
+    splitEnabled:false,sharedDual:false,quadMode:false,modeSelection:0,modeRequest:null,exitConfirmation:null,lastNonSingleMode:1,splitFocus:0,splitBlend:.5,splitParts:[{},{}],splitPages:[0,0,0,0],
     pathReady:false,pathCount:4,pathPoint:0,pathPoints:Array.from({length:8},(_,i)=>({time:[0,.25,.5,.75,.8,.85,.9,.95][i],lane:[0,.5,1,.5,.4,.3,.2,.1][i],curve:0})),
     focusButtonHeld:false,focusButtonUsed:false,captureStartTick:0,performanceVisible:false,performanceArmed:false,performanceOwner:0,performancePads:new Set(),performancePadLive:new Set(),performanceValues:Array(8).fill(0),voiceAlgorithms:Array(8).fill(-1),
     editorReady:false,engineListReturn:false,engineListVoices:false,
@@ -1201,13 +1274,14 @@ function refreshEditorSnapshot(readDetails=true) {
         || !decodeSplitState({...split,mode:values.split_mode})
         || !Array.isArray(split.parts) || split.parts.length!==(split.enabled&&split.quad?4:2)
         || split.parts.some((part)=>!part || typeof part!=='object')) return false;
-    // Validate the complete response before replacing any displayed controls.
+    // TABLE patch values arrive through table_state, just as Layers and
+    // Sequence use their dedicated snapshots. Validate only scalar chunks here.
     for(const [key,control] of Object.entries(PARAMS))
-        if(!control.momentary && !key.startsWith('layers_') && !key.startsWith('seq_') && key!=='mix_mute' && !Number.isFinite(values[key])) return false;
+        if(!control.lfoField && !control.momentary && !key.startsWith('layers_') && !key.startsWith('seq_') && !key.startsWith('table_') && !key.startsWith('scanned_') && !key.startsWith('fm_') && key!=='mix_mute' && !Number.isFinite(values[key])) return false;
     for(const key of ['pad_octave','record_lane','stack_scan_paused','glitch_buffer_lock'])
         if(!Number.isFinite(values[key])) return false;
     for(const [key,control] of Object.entries(PARAMS))
-        if(!key.startsWith('layers_') && !key.startsWith('seq_') && key!=='mix_mute') control.value=control.momentary?0:clamp(values[key],control.min,control.max);
+        if(!control.lfoField && !key.startsWith('layers_') && !key.startsWith('seq_') && !key.startsWith('table_') && !key.startsWith('scanned_') && !key.startsWith('fm_') && key!=='mix_mute') control.value=control.momentary?0:clamp(values[key],control.min,control.max);
     parseSplitState({...split,mode:values.split_mode},false);
     state.engineListVoices=Number(values.voice_engine_active)===1;
     state.algorithm=Math.round(PARAMS.algorithm.value);
@@ -1221,6 +1295,7 @@ function refreshEditorSnapshot(readDetails=true) {
     state.editorReady=true;
     uiPolling.cache.set('split_state',JSON.stringify(split));
     for(const [key,value] of Object.entries(values))uiPolling.cache.set(key,String(value));
+    if(state.algorithm===15)readTable(false);if(state.algorithm===16)readScanned(false);if(state.algorithm===17)readFm(false);
     if(readDetails){if(Number(values.split_mode)===5||layersUi.active)readLayers();if(Number(values.split_mode)===6||sequenceUi.active)readSequence();}
     if(keepPage){const index=parameterPages().findIndex(page=>page.title===keepPage.title);if(index>=0)state.settingsPage=index;}
     if(state.message==='UPDATING EDITOR')state.messageTicks=0;
@@ -1265,6 +1340,131 @@ function parseUiState(text) {
 
 
 // Layers uses the existing Thru renderer, encoder response and page browser.
+// Shared control LFO pool. Base PARAMS stay editable; display overlays are read-only.
+// View-only playback values for the eight subscribed page controls. The base
+// PARAMS values remain the source for encoder edits and MIDI feedback.
+const playbackReadout={data:null};
+function readPlaybackReadout(cachedOnly=false){
+ let d;try{d=JSON.parse(String(cachedOnly?uiPolling.cache.get('midi_state'):getParam('midi_state','{}')));}catch(_){playbackReadout.data=null;return;}
+ if(!Number.isInteger(d.owner)||!Number.isInteger(d.clip)||![0,1].includes(d.playing)||!Array.isArray(d.playback)||d.playback.length>8||d.playback.some(r=>!Array.isArray(r)||r.length!==3||!Number.isInteger(r[0])||!Number.isInteger(r[1])||!Number.isFinite(r[2]))){playbackReadout.data=null;return;}
+ playbackReadout.data=d;
+}
+function playbackDisplayControl(c){
+ const d=playbackReadout.data;if(!c||c.automated||!d||!state.clipPlaying||state.clipRecording||!d.playing||d.clip!==state.activeClip||d.owner!==currentPerformanceMode()*4+(state.splitEnabled?state.splitFocus:0))return c;
+ const p=thruMidi.MIDI_BY_KEY.get(c.key);if(!p)return c;
+ if(p.scope==='part'&&Number.isInteger(d.entry)&&d.entry!==Math.round(PARAMS.voice_engine_edit.value)-1)return c;
+ if(/^layers_fx(?:[0-9]|1[01])$/.test(c.key)&&Number.isInteger(d.corner)&&d.corner!==Math.round(PARAMS.layers_corner.value))return c;
+ const owner=p.scope==='part'?state.splitFocus:-1,row=d.playback.find(r=>r[0]===owner&&r[1]===p.id);if(!row)return c;
+ const shown={...c,value:clamp(row[2],c.min,c.max),baseValue:c.value,automated:true};
+ if(c.lfoField==='rate'){const key=c.key.replace(/_rate$/,'_clock'),clock=thruMidi.MIDI_BY_KEY.get(key),r=d.playback.find(r=>r[0]===-1&&r[1]===clock?.id);if(r)shown.lfoClock=Math.round(r[2]);}
+ return shown;
+}
+function lfoActiveParts(){const mode=currentPerformanceMode();return mode===0||mode===5?[0,4]:mode===3||mode===6?[0,1,2,3,4]:[0,1,4];}
+
+const lfoUi={data:null,live:null,visible:false,picker:null};
+/* LFO_DESTINATIONS_BEGIN */
+const LFO_DESTINATIONS=[{"key":"off","page":"Off","name":"Off","scope":"off","engines":[],"modes":[0,1,2,3,4,5,6],"parameter":-99,"min":0,"max":1,"octaves":0,"id":0,"condition":"always"},{"key":"speed","page":"ENGINE","name":"Speed","scope":"engine","engines":[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14],"modes":[0,1,2,3,4,5,6],"parameter":2,"min":0.05,"max":4,"octaves":2,"id":1,"condition":"always"},{"key":"part_level","page":"MIXER","name":"Level","scope":"mixer","engines":[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17],"modes":[0,1,2,3,4,5,6],"parameter":-1,"min":0,"max":2,"octaves":0,"id":2,"condition":"always"},{"key":"part_pan","page":"MIXER","name":"Pan","scope":"mixer","engines":[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17],"modes":[0,1,2,3,4,5,6],"parameter":-2,"min":-1,"max":1,"octaves":0,"id":3,"condition":"always"},{"key":"part_delay","page":"FX SENDS","name":"Delay Send","scope":"mixer","engines":[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17],"modes":[1,2,3,4,6],"parameter":-3,"min":0,"max":1,"octaves":0,"id":4,"condition":"always"},{"key":"part_reverb","page":"FX SENDS","name":"Reverb Send","scope":"mixer","engines":[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17],"modes":[1,2,3,4,6],"parameter":-4,"min":0,"max":1,"octaves":0,"id":5,"condition":"always"},{"key":"effect_tone","page":"PART COLOR","name":"Tone","scope":"insert","engines":[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14],"modes":[0,1,2,3,4,6],"parameter":97,"min":-1,"max":1,"octaves":0,"id":6,"condition":"always"},{"key":"effect_drive","page":"PART COLOR","name":"Drive","scope":"insert","engines":[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14],"modes":[0,1,2,3,4,6],"parameter":98,"min":0,"max":1,"octaves":0,"id":7,"condition":"always"},{"key":"effect_bits","page":"PART COLOR","name":"Bit Reduction","scope":"insert","engines":[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14],"modes":[0,1,2,3,4,6],"parameter":99,"min":0,"max":1,"octaves":0,"id":8,"condition":"always"},{"key":"effect_rate","page":"PART COLOR","name":"Rate Reduction","scope":"insert","engines":[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14],"modes":[0,1,2,3,4,6],"parameter":100,"min":1,"max":16,"octaves":0,"id":9,"condition":"always"},{"key":"stretch_ratio","page":"LANES PLAY","name":"Stretch Factor","scope":"engine","engines":[1,4],"modes":[0,1,2,3,4,5,6],"parameter":14,"min":0.25,"max":4,"octaves":2,"id":10,"condition":"always"},{"key":"grain_size","page":"GRAINS MAIN","name":"Grain Size","scope":"engine","engines":[2],"modes":[0,1,2,3,4,5,6],"parameter":20,"min":8,"max":1000,"octaves":2,"id":11,"condition":"always"},{"key":"grain_pitch","page":"GRAINS MAIN","name":"Pitch","scope":"engine","engines":[2],"modes":[0,1,2,3,4,5,6],"parameter":22,"min":0.25,"max":4,"octaves":2,"id":12,"condition":"always"},{"key":"grain_spread","page":"GRAINS MAIN","name":"Stereo Spread","scope":"engine","engines":[2],"modes":[0,1,2,3,4,5,6],"parameter":24,"min":0,"max":1,"octaves":0,"id":13,"condition":"always"},{"key":"grain_spray","page":"GRAINS CLOUD","name":"Position Spray","scope":"engine","engines":[2],"modes":[0,1,2,3,4,5,6],"parameter":38,"min":0,"max":1,"octaves":0,"id":14,"condition":"always"},{"key":"grain_bias","page":"GRAINS CLOUD","name":"Position Bias","scope":"engine","engines":[2],"modes":[0,1,2,3,4,5,6],"parameter":39,"min":0,"max":2,"octaves":0,"id":15,"condition":"always"},{"key":"long_grain_length","page":"WEAVE","name":"Grain Length","scope":"engine","engines":[7],"modes":[0,1,2,3,4,5,6],"parameter":106,"min":250,"max":12000,"octaves":2,"id":16,"condition":"always"},{"key":"long_grain_pitch","page":"WEAVE","name":"Pitch","scope":"engine","engines":[7],"modes":[0,1,2,3,4,5,6],"parameter":108,"min":0.25,"max":4,"octaves":2,"id":17,"condition":"always"},{"key":"long_grain_edge","page":"WEAVE","name":"Grain Edge","scope":"engine","engines":[7],"modes":[0,1,2,3,4,5,6],"parameter":110,"min":5,"max":2000,"octaves":0,"id":18,"condition":"always"},{"key":"long_grain_spread","page":"WEAVE","name":"Stereo Spread","scope":"engine","engines":[7],"modes":[0,1,2,3,4,5,6],"parameter":111,"min":0,"max":1,"octaves":0,"id":19,"condition":"always"},{"key":"long_grain_spray","page":"WEAVE MOTION","name":"Position Spray","scope":"engine","engines":[7],"modes":[0,1,2,3,4,5,6],"parameter":113,"min":0,"max":1,"octaves":0,"id":20,"condition":"always"},{"key":"cut_gate","page":"CUTUPS CLOCK","name":"Cut Duration","scope":"engine","engines":[3],"modes":[0,1,2,3,4,5,6],"parameter":55,"min":5,"max":100,"octaves":0,"id":21,"condition":"always"},{"key":"cut_join","page":"CUTUPS CLOCK","name":"Cut Crossfade","scope":"engine","engines":[3],"modes":[0,1,2,3,4,5,6],"parameter":56,"min":0,"max":100,"octaves":0,"id":22,"condition":"always"},{"key":"cut_pitch_variation","page":"CUTUPS PATH","name":"Pitch Variation","scope":"engine","engines":[3],"modes":[0,1,2,3,4,5,6],"parameter":60,"min":0,"max":24,"octaves":0,"id":23,"condition":"always"},{"key":"glitch_mix","page":"GLITCH CLOCK","name":"Glitch Mix","scope":"engine","engines":[6],"modes":[0,1,2,3,4,5,6],"parameter":88,"min":0,"max":100,"octaves":0,"id":24,"condition":"always"},{"key":"glitch_chance","page":"GLITCH CLOCK","name":"Chance","scope":"engine","engines":[6],"modes":[0,1,2,3,4,5,6],"parameter":87,"min":0,"max":100,"octaves":0,"id":25,"condition":"always"},{"key":"glitch_pitch","page":"GLITCH PATTERN","name":"Pitch","scope":"engine","engines":[6],"modes":[0,1,2,3,4,5,6],"parameter":93,"min":0,"max":24,"octaves":0,"id":26,"condition":"always"},{"key":"glitch_decay","page":"GLITCH PATTERN","name":"Decay","scope":"engine","engines":[6],"modes":[0,1,2,3,4,5,6],"parameter":95,"min":0,"max":100,"octaves":0,"id":27,"condition":"always"},{"key":"prism_pitch","page":"PRISM","name":"Pitch","scope":"engine","engines":[9],"modes":[0,1,2,3,4,5,6],"parameter":179,"min":-24,"max":24,"octaves":0,"id":28,"condition":"always"},{"key":"prism_tilt","page":"PRISM","name":"Spectral Tilt","scope":"engine","engines":[9],"modes":[0,1,2,3,4,5,6],"parameter":180,"min":-100,"max":100,"octaves":0,"id":29,"condition":"always"},{"key":"prism_smear","page":"PRISM","name":"Smear","scope":"engine","engines":[9],"modes":[0,1,2,3,4,5,6],"parameter":181,"min":0,"max":100,"octaves":0,"id":30,"condition":"always"},{"key":"morph_amplitude","page":"MORPH","name":"Amplitude Blend","scope":"engine","engines":[10],"modes":[0,1,2,3,4,5,6],"parameter":182,"min":0,"max":100,"octaves":0,"id":31,"condition":"always"},{"key":"morph_frequency","page":"MORPH","name":"Frequency Blend","scope":"engine","engines":[10],"modes":[0,1,2,3,4,5,6],"parameter":183,"min":0,"max":100,"octaves":0,"id":32,"condition":"always"},{"key":"morph_pitch","page":"MORPH","name":"Pitch","scope":"engine","engines":[10],"modes":[0,1,2,3,4,5,6],"parameter":186,"min":-24,"max":24,"octaves":0,"id":33,"condition":"always"},{"key":"texture_scatter","page":"TEXTURE","name":"Scatter","scope":"engine","engines":[11],"modes":[0,1,2,3,4,5,6],"parameter":190,"min":0,"max":100,"octaves":0,"id":34,"condition":"always"},{"key":"texture_range","page":"TEXTURE","name":"Pitch Range","scope":"engine","engines":[11],"modes":[0,1,2,3,4,5,6],"parameter":191,"min":0,"max":24,"octaves":0,"id":35,"condition":"always"},{"key":"texture_spread","page":"TEXTURE","name":"Stereo Spread","scope":"engine","engines":[11],"modes":[0,1,2,3,4,5,6],"parameter":193,"min":0,"max":100,"octaves":0,"id":36,"condition":"always"},{"key":"formant_pitch","page":"FORMANT","name":"Pitch","scope":"engine","engines":[12],"modes":[0,1,2,3,4,5,6],"parameter":196,"min":-24,"max":24,"octaves":0,"id":37,"condition":"always"},{"key":"formant_shift","page":"FORMANT","name":"Formant Shift","scope":"engine","engines":[12],"modes":[0,1,2,3,4,5,6],"parameter":197,"min":-24,"max":24,"octaves":0,"id":38,"condition":"always"},{"key":"formant_sub","page":"FORMANT","name":"Sub Level","scope":"engine","engines":[12],"modes":[0,1,2,3,4,5,6],"parameter":203,"min":0,"max":100,"octaves":0,"id":39,"condition":"always"},{"key":"stochastic_amplitude","page":"STOCHASTIC","name":"Amplitude Deform","scope":"engine","engines":[13],"modes":[0,1,2,3,4,5,6],"parameter":206,"min":0,"max":100,"octaves":0,"id":40,"condition":"always"},{"key":"stochastic_timing","page":"STOCHASTIC","name":"Timing Deform","scope":"engine","engines":[13],"modes":[0,1,2,3,4,5,6],"parameter":207,"min":0,"max":100,"octaves":0,"id":41,"condition":"always"},{"key":"pulsar_form","page":"PULSAR","name":"Form Frequency","scope":"engine","engines":[14],"modes":[0,1,2,3,4,5,6],"parameter":217,"min":1,"max":2000,"octaves":2,"id":42,"condition":"always"},{"key":"pulsar_size","page":"PULSAR","name":"Pulsaret Size","scope":"engine","engines":[14],"modes":[0,1,2,3,4,5,6],"parameter":218,"min":0.5,"max":1000,"octaves":2,"id":43,"condition":"always"},{"key":"pulsar_skew","page":"PULSAR","name":"Window Skew","scope":"engine","engines":[14],"modes":[0,1,2,3,4,5,6],"parameter":220,"min":0,"max":100,"octaves":0,"id":44,"condition":"always"},{"key":"pulsar_omit","page":"PULSAR","name":"Omit","scope":"engine","engines":[14],"modes":[0,1,2,3,4,5,6],"parameter":221,"min":0,"max":100,"octaves":0,"id":45,"condition":"always"},{"key":"pulsar_spray","page":"PULSAR MOD","name":"Position Spray","scope":"engine","engines":[14],"modes":[0,1,2,3,4,5,6],"parameter":230,"min":0,"max":100,"octaves":0,"id":46,"condition":"always"},{"key":"effect_cross_pan","page":"STEREO / ROTARY","name":"Stereo Pan","scope":"insert","engines":[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14],"modes":[0,1,2,3,4,6],"parameter":124,"min":-100,"max":100,"octaves":0,"id":47,"condition":"always"},{"key":"effect_rotary_rate","page":"STEREO / ROTARY","name":"Rotary Rate","scope":"insert","engines":[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14],"modes":[0,1,2,3,4,6],"parameter":125,"min":0,"max":8,"octaves":2,"id":48,"condition":"always"},{"key":"effect_rotary_depth","page":"STEREO / ROTARY","name":"Rotary Depth","scope":"insert","engines":[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14],"modes":[0,1,2,3,4,6],"parameter":126,"min":0,"max":100,"octaves":0,"id":49,"condition":"always"},{"key":"effect_rotary_mix","page":"STEREO / ROTARY","name":"Rotary Mix","scope":"insert","engines":[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14],"modes":[0,1,2,3,4,6],"parameter":127,"min":0,"max":100,"octaves":0,"id":50,"condition":"always"},{"key":"effect_rotary_balance","page":"STEREO / ROTARY","name":"Horn Drum Balance","scope":"insert","engines":[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14],"modes":[0,1,2,3,4,6],"parameter":129,"min":-100,"max":100,"octaves":0,"id":51,"condition":"always"},{"key":"effect_rotary_spread","page":"STEREO / ROTARY","name":"Rotary Spread","scope":"insert","engines":[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14],"modes":[0,1,2,3,4,6],"parameter":131,"min":0,"max":100,"octaves":0,"id":52,"condition":"always"},{"key":"effect_delay","page":"DELAY RETURN","name":"Delay Time","scope":"shared","engines":[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14],"modes":[0,1,2,3,4,6],"parameter":101,"min":1,"max":750,"octaves":0,"id":53,"condition":"always"},{"key":"effect_feedback","page":"DELAY RETURN","name":"Feedback","scope":"shared","engines":[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14],"modes":[0,1,2,3,4,6],"parameter":102,"min":0,"max":90,"octaves":0,"id":54,"condition":"always"},{"key":"effect_width","page":"DELAY RETURN","name":"Stereo Width","scope":"shared","engines":[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14],"modes":[0,1,2,3,4,6],"parameter":103,"min":0,"max":100,"octaves":0,"id":55,"condition":"always"},{"key":"effect_mix","page":"DELAY RETURN","name":"Delay Mix Return","scope":"shared","engines":[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14],"modes":[0,1,2,3,4,6],"parameter":104,"min":0,"max":100,"octaves":0,"id":56,"condition":"always"},{"key":"effect_reverb_decay","page":"REVERB","name":"Decay","scope":"shared","engines":[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14],"modes":[0,1,2,3,4,6],"parameter":153,"min":0.2,"max":20,"octaves":2,"id":57,"condition":"always"},{"key":"effect_reverb_damp","page":"REVERB","name":"Damping","scope":"shared","engines":[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14],"modes":[0,1,2,3,4,6],"parameter":155,"min":500,"max":18000,"octaves":2,"id":58,"condition":"always"},{"key":"effect_reverb_diff","page":"REVERB","name":"Diffusion","scope":"shared","engines":[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14],"modes":[0,1,2,3,4,6],"parameter":156,"min":0,"max":100,"octaves":0,"id":59,"condition":"always"},{"key":"effect_reverb_width","page":"REVERB","name":"Stereo Width","scope":"shared","engines":[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14],"modes":[0,1,2,3,4,6],"parameter":158,"min":0,"max":100,"octaves":0,"id":60,"condition":"always"},{"key":"effect_reverb_mix","page":"REVERB","name":"Reverb Mix Return","scope":"shared","engines":[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14],"modes":[0,1,2,3,4,6],"parameter":159,"min":0,"max":100,"octaves":0,"id":61,"condition":"always"},{"key":"effect_tape_drive","page":"TAPE","name":"Drive","scope":"shared","engines":[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14],"modes":[0,1,2,3,4,6],"parameter":133,"min":0,"max":100,"octaves":0,"id":62,"condition":"always"},{"key":"effect_tape_age","page":"TAPE","name":"Age","scope":"shared","engines":[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14],"modes":[0,1,2,3,4,6],"parameter":140,"min":0,"max":100,"octaves":0,"id":63,"condition":"always"},{"key":"effect_tape_hiss","page":"TAPE","name":"Hiss Level","scope":"shared","engines":[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14],"modes":[0,1,2,3,4,6],"parameter":138,"min":-84,"max":-54,"octaves":0,"id":64,"condition":"always"},{"key":"effect_tape_mix","page":"TAPE","name":"Tape Mix","scope":"shared","engines":[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14],"modes":[0,1,2,3,4,6],"parameter":139,"min":0,"max":100,"octaves":0,"id":65,"condition":"always"},{"key":"split_blend","page":"FX SENDS","name":"A B Crossfade","scope":"shared","engines":[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14],"modes":[1,2,4],"parameter":162,"min":0,"max":1,"octaves":0,"id":66,"condition":"always"},{"key":"layers_fx_x","page":"LAYERS","name":"FX X Position","scope":"layers","engines":[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14],"modes":[5],"parameter":-5,"min":0,"max":1,"octaves":0,"id":67,"condition":"always"},{"key":"layers_fx_y","page":"LAYERS","name":"FX Y Position","scope":"layers","engines":[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14],"modes":[5],"parameter":-6,"min":0,"max":1,"octaves":0,"id":68,"condition":"always"},{"key":"join","page":"ENGINE","name":"Crossfade","scope":"engine","engines":[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14],"modes":[0,1,2,3,4,5,6],"parameter":6,"min":0,"max":1,"octaves":0,"id":69,"condition":"join"},{"key":"motion_travel","page":"MOTION PATH","name":"Travel","scope":"engine","engines":[0],"modes":[0,1,2,3,4,5,6],"parameter":26,"min":0,"max":1,"octaves":0,"id":70,"condition":"always"},{"key":"motion_jitter","page":"MOTION PATH","name":"Jitter","scope":"engine","engines":[0],"modes":[0,1,2,3,4,5,6],"parameter":27,"min":0,"max":1,"octaves":0,"id":71,"condition":"always"},{"key":"motion_rate","page":"PACKETS","name":"Event Rate","scope":"engine","engines":[0],"modes":[0,1,2,3,4,5,6],"parameter":10,"min":0.25,"max":20,"octaves":2,"id":72,"condition":"packets"},{"key":"packet_duty","page":"PACKETS","name":"Duty","scope":"engine","engines":[0],"modes":[0,1,2,3,4,5,6],"parameter":28,"min":2,"max":98,"octaves":0,"id":73,"condition":"packets-events"},{"key":"motor_rate","page":"MOTOR","name":"Motor Rate","scope":"engine","engines":[0],"modes":[0,1,2,3,4,5,6],"parameter":29,"min":0.05,"max":20,"octaves":2,"id":74,"condition":"motor"},{"key":"motor_symmetry","page":"MOTOR","name":"Symmetry","scope":"engine","engines":[0],"modes":[0,1,2,3,4,5,6],"parameter":30,"min":5,"max":95,"octaves":0,"id":75,"condition":"motor-events"},{"key":"segment_rate","page":"EVENT CLOCK","name":"Event Rate","scope":"engine","engines":[0],"modes":[0,1,2,3,4,5,6],"parameter":75,"min":0.25,"max":80,"octaves":2,"id":76,"condition":"events-clock"},{"key":"segment_step","page":"EVENT CLOCK","name":"Event Step","scope":"engine","engines":[0],"modes":[0,1,2,3,4,5,6],"parameter":77,"min":0,"max":1,"octaves":0,"id":77,"condition":"events"},{"key":"segment_pitch","page":"EVENT SHAPE","name":"Pitch Scatter","scope":"engine","engines":[0],"modes":[0,1,2,3,4,5,6],"parameter":78,"min":0,"max":12,"octaves":0,"id":78,"condition":"events"},{"key":"segment_level","page":"EVENT SHAPE","name":"Level Variation","scope":"engine","engines":[0],"modes":[0,1,2,3,4,5,6],"parameter":79,"min":0,"max":1,"octaves":0,"id":79,"condition":"events"},{"key":"segment_curve","page":"EVENT SHAPE","name":"Interval Curve","scope":"engine","engines":[0],"modes":[0,1,2,3,4,5,6],"parameter":80,"min":-1,"max":1,"octaves":0,"id":80,"condition":"events-clock"},{"key":"grain_pitch_spray","page":"GRAINS CLOUD","name":"Pitch Spray","scope":"engine","engines":[2],"modes":[0,1,2,3,4,5,6],"parameter":40,"min":0,"max":24,"octaves":0,"id":81,"condition":"always"},{"key":"grain_reverse","page":"GRAINS CLOUD","name":"Reverse Chance","scope":"engine","engines":[2],"modes":[0,1,2,3,4,5,6],"parameter":41,"min":0,"max":100,"octaves":0,"id":82,"condition":"always"},{"key":"grain_size_variation","page":"GRAINS CLOUD","name":"Size Variation","scope":"engine","engines":[2],"modes":[0,1,2,3,4,5,6],"parameter":42,"min":0,"max":1,"octaves":0,"id":83,"condition":"always"},{"key":"grain_level_variation","page":"GRAINS CLOUD","name":"Level Variation","scope":"engine","engines":[2],"modes":[0,1,2,3,4,5,6],"parameter":43,"min":0,"max":1,"octaves":0,"id":84,"condition":"always"},{"key":"grain_timing_scatter","page":"GRAINS CLOUD","name":"Timing Scatter","scope":"engine","engines":[2],"modes":[0,1,2,3,4,5,6],"parameter":45,"min":0,"max":1,"octaves":0,"id":85,"condition":"always"},{"key":"grain_process_amount","page":"GRAINS PROCESS","name":"Process Amount","scope":"engine","engines":[2],"modes":[0,1,2,3,4,5,6],"parameter":48,"min":0,"max":1,"octaves":0,"id":86,"condition":"grain-process"},{"key":"grain_envelope_skew","page":"GRAINS PROCESS","name":"Envelope Skew","scope":"engine","engines":[2],"modes":[0,1,2,3,4,5,6],"parameter":46,"min":-1,"max":1,"octaves":0,"id":87,"condition":"always"},{"key":"cut_rate","page":"CUTUPS CLOCK","name":"Cut Rate","scope":"engine","engines":[3],"modes":[0,1,2,3,4,5,6],"parameter":53,"min":0.25,"max":64,"octaves":2,"id":88,"condition":"cut-hz"},{"key":"cut_time_variation","page":"CUTUPS CLOCK","name":"Time Variation","scope":"engine","engines":[3],"modes":[0,1,2,3,4,5,6],"parameter":54,"min":0,"max":1,"octaves":0,"id":89,"condition":"always"},{"key":"cut_repeats","page":"CUTUPS PATH","name":"Repeats","scope":"engine","engines":[3],"modes":[0,1,2,3,4,5,6],"parameter":58,"min":1,"max":16,"octaves":0,"id":90,"condition":"always"},{"key":"cut_reverse","page":"CUTUPS PATH","name":"Reverse Chance","scope":"engine","engines":[3],"modes":[0,1,2,3,4,5,6],"parameter":59,"min":0,"max":100,"octaves":0,"id":91,"condition":"always"},{"key":"cut_level_variation","page":"CUTUPS PATH","name":"Level Variation","scope":"engine","engines":[3],"modes":[0,1,2,3,4,5,6],"parameter":61,"min":0,"max":1,"octaves":0,"id":92,"condition":"always"},{"key":"glitch_rate","page":"GLITCH CLOCK","name":"Glitch Rate","scope":"engine","engines":[6],"modes":[0,1,2,3,4,5,6],"parameter":84,"min":0.25,"max":64,"octaves":2,"id":93,"condition":"glitch-hz"},{"key":"glitch_slice","page":"GLITCH CLOCK","name":"Slice Length","scope":"engine","engines":[6],"modes":[0,1,2,3,4,5,6],"parameter":85,"min":2,"max":160,"octaves":0,"id":94,"condition":"always"},{"key":"glitch_reverse","page":"GLITCH PATTERN","name":"Reverse Chance","scope":"engine","engines":[6],"modes":[0,1,2,3,4,5,6],"parameter":94,"min":0,"max":100,"octaves":0,"id":95,"condition":"always"},{"key":"long_grain_reverse","page":"WEAVE","name":"Reverse Chance","scope":"engine","engines":[7],"modes":[0,1,2,3,4,5,6],"parameter":112,"min":0,"max":100,"octaves":0,"id":96,"condition":"always"},{"key":"long_grain_duration_variation","page":"WEAVE MOTION","name":"Duration Variation","scope":"engine","engines":[7],"modes":[0,1,2,3,4,5,6],"parameter":115,"min":0,"max":1,"octaves":0,"id":97,"condition":"always"},{"key":"long_grain_pitch_spray","page":"WEAVE MOTION","name":"Pitch Spray","scope":"engine","engines":[7],"modes":[0,1,2,3,4,5,6],"parameter":116,"min":0,"max":24,"octaves":0,"id":98,"condition":"always"},{"key":"long_grain_level_variation","page":"WEAVE MOTION","name":"Level Variation","scope":"engine","engines":[7],"modes":[0,1,2,3,4,5,6],"parameter":117,"min":0,"max":1,"octaves":0,"id":99,"condition":"always"},{"key":"long_grain_phase","page":"WEAVE MOTION","name":"Phase Scatter","scope":"engine","engines":[7],"modes":[0,1,2,3,4,5,6],"parameter":118,"min":0,"max":1,"octaves":0,"id":100,"condition":"always"},{"key":"waveset_repeats","page":"WAVESETS","name":"Repeats","scope":"engine","engines":[8],"modes":[0,1,2,3,4,5,6],"parameter":145,"min":1,"max":16,"octaves":0,"id":101,"condition":"always"},{"key":"waveset_stride","page":"WAVESETS","name":"Stride","scope":"engine","engines":[8],"modes":[0,1,2,3,4,5,6],"parameter":146,"min":1,"max":16,"octaves":0,"id":102,"condition":"always"},{"key":"waveset_amount","page":"WAVESETS","name":"Process Amount","scope":"engine","engines":[8],"modes":[0,1,2,3,4,5,6],"parameter":150,"min":0,"max":100,"octaves":0,"id":103,"condition":"waveset-process"},{"key":"prism_blur","page":"PRISM","name":"Blur Time","scope":"engine","engines":[9],"modes":[0,1,2,3,4,5,6],"parameter":177,"min":0,"max":2000,"octaves":2,"id":104,"condition":"always"},{"key":"prism_decay","page":"PRISM","name":"Decay Time","scope":"engine","engines":[9],"modes":[0,1,2,3,4,5,6],"parameter":178,"min":50,"max":20000,"octaves":2,"id":105,"condition":"prism-freeze"},{"key":"morph_offset","page":"MORPH","name":"Source Offset","scope":"engine","engines":[10],"modes":[0,1,2,3,4,5,6],"parameter":184,"min":-100,"max":100,"octaves":0,"id":106,"condition":"always"},{"key":"morph_blur","page":"MORPH","name":"Blur Time","scope":"engine","engines":[10],"modes":[0,1,2,3,4,5,6],"parameter":185,"min":0,"max":2000,"octaves":2,"id":107,"condition":"always"},{"key":"texture_rate","page":"TEXTURE","name":"Event Rate","scope":"engine","engines":[11],"modes":[0,1,2,3,4,5,6],"parameter":188,"min":0.25,"max":24,"octaves":2,"id":108,"condition":"always"},{"key":"texture_length","page":"TEXTURE","name":"Event Length","scope":"engine","engines":[11],"modes":[0,1,2,3,4,5,6],"parameter":189,"min":20,"max":2000,"octaves":2,"id":109,"condition":"always"},{"key":"formant_smoothing","page":"FORMANT","name":"Smoothing","scope":"engine","engines":[12],"modes":[0,1,2,3,4,5,6],"parameter":198,"min":5,"max":200,"octaves":2,"id":110,"condition":"always"},{"key":"formant_tune","page":"FORMANT","name":"Tune","scope":"engine","engines":[12],"modes":[0,1,2,3,4,5,6],"parameter":199,"min":0,"max":100,"octaves":0,"id":111,"condition":"always"},{"key":"formant_keytrack","page":"FORMANT","name":"Key Tracking","scope":"engine","engines":[12],"modes":[0,1,2,3,4,5,6],"parameter":201,"min":-100,"max":100,"octaves":0,"id":112,"condition":"always"},{"key":"formant_rough","page":"FORMANT","name":"Roughness","scope":"engine","engines":[12],"modes":[0,1,2,3,4,5,6],"parameter":202,"min":0,"max":100,"octaves":0,"id":113,"condition":"always"},{"key":"stochastic_memory","page":"STOCHASTIC","name":"Memory","scope":"engine","engines":[13],"modes":[0,1,2,3,4,5,6],"parameter":209,"min":0,"max":100,"octaves":0,"id":114,"condition":"always"},{"key":"stochastic_pull","page":"STOCHASTIC","name":"Source Pull","scope":"engine","engines":[13],"modes":[0,1,2,3,4,5,6],"parameter":210,"min":0,"max":100,"octaves":0,"id":115,"condition":"stochastic-manual"},{"key":"stochastic_capture","page":"STOCHASTIC","name":"Listener Capture","scope":"engine","engines":[13],"modes":[0,1,2,3,4,5,6],"parameter":215,"min":0,"max":100,"octaves":0,"id":116,"condition":"stochastic-listener"},{"key":"stochastic_drift","page":"STOCHASTIC","name":"Drift","scope":"engine","engines":[13],"modes":[0,1,2,3,4,5,6],"parameter":212,"min":0,"max":100,"octaves":0,"id":117,"condition":"always"},{"key":"pulsar_rate","page":"PULSAR","name":"Pulse Rate","scope":"engine","engines":[14],"modes":[0,1,2,3,4,5,6],"parameter":216,"min":0.1,"max":2000,"octaves":2,"id":118,"condition":"always"},{"key":"pulsar_jitter","page":"PULSAR","name":"Timing Jitter","scope":"engine","engines":[14],"modes":[0,1,2,3,4,5,6],"parameter":223,"min":0,"max":100,"octaves":0,"id":119,"condition":"always"},{"key":"pulsar_emit_mod_rate","page":"PULSAR MOD","name":"Emission Mod Rate","scope":"engine","engines":[14],"modes":[0,1,2,3,4,5,6],"parameter":226,"min":0.01,"max":20,"octaves":2,"id":120,"condition":"always"},{"key":"pulsar_emit_mod_depth","page":"PULSAR MOD","name":"Emission Mod Depth","scope":"engine","engines":[14],"modes":[0,1,2,3,4,5,6],"parameter":227,"min":0,"max":24,"octaves":0,"id":121,"condition":"always"},{"key":"pulsar_form_mod_rate","page":"PULSAR MOD","name":"Form Mod Rate","scope":"engine","engines":[14],"modes":[0,1,2,3,4,5,6],"parameter":228,"min":0.01,"max":20,"octaves":2,"id":122,"condition":"always"},{"key":"pulsar_form_mod_depth","page":"PULSAR MOD","name":"Form Mod Depth","scope":"engine","engines":[14],"modes":[0,1,2,3,4,5,6],"parameter":229,"min":0,"max":24,"octaves":0,"id":123,"condition":"always"},{"key":"pulsar_form_variation","page":"PULSAR MOD","name":"Form Variation","scope":"engine","engines":[14],"modes":[0,1,2,3,4,5,6],"parameter":231,"min":0,"max":24,"octaves":0,"id":124,"condition":"always"},{"key":"pulsar_reverse","page":"PULSAR MOD","name":"Reverse Chance","scope":"engine","engines":[14],"modes":[0,1,2,3,4,5,6],"parameter":232,"min":0,"max":100,"octaves":0,"id":125,"condition":"always"},{"key":"pulsar_keytrack","page":"PULSAR MOD","name":"Key Tracking","scope":"engine","engines":[14],"modes":[0,1,2,3,4,5,6],"parameter":233,"min":0,"max":100,"octaves":0,"id":126,"condition":"always"},{"key":"locus","page":"ENGINE","name":"Sample Position","scope":"engine","engines":[0,1,2,3,4,6,7,8,9,10,11,12,13,14],"modes":[0,1,2,3,4,5,6],"parameter":0,"min":0,"max":1,"octaves":0,"id":127,"condition":"window"},{"key":"field","page":"ENGINE","name":"Field Width","scope":"engine","engines":[0,1,2,3,4,6,7,8,9,10,11,12,13,14],"modes":[0,1,2,3,4,5,6],"parameter":1,"min":0.02,"max":1,"octaves":0,"id":128,"condition":"window"},{"key":"stochastic_size","page":"STOCHASTIC","name":"Source Group Size","scope":"engine","engines":[13],"modes":[0,1,2,3,4,5,6],"parameter":205,"min":1,"max":64,"octaves":0,"id":129,"condition":"always"},{"key":"stochastic_evolution","page":"STOCHASTIC","name":"Evolution Rate","scope":"engine","engines":[13],"modes":[0,1,2,3,4,5,6],"parameter":208,"min":0,"max":1023,"octaves":2,"id":130,"condition":"always"},{"id":131,"key":"table_tune","page":"TABLE","name":"Transpose","scope":"engine","engines":[15],"modes":[0,1,2,3,4,5,6],"parameter":257,"min":-48,"max":48,"octaves":0,"condition":"always"},{"id":132,"key":"table_width","page":"TABLE","name":"Stereo Width","scope":"engine","engines":[15],"modes":[0,1,2,3,4,5,6],"parameter":258,"min":0,"max":100,"octaves":0,"condition":"always"},{"id":133,"key":"table_level","page":"TABLE","name":"Generator Level","scope":"engine","engines":[15],"modes":[0,1,2,3,4,5,6],"parameter":259,"min":0,"max":100,"octaves":0,"condition":"always"},{"id":134,"key":"table_decay","page":"TABLE","name":"Hit Decay","scope":"engine","engines":[15],"modes":[0,1,2,3,4,5,6],"parameter":261,"min":10,"max":12000,"octaves":2,"condition":"table-hit"},{"id":135,"key":"table_noise","page":"TABLE","name":"Noise Level","scope":"engine","engines":[15],"modes":[0,1,2,3,4,5,6],"parameter":262,"min":0,"max":100,"octaves":0,"condition":"always"},{"id":136,"key":"table_drive","page":"TABLE","name":"Drive","scope":"engine","engines":[15],"modes":[0,1,2,3,4,5,6],"parameter":263,"min":0,"max":100,"octaves":0,"condition":"always"},{"id":137,"key":"table_pulse","page":"TABLE WAVE","name":"Pulse Width","scope":"engine","engines":[15],"modes":[0,1,2,3,4,5,6],"parameter":265,"min":5,"max":95,"octaves":0,"condition":"table-wave"},{"id":138,"key":"table_detune","page":"TABLE WAVE","name":"Wave Detune","scope":"engine","engines":[15],"modes":[0,1,2,3,4,5,6],"parameter":266,"min":0,"max":50,"octaves":0,"condition":"table-wave"},{"id":139,"key":"table_sub","page":"TABLE WAVE","name":"Wave Sub Level","scope":"engine","engines":[15],"modes":[0,1,2,3,4,5,6],"parameter":267,"min":0,"max":100,"octaves":0,"condition":"table-wave"},{"id":140,"key":"table_cutoff","page":"TABLE WAVE","name":"Filter Cutoff","scope":"engine","engines":[15],"modes":[0,1,2,3,4,5,6],"parameter":268,"min":20,"max":20000,"octaves":2,"condition":"table-wave"},{"id":141,"key":"table_resonance","page":"TABLE WAVE","name":"Filter Resonance","scope":"engine","engines":[15],"modes":[0,1,2,3,4,5,6],"parameter":269,"min":0,"max":95,"octaves":0,"condition":"table-wave"},{"id":142,"key":"table_points","page":"TABLE SPLINE","name":"Spline Points","scope":"engine","engines":[15],"modes":[0,1,2,3,4,5,6],"parameter":270,"min":1,"max":32,"octaves":0,"condition":"table-spline"},{"id":143,"key":"table_evolution","page":"TABLE SPLINE","name":"Spline Evolution","scope":"engine","engines":[15],"modes":[0,1,2,3,4,5,6],"parameter":271,"min":1,"max":4096,"octaves":2,"condition":"table-spline"},{"id":144,"key":"table_curve","page":"TABLE SPLINE","name":"Spline Curvature","scope":"engine","engines":[15],"modes":[0,1,2,3,4,5,6],"parameter":272,"min":0,"max":100,"octaves":0,"condition":"table-spline"},{"id":145,"key":"table_drift","page":"TABLE SPLINE","name":"Spline Pitch Drift","scope":"engine","engines":[15],"modes":[0,1,2,3,4,5,6],"parameter":273,"min":0,"max":12,"octaves":0,"condition":"table-spline"},{"id":146,"key":"table_drift_rate","page":"TABLE SPLINE","name":"Spline Drift Time","scope":"engine","engines":[15],"modes":[0,1,2,3,4,5,6],"parameter":274,"min":1,"max":1000,"octaves":2,"condition":"table-spline"},{"id":147,"key":"table_dynamics","page":"TABLE SPLINE","name":"Spline Dynamics","scope":"engine","engines":[15],"modes":[0,1,2,3,4,5,6],"parameter":275,"min":0,"max":100,"octaves":0,"condition":"table-spline"},{"id":148,"key":"table_pos_a","page":"TABLE WT OSC","name":"Oscillator A Position","scope":"engine","engines":[15],"modes":[0,1,2,3,4,5,6],"parameter":279,"min":0,"max":100,"octaves":0,"condition":"table-drum"},{"id":149,"key":"table_pos_b","page":"TABLE WT OSC","name":"Oscillator B Position","scope":"engine","engines":[15],"modes":[0,1,2,3,4,5,6],"parameter":281,"min":0,"max":100,"octaves":0,"condition":"table-drum"},{"id":150,"key":"table_blend","page":"TABLE WT OSC","name":"Oscillator Blend","scope":"engine","engines":[15],"modes":[0,1,2,3,4,5,6],"parameter":282,"min":0,"max":100,"octaves":0,"condition":"table-drum"},{"id":151,"key":"table_ratio","page":"TABLE WT OSC","name":"Oscillator Ratio","scope":"engine","engines":[15],"modes":[0,1,2,3,4,5,6],"parameter":283,"min":0.125,"max":16,"octaves":2,"condition":"table-drum"},{"id":152,"key":"table_fm","page":"TABLE WT OSC","name":"Phase Modulation","scope":"engine","engines":[15],"modes":[0,1,2,3,4,5,6],"parameter":284,"min":0,"max":100,"octaves":0,"condition":"table-drum"},{"id":153,"key":"table_wt_detune","page":"TABLE WT COLOR","name":"Drum Detune","scope":"engine","engines":[15],"modes":[0,1,2,3,4,5,6],"parameter":285,"min":0,"max":50,"octaves":0,"condition":"table-drum"},{"id":154,"key":"table_bend","page":"TABLE WT HIT","name":"Pitch Sweep","scope":"engine","engines":[15],"modes":[0,1,2,3,4,5,6],"parameter":286,"min":-48,"max":48,"octaves":0,"condition":"table-drum"},{"id":155,"key":"table_pitch_decay","page":"TABLE WT HIT","name":"Pitch Sweep Time","scope":"engine","engines":[15],"modes":[0,1,2,3,4,5,6],"parameter":287,"min":1,"max":2000,"octaves":2,"condition":"table-drum"},{"id":156,"key":"table_scan","page":"TABLE WT HIT","name":"Table Sweep","scope":"engine","engines":[15],"modes":[0,1,2,3,4,5,6],"parameter":288,"min":-100,"max":100,"octaves":0,"condition":"table-drum"},{"id":157,"key":"table_scan_decay","page":"TABLE WT HIT","name":"Table Sweep Time","scope":"engine","engines":[15],"modes":[0,1,2,3,4,5,6],"parameter":289,"min":1,"max":4000,"octaves":2,"condition":"table-drum"},{"id":158,"key":"table_wt_sub","page":"TABLE WT HIT","name":"Drum Sub Level","scope":"engine","engines":[15],"modes":[0,1,2,3,4,5,6],"parameter":290,"min":0,"max":100,"octaves":0,"condition":"table-drum"},{"id":159,"key":"table_impact","page":"TABLE WT HIT","name":"Impact Level","scope":"engine","engines":[15],"modes":[0,1,2,3,4,5,6],"parameter":291,"min":0,"max":100,"octaves":0,"condition":"table-drum"},{"id":160,"key":"table_noise_decay","page":"TABLE WT HIT","name":"Noise Decay","scope":"engine","engines":[15],"modes":[0,1,2,3,4,5,6],"parameter":292,"min":1,"max":4000,"octaves":2,"condition":"table-drum"},{"id":161,"key":"table_tone","page":"TABLE WT COLOR","name":"Drum Brightness","scope":"engine","engines":[15],"modes":[0,1,2,3,4,5,6],"parameter":294,"min":0,"max":100,"octaves":0,"condition":"table-drum"},{"id":162,"key":"table_compression","page":"TABLE WT COLOR","name":"Drum Compression","scope":"engine","engines":[15],"modes":[0,1,2,3,4,5,6],"parameter":295,"min":0,"max":100,"octaves":0,"condition":"table-drum"},{"id":163,"key":"scanned_tune","page":"SCANNED","name":"Transpose","scope":"engine","engines":[16],"modes":[0,1,2,3,4,5,6],"parameter":323,"min":-48,"max":48,"octaves":0,"condition":"always"},{"id":164,"key":"scanned_motion","page":"SCANNED","name":"Mechanical Motion","scope":"engine","engines":[16],"modes":[0,1,2,3,4,5,6],"parameter":324,"min":0.05,"max":6,"octaves":2,"condition":"always"},{"id":165,"key":"scanned_damping","page":"SCANNED","name":"Mechanical Damping","scope":"engine","engines":[16],"modes":[0,1,2,3,4,5,6],"parameter":325,"min":0,"max":100,"octaves":0,"condition":"always"},{"id":166,"key":"scanned_brightness","page":"SCANNED","name":"Readout Brightness","scope":"engine","engines":[16],"modes":[0,1,2,3,4,5,6],"parameter":326,"min":0,"max":100,"octaves":0,"condition":"always"},{"id":167,"key":"scanned_width","page":"SCANNED","name":"Stereo Width","scope":"engine","engines":[16],"modes":[0,1,2,3,4,5,6],"parameter":327,"min":0,"max":100,"octaves":0,"condition":"always"},{"id":168,"key":"scanned_mass","page":"SCAN BODY","name":"Mass Variation","scope":"engine","engines":[16],"modes":[0,1,2,3,4,5,6],"parameter":328,"min":0,"max":100,"octaves":0,"condition":"always"},{"id":169,"key":"scanned_tension","page":"SCAN BODY","name":"Spring Variation","scope":"engine","engines":[16],"modes":[0,1,2,3,4,5,6],"parameter":329,"min":0,"max":100,"octaves":0,"condition":"always"},{"id":170,"key":"scanned_center","page":"SCAN BODY","name":"Centering Springs","scope":"engine","engines":[16],"modes":[0,1,2,3,4,5,6],"parameter":330,"min":0,"max":100,"octaves":0,"condition":"always"},{"id":171,"key":"scanned_force","page":"SCAN BODY","name":"Continuous Force","scope":"engine","engines":[16],"modes":[0,1,2,3,4,5,6],"parameter":332,"min":0,"max":100,"octaves":0,"condition":"always"},{"id":172,"key":"scanned_pressure","page":"SCAN BODY","name":"Pressure Force Depth","scope":"engine","engines":[16],"modes":[0,1,2,3,4,5,6],"parameter":333,"min":0,"max":100,"octaves":0,"condition":"always"},{"id":173,"key":"scanned_decay","page":"SCAN HIT","name":"Percussion Decay","scope":"engine","engines":[16],"modes":[0,1,2,3,4,5,6],"parameter":339,"min":10,"max":4000,"octaves":2,"condition":"always"},{"id":174,"key":"scanned_bend","page":"SCAN HIT","name":"Pitch Sweep","scope":"engine","engines":[16],"modes":[0,1,2,3,4,5,6],"parameter":340,"min":-48,"max":48,"octaves":0,"condition":"always"},{"id":175,"key":"scanned_sweep_time","page":"SCAN HIT","name":"Pitch Sweep Time","scope":"engine","engines":[16],"modes":[0,1,2,3,4,5,6],"parameter":341,"min":5,"max":2000,"octaves":2,"condition":"always"},{"id":176,"key":"scanned_loss","page":"SCAN HIT","name":"Harmonic Decay","scope":"engine","engines":[16],"modes":[0,1,2,3,4,5,6],"parameter":342,"min":0,"max":100,"octaves":0,"condition":"always"},{"id":177,"key":"scanned_amp_gain","page":"SCAN AMP","name":"Amp Gain","scope":"engine","engines":[16],"modes":[0,1,2,3,4,5,6],"parameter":344,"min":0,"max":100,"octaves":0,"condition":"always"},{"id":178,"key":"scanned_amp_bass","page":"SCAN AMP","name":"Amp Bass","scope":"engine","engines":[16],"modes":[0,1,2,3,4,5,6],"parameter":345,"min":-12,"max":12,"octaves":0,"condition":"always"},{"id":179,"key":"scanned_amp_mid","page":"SCAN AMP","name":"Amp Midrange","scope":"engine","engines":[16],"modes":[0,1,2,3,4,5,6],"parameter":346,"min":-20,"max":10,"octaves":0,"condition":"always"},{"id":180,"key":"scanned_amp_treble","page":"SCAN AMP","name":"Amp Treble","scope":"engine","engines":[16],"modes":[0,1,2,3,4,5,6],"parameter":348,"min":-20,"max":15,"octaves":0,"condition":"always"},{"id":181,"key":"scanned_amp_cab","page":"SCAN AMP","name":"Cabinet Amount","scope":"engine","engines":[16],"modes":[0,1,2,3,4,5,6],"parameter":349,"min":0,"max":100,"octaves":0,"condition":"always"},{"id":182,"key":"scanned_amp_level","page":"SCAN AMP","name":"Amp Output","scope":"engine","engines":[16],"modes":[0,1,2,3,4,5,6],"parameter":350,"min":-18,"max":6,"octaves":0,"condition":"always"},{"id":183,"key":"fm_tune","page":"FM","name":"FM Transpose","scope":"engine","engines":[17],"modes":[0,1,2,3,4,5,6],"parameter":385,"min":-48,"max":48,"octaves":0,"condition":"always"},{"id":184,"key":"fm_width","page":"FM","name":"FM Stereo Width","scope":"engine","engines":[17],"modes":[0,1,2,3,4,5,6],"parameter":386,"min":0,"max":100,"octaves":0,"condition":"always"},{"id":185,"key":"fm_level","page":"FM","name":"FM Level","scope":"engine","engines":[17],"modes":[0,1,2,3,4,5,6],"parameter":387,"min":0,"max":100,"octaves":0,"condition":"always"},{"id":186,"key":"fm_ratio1","page":"FM","name":"Modulator 1 Ratio","scope":"engine","engines":[17],"modes":[0,1,2,3,4,5,6],"parameter":389,"min":0.125,"max":32,"octaves":0,"condition":"always"},{"id":187,"key":"fm_index1","page":"FM","name":"Modulator 1 Index","scope":"engine","engines":[17],"modes":[0,1,2,3,4,5,6],"parameter":390,"min":0,"max":12,"octaves":0,"condition":"always"},{"id":188,"key":"fm_feedback","page":"FM","name":"FM Feedback","scope":"engine","engines":[17],"modes":[0,1,2,3,4,5,6],"parameter":391,"min":0,"max":90,"octaves":0,"condition":"always"},{"id":189,"key":"fm_ratio2","page":"FM COLOR","name":"Modulator 2 Ratio","scope":"engine","engines":[17],"modes":[0,1,2,3,4,5,6],"parameter":392,"min":0.125,"max":32,"octaves":0,"condition":"always"},{"id":190,"key":"fm_index2","page":"FM COLOR","name":"Modulator 2 Index","scope":"engine","engines":[17],"modes":[0,1,2,3,4,5,6],"parameter":393,"min":0,"max":12,"octaves":0,"condition":"always"},{"id":191,"key":"fm_detune","page":"FM COLOR","name":"FM Stereo Detune","scope":"engine","engines":[17],"modes":[0,1,2,3,4,5,6],"parameter":394,"min":0,"max":30,"octaves":0,"condition":"always"},{"id":192,"key":"fm_mix","page":"FM COLOR","name":"FM Wet Mix","scope":"engine","engines":[17],"modes":[0,1,2,3,4,5,6],"parameter":395,"min":0,"max":100,"octaves":0,"condition":"always"},{"id":193,"key":"fm_cutoff","page":"FM COLOR","name":"FM Filter Cutoff","scope":"engine","engines":[17],"modes":[0,1,2,3,4,5,6],"parameter":396,"min":20,"max":20000,"octaves":2,"condition":"always"},{"id":194,"key":"fm_resonance","page":"FM COLOR","name":"FM Filter Resonance","scope":"engine","engines":[17],"modes":[0,1,2,3,4,5,6],"parameter":397,"min":0,"max":85,"octaves":0,"condition":"always"},{"id":195,"key":"fm_drive","page":"FM COLOR","name":"FM Drive","scope":"engine","engines":[17],"modes":[0,1,2,3,4,5,6],"parameter":398,"min":0,"max":100,"octaves":0,"condition":"always"},{"id":196,"key":"fm_decay","page":"FM HIT","name":"FM Drum Decay","scope":"engine","engines":[17],"modes":[0,1,2,3,4,5,6],"parameter":399,"min":10,"max":8000,"octaves":2,"condition":"always"},{"id":197,"key":"fm_fm_decay","page":"FM HIT","name":"FM Index Decay","scope":"engine","engines":[17],"modes":[0,1,2,3,4,5,6],"parameter":400,"min":2,"max":4000,"octaves":2,"condition":"always"},{"id":198,"key":"fm_bend","page":"FM HIT","name":"FM Pitch Sweep","scope":"engine","engines":[17],"modes":[0,1,2,3,4,5,6],"parameter":401,"min":-48,"max":48,"octaves":0,"condition":"always"},{"id":199,"key":"fm_sweep_time","page":"FM HIT","name":"FM Pitch Sweep Time","scope":"engine","engines":[17],"modes":[0,1,2,3,4,5,6],"parameter":402,"min":1,"max":2000,"octaves":2,"condition":"always"},{"id":200,"key":"fm_noise","page":"FM HIT","name":"FM Noise Body","scope":"engine","engines":[17],"modes":[0,1,2,3,4,5,6],"parameter":404,"min":0,"max":100,"octaves":0,"condition":"always"},{"id":201,"key":"fm_noise_decay","page":"FM HIT","name":"FM Noise Decay","scope":"engine","engines":[17],"modes":[0,1,2,3,4,5,6],"parameter":405,"min":1,"max":4000,"octaves":2,"condition":"always"}];
+/* LFO_DESTINATIONS_END */
+const LFO_FIELDS=['dest','wave','clock','rate','depth','mode','phase','smooth','flow','target','engine','offset'];
+const LFO_BEATS=[.0625,1/12,.125,1/6,.25,1/3,.5,2/3,1,1.5,2,3,4,6,8,12,16,24,32,48,64,96,128,192,256];
+const LFO_BEAT_NAMES=['1/64','1/32T','1/32','1/16T','1/16','1/8T','1/8','1/4T','1/4','1/4D','1/2','1/2D','1BAR','1.5BAR','2BAR','3BAR','4BAR','6BAR','8BAR','12BAR','16BAR','24BAR','32BAR','48BAR','64BAR'];
+const LFO_LABELS=[null,['SINE','TRI','SAW','RAMP','PULS','RAND','DRFT'],['BEAT','HZ'],null,null,['FREE','PLAY','TRIG','ONE'],null,null,['CLIP','LIVE'],['A','B','C','D','FX'],null,['BASE','AUTO']];
+const LFO_SHORT=['DEST','WAVE','CLCK','RATE','DPTH','MODE','PHAS','SMTH','FLOW','PART','ENG','OFST'];
+const LFO_ENGINE_NAMES=['MOTN','LANE','GRNS','CUTS','SMPL','SLIC','GLCH','WEAV','WSET','PRSM','MORF','TXTR','FORM','STOC','PLSR','TABLE','SCAN','FM'];
+PARAMS.lfo_select={key:'lfo_select',label:'LFO',shortLabel:'LFO',min:1,max:8,step:1,value:1,integer:true,lfoField:'select'};
+for(let slot=0;slot<8;++slot){
+ LFO_FIELDS.forEach((field,i)=>{const key='lfo'+(slot+1)+'_'+field;PARAMS[key]={key,label:LFO_SHORT[i],shortLabel:LFO_SHORT[i],value:[0,0,0,1,0,0,0,10,0,0,-1,0][i],min:[0,0,0,1/256,-1,0,0,3,0,0,-1,0][i],max:[LFO_DESTINATIONS.length-1,6,1,16,1,3,1,1000,1,4,15,1][i],step:[1,1,1,.01,.01,1,.01,1,1,1,1,1][i],integer:[0,1,2,5,8,9,10,11].includes(i),labels:LFO_LABELS[i],lfoSlot:slot,lfoField:field};});
+ for(const field of ['reset','rate','depth']){const source=PARAMS['lfo'+(slot+1)+'_'+field],key='seq_lfo'+(slot+1)+'_'+field;PARAMS[key]={...(source||{}),key,label:field==='reset'?'RST':field==='rate'?'RATE':'DPTH',shortLabel:field==='reset'?'RST':field==='rate'?'RATE':'DPTH',value:field==='reset'?1:field==='rate'?1:0,min:field==='reset'?0:source.min,max:field==='reset'?1:source.max,step:field==='reset'?1:source.step,integer:field==='reset',labels:field==='reset'?['OFF','ON']:null,lfoSlot:slot,lfoField:field,lfoLock:true};}
+}
+const LFO_PAGE={title:'LFO',lfo:true,keys:[]};
+const LFO_SETUP_PAGE={title:'LFO SETUP',lfoSetup:true,keys:[]};
+const LFO_PAGES=[LFO_PAGE,LFO_SETUP_PAGE];
+const SEQUENCE_LFO_PAGE={title:'TRIG LFO',sequence:true,sequenceLfo:true,keys:[]};
+function syncLfoPageKeys(){const p='lfo'+((lfoUi.data?.selected||0)+1)+'_',q='seq_'+p;
+ LFO_PAGE.keys=[null,p+'target',p+'dest',p+'depth',p+'wave',p+'clock',p+'rate',p+'mode'];
+ LFO_SETUP_PAGE.keys=[null,p+'engine',p+'phase',p+'smooth',p+'flow',p+'offset',null,null];
+ SEQUENCE_LFO_PAGE.keys=[null,q+'reset',q+'rate',q+'depth',null,null,null,null];
+}syncLfoPageKeys();
+function readControlLfos(cachedOnly=false){
+ let d;try{d=JSON.parse(String(cachedOnly?uiPolling.cache.get('lfo_state'):getParam('lfo_state','{}')));}catch(_){return;}
+ if(!Number.isInteger(d.selected)||d.selected<0||d.selected>7||!Array.isArray(d.values)||d.values.length!==8||d.values.some(v=>!Array.isArray(v)||![11,12].includes(v.length)||v.some(x=>!Number.isFinite(x)))||!Array.isArray(d.allowed)||d.allowed.some(x=>!Number.isInteger(x)||x<0||x>=LFO_DESTINATIONS.length))return;
+ for(const v of d.values)if(v.length===11)v.push(0);
+ if(state.view==='lfoDest'&&lfoUi.picker&&(lfoUi.picker.slot!==d.selected||(lfoUi.picker.context&&lfoUi.picker.context!==lfoDestContext(d))))closeLfoDestPicker();
+ const oldTitle=lfoUi.data&&state.view==='settings'?currentSettingsPage()?.title:null;lfoUi.data=d;PARAMS.lfo_select.value=d.selected+1;
+ for(let s=0;s<8;++s){LFO_FIELDS.forEach((f,i)=>PARAMS['lfo'+(s+1)+'_'+f].value=d.values[s][i]);if(d.trig?.length===18){const t=d.trig;PARAMS['seq_lfo'+(s+1)+'_reset'].value=(t[1]>>s)&1;PARAMS['seq_lfo'+(s+1)+'_rate'].value=t[0]&(1<<(s*2))?t[2+s*2]:d.values[s][3];PARAMS['seq_lfo'+(s+1)+'_depth'].value=t[0]&(2<<(s*2))?t[3+s*2]:d.values[s][4];}}
+ syncLfoPageKeys();if(oldTitle){let n=parameterPages().findIndex(p=>p.title===oldTitle);if(n<0&&oldTitle==='TRIG LFO')n=parameterPages().findIndex(p=>p.title==='LFO');if(n>=0)state.settingsPage=n;}
+}
+function readControlLfoLive(cachedOnly=false){let d;try{d=JSON.parse(String(cachedOnly?uiPolling.cache.get('lfo_live'):getParam('lfo_live','{}')));}catch(_){return;}
+ if(!Number.isInteger(d.owner)||!Array.isArray(d.v)||d.v.length>24||d.v.some(r=>!Array.isArray(r)||r.length!==4||!Number.isInteger(r[0])||r[0]<0||r[0]>4||typeof r[1]!=='string'||!Number.isFinite(r[2])||!Number.isFinite(r[3])))return;lfoUi.live=d;
+}
+function lfoDisplayControl(c){
+ if(arguments[0]?.trigLocked)return arguments[0];
+ c=playbackDisplayControl(c);
+ if(!c||c.lfoField||c.modulated||!lfoUi.live||lfoUi.live.owner!==(state.splitEnabled?state.splitFocus:0))return c;
+ let owner=state.splitEnabled?state.splitFocus:0;
+ const p=c.key.match(/^seq_pan_([1-4])$/),s=c.key.match(/^split_(?:level|delay|reverb)_([abcd])$/);
+ if(p)owner=Number(p[1])-1;else if(s)owner='abcd'.indexOf(s[1]);else if(LFO_DESTINATIONS.some(d=>d.key===c.key&&(d.scope==='shared'||d.scope==='layers')))owner=4;
+ const row=lfoUi.live.v.find(r=>r[0]===owner&&r[1]===c.key);if(!row)return c;
+ return {...c,value:clamp(row[2],c.min,c.max),baseValue:c.baseValue??c.value,modulated:true};
+}
+function controlLfoForKey(key){
+ const c=PARAMS[key];if(!c?.lfoField)return null;if(c.lfoField==='select')return c;
+ const data=lfoUi.data,base=data?.values?.[c.lfoSlot];if(!base)return null;
+ const dest=LFO_DESTINATIONS[Math.round(base[0])];
+ if(c.lfoLock&&(!sequenceUi.active||!base[0]||![state.splitFocus,4].includes(base[9])||!data.allowed.includes(base[0])||(c.lfoField==='reset'&&base[5]<2)))return null;
+ if(c.lfoField==='engine'&&(base[9]===4||!data.parts.includes(base[9])))return null;
+ return {...c,values:c.lfoField==='dest'?data.allowed:c.lfoField==='target'?data.parts.filter(p=>lfoActiveParts().includes(p)):c.lfoField==='engine'?data.engines:undefined,lfoClock:base[2]};
+}
+function lfoBeatIndex(rate){let best=0,distance=Infinity;LFO_BEATS.forEach((b,i)=>{const x=Math.abs(Math.log2(Math.max(rate,1e-12)*b));if(x<distance){distance=x;best=i;}});return best;}
+function controlLfoText(c,compact=false){
+ if(c.lfoField==='select')return Math.round(c.value)+'/8';
+ if(c.lfoField==='dest'){const d=LFO_DESTINATIONS[Math.round(c.value)];if(!d)return 'OFF';if(!c.automated&&!lfoUi.data?.allowed.includes(c.value))return '□';return compact?String(SHORT_LABELS[d.key]||PARAMS[d.key]?.shortLabel||({part_level:'LVL',part_pan:'PAN',part_delay:'DLY',part_reverb:'REV'}[d.key])||d.name).slice(0,4):d.page+' / '+d.name;}
+ if(c.lfoField==='target')return lfoActiveParts().includes(Math.round(c.value))?(LFO_LABELS[9][Math.round(c.value)]||'?'):'□';
+ if(c.lfoField==='engine')return c.value<0?'ANY':(lfoUi.data?.engines?.includes(c.value)?LFO_ENGINE_NAMES[Math.round(c.value)]:'□');
+ if(c.lfoField==='rate'){if(c.lfoClock===0){const n=LFO_BEAT_NAMES[lfoBeatIndex(c.value)];return compact?n.replace('BAR','B').replace(/^1\/(.*[TD])$/,'$1'):n;}return compact?(c.value<.1?Math.round(c.value*1000)+'mHz':Number(c.value.toPrecision(2)).toString()):Number(c.value.toPrecision(3))+' Hz';}
+ if(c.lfoField==='depth')return Math.round(c.value*100)+(compact?'':'%');if(c.lfoField==='phase')return Math.round(c.value*100)+'%';if(c.lfoField==='smooth')return c.value>=1000?'1s':Math.round(c.value)+(compact?'':' ms');return c.labels?.[Math.round(c.value)]||String(c.value);
+}
+function adjustControlLfo(index,delta){const page=currentSettingsPage(),c=index===0?PARAMS.lfo_select:controlLfoForKey(page.keys[index]);if(!c||!delta)return;
+ if(c.lfoLock&&state.deleteHeld){setParamBlocking(c.key,'reset');readControlLfos();return;}
+ delta=parameterEncoderDelta(index,c.key,delta);if(!delta)return;
+ if(c.lfoField==='dest'){openLfoDestPicker();return;}
+ const value=c.values&&!c.values.includes(c.value)?c.values[0]:nextControlValue(c,delta);setParamBlocking(c.key,String(value));readControlLfos();
+}
+function lfoDestinationPage(d){if(d.page==='PACKETS'){const sound=lfoUi.data?.motionSound||0;return sound===2?'MOTOR':sound>=3?'EVENT SHAPE':'PACKETS';}if(d.key==='motor_symmetry'&&(lfoUi.data?.motionSound||0)>=3)return 'EVENT SHAPE';if(!state.splitEnabled&&(d.page==='PART COLOR'||d.page==='DELAY RETURN'))return 'EFFECTS';const cfg=lfoUi.data?.values?.[lfoUi.data.selected];if(d.key==='stretch_ratio'&&((cfg?.[10]??-1)===4||(cfg?.[10]===-1&&lfoUi.data?.primary===4)))return 'SAMPLE PLAY';return d.page;}
+function lfoDestinationName(d){if(d.key==='effect_mix')return state.splitEnabled?'Delay Return':'Delay Mix';if(d.key==='effect_reverb_mix')return state.splitEnabled?'Reverb Return':'Reverb Mix';return d.name;}
+function lfoDestContext(d=lfoUi.data){if(!d)return '';const c=d.values[d.selected];return [d.selected,c[9],c[10],d.primary,d.motionSound,...d.allowed].join(':');}
+function lfoDestGroups(){
+ const groups=[{name:'Off',ids:[0]}],cfg=lfoUi.data?.values?.[lfoUi.data.selected],primary=cfg?.[10]>=0?cfg[10]:lfoUi.data?.primary;
+ for(const id of lfoUi.data?.allowed||[]){if(!id)continue;const d=LFO_DESTINATIONS[id],name=lfoDestinationPage(d);let group=groups.find(g=>g.name===name);if(!group){group={name,ids:[]};groups.push(group);}group.ids.push(id);}
+ const rank=g=>g.ids[0]===0?-1:g.ids.every(id=>LFO_DESTINATIONS[id].scope==='engine')?(g.name==='ENGINE'?0:g.ids.some(id=>LFO_DESTINATIONS[id].engines.includes(primary))?1:2):3;
+ groups.sort((a,b)=>rank(a)-rank(b));
+ for(const g of groups)if(g.ids.every(id=>LFO_DESTINATIONS[id].scope==='engine'))g.ids.sort((a,b)=>LFO_DESTINATIONS[a].parameter-LFO_DESTINATIONS[b].parameter);
+ return groups;
+}
+function openLfoDestPicker(){if(!lfoUi.data)return;const cfg=lfoUi.data.values[lfoUi.data.selected],groups=lfoDestGroups();lfoUi.picker={context:lfoDestContext(),slot:lfoUi.data.selected,stage:'groups',group:Math.max(0,groups.findIndex(g=>g.ids.includes(Math.round(cfg[0])))),selection:Math.max(0,groups.findIndex(g=>g.ids.includes(Math.round(cfg[0]))))};state.view='lfoDest';state.actionMessageTicks=0;resetParameterEncoderMotion();draw();}
+function closeLfoDestPicker(){lfoUi.picker=null;state.view='settings';state.settingsPage=Math.max(0,parameterPages().findIndex(p=>p.title==='LFO'));resetParameterEncoderMotion();}
+function lfoPickerRows(){const ui=lfoUi.picker,groups=lfoDestGroups();ui.group=clamp(ui.group,0,groups.length-1);return ui.stage==='groups'?groups:groups[ui.group].ids.map(id=>({name:lfoDestinationName(LFO_DESTINATIONS[id]),id}));}
+function drawLfoDestPicker(){clearDisplay();const ui=lfoUi.picker;if(!ui){closeLfoDestPicker();return;}
+ const groups=lfoDestGroups(),rows=lfoPickerRows();ui.selection=clamp(ui.selection,0,rows.length-1);const cfg=lfoUi.data.values[ui.slot];drawTitleWithFraction(ui.stage==='groups'?'DEST '+(LFO_LABELS[9][cfg[9]]||'?'):groups[ui.group].name,(ui.selection+1)+'/'+rows.length);
+ const start=clamp(ui.selection-2,0,Math.max(0,rows.length-4));for(let n=0;n<4&&n+start<rows.length;++n){const i=n+start,y=13+n*10;if(i===ui.selection)drawRect(0,y-2,128,9,1);print(3,y,String(rows[i].name).slice(0,21),i===ui.selection?0:1);}
+ print(1,57,ui.stage==='groups'?'SELECT A PAGE':'CLICK: ASSIGN',1);
+}
+function handleLfoPickerMidi(status,number,value){
+ if(state.view!=='lfoDest'&&!(state.view==='settings'&&status===0xb0&&number===MoveMainButton&&value>0))return false;
+ const page=state.view==='settings'?currentSettingsPage():null;
+ if(state.view!=='lfoDest'){if(status===0xb0&&number===MoveMainButton&&value>0&&page?.lfo){openLfoDestPicker();return true;}return false;}
+ if(status!==0xb0)return false;const ui=lfoUi.picker;if(!ui)return true;
+ if(number===MoveMainKnob||number===73){const delta=decodeDelta(value),rows=lfoPickerRows();ui.selection=clamp(ui.selection+delta,0,rows.length-1);draw();return true;}
+ if(number===MoveUp||number===MoveDown){if(value>0){ui.selection=clamp(ui.selection+(number===MoveUp?-1:1),0,lfoPickerRows().length-1);draw();}return true;}
+ if(number===MoveBack||number===MoveMenu){if(value>0){if(number===MoveBack&&ui.stage==='params'){ui.stage='groups';ui.selection=ui.group;}else closeLfoDestPicker();draw();}return true;}
+ if(number===MoveMainButton){if(value>0){const groups=lfoDestGroups(),rows=lfoPickerRows();if(ui.stage==='groups'&&ui.selection>0){ui.group=ui.selection;ui.stage='params';ui.selection=Math.max(0,groups[ui.group].ids.indexOf(Math.round(lfoUi.data.values[ui.slot][0])));}else{const id=ui.stage==='groups'?0:rows[ui.selection].id;setParamBlocking('lfo'+(ui.slot+1)+'_dest',String(id));readControlLfos();if(lfoUi.data.values[ui.slot][0]===id)closeLfoDestPicker();else showActionMessage('DEST UNAVAILABLE');}draw();}return true;}
+ if(number>=71&&number<=78)return true;return false;
+}
+function drawControlLfo(page){lfoUi.visible=true;readControlLfos(uiPolling.supported===true);readControlLfoLive(uiPolling.supported===true);clearDisplay();drawSettingsTitle(page.sequenceLfo?'TRIG LFO':page.lfoSetup?'LFO SETUP':'LFO');drawRect(0,8,128,1,1);
+ for(let i=0;i<8;++i){const c=i===0?PARAMS.lfo_select:controlLfoForKey(page.keys[i]);drawParameterCell(i,c,true,4);if(c?.lfoLock){const t=lfoUi.data?.trig||[0,255],bit=1<<c.lfoSlot,locked=c.lfoField==='reset'?!(t[1]&bit):Boolean(t[0]&((c.lfoField==='rate'?1:2)<<(c.lfoSlot*2)));if(locked)drawRect(i*32+28,12,3,3,1);}}
+ if(page.sequenceLfo)print(1,57,'X+DIAL: INHERIT',1);else if(page.lfoSetup)print(1,57,'CLIP / LIVE FLOW',1);else{const d=LFO_DESTINATIONS[Math.round(lfoUi.data?.values?.[lfoUi.data.selected]?.[0]||0)];print(1,57,(!lfoActiveParts().includes(lfoUi.data?.values?.[lfoUi.data.selected]?.[9])?'PART '+(LFO_LABELS[9][lfoUi.data?.values?.[lfoUi.data.selected]?.[9]]||'?')+' INACTIVE':d?.id?lfoDestinationName(d):'DEST: CLICK TO CHOOSE').slice(0,21),1);}
+}
+
 const SEQUENCE_KEYS=['seq_length','seq_rate','seq_rotation','seq_active','seq_mute','seq_velocity','seq_gate','seq_scale','seq_step','seq_child','seq_pos','seq_note','seq_vel','seq_trig_gate','seq_micro','seq_prob','seq_burst','seq_when','seq_clip_beats','seq_duration_mode','seq_time_ms','seq_trig_time_ms','seq_pan_1','seq_pan_2','seq_pan_3','seq_pan_4','seq_eq_low','seq_eq_mid','seq_eq_high','seq_eq_freq','seq_eq_solo','seq_duck_key','seq_duck_depth','seq_duck_threshold','seq_duck_attack','seq_duck_hold','seq_duck_release','seq_duck_hpf','seq_duck_knee','seq_cycle_hit','seq_cycle_every','seq_type','seq_to_normal','seq_regenerate','seq_recipe_hits','seq_recipe_map','seq_recipe_order','seq_recipe_repeat','seq_recipe_write','seq_recipe_amount','seq_recipe_seed','seq_recipe_regions','seq_recipe_preroll','seq_recipe_from','seq_recipe_to','seq_recipe_pitch','seq_recipe_span','seq_recipe_accents','seq_recipe_depth','seq_recipe_duration','seq_recipe_min','seq_recipe_max','seq_recipe_human','seq_recipe_probability','seq_direction','seq_recipe_shift','seq_path'];
 const sequenceUi={active:false,data:null,pad:-1,downAt:0,held:false,copy:false,copyReady:false,fullRaw:'',revision:0,cursorRevision:0,headRevision:0,cursorLedPad:-1,cursorLedRefresh:-Infinity,cursorRestores:new Map()};
 const sequenceDisplay={valid:false,revision:-1,cursorRevision:-1,headRevision:-1,waves:null,mask:-1,recording:false,tempo:NaN,selectedCursor:-1};
@@ -1333,7 +1533,59 @@ function syncSequenceCursorLeds(){
  }
  if(!sequenceUi.active){sequenceUi.cursorRestores.clear();}
 }
+const sequenceSoundUi={data:null};
+function readSequenceSound(){
+ let d;try{d=JSON.parse(String(getParam('seq_sound_state','{}')));}catch(_){sequenceSoundUi.data=null;return;}
+ if(!d||![0,1].includes(d.active)||!Number.isInteger(d.part)||!Number.isInteger(d.step)||!Number.isInteger(d.event)||!Array.isArray(d.values)||d.values.length>32||d.values.some(x=>!Array.isArray(x)||x.length!==3||!Number.isInteger(x[0])||!Number.isFinite(x[1])||![0,1].includes(x[2]))){sequenceSoundUi.data=null;return;}
+ sequenceSoundUi.data=d;
+}
+function sequenceSoundActive(){const d=sequenceSoundUi.data;return sequenceUi.active&&sequenceUi.held&&d?.active===1&&d.part===state.splitFocus&&d.step===sequenceUi.data?.held;}
+function sequenceSoundPageAvailable(page){
+ if(page.sequenceTrig||page.sequenceBurst||page.sequenceEnvelope||page.sequenceLfo)return true;
+ if(Number.isInteger(page.sequenceStrip)&&page.sequenceStrip!==state.splitFocus)return false;
+ return page.keys.some(key=>{const id=SEQUENCE_SOUND_IDS[sequenceSoundKey(key)];return key==='locus'&&!isSynthAlgorithm(state.algorithm)||SEQUENCE_SOUND_SCOPES[id];});
+}
+function sequenceSoundKey(key){
+ const part=state.splitFocus;
+ for(const [prefix,target] of [['split_level_','part_level'],['split_delay_','part_delay'],['split_reverb_','part_reverb']])if(key?.startsWith(prefix))return 'abcd'.indexOf(key.slice(-1))===part?target:null;
+ if(/^seq_pan_[1-4]$/.test(key||''))return Number(key.slice(-1))-1===part?'seq_pan_1':null;
+ return key;
+}
+function sequenceSoundValue(key,fallback){
+ if(!sequenceSoundActive())return fallback;
+ const id=SEQUENCE_SOUND_IDS[sequenceSoundKey(key)],row=sequenceSoundUi.data.values.find(x=>x[0]===id);
+ return row?row[1]:fallback;
+}
+function sequenceSoundControl(control){
+ if(!control||!sequenceSoundActive()||control.lfoField)return control;
+ const id=SEQUENCE_SOUND_IDS[sequenceSoundKey(control.key)];
+ if(control.key==='locus')return {...control,value:PARAMS.seq_pos.value,soundId:0,trigLocked:Boolean(sequenceUi.data?.mask&1),soundScope:'voice'};
+ if(control.key.startsWith('seq_')&& !control.key.startsWith('seq_eq_')&&!control.key.startsWith('seq_pan_')){
+  return ['seq_pos','seq_note','seq_vel','seq_trig_gate','seq_trig_time_ms','seq_micro','seq_prob','seq_cycle_hit','seq_cycle_every','seq_burst','seq_child','seq_when','seq_clear'].includes(control.key)?control:null;
+ }
+ if(!SEQUENCE_SOUND_SCOPES[id])return null;
+ const row=sequenceSoundUi.data.values.find(x=>x[0]===id);
+ return {...control,value:row?row[1]:control.value,soundId:id,soundScope:SEQUENCE_SOUND_SCOPES[id],trigLocked:Boolean(row),trigInherited:row?.[2]===0};
+}
+function adjustSequenceSound(control,index,delta){
+ if(!sequenceSoundActive()||!control||!Number.isInteger(control.soundId))return false;
+ if(state.deleteHeld){
+  if(control.soundId===0)setParamBlocking('seq_clear',0);else setParamBlocking('seq_sound_clear',control.soundId);
+ }else{
+  delta=parameterEncoderDelta(index,control.key,delta);if(!delta)return true;
+  const value=nextControlValue(control,delta);
+  if(control.soundId===0)setParamBlocking('seq_pos',value);else setParamBlocking('seq_sound_edit',control.soundId+','+value);
+ }
+ const title=state.view==='settings'?currentSettingsPage().title:null;
+ readSequence();
+ if(title){const pages=parameterPages();const at=pages.findIndex(p=>p.title===title);state.settingsPage=at>=0?at:Math.max(0,pages.findIndex(p=>p.title==='TABLE'));}
+ const error=String(getParam('last_error',''));if(error)showActionMessage(error.slice(0,21));
+ else showMessage(state.deleteHeld?'INHERIT LANE':'TRIG '+String(sequenceUi.data.step+1).padStart(2,'0')+' '+control.label,25);
+ return true;
+}
+
 function readSequence(skipCursorLeds=false){
+ readSequenceSound();
  const raw=String(getParam('seq_state','{}'));
  let data;try{data=JSON.parse(raw);}catch(_){return;}
  if(!data||![0,1].includes(data.active))return;
@@ -1342,6 +1594,7 @@ function readSequence(skipCursorLeds=false){
  const headsChanged=JSON.stringify(previous?.heads)!==JSON.stringify(data.heads);
  const stepsChanged=JSON.stringify(previous?.steps)!==JSON.stringify(data.steps);
  const cursorChanged=previous?.active!==data.active||previous?.playing!==data.playing||previous?.edit!==data.edit||lanesChanged;
+ if(sequenceUi.held&&previous?.held>=0&&data.held<0){sequenceUi.held=false;sequenceUi.pad=-1;state.view='main';resetParameterEncoderMotion();}
  const wasActive=sequenceUi.active;
  sequenceUi.active=Boolean(data.active);sequenceUi.data=data;
  if(sequenceUi.active){PARAMS.split_mode.value=6;state.lastNonSingleMode=6;}
@@ -1606,7 +1859,7 @@ function sequencePages(base){
  // sound pages together before its fitted envelope and gain compensation.
  const soundPages=pages.filter(page=>page!==PLAY_GAIN_PAGE&&pageCategoryForPage(page)===0);
  const otherPages=pages.filter(page=>page!==PLAY_GAIN_PAGE&&pageCategoryForPage(page)!==0);
- return [SEQUENCE_LANE_PAGE,SEQUENCE_PITCH_PAGE,...generator,SEQUENCE_TRIG_PAGE,SEQUENCE_BURST_PAGE,
+ return [SEQUENCE_LANE_PAGE,SEQUENCE_PITCH_PAGE,...generator,SEQUENCE_TRIG_PAGE,SEQUENCE_BURST_PAGE,...(lfoUi.data?.values?.some(v=>v[0]>0)?[SEQUENCE_LFO_PAGE]:[]),
    ...soundPages,SEQUENCE_ENVELOPE_PAGE,PLAY_GAIN_PAGE,
    SEQUENCE_MIX_PAGE,...SEQUENCE_STRIP_PAGES,SEQUENCE_DUCK_PAGE,...otherPages];
 }
@@ -1645,11 +1898,11 @@ function tickSequenceGesture(){
  if(sequenceUi.active&&sequenceUi.pad>=0&&!sequenceUi.held&&Date.now()-sequenceUi.downAt>=300){
    const step=(3-Math.floor(sequenceUi.pad/8))*8+sequenceUi.pad%8;
    setParamBlocking('seq_hold',step);sequenceUi.held=true;readSequence();
-   state.view='settings';state.settingsPage=parameterPages().indexOf(SEQUENCE_TRIG_PAGE);resetParameterEncoderMotion();
+   state.view='settings';state.settingsPage=Math.max(0,parameterPages().findIndex(page=>page.sequenceTrig));resetParameterEncoderMotion();
  }
 }
 function sequenceMarkers(center=18,overview=false){
- const d=sequenceUi.data;if(!d)return;
+ const d=sequenceUi.data;if(!d||isSynthAlgorithm(PARAMS.algorithm.value))return;
  for(let i=0;i<d.length;++i)if(d.steps?.[i]?.[0]){const x=4+Math.round(clamp(d.steps[i][1],0,1)*119);drawRect(x,center+4,1,3,1);}
  const current=overview&&d.playing?d.lanes?.[d.edit]?.[0]:d.step;
  const position=overview?d.steps?.[current]?.[1]??PARAMS.seq_pos.value:PARAMS.seq_pos.value;
@@ -1669,6 +1922,7 @@ function sequenceHeads(){
    &&Number.isFinite(h[3])&&h[3]>0).sort((a,b)=>b[4]-a[4]).slice(0,2);
 }
 function drawSequenceHeads(heads){
+ if(isSynthAlgorithm(PARAMS.algorithm.value))return;
  for(const [index,head] of heads.entries()){
    const start=waveformX(clamp(head[1],0,1),[0,1],4,120);
    const cursor=waveformX(clamp(head[2],0,1),[0,1],4,120);
@@ -1753,11 +2007,12 @@ function sequenceAmpDurationMs(){
  if(PARAMS.seq_duration_mode.value>=.5)return clamp(locked?PARAMS.seq_trig_time_ms.value:PARAMS.seq_time_ms.value,10,30000);
  return Math.max(.25,(locked?PARAMS.seq_trig_gate.value:PARAMS.seq_gate.value)*sequenceStepMs());
 }
-function sequenceAmpTiming(){
+function sequenceAmpTiming(display=false){
+ const value=key=>{const c=sequenceSoundControl(PARAMS[key])||PARAMS[key];return display?lfoDisplayControl(c).value:c.value;};
  const dur=sequenceAmpDurationMs();
- const raw=[Math.max(0,PARAMS.amp_attack.value),Math.max(0,PARAMS.amp_decay.value),Math.max(3,PARAMS.amp_release.value)];
+ const raw=[Math.max(0,value('amp_attack')),Math.max(0,value('amp_decay')),Math.max(3,value('amp_release'))];
  const scale=Math.min(1,dur/(raw[0]+raw[1]+raw[2]+1e-9));
- const sustain=clamp(PARAMS.amp_sustain.value/100,0,1);
+ const sustain=clamp(value('amp_sustain')/100,0,1);
  const release=raw[2]*scale;
  const attack=Math.min(raw[0]*scale,Math.max(0,dur-release));
  // DSP uses a 1 ms safety decay when Sustain sits below the attack peak.
@@ -2148,7 +2403,7 @@ function drawLayersMain() {
         }
         layersDisplay.gutter=gutter;
     }
-    const window=normalizedWaveWindow([state.fieldStart,state.fieldEnd]),windowKey=window.join(',');
+    const window=normalizedWaveWindow([state.fieldStart,state.fieldEnd]),windowKey=window.join(',')+':'+tableUi.scopeKey;
     if(layersDisplay.waves!==state.waves||layersDisplay.mask!==state.mask||layersDisplay.window!==windowKey) {
         layersDisplay.base.fill(0);layersRasterTarget=layersDisplay.base;
         for(let lane=0;lane<4;++lane)drawWaveformLane(lane,window,15+lane*10,14,47);
@@ -2274,8 +2529,8 @@ function parseSplitState(text, refresh=true) {
     if (padMapChanged && !changed) rebuildLedQueue();
 }
 function padSettings(index) {
-    if(state.splitEnabled)return state.splitParts[padPart(index)]||{};
-    return {root:Math.round(PARAMS.root_note.value),octave:state.octave,scale:state.scale,mode:state.padMode};
+    const owner=state.splitEnabled?(state.splitParts[padPart(index)]||{}):{root:Math.round(PARAMS.root_note.value),octave:state.octave,scale:state.scale,mode:state.padMode};
+    return isSynthAlgorithm(state.splitEnabled?owner.algorithm:state.algorithm)?{...owner,mode:0}:owner;
 }
 function setSplitFocus(part) {
     endPerformanceLayer();
@@ -2765,7 +3020,7 @@ function sendLedNow(type, id, color, force = false) {
 
 function iconLedStates() {
     const menu=['synth','seqGenerate','settings','pages','mode','fxMenu','help','projects'].includes(state.view);
-    const upDown=['synth','bankRecovery','projects'].includes(state.view)||customMidiViews.includes(state.view)||['seqGenerate','main','settings','pages','mode','fxMenu','help','library','chain','sliceEdit'].includes(state.view);
+    const upDown=['synth','bankRecovery','projects'].includes(state.view)||customMidiViews.includes(state.view)||['lfoDest','seqGenerate','main','settings','pages','mode','fxMenu','help','library','chain','sliceEdit'].includes(state.view);
     const leftRight=['synth','main','settings','help'].includes(state.view);
     return [
         [MoveMenu,menu?WhiteLedBright:IconLedDim],
@@ -2776,7 +3031,7 @@ function iconLedStates() {
         [MoveUp,upDown?IconLedDim:Black],[MoveDown,upDown?IconLedDim:Black],
         [MoveLeft,leftRight?IconLedDim:Black],[MoveRight,leftRight?IconLedDim:Black],
         [MoveCopy,state.recording||state.clipRecording?Black:currentPerformanceMode()>0?WhiteLedBright:IconLedDim],
-        [MoveCapture,state.focusButtonHeld||state.view==='pages'||(state.splitEnabled&&state.splitFocus)||(layersUi.active&&layersUi.focus)?WhiteLedBright:IconLedDim],
+        [MoveCapture,state.view==='synth'?(state.focusButtonHeld||!synthUi.data?.ready?WhiteLedBright:IconLedDim):state.focusButtonHeld||state.view==='pages'||(state.splitEnabled&&state.splitFocus)||(layersUi.active&&layersUi.focus)?WhiteLedBright:IconLedDim],
         [MoveMute,state.view==='synth'?Black:state.splitEnabled?(state.splitParts[state.splitFocus]?.mute?WhiteLedBright:IconLedDim):Black],
         [MoveLoop,state.view==='synth'?(synthUi.data?.preview?WhiteLedBright:IconLedDim):state.view==='sliceEdit'?(sliceUi.data?.loop?WhiteLedBright:IconLedDim):!loopAvailable()?Black:state.glitchBufferLocked||state.stackScanPaused?WhiteLedBright:state.recordedStackHold?IconLedMedium:IconLedDim],
     ].map(([id,value])=>[id,value!==Black&&state.iconPressed.has(id)?WhiteLedBright:value]);
@@ -2928,6 +3183,7 @@ function waveformX(position,window,left=14,width=114) {
 }
 
 function drawWaveformLane(lane,window,center,left=14,width=114) {
+    if(tableUi.mask&(1<<lane)){drawTableScope(lane,center,left,width);return;}
     if(!(state.mask&(1<<lane))){drawRect(left,center,width,1,1);return;}
     const bins=state.waves[lane];
     for(let pixel=0;pixel<width;++pixel) {
@@ -2941,7 +3197,7 @@ function drawWaveformLane(lane,window,center,left=14,width=114) {
 }
 
 function drawSplitWavePixels(windows) {
-    const key=windows.flat().join(',')+','+(state.sharedDual?1:0);
+    const key=windows.flat().join(',')+','+(state.sharedDual?1:0)+':'+tableUi.scopeKey;
     if(splitDisplay.waves!==state.waves||splitDisplay.mask!==state.mask||splitDisplay.windows!==key) {
         splitDisplay.base.fill(0);splitRasterTarget=splitDisplay.base;
         for(let lane=0;lane<4;++lane) {
@@ -2955,7 +3211,7 @@ function drawSplitWavePixels(windows) {
     // or erase them, and replacing a sample invalidates only its own cache.
     for(let lane=0;lane<4;++lane) {
         const entry=state.laneRegions[lane];
-        if(!entry||entry.source!==state.waveKeys[lane]||entry.regions.length<=2)continue;
+        if((tableUi.mask&(1<<lane))||!entry||entry.source!==state.waveKeys[lane]||entry.regions.length<=2)continue;
         const center=15+lane*10,window=windows[isQuad()?lane:lane<2?0:1];
         for(const region of entry.regions.slice(1,-1)) {
             const x=waveformX(region,window);
@@ -3350,13 +3606,14 @@ function drawMain() {
         const center = top + lane * rowHeight + 5;
         const selected = state.lane === lane + 1;
         if (selected) drawRect(0, center - 4, 2, 8, 1);
-        print(3, center - 4, String(lane + 1), 1);
+        if(selected&&(tableUi.mask&(1<<lane)))drawRect(2,center-4,7,8,1);
+        print(3, center - 4, String(lane + 1), selected&&(tableUi.mask&(1<<lane))?0:1);
         const weightHeight = Math.round(state.weights[lane] * 7);
         if (weightHeight > 0) {
             drawRect(9, center + 4 - weightHeight, 2, weightHeight, 1);
         }
         drawWaveformLane(lane,window,center);
-        if (selected && (state.mask&(1<<lane)) && state.regionLane===state.lane && state.regions.length > 2) {
+        if (!(tableUi.mask&(1<<lane)) && selected && (state.mask&(1<<lane)) && state.regionLane===state.lane && state.regions.length > 2) {
             for (let region = 1; region < state.regions.length - 1; region++) {
                 const x=waveformX(state.regions[region],window);
                 if(x<0)continue;
@@ -3731,6 +3988,18 @@ function parameterPagesBase() {
 
 function inactiveControl(key) {
     if(!key)return false;
+    if(state.algorithm===15&&['locus','field','speed','join','pad_mode','lane_variation','seq_pos','voice_engine_position'].includes(key))return true;
+    if(state.algorithm===16&&(['speed','join','pad_mode','lane_variation','voice_engine_position'].includes(key)||(['locus','field','seq_pos'].includes(key)&&sequenceSoundValue('scanned_excitation',PARAMS.scanned_excitation.value)!==3)))return true;
+    if(state.algorithm===17&&['locus','field','speed','join','pad_mode','lane_variation','seq_pos','voice_engine_position'].includes(key))return true;
+    if(key.startsWith('fm_')){const f=FM_CONTROLS.find(x=>x.key===key)?.index,mode=sequenceSoundValue('fm_mode',PARAMS.fm_mode.value),algo=sequenceSoundValue('fm_algorithm',PARAMS.fm_algorithm.value);if((f===8||f===9)&&algo===0||f>=15&&mode<.5||f===18&&sequenceSoundValue('fm_bend',PARAMS.fm_bend.value)===0||f===21&&sequenceSoundValue('fm_noise',PARAMS.fm_noise.value)===0||f===22&&sequenceSoundValue('fm_impact',PARAMS.fm_impact.value)===0)return true;}
+    if(key.startsWith('scanned_amp_')&&key!=='scanned_amp_mode'&&sequenceSoundValue('scanned_amp_mode',PARAMS.scanned_amp_mode.value)<.5)return true;
+    if(key.startsWith('scanned_')){const exc=Math.round(sequenceSoundValue('scanned_excitation',PARAMS.scanned_excitation.value)),profile=Math.round(sequenceSoundValue('scanned_profile',PARAMS.scanned_profile.value));if(key.startsWith('scanned_')&&SCANNED_CONTROLS.find(p=>p.key===key)?.index>16&&SCANNED_CONTROLS.find(p=>p.key===key)?.index<23&&sequenceSoundValue('scanned_art',PARAMS.scanned_art.value)<.5)return true;if(key==='scanned_pick'&&exc>=2&&sequenceSoundValue('scanned_art',PARAMS.scanned_art.value)<.5||['scanned_mass','scanned_tension'].includes(key)&&profile===0||key==='scanned_seed'&&profile!==3&&exc!==2&&!(sequenceSoundValue('scanned_art',PARAMS.scanned_art.value)>.5&&sequenceSoundValue('scanned_impact',PARAMS.scanned_impact.value)>0)||key==='scanned_sweep_time'&&sequenceSoundValue('scanned_bend',PARAMS.scanned_bend.value)===0)return true;}
+    if(key.startsWith('table_')){
+      if(key==='table_decay'&&sequenceSoundValue('table_art',PARAMS.table_art.value)<.5)return true;
+      if(key==='table_pulse'&&Math.round(sequenceSoundValue('table_shape',PARAMS.table_shape.value))!==3)return true;
+      if(['table_noise_decay','table_color'].includes(key)&&sequenceSoundValue('table_noise',PARAMS.table_noise.value)<=0)return true;
+    }
+
     const direct=state.algorithm===4||state.algorithm===5;
     if(key==='join'&&direct&&Math.round(PARAMS.sample_mode.value)!==2)return true;
     if(key==='stretch_ratio'&&(state.algorithm===1||state.algorithm===4)
@@ -3746,9 +4015,13 @@ function maskInactivePage(page) {
     if(!page.keys.some(inactiveControl))return page;
     return {...page,keys:page.keys.map(key=>inactiveControl(key)?null:key)};
 }
-function parameterPages(){const pages=parameterPagesBase();return outputMixerPages(sequenceUi.active?sequencePages(pages):pages).map(maskInactivePage);}
-function controlForKey(key) {
+function parameterPages(){const pages=parameterPagesBase();const lfoAt=pages.findIndex(p=>p.title===CHAIN_TOOLS_PAGE.title);pages.splice(lfoAt>=0?lfoAt+1:pages.length,0,...LFO_PAGES);const result=outputMixerPages(sequenceUi.active?sequencePages(pages):pages).map(maskInactivePage);return sequenceSoundActive()?result.filter(sequenceSoundPageAvailable):result;}
+function controlForKey(key){return sequenceSoundControl(controlForKeyBase(key));}
+function controlForKeyBase(key) {
+    if(state.algorithm===15&&(['locus','field','speed','join','pad_mode','lane_variation','seq_pos','voice_engine_position'].includes(key)||(key?.startsWith('table_')&&inactiveControl(key))))return null;
+    if((state.algorithm===16||state.algorithm===17)&&inactiveControl(key))return null;
     if(!key)return null;
+    if(PARAMS[key]?.lfoField)return controlLfoForKey(key);
     if(key.startsWith('seq_recipe_'))return recipeControl(key);
     if(/^seq_pan_[1-4]$/.test(key))return {...PARAMS[key],shortLabel:sequenceUi.active?'PAN'+key.slice(-1):state.splitEnabled?'PAN'+'ABCD'[Number(key.slice(-1))-1]:'PAN'};
     if(key==='seq_duck_key')return {...PARAMS[key],max:state.splitEnabled?partCount():1,labels:sequenceUi.active?['OFF','L1','L2','L3','L4']:['OFF','A','B','C','D']};
@@ -3828,6 +4101,8 @@ function chainEditorActive() {
     return page===CHAIN_PAGE||Boolean(page.chainFade)||Boolean(page.chainTools);
 }
 function activeControlKeys() {
+    if(state.view==='lfoDest')return Array(8).fill(null);
+    if(state.view==='settings'){const p=currentSettingsPage();if(p.lfo||p.lfoSetup||p.sequenceLfo)return ['lfo_select',...p.keys.slice(1)];}
     if(sequenceUi.active&&state.view==='main')return SEQUENCE_LANE_PAGE.keys;
     if(state.view==='layerFxPicker')return Array(8).fill(null);
     if(customMidiViews.includes(state.view)||['projects','bankRecovery'].includes(state.view))return Array(8).fill(null);
@@ -3849,13 +4124,14 @@ function noteName(value) {
 }
 
 function formatControlValue(control) {
+    if(control?.lfoField)return controlLfoText(control);
     if(control.key.startsWith('seq_'))return sequenceValue(control);
     if(control?.key?.startsWith('layers_')&&control.format)return control.format(control.value);
     if (!control) return '';
     if(control.key==='bank_pan')return Math.abs(control.value)<.5?'CENTRE':(control.value<0?'L ':'R ')+Math.round(Math.abs(control.value))+'%';
     if(['bank_start','bank_end','bank_level'].includes(control.key))return Math.round(control.value*100)+'%';
     if(['voice_engine_position','voice_engine_stack','voice_engine_pan','voice_engine_depth'].includes(control.key))return (control.value>0&&control.key!=='voice_engine_depth'?'+':'')+Math.round(control.value)+'%';
-    if(/^voice_engine_[1-8]$/.test(control.key))return ['MOTN','LANE','GRNS','CUTS','SMPL','SLIC','GLCH','WEAV','WSET','PRSM','MORF','TXTR','FORM','STOC','PLSR'][Math.round(control.value)]||'';
+    if(/^voice_engine_[1-8]$/.test(control.key))return ['MOTN','LANE','GRNS','CUTS','SMPL','SLIC','GLCH','WEAV','WSET','PRSM','MORF','TXTR','FORM','STOC','PLSR','TABLE','SCAN','FM'][Math.round(control.value)]||'';
     if(/^(pattern|chain|entry)_fade_.*ms$/.test(control.key))return formatFadeTime(control.value);
     if(control.key==='pattern_fade_position')return control.value.toFixed(1)+'%';
     if(['prism_blur','prism_decay','morph_blur','texture_length','formant_smoothing'].includes(control.key))return formatFadeTime(control.value);
@@ -3953,6 +4229,16 @@ function formatControlValue(control) {
 }
 
 function compactControlValue(control) {
+    if(control?.key?.startsWith('scanned_')&&!control.labels){const v=Number(control.value);if(control.unit==='ms')return Math.round(v)>=1000?String(Number((v/1000).toFixed(2)))+'s':String(Math.round(v))+'ms';if(control.key==='scanned_motion')return v.toFixed(v<1?2:1).replace(/^0\./,'.')+'Hz';return String(Number(v.toFixed(Math.abs(v)<10?1:0)));}
+    if(control?.key==='table_type')return ['WAVE','SPLN','WTDR'][Math.round(control.value)]||'';
+    if(control?.key?.startsWith('table_')&&!control.labels){
+        const v=control.value,a=Math.abs(v);
+        if(control.unit==='ms'&&a>=1000)return String(Number((v/1000).toFixed(a<10000?2:1)))+'s';
+        if(control.key==='table_cutoff'&&a>=1000)return String(Number((v/1000).toFixed(a<10000?2:1)))+'k';
+        return String(Number(v.toFixed(a<1?3:a<10?2:1)));
+    }
+    if(control?.lfoField)return controlLfoText(control,true);
+    control=lfoDisplayControl(control);
     if(control?.key?.startsWith('seq_'))return sequenceValue(control);
     if(control?.key?.startsWith('layers_')&&control.format)return control.format(control.value);
     if(control?.key==='bank_pan')return Math.abs(control.value)<.5?'C':(control.value<0?'L':'R')+Math.round(Math.abs(control.value));
@@ -4070,6 +4356,7 @@ function drawParameterCell(index, control, compact = false, maxLabelChars = null
     // A page slot can resolve to no control when its action is unavailable
     // (for example PRINT/REGEN with the Normal sequencer type).
     if (!control) { drawReservedParameterCell(index, compact); return; }
+    control=lfoDisplayControl(control);
     const column = index % 4;
     const row = Math.floor(index / 4);
     const x = column * 32;
@@ -4078,6 +4365,8 @@ function drawParameterCell(index, control, compact = false, maxLabelChars = null
     const value = compactControlValue(control);
     print(x + 3, y, label, 1);
     print(x + 3, y + 11, value, 1);
+    if(control.trigLocked){drawRect(x+28,y,3,3,1);if(control.soundScope==='lane')drawRect(x+29,y+1,1,1,0);if(control.trigInherited)drawRect(x+27,y+4,4,1,1);}
+    else if(control.modulated||control.automated){drawRect(x+28,y,3,3,1);if(!control.modulated)drawRect(x+29,y+1,1,1,0);}
 }
 
 function drawReservedParameterCell(index, compact = false) {
@@ -4120,10 +4409,9 @@ function envelopeSegmentWidth(value, maximum) {
 }
 
 function drawAmpEnvelopePage() {
-    const attack = PARAMS.amp_attack.value;
-    const decay = PARAMS.amp_decay.value;
-    const sustain = clamp(PARAMS.amp_sustain.value / 100, 0, 1);
-    const release = PARAMS.amp_release.value;
+    const controls = [PARAMS.amp_attack, PARAMS.amp_decay, PARAMS.amp_sustain, PARAMS.amp_release].map(lfoDisplayControl);
+    const [attack, decay, rawSustain, release] = controls.map(c=>c.value);
+    const sustain = clamp(rawSustain / 100, 0, 1);
     const widths = [
         envelopeSegmentWidth(attack, PARAMS.amp_attack.max),
         envelopeSegmentWidth(decay, PARAMS.amp_decay.max),
@@ -4149,13 +4437,12 @@ function drawAmpEnvelopePage() {
         [xGate, sustainY]]) {
         drawRect(Math.round(point[0]) - 1, Math.round(point[1]) - 1, 3, 3, 1);
     }
-    const controls = [PARAMS.amp_attack, PARAMS.amp_decay,
-        PARAMS.amp_sustain, PARAMS.amp_release];
     for (let index = 0; index < controls.length; index++) {
         const control = controls[index];
         const x = index * 32 + 3;
         print(x, 34, SHORT_LABELS[control.key], 1);
         print(x, 45, compactControlValue(control), 1);
+        if(control.automated){drawRect(index*32+28,34,3,3,1);drawRect(index*32+29,35,1,1,0);}
         const reservedX = index * 32 + 14;
         drawRect(reservedX, 57, 4, 4, 1);
         drawRect(reservedX + 1, 58, 2, 2, 0);
@@ -4163,7 +4450,8 @@ function drawAmpEnvelopePage() {
 }
 
 function drawSequenceEnvelopePage() {
-    const timing=sequenceAmpTiming(),[attack,decay,release]=timing.applied;
+ if(sequenceSoundActive())for(let i=0;i<4;++i)if(controlForKey(SEQUENCE_ENVELOPE_PAGE.keys[i])?.trigLocked)drawRect(i*32+28,35,3,3,1);
+    const timing=sequenceAmpTiming(true),[attack,decay,release]=timing.applied;
     const x0=4,x1=122,width=x1-x0,baseline=31,peak=19;
     const xAttack=x0+Math.round(width*attack/timing.dur);
     const xDecay=Math.min(x1,xAttack+Math.round(width*decay/timing.dur));
@@ -4334,6 +4622,8 @@ function adjustPathEditor(index,delta) {
 }
 function drawSettings() {
     const page = currentSettingsPage();
+    if(page.lfo!==undefined||page.lfoSetup||page.sequenceLfo){drawControlLfo(page);return;}
+    lfoUi.visible=false;
     if(page.sequenceMix&&!mixerUi.visible)readMixerState();
     mixerUi.visible=Boolean(page.sequenceMix);
     // SEQ LANE is often left open while a fast sequence runs. Its eight
@@ -4349,7 +4639,7 @@ function drawSettings() {
                 if(!key)return null;
                 const control=controlForKey(key);
                 return control?[control.shortLabel||SHORT_LABELS[key]||control.label,
-                    compactControlValue(control)]:null;
+                    compactControlValue(control),Boolean(lfoDisplayControl(control).automated),Boolean(lfoDisplayControl(control).modulated),Boolean(control.trigLocked),Boolean(control.trigInherited),control.soundScope]:null;
             }),
         ]);
         if(sequenceLaneDisplay.valid&&sequenceLaneDisplay.signature===laneSignature)return;
@@ -4376,7 +4666,7 @@ function drawSettings() {
     const engineTitle=voiceEngineListEnabled()&&(page.title==='ENGINE'||playbackPagesForAlgorithm(state.algorithm,Math.round(PARAMS.motion_sound.value)).some(p=>p.title===page.title)||page.pathEditor||page.voiceSetup)?'E'+Math.round(PARAMS.voice_engine_edit.value)+' ':'';
     rememberLayersPage(page);
     const layerTitle=layersUi.active?((page.title==='FX CORNER'||page.layerFxDetail)?'C'+(Number(PARAMS.layers_corner.value)+1)+' ':layersPageSide(page)===0?'A ':''):'';
-    const pageTitle = target + lockTarget + scope + engineTitle + layerTitle+page.title + (page.sequenceEnvelope?' T'+String((sequenceUi.data?.step??0)+1).padStart(2,'0'):takeSuffix);
+    const pageTitle = (sequenceSoundActive()?'T'+String(sequenceSoundUi.data.step+1).padStart(2,'0')+' ':'') + target + lockTarget + scope + engineTitle + layerTitle+page.title + (page.sequenceEnvelope?' T'+String((sequenceUi.data?.step??0)+1).padStart(2,'0'):takeSuffix);
     const title = state.actionMessageTicks > 0
         ? state.actionMessage : pageTitle;
     drawSettingsTitle(title,pages);
@@ -4387,7 +4677,7 @@ function drawSettings() {
         return;
     }
     const drawPath=page.title===STACK_PATH_PAGE.title&&Math.round(PARAMS.lane_path.value)===8;
-    const hasFooter = page.sliceEditor || page.pulsar || page.stochastic || page.voiceEngines || page.voiceSetup || drawPath || (state.splitEnabled && (isSendPage(page)
+    const hasFooter = sequenceSoundActive() || page.sliceEditor || page.pulsar || page.stochastic || page.voiceEngines || page.voiceSetup || page.table || page.scanned || page.fm || drawPath || (state.splitEnabled && (isSendPage(page)
         || page===DELAY_RETURN_PAGE || page.title===REVERB_PAGE.title));
     for (let index = 0; index < 8; index++) {
         const key = page.keys[index];
@@ -4400,8 +4690,10 @@ function drawSettings() {
         if(page.voiceEngines&&index===Math.round(PARAMS.voice_engine_edit.value)-1)
             drawRect((index%4)*32+3,Math.floor(index/4)*24+19,12,1,1);
     }
-    if(page.pulsar)print(1,57,pulsarDurationFooter(),1);
+    if(sequenceSoundActive()){const scopes=new Set(page.keys.map(k=>controlForKey(k)?.soundScope).filter(Boolean));print(1,57,scopes.size===1?(scopes.has('lane')?'LANE LOCKS':'VOICE LOCKS'):'HOLD TRIG  X:DIAL CLR',1);}
+    else if(page.pulsar)print(1,57,pulsarDurationFooter(),1);
     else if(page.stochastic)print(1,57,PARAMS.stochastic_source_hold.value>=.5?'SRC HELD CLICK: RUN':'CLICK: HOLD SOURCE',1);
+    else if(page.table||page.scanned||page.fm)print(1,57,'PATCH L'+(((page.fm?fmUi:page.scanned?scannedUi:tableUi).data?.edit??state.lane-1)+1)+' TRACK:SELECT',1);
     else if(page.voiceEngines||page.voiceSetup)print(1,57,'TURN SLOT CLICK EDIT',1);
     else if(drawPath)print(1,57,'CLICK: EDIT PATH',1);
     else if(page.sliceEditor)print(1,57,'CLICK: EDIT SLICES',1);
@@ -4550,7 +4842,7 @@ const PAGE_CATEGORY_NAMES=['PLAY','SAMPLE','MIX / FX','PERFORMANCE'];
 const SAMPLE_PAGE_TITLES=new Set(['MIX / REC','SAMPLE EDIT']);
 const MIX_PAGE_TITLES=new Set(['FX SENDS','PRIORITY DUCK','PART COLOR',
     'EFFECTS','STEREO / ROTARY','DELAY RETURN','TAPE','REVERB','FX ORDER']);
-const PERF_PAGE_TITLES=new Set(['PERF LOOP','PATTERN FADE','OVERDUB TAKES',
+const PERF_PAGE_TITLES=new Set(['LFO','LFO SETUP','PERF LOOP','PATTERN FADE','OVERDUB TAKES',
     'CHAIN','CHAIN FADE','ENTRY FADE','CHAIN TOOLS']);
 
 function pageCategoryForPage(page) {
@@ -5074,11 +5366,61 @@ function drawPerformanceLayer() {
     }
     print(1,57,'RELEASE TO RETURN',1);
 }
+function openExitConfirmation() {
+    state.exitConfirmation={selection:0,sent:false};resetParameterEncoderMotion();
+}
+function drawExitConfirmation() {
+    if(state.exitConfirmation.painted===state.exitConfirmation.selection)return;
+    state.exitConfirmation.painted=state.exitConfirmation.selection;
+    clearDisplay();print(1,0,'EXIT s3g Thru?',1);
+    print(1,14,'EXIT STOPS AUDIO',1);
+    ['KEEP PLAYING','EXIT TO SCHWUNG'].forEach((text,index)=>{
+        const y=31+index*11,selected=state.exitConfirmation.selection===index;
+        if(selected)drawRect(0,y-1,128,9,1);print(1,y,text,selected?0:1);
+    });
+    print(1,57,'TURN/CLICK  BACK:KEEP',1);
+}
+function handleExitConfirmation(status,number,value) {
+    const request=state.exitConfirmation;if(!request||status!==0xb0)return false;
+    const navigation=[MoveMainKnob,MoveMainButton,MoveUp,MoveDown,MoveLeft,MoveRight,MoveBack,MoveMenu];
+    if(!navigation.includes(number)){
+        if(value>0){state.exitConfirmation=null;resetParameterEncoderMotion();}
+        return false;
+    }
+    if(ICON_BUTTONS.includes(number)){
+        if(value>0)state.iconPressed.add(number);else state.iconPressed.delete(number);
+        rebuildIconLedQueue();
+    }
+    if(request.sent)return true;
+    if(number===MoveMainKnob){const delta=decodeDelta(value);request.selection=clamp(request.selection+Math.sign(delta),0,1);}
+    else if(value>0){
+        if(number===MoveBack||number===MoveMenu){state.exitConfirmation=null;resetParameterEncoderMotion();}
+        else if(number===MoveUp||number===MoveLeft)request.selection=0;
+        else if(number===MoveDown||number===MoveRight)request.selection=1;
+        else if(number===MoveMainButton){
+            if(!request.selection){state.exitConfirmation=null;resetParameterEncoderMotion();}
+            else{
+                if(state.bankMode){
+                    readBankState();
+                    if(openBankRecovery()){state.exitConfirmation=null;return true;}
+                    if(state.bank?.pending>=0){state.exitConfirmation=null;showMessage('WAIT FOR BANK SAVE');return true;}
+                }
+                request.sent=true;
+                if(typeof host_exit_module==='function')host_exit_module();
+            }
+        }
+    }
+    return true;
+}
+
 function draw() {
+    if(state.exitConfirmation){drawExitConfirmation();return;}
+    if(state.view!=='settings'&&state.view!=='lfoDest')lfoUi.visible=false;
     if(state.view!=='settings'||state.performanceVisible){sequenceLaneDisplay.valid=false;mixerUi.visible=false;}
     const overlay=state.saveStatus===2?'saving':state.savedTicks>0&&state.saveStatus===3?'saved':'';
     if(overlay!==state.saveOverlayLast){splitDisplay.footer=null;layersDisplay.fx=null;sequenceDisplay.valid=false;sequenceLaneDisplay.valid=false;state.saveOverlayLast=overlay;}
     if(state.performanceVisible)drawPerformanceLayer();
+    else if(state.view==='lfoDest')drawLfoDestPicker();
     else if(customMidiViews.includes(state.view))drawCustomMidi();
     else if(state.view==='layerFxPicker')drawLayersPicker();
     else if(state.view==='synth')drawSynth();
@@ -5125,7 +5467,8 @@ function selectLane(lane) {
     state.lane = clamp(lane | 0, 1, 4);
     setParamBlocking('record_lane', state.lane);
     parseSplitState(getParam('split_state','{}'));
-    readSequence();showMessage(sequenceUi.active?'EDIT LANE '+lane:'RECORD LANE ' + state.lane);
+    if(isSynthAlgorithm(state.algorithm)){if(state.algorithm===17)readFm(false);else if(state.algorithm===16)readScanned(false);else readTable(false);readTableScope(false);}
+    readSequence();showMessage(sequenceUi.active?'EDIT LANE '+lane:isSynthAlgorithm(state.algorithm)?'EDIT PATCH '+state.lane:'RECORD LANE ' + state.lane);
     rebuildLedQueue();
 }
 
@@ -5565,6 +5908,9 @@ function applyMomentaryControl(control) {
 }
 
 function nextControlValue(control,delta,fine=false) {
+    if(control.lfoField==='rate')return control.lfoClock===0?1/LFO_BEATS[clamp(lfoBeatIndex(control.value)-delta,0,LFO_BEATS.length-1)]:Number((control.min*Math.pow(control.max/control.min,clamp(Math.log(control.value/control.min)/Math.log(control.max/control.min)*160+delta,0,160)/160)).toPrecision(6));
+    if(control.curve==='log'&&!fine)return logarithmicControlAt(control,logarithmicControlIndex(control)+delta);
+    if(control.lfoField==='smooth')return logarithmicControlAt(control,logarithmicControlIndex(control)+delta);
     if(control.key==='seq_recipe_probability') {
         const divisions=Math.round(1/(fine?control.step*.1:control.step));
         const index=control.value<0?0:1+Math.round(control.value*divisions);
@@ -5629,6 +5975,7 @@ function nextControlValue(control,delta,fine=false) {
 function adjustSequenceEnvelope(index,delta){
     if(index>3||!delta)return;
     const key=SEQUENCE_ENVELOPE_PAGE.keys[index];
+    if(adjustSequenceSound(controlForKey(key),index,delta))return;
     delta=parameterEncoderDelta(index,key,delta);if(!delta)return;
     if(index===2){
         const control=controlForKey(key),value=nextControlValue(control,delta);
@@ -5648,6 +5995,7 @@ function adjustSequenceEnvelope(index,delta){
     showMessage(SHORT_LABELS[key]+' '+(index===2?Math.round(PARAMS[key].value)+'%':sequenceTimeText(sequenceAmpTiming().applied[index===3?2:index])),35);
 }
 function adjustControl(index, delta) {
+    if(state.view==='settings'){const p=currentSettingsPage();if(p.lfo!==undefined||p.lfoSetup||p.sequenceLfo){adjustControlLfo(index,delta);return;}}
     if(!state.editorReady){showMessage('UPDATING EDITOR');return;}
     if(state.view==='settings'&&currentSettingsPage().sequenceEnvelope){adjustSequenceEnvelope(index,delta);return;}
     if(state.view==='settings'&&currentSettingsPage().chainTools){adjustChainTools(index,delta);return;}
@@ -5661,6 +6009,7 @@ function adjustControl(index, delta) {
     const keys = state.view==='chain'?CHAIN_PAGE.keys:activeControlKeys();
     const control = controlForKey(keys[index]);
     if (!control || delta === 0) return;
+    if(adjustSequenceSound(control,index,delta))return;
     if(control.key==='seq_when'&&sequenceUi.active&&Math.round(PARAMS.seq_child.value)===0){showMessage('CHOOSE EVENT 1-8');return;}
     if(control.key==='chain_advance'&&state.shiftHeld){if(delta>0)chainAction('chain_launch','CHAIN ENTRY QUEUED');return;}
     if(control.key==='chain_advance'){if(delta>0&&state.chainEnabled)setParamBlocking('chain_advance',1);showActionMessage(state.chainEnabled?'NEXT AT LOOP END':'CHAIN OFF');return;}
@@ -5716,6 +6065,14 @@ function adjustControl(index, delta) {
         }
         if(control.key.startsWith('seq_pan_')||control.key.startsWith('seq_duck_'))readMixerState();
         return;
+    }
+    if(control.key.startsWith('fm_')){setParamBlocking(control.key,String(value));readFm(false);return;}
+    if(control.key.startsWith('scanned_')){setParamBlocking(control.key,String(value));readScanned(false);return;}
+    if(control.key.startsWith('table_')){
+        const title=stripPage?.title||currentSettingsPage().title;
+        setParamBlocking(control.key,String(value));readTable(false);
+        const index=parameterPages().findIndex(p=>p.title===title);state.settingsPage=index>=0?index:parameterPages().findIndex(p=>p.title==='TABLE');
+        resetParameterEncoderMotion();return;
     }
     if (control.key === 'algorithm') {
         selectAlgorithm(value);
@@ -5805,7 +6162,7 @@ function pollDsp() {
         PARAMS.algorithm.value = algorithm;
         state.settingsPage = clamp(state.settingsPage, 0, parameterPages().length - 1);
     }
-    parseSplitState(getParam('split_state','{}'));if(PARAMS.split_mode.value===6||sequenceUi.active)readSequence(true);
+    parseSplitState(getParam('split_state','{}'));readTable(uiPolling.cached);readScanned(uiPolling.cached);readFm(uiPolling.cached);readTableScope(uiPolling.cached);readControlLfos(true);readControlLfoLive(uiPolling.cached);if(PARAMS.split_mode.value===6||sequenceUi.active)readSequence(true);
     parseVoiceEngineState(getParam('voice_engine_state',''));
     state.voiceAlgorithms=String(getParam('voice_algorithms','')).split(',').map(Number);
     parseSaveStatus(getParam('save_status',''));
@@ -6040,7 +6397,7 @@ globalThis.init = function() {
     if (typeof moveInputFilter.invalidateLedCache === 'function') {
         moveInputFilter.invalidateLedCache();
     }
-    state.ticks = 0;state.modeRequest=null;
+    state.ticks = 0;state.modeRequest=null;state.exitConfirmation=null;lfoUi.data=null;lfoUi.live=null;lfoUi.picker=null;lfoUi.visible=false;syncLfoPageKeys();
     resetCustomMidiUi();
     resetMidiSurface();
     setParam('slice_editor_open',0);sliceUi.data=null;sliceUi.wave=null;
@@ -6145,12 +6502,12 @@ globalThis.tick = function() {
     // elapsed time; never couple a MIDI/LED cursor to a long serial query sweep.
     // Check cadence BEFORE any page predicates. In particular,
     // customMidiContext() resolves the menu and must not run at host tick rate.
-    if(sequenceUi.active||mixerUi.visible||synthContext()){
+    if((state.clipPlaying&&uiPolling.supported!==false)||sequenceUi.active||mixerUi.visible||lfoUi.visible||Boolean(lfoUi.live?.v?.length)||synthContext()){
         const now=Date.now();
         if(now>=uiPolling.lastFrame&&now-uiPolling.lastFrame<16)return;
         uiPolling.lastFrame=now;
     }
-    const sequencePolling=sequenceUi.active&&uiPolling.supported!==false
+    const sequencePolling=(state.clipPlaying||sequenceUi.active||lfoUi.visible||Boolean(lfoUi.live?.v?.length))&&uiPolling.supported!==false
         &&!['projects','sliceEdit','bankRecovery'].includes(state.view)&&!customMidiContext();
     if(sequencePolling){
         const ok=fetchUiPoll('fast');
@@ -6176,7 +6533,7 @@ globalThis.tick = function() {
         else if(state.ticks%3!==0)fetchUiPoll(UI_POLL_JOBS[uiPolling.job++%UI_POLL_JOBS.length]);
         withUiPollCache(()=>{
             if(state.ticks%3===0){pollDsp();pollMidiControls();}
-            readSequenceCursor();
+            readPlaybackReadout(true);readControlLfoLive(true);readSequenceCursor();
         });
         if(state.ticks%3===0&&!recoveringEditor)tickMidiFeedback();
     }else{
@@ -6200,6 +6557,8 @@ globalThis.onMidiMessageInternal = function(data) {
     const status = data[0] & 0xF0;
     const number = data[1] | 0;
     const value = data[2] | 0;
+    if(handleExitConfirmation(status,number,value))return;
+    if(handleLfoPickerMidi(status,number,value))return;
     if(handleSynthMidi(status,number,value))return;
 
     if (status === 0x90 || status === 0x80) {
@@ -6576,6 +6935,7 @@ globalThis.onMidiMessageInternal = function(data) {
         return;
     }
     if (number === MoveMenu && value > 0) {
+        if(sequenceSoundActive()&&!state.shiftHeld&&!state.focusButtonHeld&&state.view!=='pages'){openPagePicker();return;}
         if(layersUi.returnView){layersUi.returnView=null;layersUi.editCorner=-1;layersUi.holdFired=true;}
         if(state.focusButtonHeld){state.focusButtonUsed=true;openPagePicker();return;}
         if(state.view==='mode'){
@@ -6640,16 +7000,17 @@ globalThis.onMidiMessageInternal = function(data) {
             state.view = 'main';
             rebuildLedQueue();
         } else if (typeof host_exit_module === 'function') {
-            host_exit_module();
+            openExitConfirmation();
         }
     }
 };
 
 globalThis.onUnload = function() {
-    state.modeRequest=null;
+    state.modeRequest=null;state.exitConfirmation=null;
     setParamBlocking('render_profile_enable',0);renderProfileRequested=false;
     setParamBlocking('midi_custom_cancel',1);
     setParamBlocking('slice_editor_open',0);
+    if(synthContext()){rememberSynthEditor();setParamBlocking('synth_close',1);}
     remoteE16.stop();
     endPerformanceLayer();state.performancePads.clear();
     if (state.recording) setParamBlocking('record_gate', 0);
@@ -6671,7 +7032,7 @@ globalThis.onUnload = function() {
 // Source creation is a transient tool, separate from performance automation.
 const synthUi={data:null,raw:'',page:0,overlay:'',selection:0,row:0,point:0,
     amount:.25,low:-12,high:12,keepEnds:true,copy:false,clipboard:null,
-    name:'',nameBefore:'',cursor:0,lower:false,numbers:false,notice:'',opened:false,groupMemory:[0,5,4],browserTarget:''};
+    name:'',nameBefore:'',cursor:0,lower:false,numbers:false,notice:'',opened:false,groupMemory:[0,5,4],browserTarget:'',editorRaw:''};
 const SYNTH_FIELDS=['LEN','ROOT','WID','ATK','REL','LVL','PTS','EVOL','DRFT','DRT','CURV','DYN','LOOP'];
 const SYNTH_ROWS=['PITCH','POINTS','EVOLUTION','LEVEL'];
 const SYNTH_LIMITS=[24,16,4,24];
@@ -6679,11 +7040,11 @@ const SYNTH_PAGES=['SYNTH SETUP','SPLINE','CURVES','RANDOM','PREVIEW'];
 const SYNTH_ACTIONS=['RENDER','PREVIEW','NAME','SAVE','SAVE & LOAD','OPEN SOURCE RECIPE',
     'NEW SEED','MUTATE SOUND','RANDOM CURVE','PROTECT PARAMS','CANCEL RENDER','CLEAN'];
 const SYNTH_DIRECTORY=LIBRARY_ROOT+'/s3g Thru/Synths';
-const SYNTH_TYPES=['SPLN','WAVE','BLOOM','RSYN','PART','NOISE','FM','CONV','DRUM','PLUCK','SUB','HYBR','DUST'];
+const SYNTH_TYPES=['SPLN','WAVE','BLOOM','RSYN','PART','NOISE','FM','CONV','DRUM','PLUCK','SUB','HYBR','DUST','WTDR','FMDR'];
 // Presentation order only: saved recipe IDs and per-type workspaces stay fixed.
-const SYNTH_TYPE_ORDER=[1,8,9,4,5,12,6,10,0,2,3,11,7];
-const SYNTH_FAMILIES=['','wave','bloom','resynth','additive','noise','fm','conv','drum','pluck','sub','hybrid','dust'];
-const SYNTH_TITLES=['SPLINE','WAVE','BLOOM','RESYNTH','PARTIALS','NOISE BANK','FM','CONVOLVE','DRUM','PLUCK','SUBHARMONIC','HYBRID','DUST'];
+const SYNTH_TYPE_ORDER=[8,4,5,12,10,2,3,11,7];
+const SYNTH_FAMILIES=['','wave','bloom','resynth','additive','noise','fm','conv','drum','pluck','sub','hybrid','dust','wt','drum'];
+const SYNTH_TITLES=['SPLINE','WAVE','BLOOM','RESYNTH','PARTIALS','NOISE BANK','FM','CONVOLVE','DRUM','PLUCK','SUBHARMONIC','HYBRID','DUST','WT DRUM','FM DRUM'];
 const SYNTH_ADDITIVE_SPECS=[['PART',1,32,.1],['TILT',-24,12,.5,'db'],['STRC',.25,4,.01,'ratio'],['DETN',0,30,.1,'cent'],['PHAS',0,1,.01,'pct'],['DRFT',0,1,.01,'pct'],['RATE',.01,20,0,'hz'],['DEC',0,1,.01,'pct']];
 const SYNTH_NOISE_SPECS=[['BAND',1,32,.1],['BW',.1,48,.1,'st'],['TILT',-24,12,.5,'db'],['STRC',.25,4,.01,'ratio'],['COLR',0,2,1,['WHT','WARM','DARK']],['MOVE',0,24,.1,'st'],['RATE',.01,20,0,'hz'],['LEAK',0,1,.01,'pct']];
 const SYNTH_FM_SPECS=[['ALG',0,3,1,['2OP','SER','PAR','RING']],['RAT1',.125,32,.125,'ratio'],['IDX1',0,12,.05],['RAT2',.125,32,.125,'ratio'],['IDX2',0,12,.05],['FDBK',0,.9,.01,'pct'],['DETN',0,30,.1,'cent'],['MIX',0,1,.01,'pct']];
@@ -6694,6 +7055,9 @@ const SYNTH_RESYNTH_SPECS=[['MODE',0,1,1,['PVOC','SINE']],['TUNE',-24,24,.1,'st'
 const SYNTH_CONV_SPECS=[['PPOS',0,.9999,.001,'pct1'],['PLEN',1,12000,0,'ms'],['IPOS',0,.9999,.001,'pct1'],['ILEN',.05,12000,0,'ms'],['WIN',0,3,1,['FLAT','TRI','HANN','EXP']],['TONE',-1,1,.01,'pct'],['MIX',0,1,.01,'pct'],['TAIL',0,1,1,['TRIM','FULL']]];
 const SYNTH_DRUM_SPECS=[['MODL',0,10,1,['KICK','SNAR','TOM','BELL','HAT','CRSH','MEMB','MODAL','MEDM','CBAS','FMD']],['TUNE',18,3200,0,'hz'],['DEC',30,8000,0,'ms'],['BODY',0,1,.01,'pct'],['NOIS',0,1,.01,'pct'],['HIT',0,1,.01,'pct'],['TONE',0,1,.01,'pct'],['DRIV',0,1,.01,'pct'],['BEND',0,48,.5,'st'],['SWP',2,500,0,'ms'],['RING',0,1,.01,'pct'],['DAMP',0,1,.01,'pct'],['FORM',0,15,1],['X',0,1,.01,'pct'],['Y',0,1,.01,'pct'],['AMNT',0,1,.01,'pct']];
 const SYNTH_DUST_SPECS=[['MODE',0,5,1,['DUST','CRKL','STAT','CLIK','CUTS','DATA']],['RATE',.1,2000,0,'hz'],['SIZE',.02,500,0,'ms'],['CLMP',0,1,.01,'pct'],['TONE',20,20000,0,'hz'],['EDGE',0,1,.01,'pct'],['BITS',2,24,1],['VAR',0,1,.01,'pct'],['BED',0,1,.01,'pct'],['COLR',0,3,1,['WHT','PINK','BRWN','BLUE']],['REPT',1,16,1],['ERR',0,1,.01,'pct']];
+const SYNTH_WT_TABLES=['ROUND','PUNCH','BUZZ','FOLD','METAL','HOLW','REED','GLASS'];
+const SYNTH_WT_SPECS=[['MODL',0,5,1,['KICK','SNARE','TOM','HAT','CLAP','METAL']],['TUNE',20,4000,0,'hz'],['DEC',20,6000,0,'ms'],['WT A',0,7,1,SYNTH_WT_TABLES],['WT B',0,7,1,SYNTH_WT_TABLES],['MIX',0,1,.01,'pct'],['SCAN',-1,1,.01,'pct'],['HIT',0,1,.01,'pct'],['POSA',0,1,.01,'pct'],['POSB',0,1,.01,'pct'],['RATI',.125,16,0,'ratio'],['PM',0,4,.02],['DETN',0,50,.5,'cent'],['SUB',0,1,.01,'pct'],['NOIS',0,1,.01,'pct'],['TONE',0,1,.01,'pct'],['BEND',-48,60,1,'st'],['PDEC',.25,500,0,'ms'],['SDEC',.25,2000,0,'ms'],['NDEC',1,6000,0,'ms'],['COLR',0,3,1,['WHT','PINK','HP','METAL']],['DRIV',0,1,.01,'pct'],['COMP',0,1,.01,'pct'],['EDGE',.05,5,0,'ms']];
+const SYNTH_WT_DEFAULTS=[0,48,600,1,2,.18,.55,.8,.1,.35,2,.18,0,.35,.025,.85,32,22,38,18,2,.3,.45,.15];
 const SYNTH_DUST_DEFAULTS=[0,20,1.2,.2,10000,0,16,.75,0,0,1,.25];
 const SYNTH_PLUCK_SPECS=[['TUNE',20,2000,0,'hz'],['DEC',30,8000,0,'ms'],['DAMP',0,.98,.01,'pct'],['BRIT',0,1,.01,'pct'],['DISP',0,1,.01,'pct'],['PICK',0,1,.01,'pct'],['HARD',0,1,.01,'pct'],['DETN',0,50,.5,'cent']];
 const SYNTH_SUB_SPECS=[['HARM',1,16,1],['SUBS',0,16,1],['BAL',0,1,.01,'pct'],['TILT',-18,6,.5,'db'],['DETN',0,30,.1,'cent'],['DRFT',0,30,.1,'cent'],['RATE',.01,4,0,'hz'],['REG',-2,2,1]];
@@ -6705,25 +7069,40 @@ const SYNTH_ATTACK_SPECS=[['PNCH',0,1,.01,'pct'],['HDEC',.25,4000,0,'ms'],['NDEC
 const SYNTH_COLOR_SPECS=[['BITS',4,24,1],['RATE',375,48000,0,'colorHz'],['TONE',20,20000,0,'colorTone'],['MIX',0,1,.01,'pct'],['',0,0,0],['',0,0,0],['',0,0,0],['',0,0,0]];
 const SYNTH_WORK_FAMILIES=['pluck','sub','hybrid','trace','events','timing','attack','color'];
 const SYNTH_WORK_DEFAULTS=[[110,1200,.35,.65,.08,.35,.1,8],[8,4,.25,-6,0,0,.25,0],[0,2,0,.8,.65,.35,140,.1],[0,1,120,0,0,144,.5,0],[0,8,1,0,0,500,0,.35],[1,120,5,.7,0,0,0,0],[.94,4,80,.12,0,0,.35,.15],[24,48000,20000,1,0,0,0,0]];
-function synthEventsAvailable(){return [2,4,8,9].includes(synthType());}
+function synthIsDrum(){return [8,14].includes(synthType());}
+function synthEventsAvailable(){return [2,4,8,9,14].includes(synthType());}
 function synthEventsActive(){return synthEventsAvailable()&&synthUi.data?.events?.[0]>0;}
-function synthWorkshopFamily(page=synthUi.page){return page===9?'events':page===10?'trace':page===13?'attack':SYNTH_FAMILIES[synthType()];}
+function synthWorkshopFamily(page=synthUi.page){return page===9?'events':page===10?'trace':page===13&&synthType()!==13?'attack':SYNTH_FAMILIES[synthType()];}
 function synthDuration(){return synthType()===7?(synthUi.data?.seconds||synthUi.data.values[0]):synthUi.data.values[0];}
-function synthSoundPages(){const t=synthType();return [0,...(t===7?[8]:t===11?[11]:[]),1,...(t===2||t===8||t===12?[6]:[]),...(t===8?[13,14]:[]),...([2,4,5,10].includes(t)?[7]:[]),...(synthEventsAvailable()?[9,12]:[]),...(t===3&&synthUi.data?.spectral?.[0]===1?[10]:[])];}
+function synthSoundPages(){const t=synthType();return [0,...(t===7?[8]:t===11?[11]:[]),1,...(t===2||t===8||t===12||t===13||t===14?[6]:[]),...([8,14].includes(t)?[13,14]:t===13?[13]:[]),...([2,4,5,10].includes(t)?[7]:[]),...(synthEventsAvailable()?[9,12]:[]),...(t===3&&synthUi.data?.spectral?.[0]===1?[10]:[])];}
 function synthGroup(){return [5,2,3].includes(synthUi.page)?1:synthUi.page===4?2:0;}
 function synthGroupPages(group=synthGroup()){return group===0?synthSoundPages():group===1?[5,2,3]:[4];}
 function synthNav(){synthUi.groupMemory[synthGroup()]=synthUi.page;synthUi.selection=synthGroup();synthUi.overlay='nav';resetParameterEncoderMotion();}
 function selectSynthGroup(){const group=synthUi.selection;if(group===3){synthUi.overlay='actions';synthUi.selection=0;return;}const pages=synthGroupPages(group);synthUi.page=pages.includes(synthUi.groupMemory[group])?synthUi.groupMemory[group]:pages[0];synthUi.overlay='';resetParameterEncoderMotion();}
+function rememberSynthEditor(){
+    const d=synthUi.data;if(!d?.open)return;
+    synthUi.groupMemory[synthGroup()]=synthUi.page;
+    const raw=[synthType(),synthUi.page,...synthUi.groupMemory,synthUi.amount,synthUi.low,synthUi.high,synthUi.keepEnds?1:0].join(',');
+    if(raw===synthUi.editorRaw)return;
+    setParamBlocking('synth_editor',raw);synthUi.editorRaw=raw;
+}
+function restoreSynthEditor(){
+    const raw=String(getParam('synth_editor','')||''),v=raw.split(',').map(Number);
+    if(v.length!==9||!v.every(Number.isFinite)||v[0]!==synthType())return;
+    synthUi.page=synthPageIds().includes(v[1])?v[1]:0;
+    synthUi.groupMemory=v.slice(2,5).map((page,group)=>synthGroupPages(group).includes(page)?page:synthGroupPages(group)[0]);
+    synthUi.amount=clamp(v[5],0,1);const limit=synthLimits()[synthUi.row];synthUi.low=clamp(v[6],-limit,limit);synthUi.high=clamp(v[7],synthUi.low,limit);synthUi.keepEnds=Boolean(v[8]);synthUi.editorRaw='';
+}
 function synthContext(){return state.view==='synth'||(state.view==='library'&&Boolean(synthUi.browserTarget));}
 function openSynthBrowser(which){if(which.startsWith('hybrid'))synthUi.page=11;synthUi.browserTarget=which;synthUi.overlay='';synthCommand('preview',0);setParam('preview_stop',1);state.libraryLane=state.lane;state.capturesDirectory=String(getParam('captures_directory',state.capturesDirectory)||'');scanLibrary(LIBRARY_HOME);state.view='library';rebuildLedQueue();}
 function returnSynthBrowser(){setParam('preview_stop',1);synthUi.browserTarget='';state.view='synth';readSynth();resetParameterEncoderMotion();rebuildLedQueue();}
 function synthType(){return synthUi.data?.type||0;}
 function synthPageIds(){return [...synthSoundPages(),5,2,3,4];}
 function moveSynthPage(delta){const pages=synthGroupPages(),index=Math.max(0,pages.indexOf(synthUi.page));synthUi.page=pages[clamp(index+Math.sign(delta),0,pages.length-1)];resetParameterEncoderMotion();}
-function synthRowNames(){if(synthType()===12)return ['DENSITY','SIZE','TONE','LEVEL'];if(synthType()===8&&synthEventsActive())return ['PITCH','DENSITY','LIFETIME','LEVEL'];return [['PITCH','POINTS','EVOLUTION','LEVEL'],['PITCH','PWIDTH','CUTOFF','LEVEL'],['PITCH','PARTIALS','SPACING','LEVEL'],['PITCH','BLUR','SMOOTH','LEVEL'],['PITCH','COUNT','STRETCH','LEVEL'],['PITCH','BANDWIDTH','MOTION','LEVEL'],['PITCH','INDEX 1','INDEX 2','LEVEL'],['RESERVED','RESERVED','RESERVED','LEVEL'],['RESERVED','RESERVED','RESERVED','LEVEL'],['PITCH','DAMPING','BRIGHTNESS','LEVEL'],['PITCH','SUB BALANCE','TILT','LEVEL'],['PITCH','DENSITY','MUTATION','LEVEL']][synthType()];}
+function synthRowNames(){if(synthType()===13)return ['PITCH','TABLE','TONE','LEVEL'];if(synthType()===12)return ['DENSITY','SIZE','TONE','LEVEL'];if(synthIsDrum())return synthEventsActive()?['PITCH','DENSITY','LIFETIME','LEVEL']:['RESERVED','RESERVED','RESERVED','LEVEL'];return [['PITCH','POINTS','EVOLUTION','LEVEL'],['PITCH','PWIDTH','CUTOFF','LEVEL'],['PITCH','PARTIALS','SPACING','LEVEL'],['PITCH','BLUR','SMOOTH','LEVEL'],['PITCH','COUNT','STRETCH','LEVEL'],['PITCH','BANDWIDTH','MOTION','LEVEL'],['PITCH','INDEX 1','INDEX 2','LEVEL'],['RESERVED','RESERVED','RESERVED','LEVEL'],['RESERVED','RESERVED','RESERVED','LEVEL'],['PITCH','DAMPING','BRIGHTNESS','LEVEL'],['PITCH','SUB BALANCE','TILT','LEVEL'],['PITCH','DENSITY','MUTATION','LEVEL']][synthType()];}
 function synthRowLabel(row){return synthType()===6&&[1,2].includes(row)?'IDX'+row:synthRowNames()[row].slice(0,4);}
-function synthLimits(){return [[24,16,4,24],[24,.45,4,24],[24,7,4,24],[24,1,1,24],[24,31,2,24],[24,4,24,24],[24,12,12,24],[24,1,1,24],[24,1,1,24],[24,1,1,24],[24,1,12,24],[24,1,1,24],[4,4,4,24]][synthType()];}
-function synthCurveAvailable(row){if((synthType()===7||(synthType()===8&&!synthEventsActive()))&&row!==3)return false;return !(synthType()===1&&row===1&&synthUi.data.osc[0]!==3)&&!(synthType()===6&&row===2&&synthUi.data.fmOsc[0]===0);}
+function synthLimits(){return [[24,16,4,24],[24,.45,4,24],[24,7,4,24],[24,1,1,24],[24,31,2,24],[24,4,24,24],[24,12,12,24],[24,1,1,24],[24,1,1,24],[24,1,1,24],[24,1,12,24],[24,1,1,24],[4,4,4,24],[24,1,1,24],[24,1,1,24]][synthType()];}
+function synthCurveAvailable(row){if((synthType()===7||(synthIsDrum()&&!synthEventsActive()))&&row!==3)return false;return !(synthType()===1&&row===1&&synthUi.data.osc[0]!==3)&&!(synthType()===6&&row===2&&synthUi.data.fmOsc[0]===0);}
 function synthModActive(){const m=synthUi.data?.mod;return m&&m[2]>0&&m[3]>0&&synthCurveAvailable(m[3]-1);}
 function synthToneActive(){const d=synthUi.data,c=d.curves[2];return d.osc[4]<19999||(synthModActive()&&d.mod[3]===3)||c.slice(1).some((p,i)=>(c[0]&(1<<i))&&p[1]<0);}
 function synthDetailAvailable(family,field){
@@ -6740,9 +7119,10 @@ function synthDetailAvailable(family,field){
     if(family==='sub')return !(field===6&&d.sub[5]===0)&&!(field===2&&d.sub[1]===0);
     if(family==='timing')return synthEventsActive()&&field<5&&(field===0||d.timing[0]===1);
     if(['pluck','hybrid'].includes(family))return true;
+    if(family==='wt')return !(field===17&&d.wt[16]===0)&&!(field===18&&d.wt[6]===0)&&!([19,20].includes(field)&&d.wt[14]===0)&&!(field===12&&d.values[2]===0);
     if(family==='conv')return true;
     if(family==='attack')return synthAttackAvailable(field);
-    if(family==='color')return synthType()===8&&field<4;
+    if(family==='color')return synthIsDrum()&&field<4;
     if(family==='drum'&&d.drums[0]===10)return true;
     if(family==='drum'){const m=d.drums[0];if(m===9)return !(field===15&&d.drums[12]!==2)&&!(field===2&&d.drums[12]!==0);return !(field>=12&&m<6)&&!(field===4&&[2,6].includes(m))&&!(field===10&&m===6)&&!([8,9].includes(field)&&[4,5,7,8].includes(m));}
     if(field===3)return true;
@@ -6761,9 +7141,10 @@ function synthSetupAvailable(field){
     if(field===13&&synthType()===4&&d.additive[3]===0&&d.additive[4]===0&&d.additive[5]===0&&d.values[2]===0&&!(synthModActive()&&d.mod[0]===4))return false;
     return true;
 }
-function synthSpecs(family){if(family==='dust')return SYNTH_DUST_SPECS;const work={pluck:SYNTH_PLUCK_SPECS,sub:SYNTH_SUB_SPECS,hybrid:SYNTH_HYBRID_SPECS,trace:SYNTH_TRACE_SPECS,events:SYNTH_EVENT_SPECS,timing:SYNTH_TIMING_SPECS,attack:synthAttackSpecs(),color:SYNTH_COLOR_SPECS};if(work[family])return work[family];return family==='wave'?SYNTH_WAVE_SPECS:family==='bloom'?SYNTH_BLOOM_SPECS:family==='resynth'?SYNTH_RESYNTH_SPECS:family==='additive'?SYNTH_ADDITIVE_SPECS:family==='noise'?SYNTH_NOISE_SPECS:family==='fm'?SYNTH_FM_SPECS:family==='conv'?SYNTH_CONV_SPECS:family==='drum'?synthDrumSpecs():SYNTH_MOD_SPECS;}
+function synthSpecs(family){if(family==='wt')return SYNTH_WT_SPECS;if(family==='dust')return SYNTH_DUST_SPECS;const work={pluck:SYNTH_PLUCK_SPECS,sub:SYNTH_SUB_SPECS,hybrid:SYNTH_HYBRID_SPECS,trace:SYNTH_TRACE_SPECS,events:SYNTH_EVENT_SPECS,timing:SYNTH_TIMING_SPECS,attack:synthAttackSpecs(),color:SYNTH_COLOR_SPECS};if(work[family])return work[family];return family==='wave'?SYNTH_WAVE_SPECS:family==='bloom'?SYNTH_BLOOM_SPECS:family==='resynth'?SYNTH_RESYNTH_SPECS:family==='additive'?SYNTH_ADDITIVE_SPECS:family==='noise'?SYNTH_NOISE_SPECS:family==='fm'?SYNTH_FM_SPECS:family==='conv'?SYNTH_CONV_SPECS:family==='drum'?synthDrumSpecs():SYNTH_MOD_SPECS;}
 function synthDrumSpecs(){
     const m=synthUi.data?.drums?.[0]||0,s=SYNTH_DRUM_SPECS.map(v=>[...v]);
+    if(synthType()===8)s[0][2]=9;
     s[1][1]=[20,70,35,180,320,180,25,30,20,24,20][m];s[1][2]=[180,420,180,2400,3200,2400,90,1200,2000,96,3200][m];
     s[2][1]=[30,30,40,30,30,80,80,50,50,150,30][m];s[2][2]=[8000,3000,4000,2000,1000,8000,6000,12000,12000,8000,8000][m];
     s[8][2]=[48,36,30,24,48,48,48,48,48,1,48][m];s[9][1]=m===3?3:m===6?5:2;s[9][2]=[500,250,300,500,500,500,250,500,500,1,500][m];
@@ -6774,10 +7155,11 @@ function synthDrumSpecs(){
     if(m===10){s[10]=['RATI',.125,16,.025,'ratio'];s[11][0]='FDBK';s[12]=['WAVE',0,3,1,['SINE','TRI','SAW','PULS']];s[13][0]='FM';s[14]=['FDEC',0,1,.01,'fmDecay'];s[15][0]='MOD';}
     return s;
 }
+function synthFmDrumCells(page=synthUi.page){return page===1?[['drum',1],['drum',2],['drum',3],['drum',6],['drum',10],['drum',13],['drum',12],['drum',14]]:page===6?[['drum',8],['drum',9],['drum',11],['drum',15],['drum',4],['drum',5],['attack',1],['attack',2]]:[['attack',0],['attack',6],['attack',7],null,null,null,null,null];}
 function synthColorCells(){return [['drum',7],['attack',4],['attack',5],null,['color',0],['color',1],['color',2],['color',3]];}
 function synthAttackAvailable(field){
  const d=synthUi.data,m=d.drums[0];
- if(synthType()!==8)return false;
+ if(!synthIsDrum())return false;
  if(field===0)return m<6||m>=9;
  if(field===1)return [0,2,3,10].includes(m)||(m===9&&d.drums[12]===1);
  if(field===2)return [0,1,3,5,10].includes(m)||(m===9&&d.drums[12]===2);
@@ -6803,7 +7185,7 @@ function synthLegacyAttack(data){const m=data.drums?.[0]||0,decay=data.drums?.[2
  if(m===5){a[0]=.58;a[2]=decay;a[3]=.58;}
  return a;
 }
-function synthDetailValues(family){const d=synthUi.data;if(family==='dust')return d.dustParams;const work={pluck:d.plucked,sub:d.sub,hybrid:d.hybridParams,trace:d.trace,events:d.events,timing:d.timing,attack:d.drumExtra,color:d.drumColor};if(work[family])return work[family];return family==='wave'?d.osc:family==='bloom'?d.packets:family==='resynth'?d.spectral:family==='additive'?d.additive:family==='noise'?d.noise:family==='fm'?d.fmOsc:family==='conv'?d.conv:family==='drum'?d.drums:d.mod;}
+function synthDetailValues(family){const d=synthUi.data;if(family==='wt')return d.wt;if(family==='dust')return d.dustParams;const work={pluck:d.plucked,sub:d.sub,hybrid:d.hybridParams,trace:d.trace,events:d.events,timing:d.timing,attack:d.drumExtra,color:d.drumColor};if(work[family])return work[family];return family==='wave'?d.osc:family==='bloom'?d.packets:family==='resynth'?d.spectral:family==='additive'?d.additive:family==='noise'?d.noise:family==='fm'?d.fmOsc:family==='conv'?d.conv:family==='drum'?d.drums:d.mod;}
 function synthDetailValue(family,field){
     const spec=synthSpecs(family)[field],v=synthDetailValues(family)[field],format=spec[4];
     if(family==='mod'&&field===3)return ['OFF',...synthRowNames().map((_,row)=>synthRowLabel(row))][Math.round(v)];
@@ -6831,6 +7213,7 @@ function adjustSynthDetail(family,field,delta){
     const spec=synthSpecs(family)[field],current=synthDetailValues(family)[field];let value=current+delta*spec[3];
     if(Array.isArray(spec[4])||(spec[3]===1&&spec[2]-spec[1]<=8))value=current+Math.sign(delta);
     if(family==='mod'&&field===1&&synthUi.data.mod[6])value=clamp(Math.round(current+delta),1,64);
+    else if(family==='wt'&&[1,2,10,17,18,19,23].includes(field))value=current*Math.pow(2,delta/12);
     else if(family==='dust'&&[1,2,4].includes(field))value=current*Math.pow(2,delta/12);
     else if(spec[3]===0)value=Math.max(spec[1],(current+1)*Math.pow(2,delta/12)-1);
     value=clamp(value,spec[1],family==='mod'&&field===1&&synthUi.data.mod[6]?64:spec[2]);
@@ -6841,17 +7224,20 @@ function synthLockEntries(){
     if(synthType()===0)for(let field=6;field<=11;++field)result.push({family:'lock',field,label:SYNTH_FIELDS[field],on:Boolean(d.locks&(1<<field))});
     const family=SYNTH_FAMILIES[synthType()],offset=[0,0,7,30,38,46,54][synthType()];
     const appendWork=(name)=>{const group=SYNTH_WORK_FAMILIES.indexOf(name);synthSpecs(name).forEach((spec,field)=>{if((name==='timing'&&field>=5)||(name==='color'&&field>=4))return;result.push({family:'work_lock',field:group*8+field,label:(name==='events'?'E ':name==='trace'?'T ':'')+spec[0],on:d.workProtected[group*8+field]==='1'});});};
-    if(synthType()===12)SYNTH_DUST_SPECS.forEach((spec,field)=>result.push({family:'dust_lock',field,label:spec[0],on:d.dustProtected[field]==='1'}));
+    if(synthType()===13)SYNTH_WT_SPECS.forEach((spec,field)=>result.push({family:'wt_lock',field,label:spec[0],on:d.wtProtected[field]==='1'}));
+    else if(synthType()===12)SYNTH_DUST_SPECS.forEach((spec,field)=>result.push({family:'dust_lock',field,label:spec[0],on:d.dustProtected[field]==='1'}));
+    else if(synthType()===14)synthSpecs('drum').forEach((spec,field)=>{if(field)result.push({family:'extended_lock',field:8+field,label:spec[0],on:Boolean(d.extendedLocks&(1<<(8+field)))});});
     else if(synthType()>=9)appendWork(family);
     else if(family)synthSpecs(family).forEach((spec,field)=>result.push(synthType()>=7?{family:'extended_lock',field:(synthType()===8?8:0)+field,label:spec[0],on:Boolean(d.extendedLocks&(1<<((synthType()===8?8:0)+field)))}:{family:'detail_lock',field:offset+field,label:spec[0],on:d.protected?.[offset+field]==='1'}));
-    if(synthEventsAvailable()){appendWork('events');appendWork('timing');}if(synthType()===3&&d.spectral[0]===1)appendWork('trace');if(synthType()===8){appendWork('attack');appendWork('color');}
+    if(synthEventsAvailable()){appendWork('events');appendWork('timing');}if(synthType()===3&&d.spectral[0]===1)appendWork('trace');if(synthIsDrum()){appendWork('attack');appendWork('color');}
     SYNTH_MOD_SPECS.forEach((spec,field)=>result.push({family:'detail_lock',field:23+field,label:'M '+spec[0],on:d.protected?.[23+field]==='1'}));
     return result;
 }
 function synthActions(){
     const entries=SYNTH_ACTIONS.map((title,id)=>({title,id}));
     entries[1].title=synthUi.data?.preview?'PREVIEW OFF':'PREVIEW ON';entries[4].title='SAVE & LOAD L'+state.lane;
-    if(synthType()===8)entries.unshift({title:'DRUM START',id:24});
+    if(synthIsDrum())entries.unshift({title:synthType()===14?'FM DRUM START':'DRUM START',id:24});
+    if(synthType()===13)entries.unshift({title:'MODEL START',id:25});
     if(synthType()===11)entries.unshift(...Array.from({length:Math.round(synthUi.data.hybridParams[1])},(_,i)=>({title:'PICK SOURCE '+String.fromCharCode(65+i),id:20+i})));
     if(synthType()===7)entries.unshift({title:'PICK PRIMARY',id:13},{title:'PICK IMPULSE',id:14});
     if(synthType()===3)entries.unshift({title:'USE LANE '+state.lane+' AS SOURCE',id:12});
@@ -6883,12 +7269,12 @@ function drawSynthSpectrum(){
 }
 
 function decodeSynthRecipe(hex,data){
-    if(typeof hex!=='string'||![1784,1976,2144,2176,2512,2576,2648,2712,2816].includes(hex.length)||!/^[0-9a-f]+$/.test(hex))return false;
+    if(typeof hex!=='string'||![1784,1976,2144,2176,2512,2576,2648,2712,2816,3016].includes(hex.length)||!/^[0-9a-f]+$/.test(hex))return false;
     const bytes=Uint8Array.from(hex.match(/../g).map(s=>parseInt(s,16))),view=new DataView(bytes.buffer);let at=0,crc=2166136261;
     for(let i=0;i<bytes.length-4;++i)crc=Math.imul(crc^bytes[i],16777619)>>>0;
     if(crc!==view.getUint32(bytes.length-4,true))return false;
     const uint=()=>{const v=view.getUint32(at,true);at+=4;return v;},scalar=()=>{const v=view.getFloat32(at,true);at+=4;return v;},array=n=>Array.from({length:n},scalar);
-    const version=uint();if(!((version===2&&bytes.length===892)||(version===3&&bytes.length===988)||(version===4&&bytes.length===1072)||(version===5&&bytes.length===1088)||(version===6&&bytes.length===1256)||(version===7&&bytes.length===1288)||(version===8&&bytes.length===1324)||(version===9&&bytes.length===1356)||(version===10&&bytes.length===1408)))return false;data.type=uint();if(data.type<0||data.type>12||(version<10&&data.type>11)||(version<=5&&data.type>8)||(version===2&&data.type>3)||(version===3&&data.type>6))return false;data.seed=uint();data.locks=uint();data.scale=uint();data.values=array(13);
+    const version=uint();if(!((version===2&&bytes.length===892)||(version===3&&bytes.length===988)||(version===4&&bytes.length===1072)||(version===5&&bytes.length===1088)||(version===6&&bytes.length===1256)||(version===7&&bytes.length===1288)||(version===8&&bytes.length===1324)||(version===9&&bytes.length===1356)||(version===10&&bytes.length===1408)||(version===11&&bytes.length===1508)||(version===12&&bytes.length===1408)))return false;data.type=uint();if(data.type<0||data.type>14||(version===12&&data.type!==14)||(version===11&&data.type!==13)||(version===10&&data.type>12)||(version<10&&data.type>11)||(version<=5&&data.type>8)||(version===2&&data.type>3)||(version===3&&data.type>6))return false;data.seed=uint();data.locks=uint();data.scale=uint();data.values=array(13);
     data.curves=Array.from({length:4},()=>[uint(),...Array.from({length:8},()=>[scalar(),scalar(),uint()])]);
     const low=uint(),high=uint();data.protected=Array.from({length:62},(_,i)=>((i<32?low>>>i:high>>>(i-32))&1)?'1':'0').join('');
     data.osc=array(7);data.packets=array(16);data.mod=array(7);data.spectral=array(8);const ratios=Array.from({length:4},()=>array(8)),partials=Array.from({length:4},()=>array(8));
@@ -6909,6 +7295,8 @@ function decodeSynthRecipe(hex,data){
     if(version>=8){data.drumExtra=array(8);data.drumFlags=uint();}else{data.drumFlags=1;data.drumExtra=synthLegacyAttack(data);data.workProtected=(data.workProtected||'0'.repeat(56)).padEnd(54,'0').slice(0,54)+'11';}
     if(version>=9)data.drumColor=array(8);else{data.drumColor=[...SYNTH_WORK_DEFAULTS[7]];data.workProtected=(data.workProtected||'0'.repeat(64)).padEnd(56,'0').slice(0,56)+'11110000';}
     if(version>=10){data.dustParams=array(12);const mask=uint();data.dustProtected=Array.from({length:12},(_,i)=>(mask>>i)&1?'1':'0').join('');}else{data.dustParams=[...SYNTH_DUST_DEFAULTS];data.dustProtected='100000000000';}
+    if(version===11){data.wt=array(24);const mask=uint();data.wtProtected=Array.from({length:24},(_,i)=>(mask>>i)&1?'1':'0').join('');}
+    else{data.wt=[...SYNTH_WT_DEFAULTS];data.wtProtected='11'+'0'.repeat(22);}
     return at===bytes.length-4;
 }
 function readSynth(){
@@ -6918,7 +7306,7 @@ function readSynth(){
     if(!d||!Array.isArray(d.values)||d.values.length!==13||!d.values.every(Number.isFinite)
         ||!Array.isArray(d.curves)||d.curves.length!==4
         ||!d.curves.every(c=>Array.isArray(c)&&c.length===9&&c.slice(1).every(p=>Array.isArray(p)&&p.length===3&&p.every(Number.isFinite))))return;
-    d.type=d.type??0;if(!Number.isInteger(d.type)||d.type<0||d.type>12)return;
+    d.type=d.type??0;if(!Number.isInteger(d.type)||d.type<0||d.type>14)return;
     if(Array.isArray(d.drums)&&d.drums.length===12)d.drums=[...d.drums,0,.6,.4,.7];
     for(const [i,key] of ['plucked','sub','hybridParams','trace','events','timing','drumExtra','drumColor'].entries())d[key]=d[key]||[...SYNTH_WORK_DEFAULTS[i]];
     d.workProtected=d.workProtected||Array.from({length:64},(_,i)=>[0,8,9,16,17,24,32,33,40,41,42,43,44,54,55,56,57,58,59].includes(i)?'1':'0').join('');d.inputs=Array.isArray(d.inputs)?d.inputs:[];
@@ -6926,6 +7314,7 @@ function readSynth(){
     for(const [key,specs] of [['osc',SYNTH_WAVE_SPECS],['packets',SYNTH_BLOOM_SPECS],['mod',SYNTH_MOD_SPECS],['spectral',SYNTH_RESYNTH_SPECS],['additive',SYNTH_ADDITIVE_SPECS],['noise',SYNTH_NOISE_SPECS],['fmOsc',SYNTH_FM_SPECS],['conv',SYNTH_CONV_SPECS],['drums',SYNTH_DRUM_SPECS],['plucked',SYNTH_PLUCK_SPECS],['sub',SYNTH_SUB_SPECS],['hybridParams',SYNTH_HYBRID_SPECS],['trace',SYNTH_TRACE_SPECS],['events',SYNTH_EVENT_SPECS],['timing',SYNTH_TIMING_SPECS],['drumExtra',SYNTH_ATTACK_SPECS],['drumColor',SYNTH_COLOR_SPECS]]){
         if(d[key]!==undefined&&!validArray(d[key],specs.length))return;
     }
+    d.wt=d.wt||[...SYNTH_WT_DEFAULTS];d.wtProtected=d.wtProtected||'11'+'0'.repeat(22);if(!validArray(d.wt,24))return;
     d.dustParams=d.dustParams||[...SYNTH_DUST_DEFAULTS];d.dustProtected=d.dustProtected||'100000000000';if(!validArray(d.dustParams,12))return;
     d.osc=d.osc||[0,.5,0,0,20000,0,0];d.packets=d.packets||[0,0,8,150,.2,10,20,120,.2,.2,.2,0,.1,0,0,1];d.mod=d.mod||[0,.5,0,1,0,0,0];d.spectral=d.spectral||[0,0,0,1,0,0,24,-96];
     d.additive=d.additive||[16,0,1,0,0,0,.5,0];d.noise=d.noise||[8,3,0,1,0,0,.5,0];d.fmOsc=d.fmOsc||[0,1,1,2,0,0,0,1];
@@ -6934,17 +7323,21 @@ function readSynth(){
     if(!Array.isArray(d.partials)||d.partials.length!==8||!d.partials.every(p=>validArray(p,2))||!validArray(d.partial_masks,4))return;
     const oldType=synthUi.data?.type;
     if(typeof d.wave==='string')d.wave=/^[0-9a-e]{224}$/.test(d.wave)?Array.from({length:112},(_,i)=>[(parseInt(d.wave[i*2],16)-7)/7,(parseInt(d.wave[i*2+1],16)-7)/7]):[];
+    if(state.view==='synth'&&synthUi.opened&&d.open===0&&[0,1,6,13,14].includes(d.type)){
+        synthUi.opened=false;synthUi.overlay='';state.view='main';refreshEditorSnapshot();if([6,14].includes(d.type))readFm(false);else readTable(false);readTableScope(false);showActionMessage([6,14].includes(d.type)?'RECIPE TO FM':'RECIPE TO TABLE');
+    }
     synthUi.raw=raw;synthUi.data=d;synthUi.row=clamp(d.row|0,0,3);synthUi.point=clamp(d.point|0,0,7);
-    if(oldType!==undefined&&oldType!==d.type){synthUi.row=0;synthUi.point=0;synthUi.low=-synthLimits()[0]/2;synthUi.high=synthLimits()[0]/2;resetParameterEncoderMotion();}
+    if(oldType!==undefined&&oldType!==d.type){synthUi.low=-synthLimits()[synthUi.row]/2;synthUi.high=synthLimits()[synthUi.row]/2;resetParameterEncoderMotion();}
+    if(oldType!==d.type)restoreSynthEditor();
     if(!synthPageIds().includes(synthUi.page))synthUi.page=0;
     if(synthUi.overlay!=='name')synthUi.name=String(d.name||'Spline');
     rebuildLedQueue();
 }
-function synthCommand(key,value=1){setParamBlocking('synth_'+key,value);readSynth();}
+function synthCommand(key,value=1){if(['type','render','save','restore','close'].includes(key))rememberSynthEditor();setParamBlocking('synth_'+key,value);readSynth();}
 function openSynth(){
     endPerformanceLayer();synthCommand('open');
     if(!synthUi.data?.open){showActionMessage(String(getParam('last_error','SYNTH UNAVAILABLE')).slice(0,21));return;}
-    synthUi.opened=true;synthUi.overlay='';synthUi.notice='';synthUi.copy=false;
+    restoreSynthEditor();synthUi.opened=true;synthUi.overlay='';synthUi.notice='';synthUi.copy=false;
     state.view='synth';state.actionMessageTicks=0;resetParameterEncoderMotion();rebuildLedQueue();
 }
 function closeSynth(){
@@ -7024,7 +7417,7 @@ function synthCurveControlAvailable(index){
     return index===5||index===7;
 }
 function drawSynth(){
-    clearDisplay();const d=synthUi.data;if(!d){print(1,0,'SYNTH NOT READY',1);return;}
+    rememberSynthEditor();clearDisplay();const d=synthUi.data;if(!d){print(1,0,'SYNTH NOT READY',1);return;}
     if(synthUi.overlay==='nav'){drawSynthList('SYNTH GROUPS',['SOUND','MOTION','OUTPUT','ACTIONS'],synthUi.selection,'CLICK SELECT  BACK');return;}
     if(synthUi.overlay==='actions'){
         const actions=synthActions().map(entry=>entry.title);
@@ -7040,7 +7433,7 @@ function drawSynth(){
         const keys=synthNameKeys();for(let i=0;i<32;++i)print(i%8*16+1,33+Math.floor(i/8)*7,keys[i].slice(0,2),1);
         return;
     }
-    const pages=synthGroupPages(),titles=['SYNTH SETUP',SYNTH_TITLES[synthType()],'CURVE '+synthRowNames()[synthUi.row],'RANDOM','PREVIEW','SYNTH MOD',synthType()===8?'DRUM DETAIL':synthType()===12?'DUST DETAIL':'BLOOM VAR',(synthType()===2?'SPECTRUM '+String.fromCharCode(65+d.spectrum):(synthType()===10?(d.spectrum<2?'HARM ':'SUBS '):synthType()===4?'PART ':'BANDS ')+(synthType()===10?d.spectrum%2*8+1:d.spectrum*8+1)+'-'+(synthType()===10?d.spectrum%2*8+8:d.spectrum*8+8)),'CONV FILES','SYNTH EVENTS','RSYN TRACE','HYBRID FILES','EVENT VAR','DRUM ATTACK','DRUM COLOR'];
+    const pages=synthGroupPages(),titles=['SYNTH SETUP',SYNTH_TITLES[synthType()],'CURVE '+synthRowNames()[synthUi.row],'RANDOM','PREVIEW','SYNTH MOD',synthType()===13?'WT OSC':synthType()===14?'FM SHAPE':synthType()===8?'DRUM DETAIL':synthType()===12?'DUST DETAIL':'BLOOM VAR',(synthType()===2?'SPECTRUM '+String.fromCharCode(65+d.spectrum):(synthType()===10?(d.spectrum<2?'HARM ':'SUBS '):synthType()===4?'PART ':'BANDS ')+(synthType()===10?d.spectrum%2*8+1:d.spectrum*8+1)+'-'+(synthType()===10?d.spectrum%2*8+8:d.spectrum*8+8)),'CONV FILES','SYNTH EVENTS','RSYN TRACE','HYBRID FILES','EVENT VAR',synthType()===13?'WT SHAPE':synthType()===14?'FM ATTACK':'DRUM ATTACK',synthType()===14?'FM COLOR':'DRUM COLOR'];
     drawTitleWithFraction(titles[synthUi.page],(pages.indexOf(synthUi.page)+1)+'/'+pages.length);
     drawRect(0,8,128,1,1);
     if(synthUi.page===11){for(let i=0;i<4;++i){print(1,12+i*11,String.fromCharCode(65+i),1);print(13,12+i*11,String(d.inputs[i]||'NOT SELECTED').slice(0,19),1);}print(1,57,'CLICK: PICK FILES',1);return;}
@@ -7051,9 +7444,11 @@ function drawSynth(){
         synthColorCells().forEach((cell,i)=>{if(!cell||!synthDetailAvailable(...cell))drawReservedParameterCell(i,true);else drawSynthCell(i,synthSpecs(cell[0])[cell[1]][0],synthDetailValue(...cell));});
     }else if([9,12].includes(synthUi.page)){
         synthEventCells().forEach((cell,i)=>{if(!cell||!synthDetailAvailable(...cell))drawReservedParameterCell(i,true);else drawSynthCell(i,synthSpecs(cell[0])[cell[1]][0],synthDetailValue(...cell));});
+    }else if(synthType()===14&&[1,6,13].includes(synthUi.page)){
+        synthFmDrumCells().forEach((cell,i)=>{if(!cell||!synthDetailAvailable(...cell))drawReservedParameterCell(i,true);else drawSynthCell(i,synthSpecs(cell[0])[cell[1]][0],synthDetailValue(...cell));});
     }else if(synthUi.page===1||synthUi.page===6||synthUi.page===10||synthUi.page===13){
         if(synthType()===0){[6,7,8,9,10,11,null,null].forEach((f,i)=>f===null?drawReservedParameterCell(i,true):drawSynthCell(i,SYNTH_FIELDS[f],synthFieldValue(f,d.values[f])));}
-        else{const family=synthWorkshopFamily(),specs=synthSpecs(family),offset=synthUi.page===6?8:0;
+        else{const family=synthWorkshopFamily(),specs=synthSpecs(family),offset=synthUi.page===6?8:synthUi.page===13&&synthType()===13?16:0;
             for(let i=0;i<8;++i){const field=offset+i;if((synthType()===8&&((synthUi.page===1&&field===7)||(synthUi.page===13&&[4,5].includes(field))))||field>=specs.length||!synthDetailAvailable(family,field))drawReservedParameterCell(i,true);else drawSynthCell(i,specs[field][0],synthDetailValue(family,field));}}
     }else if(synthUi.page===5){
         for(let i=0;i<7;++i){if(!synthDetailAvailable('mod',i))drawReservedParameterCell(i,true);else drawSynthCell(i,i===1&&d.mod[6]?'CYCL':SYNTH_MOD_SPECS[i][0],synthDetailValue('mod',i));}drawSynthCell(7,'LOOP',synthFieldValue(12,d.values[12]));
@@ -7086,11 +7481,11 @@ function drawSynth(){
         if(synthType()===7)print(1,20,(d.seconds?d.seconds.toFixed(2)+'s':'PICK TWO FILES'),1);
         if(synthType()===3)print(1,20,String(d.source||'USE LANE SOURCE').slice(0,20),1);
         for(let i=0;i<(d.wave?.length||0);++i){const p=d.wave[i],height=synthType()===3||synthType()===7?8:11,center=synthType()===3||synthType()===7?37:35;drawRect(i+8,Math.round(center-p[1]*height),1,Math.max(1,Math.round((p[1]-p[0])*height)),1);}
-        print(1,47,synthType()===3&&!d.source?'CHOOSE SOURCE':d.ready?'READY  LANE '+state.lane:'RENDERING '+d.progress+'%',1);
+        print(1,47,synthType()===3&&!d.source?'CHOOSE SOURCE':d.ready?'READY  LANE '+state.lane:(d.job===1||d.job===2)?'RENDERING '+d.progress+'%':d.wave?.length?'LAST RENDER / EDITED':'CAPTURE TO RENDER',1);
     }
     const busy=d.job===1||d.job===2;
     const fit=[9,12].includes(synthUi.page)&&synthEventsActive()&&d.message==='READY'?'FIT '+(d.eventfit??'?')+'/'+Math.round(d.events[1]):'';
-    const status=synthUi.notice||(busy?(d.op===1?'SAVING':d.op===2?'OPENING RECIPE':'RENDER')+' '+d.progress+'%':fit||d.message||'CLICK: ACTIONS');
+    const status=(busy?(d.op===1?'SAVING':d.op===2?'OPENING RECIPE':'RENDER')+' '+d.progress+'%':synthUi.notice||fit||d.message||'CLICK: ACTIONS');
     print(1,57,status.slice(0,21),1);
 }
 function adjustSynth(index,delta){
@@ -7112,9 +7507,11 @@ function adjustSynth(index,delta){
         const cell=synthColorCells()[index];if(cell)adjustSynthDetail(cell[0],cell[1],delta);
     }else if([9,12].includes(synthUi.page)){
         const cell=synthEventCells()[index];if(cell)adjustSynthDetail(cell[0],cell[1],delta);
+    }else if(synthType()===14&&[1,6,13].includes(synthUi.page)){
+        const cell=synthFmDrumCells()[index];if(cell)adjustSynthDetail(cell[0],cell[1],delta);
     }else if(synthUi.page===1||synthUi.page===6||synthUi.page===10||synthUi.page===13){
         if(synthType()===0){if(index>=6)return;const f=6+index,steps=[1,0,.1,1,.01,.01];const value=f===7?d.values[f]*Math.pow(2,delta/8):f===9?Math.max(1,(d.values[f]+1)*Math.pow(2,delta/12)-1):d.values[f]+steps[index]*delta;synthCommand('edit',f+','+value);}
-        else{if(synthType()===8&&((synthUi.page===1&&index===7)||(synthUi.page===13&&[4,5].includes(index))))return;const family=synthWorkshopFamily(),field=index+(synthUi.page===6?8:0);if(field<synthSpecs(family).length)adjustSynthDetail(family,field,delta);}
+        else{if(synthType()===8&&((synthUi.page===1&&index===7)||(synthUi.page===13&&[4,5].includes(index))))return;const family=synthWorkshopFamily(),field=index+(synthUi.page===6?8:synthUi.page===13&&synthType()===13?16:0);if(field<synthSpecs(family).length)adjustSynthDetail(family,field,delta);}
     }else if(synthUi.page===5){if(index===7)synthCommand('edit','12,'+clamp(d.values[12]+Math.sign(delta),0,1));else adjustSynthDetail('mod',index,delta);
     }else if(synthUi.page===7){
         if(index===7){const current=d.component+(synthType()===2?0:d.spectrum*8),component=clamp(current+Math.sign(delta),0,synthType()===2?7:31);if(component!==current)synthCommand('spec_select',(synthType()===2?d.spectrum:Math.floor(component/8))+','+(component%8));}
@@ -7148,6 +7545,7 @@ function synthAction(){
     if(action===10)synthCommand('cancel');
     if(action===11)synthCommand('clean');
     if(action===24)synthCommand('drum_start');
+    if(action===25)synthCommand('wt_start');
     if(action>=20&&action<=23){openSynthBrowser('hybrid'+(action-20));return;}
     if(action===13||action===14){openSynthBrowser(action===13?'primary':'impulse');return;}
     if(action===12){synthCommand('source');synthUi.notice=String(getParam('last_error',''));}
@@ -7163,13 +7561,18 @@ function handleSynthMidi(status,number,value){
         return false;
     }
     if(state.view!=='synth')return false;
+    if(state.focusButtonHeld&&number!==MoveCapture&&((status===0xb0&&value>0)||(status===0x90&&value>0)))state.focusButtonUsed=true;
     if(status===0x90||status===0x80){const pad=MovePads.indexOf(number);if(pad>=0){synthPad(pad,status===0x90&&value>0);return true;}}
     if(status===0xa0&&MovePads.includes(number))return true;
     if(status!==0xb0)return false;
     if(number===MoveShift){state.shiftHeld=value>0;setParam('shift_held',state.shiftHeld?1:0);return true;}
     if(number===MoveDelete){state.deleteHeld=value>0;setParam('delete_held',state.deleteHeld?1:0);return true;}
     if(number===MoveCopy){synthUi.copy=value>0;return true;}
-    if(number===MoveCapture){state.focusButtonHeld=value>0;state.focusButtonUsed=true;return true;}
+    if(number===MoveCapture){
+        if(value>0){state.focusButtonHeld=true;state.focusButtonUsed=Boolean(synthUi.overlay||state.shiftHeld||state.deleteHeld||synthUi.copy);}
+        else{const render=state.focusButtonHeld&&!state.focusButtonUsed&&!synthUi.overlay;state.focusButtonHeld=false;state.focusButtonUsed=true;if(render){synthUi.notice='';synthCommand('render');}}
+        rebuildIconLedQueue();return true;
+    }
     if(number===MoveRecord||number===MoveRecordAlt){if(value>0){if(synthUi.overlay==='name'){synthCommand('name',synthUi.name);synthUi.overlay='';}synthCommand('save',state.shiftHeld?0:1);synthUi.notice=String(getParam('last_error',''));}return true;}
     const track=MoveTracks.indexOf(number);if(track>=0){if(value>0){if(state.focusButtonHeld){closeSynth();openPageCategory(track);return true;}state.lane=track+1;setParamBlocking('record_lane',state.lane);synthUi.notice='LOAD TO LANE '+state.lane;}return true;}
     if(number>=MoveKnob1&&number<MoveKnob1+8){adjustSynth(number-MoveKnob1,decodeDelta(value));return true;}
@@ -7200,7 +7603,7 @@ function handleSynthMidi(status,number,value){
         else if(!synthUi.overlay)moveSynthPage(delta);return true;
     }
     if(number===MoveLoop){
-        if(state.shiftHeld){if(!synthUi.overlay){synthCommand('mutate',synthUi.amount);synthUi.notice=synthUi.amount>0?'RANDOM '+Math.round(synthUi.amount*100)+'%':'RANDOM AMT IS ZERO';}}
+        if(state.shiftHeld){if(!synthUi.overlay){if(synthUi.amount>0){synthCommand('mutate',synthUi.amount);synthCommand('render');synthUi.notice='RANDOM + RENDER';}else synthUi.notice='RANDOM AMT IS ZERO';}}
         else synthCommand('preview',synthUi.data?.preview?0:1);return true;
     }
     if(number===MoveUndo||number===MoveMute)return true;
@@ -7507,10 +7910,10 @@ function drawCustomMidi() {
 }
 
 // Generated by controllers/oxi-e16/generate-layout.mjs.
-const E16_LABELS={"0":"POS ","1":"FLD ","2":"SPD ","3":"STK ","4":"ENG ","5":"JOIN","6":"LVL ","133":"VARI","384":"SCAN","385":"MODE","386":"PATH","388":"BLND","389":"SHAP","390":"OFST","391":"SKEW","392":"CURV","393":"SLEW","394":"STR ","395":"RATI","512":"MODE","513":"SND ","514":"RATE","515":"BAS ","516":"PATH","517":"STEP","518":"SEED","519":"TRVL","520":"JITR","521":"DUTY","522":"MRAT","523":"MSYM","524":"MSHP","525":"TRIG","526":"OVLP","527":"LAYR","528":"ERAT","529":"REPT","530":"ESTP","531":"PITC","532":"LEVL","533":"CURV","640":"MODE","641":"SIZE","642":"DENS","643":"QUAL","644":"PIT ","645":"WIN ","646":"SPRD","647":"SPRY","648":"BIAS","649":"PSPR","650":"REV%","651":"SVAR","652":"LVAR","653":"TIME","654":"TSC ","655":"ESKW","656":"PROC","657":"PAMT","658":"REGN","659":"ADVN","768":"MODE","769":"LEN ","770":"LAYR","771":"PIT ","772":"SHAP","773":"EDGE","774":"SPRD","775":"REV%","776":"SPRY","777":"BIAS","778":"DVAR","779":"PSPR","780":"LVAR","781":"PHAS","782":"ADVN","896":"ADV ","897":"MODE","898":"CLCK","899":"DIV ","900":"RATE","901":"TVAR","902":"GATE","903":"JOIN","904":"REGN","905":"REPT","906":"REV%","907":"PVAR","908":"LVAR","909":"LORD","910":"POLY","911":"RSRC","1030":"PLAY","1031":"SSRC","1032":"SLIC","1152":"MODE","1153":"CLCK","1154":"DIV ","1155":"RATE","1156":"BUFF","1157":"REPT","1158":"CHNC","1159":"OVRD","1160":"STEP","1161":"PULS","1162":"ROTA","1163":"JUMP","1164":"PITC","1165":"REV%","1166":"DCAY","1167":"SEED","1280":"GRUP","1281":"REPT","1282":"STRD","1283":"ADVN","1284":"ORDR","1285":"PROC","1286":"DPTH","1287":"DTAL","1408":"MODE","1409":"BLUR","1410":"DCAY","1411":"PIT ","1412":"TILT","1413":"SMER","1536":"MODE","1537":"AMP ","1538":"FREQ","1539":"OFST","1540":"BLUR","1541":"PIT ","1664":"MODE","1665":"RATE","1666":"LEN ","1667":"SCAT","1668":"RNGE","1669":"GRUP","1670":"SPRD","1671":"SEED","1792":"PIT ","1793":"FORM","1794":"SMTH","1795":"TUNE","1796":"FRZE","1797":"KEYT","1798":"ROUG","1799":"SUB ","1921":"TONE","1922":"DRIV","1923":"BITS","1924":"RATE","1925":"DLY ","1926":"FDBK","1927":"WDTH","1928":"MIX ","1929":"X-PN","2048":"RATE","2049":"DPTH","2050":"MIX ","2051":"RAMP","2052":"BAL ","2053":"XOVR","2054":"SPRD","2176":"FMT ","2177":"REC ","2182":"HISS","2183":"MIX ","2184":"AGE ","2185":"CRNK","2186":"MECH","2187":"INRT","2304":"ALGO","2305":"DECY","2306":"PRE ","2307":"DAMP","2308":"DIFF","2309":"MOD ","2310":"WDTH","2311":"MIX ","2432":"OUT ","2438":"BLND","2441":"ADLY","2442":"BDLY","2443":"AREV","2444":"BREV","2445":"CURV","2448":"CDLY","2449":"DDLY","2450":"CREV","2451":"DREV","2453":"PRIO","2454":"THR ","3200":"SIZE","3201":"AMUT","3202":"TMUT","3203":"EVOL","3204":"MEM ","3205":"PULL","3206":"LAW ","3207":"DRFT","3210":"CAPT","3328":"RATE","3329":"FORM","3330":"SIZE","3331":"WIN ","3332":"SKEW","3333":"OMIT","3334":"BRST","3335":"JITT","3338":"ERAT","3339":"EDEP","3340":"FRAT","3341":"FDEP","3342":"SPRY","3343":"FVAR","3344":"REV%","3345":"KEYT"};
-const E16_ROW_TITLES=["ENGINE","STACK PATH","MOTION PATH","MOTION SOUND","LANES PLAY","GRAINS MAIN","GRAINS CLOUD","GRAINS PROCESS","CUTUPS CLOCK","CUTUPS PATH","DIRECT PLAY","DIRECT PLAY","SLICE SOURCE","GLITCH CLOCK","GLITCH PATTERN","WEAVE","WEAVE MOTION","WAVESETS","PRISM","MORPH","TEXTURE","FORMANT","STOCHASTIC","PULSAR","PULSAR MOD","PACKETS","MOTOR","EVENT CLOCK","EVENT SHAPE","PART COLOR","STEREO ROTARY","FX SENDS","FX SENDS","DELAY RETURN","REVERB","TAPE"];
+const E16_LABELS={"0":"POS ","1":"FLD ","2":"SPD ","3":"STK ","4":"ENG ","5":"JOIN","6":"LVL ","133":"VARI","384":"SCAN","385":"MODE","386":"PATH","388":"BLND","389":"SHAP","390":"OFST","391":"SKEW","392":"CURV","393":"SLEW","394":"STR ","395":"RATI","512":"MODE","513":"SND ","514":"RATE","515":"BAS ","516":"PATH","517":"STEP","518":"SEED","519":"TRVL","520":"JITR","521":"DUTY","522":"MRAT","523":"MSYM","524":"MSHP","525":"TRIG","526":"OVLP","527":"LAYR","528":"ERAT","529":"REPT","530":"ESTP","531":"PITC","532":"LEVL","533":"CURV","640":"MODE","641":"SIZE","642":"DENS","643":"QUAL","644":"PIT ","645":"WIN ","646":"SPRD","647":"SPRY","648":"BIAS","649":"PSPR","650":"REV%","651":"SVAR","652":"LVAR","653":"TIME","654":"TSC ","655":"ESKW","656":"PROC","657":"PAMT","658":"REGN","659":"ADVN","768":"MODE","769":"LEN ","770":"LAYR","771":"PIT ","772":"SHAP","773":"EDGE","774":"SPRD","775":"REV%","776":"SPRY","777":"BIAS","778":"DVAR","779":"PSPR","780":"LVAR","781":"PHAS","782":"ADVN","896":"ADV ","897":"MODE","898":"CLCK","899":"DIV ","900":"RATE","901":"TVAR","902":"GATE","903":"JOIN","904":"REGN","905":"REPT","906":"REV%","907":"PVAR","908":"LVAR","909":"LORD","910":"POLY","911":"RSRC","1030":"PLAY","1031":"SSRC","1032":"SLIC","1152":"MODE","1153":"CLCK","1154":"DIV ","1155":"RATE","1156":"BUFF","1157":"REPT","1158":"CHNC","1159":"OVRD","1160":"STEP","1161":"PULS","1162":"ROTA","1163":"JUMP","1164":"PITC","1165":"REV%","1166":"DCAY","1167":"SEED","1280":"GRUP","1281":"REPT","1282":"STRD","1283":"ADVN","1284":"ORDR","1285":"PROC","1286":"DPTH","1287":"DTAL","1408":"MODE","1409":"BLUR","1410":"DCAY","1411":"PIT ","1412":"TILT","1413":"SMER","1536":"MODE","1537":"AMP ","1538":"FREQ","1539":"OFST","1540":"BLUR","1541":"PIT ","1664":"MODE","1665":"RATE","1666":"LEN ","1667":"SCAT","1668":"RNGE","1669":"GRUP","1670":"SPRD","1671":"SEED","1792":"PIT ","1793":"FORM","1794":"SMTH","1795":"TUNE","1796":"FRZE","1797":"KEYT","1798":"ROUG","1799":"SUB ","1921":"TONE","1922":"DRIV","1923":"BITS","1924":"RATE","1925":"DLY ","1926":"FDBK","1927":"WDTH","1928":"MIX ","1929":"X-PN","2048":"RATE","2049":"DPTH","2050":"MIX ","2051":"RAMP","2052":"BAL ","2053":"XOVR","2054":"SPRD","2176":"FMT ","2177":"REC ","2182":"HISS","2183":"MIX ","2184":"AGE ","2185":"CRNK","2186":"MECH","2187":"INRT","2304":"ALGO","2305":"DECY","2306":"PRE ","2307":"DAMP","2308":"DIFF","2309":"MOD ","2310":"WDTH","2311":"MIX ","2432":"OUT ","2438":"BLND","2441":"ADLY","2442":"BDLY","2443":"AREV","2444":"BREV","2445":"CURV","2448":"CDLY","2449":"DDLY","2450":"CREV","2451":"DREV","2453":"PRIO","2454":"THR ","3200":"SIZE","3201":"AMUT","3202":"TMUT","3203":"EVOL","3204":"MEM ","3205":"PULL","3206":"LAW ","3207":"DRFT","3210":"CAPT","3328":"RATE","3329":"FORM","3330":"SIZE","3331":"WIN ","3332":"SKEW","3333":"OMIT","3334":"BRST","3335":"JITT","3338":"ERAT","3339":"EDEP","3340":"FRAT","3341":"FDEP","3342":"SPRY","3343":"FVAR","3344":"REV%","3345":"KEYT","4200":"TYPE","4201":"TUNE","4202":"WID ","4203":"LVL ","4204":"ART ","4205":"DEC ","4206":"NOIS","4207":"DRIV","4208":"SHAP","4209":"PW  ","4210":"DET ","4211":"SUB ","4212":"CUT ","4213":"RES ","4214":"PTS ","4215":"EVOL","4216":"CURV","4217":"DRFT","4218":"RATE","4219":"DYN ","4220":"SEED","4221":"MODL","4222":"BNKA","4223":"POSA","4224":"BNKB","4225":"POSB","4226":"BLND","4227":"RATI","4228":"FM  ","4229":"DET ","4230":"BEND","4231":"PDEC","4232":"SCAN","4233":"SDEC","4234":"SUB ","4235":"IMPT","4236":"NDEC","4237":"COLR","4238":"TONE","4239":"COMP","4300":"EXC ","4301":"PICK","4302":"HIT ","4303":"TUNE","4304":"MOTN","4305":"DAMP","4306":"BRGT","4307":"WID ","4308":"MASS","4309":"TENS","4310":"CENT","4311":"PROF","4312":"FORC","4313":"PRES","4314":"FRZ ","4315":"SEED","4316":"ART ","4317":"IMPT","4318":"HARD","4319":"DEC ","4320":"BEND","4321":"TIME","4322":"LOSS","4323":"AMP ","4324":"GAIN","4325":"BASS","4326":"MID ","4327":"FREQ","4328":"TREB","4329":"CAB ","4330":"OUT ","4400":"MODE","4401":"TUNE","4402":"WID ","4403":"LVL ","4404":"ALG ","4405":"RAT1","4406":"IDX1","4407":"FDBK","4408":"RAT2","4409":"IDX2","4410":"DETN","4411":"MIX ","4412":"CUTO","4413":"RES ","4414":"DRIV","4415":"DEC ","4416":"FDEC","4417":"BEND","4418":"TIME","4419":"HIT ","4420":"NOIS","4421":"NDEC","4422":"HARD"};
+const E16_ROW_TITLES=["ENGINE","STACK PATH","MOTION PATH","MOTION SOUND","LANES PLAY","GRAINS MAIN","GRAINS CLOUD","GRAINS PROCESS","CUTUPS CLOCK","CUTUPS PATH","DIRECT PLAY","DIRECT PLAY","SLICE SOURCE","GLITCH CLOCK","GLITCH PATTERN","WEAVE","WEAVE MOTION","WAVESETS","PRISM","MORPH","TEXTURE","FORMANT","STOCHASTIC","PULSAR","PULSAR MOD","TABLE","TABLE WAVE","TABLE SPLINE","TABLE WT OSC","TABLE WT HIT","TABLE WT COLOR","SCANNED","SCAN BODY","SCAN HIT","SCAN AMP","FM","FM COLOR","FM HIT","PACKETS","MOTOR","EVENT CLOCK","EVENT SHAPE","PART COLOR","STEREO ROTARY","FX SENDS","FX SENDS","DELAY RETURN","REVERB","TAPE"];
 const E16_PAGES=["ENGINE","STACK","ENG 1","ENG 2","ENG 3","ENG 4","SENDS","COLOR","ROTARY","DELAY","REVERB","TAPE"];
-const E16_ENGINES=["MOTN","LANS","GRNS","CUTS","SAMP","SLIC","GLCH","WEAV","WSET","PRSM","MORP","TEXT","FORM","STOC","PLSR"];
+const E16_ENGINES=["MOTN","LANS","GRNS","CUTS","SAMP","SLIC","GLCH","WEAV","WSET","PRSM","MORP","TEXT","FORM","STOC","PLSR","TABL","SCAN","FM"];
 // Small Remote-only transport and renderer. No Lua runs on E16.
 // OXI protocol: https://docs.google.com/spreadsheets/d/1Yccnrluv10QL_PauMmtCt64EtYjfSeZEXKrlrw8P24w/edit
 const e16RemoteProtocol=(()=>{
@@ -7808,6 +8211,7 @@ function pollMidiControls(){
     }
     let data;
     try{data=JSON.parse(String(getParam('midi_state','')));}catch(_){return;}
+    readPlaybackReadout(true);
     if(data?.v!==1||!Array.isArray(data.values))return;
     if(Number.isInteger(data.epoch)&&data.epoch!==midiSurface.epoch){
         midiSurface.epoch=data.epoch;midiFeedback.reset();

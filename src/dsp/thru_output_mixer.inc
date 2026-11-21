@@ -95,10 +95,11 @@ bool setOutputMixerParameter(const char* key,const char* text){
     clearError();commitOutputMixer(part,key);return true;
 }
 void processSingleOutputMixer(std::size_t count){
-    const auto& s=sequenceLive.mix.strips[0];
+    auto renderedMix=sequenceLive.mix;renderedMix.strips[0].pan=controlLfoPan(0,renderedMix.strips[0].pan);
+    const auto& s=renderedMix.strips[0];
     if(!sequenceStripProcessor.active()&&s.pan==0&&s.lowDb==0&&s.midDb==0&&s.highDb==0&&!s.solo&&!s.muted)return;
     for(int ch=0;ch<2;++ch)std::copy_n(voiceMix[ch].data(),count,splitBus[0][ch].data());
-    sequenceStripProcessor.process(count,splitBus,sequenceLive.mix,sampleRate,1);
+    sequenceStripProcessor.process(count,splitBus,renderedMix,sampleRate,1);
     for(int ch=0;ch<2;++ch)std::copy_n(splitBus[0][ch].data(),count,voiceMix[ch].data());
 }
 int outputMixerState(char* out,int capacity) const {

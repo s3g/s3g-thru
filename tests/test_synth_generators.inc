@@ -41,9 +41,9 @@ void testSynthGeneratorsCore() {
   };
   for (int type = 0; type < generatorCount; ++type) {
     Recipe r;
-    r.type = type;
+    initializeGenerator(r,type);
     const auto encoded = encode(r);
-    assert(encoded.size() == recipeBytes);
+    assert(encoded.size() == recipeSize(r.type));
     Recipe restored;
     assert(decode(encoded.data(), encoded.size(), restored) &&
            encode(restored) == encoded);
@@ -212,6 +212,7 @@ void testSynthGeneratorWorkflow() {
   std::snprintf(t->synthDirectory.data(), t->synthDirectory.size(),
                 "%s/captures/Synths", folder);
   setParam(t.get(), "synth_open", "1");
+  setParam(t.get(), "synth_type", "0"); // Retained legacy codec fixture.
   setParam(t.get(), "synth_edit", "0,0.12");
   setParam(t.get(), "synth_edit", "6,9");
   waitSynth(*t);

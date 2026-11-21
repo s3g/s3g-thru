@@ -1,6 +1,6 @@
 {
   "name": "s3g-thru",
-  "version": "0.33.0-test.13",
+  "version": "0.33.0-test.30",
   "private": true,
   "type": "module",
   "description": "s3g Thru takeover sampler for Ableton Move and Schwung.",
@@ -23,7 +23,9 @@
     "test:e16": "node tests/test_e16.mjs && node tests/test_e16_remote.mjs && node tests/test_e16_nrpn.mjs && node tests/test_e16_native_feedback.mjs",
     "controllers:package": "bash scripts/package-e16.sh",
     "controllers:remote:package": "bash scripts/package-e16.sh",
-    "controllers:monolit:package": "bash scripts/package-e16-monolit.sh"
+    "controllers:monolit:package": "bash scripts/package-e16-monolit.sh",
+    "lfos:generate": "node scripts/generate-lfo-destinations.mjs",
+    "lfos:check": "node scripts/generate-lfo-destinations.mjs --check"
   },
   "engines": {
     "node": ">=18"

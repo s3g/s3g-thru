@@ -1,6 +1,6 @@
 # s3g Thru MIDI map, version 1
 
-The high-resolution interface for 0.31.1 has 430
+The current high-resolution interface has 620
 fixed NRPN addresses. MIDI Notes settings (NRPN 3584–3590 on channel 16) configure
 keyboard/sequencer routing and expression independently of parameter mode.
 See the [manual](https://s3g.github.io/s3g-thru/midi.html#note-input) for
@@ -27,7 +27,7 @@ an explicit Edit Part or mode command performs the selection it names.
 ## Select the controller protocol
 
 Open **Menu → MIDI Control** on Move. **Mode** chooses which parameter
-protocol Thru accepts; musical notes, note-offs, polyphonic aftertouch, MIDI
+protocol Thru accepts; note input, note-offs, polyphonic aftertouch, MIDI
 clock and transport remain independent.
 
 | Mode | Parameter input |
@@ -106,7 +106,7 @@ Move’s editing focus in place.
 
 ### Scene push commands
 
-These notes belong to the **control channels**, separate from musical notes.
+These notes belong to the **control channels**, separate from note input.
 Only Note On with nonzero velocity acts; Note Off is consumed without action.
 
 | Channel | Note | Action |
@@ -150,7 +150,7 @@ shortcuts twice.
 
 Channel 1 CC 1–16 contains encoder-relative increments; notes 0–15 are encoder
 pushes and note 16 is Shift. These messages are reserved only after an E16
-acknowledges Remote entry. Other musical notes and NRPN channels stay available.
+acknowledges Remote entry. Other note input and NRPN channels stay available.
 A connection lease releases the routing if the UI or controller disconnects.
 
 The fixed NRPN addresses are unchanged.
@@ -170,3 +170,11 @@ Loading a profile installs routing without writing instrument values. A bank
 entry overrides an All-bank entry at the same address; duplicate entries in
 the same bank require confirmation. A read-only nanoKONTROL2 example is in
 `../korg-nanokontrol2/` and can be copied to a Custom slot on Move.
+
+Control LFOs form an eight-slot shared pool on channel 16. LFO 1–2 retain addresses 3968–3985; slots 3–8, target-part and engine-filter fields, and `lfo_select` are included in the complete JSON/CSV map. Sequence restart/rate/depth locks use the lane's channel 5–8; 3992 clears all LFO locks on the selected trig. Destination IDs and full menu names are in `lfo-destinations.json`. Availability follows the assigned part's mode and engines. The released parameter addresses are unchanged. See the manual's Control LFO section for destination selection, moving-value readouts and clip ownership.
+
+TABLE adds controls 4200–4239 on the part channel. Track selection chooses the editable physical patch, clamped to that part’s lanes. Programs and gestures keep their actual part and patch identity.
+
+SCANNED uses IDs 4300–4330 on the existing part channels. The selected Track chooses its physical patch; four adaptive engine pages expose the same controls as Move.
+
+FM uses IDs 4400–4422 on the existing part channels. Tracks select its four patches; three adaptive engine pages mirror Move.

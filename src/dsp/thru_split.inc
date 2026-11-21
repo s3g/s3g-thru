@@ -54,11 +54,12 @@
         return {rootNote, padOctave, static_cast<int>(padScale), static_cast<int>(padMode),
             pressureMode, holdReleaseMs, stackScanPaused ? 1 : 0, glitchBufferLocked ? 1 : 0,
             splitEnabled ? splitParts[static_cast<std::size_t>(splitFocus)].settings.muted : 0,
-            static_cast<int>(laneVariation),voiceEngineSettings,voiceMode};
+            static_cast<int>(laneVariation),voiceEngineSettings,voiceMode,legacyControlLfos};
     }
 
     void applyPartSettings(const PartSettings& s)
     {
+        legacyControlLfos=s.lfos;
         voiceMode=clampValue(s.voiceMode,0,2);
         voiceEngineSettings=s.engines;
         voiceEngineSettings.edit=std::min(voiceEngineSettings.edit,engineSlotCount()-1);
@@ -101,6 +102,7 @@
         normalizeVoiceEngineEditors();
         const auto& source = splitParts[static_cast<std::size_t>(part)];
         controls.stackPath=source.controls.stackPath;
+        controls.table=source.controls.table;controls.scanned=source.controls.scanned;controls.fm=source.controls.fm;
         for (std::size_t p=0;p<kLockParameterCount;++p)
             if (splitPartParameter(p)) applyLockedValue(controls,outputGain,p,lockedValue(source.controls,outputGain,p));
         applyPartSettings(source.settings);
@@ -258,6 +260,31 @@
                     captureClipPoint(ClipPointType::stackPath,p,target+1,to.controls.stackPath.value(p),0);
                 captureClipPoint(ClipPointType::stackPath,p,target+1,from.controls.stackPath.value(p));
             }
+        // TABLE patches follow the destination's physical lane ownership.
+        std::array<std::size_t,4*s3g_thru_table::fields> copiedTableCurves;
+        copiedTableCurves.fill(kClipCurveLaneCount);
+        const int tableCount=sharedDual?4:isQuad()?1:2;
+        const int sourceFirst=sharedDual?0:firstLaneForPart(source),targetFirst=sharedDual?0:firstLaneForPart(target);
+        for(int lane=0;lane<tableCount;++lane){const int physical=targetFirst+lane;
+            to.controls.table.patches[physical]=from.controls.table.patches[sourceFirst+lane];
+            for(int field=0;field<s3g_thru_table::fields;++field){const auto group=(target*4+physical)*s3g_thru_table::fields+field;
+                tableOverrides.set(group);copiedTableCurves[lane*s3g_thru_table::fields+field]=kClipTableOffset+group;
+                captureClipPoint(ClipPointType::tableParameter,field,target*4+physical,to.controls.table.patches[physical].v[field]);}}
+        if(sequenceMode()&&!clipRecording)replaceSequenceAutomation(copiedTableCurves,true);
+        std::array<std::size_t,4*s3g_thru_scanned::fields> copiedScannedCurves;copiedScannedCurves.fill(kClipCurveLaneCount);
+        for(int lane=0;lane<tableCount;++lane){const int physical=targetFirst+lane;
+          to.controls.scanned.patches[physical]=from.controls.scanned.patches[sourceFirst+lane];
+          for(int field=0;field<s3g_thru_scanned::fields;++field){const auto group=(target*4+physical)*s3g_thru_scanned::fields+field;
+            scannedOverrides.set(group);copiedScannedCurves[lane*s3g_thru_scanned::fields+field]=kClipScannedOffset+group;
+            captureClipPoint(ClipPointType::scannedParameter,field,target*4+physical,to.controls.scanned.patches[physical].v[field]);}}
+        if(sequenceMode()&&!clipRecording)replaceSequenceAutomation(copiedScannedCurves,true);
+        std::array<std::size_t,4*s3g_thru_fm::fields> copiedFmCurves;copiedFmCurves.fill(kClipCurveLaneCount);
+        for(int lane=0;lane<tableCount;++lane){const int physical=targetFirst+lane;
+          to.controls.fm.patches[physical]=from.controls.fm.patches[sourceFirst+lane];
+          for(int field=0;field<s3g_thru_fm::fields;++field){const auto group=(target*4+physical)*s3g_thru_fm::fields+field;
+            fmOverrides.set(group);copiedFmCurves[lane*s3g_thru_fm::fields+field]=kClipFmOffset+group;
+            captureClipPoint(ClipPointType::fmParameter,field,target*4+physical,to.controls.fm.patches[physical].v[field]);}}
+        if(sequenceMode()&&!clipRecording)replaceSequenceAutomation(copiedFmCurves,true);
         to.controls.stackPath=from.controls.stackPath;
         // Copy the sound, preserving the destination's intentional mute.
         const int destinationMute = to.settings.muted;
@@ -265,6 +292,7 @@
         to.settings.muted = destinationMute;
         voiceEngineTraversal[target]={};
         if (target == splitFocus) loadPartEditor(target);
+        if(auto* clip=activeClipSlot())captureTablePrograms(*clip);
         if (clipRecording) {
             for (std::size_t p=0;p<kLockParameterCount;++p) if (splitPartParameter(p))
                 captureClipPoint(ClipPointType::partParameter,p,target,lockedValue(to.controls,outputGain,p));
@@ -291,6 +319,8 @@
 
     void captureSplitClip(ClipSlot& clip)
     {
+        clip.lfos=controlLfoPool;
+        captureTablePrograms(clip);
         syncOutputMixerMode(performanceMode());
         storeFocusedPart();
         splitLanePreferences=preferredSplitLanes();
@@ -316,6 +346,7 @@
 
     void restoreSplitClip(const ClipSlot& clip)
     {
+        controlLfoPool=clip.lfos;
         splitLanePreferences=clip.splitLanePreferences;
         layersLive=layersRecorded=clip.layers;layersOverrides.reset();clearLayersTouches();
         if(sequenceLive.mixerMode!=clip.sequence.mixerMode)resetOutputMixerRuntime();
@@ -344,12 +375,14 @@
                 applyLockedValue(controls,outputGain,p,clip.splitValues[0][p]);
             loadPartEditor(splitFocus);
         } else {controls.stackPath=clip.stackPaths[0];applyPartSettings(clip.singleSettings);}
+        restoreTablePrograms(clip);
         resetSplitLaneReferences();
         for(int part=0;part<4;++part)splitClipControls[part]=liveControlsForPart(part);
     }
 
     std::array<float,2> parameterDisplayWindow(const Engine::Controls& c,int part=0) const
     {
+        if(Engine::sourceFree(c.algorithm))return {0,1};
         const auto first=splitEnabled&&!sharedDual?static_cast<std::size_t>(firstLaneForPart(part)):0u;
         const auto last=splitEnabled&&!sharedDual?first+(isQuad()?1u:2u):kLaneCount;
         std::size_t frames=0u;
@@ -362,9 +395,10 @@
 
     std::array<float,2> displayWindow(int part=0) const
     {
-        const auto& c=splitEnabled
+        auto c=splitEnabled
             ?(clipPlaying?splitClipControls[static_cast<std::size_t>(part)]:liveControlsForPart(part))
             :(clipPlaying?clipControls:controls);
+        applyControlLfoWindow(c,part,!sequenceMode());
         auto result=parameterDisplayWindow(c,part);
         bool active=false;
         for(const auto& voice:voices) {
@@ -393,7 +427,8 @@
         // Shared sources need one edit window. Following the focused controls
         // keeps POS/FLD responsive even when the other program, recorded voices,
         // or releasing readers still use a wider or different source region.
-        return parameterDisplayWindow(liveControlsForPart(splitFocus),splitFocus);
+        auto c=liveControlsForPart(splitFocus);applyControlLfoWindow(c,splitFocus,!sequenceMode());
+        return parameterDisplayWindow(c,splitFocus);
     }
 
     int formatSplitState(char* buffer,int capacity) const
@@ -402,7 +437,8 @@
         for(int p=0;p<partCount();++p) {
             if(at<0||at>=capacity)return -1;
             const auto ui=settingsForPart(p);const auto& c=liveControlsForPart(p);
-            const auto window=isQuad()?parameterDisplayWindow(c,p):displayWindow(p);
+            auto view=c;applyControlLfoWindow(view,p,!sequenceMode());
+            const auto window=isQuad()?parameterDisplayWindow(view,p):displayWindow(p);
             const PlaybackVoice* head=nullptr;
             for(const auto& v:voices)if(v.active&&v.held&&v.part==p&&(!head||v.age>head->age))head=&v;
             const int n=std::snprintf(buffer+at,capacity-at,"%s{\"algorithm\":%d,\"engine_list\":%d,\"root\":%d,\"octave\":%d,\"scale\":%d,\"mode\":%d,\"hold\":%d,\"mute\":%d,\"position\":%.5f,\"window\":[%.7f,%.7f]}",p?",":"",static_cast<int>(c.algorithm),ui.engines.enabled?1:0,ui.root,ui.octave,ui.scale,ui.mode,ui.stackHold,ui.muted,head?head->engine.normalizedPosition():0,window[0],window[1]);
@@ -445,6 +481,8 @@
     {
         Engine::Controls mixer = effectiveSplitMixer(recorded);
         applyPerformanceSends(mixer);
+        applyControlLfoMixer(mixer);
+        applySequenceLaneMixer(mixer);
         for (std::size_t part=0;part<static_cast<std::size_t>(partCount());++part) {
             for (std::size_t frame=0;frame<frames;++frame) {
                 const float power = splitEnvelopePower[part][frame];
@@ -457,9 +495,14 @@
             processAudioRolls(frames,static_cast<int>(part));
             auto insertControls=clipPlaying?splitClipControls[part]:live[part];
             applyPerformanceInsert(insertControls,static_cast<int>(part));
+            applyControlLfoControls(insertControls,int(part),s3g_thru_lfo::Domain::insert);
+            applySequenceLaneInsert(insertControls,int(part));
             splitInserts[part].process(frames,splitBus[part],insertControls);
         }
-        sequenceStripProcessor.process(frames,splitBus,sequenceMode()?sequencePlayback.mix:sequenceLive.mix,sampleRate,partCount());
+        auto renderedStripMix=sequenceMode()?sequencePlayback.mix:sequenceLive.mix;
+        if(controlLfoRouted)for(int part=0;part<partCount();++part)renderedStripMix.strips[part].pan=controlLfoPan(part,renderedStripMix.strips[part].pan);
+        applySequenceLaneStrips(renderedStripMix);
+        sequenceStripProcessor.process(frames,splitBus,renderedStripMix,sampleRate,partCount());
         for(std::size_t part=0;part<static_cast<std::size_t>(partCount());++part) {
             if(partCaptureRecording && recordSource==static_cast<int>(part)+2)
                 for(std::size_t channel=0;channel<2;++channel)

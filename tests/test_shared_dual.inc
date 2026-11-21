@@ -138,11 +138,12 @@ void testSharedDualLiveZoom()
         for(int part=0;part<2;++part) {
             t->selectSplitPart(part);t->controls.algorithm=static_cast<Engine::PlaybackAlgorithm>(algorithm);
             setParam(t.get(),"field","0.1");setParam(t.get(),"locus",part?"0.75":"0.25");
-            verify(part?.7f:.2f,part?.8f:.3f);
-            renderSplit(*t,4);verify(part?.7f:.2f,part?.8f:.3f);
+            if(Engine::sourceFree(static_cast<Engine::PlaybackAlgorithm>(algorithm)))verify(0,1);else verify(part?.7f:.2f,part?.8f:.3f);
+            renderSplit(*t,4);if(Engine::sourceFree(static_cast<Engine::PlaybackAlgorithm>(algorithm)))verify(0,1);else verify(part?.7f:.2f,part?.8f:.3f);
         }
     }
     assert(t->voices[0].age==aAge&&t->voices[4].age==bAge);
+    t->controls.algorithm=Engine::PlaybackAlgorithm::sample;
     setParam(t.get(),"locus","0");verify(0,.1f);
     setParam(t.get(),"locus","1");verify(.9f,1);
     setParam(t.get(),"field","0.02");verify(.98f,1);

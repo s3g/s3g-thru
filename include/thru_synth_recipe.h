@@ -56,13 +56,16 @@ enum Generator {
   subharmonic,
   hybrid,
   dust,
+  wtDrum,
+  fmDrum,
   generatorCount
 };
+inline bool isDrumType(int type) { return type==drum || type==fmDrum; }
 inline const char *generatorName(int type) {
   static constexpr const char *names[] = {
       "Spline",      "Wave",   "Bloom",    "Resynth", "Partials",
       "Noise Bank",  "FM",     "Convolve", "Drum",    "Pluck",
-      "Subharmonic", "Hybrid", "Dust"};
+      "Subharmonic", "Hybrid", "Dust", "WT Drum", "FM Drum"};
   return type >= 0 && type < generatorCount ? names[type] : names[0];
 }
 enum WaveField {
@@ -334,7 +337,7 @@ inline constexpr std::array<float, 8> pluckMin{20, 30, 0, 0, 0, 0, 0, 0},
     attackMax{1, 4000, 12000, 1, 1, 1, 1, 2},
     attackDefaults{.94f, 4, 80, .12f, 0, 0, .35f, .15f};
 inline bool supportsEvents(int type) {
-  return type == drum || type == bloom || type == partialsType || type == pluck;
+  return isDrumType(type) || type == bloom || type == partialsType || type == pluck;
 }
 
 inline constexpr int detailLockCount = 62;
@@ -349,6 +352,20 @@ inline constexpr std::array<Spectrum, 4> partialDefaults{
      {1, 0, -.5f, 0, .3f, 0, -.2f, 0},
      {1, .7f, .4f, .3f, .2f, .17f, .14f, .1f},
      {1, .6f, .4f, .3f, .2f, .15f, .1f, .07f}}};
+
+// Appended generator: earlier recipe types retain their v10 representation.
+enum WtDrumField {
+  wtModel, wtTune, wtDecay, wtTableA, wtTableB, wtBlend, wtScan, wtImpact,
+  wtPosA, wtPosB, wtRatio, wtFm, wtDetune, wtSub, wtNoise, wtTone,
+  wtBend, wtPitchDecay, wtScanDecay, wtNoiseDecay, wtNoiseColor,
+  wtDrive, wtComp, wtEdge, wtFields
+};
+inline constexpr int wtModelCount = 6, wtTableCount = 8;
+inline constexpr std::array<float, wtFields> wtMin{
+  0,20,20,0,0,0,-1,0, 0,0,.125f,0,0,0,0,0, -48,.25f,.25f,1,0,0,0,.05f},
+  wtMax{5,4000,6000,7,7,1,1,1, 1,1,16,4,50,1,1,1, 60,500,2000,6000,3,1,1,5},
+  wtDefaults{0,48,600,1,2,.18f,.55f,.8f, .1f,.35f,2,.18f,0,.35f,.025f,.85f,
+             32,22,38,18,2,.3f,.45f,.15f};
 
 struct Recipe {
   std::array<float, fields> v = defaults;
@@ -373,6 +390,8 @@ struct Recipe {
                        hybridParams = hybridDefaults, trace = traceDefaults,
                        events = eventDefaults, timing = timingDefaults,
                        drumExtra = attackDefaults, drumColor = colorDefaults;
+  std::array<float, wtFields> wt = wtDefaults;
+  std::uint32_t wtLocks = 3; // Protect model and tuning during mutation.
   std::array<float, dustFields> dustParams = dustDefaults;
   std::uint32_t dustLocks =
       1; // Keep the selected artifact mode during mutation.
@@ -385,6 +404,34 @@ struct Recipe {
                               (1u << 26) | (1u << 29) | (1ULL << 38) |
                               (1ULL << 46) | (1ULL << 54);
 };
+inline void initializeWtDrumModel(Recipe &r, int model) {
+  static constexpr std::array<std::array<float, wtFields>, wtModelCount> starts{{
+    wtDefaults,
+    {1,180,250,2,5,.38f,.65f,.85f, .2f,.45f,1.47f,.35f,5,.05f,.75f,.9f, 9,12,45,180,2,.35f,.4f,.15f},
+    {2,82,650,0,1,.2f,.35f,.65f, .15f,.1f,1.5f,.12f,0,.25f,.035f,.75f, 14,35,95,25,0,.25f,.3f,.2f},
+    {3,1160,105,4,7,.5f,.4f,.65f, .65f,.5f,3.72f,.9f,12,0,.7f,1, 0,4,20,100,2,.22f,.35f,.1f},
+    {4,330,180,5,3,.25f,.35f,.8f, .3f,.55f,2.17f,.18f,6,0,1,.92f, 3,6,28,160,2,.3f,.5f,.15f},
+    {5,490,1400,7,4,.5f,.8f,.7f, .7f,.55f,1.4142f,1.2f,9,0,.12f,.95f, 7,12,160,80,3,.3f,.35f,.2f}
+  }};
+  if (model >= 0 && model < wtModelCount) r.wt = starts[model];
+}
+inline bool wtAvailable(const Recipe &r, int f) {
+  return f >= 0 && f < wtFields &&
+    !(f == wtPitchDecay && r.wt[wtBend] == 0) &&
+    !(f == wtScanDecay && r.wt[wtScan] == 0) &&
+    !((f == wtNoiseDecay || f == wtNoiseColor) && r.wt[wtNoise] == 0) &&
+    !(f == wtDetune && r.v[width] == 0);
+}
+inline bool setWtDrum(Recipe &r, int f, float v) {
+  if (f < 0 || f >= wtFields || !std::isfinite(v)) return false;
+  if (f == wtModel || f == wtTableA || f == wtTableB || f == wtNoiseColor)
+    v = std::round(v);
+  v = std::clamp(v, wtMin[f], wtMax[f]);
+  if (f == wtModel && r.wt[f] != v) initializeWtDrumModel(r, int(v));
+  else r.wt[f] = v;
+  return true;
+}
+
 inline void initializeDrumModel(Recipe &r, int model) {
   static constexpr std::array<std::array<float, 16>, 11> starts{
       {{0, 48, 850, .25f, .04f, .2f, .55f, 0, 24, 45, .1f, .78f, 0, .6f, .4f,
@@ -514,8 +561,12 @@ inline std::size_t eventWindowFrames(const Recipe &r, float rate) {
 }
 inline void initializeGenerator(Recipe &r, int type) {
   r.type = type;
-  if (type == drum)
-    initializeDrumModel(r, 0);
+  if (isDrumType(type))
+    initializeDrumModel(r, type==fmDrum?10:0);
+  if (type == wtDrum) {
+    initializeWtDrumModel(r, 0);
+    r.v[attack] = 0; r.v[release] = 2;
+  }
   if (type == pluck) {
     r.events[eMode] = 1;
     r.v[attack] = 0;
@@ -535,7 +586,7 @@ inline std::array<float, 4> limits(const Recipe &r) {
     return {4, 4, 4, 24};
   if (r.type == subharmonic)
     return {24, 1, 12, 24};
-  if (r.type == convolution || r.type == drum || r.type == pluck ||
+  if (r.type == convolution || isDrumType(r.type) || r.type == wtDrum || r.type == pluck ||
       r.type == subharmonic || r.type == hybrid)
     return {24, 1, 1, 24};
   if (r.type == partialsType)
@@ -552,7 +603,7 @@ inline std::array<float, 4> limits(const Recipe &r) {
                                        : curveLimits;
 }
 inline bool curveAvailable(const Recipe &r, int row) {
-  if ((r.type == convolution || (r.type == drum && r.events[eMode] == 0)) &&
+  if ((r.type == convolution || (isDrumType(r.type) && r.events[eMode] == 0)) &&
       row != 3)
     return false;
   return row >= 0 && row < 4 &&
@@ -713,6 +764,7 @@ inline constexpr std::array<float, drumModelCount> drumTuneLow{
     drumBendHigh{48, 36, 30, 24, 48, 48, 48, 48, 48, 1, 48},
     drumSweepHigh{500, 250, 300, 500, 500, 500, 250, 500, 500, 1, 500};
 inline bool setDrum(Recipe &r, int f, float v) {
+  if(r.type==fmDrum && f==dModel && v!=10) return false;
   if (!std::isfinite(r.drums[dModel]) || r.drums[dModel] < 0 ||
       r.drums[dModel] >= drumModelCount ||
       std::round(r.drums[dModel]) != r.drums[dModel])
@@ -842,9 +894,9 @@ inline bool workshopAvailable(const Recipe &r, int group, int field) {
            !(field == ePan && r.v[width] == 0) &&
            !(field == eLife && r.timing[eClock] > .5f);
   if (group == 6)
-    return r.type == drum && drumAttackAvailable(r, field);
+    return isDrumType(r.type) && drumAttackAvailable(r, field);
   if (group == 7)
-    return r.type == drum && field <= cBlend;
+    return isDrumType(r.type) && field <= cBlend;
   if (group == 5)
     return supportsEvents(r.type) && r.events[eMode] > 0 && field <= eSwing &&
            (field == eClock || r.timing[eClock] > .5f);
@@ -889,6 +941,11 @@ inline bool valid(const Recipe &r) {
       r.drums[dModel] >= drumModelCount ||
       std::round(r.drums[dModel]) != r.drums[dModel])
     return false;
+  if (r.wtLocks >= (1u << wtFields)) return false;
+  for (int f = 0; f < wtFields; ++f) {
+    Recipe c = r;
+    if (!setWtDrum(c, f, r.wt[f]) || c.wt != r.wt) return false;
+  }
   if (r.workshopLocks & ~(((1ULL << 45) - 1) | (4095ULL << 48)))
     return false;
   for (int group = 0; group < 8; ++group)
@@ -901,6 +958,7 @@ inline bool valid(const Recipe &r) {
     }
   if (r.extendedLocks >= (1u << 24))
     return false;
+  if (r.type==fmDrum && r.drums[dModel]!=10) return false;
   if (r.type < 0 || r.type >= generatorCount ||
       r.detailLocks >= (1ULL << detailLockCount))
     return false;
@@ -1146,6 +1204,7 @@ inline void clean(Recipe &r) {
   r.drums[dCharacter] = 0;
   r.drumExtra[xBias] = r.drumExtra[xCompression] = r.drumExtra[xSnap] = 0;
   r.drumColor = colorDefaults;
+  r.wt[wtDrive] = r.wt[wtComp] = r.wt[wtFm] = r.wt[wtDetune] = 0;
   r.dustParams[uClump] = r.dustParams[uFloor] = r.dustParams[uFault] = 0;
   r.dustParams[uBits] = 24;
   r.dustParams[uColor] = 0;
@@ -1220,6 +1279,14 @@ inline void mutateExtra(Recipe &r, float amount, std::uint32_t seed) {
                 ? std::round(random(seed, f + 101) * 3)
                 : r.fmOsc[f] + delta(f + 101) * (fmMax[f] - fmMin[f]) * .2f);
   }
+  if (r.type == wtDrum)
+    for (int f = 0; f < wtFields; ++f)
+      if (!(r.wtLocks & (1u << f)) && wtAvailable(r, f)) {
+        const bool logarithmic = f == wtTune || f == wtDecay || f == wtPitchDecay ||
+                                 f == wtScanDecay || f == wtNoiseDecay || f == wtRatio || f == wtEdge;
+        setWtDrum(r, f, logarithmic ? r.wt[f] * std::exp2(delta(f + 301) * 1.5f)
+            : r.wt[f] + delta(f + 301) * (wtMax[f] - wtMin[f]) * .18f);
+      }
   if (r.type == dust)
     for (int f = 0; f < dustFields; ++f)
       if (!(r.dustLocks & (1u << f)) && dustAvailable(r, f)) {
@@ -1236,9 +1303,10 @@ inline void mutateExtra(Recipe &r, float amount, std::uint32_t seed) {
                        r.conv[f] + delta(f + 111) *
                                        (convolutionMax[f] - convolutionMin[f]) *
                                        .15f);
-  if (r.type == drum)
+  if (isDrumType(r.type))
     for (int f = 0; f < drumFields; ++f)
-      if (!(r.extendedLocks & (1u << (8 + f))) && drumAvailable(r, f))
+      if (!(r.extendedLocks & (1u << (8 + f))) && drumAvailable(r, f) &&
+          !(r.type==fmDrum && f==dModel))
         setDrum(r, f,
                 f == dModel
                     ? std::round(random(seed, 121) * float(drumModelCount - 1))
@@ -1256,7 +1324,7 @@ inline void mutateExtra(Recipe &r, float amount, std::uint32_t seed) {
         (group == 1 && r.type == subharmonic) ||
         (group == 2 && r.type == hybrid) || (group == 3 && r.type == resynth) ||
         ((group == 4 || group == 5) && supportsEvents(r.type)) ||
-        ((group == 6 || group == 7) && r.type == drum);
+        ((group == 6 || group == 7) && isDrumType(r.type));
     if (relevant)
       for (int f = 0; f < 8; ++f)
         if (!(r.workshopLocks & (1ULL << (group * 8 + f))) &&
@@ -1321,7 +1389,7 @@ template <class Emit> inline void serializeRecipe(const Recipe &r, Emit emit) {
     std::memcpy(&bits, &v, 4);
     integer(bits);
   };
-  integer(10);
+  integer(r.type == wtDrum ? 11 : r.type==fmDrum?12:10);
   integer(std::uint32_t(r.type));
   integer(r.seed);
   integer(r.locks);
@@ -1376,12 +1444,16 @@ template <class Emit> inline void serializeRecipe(const Recipe &r, Emit emit) {
   for (float v : r.dustParams)
     scalar(v);
   integer(r.dustLocks);
+  if (r.type == wtDrum) {
+    for (float v : r.wt) scalar(v);
+    integer(r.wtLocks);
+  }
   for (int i = 0; i < 4; ++i)
     emit(std::uint8_t(crc >> (i * 8)));
 }
 inline std::vector<std::uint8_t> encode(const Recipe &r) {
   std::vector<std::uint8_t> out;
-  out.reserve(1408);
+  out.reserve(1508);
   serializeRecipe(r, [&](std::uint8_t b) { out.push_back(b); });
   return out;
 }
@@ -1390,9 +1462,12 @@ inline constexpr std::size_t legacyRecipeBytes = 476, previousRecipeBytes = 892,
                              fifthRecipeBytes = 1088, sixthRecipeBytes = 1256,
                              seventhRecipeBytes = 1288,
                              eighthRecipeBytes = 1324, ninthRecipeBytes = 1356,
-                             recipeBytes = 1408;
+                             recipeBytes = 1408, wtRecipeBytes = 1508, maximumRecipeBytes = wtRecipeBytes;
+inline constexpr std::size_t recipeSize(int type) {
+  return type == wtDrum ? wtRecipeBytes : recipeBytes;
+}
 inline bool decode(const std::uint8_t *data, std::size_t count, Recipe &out) {
-  if (!data || (count != recipeBytes && count != previousRecipeBytes &&
+  if (!data || (count != recipeBytes && count != wtRecipeBytes && count != previousRecipeBytes &&
                 count != thirdRecipeBytes && count != fourthRecipeBytes &&
                 count != fifthRecipeBytes && count != sixthRecipeBytes &&
                 count != seventhRecipeBytes && count != eighthRecipeBytes &&
@@ -1415,7 +1490,9 @@ inline bool decode(const std::uint8_t *data, std::size_t count, Recipe &out) {
         (version == 7 && kind < 12 && count == seventhRecipeBytes) ||
         (version == 8 && kind < 12 && count == eighthRecipeBytes) ||
         (version == 9 && kind < 12 && count == ninthRecipeBytes) ||
-        (version == 10 && kind < generatorCount && count == recipeBytes)))
+        (version == 10 && kind < 13 && count == recipeBytes) ||
+        (version == 11 && kind == wtDrum && count == wtRecipeBytes) ||
+        (version == 12 && kind == fmDrum && count == recipeBytes)))
     return false;
   Recipe next;
   next.type = version == 1 ? spline : int(kind);
@@ -1501,6 +1578,10 @@ inline bool decode(const std::uint8_t *data, std::size_t count, Recipe &out) {
     for (auto &v : next.dustParams)
       v = getFloat();
     next.dustLocks = get();
+  }
+  if (version == 11) {
+    for (auto &v : next.wt) v = getFloat();
+    next.wtLocks = get();
   }
   const std::vector<std::uint8_t> checked(data, data + count - 4);
   if (get() != checksum(checked))

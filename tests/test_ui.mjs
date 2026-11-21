@@ -136,7 +136,7 @@ globalThis.host_module_get_param = (key) => {
         // Match native formatEditorState: sequence controls arrive in seq_state,
         // not in the engine/editor scalar chunks.
         const values = Object.fromEntries(Object.entries(globalThis.__testParams || {})
-            .filter(([key,p]) => !p.momentary&&!key.startsWith('layers_')&&!key.startsWith('seq_')&&key!=='mix_mute')
+            .filter(([key,p]) => !p.lfoField&&!p.momentary&&!key.startsWith('layers_')&&!key.startsWith('seq_')&&!key.startsWith('table_')&&key!=='mix_mute')
             .map(([key,p]) => [key, Number(params[key] ?? p.value)]));
         const split = JSON.parse(params.split_state || '{"enabled":0,"focus":0,"blend":0.5,"parts":[{},{}]}');
         if(!split.enabled||!split.quad)split.parts=split.parts.slice(0,2);
@@ -249,6 +249,7 @@ globalThis.__testRebuildLeds=rebuildLedQueue;
 globalThis.__testPulsar={parse:parsePulsarState,footer:pulsarDurationFooter};
 globalThis.__testSplit = {pages:parameterPages,parse:parseSplitState,keys:activeControlKeys};
 globalThis.__testMode={queue:queueModeChange,service:serviceModeChange,current:currentPerformanceMode,decode:decodeSplitState};
+globalThis.__testSequenceSound={read:readSequenceSound,active:sequenceSoundActive,model:sequenceSoundUi,adjust:adjustSequenceSound};
 globalThis.__testSequence={model:sequenceUi,timing:uiTiming,read:readSequence,cursor:readSequenceCursor,tickGesture:tickSequenceGesture,control:controlForKey,adjust:adjustControl,page:adjustSettingsPage,drain:drainLedQueue};
 globalThis.__testLayers={model:layersUi,read:readLayers,action:applyMomentaryControl,padNote:padMidiNote,control:controlForKey,gesture:layersCornerGesture,tickGesture:tickLayersCornerGesture,pageSide:layersPageSide,iconStates:iconLedStates,groups:LAYERS_FX_GROUPS,order:LAYERS_FX_ORDER,picker:layersPicker,openPicker:openLayersPicker};
 globalThis.__testResetEncoders = resetParameterEncoderMotion;
@@ -288,6 +289,11 @@ globalThis.__testFx = { adjust: adjustFxOrder, sync: syncFxOrder,
 `;
 source += '\nglobalThis.__testSynth={model:synthUi,open:openSynth,read:readSynth,draw:drawSynth,color:synthPadColor,pages:synthGroupPages,allPages:synthPageIds,decode:decodeSynthRecipe,locks:synthLockEntries,actions:synthActions};';
 source += '\nglobalThis.__testSequenceGenerate={ui:sequenceGeneratorUi,open:openSequenceGenerator,close:closeSequenceGenerator,read:readSequenceGenerator,pages:GEN_PAGES,control:generatorControl,draw:drawSequenceGenerator,green:NeonGreen,color:generatorPadColor,position:settingsPagePosition,activate:activatePageEntry};';
+source += '\nglobalThis.__testLfo={model:lfoUi,read:readControlLfos,adjust:adjustControlLfo,draw:drawControlLfo,control:controlLfoForKey,pages:LFO_PAGES,setup:LFO_SETUP_PAGE,trig:SEQUENCE_LFO_PAGE,readLive:readControlLfoLive,display:lfoDisplayControl,openPicker:openLfoDestPicker,handle:handleLfoPickerMidi,groups:lfoDestGroups,rows:lfoPickerRows,drawPicker:drawLfoDestPicker,catalog:LFO_DESTINATIONS};';
+source += '\nglobalThis.__testFm={read:readFm,model:fmUi};';
+source += '\nglobalThis.__testScanned={read:readScanned,model:scannedUi,controls:SCANNED_CONTROLS};';
+source += '\nglobalThis.__testTable={read:readTable,scopes:readTableScope,model:tableUi,controls:TABLE_CONTROLS,variantPages:playbackPagesForAlgorithm};';
+source += '\nglobalThis.__testReadout={read:readPlaybackReadout,model:playbackReadout,display:playbackDisplayControl};';
 await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
 
 assert.equal(typeof globalThis.init, 'function');
@@ -962,7 +968,24 @@ assert([...screenText.values()].some(w=>String(w[2]).includes('FADE AUDIO')),'Re
 globalThis.onMidiMessageInternal([0xB0, 51, 127]);
 assert.equal(exitCount, 0, 'Back closes settings/help before exiting');
 globalThis.onMidiMessageInternal([0xB0, 51, 127]);
-assert.equal(exitCount, 1);
+assert.equal(exitCount, 0, 'Back from Main asks before stopping takeover');
+globalThis.onMidiMessageInternal([0xB0,51,0]);assert(!globalThis.__testFx.state().iconPressed.has(51),'Dialog consumes Back release without leaving its LED held');
+globalThis.tick();assert([...screenText.values()].some(w=>w[2]==='KEEP PLAYING'));
+const safeExitWrites=blockingWrites.length;
+globalThis.onMidiMessageInternal([0xB0, 3, 127]);
+assert.equal(exitCount,0,'Default confirmation keeps the session running');
+assert(!blockingWrites.slice(safeExitWrites).some(([key])=>['all_notes_off','panic','clip_play','record_gate','synth_close'].includes(key)));
+globalThis.onMidiMessageInternal([0xB0,51,127]);globalThis.onMidiMessageInternal([0xB0,51,127]);
+assert.equal(exitCount,0,'Repeated Back cancels rather than confirming exit');
+globalThis.onMidiMessageInternal([0xB0,51,127]);
+globalThis.onMidiMessageInternal([0x90,68,100]);globalThis.onMidiMessageInternal([0x80,68,0]);
+assert(globalThis.__testFx.state().exitConfirmation,'Note on/off must keep the dialog and playing session intact');
+globalThis.onMidiMessageInternal([0xB0,50,127]);
+assert.equal(globalThis.__testFx.state().exitConfirmation,null);assert.equal(exitCount,0,'Menu cancels exit');
+globalThis.onMidiMessageInternal([0xB0,51,127]);globalThis.onMidiMessageInternal([0xB0,14,1]);
+globalThis.onMidiMessageInternal([0xB0,3,127]);globalThis.onMidiMessageInternal([0xB0,3,127]);
+assert.equal(exitCount,1,'Only explicit Exit + click leaves; duplicate clicks are harmless');
+console.log('s3g Thru exit confirmation: safe default, cancel/repeated Back, no audio/transport stop before confirmation and single deliberate host exit: PASS');
 
 globalThis.onUnload();
 assert(blockingWrites.some((write) => write[0] === 'all_notes_off'));
@@ -4164,11 +4187,12 @@ if(process.env.S3G_THRU_UNIT_FIXTURE){
    fixture.type??=0;fixture.osc??=[0,.5,0,0,20000,0,0];fixture.packets??=[0,0,8,150,.2,10,20,120,.2,.2,.2,0,.1,0,0,1];fixture.mod??=[0,.5,0,1,0,0,0];fixture.spectral??=[0,0,0,1,0,0,24,-96];fixture.protected??='0'.repeat(62);
    fixture.additive??=[16,0,1,0,0,0,.5,0];fixture.noise??=[8,3,0,1,0,0,.5,0];fixture.fmOsc??=[0,1,1,2,0,0,0,1];
    fixture.plucked??=[110,1200,.35,.65,.08,.35,.1,8];fixture.sub??=[8,4,.25,-6,0,0,.25,0];fixture.hybridParams??=[0,2,0,.8,.65,.35,140,.1];fixture.trace??=[0,1,120,0,0,144,.5,0];fixture.events??=[0,8,1,0,0,500,0,.35];fixture.timing??=[1,120,5,.7,0,0,0,0];fixture.drumExtra??=[.94,4,80,.12,0,0,.35,.15];fixture.drumColor??=[24,48000,20000,1,0,0,0,0];fixture.dustParams??=[0,20,1.2,.2,10000,0,16,.75,0,0,1,.25];fixture.dustProtected??='100000000000';fixture.inputs??=[];
+   fixture.wt??=[0,48,600,1,2,.18,.55,.8,.1,.35,2,.18,0,.35,.025,.85,32,22,38,18,2,.3,.45,.15];fixture.wtProtected??='11'+'0'.repeat(22);
    fixture.workProtected??=Array.from({length:64},(_,i)=>[0,8,9,16,17,24,32,33,40,41,42,43,44,54,55,56,57,58,59].includes(i)?'1':'0').join('');
    fixture.conv??=[0,12000,0,1000,0,0,1,1];fixture.drums??=[0,48,600,.7,.25,.2,.5,0,12,40,.3,.4,0,.6,.4,.7];fixture.extendedLocks??=0x10f;
    fixture.partials??=Array.from({length:8},(_,i)=>[i+1,i?0:1]);fixture.partial_masks??=[1,1,1,1];fixture.spectrum??=0;fixture.component??=0;
    if(key==='synth_type'){fixture.type=Number(value);fixture.row=fixture.point=0;}
-   for(const [command,name] of [['synth_wave','osc'],['synth_bloom','packets'],['synth_mod','mod'],['synth_resynth','spectral'],['synth_additive','additive'],['synth_noise','noise'],['synth_fm','fmOsc'],['synth_conv','conv'],['synth_drum','drums'],['synth_pluck','plucked'],['synth_sub','sub'],['synth_hybrid','hybridParams'],['synth_trace','trace'],['synth_events','events'],['synth_timing','timing'],['synth_attack','drumExtra'],['synth_color','drumColor'],['synth_dust','dustParams']])if(key===command){const [field,v]=String(value).split(',').map(Number);fixture[name][field]=v;}
+   for(const [command,name] of [['synth_wave','osc'],['synth_bloom','packets'],['synth_mod','mod'],['synth_resynth','spectral'],['synth_additive','additive'],['synth_noise','noise'],['synth_fm','fmOsc'],['synth_conv','conv'],['synth_drum','drums'],['synth_pluck','plucked'],['synth_sub','sub'],['synth_hybrid','hybridParams'],['synth_trace','trace'],['synth_events','events'],['synth_timing','timing'],['synth_attack','drumExtra'],['synth_color','drumColor'],['synth_dust','dustParams'],['synth_wt','wt']])if(key===command){const [field,v]=String(value).split(',').map(Number);fixture[name][field]=v;}
    if(key==='synth_spec_select'){const [row,point]=String(value).split(',').map(Number);fixture.spectrum=row;fixture.component=point;}
    if(key==='synth_spec_edit'){const [row,point,field,v]=String(value).split(',').map(Number);fixture.spectrum=row;fixture.partials[point][field]=v;}
    if(key==='synth_detail_lock'){const field=Number(value),bits=fixture.protected.split('');bits[field]=bits[field]==='1'?'0':'1';fixture.protected=bits.join('');}
@@ -4178,6 +4202,7 @@ if(process.env.S3G_THRU_UNIT_FIXTURE){
    if(key==='synth_impulse_file')fixture.impulse='Impulse.wav';
    if(/^synth_hybrid[0-3]_file$/.test(key))fixture.inputs[Number(key[12])]='Source '+String.fromCharCode(65+Number(key[12]))+'.wav';
    if(key==='synth_work_lock'){const bits=fixture.workProtected.split(''),f=Number(value);bits[f]=bits[f]==='1'?'0':'1';fixture.workProtected=bits.join('');}
+   if(key==='synth_wt_lock'){const bits=fixture.wtProtected.split(''),f=Number(value);bits[f]=bits[f]==='1'?'0':'1';fixture.wtProtected=bits.join('');}
    if(key==='synth_dust_lock'){const bits=fixture.dustProtected.split(''),f=Number(value);bits[f]=bits[f]==='1'?'0':'1';fixture.dustProtected=bits.join('');}
    if(key==='synth_extended_lock')fixture.extendedLocks^=1<<Number(value);
    if(key==='synth_open')fixture.open=1;
@@ -4247,7 +4272,7 @@ if(process.env.S3G_THRU_UNIT_FIXTURE){
    cc(51);assert.equal(ui.model.overlay,'nav');cc(51);assert.equal(state.view,'pages');assert.equal(state.pageCategory,1);assert.equal(fixture.open,0);
    ui.open();cc(52);cc(50);cc(52,0);assert.equal(state.view,'pages');assert.equal(state.pageTier,'hub');assert.equal(fixture.open,0);
    // TYPE and all new controls use their own transient commands and contextual pages.
-   ui.open();fixture.type=1;params.synth_state=JSON.stringify(fixture);ui.read();ui.model.page=0;globalThis.__testResetEncoders();cc(71,124);assert.equal(fixture.type,1);
+   ui.open();fixture.type=1;params.synth_state=JSON.stringify(fixture);ui.read();ui.model.page=0;globalThis.__testResetEncoders();cc(71,124);assert.equal(fixture.type,8);fixture.type=1;params.synth_state=JSON.stringify(fixture);ui.read();
    assert.equal(ui.pages().length,2);ui.model.page=1;
    let before=blockingWrites.length;globalThis.__testResetEncoders();cc(72,8);cc(76,8);
    assert(!blockingWrites.slice(before).some(([k])=>k==='synth_wave'),'inactive pulse width and resonance are inert');
@@ -4255,7 +4280,7 @@ if(process.env.S3G_THRU_UNIT_FIXTURE){
    before=blockingWrites.length;globalThis.__testResetEncoders();cc(72,4);assert(blockingWrites.slice(before).some(([k,v])=>k==='synth_wave'&&v.startsWith('1,')));
    ui.model.page=5;fixture.mod[2]=0;params.synth_state=JSON.stringify(fixture);ui.read();before=blockingWrites.length;cc(72,8);assert.equal(blockingWrites.length,before);
    globalThis.__testResetEncoders();cc(73,4);assert(fixture.mod[2]>0);before=blockingWrites.length;cc(72,4);assert(blockingWrites.slice(before).some(([k,v])=>k==='synth_mod'&&v.startsWith('1,')));
-   fixture.type=0;params.synth_state=JSON.stringify(fixture);ui.read();ui.model.page=0;globalThis.__testResetEncoders();cc(71,4);assert.equal(fixture.type,2);assert.equal(ui.pages().length,6);
+   fixture.type=0;params.synth_state=JSON.stringify(fixture);ui.read();ui.model.page=0;globalThis.__testResetEncoders();cc(71,4);assert.equal(fixture.type,8);fixture.type=2;params.synth_state=JSON.stringify(fixture);ui.read();assert.equal(ui.pages().length,6);
    ui.model.page=6;before=blockingWrites.length;globalThis.__testResetEncoders();cc(78,4);assert(blockingWrites.slice(before).some(([k,v])=>k==='synth_bloom'&&v.startsWith('15,')));
    ui.model.page=7;pad(17);pad(17,false);assert.equal(fixture.spectrum,1);assert.equal(fixture.component,1);
    before=blockingWrites.length;globalThis.__testResetEncoders();cc(75,4);cc(76,4);cc(78,4);
@@ -4283,15 +4308,26 @@ if(process.env.S3G_THRU_UNIT_FIXTURE){
      }
    }
    // TYPE walks the musical presentation order while sending stable recipe IDs.
-   const typeOrder=[[1,'WAVE'],[8,'DRUM'],[9,'PLUCK'],[4,'PART'],[5,'NOISE'],[12,'DUST'],[6,'FM'],[10,'SUB'],[0,'SPLN'],[2,'BLOOM'],[3,'RSYN'],[11,'HYBR'],[7,'CONV']];
+   const typeOrder=[[8,'DRUM'],[4,'PART'],[5,'NOISE'],[12,'DUST'],[10,'SUB'],[2,'BLOOM'],[3,'RSYN'],[11,'HYBR'],[7,'CONV']];
    const selectType=id=>{fixture.type=id;params.synth_state=JSON.stringify(fixture);ui.read();ui.model.page=0;ui.model.overlay='';};
    const assertType=(id,label)=>{assert.equal(fixture.type,id);const at=drawWrites.length;ui.draw();assert(drawWrites.slice(at).some(w=>w[0]==='print'&&w[3]===label),'stable recipe ID displays '+label);};
    selectType(typeOrder[0][0]);
    for(const [i,[id,label]] of typeOrder.entries()){if(i){globalThis.__testResetEncoders();cc(71,4);}assertType(id,label);}
    globalThis.__testResetEncoders();cc(71,4);assertType(7,'CONV');
    for(const [id,label] of [...typeOrder].reverse().slice(1)){globalThis.__testResetEncoders();cc(71,124);assertType(id,label);}
-   globalThis.__testResetEncoders();cc(71,124);assertType(1,'WAVE');
+   globalThis.__testResetEncoders();cc(71,124);assertType(8,'DRUM');
    for(const [id,label] of typeOrder){selectType(id);assertType(id,label);}
+   selectType(13);assert.deepEqual(ui.pages(),[0,1,6,13]);
+   for(const [page,title,labels] of [[1,'WT DRUM',['MODL','TUNE','DEC','WT A','WT B','MIX','SCAN','HIT']],[6,'WT OSC',['POSA','POSB','RATI','PM','SUB','NOIS','TONE']],[13,'WT SHAPE',['BEND','PDEC','SDEC','NDEC','COLR','DRIV','COMP','EDGE']]]){
+     ui.model.page=page;let at=drawWrites.length;ui.draw();const frame=drawWrites.slice(at);assert(frame.some(w=>w[0]==='print'&&w[3]===title));for(const label of labels)assert(frame.some(w=>w[0]==='print'&&w[3]===label),label);
+     for(const knob of [0,1,2,3,4,5,6,7]){if(page===6&&knob===4)continue;const start=blockingWrites.length;globalThis.__testResetEncoders();cc(71+knob,4);assert(blockingWrites.slice(start).some(([k,v])=>k==='synth_wt'&&v.startsWith(((page===1?0:page===6?8:16)+knob)+',')));}
+   }
+   ui.model.overlay='locks';ui.model.selection=ui.locks().findIndex(e=>e.family==='wt_lock'&&e.field===22);assert(ui.model.selection>=0);const wtBit=fixture.wtProtected[22];cc(3);assert.notEqual(fixture.wtProtected[22],wtBit);ui.model.overlay='';
+   ui.model.overlay='actions';ui.model.selection=0;let wtAt=blockingWrites.length;cc(3);assert(blockingWrites.slice(wtAt).some(([k])=>k==='synth_wt_start'));
+   fixture.wt[6]=0;fixture.wt[16]=0;fixture.wt[14]=0;params.synth_state=JSON.stringify(fixture);ui.read();ui.model.page=13;wtAt=blockingWrites.length;globalThis.__testResetEncoders();cc(72,8);cc(73,8);cc(74,8);cc(75,8);assert.equal(blockingWrites.length,wtAt);
+   // Keyboard curve rows retain their own original labels for this generator.
+   for(const [row,label] of ['PITCH','TABLE','TONE','LEVEL'].entries()){fixture.row=row;params.synth_state=JSON.stringify(fixture);ui.read();ui.model.page=2;const at=drawWrites.length;ui.draw();assert(drawWrites.slice(at).some(w=>w[0]==='print'&&w[3]==='CURVE '+label));}
+   selectType(7);ui.model.groupMemory[1]=5;
    // Menu groups retain the editing page, and Up/Down stay inside the active group.
    ui.model.page=1;ui.model.overlay='';cc(50);assert.equal(ui.model.overlay,'nav');cc(14,1);cc(3);assert.equal(ui.model.page,5);assert.equal(ui.model.overlay,'');cc(54);assert.equal(ui.model.page,2);cc(54);assert.equal(ui.model.page,3);cc(54);assert.equal(ui.model.page,3);
    cc(50);ui.model.selection=0;cc(3);assert.equal(ui.model.page,1);cc(50);ui.model.selection=1;cc(3);assert.equal(ui.model.page,3);
@@ -4356,8 +4392,15 @@ if(process.env.S3G_THRU_UNIT_FIXTURE){
    ui.model.page=14;assert(ui.pages().includes(14));{const at=drawWrites.length;ui.draw();for(const text of ['DRIV','COMP','BITS','RATE','TONE','MIX'])assert(drawWrites.slice(at).some(w=>w[0]==='print'&&w[3]===text),text);}
    before=blockingWrites.length;globalThis.__testResetEncoders();cc(71,4);cc(73,4);cc(75,124);cc(76,124);cc(77,124);cc(78,124);assert(blockingWrites.slice(before).some(([k,v])=>k==='synth_drum'&&v.startsWith('7,')));assert(blockingWrites.slice(before).some(([k,v])=>k==='synth_attack'&&v.startsWith('5,')));for(const field of [0,1,2,3])assert(blockingWrites.slice(before).some(([k,v])=>k==='synth_color'&&v.startsWith(field+',')));
    fixture.drums=[10,80,650,.8,.025,.3,.7,0,24,30,1.5,.12,0,.35,.35,0];params.synth_state=JSON.stringify(fixture);ui.read();ui.model.page=6;{const at=drawWrites.length;ui.draw();for(const text of ['RATI','FDBK','WAVE','FM','FDEC','MOD'])assert(drawWrites.slice(at).some(w=>w[0]==='print'&&w[3]===text),text);}
+   selectType(14);fixture.drums=[10,80,650,.8,.025,.3,.7,0,24,30,1.5,.12,0,.35,.35,0];params.synth_state=JSON.stringify(fixture);ui.read();
+   for(const [page,title,keys] of [[1,'FM DRUM',[['drum',1],['drum',2],['drum',3],['drum',6],['drum',10],['drum',13],['drum',12],['drum',14]]],[6,'FM SHAPE',[['drum',8],['drum',9],['drum',11],['drum',15],['drum',4],['drum',5],['attack',1],['attack',2]]],[13,'FM ATTACK',[['attack',0],['attack',6],['attack',7]]]]){
+     ui.model.page=page;let at=drawWrites.length;ui.draw();assert(drawWrites.slice(at).some(w=>w[0]==='print'&&w[3]===title));
+     for(const [i,[family,field]]of keys.entries()){const start=blockingWrites.length;globalThis.__testResetEncoders();cc(71+i,4);assert(blockingWrites.slice(start).some(([k,v])=>k==='synth_'+family&&v.startsWith(field+',')),page+':'+family+':'+field);}
+   }
+   selectType(8);fixture.drums[0]=9;params.synth_state=JSON.stringify(fixture);ui.read();ui.model.page=1;before=blockingWrites.length;globalThis.__testResetEncoders();cc(71,4);assert(!blockingWrites.slice(before).some(([k,v])=>k==='synth_drum'&&v==='0,10'));
+   const savedAmount=ui.model.amount;ui.model.amount=0;before=blockingWrites.length;cc(49);cc(58);cc(58,0);cc(49,0);assert(!blockingWrites.slice(before).some(([k])=>k==='synth_mutate'||k==='synth_render'));assert.equal(ui.model.notice,'RANDOM AMT IS ZERO');ui.model.amount=savedAmount;
    // Every generator and every page has the same bounded randomize shortcut.
-   for(let type=0;type<13;++type){selectType(type);for(const page of ui.pages()){ui.model.page=page;ui.model.overlay='';before=blockingWrites.length;cc(49);cc(58);cc(58,0);cc(49,0);assert.equal(blockingWrites.slice(before).filter(([k])=>k==='synth_mutate').length,1);assert(!blockingWrites.slice(before).some(([k])=>k==='synth_preview'||k==='synth_save'));assert.equal(ui.model.page,page);}}
+   for(let type=0;type<15;++type){selectType(type);for(const page of ui.pages()){ui.model.page=page;ui.model.overlay='';before=blockingWrites.length;cc(49);cc(58);cc(58,0);cc(49,0);assert.equal(blockingWrites.slice(before).filter(([k])=>k==='synth_mutate').length,1);assert.equal(blockingWrites.slice(before).filter(([k])=>k==='synth_render').length,1);assert(!blockingWrites.slice(before).some(([k])=>k==='synth_preview'||k==='synth_save'));assert.equal(ui.model.page,page);}}
    ui.model.overlay='name';before=blockingWrites.length;cc(49);cc(58);cc(58,0);cc(49,0);assert(!blockingWrites.slice(before).some(([k])=>k==='synth_mutate'));ui.model.overlay='';
    selectType(12);assert.deepEqual(ui.pages(),[0,1,6]);ui.model.page=1;{const at=drawWrites.length;ui.draw();for(const text of ['MODE','RATE','SIZE','CLMP','TONE','EDGE','BITS','VAR'])assert(drawWrites.slice(at).some(w=>w[0]==='print'&&w[3]===text),text);}
    before=blockingWrites.length;globalThis.__testResetEncoders();for(let i=71;i<=78;++i)cc(i,4);assert.equal(blockingWrites.slice(before).filter(([k])=>k==='synth_dust').length,8);
@@ -4377,10 +4420,16 @@ if(process.env.S3G_THRU_UNIT_FIXTURE){
    assert(!blockingWrites.slice(filesStart).some(([key])=>key==='load_lane_file'||key==='record_lane'||key==='synth_close'));
    ui.model.overlay='locks';ui.model.selection=ui.locks().findIndex(e=>e.family==='work_lock'&&e.field===17);assert(ui.model.selection>=0);const protectedSources=fixture.workProtected[17];cc(3);assert.notEqual(fixture.workProtected[17],protectedSources);ui.model.overlay='';
    ui.model.overlay='name';ui.model.name='Quick Hit';before=blockingWrites.length;cc(86);assert.equal(ui.model.overlay,'');assert.equal(fixture.name,'Quick Hit');const commit=blockingWrites.slice(before);assert(commit.findIndex(([k])=>k==='synth_name')<commit.findIndex(([k])=>k==='synth_save'));
+   // Capture alone renders on release; its navigation chords never render.
+   ui.model.overlay='';state.focusButtonHeld=false;state.focusButtonUsed=false;state.shiftHeld=false;state.deleteHeld=false;
+   before=blockingWrites.length;cc(52);assert(!blockingWrites.slice(before).some(([k])=>k==='synth_render'));cc(52,0);assert.equal(blockingWrites.slice(before).filter(([k])=>k==='synth_render').length,1);
+   before=blockingWrites.length;cc(52);cc(50);cc(52,0);assert(!blockingWrites.slice(before).some(([k])=>k==='synth_render'));assert.equal(state.view,'pages');ui.open();
+   // Persisted native preferences restore the actual page and Random settings.
+   fixture.type=8;params.synth_state=JSON.stringify(fixture);params.synth_editor='8,14,14,2,4,0.37,-1,1,0';ui.open();assert.equal(ui.model.page,14);assert.equal(ui.model.amount,.37);assert.equal(ui.model.keepEnds,false);fixture.type=4;fixture.row=1;params.synth_state=JSON.stringify(fixture);params.synth_editor='4,3,0,3,4,0.5,-31,31,1';ui.open();assert.equal(ui.model.row,1);assert.equal(ui.model.low,-31);assert.equal(ui.model.high,31);delete params.synth_editor;
    // Decode real callback snapshots for every generator, including both source states.
    if(process.env.S3G_THRU_SYNTH_TYPES_FIXTURE){
      const frames=JSON.parse(fs.readFileSync(process.env.S3G_THRU_SYNTH_TYPES_FIXTURE,'utf8'));assert(frames.length>=11);
-     for(const {label,frame} of frames){params.synth_state=JSON.stringify(frame);ui.read();assert(ui.model.data.type>=0&&ui.model.data.type<=12,label);
+     for(const {label,frame} of frames){params.synth_state=JSON.stringify(frame);ui.read();assert(ui.model.data.type>=0&&ui.model.data.type<=14,label);
        for(const page of ui.allPages()){ui.model.page=page;const start=drawWrites.length;ui.draw();assert(hasRightFraction(drawWrites.slice(start),(ui.pages().indexOf(page)+1)+'/'+ui.pages().length),label);}
        if(label==='bloom'){assert(Math.abs(ui.model.data.partials[2][0]-2.76)<1e-5);assert.equal(ui.model.data.protected[37],'1');}
        if(label==='resynth-empty')assert.equal(ui.model.data.source,'');if(label==='resynth-ready')assert(ui.model.data.source.length>0);
@@ -4390,6 +4439,239 @@ if(process.env.S3G_THRU_UNIT_FIXTURE){
    browseFrames();assert.equal(fixture.open,0,'leaving Synth still closes the native tool');
    fixture.type=7;params.synth_state=JSON.stringify(fixture);ui.open();ui.model.overlay='actions';ui.model.selection=0;cc(3);browseFrames();assert.equal(fixture.open,1);
    state.view='main';browseFrames();assert.equal(fixture.open,0);assert.equal(ui.model.browserTarget,'','leaving the picker clears its source target');
-   console.log('s3g Thru Synth UI: thirteen generator types in basic-to-advanced order with stable recipe IDs, grouped navigation, safe dual file picks across display refreshes, cancellation and cleanup, commit shortcuts, 32-component banks, contextual controls, native recipe codec, generator-aware page fractions, PT encoder/pad selection, unchanged recipe on navigation, inactive endpoint controls, hollow marker, curve editing, copy/paste/delete, destination, preview, pad naming and Back: PASS');
+   console.log('s3g Thru Synth UI: nine public render types and six legacy recipe decoders with stable recipe IDs, grouped navigation, safe dual file picks across display refreshes, cancellation and cleanup, commit shortcuts, 32-component banks, contextual controls, native recipe codec, generator-aware page fractions, PT encoder/pad selection, unchanged recipe on navigation, inactive endpoint controls, hollow marker, curve editing, copy/paste/delete, destination, preview, pad naming and Back: PASS');
  }finally{globalThis.host_module_set_param_blocking=originalSet;}
+}
+
+{
+ const state=globalThis.__testFx.state(),ui=globalThis.__testLfo,oldSet=globalThis.host_module_set_param_blocking;
+ const id=key=>ui.catalog.find(d=>d.key===key).id;
+ Object.assign(state,{view:'settings',splitEnabled:true,splitFocus:0,quadMode:false,bankMode:false,sharedDual:false,editorReady:true,algorithm:4,clipPlaying:false,clipRecording:false});globalThis.__testParams.split_mode.value=1;
+ globalThis.__testLayers.model.active=false;globalThis.__testSequence.model.active=false;
+ const d={selected:0,part:0,primary:4,values:Array.from({length:8},()=>[0,0,0,1,0,0,0,10,0,0,-1]),parts:[0,1,4],engines:[-1,4],allowed:[0,id('speed'),id('part_level'),id('part_pan'),id('effect_tone'),id('effect_drive')],trig:[]};
+ params.lfo_state=JSON.stringify(d);params.lfo_live=JSON.stringify({owner:0,v:[],phase:Array(8).fill(.2),output:Array(8).fill(0)});ui.read();ui.readLive();
+ state.settingsPage=globalThis.__testSplit.pages().findIndex(p=>p.title==='LFO');
+ globalThis.host_module_set_param_blocking=(key,value)=>{blockingWrites.push([key,String(value)]);if(key==='lfo_select')d.selected=Number(value)-1;const m=key.match(/^lfo([1-8])_(.+)$/),f=['dest','wave','clock','rate','depth','mode','phase','smooth','flow','target','engine','offset'];if(m)d.values[Number(m[1])-1][f.indexOf(m[2])]=Number(value);params.lfo_state=JSON.stringify(d);};
+ try{
+  globalThis.__testResetEncoders();ui.adjust(0,20);assert.equal(d.selected,7);assert.deepEqual(blockingWrites.at(-1),['lfo_select','8']);
+  globalThis.__testResetEncoders();ui.adjust(1,2);assert.deepEqual(blockingWrites.at(-1),['lfo8_target','1']);assert.equal(state.splitFocus,0);assert.equal(d.values[0][9],0);
+  const before=blockingWrites.filter(([k])=>/^lfo[1-8]_dest$/.test(k)).length;globalThis.__testResetEncoders();ui.adjust(2,2);assert.equal(state.view,'lfoDest');assert.equal(blockingWrites.filter(([k])=>/^lfo[1-8]_dest$/.test(k)).length,before,'browsing never changes the active route');
+  const group=ui.groups().findIndex(g=>g.name==='ENGINE');assert(group>0);ui.handle(0xb0,14,group);ui.handle(0xb0,3,127);assert.equal(ui.model.picker.stage,'params');assert(ui.rows().some(r=>r.name==='Speed'));
+  const drawAt=drawWrites.length;ui.drawPicker();assert(drawWrites.slice(drawAt).some(w=>w[0]==='print'&&w[3]==='Speed'),'picker uses the full parameter name');
+  ui.handle(0xb0,3,127);assert.equal(state.view,'settings');assert.equal(d.values[7][0],id('speed'));assert.equal(d.values[0][0],0);
+  ui.openPicker();ui.handle(0xb0,50,127);assert.equal(state.view,'settings');assert.equal(d.values[7][0],id('speed'));
+  ui.openPicker();d.selected=0;params.lfo_state=JSON.stringify(d);ui.read();assert.equal(state.view,'settings','remote slot changes close a stale picker');assert.equal(ui.model.picker,null);d.selected=7;params.lfo_state=JSON.stringify(d);ui.read();
+  d.values[7][11]=0;params.lfo_state=JSON.stringify(d);ui.read();state.settingsPage=globalThis.__testSplit.pages().findIndex(p=>p.title==='LFO SETUP');assert.equal(ui.control('lfo8_offset').labels[0],'BASE');const ofstStart=blockingWrites.length;globalThis.__testResetEncoders();ui.adjust(5,4);assert(blockingWrites.slice(ofstStart).some(([k,v])=>k==='lfo8_offset'&&v==='1'));assert.equal(ui.control('lfo8_offset').value,1);
+  const c=ui.control('lfo8_rate');assert.equal(globalThis.__testNextControlValue(c,1),1.5);
+  d.values[7][0]=id('grain_size');params.lfo_state=JSON.stringify(d);ui.read();assert.equal(globalThis.__testFormatControlValue(ui.control('lfo8_dest')),'□');assert(!ui.groups().some(g=>g.name==='GRAINS MAIN'));
+  d.values[7][0]=id('speed');d.values[7][9]=0;d.values[7][5]=2;d.trig=[3<<14,255,...Array.from({length:8},(_,i)=>[i===7?.5:1,i===7?.6:0]).flat()];params.lfo_state=JSON.stringify(d);globalThis.__testSequence.model.active=true;ui.read();assert.equal(ui.control('seq_lfo8_depth').value,.6);
+  state.settingsPage=globalThis.__testSplit.pages().findIndex(p=>p.title==='TRIG LFO');state.deleteHeld=true;ui.adjust(2,1);assert.deepEqual(blockingWrites.at(-1),['seq_lfo8_rate','reset']);state.deleteHeld=false;
+  d.values.forEach(v=>v[0]=0);params.lfo_state=JSON.stringify(d);ui.read();assert(!globalThis.__testSplit.pages().some(p=>p.title==='TRIG LFO'));assert.equal(globalThis.__testSplit.pages()[state.settingsPage].title,'LFO');
+  // An unavailable engine filter is recoverable even with DEST Off or FX.
+  globalThis.__testSequence.model.active=false;
+  d.values[7][0]=0;d.values[7][9]=0;d.values[7][10]=2;params.lfo_state=JSON.stringify(d);ui.read();
+  assert(ui.control('lfo8_engine'),'ENG remains editable when DEST Off and saved filter is unloaded');
+  state.settingsPage=globalThis.__testSplit.pages().findIndex(p=>p.title==='LFO SETUP');
+  globalThis.__testResetEncoders();ui.adjust(1,-4);assert.equal(d.values[7][10],-1);
+  const restoreAllowed=[...d.allowed];d.primary=13;d.engines=[-1,13];
+  d.allowed=[id('part_level'),id('effect_tone'),0,id('speed'),id('locus'),id('field'),...ui.catalog.filter(x=>x.page==='STOCHASTIC').map(x=>x.id)];
+  params.lfo_state=JSON.stringify(d);ui.read();
+  assert.deepEqual(ui.groups().slice(0,3).map(x=>x.name),['Off','ENGINE','STOCHASTIC']);
+  assert.deepEqual(ui.groups()[1].ids.slice(0,3).map(x=>ui.catalog[x].key),['locus','field','speed']);
+  ui.openPicker();ui.model.picker.group=2;ui.model.picker.stage='params';
+  assert.equal(ui.rows()[0].name,'Source Group Size');assert(ui.rows().some(x=>x.name==='Evolution Rate'));
+  d.values[7][10]=13;params.lfo_state=JSON.stringify(d);ui.read();assert.equal(state.view,'settings','engine changes close a stale picker');
+  d.primary=4;d.engines=[-1,4];d.allowed=restoreAllowed;d.values[7][10]=-1;params.lfo_state=JSON.stringify(d);ui.read();
+  // Read-only animation uses actual native target units, while a dial edits its saved base.
+  globalThis.__testSequence.model.active=false;state.splitFocus=1;state.algorithm=2;globalThis.__testParams.algorithm.value=2;state.view='settings';state.editorReady=true;
+  globalThis.__testParams.grain_size.value=90;const native=process.env.S3G_THRU_LFO_FIXTURE?JSON.parse(fs.readFileSync(process.env.S3G_THRU_LFO_FIXTURE,'utf8')):null;
+  params.lfo_live=JSON.stringify(native?.live||{owner:1,v:[[1,'grain_size',180,90],[1,'seq_pan_2',.5,0]],phase:Array(8).fill(.2),output:Array(8).fill(.3)});ui.readLive();
+  const base=globalThis.__testLayers.control('grain_size');assert.equal(base.value,90);assert.equal(ui.display(base).value,180);assert.equal(globalThis.__testParams.grain_size.value,90);assert.equal(globalThis.__testCompactControlValue(base),'180');
+  state.settingsPage=globalThis.__testSplit.pages().findIndex(p=>p.title==='GRAINS MAIN');const at=drawWrites.length;globalThis.__testFx.draw();assert(drawWrites.slice(at).some(w=>w[0]==='rect'&&w[1]===60&&w[3]===3&&w[4]===3),'modulated field carries a solid marker');
+  const writes=paramWrites.length;globalThis.__testResetEncoders();globalThis.__testSequence.adjust(1,2);const change=paramWrites.slice(writes).find(([key])=>key==='grain_size');assert(change&&Number(change[1])>90&&Number(change[1])<110,'manual edits start from the saved base, not the moving 180ms value');
+  state.splitFocus=0;assert.equal(ui.display(base),base,'stale other-part snapshots cannot paint the current part');
+  assert(!ui.catalog.some(d=>d.key==='pitch'||d.key==='manual_lane'||d.key==='lane_cycles'));
+  console.log('s3g Thru shared LFO UI: eight-slot assignment, independent target/focus, full-name grouped picker, explicit Apply/Back, conditional engine options/trig locks, real native moving values, modulation markers and base-value edits: PASS');
+ }finally{globalThis.host_module_set_param_blocking=oldSet;state.deleteHeld=false;}
+}
+
+{
+ const state=globalThis.__testFx.state(),ui=globalThis.__testReadout,lfo=globalThis.__testLfo,p=globalThis.__testParams;
+ const registry=JSON.parse(fs.readFileSync(new URL('../controllers/midi/parameters.json',import.meta.url),'utf8')).parameters;
+ const id=key=>registry.find(q=>q.key===key).id;
+ Object.assign(state,{view:'settings',splitEnabled:false,splitFocus:0,quadMode:false,bankMode:false,sharedDual:false,algorithm:2,clipPlaying:true,clipRecording:false,activeClip:0,editorReady:true});
+ globalThis.__testLayers.model.active=false;globalThis.__testSequence.model.active=false;p.split_mode.value=0;p.voice_engine_edit.value=1;p.algorithm.value=2;p.grain_size.value=90;
+ lfo.model.live={owner:0,v:[]};
+ const fixture=process.env.S3G_THRU_PLAYBACK_FIXTURE?JSON.parse(fs.readFileSync(process.env.S3G_THRU_PLAYBACK_FIXTURE,'utf8')):null;
+ let d=fixture||{owner:0,clip:0,playing:1,entry:0,corner:0,values:[[0,id('grain_size'),90]],playback:[[0,id('grain_size'),150]]};
+ params.midi_state=JSON.stringify(d);ui.read();
+ const base=globalThis.__testLayers.control('grain_size');assert.equal(ui.display(base).value,150);assert.equal(ui.display(base).baseValue,90);assert.equal(p.grain_size.value,90);
+ assert.equal(globalThis.__testCompactControlValue(base),'150');
+ state.settingsPage=globalThis.__testSplit.pages().findIndex(q=>q.title==='GRAINS MAIN');let at=drawWrites.length;globalThis.__testFx.draw();
+ assert(drawWrites.slice(at).some(w=>w[0]==='rect'&&w[1]===60&&w[2]===13&&w[3]===3&&w[4]===3),'automation has its small marker');
+ assert(drawWrites.slice(at).some(w=>w[0]==='rect'&&w[1]===61&&w[2]===14&&w[3]===1&&w[4]===1&&w[5]===0),'automation marker is hollow');
+ let start=paramWrites.length;globalThis.__testResetEncoders();globalThis.__testSequence.adjust(1,2);const change=paramWrites.slice(start).find(([key])=>key==='grain_size');assert(change&&Number(change[1])>90&&Number(change[1])<110,'manual edit uses saved base, never displayed automation');
+ p.grain_size.value=90;lfo.model.live={owner:0,v:[[0,'grain_size',300,150]]};assert.equal(lfo.display(base).value,300);assert.equal(lfo.display(base).baseValue,90);assert(lfo.display(base).modulated&&lfo.display(base).automated,'LFO overlays automation without adding its value twice');
+ lfo.model.live={owner:0,v:[]};state.clipPlaying=false;assert.equal(ui.display(base),base);state.clipPlaying=true;state.clipRecording=true;assert.equal(ui.display(base),base);state.clipRecording=false;
+ for(const [field,value]of [['clip',1],['owner',4],['playing',0],['entry',1]]){const prior=d[field];d[field]=value;params.midi_state=JSON.stringify(d);ui.read();assert.equal(ui.display(base),base,field+' rejects stale playback context');d[field]=prior;}
+ d.playback=[[-1,id('lfo8_rate'),4],[-1,id('lfo8_clock'),1]];params.midi_state=JSON.stringify(d);ui.read();const rate={...p.lfo8_rate,value:1,lfoClock:0};assert.equal(ui.display(rate).value,4);assert.equal(ui.display(rate).lfoClock,1);
+ d.playback=[[-1,id('layers_fx1'),.8]];d.owner=21;p.split_mode.value=5;state.splitEnabled=true;state.splitFocus=1;globalThis.__testLayers.model.active=true;p.layers_corner.value=1;d.corner=0;params.midi_state=JSON.stringify(d);ui.read();const corner={...p.layers_fx1,value:.2};assert.equal(ui.display(corner),corner,'old corner data is rejected');p.layers_corner.value=0;assert.equal(ui.display(corner).value,.8);
+ globalThis.__testLayers.model.active=false;p.split_mode.value=1;state.splitFocus=0;lfo.model.data.parts=[0,1,2,3,4];lfo.model.data.values[7][9]=3;params.lfo_state=JSON.stringify(lfo.model.data);lfo.read();
+ assert.equal(globalThis.__testFormatControlValue(lfo.control('lfo8_target')),'□');assert.deepEqual(lfo.control('lfo8_target').values,[0,1,4]);
+ p.split_mode.value=5;assert.deepEqual(lfo.control('lfo8_target').values,[0,4]);p.split_mode.value=3;assert.deepEqual(lfo.control('lfo8_target').values,[0,1,2,3,4]);
+ params.midi_state='{}';ui.read();assert.equal(ui.model.data,null);
+ console.log('s3g Thru playback-value UI: actual native automation, bounded page values, moving numbers and hollow markers, saved-base editing, combined LFO output, RATE gestures, stale clip/part/entry/corner isolation and mode-aware PART choices: PASS');
+}
+
+{
+ const table=globalThis.__testTable,state=globalThis.__testFx.state(),p=globalThis.__testParams;
+ Object.assign(state,{view:'settings',splitEnabled:false,splitFocus:0,quadMode:false,bankMode:false,sharedDual:false,algorithm:15,lane:2,octave:0,scale:0,editorReady:true,clipPlaying:false,clipRecording:false});
+ globalThis.__testLayers.model.active=false;globalThis.__testSequence.model.active=false;p.split_mode.value=0;p.algorithm.value=15;p.voice_engine_mode.value=0;
+ const fixture=JSON.parse(fs.readFileSync(process.env.S3G_THRU_TABLE_FIXTURE||new URL('./table_scope_fixture.json',import.meta.url),'utf8'));
+ for(let stored=0;stored<4;++stored){state.padMode=stored;assert.equal(globalThis.__testPadMidiNote(0),48);assert.equal(globalThis.__testPadMidiNote(1),49);assert.equal(state.padMode,stored);}
+ const metadata=JSON.parse(fs.readFileSync(new URL('../controllers/midi/parameters.json',import.meta.url),'utf8')).parameters;
+ for(let slot=1;slot<=8;++slot){
+  const key='voice_engine_'+slot;
+  assert.equal(globalThis.__testCompactControlValue({...p[key],value:15}),'TABLE');
+  assert.equal(metadata.find(row=>row.key===key).options[15],'Table');
+ }
+ assert.equal(metadata.find(row=>row.key==='algorithm').options.length,18);
+ const data=fixture.state;data.edit=1;data.revision=9999;params.table_state=JSON.stringify(data);table.read(false);
+ for(let variant=0;variant<3;++variant){data.patches[1][0]=variant;params.table_state=JSON.stringify(data);table.read(false);
+  const titles=table.variantPages(15,0).map(q=>q.title);assert.equal(titles.filter(t=>t.startsWith('TABLE')).length,variant===2?4:2);
+  assert(titles.includes(variant===0?'TABLE WAVE':variant===1?'TABLE SPLINE':'TABLE WT HIT'));}
+ for(const key of ['locus','field','speed','join','seq_pos','pad_mode','lane_variation'])assert.equal(globalThis.__testSequence.control(key),null,key);
+ data.patches[1][0]=0;data.patches[1][8]=0;params.table_state=JSON.stringify(data);table.read(false);assert.equal(globalThis.__testSequence.control('table_pulse'),null);
+ data.patches[1][8]=3;params.table_state=JSON.stringify(data);table.read(false);assert(globalThis.__testSequence.control('table_pulse'));
+ params.table_scope=JSON.stringify(fixture.scope);table.scopes(false);assert.equal(table.model.mask,15);assert(table.model.scopes.some(w=>w!=='7'.repeat(128)));
+ state.view='main';state.mask=0;state.playheads=Array(8).fill(-1);state.voiceAlgorithms=[15,...Array(7).fill(-1)];state.stackPositions=[.5,...Array(7).fill(-1)];
+ const begin=drawWrites.length;globalThis.__testDrawMain();assert(drawWrites.slice(begin).filter(q=>q[0]==='rect').length>300,'actual scope renders without sample sources');
+ const prior=table.model.data;params.table_state=JSON.stringify({...data,edit:0});table.read(false);assert.equal(table.model.data,prior,'reject a stale editing lane');
+ params.table_scope=JSON.stringify({...fixture.scope,mode:2});table.scopes(false);assert.equal(table.model.mask,15,'reject a stale layout');
+ Object.assign(state,{splitEnabled:true,sharedDual:true,bankMode:false,splitFocus:1});p.split_mode.value=2;
+ const heldScope=table.model.scopeKey;params.table_scope=JSON.stringify({...fixture.scope,mode:2,focus:0,waves:Array(4).fill('8'.repeat(128))});table.scopes(false);assert.equal(table.model.scopeKey,heldScope,'reject stale Shared Dual owner');
+ params.table_scope=JSON.stringify({...fixture.scope,mode:2,focus:1,waves:Array(4).fill('8'.repeat(128))});table.scopes(false);assert.notEqual(table.model.scopeKey,heldScope,'accept the focused part');
+ table.model.mask=0;
+ console.log('s3g Thru TABLE UI: native scope fixture without samples, three contextual variants, unavailable controls, patch selection and stale-context rejection: PASS');
+}
+
+{
+ const ui=globalThis.__testSequenceSound,seq=globalThis.__testSequence,table=globalThis.__testTable,state=globalThis.__testFx.state(),P=globalThis.__testParams;
+ const fixture=process.env.S3G_THRU_SEQ_SOUND_FIXTURE?JSON.parse(fs.readFileSync(process.env.S3G_THRU_SEQ_SOUND_FIXTURE,'utf8')):null;
+ const d=fixture?.sound||{active:1,part:0,step:0,event:0,used:2,values:[[4200,2,1],[4201,-12,1]]};
+ const sequence=fixture?.sequence||{active:1,edit:0,rec:0,step:0,held:0,child:0,root:60,mask:0,length:16,playing:0,lanes:Array.from({length:4},()=>[-1,16,4,1,0]),steps:Array.from({length:32},()=>[0,.5]),values:[]};
+ Object.assign(state,{view:'settings',splitEnabled:true,quadMode:true,sharedDual:false,bankMode:false,splitFocus:0,algorithm:15,editorReady:true,deleteHeld:false,shiftHeld:false,focusButtonHeld:false});
+ globalThis.__testLayers.model.active=false;seq.model.active=true;seq.model.held=true;seq.model.pad=24;seq.model.data=sequence;P.split_mode.value=6;P.algorithm.value=15;
+ params.seq_state=JSON.stringify(sequence);params.seq_sound_state=JSON.stringify(d);
+ if(fixture){table.model.floor=0;params.table_state=JSON.stringify(fixture.table);table.read(false);}else{P.table_type.value=0;P.table_tune.value=0;}
+ ui.read();assert(ui.active());
+ let control=seq.control('table_tune');assert.equal(control.value,-12);assert(control.trigLocked&&control.soundScope==='voice');assert.equal(P.table_tune.value,0,'Base patch stays intact');
+ assert.equal(globalThis.__testCompactControlValue(control),'-12');
+ const pages=globalThis.__testSplit.pages();assert(pages.some(p=>p.title==='TABLE WT OSC'),'Locked TYPE exposes its real detail pages');assert(!pages.some(p=>p.title==='TAPE'),'Global controls excluded while holding a trig');
+ assert.equal(seq.control('algorithm'),null);assert.equal(seq.control('table_model'),null);
+ state.settingsPage=pages.findIndex(p=>p.title==='TABLE');
+ const before=drawWrites.length;globalThis.__testFx.draw();assert(drawWrites.slice(before).some(w=>w[0]==='rect'&&w[1]===60&&w[2]===11),'Voice lock marker beside TUNE');
+ const oldSet=globalThis.host_module_set_param_blocking;
+ globalThis.host_module_set_param_blocking=(key,value)=>{
+  blockingWrites.push([key,value]);
+  if(key==='seq_sound_edit'){
+   const [id,v]=String(value).split(',').map(Number);const row=d.values.find(x=>x[0]===id);if(row){row[1]=v;row[2]=1;}else d.values.push([id,v,1]);
+  } else if(key==='seq_sound_clear'){d.values=d.values.filter(x=>x[0]!==Number(value));}
+  params.seq_sound_state=JSON.stringify(d);
+ };
+ globalThis.__testResetEncoders();ui.adjust(control,1,4);assert(d.values.find(x=>x[0]===4201)[1]>-12);assert.equal(P.table_tune.value,0);
+ state.deleteHeld=true;ui.adjust(seq.control('table_tune'),1,1);assert(!d.values.some(x=>x[0]===4201));assert.equal(seq.control('table_tune').value,0);state.deleteHeld=false;
+ d.event=2;d.values=[[4201,7,0],[3867,-.5,1]];params.seq_sound_state=JSON.stringify(d);ui.read();assert(seq.control('table_tune').trigInherited);assert.equal(seq.control('seq_pan_1').soundScope,'lane');assert.equal(seq.control('seq_pan_2'),null);
+ state.view='settings';state.settingsPage=globalThis.__testSplit.pages().findIndex(p=>p.title==='TABLE');globalThis.onMidiMessageInternal([0xb0,50,127]);assert.equal(state.view,'pages');assert(seq.model.held,'Menu navigation retains held-trig ownership');
+ globalThis.host_module_set_param_blocking=oldSet;
+ d.active=0;params.seq_sound_state=JSON.stringify(d);seq.model.held=false;ui.read();assert(!ui.active());assert.equal(seq.control('table_tune').value,0);
+ console.log('s3g Thru Sequence sound-lock UI: native snapshots, held page browsing, locked TABLE variants, voice/lane markers, unchanged bases, parent inheritance, X+dial clear and unavailable global controls: PASS');
+}
+
+{
+ const state=globalThis.__testFx.state(),seq=globalThis.__testSequence,sound=globalThis.__testSequenceSound,tools=globalThis.__testTools,P=globalThis.__testParams;
+ const fixture=JSON.parse(fs.readFileSync(process.env.S3G_THRU_SEQ_SOUND_FIXTURE||new URL('./sequence_sound_fixture.json',import.meta.url),'utf8'));
+ const sequence=structuredClone(fixture.sequence),locks=structuredClone(fixture.sound);
+ // A host can retain an older imported MIDI module across UI reloads. The
+ // lock editor's own catalog must still expose TABLE sound pages and IDs.
+ const staleMidiRows=[...globalThis.__thruMidi.MIDI_BY_KEY].filter(([key])=>key.startsWith('table_'));
+ for(const [key,row] of staleMidiRows){globalThis.__thruMidi.MIDI_BY_KEY.delete(key);globalThis.__thruMidi.MIDI_BY_ID.delete(row.id);}
+ sequence.held=-1;sequence.step=0;locks.active=0;locks.values=[];
+ Object.assign(state,{view:'main',splitEnabled:true,quadMode:true,sharedDual:false,bankMode:false,splitFocus:0,algorithm:15,editorReady:true,deleteHeld:false,shiftHeld:false,focusButtonHeld:false,pageReturn:null,pageDestinationReturn:null});
+ globalThis.__testLayers.model.active=false;globalThis.__testUiPolling.cached=false;
+ Object.assign(seq.model,{active:true,held:false,pad:-1,data:sequence});P.split_mode.value=6;P.algorithm.value=15;P.table_type.value=1;P.table_tune.value=0;
+ params.seq_state=JSON.stringify(sequence);params.seq_sound_state=JSON.stringify(locks);sound.read();
+ const oldSet=globalThis.host_module_set_param_blocking;
+ globalThis.host_module_set_param_blocking=(key,value)=>{
+  oldSet(key,value);
+  if(key==='seq_hold'){sequence.held=Number(value);locks.active=Number(value)>=0?1:0;locks.part=0;locks.step=Number(value);}
+  if(key==='seq_sound_edit'){const [id,v]=String(value).split(',').map(Number);locks.values=[[id,v,1]];}
+  params.seq_state=JSON.stringify(sequence);params.seq_sound_state=JSON.stringify(locks);
+ };
+ const cc=(key,value=127)=>globalThis.onMidiMessageInternal([0xb0,key,value]);
+ try{
+  globalThis.onMidiMessageInternal([0x90,92,100]);seq.model.downAt=Date.now()-350;seq.tickGesture();
+  assert(seq.model.held&&sound.active(),'Physical held pad acquires native lock context');
+  assert.equal(tools.pages()[state.settingsPage].title,'TRIG');
+  const visited=new Set();for(let i=0;i<tools.pages().length;i++){visited.add(tools.pages()[state.settingsPage].title);cc(55);}
+  assert(visited.has('TABLE')&&visited.has('TABLE SPLINE'),'Held pages with stale imported MIDI: '+[...visited].join(', '));
+  cc(50);assert.equal(state.view,'pages');
+  if(state.pageTier==='hub'){state.pageSelection=0;cc(3);}
+  const target=tools.picker().findIndex(p=>p.title.endsWith('TABLE SPLINE'));assert(target>=0,'Menu PLAY includes TABLE SPLINE');
+  while(state.pageSelection!==target)cc(14,state.pageSelection<target?1:127);
+  cc(3);assert.equal(state.view,'settings');assert.equal(tools.pages()[state.settingsPage].title,'TABLE SPLINE');
+  const table=tools.pages().findIndex(p=>p.title==='TABLE');state.settingsPage=table;
+  globalThis.__testResetEncoders();cc(72,4);assert(locks.values.some(x=>x[0]===4201),'Physical sound encoder writes a trig lock');
+  globalThis.onMidiMessageInternal([0x80,92,0]);assert.equal(state.view,'main');assert(!seq.model.held&&!sound.active());
+  assert.equal(P.table_tune.value,0,'Releasing the editor leaves base patch unchanged');
+ }finally{for(const [key,row] of staleMidiRows){globalThis.__thruMidi.MIDI_BY_KEY.set(key,row);globalThis.__thruMidi.MIDI_BY_ID.set(row.id,row);}globalThis.host_module_set_param_blocking=oldSet;seq.model.held=false;seq.model.pad=-1;locks.active=0;params.seq_sound_state=JSON.stringify(locks);sound.read();}
+ console.log('s3g Thru held-trig hardware navigation: stale imported MIDI map, pad hold -> page keys/Menu -> TABLE SPLINE -> physical dial lock -> release: PASS');
+}
+
+{
+ const sc=globalThis.__testScanned,table=globalThis.__testTable,state=globalThis.__testFx.state(),p=globalThis.__testParams;
+ Object.assign(state,{view:'settings',splitEnabled:false,splitFocus:0,quadMode:false,bankMode:false,sharedDual:false,algorithm:16,lane:2,editorReady:true,clipPlaying:false,clipRecording:false});
+ globalThis.__testLayers.model.active=false;globalThis.__testSequence.model.active=false;globalThis.__testSequenceSound.model.data=null;p.split_mode.value=0;p.algorithm.value=16;p.voice_engine_mode.value=0;
+ const fixture=JSON.parse(fs.readFileSync(process.env.S3G_THRU_SCANNED_FIXTURE||new URL('./scanned_scope_fixture.json',import.meta.url),'utf8'));
+ fixture.state.edit=1;fixture.state.revision=99999;params.scanned_state=JSON.stringify(fixture.state);sc.read(false);
+ assert.equal(sc.model.data.edit,1);assert.equal(p.scanned_force.value,35);for(const value of [.05,.1,.5,1,6])assert(globalThis.__testCompactControlValue({...p.scanned_motion,value}).length<=5);for(let stored=0;stored<4;++stored){state.padMode=stored;assert.equal(globalThis.__testPadMidiNote(0),48);assert.equal(globalThis.__testPadMidiNote(1),49);}assert.deepEqual(table.variantPages(16,0).map(x=>x.title),['STACK PATH','SCANNED','SCAN BODY','SCAN HIT','SCAN AMP']);
+ const pages=globalThis.__testSplit.pages();assert(pages.some(x=>x.title==='SCANNED')&&pages.some(x=>x.title==='SCAN BODY'));assert(!pages.some(x=>x.title.startsWith('TABLE')));
+ assert.equal(globalThis.__testSequence.control('speed'),null);assert.equal(globalThis.__testSequence.control('locus'),null);p.scanned_excitation.value=2;assert.equal(globalThis.__testSequence.control('scanned_pick'),null);p.scanned_profile.value=0;assert.equal(globalThis.__testSequence.control('scanned_mass'),null);assert.equal(globalThis.__testSequence.control('scanned_tension'),null);p.scanned_profile.value=3;assert(globalThis.__testSequence.control('scanned_mass'));p.scanned_excitation.value=3;assert(globalThis.__testSequence.control('locus'));assert(globalThis.__testSequence.control('field'));
+ params.table_scope=JSON.stringify(fixture.scope);table.scopes(false);assert.equal(table.model.mask,15);assert(table.model.scopes.some(w=>w!=='7'.repeat(128)));
+ assert.equal(globalThis.__testCompactControlValue({...p.voice_engine_1,value:16}),'SCAN');
+ const old=sc.model.data;params.scanned_state=JSON.stringify({...fixture.state,part:1});sc.read(false);assert.equal(sc.model.data,old,'Reject stale physical patch owner');
+ console.log('s3g Thru SCANNED UI: actual native string profiles and state, two contextual pages, sample-only POS/FLD, controller/list labels and stale ownership: PASS');
+}
+
+{
+ const state=globalThis.__testFx.state(),p=globalThis.__testParams,ui=globalThis.__testScanned,seq=globalThis.__testSequence;
+ Object.assign(state,{view:'settings',splitEnabled:false,sharedDual:false,quadMode:false,bankMode:false,splitFocus:0,algorithm:16,lane:2,editorReady:true});
+ globalThis.__testLayers.model.active=false;seq.model.active=false;p.split_mode.value=0;p.algorithm.value=16;
+ p.scanned_art.value=0;assert(seq.control('scanned_art'));for(const key of ['scanned_impact','scanned_hardness','scanned_decay','scanned_bend','scanned_sweep_time','scanned_loss'])assert.equal(seq.control(key),null);
+ p.scanned_art.value=1;p.scanned_bend.value=24;for(const key of ['scanned_impact','scanned_hardness','scanned_decay','scanned_bend','scanned_sweep_time','scanned_loss'])assert(seq.control(key));
+ p.scanned_excitation.value=2;assert(seq.control('scanned_pick'),'PERC hammer location works with Noise');
+ const page=globalThis.__testSplit.pages().find(x=>x.title==='SCAN HIT');assert.deepEqual(page.keys,['scanned_art','scanned_impact','scanned_hardness','scanned_decay','scanned_bend','scanned_sweep_time','scanned_loss',null]);
+ for(const value of [10,35,999,999.9,1000,4000])assert(globalThis.__testCompactControlValue({...p.scanned_decay,value}).length<=5);
+ console.log('s3g Thru SCAN HIT UI: three engine pages, Tone/Perc availability, contextual hammer position, matching eight-knob/E16 order and bounded time labels: PASS');
+}
+
+{
+ const state=globalThis.__testFx.state(),p=globalThis.__testParams,seq=globalThis.__testSequence;
+ Object.assign(state,{view:'settings',splitEnabled:false,sharedDual:false,quadMode:false,bankMode:false,splitFocus:0,algorithm:16,lane:2,editorReady:true});globalThis.__testLayers.model.active=false;seq.model.active=false;globalThis.__testSequenceSound.model.data=null;p.split_mode.value=0;p.algorithm.value=16;
+ p.scanned_art.value=0;p.scanned_amp_mode.value=0;assert(seq.control('scanned_amp_mode'));
+ const keys=['scanned_amp_mode','scanned_amp_gain','scanned_amp_bass','scanned_amp_mid','scanned_amp_freq','scanned_amp_treble','scanned_amp_cab','scanned_amp_level'];
+ for(const key of keys.slice(1))assert.equal(seq.control(key),null);
+ p.scanned_amp_mode.value=1;for(const key of keys)assert(seq.control(key),'Amp belongs to both articulations: '+key);
+ assert.deepEqual(globalThis.__testSplit.pages().find(x=>x.title==='SCAN AMP').keys,keys);
+ p.scanned_amp_mode.value=0;
+ console.log('s3g Thru SCAN AMP UI: fourth sound page, eight-knob order, Tone/Perc availability and inactive cells: PASS');
+}
+
+{
+ const state=globalThis.__testFx.state(),p=globalThis.__testParams,ui=globalThis.__testFm,seq=globalThis.__testSequence;
+ Object.assign(state,{view:'settings',splitEnabled:false,sharedDual:false,quadMode:false,bankMode:false,splitFocus:0,algorithm:17,lane:2,editorReady:true});globalThis.__testLayers.model.active=false;seq.model.active=false;globalThis.__testSequenceSound.model.data=null;p.split_mode.value=0;p.algorithm.value=17;
+ const f=JSON.parse(fs.readFileSync(process.env.S3G_THRU_FM_FIXTURE||new URL('./fm_scope_fixture.json',import.meta.url),'utf8'));f.state.edit=1;f.state.revision=999999;params.fm_state=JSON.stringify(f.state);ui.read(false);assert.equal(ui.model.data.edit,1);assert.deepEqual(globalThis.__testTable.variantPages(17,0).map(p=>p.title),['STACK PATH','FM','FM COLOR','FM HIT']);
+ for(const key of ['locus','field','speed','join','pad_mode'])assert.equal(seq.control(key),null);
+ p.fm_algorithm.value=0;p.fm_mode.value=0;assert.equal(seq.control('fm_ratio2'),null);assert.equal(seq.control('fm_decay'),null);p.fm_mode.value=1;p.fm_algorithm.value=1;assert(seq.control('fm_ratio2'));assert(seq.control('fm_decay'));assert.equal(globalThis.__testCompactControlValue({...p.voice_engine_1,value:17}),'FM');
+ const old=ui.model.data;params.fm_state=JSON.stringify({...f.state,part:1});ui.read(false);assert.equal(ui.model.data,old);console.log('s3g Thru FM UI: native patch/scope fixtures, three pages, contextual controls, Engine List label and stale-part isolation: PASS');
 }

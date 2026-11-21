@@ -39,17 +39,19 @@
           <li><strong>Play.</strong> Stops or resumes performance-loop playback. Shift + Play cycles Main → Clip Overview → Chain → Main.</li>
           <li><strong>Record.</strong> Starts or stops performance-data capture. Shift + Record records stereo audio into the selected lane; Delete + Record removes the newest overdub take. In the <a href="synthesis.html#navigation">Synth tool</a>, Record saves and loads the completed render; Shift + Record saves without loading.</li>
           <li><strong>Loop.</strong> Holds or resumes stack scanning for the whole Single instrument or the focused part in a multi-instrument mode. Shift + Loop controls Glitch Buffer Lock. Quad has no stack scan; Loop is available for Glitch or an enabled Tape Inertia transport gesture. In Slice Edit it toggles audition looping.</li>
-          <li><strong>Back.</strong> The left-pointing arrow below the main wheel. Returns through secondary views. A page opened from the Pages hub returns to its bank list, then to the hub. From Main, Back saves and exits takeover.</li>
+          <li><strong>Back.</strong> The left-pointing arrow below the main wheel. Returns through secondary views. A page opened from the Pages hub returns to its bank list, then to the hub. From Main, Back asks before leaving takeover. Keep Playing is selected initially; turn the main wheel to Exit to Schwung and click to confirm. Back or Menu cancels.</li>
           <li><strong>Left / Right arrows.</strong> The arrow keys at the lower right. Select performance-clip bank A–D from the waveform and parameter pages.</li>
           <li><strong>+ / − keys (Up / Down).</strong> The + and − keys between the lower-right arrows. Transpose the pad grid by octave on the waveform page, move within the current parameter-page bank, set Chain repeats, or browse lists according to the current view.</li>
           <li><strong>Delete.</strong> The X button, below Loop. Delete + Step resets a clip or removes a Chain entry; Delete + Record removes the newest overdub take; Delete + pad clears a cue or Bank slot. Shift + Delete clears the selected audio lane.</li>
           <li><strong>Shift.</strong> The three-dot button at the bottom right. Accesses audio recording, lane-source browsing, System Report / Shortcuts, clip copy and move, Glitch Buffer Lock, and the shortcuts documented in <a href="shortcuts.html">Shortcut Reference</a>.</li>
           <li><strong>Menu.</strong> The three horizontal lines to the right of Back. Toggles the waveform and parameter pages. Shift + Menu opens System Report / Shortcuts. Capture + Menu opens the <a href="#page-picker">grouped Pages hub</a>.</li>
-          <li><strong>Capture.</strong> The four broken-corner brackets directly right of the pads and above Loop. Tap to switch A/B editing focus in Split, Shared Dual or Bank, or cycle A–D in Quad. Hold for <a href="playing.html#capture-performance">bottom-row performance controls</a>. Capture + Track 1–4 jumps to Play, Sample, Mix/FX or Performance; Capture + Menu opens the Pages hub. Capture + knob 8 adjusts Blend in Split, Shared Dual or Bank, or the focused part’s level in Quad.</li>
+          <li><strong>Capture.</strong> The four broken-corner brackets directly right of the pads and above Loop. Tap to switch A/B editing focus in Split, Shared Dual or Bank, or cycle A–D in Quad. Hold for <a href="playing.html#capture-performance">bottom-row performance controls</a>. Capture + Track 1–4 jumps to Play, Sample, Mix/FX or Performance; Capture + Menu opens the Pages hub. Capture + knob 8 adjusts Blend in Split, Shared Dual or Bank, or the focused part’s level in Quad. In Synth, tap Capture to render the current settings; Capture + Menu/Track retains page navigation.</li>
           <li><strong>Mute.</strong> The M-marked button to the right of Loop and above Copy. Mutes or unmutes the focused part in a multi-instrument mode. Its playheads keep moving. Part-mode sample preview follows its mute; Direct preview is independent.</li>
           <li><strong>Copy.</strong> The overlapping squares to the right of Delete and below Mute. In clip and chain editors, Copy / Shift + Copy copies and pastes; hold the combination with a Step to address a slot without launching it. See <a href="performance.html#clip-copy">Clip copy</a> and <a href="performance.html#chain-tools">Chain copy</a>. Outside those editors, Copy toggles Single / last multi-instrument mode and Shift + Copy copies sound settings to the other or next part. Capture + Menu → Mode opens the mode chooser.</li>
           <li><strong>Undo.</strong> The curved reverse arrow below Delete and directly left of Shift. Restores the most recent destructive clip, sample or chain edit. It lights when an undo is available. Stop audio or performance recording first.</li>
         </ol>
+
+        <figure><div class="doc-graphic move-screen"><img src="assets/screens/exit-confirm.svg" alt="Exit confirmation defaults to Keep Playing with Exit to Schwung below"></div><figcaption>Back from Main opens this safeguard. Audio continues while you choose. Turn the main wheel and click Exit to Schwung only when you want to leave; Back or Menu keeps the session running.</figcaption></figure>
 
         <h2 id="waveform">Waveform page</h2>
 
@@ -125,7 +127,7 @@
         </figure>
 
         <div class="control-map">
-          <div><span class="control-number">Knob 1</span><strong>ALG</strong><p>Choose any of the <a href="engines.html#choose">15 playback engines</a>.</p></div>
+          <div><span class="control-number">Knob 1</span><strong>ALG</strong><p>Choose any of the <a href="engines.html#choose">18 playback engines</a>.</p></div>
           <div><span class="control-number">Knob 2</span><strong>POS</strong><p>Center the readable source field.</p></div>
           <div><span class="control-number">Knob 3</span><strong>FLD</strong><p>Set the width around Position.</p></div>
           <div><span class="control-number">Knob 4</span><strong>SPD</strong><p>Set source transport speed.</p></div>
@@ -186,7 +188,7 @@
             <tr><td><kbd>Shift</kbd> + <kbd>Menu</kbd></td><td>Most views</td><td>Open or close System Report / Shortcuts. Left/Right, Up/Down, or the main encoder changes its page.</td></tr>
             <tr><td><kbd>Shift</kbd> + <kbd>Play</kbd></td><td>Main / Clips / Chain</td><td>Cycle Main → Clips → Chain → Main.</td></tr>
             <tr><td><kbd>Shift</kbd> + <kbd>Track 1–4</kbd></td><td>Main or Parameters</td><td>Open Move Samples and Thru Recordings for that lane.</td></tr>
-            <tr><td><kbd>Back</kbd></td><td>Secondary view</td><td>Return toward the waveform page. From Main, save and exit.</td></tr>
+            <tr><td><kbd>Back</kbd></td><td>Secondary view</td><td>Return toward the waveform page. From Main, ask before exiting; Keep Playing is selected initially.</td></tr>
           </tbody>
         </table>
 

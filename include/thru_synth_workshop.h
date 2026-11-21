@@ -246,7 +246,7 @@ bool renderEventField(const Recipe &r, float rate, Audio &out, Cancel cancel,
     const float seconds = float(placement.frame) / rate,
                 u = seconds / r.v[length];
     float density = r.events[eDensity];
-    if (r.type == drum)
+    if (isDrumType(r.type))
       density += animatedCurve(r, 1, u, seconds);
     if (random(seed, 3) >=
         std::clamp(density * (mode == 2 ? .75f : 1.f), 0.f, 1.f))
@@ -258,7 +258,7 @@ bool renderEventField(const Recipe &r, float rate, Audio &out, Cancel cancel,
     child.seed = hash(seed) % 65536;
     const auto eventFrames = std::max<std::size_t>(
         2, std::size_t(std::llround(
-               gateFrames * (r.type == drum
+               gateFrames * (isDrumType(r.type)
                                  ? std::exp2(animatedCurve(r, 2, u, seconds))
                                  : 1.f))));
     child.v[length] = std::clamp(float(eventFrames) / rate, .04f, 12.f);
@@ -266,7 +266,7 @@ bool renderEventField(const Recipe &r, float rate, Audio &out, Cancel cancel,
                          animatedCurve(r, 0, u, seconds);
     const int note = eventNote(r, offset);
     child.v[root] = float(note);
-    if (r.type == drum)
+    if (isDrumType(r.type))
       setDrum(child, dTune,
               r.drums[dTune] * std::exp2((note - r.v[root]) / 12));
     if (r.type == pluck)
@@ -300,7 +300,7 @@ bool renderEventField(const Recipe &r, float rate, Audio &out, Cancel cancel,
       child.v[release] = std::min(child.v[length] * 400.f, 2000.f);
     } else {
       child.v[attack] =
-          std::max(child.v[attack], r.type == drum ? r.drumExtra[xEdge] : 2.f);
+          std::max(child.v[attack], isDrumType(r.type) ? r.drumExtra[xEdge] : 2.f);
       child.v[release] = std::max(child.v[release], 8.f);
     }
     Audio sound;
@@ -318,7 +318,7 @@ bool renderEventField(const Recipe &r, float rate, Audio &out, Cancel cancel,
     const float fade =
         std::max(1.f, std::min(rate * .002f, float(available - 1) * .2f));
     const float attackFade =
-        r.type == drum
+        isDrumType(r.type)
             ? std::max(1.f, std::min(rate * r.drumExtra[xEdge] * .001f,
                                      float(available - 1) * .2f))
             : fade;

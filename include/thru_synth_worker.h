@@ -311,7 +311,7 @@ private:
         break;
       }
       if (!std::memcmp(chunk, "sgSy", 4)) {
-        if (size != recipeBytes && size != previousRecipeBytes &&
+        if (size != recipeBytes && size != wtRecipeBytes && size != previousRecipeBytes &&
             size != thirdRecipeBytes && size != fourthRecipeBytes &&
             size != fifthRecipeBytes && size != sixthRecipeBytes &&
             size != seventhRecipeBytes && size != eighthRecipeBytes &&

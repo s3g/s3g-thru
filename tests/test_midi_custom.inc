@@ -25,7 +25,8 @@ void testCustomMidiRoutingAndPickup() {
     assert(std::abs(t->controls.speed-s3g_thru_midi::decode(speed,12287,4))<.001f);
     midiCc(*t,1,4,127);assert(std::abs(t->controls.speed-s3g_thru_midi::decode(speed,4096,4))<.001f);
     customBinding(*t,1,5,0,"algorithm",0,0,true);t->controls.algorithm=Engine::PlaybackAlgorithm::sample;
-    for(int value:{33,34,35,36})midiCc(*t,1,5,value);
+    const int algorithmCode=int(std::lround(4.f*127/(Engine::kPlaybackAlgorithmCount-1)));
+    for(int offset:{-1,0,1})midiCc(*t,1,5,algorithmCode+offset);
     assert(static_cast<int>(t->controls.algorithm)==4);
     midiCc(*t,1,5,50);assert(static_cast<int>(t->controls.algorithm)>=5);
     // Explicit parts ignore missing instruments; Focus follows editing focus

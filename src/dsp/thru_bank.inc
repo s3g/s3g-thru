@@ -284,6 +284,7 @@
         voice.sliceAudition=voice.sliceCached=false;
         voice.bankSlot=slot;voice.bankAsset=bankAssets[slot];
         bankPool->assets[voice.bankAsset].pins.fetch_add(1,std::memory_order_acq_rel);
+        if(!recorded)triggerControlLfos(1);
         voice.bankRate=bankMasterRate*bankSlots[slot].rate;voice.bankLevel=bankSlots[slot].level;
         voice.bankPan=bankSlots[slot].pan;voice.bankPlay=bankSlots[slot].play;voice.bankEnded=false;
         voice.bankStart=bankSlots[slot].start;voice.bankEnd=bankSlots[slot].end;voice.bankReverse=bankSlots[slot].reverse;

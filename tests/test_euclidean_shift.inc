@@ -43,7 +43,7 @@ void testEuclideanHitShift(){
     std::vector<unsigned char> bytes(std::size_t(size)-4);assert(std::fread(bytes.data(),1,bytes.size(),file)==bytes.size());std::fclose(file);
     const auto writePayload=[&](const auto& payload){std::uint32_t checksum=2166136261u;for(auto value:payload){checksum^=value;checksum*=16777619u;}
         auto* output=std::fopen(path.c_str(),"wb");assert(output&&std::fwrite(payload.data(),1,payload.size(),output)==payload.size()&&writeU32(output,checksum));std::fclose(output);};
-    auto corrupt=bytes;corrupt[corrupt.size()-2*(4+64*4*4)+4]=32;writePayload(corrupt);
+    auto corrupt=bytes;corrupt[clipLegacyTailSize(corrupt)-2*(4+64*4*4)+4]=32;writePayload(corrupt);
     restored=sequenceFixture();const auto retained=restored->sequenceLive;
     assert(!restored->readClipFileFromPath(path.c_str())&&sameLane(retained.tracks[0],restored->sequenceLive.tracks[0]));restored.reset();
     stripSequenceShifts(bytes);assert(bytes[8]==44);writePayload(bytes);

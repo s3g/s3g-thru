@@ -45,7 +45,7 @@ bool finishWorkshop(const Recipe &r, float rate, Audio &out,
     out.right[i] *= level;
   }
   finishSound(r, rate, out, span.frames, span.splice,
-              r.type == drum ? r.drumExtra[xEdge] : 2.f);
+              isDrumType(r.type) ? r.drumExtra[xEdge] : 2.f);
   return !cancel();
 }
 struct WorkshopPeak {

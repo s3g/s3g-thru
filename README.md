@@ -2,7 +2,7 @@
 
 s3g Thru is a four-lane stereo sampler and performance-data looper for
 [Ableton Move](https://www.ableton.com/move/). It runs as a
-[Schwung](https://github.com/charlesvestal/schwung) takeover module, with fifteen playback engines and eight
+[Schwung](https://github.com/charlesvestal/schwung) takeover module, with seventeen playback engines and eight
 polyphonic voices. Single uses one four-lane stack; Split and Shared Dual offer
 two independent instruments; Quad offers four instruments with one lane each.
 Bank pairs a four-lane instrument with sixteen saved stereo sample pads.

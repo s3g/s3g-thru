@@ -1,0 +1,1646 @@
+[
+  {
+    "id": 1,
+    "key": "field",
+    "scope": "voice",
+    "target": 1
+  },
+  {
+    "id": 2,
+    "key": "speed",
+    "scope": "voice",
+    "target": 2
+  },
+  {
+    "id": 5,
+    "key": "join",
+    "scope": "voice",
+    "target": 6
+  },
+  {
+    "id": 6,
+    "key": "part_level",
+    "scope": "lane",
+    "target": -1
+  },
+  {
+    "id": 7,
+    "key": "part_delay",
+    "scope": "lane",
+    "target": -1
+  },
+  {
+    "id": 8,
+    "key": "part_reverb",
+    "scope": "lane",
+    "target": -1
+  },
+  {
+    "id": 256,
+    "key": "amp_attack",
+    "scope": "voice",
+    "target": 120
+  },
+  {
+    "id": 257,
+    "key": "amp_decay",
+    "scope": "voice",
+    "target": 121
+  },
+  {
+    "id": 258,
+    "key": "amp_sustain",
+    "scope": "voice",
+    "target": 122
+  },
+  {
+    "id": 259,
+    "key": "amp_release",
+    "scope": "voice",
+    "target": 123
+  },
+  {
+    "id": 385,
+    "key": "lanes_mode",
+    "scope": "voice",
+    "target": 11
+  },
+  {
+    "id": 394,
+    "key": "lanes_stretch",
+    "scope": "voice",
+    "target": 13
+  },
+  {
+    "id": 395,
+    "key": "stretch_ratio",
+    "scope": "voice",
+    "target": 14
+  },
+  {
+    "id": 512,
+    "key": "motion_mode",
+    "scope": "voice",
+    "target": 8
+  },
+  {
+    "id": 513,
+    "key": "motion_sound",
+    "scope": "voice",
+    "target": 9
+  },
+  {
+    "id": 514,
+    "key": "motion_rate",
+    "scope": "voice",
+    "target": 10
+  },
+  {
+    "id": 515,
+    "key": "motion_rate_basis",
+    "scope": "voice",
+    "target": 68
+  },
+  {
+    "id": 516,
+    "key": "motion_path_rate",
+    "scope": "voice",
+    "target": 69
+  },
+  {
+    "id": 517,
+    "key": "motion_step",
+    "scope": "voice",
+    "target": 70
+  },
+  {
+    "id": 518,
+    "key": "motion_seed",
+    "scope": "voice",
+    "target": 71
+  },
+  {
+    "id": 519,
+    "key": "motion_travel",
+    "scope": "voice",
+    "target": 26
+  },
+  {
+    "id": 520,
+    "key": "motion_jitter",
+    "scope": "voice",
+    "target": 27
+  },
+  {
+    "id": 521,
+    "key": "packet_duty",
+    "scope": "voice",
+    "target": 28
+  },
+  {
+    "id": 522,
+    "key": "motor_rate",
+    "scope": "voice",
+    "target": 29
+  },
+  {
+    "id": 523,
+    "key": "motor_symmetry",
+    "scope": "voice",
+    "target": 30
+  },
+  {
+    "id": 524,
+    "key": "motor_shape",
+    "scope": "voice",
+    "target": 31
+  },
+  {
+    "id": 525,
+    "key": "segment_trigger",
+    "scope": "voice",
+    "target": 72
+  },
+  {
+    "id": 526,
+    "key": "segment_overlap",
+    "scope": "voice",
+    "target": 73
+  },
+  {
+    "id": 527,
+    "key": "segment_layers",
+    "scope": "voice",
+    "target": 74
+  },
+  {
+    "id": 528,
+    "key": "segment_rate",
+    "scope": "voice",
+    "target": 75
+  },
+  {
+    "id": 529,
+    "key": "segment_repeats",
+    "scope": "voice",
+    "target": 76
+  },
+  {
+    "id": 530,
+    "key": "segment_step",
+    "scope": "voice",
+    "target": 77
+  },
+  {
+    "id": 531,
+    "key": "segment_pitch",
+    "scope": "voice",
+    "target": 78
+  },
+  {
+    "id": 532,
+    "key": "segment_level",
+    "scope": "voice",
+    "target": 79
+  },
+  {
+    "id": 533,
+    "key": "segment_curve",
+    "scope": "voice",
+    "target": 80
+  },
+  {
+    "id": 640,
+    "key": "grain_mode",
+    "scope": "voice",
+    "target": 19
+  },
+  {
+    "id": 641,
+    "key": "grain_size",
+    "scope": "voice",
+    "target": 20
+  },
+  {
+    "id": 642,
+    "key": "grain_density",
+    "scope": "voice",
+    "target": 21
+  },
+  {
+    "id": 644,
+    "key": "grain_pitch",
+    "scope": "voice",
+    "target": 22
+  },
+  {
+    "id": 645,
+    "key": "grain_window",
+    "scope": "voice",
+    "target": 23
+  },
+  {
+    "id": 646,
+    "key": "grain_spread",
+    "scope": "voice",
+    "target": 24
+  },
+  {
+    "id": 647,
+    "key": "grain_spray",
+    "scope": "voice",
+    "target": 38
+  },
+  {
+    "id": 648,
+    "key": "grain_bias",
+    "scope": "voice",
+    "target": 39
+  },
+  {
+    "id": 649,
+    "key": "grain_pitch_spray",
+    "scope": "voice",
+    "target": 40
+  },
+  {
+    "id": 650,
+    "key": "grain_reverse",
+    "scope": "voice",
+    "target": 41
+  },
+  {
+    "id": 651,
+    "key": "grain_size_variation",
+    "scope": "voice",
+    "target": 42
+  },
+  {
+    "id": 652,
+    "key": "grain_level_variation",
+    "scope": "voice",
+    "target": 43
+  },
+  {
+    "id": 653,
+    "key": "grain_timing",
+    "scope": "voice",
+    "target": 44
+  },
+  {
+    "id": 654,
+    "key": "grain_timing_scatter",
+    "scope": "voice",
+    "target": 45
+  },
+  {
+    "id": 655,
+    "key": "grain_envelope_skew",
+    "scope": "voice",
+    "target": 46
+  },
+  {
+    "id": 656,
+    "key": "grain_process",
+    "scope": "voice",
+    "target": 47
+  },
+  {
+    "id": 657,
+    "key": "grain_process_amount",
+    "scope": "voice",
+    "target": 48
+  },
+  {
+    "id": 658,
+    "key": "grain_regions",
+    "scope": "voice",
+    "target": 49
+  },
+  {
+    "id": 659,
+    "key": "grain_advance",
+    "scope": "voice",
+    "target": 50
+  },
+  {
+    "id": 768,
+    "key": "long_grain_mode",
+    "scope": "voice",
+    "target": 105
+  },
+  {
+    "id": 769,
+    "key": "long_grain_length",
+    "scope": "voice",
+    "target": 106
+  },
+  {
+    "id": 770,
+    "key": "long_grain_layers",
+    "scope": "voice",
+    "target": 107
+  },
+  {
+    "id": 771,
+    "key": "long_grain_pitch",
+    "scope": "voice",
+    "target": 108
+  },
+  {
+    "id": 772,
+    "key": "long_grain_shape",
+    "scope": "voice",
+    "target": 109
+  },
+  {
+    "id": 773,
+    "key": "long_grain_edge",
+    "scope": "voice",
+    "target": 110
+  },
+  {
+    "id": 774,
+    "key": "long_grain_spread",
+    "scope": "voice",
+    "target": 111
+  },
+  {
+    "id": 775,
+    "key": "long_grain_reverse",
+    "scope": "voice",
+    "target": 112
+  },
+  {
+    "id": 776,
+    "key": "long_grain_spray",
+    "scope": "voice",
+    "target": 113
+  },
+  {
+    "id": 777,
+    "key": "long_grain_bias",
+    "scope": "voice",
+    "target": 114
+  },
+  {
+    "id": 778,
+    "key": "long_grain_duration_variation",
+    "scope": "voice",
+    "target": 115
+  },
+  {
+    "id": 779,
+    "key": "long_grain_pitch_spray",
+    "scope": "voice",
+    "target": 116
+  },
+  {
+    "id": 780,
+    "key": "long_grain_level_variation",
+    "scope": "voice",
+    "target": 117
+  },
+  {
+    "id": 781,
+    "key": "long_grain_phase",
+    "scope": "voice",
+    "target": 118
+  },
+  {
+    "id": 782,
+    "key": "long_grain_advance",
+    "scope": "voice",
+    "target": 119
+  },
+  {
+    "id": 896,
+    "key": "cut_lane_advance",
+    "scope": "voice",
+    "target": 161
+  },
+  {
+    "id": 897,
+    "key": "cutups_mode",
+    "scope": "voice",
+    "target": 25
+  },
+  {
+    "id": 898,
+    "key": "cut_clock",
+    "scope": "voice",
+    "target": 51
+  },
+  {
+    "id": 899,
+    "key": "cut_division",
+    "scope": "voice",
+    "target": 52
+  },
+  {
+    "id": 900,
+    "key": "cut_rate",
+    "scope": "voice",
+    "target": 53
+  },
+  {
+    "id": 901,
+    "key": "cut_time_variation",
+    "scope": "voice",
+    "target": 54
+  },
+  {
+    "id": 902,
+    "key": "cut_gate",
+    "scope": "voice",
+    "target": 55
+  },
+  {
+    "id": 903,
+    "key": "cut_join",
+    "scope": "voice",
+    "target": 56
+  },
+  {
+    "id": 904,
+    "key": "cut_regions",
+    "scope": "voice",
+    "target": 57
+  },
+  {
+    "id": 905,
+    "key": "cut_repeats",
+    "scope": "voice",
+    "target": 58
+  },
+  {
+    "id": 906,
+    "key": "cut_reverse",
+    "scope": "voice",
+    "target": 59
+  },
+  {
+    "id": 907,
+    "key": "cut_pitch_variation",
+    "scope": "voice",
+    "target": 60
+  },
+  {
+    "id": 908,
+    "key": "cut_level_variation",
+    "scope": "voice",
+    "target": 61
+  },
+  {
+    "id": 909,
+    "key": "cut_lane_order",
+    "scope": "voice",
+    "target": 62
+  },
+  {
+    "id": 910,
+    "key": "cut_poly_path",
+    "scope": "voice",
+    "target": 63
+  },
+  {
+    "id": 911,
+    "key": "cut_region_mode",
+    "scope": "voice",
+    "target": 64
+  },
+  {
+    "id": 1030,
+    "key": "sample_mode",
+    "scope": "voice",
+    "target": 65
+  },
+  {
+    "id": 1031,
+    "key": "slice_region_mode",
+    "scope": "voice",
+    "target": 66
+  },
+  {
+    "id": 1032,
+    "key": "slice_regions",
+    "scope": "voice",
+    "target": 67
+  },
+  {
+    "id": 1152,
+    "key": "glitch_mode",
+    "scope": "voice",
+    "target": 81
+  },
+  {
+    "id": 1153,
+    "key": "glitch_clock",
+    "scope": "voice",
+    "target": 82
+  },
+  {
+    "id": 1154,
+    "key": "glitch_division",
+    "scope": "voice",
+    "target": 83
+  },
+  {
+    "id": 1155,
+    "key": "glitch_rate",
+    "scope": "voice",
+    "target": 84
+  },
+  {
+    "id": 1156,
+    "key": "glitch_slice",
+    "scope": "voice",
+    "target": 85
+  },
+  {
+    "id": 1157,
+    "key": "glitch_repeats",
+    "scope": "voice",
+    "target": 86
+  },
+  {
+    "id": 1158,
+    "key": "glitch_chance",
+    "scope": "voice",
+    "target": 87
+  },
+  {
+    "id": 1159,
+    "key": "glitch_mix",
+    "scope": "voice",
+    "target": 88
+  },
+  {
+    "id": 1160,
+    "key": "glitch_steps",
+    "scope": "voice",
+    "target": 89
+  },
+  {
+    "id": 1161,
+    "key": "glitch_pulses",
+    "scope": "voice",
+    "target": 90
+  },
+  {
+    "id": 1162,
+    "key": "glitch_rotate",
+    "scope": "voice",
+    "target": 91
+  },
+  {
+    "id": 1163,
+    "key": "glitch_jump",
+    "scope": "voice",
+    "target": 92
+  },
+  {
+    "id": 1164,
+    "key": "glitch_pitch",
+    "scope": "voice",
+    "target": 93
+  },
+  {
+    "id": 1165,
+    "key": "glitch_reverse",
+    "scope": "voice",
+    "target": 94
+  },
+  {
+    "id": 1166,
+    "key": "glitch_decay",
+    "scope": "voice",
+    "target": 95
+  },
+  {
+    "id": 1167,
+    "key": "glitch_seed",
+    "scope": "voice",
+    "target": 96
+  },
+  {
+    "id": 1280,
+    "key": "waveset_group",
+    "scope": "voice",
+    "target": 144
+  },
+  {
+    "id": 1281,
+    "key": "waveset_repeats",
+    "scope": "voice",
+    "target": 145
+  },
+  {
+    "id": 1282,
+    "key": "waveset_stride",
+    "scope": "voice",
+    "target": 146
+  },
+  {
+    "id": 1283,
+    "key": "waveset_advance",
+    "scope": "voice",
+    "target": 147
+  },
+  {
+    "id": 1284,
+    "key": "waveset_direction",
+    "scope": "voice",
+    "target": 148
+  },
+  {
+    "id": 1285,
+    "key": "waveset_process",
+    "scope": "voice",
+    "target": 149
+  },
+  {
+    "id": 1286,
+    "key": "waveset_amount",
+    "scope": "voice",
+    "target": 150
+  },
+  {
+    "id": 1287,
+    "key": "waveset_detail",
+    "scope": "voice",
+    "target": 151
+  },
+  {
+    "id": 1408,
+    "key": "prism_mode",
+    "scope": "voice",
+    "target": 176
+  },
+  {
+    "id": 1409,
+    "key": "prism_blur",
+    "scope": "voice",
+    "target": 177
+  },
+  {
+    "id": 1410,
+    "key": "prism_decay",
+    "scope": "voice",
+    "target": 178
+  },
+  {
+    "id": 1411,
+    "key": "prism_pitch",
+    "scope": "voice",
+    "target": 179
+  },
+  {
+    "id": 1412,
+    "key": "prism_tilt",
+    "scope": "voice",
+    "target": 180
+  },
+  {
+    "id": 1413,
+    "key": "prism_smear",
+    "scope": "voice",
+    "target": 181
+  },
+  {
+    "id": 1536,
+    "key": "morph_mode",
+    "scope": "voice",
+    "target": 195
+  },
+  {
+    "id": 1537,
+    "key": "morph_amplitude",
+    "scope": "voice",
+    "target": 182
+  },
+  {
+    "id": 1538,
+    "key": "morph_frequency",
+    "scope": "voice",
+    "target": 183
+  },
+  {
+    "id": 1539,
+    "key": "morph_offset",
+    "scope": "voice",
+    "target": 184
+  },
+  {
+    "id": 1540,
+    "key": "morph_blur",
+    "scope": "voice",
+    "target": 185
+  },
+  {
+    "id": 1541,
+    "key": "morph_pitch",
+    "scope": "voice",
+    "target": 186
+  },
+  {
+    "id": 1664,
+    "key": "texture_mode",
+    "scope": "voice",
+    "target": 187
+  },
+  {
+    "id": 1665,
+    "key": "texture_rate",
+    "scope": "voice",
+    "target": 188
+  },
+  {
+    "id": 1666,
+    "key": "texture_length",
+    "scope": "voice",
+    "target": 189
+  },
+  {
+    "id": 1667,
+    "key": "texture_scatter",
+    "scope": "voice",
+    "target": 190
+  },
+  {
+    "id": 1668,
+    "key": "texture_range",
+    "scope": "voice",
+    "target": 191
+  },
+  {
+    "id": 1669,
+    "key": "texture_group",
+    "scope": "voice",
+    "target": 192
+  },
+  {
+    "id": 1670,
+    "key": "texture_spread",
+    "scope": "voice",
+    "target": 193
+  },
+  {
+    "id": 1671,
+    "key": "texture_seed",
+    "scope": "voice",
+    "target": 194
+  },
+  {
+    "id": 1792,
+    "key": "formant_pitch",
+    "scope": "voice",
+    "target": 196
+  },
+  {
+    "id": 1793,
+    "key": "formant_shift",
+    "scope": "voice",
+    "target": 197
+  },
+  {
+    "id": 1794,
+    "key": "formant_smoothing",
+    "scope": "voice",
+    "target": 198
+  },
+  {
+    "id": 1795,
+    "key": "formant_tune",
+    "scope": "voice",
+    "target": 199
+  },
+  {
+    "id": 1797,
+    "key": "formant_keytrack",
+    "scope": "voice",
+    "target": 201
+  },
+  {
+    "id": 1798,
+    "key": "formant_rough",
+    "scope": "voice",
+    "target": 202
+  },
+  {
+    "id": 1799,
+    "key": "formant_sub",
+    "scope": "voice",
+    "target": 203
+  },
+  {
+    "id": 1921,
+    "key": "effect_tone",
+    "scope": "lane",
+    "target": 97
+  },
+  {
+    "id": 1922,
+    "key": "effect_drive",
+    "scope": "lane",
+    "target": 98
+  },
+  {
+    "id": 1923,
+    "key": "effect_bits",
+    "scope": "lane",
+    "target": 99
+  },
+  {
+    "id": 1924,
+    "key": "effect_rate",
+    "scope": "lane",
+    "target": 100
+  },
+  {
+    "id": 1929,
+    "key": "effect_cross_pan",
+    "scope": "lane",
+    "target": 124
+  },
+  {
+    "id": 2048,
+    "key": "effect_rotary_rate",
+    "scope": "lane",
+    "target": 125
+  },
+  {
+    "id": 2049,
+    "key": "effect_rotary_depth",
+    "scope": "lane",
+    "target": 126
+  },
+  {
+    "id": 2050,
+    "key": "effect_rotary_mix",
+    "scope": "lane",
+    "target": 127
+  },
+  {
+    "id": 2051,
+    "key": "effect_rotary_ramp",
+    "scope": "lane",
+    "target": 128
+  },
+  {
+    "id": 2052,
+    "key": "effect_rotary_balance",
+    "scope": "lane",
+    "target": 129
+  },
+  {
+    "id": 2053,
+    "key": "effect_rotary_crossover",
+    "scope": "lane",
+    "target": 130
+  },
+  {
+    "id": 2054,
+    "key": "effect_rotary_spread",
+    "scope": "lane",
+    "target": 131
+  },
+  {
+    "id": 3200,
+    "key": "stochastic_size",
+    "scope": "voice",
+    "target": 205
+  },
+  {
+    "id": 3201,
+    "key": "stochastic_amplitude",
+    "scope": "voice",
+    "target": 206
+  },
+  {
+    "id": 3202,
+    "key": "stochastic_timing",
+    "scope": "voice",
+    "target": 207
+  },
+  {
+    "id": 3203,
+    "key": "stochastic_evolution",
+    "scope": "voice",
+    "target": 208
+  },
+  {
+    "id": 3204,
+    "key": "stochastic_memory",
+    "scope": "voice",
+    "target": 209
+  },
+  {
+    "id": 3205,
+    "key": "stochastic_pull",
+    "scope": "voice",
+    "target": 210
+  },
+  {
+    "id": 3206,
+    "key": "stochastic_law",
+    "scope": "voice",
+    "target": 211
+  },
+  {
+    "id": 3207,
+    "key": "stochastic_drift",
+    "scope": "voice",
+    "target": 212
+  },
+  {
+    "id": 3210,
+    "key": "stochastic_capture",
+    "scope": "voice",
+    "target": 215
+  },
+  {
+    "id": 3328,
+    "key": "pulsar_rate",
+    "scope": "voice",
+    "target": 216
+  },
+  {
+    "id": 3329,
+    "key": "pulsar_form",
+    "scope": "voice",
+    "target": 217
+  },
+  {
+    "id": 3330,
+    "key": "pulsar_size",
+    "scope": "voice",
+    "target": 218
+  },
+  {
+    "id": 3331,
+    "key": "pulsar_window",
+    "scope": "voice",
+    "target": 219
+  },
+  {
+    "id": 3332,
+    "key": "pulsar_skew",
+    "scope": "voice",
+    "target": 220
+  },
+  {
+    "id": 3333,
+    "key": "pulsar_omit",
+    "scope": "voice",
+    "target": 221
+  },
+  {
+    "id": 3334,
+    "key": "pulsar_burst",
+    "scope": "voice",
+    "target": 222
+  },
+  {
+    "id": 3335,
+    "key": "pulsar_jitter",
+    "scope": "voice",
+    "target": 223
+  },
+  {
+    "id": 3338,
+    "key": "pulsar_emit_mod_rate",
+    "scope": "voice",
+    "target": 226
+  },
+  {
+    "id": 3339,
+    "key": "pulsar_emit_mod_depth",
+    "scope": "voice",
+    "target": 227
+  },
+  {
+    "id": 3340,
+    "key": "pulsar_form_mod_rate",
+    "scope": "voice",
+    "target": 228
+  },
+  {
+    "id": 3341,
+    "key": "pulsar_form_mod_depth",
+    "scope": "voice",
+    "target": 229
+  },
+  {
+    "id": 3342,
+    "key": "pulsar_spray",
+    "scope": "voice",
+    "target": 230
+  },
+  {
+    "id": 3343,
+    "key": "pulsar_form_variation",
+    "scope": "voice",
+    "target": 231
+  },
+  {
+    "id": 3344,
+    "key": "pulsar_reverse",
+    "scope": "voice",
+    "target": 232
+  },
+  {
+    "id": 3345,
+    "key": "pulsar_keytrack",
+    "scope": "voice",
+    "target": 233
+  },
+  {
+    "id": 3867,
+    "key": "seq_pan_1",
+    "scope": "lane",
+    "target": -1
+  },
+  {
+    "id": 3871,
+    "key": "seq_eq_low",
+    "scope": "lane",
+    "target": -1
+  },
+  {
+    "id": 3872,
+    "key": "seq_eq_mid",
+    "scope": "lane",
+    "target": -1
+  },
+  {
+    "id": 3873,
+    "key": "seq_eq_high",
+    "scope": "lane",
+    "target": -1
+  },
+  {
+    "id": 3874,
+    "key": "seq_eq_freq",
+    "scope": "lane",
+    "target": -1
+  },
+  {
+    "id": 4200,
+    "key": "table_type",
+    "scope": "voice",
+    "target": 256
+  },
+  {
+    "id": 4201,
+    "key": "table_tune",
+    "scope": "voice",
+    "target": 257
+  },
+  {
+    "id": 4202,
+    "key": "table_width",
+    "scope": "voice",
+    "target": 258
+  },
+  {
+    "id": 4203,
+    "key": "table_level",
+    "scope": "voice",
+    "target": 259
+  },
+  {
+    "id": 4204,
+    "key": "table_art",
+    "scope": "voice",
+    "target": 260
+  },
+  {
+    "id": 4205,
+    "key": "table_decay",
+    "scope": "voice",
+    "target": 261
+  },
+  {
+    "id": 4206,
+    "key": "table_noise",
+    "scope": "voice",
+    "target": 262
+  },
+  {
+    "id": 4207,
+    "key": "table_drive",
+    "scope": "voice",
+    "target": 263
+  },
+  {
+    "id": 4208,
+    "key": "table_shape",
+    "scope": "voice",
+    "target": 264
+  },
+  {
+    "id": 4209,
+    "key": "table_pulse",
+    "scope": "voice",
+    "target": 265
+  },
+  {
+    "id": 4210,
+    "key": "table_detune",
+    "scope": "voice",
+    "target": 266
+  },
+  {
+    "id": 4211,
+    "key": "table_sub",
+    "scope": "voice",
+    "target": 267
+  },
+  {
+    "id": 4212,
+    "key": "table_cutoff",
+    "scope": "voice",
+    "target": 268
+  },
+  {
+    "id": 4213,
+    "key": "table_resonance",
+    "scope": "voice",
+    "target": 269
+  },
+  {
+    "id": 4214,
+    "key": "table_points",
+    "scope": "voice",
+    "target": 270
+  },
+  {
+    "id": 4215,
+    "key": "table_evolution",
+    "scope": "voice",
+    "target": 271
+  },
+  {
+    "id": 4216,
+    "key": "table_curve",
+    "scope": "voice",
+    "target": 272
+  },
+  {
+    "id": 4217,
+    "key": "table_drift",
+    "scope": "voice",
+    "target": 273
+  },
+  {
+    "id": 4218,
+    "key": "table_drift_rate",
+    "scope": "voice",
+    "target": 274
+  },
+  {
+    "id": 4219,
+    "key": "table_dynamics",
+    "scope": "voice",
+    "target": 275
+  },
+  {
+    "id": 4220,
+    "key": "table_seed",
+    "scope": "voice",
+    "target": 276
+  },
+  {
+    "id": 4222,
+    "key": "table_bank_a",
+    "scope": "voice",
+    "target": 278
+  },
+  {
+    "id": 4223,
+    "key": "table_pos_a",
+    "scope": "voice",
+    "target": 279
+  },
+  {
+    "id": 4224,
+    "key": "table_bank_b",
+    "scope": "voice",
+    "target": 280
+  },
+  {
+    "id": 4225,
+    "key": "table_pos_b",
+    "scope": "voice",
+    "target": 281
+  },
+  {
+    "id": 4226,
+    "key": "table_blend",
+    "scope": "voice",
+    "target": 282
+  },
+  {
+    "id": 4227,
+    "key": "table_ratio",
+    "scope": "voice",
+    "target": 283
+  },
+  {
+    "id": 4228,
+    "key": "table_fm",
+    "scope": "voice",
+    "target": 284
+  },
+  {
+    "id": 4229,
+    "key": "table_wt_detune",
+    "scope": "voice",
+    "target": 285
+  },
+  {
+    "id": 4230,
+    "key": "table_bend",
+    "scope": "voice",
+    "target": 286
+  },
+  {
+    "id": 4231,
+    "key": "table_pitch_decay",
+    "scope": "voice",
+    "target": 287
+  },
+  {
+    "id": 4232,
+    "key": "table_scan",
+    "scope": "voice",
+    "target": 288
+  },
+  {
+    "id": 4233,
+    "key": "table_scan_decay",
+    "scope": "voice",
+    "target": 289
+  },
+  {
+    "id": 4234,
+    "key": "table_wt_sub",
+    "scope": "voice",
+    "target": 290
+  },
+  {
+    "id": 4235,
+    "key": "table_impact",
+    "scope": "voice",
+    "target": 291
+  },
+  {
+    "id": 4236,
+    "key": "table_noise_decay",
+    "scope": "voice",
+    "target": 292
+  },
+  {
+    "id": 4237,
+    "key": "table_color",
+    "scope": "voice",
+    "target": 293
+  },
+  {
+    "id": 4238,
+    "key": "table_tone",
+    "scope": "voice",
+    "target": 294
+  },
+  {
+    "id": 4239,
+    "key": "table_compression",
+    "scope": "voice",
+    "target": 295
+  },
+  {
+    "id": 4300,
+    "key": "scanned_excitation",
+    "scope": "voice",
+    "target": 320
+  },
+  {
+    "id": 4301,
+    "key": "scanned_pick",
+    "scope": "voice",
+    "target": 321
+  },
+  {
+    "id": 4302,
+    "key": "scanned_hit",
+    "scope": "voice",
+    "target": 322
+  },
+  {
+    "id": 4303,
+    "key": "scanned_tune",
+    "scope": "voice",
+    "target": 323
+  },
+  {
+    "id": 4304,
+    "key": "scanned_motion",
+    "scope": "voice",
+    "target": 324
+  },
+  {
+    "id": 4305,
+    "key": "scanned_damping",
+    "scope": "voice",
+    "target": 325
+  },
+  {
+    "id": 4306,
+    "key": "scanned_brightness",
+    "scope": "voice",
+    "target": 326
+  },
+  {
+    "id": 4307,
+    "key": "scanned_width",
+    "scope": "voice",
+    "target": 327
+  },
+  {
+    "id": 4308,
+    "key": "scanned_mass",
+    "scope": "voice",
+    "target": 328
+  },
+  {
+    "id": 4309,
+    "key": "scanned_tension",
+    "scope": "voice",
+    "target": 329
+  },
+  {
+    "id": 4310,
+    "key": "scanned_center",
+    "scope": "voice",
+    "target": 330
+  },
+  {
+    "id": 4311,
+    "key": "scanned_profile",
+    "scope": "voice",
+    "target": 331
+  },
+  {
+    "id": 4312,
+    "key": "scanned_force",
+    "scope": "voice",
+    "target": 332
+  },
+  {
+    "id": 4313,
+    "key": "scanned_pressure",
+    "scope": "voice",
+    "target": 333
+  },
+  {
+    "id": 4314,
+    "key": "scanned_freeze",
+    "scope": "voice",
+    "target": 334
+  },
+  {
+    "id": 4315,
+    "key": "scanned_seed",
+    "scope": "voice",
+    "target": 335
+  },
+  {
+    "id": 4316,
+    "key": "scanned_art",
+    "scope": "voice",
+    "target": 336
+  },
+  {
+    "id": 4317,
+    "key": "scanned_impact",
+    "scope": "voice",
+    "target": 337
+  },
+  {
+    "id": 4318,
+    "key": "scanned_hardness",
+    "scope": "voice",
+    "target": 338
+  },
+  {
+    "id": 4319,
+    "key": "scanned_decay",
+    "scope": "voice",
+    "target": 339
+  },
+  {
+    "id": 4320,
+    "key": "scanned_bend",
+    "scope": "voice",
+    "target": 340
+  },
+  {
+    "id": 4321,
+    "key": "scanned_sweep_time",
+    "scope": "voice",
+    "target": 341
+  },
+  {
+    "id": 4322,
+    "key": "scanned_loss",
+    "scope": "voice",
+    "target": 342
+  },
+  {
+    "id": 4323,
+    "key": "scanned_amp_mode",
+    "scope": "voice",
+    "target": 343
+  },
+  {
+    "id": 4324,
+    "key": "scanned_amp_gain",
+    "scope": "voice",
+    "target": 344
+  },
+  {
+    "id": 4325,
+    "key": "scanned_amp_bass",
+    "scope": "voice",
+    "target": 345
+  },
+  {
+    "id": 4326,
+    "key": "scanned_amp_mid",
+    "scope": "voice",
+    "target": 346
+  },
+  {
+    "id": 4327,
+    "key": "scanned_amp_freq",
+    "scope": "voice",
+    "target": 347
+  },
+  {
+    "id": 4328,
+    "key": "scanned_amp_treble",
+    "scope": "voice",
+    "target": 348
+  },
+  {
+    "id": 4329,
+    "key": "scanned_amp_cab",
+    "scope": "voice",
+    "target": 349
+  },
+  {
+    "id": 4330,
+    "key": "scanned_amp_level",
+    "scope": "voice",
+    "target": 350
+  },
+  {
+    "id": 4400,
+    "key": "fm_mode",
+    "scope": "voice",
+    "target": 384
+  },
+  {
+    "id": 4401,
+    "key": "fm_tune",
+    "scope": "voice",
+    "target": 385
+  },
+  {
+    "id": 4402,
+    "key": "fm_width",
+    "scope": "voice",
+    "target": 386
+  },
+  {
+    "id": 4403,
+    "key": "fm_level",
+    "scope": "voice",
+    "target": 387
+  },
+  {
+    "id": 4404,
+    "key": "fm_algorithm",
+    "scope": "voice",
+    "target": 388
+  },
+  {
+    "id": 4405,
+    "key": "fm_ratio1",
+    "scope": "voice",
+    "target": 389
+  },
+  {
+    "id": 4406,
+    "key": "fm_index1",
+    "scope": "voice",
+    "target": 390
+  },
+  {
+    "id": 4407,
+    "key": "fm_feedback",
+    "scope": "voice",
+    "target": 391
+  },
+  {
+    "id": 4408,
+    "key": "fm_ratio2",
+    "scope": "voice",
+    "target": 392
+  },
+  {
+    "id": 4409,
+    "key": "fm_index2",
+    "scope": "voice",
+    "target": 393
+  },
+  {
+    "id": 4410,
+    "key": "fm_detune",
+    "scope": "voice",
+    "target": 394
+  },
+  {
+    "id": 4411,
+    "key": "fm_mix",
+    "scope": "voice",
+    "target": 395
+  },
+  {
+    "id": 4412,
+    "key": "fm_cutoff",
+    "scope": "voice",
+    "target": 396
+  },
+  {
+    "id": 4413,
+    "key": "fm_resonance",
+    "scope": "voice",
+    "target": 397
+  },
+  {
+    "id": 4414,
+    "key": "fm_drive",
+    "scope": "voice",
+    "target": 398
+  },
+  {
+    "id": 4415,
+    "key": "fm_decay",
+    "scope": "voice",
+    "target": 399
+  },
+  {
+    "id": 4416,
+    "key": "fm_fm_decay",
+    "scope": "voice",
+    "target": 400
+  },
+  {
+    "id": 4417,
+    "key": "fm_bend",
+    "scope": "voice",
+    "target": 401
+  },
+  {
+    "id": 4418,
+    "key": "fm_sweep_time",
+    "scope": "voice",
+    "target": 402
+  },
+  {
+    "id": 4419,
+    "key": "fm_impact",
+    "scope": "voice",
+    "target": 403
+  },
+  {
+    "id": 4420,
+    "key": "fm_noise",
+    "scope": "voice",
+    "target": 404
+  },
+  {
+    "id": 4421,
+    "key": "fm_noise_decay",
+    "scope": "voice",
+    "target": 405
+  },
+  {
+    "id": 4422,
+    "key": "fm_hardness",
+    "scope": "voice",
+    "target": 406
+  }
+]

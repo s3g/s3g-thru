@@ -368,10 +368,26 @@ void testPreviewIsolation()
 #include "test_drive.inc"
 #include "test_fade_lookahead.inc"
 #include "test_spline.inc"
+#include "test_control_lfo.inc"
+#include "test_playback_readouts.inc"
+#include "test_table.inc"
+#include "test_sequence_sound_locks.inc"
+#include "test_scanned.inc"
 } // namespace
 
 int main(int argc,char** argv)
 {
+    if(argc==2&&std::strcmp(argv[1],"--fm")==0){testFm();return 0;}
+    if(argc==2&&std::strcmp(argv[1],"--scanned")==0){testScanned();return 0;}
+    if(argc==2&&std::strcmp(argv[1],"--table-polyphony")==0){testTableSplinePolyphony();return 0;}
+    if(argc==2&&std::strcmp(argv[1],"--sequence-sound-locks")==0){testSequenceSoundLocks();return 0;}
+    if(argc==2&&std::strcmp(argv[1],"--after-shared")==0)goto after_shared;
+    if(argc==2&&std::strcmp(argv[1],"--table-ui-compat")==0){testTable();testSharedDualLiveZoom();return 0;}
+    if(argc==2&&std::strcmp(argv[1],"--slice-edits")==0){testSliceSampleEditAlignment();return 0;}
+    if(argc==2&&std::strcmp(argv[1],"--table")==0){testTable();return 0;}
+    testFm();testScanned();testTable();testSequenceSoundLocks();
+    if(argc==2&&std::strcmp(argv[1],"--lfo")==0){testControlLfos();testPlaybackReadouts();testExpandedLfoDestinations();return 0;}
+    testControlLfos();testPlaybackReadouts();testExpandedLfoDestinations();
     if(argc==2&&std::strcmp(argv[1],"--synth")==0){testSpline();return 0;}
     if(argc==2&&std::strcmp(argv[1],"--project-worker")==0){testProjectBackgroundWorkflow();return 0;}
     if(argc==2&&std::strcmp(argv[1],"--sequence-reset")==0){testSequenceClipReset();return 0;}
@@ -531,6 +547,7 @@ int main(int argc,char** argv)
     testQuadRecordingAndRecall();
     testSharedDualSourcesAndVoices();
     testSharedDualWindowsAndRecall();
+after_shared:
     testSharedDualLiveZoom();
     testSharedDualBankRoundTrip();
     testHardwarePanic();

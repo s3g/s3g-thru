@@ -270,6 +270,7 @@ bool renderBloom(const Recipe &r, float rate, Audio &out, Cancel cancel, Progres
 #include "thru_synth_drum.h"
 #include "thru_synth_workshop.h"
 #include "thru_synth_dust.h"
+#include "thru_synth_wt_drum.h"
 namespace s3g_thru_synth {
 template <class Cancel, class Progress>
 bool renderBase(const Recipe &r, float rate, Audio &out, Cancel cancel, Progress progress,
@@ -280,8 +281,9 @@ bool renderBase(const Recipe &r, float rate, Audio &out, Cancel cancel, Progress
     if(r.type==subharmonic)return renderSubharmonic(r,rate,out,cancel,progress);
     if(r.type==hybrid)return inputs&&renderHybrid(r,rate,out,*inputs,cancel,progress);
     if(r.type==convolution)return source&&impulse&&renderConvolution(r,rate,out,*source,*impulse,cancel,progress);
+    if(r.type==wtDrum)return renderWtDrum(r,rate,out,cancel,progress);
     if(r.type==dust)return renderDust(r,rate,out,cancel,progress);
-    if(r.type==drum)return renderDrum(r,rate,out,cancel,progress);
+    if(isDrumType(r.type))return renderDrum(r,rate,out,cancel,progress);
     if (r.type == partialsType) return renderPartials(r,rate,out,cancel,progress);
     if (r.type == noiseBank) return renderNoiseBank(r,rate,out,cancel,progress);
     if (r.type == fm) return renderFm(r,rate,out,cancel,progress);

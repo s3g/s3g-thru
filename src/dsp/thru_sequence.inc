@@ -8,9 +8,11 @@ void publishSequenceRates() {
                                       std::memory_order_release);
 }
 void resetSequenceClock() {
+  if(sequenceSoundEditClip!=activeClip){sequenceEditStep=-1;sequenceSoundEditPart=sequenceSoundEditClip=-1;}
+  resetSequenceSoundRuntime();
   sequenceBeat = 0;sequenceClockPrimed=false;
   sequenceBeatOffsets.fill(0);
-  sequenceEventCount = {};
+  sequenceEventCount = {};sequenceWindowStarts={};
   sequenceCursor.fill(-1);
   for (auto &cursor : sequencePublishedCursor)
     cursor.store(-1, std::memory_order_release);
@@ -104,13 +106,17 @@ void commitSequenceEdit(bool deferPlayback = false) {
 }
 void startSequenceVoice(int part, int row, int child, double gateBeats,
                         bool audition = false, std::int64_t tick = -1) {
-  if (part < 0 || part >= 4 || !engine.laneLoaded(part))
+  if (part < 0 || part >= 4 || (!engine.laneLoaded(part) && !Engine::sourceFree((audition?liveControlsForPart(part):splitClipControls[part]).algorithm)))
     return;
   const auto &lane = sequencePlayback.tracks[part];
   const auto &step = audition?sequenceLive.tracks[part].trigs[row]
       :tick<0?lane.trigs[row]:sequenceDirections[part].step(lane,tick,row);
-  const auto &program =
+  auto program =
       audition ? liveControlsForPart(part) : splitClipControls[part];
+  const auto sound=sequenceTriggerSound(part,row,child,tick,audition,step);
+  applySequenceVoiceSound(program,sound,part);
+  sequenceLaneSoundLocks[part]=sound;
+  triggerControlLfos(part,&step.lfos,child==0);
   const float velocity =
       s3g_thru_sequence::resolve(lane, step, child, 2, lane.velocity);
   auto &voice = allocateClipVoice(part);
@@ -122,13 +128,22 @@ void startSequenceVoice(int part, int row, int child, double gateBeats,
   const auto settings = settingsForPart(part);
   voice.sequence = {};
   voice.sequence.active = true;
+  voice.sequence.soundLocks = sound;
   voice.sequence.audition = audition;
   voice.sequence.generatedPreview = !audition&&sequenceGenerateActive&&sequenceGenerateValid&&sequenceGeneratePart==part;
   voice.sequence.step = row;
   voice.sequence.child = child;
-  voice.sequence.position =
-      s3g_thru_sequence::resolve(lane, step, child, 0, program.locus);
   auto seekProgram = program;
+  applyControlLfoWindow(seekProgram,part,true);
+  float inheritedPosition=seekProgram.locus;
+  if(!audition&&tick>=0) {
+    auto &start=sequenceWindowStarts[part][std::size_t(tick)%8];
+    // The earliest Burst child owns the tick, even when WHEN reorders it.
+    if(start.tick!=tick)start={tick,inheritedPosition};
+    inheritedPosition=start.position;
+  }
+  voice.sequence.position =
+      s3g_thru_sequence::resolve(lane, step, child, 0, inheritedPosition);
   seekProgram.locus = voice.sequence.position;
   const auto window = parameterDisplayWindow(seekProgram, part);
   voice.sequence.startPhase =
@@ -246,6 +261,7 @@ void sequencePadDown(int pad) {
   if (deleteHeld) {
     sequenceChanged();
     sequenceLive.tracks[splitFocus].trigs[step] = {};
+    sequenceLive.soundLocks.eraseStep(splitFocus,step);
     rememberSequenceTypeEdit(splitFocus,step,0,"seq_delete");
     commitSequenceEdit();
     sequencePadConsumed[pad] = true;
@@ -518,6 +534,8 @@ bool setSequenceParameter(const char *key, const char *text) {
   if (!std::strcmp(key, "seq_hold")) {
     const int row = clampValue(int(value), -1, 31);
     sequenceEditStep = row;
+    sequenceSoundEditPart = row>=0?splitFocus:-1;
+    sequenceSoundEditClip = row>=0?activeClip:-1;
     if (row >= 0) {
       sequenceStep = row;
       sequencePadConsumed[s3g_thru_sequence::stepPad(row)] = true;
@@ -595,12 +613,15 @@ bool setSequenceParameter(const char *key, const char *text) {
   auto &step = sequenceLive.tracks[splitFocus].trigs[sequenceStep];
   if (!std::strcmp(key, "seq_copy")) {
     sequenceStepClipboard = step;
+    sequenceSoundClipboard=sequenceLive.soundLocks.copyStep(splitFocus,sequenceStep);
     sequenceClipboardReady = true;
     return true;
   }
   if (!std::strcmp(key, "seq_paste")) {
     if (sequenceClipboardReady) {
+      if(sequenceLive.soundLocks.count-sequenceLive.soundLocks.stepCount(splitFocus,sequenceStep)+sequenceSoundClipboard.count>s3g_thru_sequence::soundLockCapacity){setError("Trig lock capacity full");return true;}
       sequenceChanged();
+      sequenceLive.soundLocks.pasteStep(splitFocus,sequenceStep,sequenceSoundClipboard);
       step = sequenceStepClipboard;
       sequenceChild = 0;
       commitSequenceEdit();
@@ -672,8 +693,10 @@ bool setSequenceParameter(const char *key, const char *text) {
       locks.mask = 0;
     if (int(value) == 3 || int(value) >= 4)
       locks.timeLocked = false;
+    if(int(value)>=4){const int r=s3g_thru_sequence::SoundLocks::route(splitFocus,sequenceStep,sequenceChild);sequenceLive.soundLocks.eraseRange(sequenceLive.soundLocks.lower(r),sequenceLive.soundLocks.lower(r+1));}
   } else if (!std::strcmp(key, "seq_delete")) {
     step = {};
+    sequenceLive.soundLocks.eraseStep(splitFocus,sequenceStep);
     sequenceChild = 0;
   } else if (!std::strcmp(key, "seq_clip_beats")) {
     auto *clip = activeClipSlot();
@@ -1052,6 +1075,7 @@ void copySequenceRuntimeTo(ThruInstance &other) const {
   other.sequenceClockPrimed=sequenceClockPrimed;
   other.sequenceBeatOffsets = sequenceBeatOffsets;
   other.sequenceLastEvent = sequenceLastEvent;
+  other.sequenceWindowStarts=sequenceWindowStarts;
   other.sequenceLastRate = sequenceLastRate;
   other.sequenceDirections=sequenceDirections;other.sequenceEmittedTick=sequenceEmittedTick;
   for (int part = 0; part < 4; ++part)
@@ -1072,9 +1096,12 @@ void copySequenceRuntimeTo(ThruInstance &other) const {
   other.sequenceChildren = sequenceChildren;
   other.sequenceStep = sequenceStep;
   other.sequenceChild = sequenceChild;
+  other.sequenceSoundEditPart=sequenceSoundEditPart;other.sequenceSoundEditClip=sequenceSoundEditClip;other.sequenceSoundClipboard=sequenceSoundClipboard;
+  other.sequenceLaneSoundLocks=sequenceLaneSoundLocks;other.sequenceSoundTicks=sequenceSoundTicks;
 }
 
 void clearSequenceTrigs(s3g_thru_sequence::Pattern &pattern) {
+  pattern.soundLocks.count=0;
   for (auto &lane : pattern.tracks) {
     for (auto &step : lane.trigs)step = {};
     lane.generator={};

@@ -114,7 +114,7 @@ inline void finishSound(const Recipe &r, float rate, Audio &out,
         frames / 4,
         std::max<std::size_t>(
             2,
-            std::size_t(rate * std::clamp(attackEdgeMs, .05f, 2.f) * .001f)));
+            std::size_t(rate * std::clamp(attackEdgeMs, .05f, 5.f) * .001f)));
     for (std::size_t i = 0; i < attackEdge; ++i) {
       const float t = float(i) / float(attackEdge - 1), g = t * t * (3 - 2 * t);
       out.left[i] *= g;

@@ -341,6 +341,175 @@
       ]
     },
     {
+      "name": "TABLE",
+      "keys": [
+        "table_type",
+        "table_tune",
+        "table_width",
+        "table_level",
+        "table_art",
+        "table_decay",
+        "table_noise",
+        "table_drive"
+      ]
+    },
+    {
+      "name": "TABLE WAVE",
+      "keys": [
+        "table_shape",
+        "table_pulse",
+        "table_detune",
+        "table_sub",
+        "table_cutoff",
+        "table_resonance",
+        null,
+        null
+      ]
+    },
+    {
+      "name": "TABLE SPLINE",
+      "keys": [
+        "table_points",
+        "table_evolution",
+        "table_curve",
+        "table_drift",
+        "table_drift_rate",
+        "table_dynamics",
+        "table_seed",
+        null
+      ]
+    },
+    {
+      "name": "TABLE WT OSC",
+      "keys": [
+        "table_model",
+        "table_bank_a",
+        "table_pos_a",
+        "table_bank_b",
+        "table_pos_b",
+        "table_blend",
+        "table_ratio",
+        "table_fm"
+      ]
+    },
+    {
+      "name": "TABLE WT HIT",
+      "keys": [
+        "table_bend",
+        "table_pitch_decay",
+        "table_scan",
+        "table_scan_decay",
+        "table_wt_sub",
+        "table_impact",
+        "table_noise_decay",
+        "table_color"
+      ]
+    },
+    {
+      "name": "TABLE WT COLOR",
+      "keys": [
+        "table_wt_detune",
+        "table_tone",
+        "table_compression",
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "name": "SCANNED",
+      "keys": [
+        "scanned_excitation",
+        "scanned_pick",
+        "scanned_hit",
+        "scanned_tune",
+        "scanned_motion",
+        "scanned_damping",
+        "scanned_brightness",
+        "scanned_width"
+      ]
+    },
+    {
+      "name": "SCAN BODY",
+      "keys": [
+        "scanned_mass",
+        "scanned_tension",
+        "scanned_center",
+        "scanned_profile",
+        "scanned_force",
+        "scanned_pressure",
+        "scanned_freeze",
+        "scanned_seed"
+      ]
+    },
+    {
+      "name": "SCAN HIT",
+      "keys": [
+        "scanned_art",
+        "scanned_impact",
+        "scanned_hardness",
+        "scanned_decay",
+        "scanned_bend",
+        "scanned_sweep_time",
+        "scanned_loss",
+        null
+      ]
+    },
+    {
+      "name": "SCAN AMP",
+      "keys": [
+        "scanned_amp_mode",
+        "scanned_amp_gain",
+        "scanned_amp_bass",
+        "scanned_amp_mid",
+        "scanned_amp_freq",
+        "scanned_amp_treble",
+        "scanned_amp_cab",
+        "scanned_amp_level"
+      ]
+    },
+    {
+      "name": "FM",
+      "keys": [
+        "fm_mode",
+        "fm_tune",
+        "fm_width",
+        "fm_level",
+        "fm_algorithm",
+        "fm_ratio1",
+        "fm_index1",
+        "fm_feedback"
+      ]
+    },
+    {
+      "name": "FM COLOR",
+      "keys": [
+        "fm_ratio2",
+        "fm_index2",
+        "fm_detune",
+        "fm_mix",
+        "fm_cutoff",
+        "fm_resonance",
+        "fm_drive",
+        null
+      ]
+    },
+    {
+      "name": "FM HIT",
+      "keys": [
+        "fm_decay",
+        "fm_fm_decay",
+        "fm_bend",
+        "fm_sweep_time",
+        "fm_impact",
+        "fm_noise",
+        "fm_noise_decay",
+        "fm_hardness"
+      ]
+    },
+    {
       "name": "PACKETS",
       "keys": [
         "motion_rate",
@@ -537,18 +706,33 @@
     [
       24,
       25
+    ],
+    [
+      26,
+      27
+    ],
+    [
+      32,
+      33,
+      34,
+      35
+    ],
+    [
+      36,
+      37,
+      38
     ]
   ],
   "engine": 1,
   "stack": 2,
-  "extraStart": 26,
-  "color": 30,
-  "rotary": 31,
-  "sends": 32,
-  "quadSends": 33,
-  "delay": 34,
-  "reverb": 35,
-  "tape": 36,
+  "extraStart": 39,
+  "color": 43,
+  "rotary": 44,
+  "sends": 45,
+  "quadSends": 46,
+  "delay": 47,
+  "reverb": 48,
+  "tape": 49,
   "ids": {
     "algorithm": 4,
     "locus": 0,
@@ -706,6 +890,100 @@
     "pulsar_form_variation": 3343,
     "pulsar_reverse": 3344,
     "pulsar_keytrack": 3345,
+    "table_type": 4200,
+    "table_tune": 4201,
+    "table_width": 4202,
+    "table_level": 4203,
+    "table_art": 4204,
+    "table_decay": 4205,
+    "table_noise": 4206,
+    "table_drive": 4207,
+    "table_shape": 4208,
+    "table_pulse": 4209,
+    "table_detune": 4210,
+    "table_sub": 4211,
+    "table_cutoff": 4212,
+    "table_resonance": 4213,
+    "table_points": 4214,
+    "table_evolution": 4215,
+    "table_curve": 4216,
+    "table_drift": 4217,
+    "table_drift_rate": 4218,
+    "table_dynamics": 4219,
+    "table_seed": 4220,
+    "table_model": 4221,
+    "table_bank_a": 4222,
+    "table_pos_a": 4223,
+    "table_bank_b": 4224,
+    "table_pos_b": 4225,
+    "table_blend": 4226,
+    "table_ratio": 4227,
+    "table_fm": 4228,
+    "table_bend": 4230,
+    "table_pitch_decay": 4231,
+    "table_scan": 4232,
+    "table_scan_decay": 4233,
+    "table_wt_sub": 4234,
+    "table_impact": 4235,
+    "table_noise_decay": 4236,
+    "table_color": 4237,
+    "table_wt_detune": 4229,
+    "table_tone": 4238,
+    "table_compression": 4239,
+    "scanned_excitation": 4300,
+    "scanned_pick": 4301,
+    "scanned_hit": 4302,
+    "scanned_tune": 4303,
+    "scanned_motion": 4304,
+    "scanned_damping": 4305,
+    "scanned_brightness": 4306,
+    "scanned_width": 4307,
+    "scanned_mass": 4308,
+    "scanned_tension": 4309,
+    "scanned_center": 4310,
+    "scanned_profile": 4311,
+    "scanned_force": 4312,
+    "scanned_pressure": 4313,
+    "scanned_freeze": 4314,
+    "scanned_seed": 4315,
+    "scanned_art": 4316,
+    "scanned_impact": 4317,
+    "scanned_hardness": 4318,
+    "scanned_decay": 4319,
+    "scanned_bend": 4320,
+    "scanned_sweep_time": 4321,
+    "scanned_loss": 4322,
+    "scanned_amp_mode": 4323,
+    "scanned_amp_gain": 4324,
+    "scanned_amp_bass": 4325,
+    "scanned_amp_mid": 4326,
+    "scanned_amp_freq": 4327,
+    "scanned_amp_treble": 4328,
+    "scanned_amp_cab": 4329,
+    "scanned_amp_level": 4330,
+    "fm_mode": 4400,
+    "fm_tune": 4401,
+    "fm_width": 4402,
+    "fm_level": 4403,
+    "fm_algorithm": 4404,
+    "fm_ratio1": 4405,
+    "fm_index1": 4406,
+    "fm_feedback": 4407,
+    "fm_ratio2": 4408,
+    "fm_index2": 4409,
+    "fm_detune": 4410,
+    "fm_mix": 4411,
+    "fm_cutoff": 4412,
+    "fm_resonance": 4413,
+    "fm_drive": 4414,
+    "fm_decay": 4415,
+    "fm_fm_decay": 4416,
+    "fm_bend": 4417,
+    "fm_sweep_time": 4418,
+    "fm_impact": 4419,
+    "fm_noise": 4420,
+    "fm_noise_decay": 4421,
+    "fm_hardness": 4422,
     "motion_rate": 514,
     "packet_duty": 521,
     "motor_rate": 522,
@@ -772,7 +1050,7 @@
     {
       "id": 4,
       "label": "ENG ",
-      "steps": 14,
+      "steps": 17,
       "scope": "part"
     },
     {
@@ -1702,6 +1980,570 @@
     {
       "id": 3345,
       "label": "KEYT",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4200,
+      "label": "TYPE",
+      "steps": 2,
+      "scope": "part"
+    },
+    {
+      "id": 4201,
+      "label": "TUNE",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4202,
+      "label": "WID ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4203,
+      "label": "LVL ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4204,
+      "label": "ART ",
+      "steps": 1,
+      "scope": "part"
+    },
+    {
+      "id": 4205,
+      "label": "DEC ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4206,
+      "label": "NOIS",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4207,
+      "label": "DRIV",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4208,
+      "label": "SHAP",
+      "steps": 3,
+      "scope": "part"
+    },
+    {
+      "id": 4209,
+      "label": "PW  ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4210,
+      "label": "DET ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4211,
+      "label": "SUB ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4212,
+      "label": "CUT ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4213,
+      "label": "RES ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4214,
+      "label": "PTS ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4215,
+      "label": "EVOL",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4216,
+      "label": "CURV",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4217,
+      "label": "DRFT",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4218,
+      "label": "RATE",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4219,
+      "label": "DYN ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4220,
+      "label": "SEED",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4221,
+      "label": "MODL",
+      "steps": 5,
+      "scope": "part"
+    },
+    {
+      "id": 4222,
+      "label": "BNKA",
+      "steps": 7,
+      "scope": "part"
+    },
+    {
+      "id": 4223,
+      "label": "POSA",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4224,
+      "label": "BNKB",
+      "steps": 7,
+      "scope": "part"
+    },
+    {
+      "id": 4225,
+      "label": "POSB",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4226,
+      "label": "BLND",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4227,
+      "label": "RATI",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4228,
+      "label": "FM  ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4230,
+      "label": "BEND",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4231,
+      "label": "PDEC",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4232,
+      "label": "SCAN",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4233,
+      "label": "SDEC",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4234,
+      "label": "SUB ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4235,
+      "label": "IMPT",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4236,
+      "label": "NDEC",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4237,
+      "label": "COLR",
+      "steps": 3,
+      "scope": "part"
+    },
+    {
+      "id": 4229,
+      "label": "DET ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4238,
+      "label": "TONE",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4239,
+      "label": "COMP",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4300,
+      "label": "EXC ",
+      "steps": 3,
+      "scope": "part"
+    },
+    {
+      "id": 4301,
+      "label": "PICK",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4302,
+      "label": "HIT ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4303,
+      "label": "TUNE",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4304,
+      "label": "MOTN",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4305,
+      "label": "DAMP",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4306,
+      "label": "BRGT",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4307,
+      "label": "WID ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4308,
+      "label": "MASS",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4309,
+      "label": "TENS",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4310,
+      "label": "CENT",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4311,
+      "label": "PROF",
+      "steps": 3,
+      "scope": "part"
+    },
+    {
+      "id": 4312,
+      "label": "FORC",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4313,
+      "label": "PRES",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4314,
+      "label": "FRZ ",
+      "steps": 1,
+      "scope": "part"
+    },
+    {
+      "id": 4315,
+      "label": "SEED",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4316,
+      "label": "ART ",
+      "steps": 1,
+      "scope": "part"
+    },
+    {
+      "id": 4317,
+      "label": "IMPT",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4318,
+      "label": "HARD",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4319,
+      "label": "DEC ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4320,
+      "label": "BEND",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4321,
+      "label": "TIME",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4322,
+      "label": "LOSS",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4323,
+      "label": "AMP ",
+      "steps": 2,
+      "scope": "part"
+    },
+    {
+      "id": 4324,
+      "label": "GAIN",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4325,
+      "label": "BASS",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4326,
+      "label": "MID ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4327,
+      "label": "FREQ",
+      "steps": 4,
+      "scope": "part"
+    },
+    {
+      "id": 4328,
+      "label": "TREB",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4329,
+      "label": "CAB ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4330,
+      "label": "OUT ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4400,
+      "label": "MODE",
+      "steps": 1,
+      "scope": "part"
+    },
+    {
+      "id": 4401,
+      "label": "TUNE",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4402,
+      "label": "WID ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4403,
+      "label": "LVL ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4404,
+      "label": "ALG ",
+      "steps": 3,
+      "scope": "part"
+    },
+    {
+      "id": 4405,
+      "label": "RAT1",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4406,
+      "label": "IDX1",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4407,
+      "label": "FDBK",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4408,
+      "label": "RAT2",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4409,
+      "label": "IDX2",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4410,
+      "label": "DETN",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4411,
+      "label": "MIX ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4412,
+      "label": "CUTO",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4413,
+      "label": "RES ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4414,
+      "label": "DRIV",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4415,
+      "label": "DEC ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4416,
+      "label": "FDEC",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4417,
+      "label": "BEND",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4418,
+      "label": "TIME",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4419,
+      "label": "HIT ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4420,
+      "label": "NOIS",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4421,
+      "label": "NDEC",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4422,
+      "label": "HARD",
       "steps": 0,
       "scope": "part"
     },

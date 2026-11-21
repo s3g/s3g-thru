@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="768" height="384" viewBox="0 0 128 64" role="img" aria-labelledby="title desc">
+  <title id="title">Exit confirmation with Keep Playing selected</title>
+  <desc id="desc">Exit confirmation with Keep Playing selected shown as it appears on Ableton Move.</desc>
+  <rect width="128" height="64" fill="#050706"/>
+  <g shape-rendering="crispEdges" font-family="DejaVu Sans Mono, IBM Plex Mono, monospace" font-size="6" font-style="normal" font-weight="400" text-rendering="geometricPrecision">
+    <text x="1" y="5.5" fill="#dce8e1">EXIT s3g Thru?</text>
+    <text x="1" y="19.5" fill="#dce8e1">EXIT STOPS AUDIO</text>
+    <rect x="0" y="30" width="128" height="9" fill="#dce8e1"/>
+    <text x="1" y="36.5" fill="#050706">KEEP PLAYING</text>
+    <text x="1" y="47.5" fill="#dce8e1">EXIT TO SCHWUNG</text>
+    <text x="1" y="62.5" fill="#dce8e1">TURN/CLICK  BACK:KEEP</text>
+  </g>
+  <rect x="0.25" y="0.25" width="127.5" height="63.5" fill="none" stroke="#5b6661" stroke-width="0.5"/>
+</svg>

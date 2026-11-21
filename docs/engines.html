@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Playback engines - s3g Thru manual</title>
-    <meta name="description" content="Choose among the fifteen playback engines in s3g Thru, including Motion, Grains, Weave, Wavesets, Cutups, and Glitch.">
+    <meta name="description" content="Choose among the fifteen sample engines and the TABLE, SCANNED and FM synthesizers in s3g Thru, including Motion, Grains, Weave, Wavesets, Cutups, and Glitch.">
     <link rel="stylesheet" href="assets/styles.css">
   </head>
   <body>
@@ -17,7 +17,7 @@
       <main class="content" id="content">
         <p class="eyebrow">Sound layer</p>
         <h1>Playback engines</h1>
-        <p class="lead">Fifteen engines reinterpret the same four stereo lanes. Start here to compare them, then open an engine guide for every parameter, option, range, and interaction on its contextual pages.</p>
+        <p class="lead">Fifteen sample engines reinterpret the same four stereo lanes; TABLE and SCANNED generate audio directly. Start here to compare them, then open an engine guide for every parameter, option, range, and interaction on its contextual pages.</p>
 
         <figure>
           <div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/engine-page.svg" aria-label="Open the Engine page figure"><img src="assets/screens/engine-page.svg" alt="Engine page with algorithm and seven shared playback controls"></button></div>
@@ -27,6 +27,7 @@
 
         <div class="callout"><p><strong>Instrument modes:</strong> Single, Split, Shared Dual, and Quad use different lane layouts and voice budgets. <a href="modes.html">Compare the modes and choose a layout</a> before following the controls below.</p></div>
 
+        <p>There are eighteen engines: fifteen transform recorded samples; <a href="engine-table.html">TABLE</a>, <a href="engine-scanned.html">SCANNED</a> and <a href="engine-fm.html">FM</a> generate audio directly. TABLE keeps source-position, field, transport-speed and join cells unavailable because it does not read a sample window.</p>
         <h2 id="choose">Choose an engine</h2>
 
         <div class="manual-grid engine-grid">
@@ -45,7 +46,11 @@
         <a class="manual-card engine-card" href="engine-formant.html"><h3>Formant</h3><p>Play pitch-synchronous sample grains with keyboard pitch and resonant character controlled independently.</p><span>Stack Path + 1 unique page · 20 total</span></a>
         <a class="manual-card engine-card" href="engine-stochastic.html"><h3>Stochastic</h3><p>Evolving timing and gain deformations keep recorded audio moving through bounded random walks.</p><span>Stack Path + 1 unique page · 20 total</span></a>
 <a class="manual-card engine-card" href="engine-pulsar.html"><h3>Pulsar</h3><p>Windowed sample fragments form pitched pulse trains, with independent pulse duration, omission, burst groups and timing jitter, modulation, scatter and reverse probability.</p><span>Stack Path + 2 unique pages</span></a>
-        </div>
+        <a class="manual-card engine-card" href="engine-table.html"><h3>TABLE</h3><p>Play Wave, Spline and wavetable percussion directly. Four synth patches replace the sample stack, with live scopes and the familiar lane scanning.</p><span>2–4 contextual pages · no source sample required</span></a>
+        <a class="manual-card engine-card" href="engine-scanned.html"><h3>SCANNED</h3><p>Pluck, strike or sustain four moving physical strings, read at keyboard pitch. Freeze their shapes or excite them with a sample.</p><span>4 detail pages · articulation and bass amp</span></a>
+<a class="manual-card engine-card" href="engine-fm.html"><h3>FM</h3><p>Four tonal or drum patches with 2OP, serial, parallel or ring modulation, live envelopes and stack blending.</p><span>Stack Path + 3 detail pages</span></a>
+
+</div>
 
         <p>Page totals describe Single mode with a named Stack Path. Selecting Draw adds the Path Editor page for engines that use Stack Path.</p>
 
@@ -54,7 +59,7 @@
         <table class="readout-table parameter-table">
           <thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>What it controls</th></tr></thead>
           <tbody>
-            <tr><td>1</td><td>ALG</td><td>15 choices</td><td>Algorithm selects Motion, Lanes, Grains, Cutups, Sample, Slices, Glitch, Weave, Wavesets, Prism, Morph, Texture, Formant, Stochastic, or Pulsar. Up/Down then moves among that engine’s Play pages.</td></tr>
+            <tr><td>1</td><td>ALG</td><td>18 choices</td><td>Algorithm selects Motion, Lanes, Grains, Cutups, Sample, Slices, Glitch, Weave, Wavesets, Prism, Morph, Texture, Formant, Stochastic, Pulsar, TABLE, SCANNED, FM, or FM. Up/Down then moves among that engine’s Play pages.</td></tr>
             <tr><td>2</td><td>POS</td><td>0.00–1.00</td><td>Position centers the active source window. Near either end, the window is clamped so it never extends beyond the sample.</td></tr>
             <tr><td>3</td><td>FLD</td><td>0.02–1.00</td><td>Field sets the active window width as a fraction of the sample. See <a href="interface.html#zoom">Waveform zoom</a>. Single zooms all four lanes together; Split gives each part its own window. Shared Dual zooms all four lanes to the focused instrument’s POS/FLD, including during playback; the other side does not widen that view.</td></tr>
             <tr><td>4</td><td>SPD</td><td>0.05–4.00×</td><td>Speed sets base source transport. In Grains and Weave it moves grain origins independently of keyboard pitch; the other engines, including Wavesets, combine it with note pitch as described in their guides.</td></tr>
@@ -100,7 +105,7 @@
         <p>On Pads &amp; Scale, set <strong>ENGS</strong> to <strong>LIST</strong>. The Voice Engines and Voice Setup pages appear immediately after it. Each encoder assigns an algorithm to one entry: eight in Single or Layers, four per part in Split or Shared Dual, and two per part in Quad. Unavailable entries show reserved boxes. Each part keeps its own list and order.</p>
         <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/voice-engines.svg" aria-label="Open the Voice Engines page"><img src="assets/screens/voice-engines.svg" alt="Eight engine entries with E2 selected for editing"></button></div><figcaption>Knobs 1–8 assign algorithms. Turn the main encoder to select an entry; its label is underlined. Click to open its engine controls. Back returns to the list.</figcaption></figure>
         <table class="readout-table parameter-table"><thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>What it controls</th></tr></thead><tbody>
-          <tr><td>1–8</td><td>E1–E8</td><td>15 engines</td><td>Algorithm for that list entry. Only entries within the part's voice budget are available.</td></tr>
+          <tr><td>1–8</td><td>E1–E8</td><td>18 engines</td><td>Algorithm for that list entry. Only entries within the part's voice budget are available.</td></tr>
           <tr><td>Main encoder</td><td>Underline</td><td>Available entries</td><td>Turn to choose the entry whose engine pages you want to edit; click to open them. Their titles show E1, E2, and so on.</td></tr>
         </tbody></table>
         <p><strong>UP</strong> chooses the lowest free entry; <strong>DOWN</strong> chooses the highest. <strong>RAND</strong> chooses uniformly among the currently free entries. With all four entries free, Grains, Grains, Sample, Weave gives Grains a 50% chance and each other engine 25%. Holding a note removes its entry from subsequent Touch choices until note-off. Keyboard assignments can give more than one note the same entry.</p>
@@ -304,6 +309,8 @@
 <tr><td><a href="engine-formant.html">Formant</a></td><td>Pitch-synchronous sampling with independent pitch and formant shift</td><td>Each lane follows its own detected periods</td><td>Playable voices, vowels, reeds, and monophonic recordings</td></tr>
             <tr><td><a href="engine-stochastic.html">Stochastic</a></td><td>Sample fragments evolve through timing and amplitude deformation; source travel can run or hold</td><td>Independent stack path and continuously changing lane blend per note</td><td>Metallic tearing, unstable reeds, elastic machinery, and evolving held fragments</td></tr>
             <tr><td><a href="engine-pulsar.html">Pulsar</a></td><td>Windowed fragments with independent pulse rate, duration, and source span; source travel can run or hold</td><td>Independent stack path per note; each pulse captures its lane blend at launch</td><td>Vocal reeds, pitched buzzing, rhythmic bursts, and sampled pulses up to one second</td></tr>
+<tr><td><a href="engine-table.html">TABLE</a></td><td>Live Wave, Spline and WT Drum synthesis</td><td>Two adjacent patch readers per note blend across four authored patches; no sample file is read</td></tr><tr><td><a href="engine-scanned.html">SCANNED</a></td><td>Slow physical string shapes read at keyboard pitch.</td><td>Ringing plucks, sustained moving tones and frozen timbres.</td></tr>
+<tr><td><a href="engine-fm.html">FM</a></td><td>Keyboard-pitched tonal or percussive FM</td><td>Four patch lanes, independently blended per voice</td><td>FM basses, bells, metallic tones, kicks and noisy percussion</td></tr>
           </tbody>
         </table>
 
@@ -329,7 +336,7 @@
       <aside class="toc" aria-label="Page navigation">
         <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="synthesis.html">Synthesis</a><a href="projects.html">Projects</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="midi.html">MIDI</a><a href="shortcuts.html">Shortcuts</a></div>
         <div class="toc-section"><h2>Instrument modes</h2><a href="playing.html">Single · Basic playing</a><a href="modes.html">Compare modes</a><a href="split.html">Split</a><a href="shared-dual.html">Shared Dual</a><a href="quad.html">Quad</a><a href="bank.html">Bank</a><a href="layers.html">Layers</a><a href="sequence.html">Sequence</a></div>
-        <div class="toc-section"><h2>Engine guides</h2><a href="engine-motion.html">Motion</a><a href="engine-lanes.html">Lanes</a><a href="engine-grains.html">Grains</a><a href="engine-cutups.html">Cutups</a><a href="engine-sample.html">Sample</a><a href="engine-slices.html">Slices</a><a href="engine-glitch.html">Glitch</a><a href="engine-weave.html">Weave</a><a href="engine-wavesets.html">Wavesets</a><a href="engine-prism.html">Prism</a><a href="engine-morph.html">Morph</a><a href="engine-texture.html">Texture</a><a href="engine-formant.html">Formant</a><a href="engine-stochastic.html">Stochastic</a><a href="engine-pulsar.html">Pulsar</a></div>
+        <div class="toc-section"><h2>Engine guides</h2><a href="engine-motion.html">Motion</a><a href="engine-lanes.html">Lanes</a><a href="engine-grains.html">Grains</a><a href="engine-cutups.html">Cutups</a><a href="engine-sample.html">Sample</a><a href="engine-slices.html">Slices</a><a href="engine-glitch.html">Glitch</a><a href="engine-weave.html">Weave</a><a href="engine-wavesets.html">Wavesets</a><a href="engine-prism.html">Prism</a><a href="engine-morph.html">Morph</a><a href="engine-texture.html">Texture</a><a href="engine-formant.html">Formant</a><a href="engine-stochastic.html">Stochastic</a><a href="engine-pulsar.html">Pulsar</a><a href="engine-table.html">TABLE</a><a href="engine-scanned.html">SCANNED</a><a href="engine-fm.html">FM</a></div>
         <div class="toc-section"><h2>On this page</h2><a href="#choose">Choose</a><a href="#shared">Engine page</a><a href="#pads-scale">Pads &amp; Scale</a><a href="#amp-envelope">Amp Envelope</a><a href="#stack-path">Stack Path</a><a href="#path-editor">Path Editor</a><a href="#direct-play">Direct Play</a><a href="#compare">Compare</a><a href="#voices">Shared behavior</a></div>
       </aside>
     </div>

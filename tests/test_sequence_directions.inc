@@ -82,7 +82,7 @@ void testSequenceRecipeRecording(){
     const auto path=std::string(directory)+"/thru-clips.bin";auto* file=std::fopen(path.c_str(),"rb");assert(file);
     std::fseek(file,0,SEEK_END);const auto size=std::ftell(file);std::rewind(file);std::vector<unsigned char> bytes(std::size_t(size)-4);
     assert(std::fread(bytes.data(),1,bytes.size(),file)==bytes.size());std::fclose(file);
-    const auto offset=bytes.size()-2*(4+64*4*4)-(4+64*4*8)+4;bytes[offset]=5;
+    const auto offset=clipLegacyTailSize(bytes)-2*(4+64*4*4)-(4+64*4*8)+4;bytes[offset]=5;
     std::uint32_t checksum=2166136261u;for(auto v:bytes){checksum^=v;checksum*=16777619u;}
     file=std::fopen(path.c_str(),"wb");assert(file);assert(std::fwrite(bytes.data(),1,bytes.size(),file)==bytes.size());assert(writeU32(file,checksum));std::fclose(file);
     const auto retained=restored->sequenceLive.tracks[0].generator.values;

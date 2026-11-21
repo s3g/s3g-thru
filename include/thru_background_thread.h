@@ -16,7 +16,14 @@ inline bool startBackgroundThread(pthread_t& thread, void* (*entry)(void*), void
 #if defined(__APPLE__)
     // Darwin SCHED_OTHER accepts 0..63; explicit zero starves audio lookahead
     // behind compilers and sanitizer work. File/analysis workers keep zero.
+    // Host regressions check durable completion, not Darwin's idle-thread
+    // scheduling under desktop load. This flag is never in the Move build.
+#if defined(S3G_THRU_HOST_TESTING)
+    (void)audioCompanion;
+    priority.sched_priority=(sched_get_priority_min(SCHED_OTHER)+sched_get_priority_max(SCHED_OTHER))/2;
+#else
     if(audioCompanion)priority.sched_priority=(sched_get_priority_min(SCHED_OTHER)+sched_get_priority_max(SCHED_OTHER))/2;
+#endif
 #else
     (void)audioCompanion;
 #endif

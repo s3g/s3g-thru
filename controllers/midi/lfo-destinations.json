@@ -1,0 +1,5292 @@
+[
+  {
+    "key": "off",
+    "page": "Off",
+    "name": "Off",
+    "scope": "off",
+    "engines": [],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": -99,
+    "min": 0,
+    "max": 1,
+    "octaves": 0,
+    "id": 0,
+    "condition": "always"
+  },
+  {
+    "key": "speed",
+    "page": "ENGINE",
+    "name": "Speed",
+    "scope": "engine",
+    "engines": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 2,
+    "min": 0.05,
+    "max": 4,
+    "octaves": 2,
+    "id": 1,
+    "condition": "always"
+  },
+  {
+    "key": "part_level",
+    "page": "MIXER",
+    "name": "Level",
+    "scope": "mixer",
+    "engines": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": -1,
+    "min": 0,
+    "max": 2,
+    "octaves": 0,
+    "id": 2,
+    "condition": "always"
+  },
+  {
+    "key": "part_pan",
+    "page": "MIXER",
+    "name": "Pan",
+    "scope": "mixer",
+    "engines": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": -2,
+    "min": -1,
+    "max": 1,
+    "octaves": 0,
+    "id": 3,
+    "condition": "always"
+  },
+  {
+    "key": "part_delay",
+    "page": "FX SENDS",
+    "name": "Delay Send",
+    "scope": "mixer",
+    "engines": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17
+    ],
+    "modes": [
+      1,
+      2,
+      3,
+      4,
+      6
+    ],
+    "parameter": -3,
+    "min": 0,
+    "max": 1,
+    "octaves": 0,
+    "id": 4,
+    "condition": "always"
+  },
+  {
+    "key": "part_reverb",
+    "page": "FX SENDS",
+    "name": "Reverb Send",
+    "scope": "mixer",
+    "engines": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17
+    ],
+    "modes": [
+      1,
+      2,
+      3,
+      4,
+      6
+    ],
+    "parameter": -4,
+    "min": 0,
+    "max": 1,
+    "octaves": 0,
+    "id": 5,
+    "condition": "always"
+  },
+  {
+    "key": "effect_tone",
+    "page": "PART COLOR",
+    "name": "Tone",
+    "scope": "insert",
+    "engines": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      6
+    ],
+    "parameter": 97,
+    "min": -1,
+    "max": 1,
+    "octaves": 0,
+    "id": 6,
+    "condition": "always"
+  },
+  {
+    "key": "effect_drive",
+    "page": "PART COLOR",
+    "name": "Drive",
+    "scope": "insert",
+    "engines": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      6
+    ],
+    "parameter": 98,
+    "min": 0,
+    "max": 1,
+    "octaves": 0,
+    "id": 7,
+    "condition": "always"
+  },
+  {
+    "key": "effect_bits",
+    "page": "PART COLOR",
+    "name": "Bit Reduction",
+    "scope": "insert",
+    "engines": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      6
+    ],
+    "parameter": 99,
+    "min": 0,
+    "max": 1,
+    "octaves": 0,
+    "id": 8,
+    "condition": "always"
+  },
+  {
+    "key": "effect_rate",
+    "page": "PART COLOR",
+    "name": "Rate Reduction",
+    "scope": "insert",
+    "engines": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      6
+    ],
+    "parameter": 100,
+    "min": 1,
+    "max": 16,
+    "octaves": 0,
+    "id": 9,
+    "condition": "always"
+  },
+  {
+    "key": "stretch_ratio",
+    "page": "LANES PLAY",
+    "name": "Stretch Factor",
+    "scope": "engine",
+    "engines": [
+      1,
+      4
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 14,
+    "min": 0.25,
+    "max": 4,
+    "octaves": 2,
+    "id": 10,
+    "condition": "always"
+  },
+  {
+    "key": "grain_size",
+    "page": "GRAINS MAIN",
+    "name": "Grain Size",
+    "scope": "engine",
+    "engines": [
+      2
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 20,
+    "min": 8,
+    "max": 1000,
+    "octaves": 2,
+    "id": 11,
+    "condition": "always"
+  },
+  {
+    "key": "grain_pitch",
+    "page": "GRAINS MAIN",
+    "name": "Pitch",
+    "scope": "engine",
+    "engines": [
+      2
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 22,
+    "min": 0.25,
+    "max": 4,
+    "octaves": 2,
+    "id": 12,
+    "condition": "always"
+  },
+  {
+    "key": "grain_spread",
+    "page": "GRAINS MAIN",
+    "name": "Stereo Spread",
+    "scope": "engine",
+    "engines": [
+      2
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 24,
+    "min": 0,
+    "max": 1,
+    "octaves": 0,
+    "id": 13,
+    "condition": "always"
+  },
+  {
+    "key": "grain_spray",
+    "page": "GRAINS CLOUD",
+    "name": "Position Spray",
+    "scope": "engine",
+    "engines": [
+      2
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 38,
+    "min": 0,
+    "max": 1,
+    "octaves": 0,
+    "id": 14,
+    "condition": "always"
+  },
+  {
+    "key": "grain_bias",
+    "page": "GRAINS CLOUD",
+    "name": "Position Bias",
+    "scope": "engine",
+    "engines": [
+      2
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 39,
+    "min": 0,
+    "max": 2,
+    "octaves": 0,
+    "id": 15,
+    "condition": "always"
+  },
+  {
+    "key": "long_grain_length",
+    "page": "WEAVE",
+    "name": "Grain Length",
+    "scope": "engine",
+    "engines": [
+      7
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 106,
+    "min": 250,
+    "max": 12000,
+    "octaves": 2,
+    "id": 16,
+    "condition": "always"
+  },
+  {
+    "key": "long_grain_pitch",
+    "page": "WEAVE",
+    "name": "Pitch",
+    "scope": "engine",
+    "engines": [
+      7
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 108,
+    "min": 0.25,
+    "max": 4,
+    "octaves": 2,
+    "id": 17,
+    "condition": "always"
+  },
+  {
+    "key": "long_grain_edge",
+    "page": "WEAVE",
+    "name": "Grain Edge",
+    "scope": "engine",
+    "engines": [
+      7
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 110,
+    "min": 5,
+    "max": 2000,
+    "octaves": 0,
+    "id": 18,
+    "condition": "always"
+  },
+  {
+    "key": "long_grain_spread",
+    "page": "WEAVE",
+    "name": "Stereo Spread",
+    "scope": "engine",
+    "engines": [
+      7
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 111,
+    "min": 0,
+    "max": 1,
+    "octaves": 0,
+    "id": 19,
+    "condition": "always"
+  },
+  {
+    "key": "long_grain_spray",
+    "page": "WEAVE MOTION",
+    "name": "Position Spray",
+    "scope": "engine",
+    "engines": [
+      7
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 113,
+    "min": 0,
+    "max": 1,
+    "octaves": 0,
+    "id": 20,
+    "condition": "always"
+  },
+  {
+    "key": "cut_gate",
+    "page": "CUTUPS CLOCK",
+    "name": "Cut Duration",
+    "scope": "engine",
+    "engines": [
+      3
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 55,
+    "min": 5,
+    "max": 100,
+    "octaves": 0,
+    "id": 21,
+    "condition": "always"
+  },
+  {
+    "key": "cut_join",
+    "page": "CUTUPS CLOCK",
+    "name": "Cut Crossfade",
+    "scope": "engine",
+    "engines": [
+      3
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 56,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 22,
+    "condition": "always"
+  },
+  {
+    "key": "cut_pitch_variation",
+    "page": "CUTUPS PATH",
+    "name": "Pitch Variation",
+    "scope": "engine",
+    "engines": [
+      3
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 60,
+    "min": 0,
+    "max": 24,
+    "octaves": 0,
+    "id": 23,
+    "condition": "always"
+  },
+  {
+    "key": "glitch_mix",
+    "page": "GLITCH CLOCK",
+    "name": "Glitch Mix",
+    "scope": "engine",
+    "engines": [
+      6
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 88,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 24,
+    "condition": "always"
+  },
+  {
+    "key": "glitch_chance",
+    "page": "GLITCH CLOCK",
+    "name": "Chance",
+    "scope": "engine",
+    "engines": [
+      6
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 87,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 25,
+    "condition": "always"
+  },
+  {
+    "key": "glitch_pitch",
+    "page": "GLITCH PATTERN",
+    "name": "Pitch",
+    "scope": "engine",
+    "engines": [
+      6
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 93,
+    "min": 0,
+    "max": 24,
+    "octaves": 0,
+    "id": 26,
+    "condition": "always"
+  },
+  {
+    "key": "glitch_decay",
+    "page": "GLITCH PATTERN",
+    "name": "Decay",
+    "scope": "engine",
+    "engines": [
+      6
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 95,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 27,
+    "condition": "always"
+  },
+  {
+    "key": "prism_pitch",
+    "page": "PRISM",
+    "name": "Pitch",
+    "scope": "engine",
+    "engines": [
+      9
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 179,
+    "min": -24,
+    "max": 24,
+    "octaves": 0,
+    "id": 28,
+    "condition": "always"
+  },
+  {
+    "key": "prism_tilt",
+    "page": "PRISM",
+    "name": "Spectral Tilt",
+    "scope": "engine",
+    "engines": [
+      9
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 180,
+    "min": -100,
+    "max": 100,
+    "octaves": 0,
+    "id": 29,
+    "condition": "always"
+  },
+  {
+    "key": "prism_smear",
+    "page": "PRISM",
+    "name": "Smear",
+    "scope": "engine",
+    "engines": [
+      9
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 181,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 30,
+    "condition": "always"
+  },
+  {
+    "key": "morph_amplitude",
+    "page": "MORPH",
+    "name": "Amplitude Blend",
+    "scope": "engine",
+    "engines": [
+      10
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 182,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 31,
+    "condition": "always"
+  },
+  {
+    "key": "morph_frequency",
+    "page": "MORPH",
+    "name": "Frequency Blend",
+    "scope": "engine",
+    "engines": [
+      10
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 183,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 32,
+    "condition": "always"
+  },
+  {
+    "key": "morph_pitch",
+    "page": "MORPH",
+    "name": "Pitch",
+    "scope": "engine",
+    "engines": [
+      10
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 186,
+    "min": -24,
+    "max": 24,
+    "octaves": 0,
+    "id": 33,
+    "condition": "always"
+  },
+  {
+    "key": "texture_scatter",
+    "page": "TEXTURE",
+    "name": "Scatter",
+    "scope": "engine",
+    "engines": [
+      11
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 190,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 34,
+    "condition": "always"
+  },
+  {
+    "key": "texture_range",
+    "page": "TEXTURE",
+    "name": "Pitch Range",
+    "scope": "engine",
+    "engines": [
+      11
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 191,
+    "min": 0,
+    "max": 24,
+    "octaves": 0,
+    "id": 35,
+    "condition": "always"
+  },
+  {
+    "key": "texture_spread",
+    "page": "TEXTURE",
+    "name": "Stereo Spread",
+    "scope": "engine",
+    "engines": [
+      11
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 193,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 36,
+    "condition": "always"
+  },
+  {
+    "key": "formant_pitch",
+    "page": "FORMANT",
+    "name": "Pitch",
+    "scope": "engine",
+    "engines": [
+      12
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 196,
+    "min": -24,
+    "max": 24,
+    "octaves": 0,
+    "id": 37,
+    "condition": "always"
+  },
+  {
+    "key": "formant_shift",
+    "page": "FORMANT",
+    "name": "Formant Shift",
+    "scope": "engine",
+    "engines": [
+      12
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 197,
+    "min": -24,
+    "max": 24,
+    "octaves": 0,
+    "id": 38,
+    "condition": "always"
+  },
+  {
+    "key": "formant_sub",
+    "page": "FORMANT",
+    "name": "Sub Level",
+    "scope": "engine",
+    "engines": [
+      12
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 203,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 39,
+    "condition": "always"
+  },
+  {
+    "key": "stochastic_amplitude",
+    "page": "STOCHASTIC",
+    "name": "Amplitude Deform",
+    "scope": "engine",
+    "engines": [
+      13
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 206,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 40,
+    "condition": "always"
+  },
+  {
+    "key": "stochastic_timing",
+    "page": "STOCHASTIC",
+    "name": "Timing Deform",
+    "scope": "engine",
+    "engines": [
+      13
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 207,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 41,
+    "condition": "always"
+  },
+  {
+    "key": "pulsar_form",
+    "page": "PULSAR",
+    "name": "Form Frequency",
+    "scope": "engine",
+    "engines": [
+      14
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 217,
+    "min": 1,
+    "max": 2000,
+    "octaves": 2,
+    "id": 42,
+    "condition": "always"
+  },
+  {
+    "key": "pulsar_size",
+    "page": "PULSAR",
+    "name": "Pulsaret Size",
+    "scope": "engine",
+    "engines": [
+      14
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 218,
+    "min": 0.5,
+    "max": 1000,
+    "octaves": 2,
+    "id": 43,
+    "condition": "always"
+  },
+  {
+    "key": "pulsar_skew",
+    "page": "PULSAR",
+    "name": "Window Skew",
+    "scope": "engine",
+    "engines": [
+      14
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 220,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 44,
+    "condition": "always"
+  },
+  {
+    "key": "pulsar_omit",
+    "page": "PULSAR",
+    "name": "Omit",
+    "scope": "engine",
+    "engines": [
+      14
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 221,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 45,
+    "condition": "always"
+  },
+  {
+    "key": "pulsar_spray",
+    "page": "PULSAR MOD",
+    "name": "Position Spray",
+    "scope": "engine",
+    "engines": [
+      14
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 230,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 46,
+    "condition": "always"
+  },
+  {
+    "key": "effect_cross_pan",
+    "page": "STEREO / ROTARY",
+    "name": "Stereo Pan",
+    "scope": "insert",
+    "engines": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      6
+    ],
+    "parameter": 124,
+    "min": -100,
+    "max": 100,
+    "octaves": 0,
+    "id": 47,
+    "condition": "always"
+  },
+  {
+    "key": "effect_rotary_rate",
+    "page": "STEREO / ROTARY",
+    "name": "Rotary Rate",
+    "scope": "insert",
+    "engines": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      6
+    ],
+    "parameter": 125,
+    "min": 0,
+    "max": 8,
+    "octaves": 2,
+    "id": 48,
+    "condition": "always"
+  },
+  {
+    "key": "effect_rotary_depth",
+    "page": "STEREO / ROTARY",
+    "name": "Rotary Depth",
+    "scope": "insert",
+    "engines": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      6
+    ],
+    "parameter": 126,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 49,
+    "condition": "always"
+  },
+  {
+    "key": "effect_rotary_mix",
+    "page": "STEREO / ROTARY",
+    "name": "Rotary Mix",
+    "scope": "insert",
+    "engines": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      6
+    ],
+    "parameter": 127,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 50,
+    "condition": "always"
+  },
+  {
+    "key": "effect_rotary_balance",
+    "page": "STEREO / ROTARY",
+    "name": "Horn Drum Balance",
+    "scope": "insert",
+    "engines": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      6
+    ],
+    "parameter": 129,
+    "min": -100,
+    "max": 100,
+    "octaves": 0,
+    "id": 51,
+    "condition": "always"
+  },
+  {
+    "key": "effect_rotary_spread",
+    "page": "STEREO / ROTARY",
+    "name": "Rotary Spread",
+    "scope": "insert",
+    "engines": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      6
+    ],
+    "parameter": 131,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 52,
+    "condition": "always"
+  },
+  {
+    "key": "effect_delay",
+    "page": "DELAY RETURN",
+    "name": "Delay Time",
+    "scope": "shared",
+    "engines": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      6
+    ],
+    "parameter": 101,
+    "min": 1,
+    "max": 750,
+    "octaves": 0,
+    "id": 53,
+    "condition": "always"
+  },
+  {
+    "key": "effect_feedback",
+    "page": "DELAY RETURN",
+    "name": "Feedback",
+    "scope": "shared",
+    "engines": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      6
+    ],
+    "parameter": 102,
+    "min": 0,
+    "max": 90,
+    "octaves": 0,
+    "id": 54,
+    "condition": "always"
+  },
+  {
+    "key": "effect_width",
+    "page": "DELAY RETURN",
+    "name": "Stereo Width",
+    "scope": "shared",
+    "engines": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      6
+    ],
+    "parameter": 103,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 55,
+    "condition": "always"
+  },
+  {
+    "key": "effect_mix",
+    "page": "DELAY RETURN",
+    "name": "Delay Mix Return",
+    "scope": "shared",
+    "engines": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      6
+    ],
+    "parameter": 104,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 56,
+    "condition": "always"
+  },
+  {
+    "key": "effect_reverb_decay",
+    "page": "REVERB",
+    "name": "Decay",
+    "scope": "shared",
+    "engines": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      6
+    ],
+    "parameter": 153,
+    "min": 0.2,
+    "max": 20,
+    "octaves": 2,
+    "id": 57,
+    "condition": "always"
+  },
+  {
+    "key": "effect_reverb_damp",
+    "page": "REVERB",
+    "name": "Damping",
+    "scope": "shared",
+    "engines": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      6
+    ],
+    "parameter": 155,
+    "min": 500,
+    "max": 18000,
+    "octaves": 2,
+    "id": 58,
+    "condition": "always"
+  },
+  {
+    "key": "effect_reverb_diff",
+    "page": "REVERB",
+    "name": "Diffusion",
+    "scope": "shared",
+    "engines": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      6
+    ],
+    "parameter": 156,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 59,
+    "condition": "always"
+  },
+  {
+    "key": "effect_reverb_width",
+    "page": "REVERB",
+    "name": "Stereo Width",
+    "scope": "shared",
+    "engines": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      6
+    ],
+    "parameter": 158,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 60,
+    "condition": "always"
+  },
+  {
+    "key": "effect_reverb_mix",
+    "page": "REVERB",
+    "name": "Reverb Mix Return",
+    "scope": "shared",
+    "engines": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      6
+    ],
+    "parameter": 159,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 61,
+    "condition": "always"
+  },
+  {
+    "key": "effect_tape_drive",
+    "page": "TAPE",
+    "name": "Drive",
+    "scope": "shared",
+    "engines": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      6
+    ],
+    "parameter": 133,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 62,
+    "condition": "always"
+  },
+  {
+    "key": "effect_tape_age",
+    "page": "TAPE",
+    "name": "Age",
+    "scope": "shared",
+    "engines": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      6
+    ],
+    "parameter": 140,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 63,
+    "condition": "always"
+  },
+  {
+    "key": "effect_tape_hiss",
+    "page": "TAPE",
+    "name": "Hiss Level",
+    "scope": "shared",
+    "engines": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      6
+    ],
+    "parameter": 138,
+    "min": -84,
+    "max": -54,
+    "octaves": 0,
+    "id": 64,
+    "condition": "always"
+  },
+  {
+    "key": "effect_tape_mix",
+    "page": "TAPE",
+    "name": "Tape Mix",
+    "scope": "shared",
+    "engines": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      6
+    ],
+    "parameter": 139,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 65,
+    "condition": "always"
+  },
+  {
+    "key": "split_blend",
+    "page": "FX SENDS",
+    "name": "A B Crossfade",
+    "scope": "shared",
+    "engines": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14
+    ],
+    "modes": [
+      1,
+      2,
+      4
+    ],
+    "parameter": 162,
+    "min": 0,
+    "max": 1,
+    "octaves": 0,
+    "id": 66,
+    "condition": "always"
+  },
+  {
+    "key": "layers_fx_x",
+    "page": "LAYERS",
+    "name": "FX X Position",
+    "scope": "layers",
+    "engines": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14
+    ],
+    "modes": [
+      5
+    ],
+    "parameter": -5,
+    "min": 0,
+    "max": 1,
+    "octaves": 0,
+    "id": 67,
+    "condition": "always"
+  },
+  {
+    "key": "layers_fx_y",
+    "page": "LAYERS",
+    "name": "FX Y Position",
+    "scope": "layers",
+    "engines": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14
+    ],
+    "modes": [
+      5
+    ],
+    "parameter": -6,
+    "min": 0,
+    "max": 1,
+    "octaves": 0,
+    "id": 68,
+    "condition": "always"
+  },
+  {
+    "key": "join",
+    "page": "ENGINE",
+    "name": "Crossfade",
+    "scope": "engine",
+    "engines": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 6,
+    "min": 0,
+    "max": 1,
+    "octaves": 0,
+    "id": 69,
+    "condition": "join"
+  },
+  {
+    "key": "motion_travel",
+    "page": "MOTION PATH",
+    "name": "Travel",
+    "scope": "engine",
+    "engines": [
+      0
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 26,
+    "min": 0,
+    "max": 1,
+    "octaves": 0,
+    "id": 70,
+    "condition": "always"
+  },
+  {
+    "key": "motion_jitter",
+    "page": "MOTION PATH",
+    "name": "Jitter",
+    "scope": "engine",
+    "engines": [
+      0
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 27,
+    "min": 0,
+    "max": 1,
+    "octaves": 0,
+    "id": 71,
+    "condition": "always"
+  },
+  {
+    "key": "motion_rate",
+    "page": "PACKETS",
+    "name": "Event Rate",
+    "scope": "engine",
+    "engines": [
+      0
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 10,
+    "min": 0.25,
+    "max": 20,
+    "octaves": 2,
+    "id": 72,
+    "condition": "packets"
+  },
+  {
+    "key": "packet_duty",
+    "page": "PACKETS",
+    "name": "Duty",
+    "scope": "engine",
+    "engines": [
+      0
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 28,
+    "min": 2,
+    "max": 98,
+    "octaves": 0,
+    "id": 73,
+    "condition": "packets-events"
+  },
+  {
+    "key": "motor_rate",
+    "page": "MOTOR",
+    "name": "Motor Rate",
+    "scope": "engine",
+    "engines": [
+      0
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 29,
+    "min": 0.05,
+    "max": 20,
+    "octaves": 2,
+    "id": 74,
+    "condition": "motor"
+  },
+  {
+    "key": "motor_symmetry",
+    "page": "MOTOR",
+    "name": "Symmetry",
+    "scope": "engine",
+    "engines": [
+      0
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 30,
+    "min": 5,
+    "max": 95,
+    "octaves": 0,
+    "id": 75,
+    "condition": "motor-events"
+  },
+  {
+    "key": "segment_rate",
+    "page": "EVENT CLOCK",
+    "name": "Event Rate",
+    "scope": "engine",
+    "engines": [
+      0
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 75,
+    "min": 0.25,
+    "max": 80,
+    "octaves": 2,
+    "id": 76,
+    "condition": "events-clock"
+  },
+  {
+    "key": "segment_step",
+    "page": "EVENT CLOCK",
+    "name": "Event Step",
+    "scope": "engine",
+    "engines": [
+      0
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 77,
+    "min": 0,
+    "max": 1,
+    "octaves": 0,
+    "id": 77,
+    "condition": "events"
+  },
+  {
+    "key": "segment_pitch",
+    "page": "EVENT SHAPE",
+    "name": "Pitch Scatter",
+    "scope": "engine",
+    "engines": [
+      0
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 78,
+    "min": 0,
+    "max": 12,
+    "octaves": 0,
+    "id": 78,
+    "condition": "events"
+  },
+  {
+    "key": "segment_level",
+    "page": "EVENT SHAPE",
+    "name": "Level Variation",
+    "scope": "engine",
+    "engines": [
+      0
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 79,
+    "min": 0,
+    "max": 1,
+    "octaves": 0,
+    "id": 79,
+    "condition": "events"
+  },
+  {
+    "key": "segment_curve",
+    "page": "EVENT SHAPE",
+    "name": "Interval Curve",
+    "scope": "engine",
+    "engines": [
+      0
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 80,
+    "min": -1,
+    "max": 1,
+    "octaves": 0,
+    "id": 80,
+    "condition": "events-clock"
+  },
+  {
+    "key": "grain_pitch_spray",
+    "page": "GRAINS CLOUD",
+    "name": "Pitch Spray",
+    "scope": "engine",
+    "engines": [
+      2
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 40,
+    "min": 0,
+    "max": 24,
+    "octaves": 0,
+    "id": 81,
+    "condition": "always"
+  },
+  {
+    "key": "grain_reverse",
+    "page": "GRAINS CLOUD",
+    "name": "Reverse Chance",
+    "scope": "engine",
+    "engines": [
+      2
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 41,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 82,
+    "condition": "always"
+  },
+  {
+    "key": "grain_size_variation",
+    "page": "GRAINS CLOUD",
+    "name": "Size Variation",
+    "scope": "engine",
+    "engines": [
+      2
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 42,
+    "min": 0,
+    "max": 1,
+    "octaves": 0,
+    "id": 83,
+    "condition": "always"
+  },
+  {
+    "key": "grain_level_variation",
+    "page": "GRAINS CLOUD",
+    "name": "Level Variation",
+    "scope": "engine",
+    "engines": [
+      2
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 43,
+    "min": 0,
+    "max": 1,
+    "octaves": 0,
+    "id": 84,
+    "condition": "always"
+  },
+  {
+    "key": "grain_timing_scatter",
+    "page": "GRAINS CLOUD",
+    "name": "Timing Scatter",
+    "scope": "engine",
+    "engines": [
+      2
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 45,
+    "min": 0,
+    "max": 1,
+    "octaves": 0,
+    "id": 85,
+    "condition": "always"
+  },
+  {
+    "key": "grain_process_amount",
+    "page": "GRAINS PROCESS",
+    "name": "Process Amount",
+    "scope": "engine",
+    "engines": [
+      2
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 48,
+    "min": 0,
+    "max": 1,
+    "octaves": 0,
+    "id": 86,
+    "condition": "grain-process"
+  },
+  {
+    "key": "grain_envelope_skew",
+    "page": "GRAINS PROCESS",
+    "name": "Envelope Skew",
+    "scope": "engine",
+    "engines": [
+      2
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 46,
+    "min": -1,
+    "max": 1,
+    "octaves": 0,
+    "id": 87,
+    "condition": "always"
+  },
+  {
+    "key": "cut_rate",
+    "page": "CUTUPS CLOCK",
+    "name": "Cut Rate",
+    "scope": "engine",
+    "engines": [
+      3
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 53,
+    "min": 0.25,
+    "max": 64,
+    "octaves": 2,
+    "id": 88,
+    "condition": "cut-hz"
+  },
+  {
+    "key": "cut_time_variation",
+    "page": "CUTUPS CLOCK",
+    "name": "Time Variation",
+    "scope": "engine",
+    "engines": [
+      3
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 54,
+    "min": 0,
+    "max": 1,
+    "octaves": 0,
+    "id": 89,
+    "condition": "always"
+  },
+  {
+    "key": "cut_repeats",
+    "page": "CUTUPS PATH",
+    "name": "Repeats",
+    "scope": "engine",
+    "engines": [
+      3
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 58,
+    "min": 1,
+    "max": 16,
+    "octaves": 0,
+    "id": 90,
+    "condition": "always"
+  },
+  {
+    "key": "cut_reverse",
+    "page": "CUTUPS PATH",
+    "name": "Reverse Chance",
+    "scope": "engine",
+    "engines": [
+      3
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 59,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 91,
+    "condition": "always"
+  },
+  {
+    "key": "cut_level_variation",
+    "page": "CUTUPS PATH",
+    "name": "Level Variation",
+    "scope": "engine",
+    "engines": [
+      3
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 61,
+    "min": 0,
+    "max": 1,
+    "octaves": 0,
+    "id": 92,
+    "condition": "always"
+  },
+  {
+    "key": "glitch_rate",
+    "page": "GLITCH CLOCK",
+    "name": "Glitch Rate",
+    "scope": "engine",
+    "engines": [
+      6
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 84,
+    "min": 0.25,
+    "max": 64,
+    "octaves": 2,
+    "id": 93,
+    "condition": "glitch-hz"
+  },
+  {
+    "key": "glitch_slice",
+    "page": "GLITCH CLOCK",
+    "name": "Slice Length",
+    "scope": "engine",
+    "engines": [
+      6
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 85,
+    "min": 2,
+    "max": 160,
+    "octaves": 0,
+    "id": 94,
+    "condition": "always"
+  },
+  {
+    "key": "glitch_reverse",
+    "page": "GLITCH PATTERN",
+    "name": "Reverse Chance",
+    "scope": "engine",
+    "engines": [
+      6
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 94,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 95,
+    "condition": "always"
+  },
+  {
+    "key": "long_grain_reverse",
+    "page": "WEAVE",
+    "name": "Reverse Chance",
+    "scope": "engine",
+    "engines": [
+      7
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 112,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 96,
+    "condition": "always"
+  },
+  {
+    "key": "long_grain_duration_variation",
+    "page": "WEAVE MOTION",
+    "name": "Duration Variation",
+    "scope": "engine",
+    "engines": [
+      7
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 115,
+    "min": 0,
+    "max": 1,
+    "octaves": 0,
+    "id": 97,
+    "condition": "always"
+  },
+  {
+    "key": "long_grain_pitch_spray",
+    "page": "WEAVE MOTION",
+    "name": "Pitch Spray",
+    "scope": "engine",
+    "engines": [
+      7
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 116,
+    "min": 0,
+    "max": 24,
+    "octaves": 0,
+    "id": 98,
+    "condition": "always"
+  },
+  {
+    "key": "long_grain_level_variation",
+    "page": "WEAVE MOTION",
+    "name": "Level Variation",
+    "scope": "engine",
+    "engines": [
+      7
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 117,
+    "min": 0,
+    "max": 1,
+    "octaves": 0,
+    "id": 99,
+    "condition": "always"
+  },
+  {
+    "key": "long_grain_phase",
+    "page": "WEAVE MOTION",
+    "name": "Phase Scatter",
+    "scope": "engine",
+    "engines": [
+      7
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 118,
+    "min": 0,
+    "max": 1,
+    "octaves": 0,
+    "id": 100,
+    "condition": "always"
+  },
+  {
+    "key": "waveset_repeats",
+    "page": "WAVESETS",
+    "name": "Repeats",
+    "scope": "engine",
+    "engines": [
+      8
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 145,
+    "min": 1,
+    "max": 16,
+    "octaves": 0,
+    "id": 101,
+    "condition": "always"
+  },
+  {
+    "key": "waveset_stride",
+    "page": "WAVESETS",
+    "name": "Stride",
+    "scope": "engine",
+    "engines": [
+      8
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 146,
+    "min": 1,
+    "max": 16,
+    "octaves": 0,
+    "id": 102,
+    "condition": "always"
+  },
+  {
+    "key": "waveset_amount",
+    "page": "WAVESETS",
+    "name": "Process Amount",
+    "scope": "engine",
+    "engines": [
+      8
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 150,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 103,
+    "condition": "waveset-process"
+  },
+  {
+    "key": "prism_blur",
+    "page": "PRISM",
+    "name": "Blur Time",
+    "scope": "engine",
+    "engines": [
+      9
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 177,
+    "min": 0,
+    "max": 2000,
+    "octaves": 2,
+    "id": 104,
+    "condition": "always"
+  },
+  {
+    "key": "prism_decay",
+    "page": "PRISM",
+    "name": "Decay Time",
+    "scope": "engine",
+    "engines": [
+      9
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 178,
+    "min": 50,
+    "max": 20000,
+    "octaves": 2,
+    "id": 105,
+    "condition": "prism-freeze"
+  },
+  {
+    "key": "morph_offset",
+    "page": "MORPH",
+    "name": "Source Offset",
+    "scope": "engine",
+    "engines": [
+      10
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 184,
+    "min": -100,
+    "max": 100,
+    "octaves": 0,
+    "id": 106,
+    "condition": "always"
+  },
+  {
+    "key": "morph_blur",
+    "page": "MORPH",
+    "name": "Blur Time",
+    "scope": "engine",
+    "engines": [
+      10
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 185,
+    "min": 0,
+    "max": 2000,
+    "octaves": 2,
+    "id": 107,
+    "condition": "always"
+  },
+  {
+    "key": "texture_rate",
+    "page": "TEXTURE",
+    "name": "Event Rate",
+    "scope": "engine",
+    "engines": [
+      11
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 188,
+    "min": 0.25,
+    "max": 24,
+    "octaves": 2,
+    "id": 108,
+    "condition": "always"
+  },
+  {
+    "key": "texture_length",
+    "page": "TEXTURE",
+    "name": "Event Length",
+    "scope": "engine",
+    "engines": [
+      11
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 189,
+    "min": 20,
+    "max": 2000,
+    "octaves": 2,
+    "id": 109,
+    "condition": "always"
+  },
+  {
+    "key": "formant_smoothing",
+    "page": "FORMANT",
+    "name": "Smoothing",
+    "scope": "engine",
+    "engines": [
+      12
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 198,
+    "min": 5,
+    "max": 200,
+    "octaves": 2,
+    "id": 110,
+    "condition": "always"
+  },
+  {
+    "key": "formant_tune",
+    "page": "FORMANT",
+    "name": "Tune",
+    "scope": "engine",
+    "engines": [
+      12
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 199,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 111,
+    "condition": "always"
+  },
+  {
+    "key": "formant_keytrack",
+    "page": "FORMANT",
+    "name": "Key Tracking",
+    "scope": "engine",
+    "engines": [
+      12
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 201,
+    "min": -100,
+    "max": 100,
+    "octaves": 0,
+    "id": 112,
+    "condition": "always"
+  },
+  {
+    "key": "formant_rough",
+    "page": "FORMANT",
+    "name": "Roughness",
+    "scope": "engine",
+    "engines": [
+      12
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 202,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 113,
+    "condition": "always"
+  },
+  {
+    "key": "stochastic_memory",
+    "page": "STOCHASTIC",
+    "name": "Memory",
+    "scope": "engine",
+    "engines": [
+      13
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 209,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 114,
+    "condition": "always"
+  },
+  {
+    "key": "stochastic_pull",
+    "page": "STOCHASTIC",
+    "name": "Source Pull",
+    "scope": "engine",
+    "engines": [
+      13
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 210,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 115,
+    "condition": "stochastic-manual"
+  },
+  {
+    "key": "stochastic_capture",
+    "page": "STOCHASTIC",
+    "name": "Listener Capture",
+    "scope": "engine",
+    "engines": [
+      13
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 215,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 116,
+    "condition": "stochastic-listener"
+  },
+  {
+    "key": "stochastic_drift",
+    "page": "STOCHASTIC",
+    "name": "Drift",
+    "scope": "engine",
+    "engines": [
+      13
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 212,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 117,
+    "condition": "always"
+  },
+  {
+    "key": "pulsar_rate",
+    "page": "PULSAR",
+    "name": "Pulse Rate",
+    "scope": "engine",
+    "engines": [
+      14
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 216,
+    "min": 0.1,
+    "max": 2000,
+    "octaves": 2,
+    "id": 118,
+    "condition": "always"
+  },
+  {
+    "key": "pulsar_jitter",
+    "page": "PULSAR",
+    "name": "Timing Jitter",
+    "scope": "engine",
+    "engines": [
+      14
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 223,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 119,
+    "condition": "always"
+  },
+  {
+    "key": "pulsar_emit_mod_rate",
+    "page": "PULSAR MOD",
+    "name": "Emission Mod Rate",
+    "scope": "engine",
+    "engines": [
+      14
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 226,
+    "min": 0.01,
+    "max": 20,
+    "octaves": 2,
+    "id": 120,
+    "condition": "always"
+  },
+  {
+    "key": "pulsar_emit_mod_depth",
+    "page": "PULSAR MOD",
+    "name": "Emission Mod Depth",
+    "scope": "engine",
+    "engines": [
+      14
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 227,
+    "min": 0,
+    "max": 24,
+    "octaves": 0,
+    "id": 121,
+    "condition": "always"
+  },
+  {
+    "key": "pulsar_form_mod_rate",
+    "page": "PULSAR MOD",
+    "name": "Form Mod Rate",
+    "scope": "engine",
+    "engines": [
+      14
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 228,
+    "min": 0.01,
+    "max": 20,
+    "octaves": 2,
+    "id": 122,
+    "condition": "always"
+  },
+  {
+    "key": "pulsar_form_mod_depth",
+    "page": "PULSAR MOD",
+    "name": "Form Mod Depth",
+    "scope": "engine",
+    "engines": [
+      14
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 229,
+    "min": 0,
+    "max": 24,
+    "octaves": 0,
+    "id": 123,
+    "condition": "always"
+  },
+  {
+    "key": "pulsar_form_variation",
+    "page": "PULSAR MOD",
+    "name": "Form Variation",
+    "scope": "engine",
+    "engines": [
+      14
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 231,
+    "min": 0,
+    "max": 24,
+    "octaves": 0,
+    "id": 124,
+    "condition": "always"
+  },
+  {
+    "key": "pulsar_reverse",
+    "page": "PULSAR MOD",
+    "name": "Reverse Chance",
+    "scope": "engine",
+    "engines": [
+      14
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 232,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 125,
+    "condition": "always"
+  },
+  {
+    "key": "pulsar_keytrack",
+    "page": "PULSAR MOD",
+    "name": "Key Tracking",
+    "scope": "engine",
+    "engines": [
+      14
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 233,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 126,
+    "condition": "always"
+  },
+  {
+    "key": "locus",
+    "page": "ENGINE",
+    "name": "Sample Position",
+    "scope": "engine",
+    "engines": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 0,
+    "min": 0,
+    "max": 1,
+    "octaves": 0,
+    "id": 127,
+    "condition": "window"
+  },
+  {
+    "key": "field",
+    "page": "ENGINE",
+    "name": "Field Width",
+    "scope": "engine",
+    "engines": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 1,
+    "min": 0.02,
+    "max": 1,
+    "octaves": 0,
+    "id": 128,
+    "condition": "window"
+  },
+  {
+    "key": "stochastic_size",
+    "page": "STOCHASTIC",
+    "name": "Source Group Size",
+    "scope": "engine",
+    "engines": [
+      13
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 205,
+    "min": 1,
+    "max": 64,
+    "octaves": 0,
+    "id": 129,
+    "condition": "always"
+  },
+  {
+    "key": "stochastic_evolution",
+    "page": "STOCHASTIC",
+    "name": "Evolution Rate",
+    "scope": "engine",
+    "engines": [
+      13
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 208,
+    "min": 0,
+    "max": 1023,
+    "octaves": 2,
+    "id": 130,
+    "condition": "always"
+  },
+  {
+    "id": 131,
+    "key": "table_tune",
+    "page": "TABLE",
+    "name": "Transpose",
+    "scope": "engine",
+    "engines": [
+      15
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 257,
+    "min": -48,
+    "max": 48,
+    "octaves": 0,
+    "condition": "always"
+  },
+  {
+    "id": 132,
+    "key": "table_width",
+    "page": "TABLE",
+    "name": "Stereo Width",
+    "scope": "engine",
+    "engines": [
+      15
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 258,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "condition": "always"
+  },
+  {
+    "id": 133,
+    "key": "table_level",
+    "page": "TABLE",
+    "name": "Generator Level",
+    "scope": "engine",
+    "engines": [
+      15
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 259,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "condition": "always"
+  },
+  {
+    "id": 134,
+    "key": "table_decay",
+    "page": "TABLE",
+    "name": "Hit Decay",
+    "scope": "engine",
+    "engines": [
+      15
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 261,
+    "min": 10,
+    "max": 12000,
+    "octaves": 2,
+    "condition": "table-hit"
+  },
+  {
+    "id": 135,
+    "key": "table_noise",
+    "page": "TABLE",
+    "name": "Noise Level",
+    "scope": "engine",
+    "engines": [
+      15
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 262,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "condition": "always"
+  },
+  {
+    "id": 136,
+    "key": "table_drive",
+    "page": "TABLE",
+    "name": "Drive",
+    "scope": "engine",
+    "engines": [
+      15
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 263,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "condition": "always"
+  },
+  {
+    "id": 137,
+    "key": "table_pulse",
+    "page": "TABLE WAVE",
+    "name": "Pulse Width",
+    "scope": "engine",
+    "engines": [
+      15
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 265,
+    "min": 5,
+    "max": 95,
+    "octaves": 0,
+    "condition": "table-wave"
+  },
+  {
+    "id": 138,
+    "key": "table_detune",
+    "page": "TABLE WAVE",
+    "name": "Wave Detune",
+    "scope": "engine",
+    "engines": [
+      15
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 266,
+    "min": 0,
+    "max": 50,
+    "octaves": 0,
+    "condition": "table-wave"
+  },
+  {
+    "id": 139,
+    "key": "table_sub",
+    "page": "TABLE WAVE",
+    "name": "Wave Sub Level",
+    "scope": "engine",
+    "engines": [
+      15
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 267,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "condition": "table-wave"
+  },
+  {
+    "id": 140,
+    "key": "table_cutoff",
+    "page": "TABLE WAVE",
+    "name": "Filter Cutoff",
+    "scope": "engine",
+    "engines": [
+      15
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 268,
+    "min": 20,
+    "max": 20000,
+    "octaves": 2,
+    "condition": "table-wave"
+  },
+  {
+    "id": 141,
+    "key": "table_resonance",
+    "page": "TABLE WAVE",
+    "name": "Filter Resonance",
+    "scope": "engine",
+    "engines": [
+      15
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 269,
+    "min": 0,
+    "max": 95,
+    "octaves": 0,
+    "condition": "table-wave"
+  },
+  {
+    "id": 142,
+    "key": "table_points",
+    "page": "TABLE SPLINE",
+    "name": "Spline Points",
+    "scope": "engine",
+    "engines": [
+      15
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 270,
+    "min": 1,
+    "max": 32,
+    "octaves": 0,
+    "condition": "table-spline"
+  },
+  {
+    "id": 143,
+    "key": "table_evolution",
+    "page": "TABLE SPLINE",
+    "name": "Spline Evolution",
+    "scope": "engine",
+    "engines": [
+      15
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 271,
+    "min": 1,
+    "max": 4096,
+    "octaves": 2,
+    "condition": "table-spline"
+  },
+  {
+    "id": 144,
+    "key": "table_curve",
+    "page": "TABLE SPLINE",
+    "name": "Spline Curvature",
+    "scope": "engine",
+    "engines": [
+      15
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 272,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "condition": "table-spline"
+  },
+  {
+    "id": 145,
+    "key": "table_drift",
+    "page": "TABLE SPLINE",
+    "name": "Spline Pitch Drift",
+    "scope": "engine",
+    "engines": [
+      15
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 273,
+    "min": 0,
+    "max": 12,
+    "octaves": 0,
+    "condition": "table-spline"
+  },
+  {
+    "id": 146,
+    "key": "table_drift_rate",
+    "page": "TABLE SPLINE",
+    "name": "Spline Drift Time",
+    "scope": "engine",
+    "engines": [
+      15
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 274,
+    "min": 1,
+    "max": 1000,
+    "octaves": 2,
+    "condition": "table-spline"
+  },
+  {
+    "id": 147,
+    "key": "table_dynamics",
+    "page": "TABLE SPLINE",
+    "name": "Spline Dynamics",
+    "scope": "engine",
+    "engines": [
+      15
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 275,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "condition": "table-spline"
+  },
+  {
+    "id": 148,
+    "key": "table_pos_a",
+    "page": "TABLE WT OSC",
+    "name": "Oscillator A Position",
+    "scope": "engine",
+    "engines": [
+      15
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 279,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "condition": "table-drum"
+  },
+  {
+    "id": 149,
+    "key": "table_pos_b",
+    "page": "TABLE WT OSC",
+    "name": "Oscillator B Position",
+    "scope": "engine",
+    "engines": [
+      15
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 281,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "condition": "table-drum"
+  },
+  {
+    "id": 150,
+    "key": "table_blend",
+    "page": "TABLE WT OSC",
+    "name": "Oscillator Blend",
+    "scope": "engine",
+    "engines": [
+      15
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 282,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "condition": "table-drum"
+  },
+  {
+    "id": 151,
+    "key": "table_ratio",
+    "page": "TABLE WT OSC",
+    "name": "Oscillator Ratio",
+    "scope": "engine",
+    "engines": [
+      15
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 283,
+    "min": 0.125,
+    "max": 16,
+    "octaves": 2,
+    "condition": "table-drum"
+  },
+  {
+    "id": 152,
+    "key": "table_fm",
+    "page": "TABLE WT OSC",
+    "name": "Phase Modulation",
+    "scope": "engine",
+    "engines": [
+      15
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 284,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "condition": "table-drum"
+  },
+  {
+    "id": 153,
+    "key": "table_wt_detune",
+    "page": "TABLE WT COLOR",
+    "name": "Drum Detune",
+    "scope": "engine",
+    "engines": [
+      15
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 285,
+    "min": 0,
+    "max": 50,
+    "octaves": 0,
+    "condition": "table-drum"
+  },
+  {
+    "id": 154,
+    "key": "table_bend",
+    "page": "TABLE WT HIT",
+    "name": "Pitch Sweep",
+    "scope": "engine",
+    "engines": [
+      15
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 286,
+    "min": -48,
+    "max": 48,
+    "octaves": 0,
+    "condition": "table-drum"
+  },
+  {
+    "id": 155,
+    "key": "table_pitch_decay",
+    "page": "TABLE WT HIT",
+    "name": "Pitch Sweep Time",
+    "scope": "engine",
+    "engines": [
+      15
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 287,
+    "min": 1,
+    "max": 2000,
+    "octaves": 2,
+    "condition": "table-drum"
+  },
+  {
+    "id": 156,
+    "key": "table_scan",
+    "page": "TABLE WT HIT",
+    "name": "Table Sweep",
+    "scope": "engine",
+    "engines": [
+      15
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 288,
+    "min": -100,
+    "max": 100,
+    "octaves": 0,
+    "condition": "table-drum"
+  },
+  {
+    "id": 157,
+    "key": "table_scan_decay",
+    "page": "TABLE WT HIT",
+    "name": "Table Sweep Time",
+    "scope": "engine",
+    "engines": [
+      15
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 289,
+    "min": 1,
+    "max": 4000,
+    "octaves": 2,
+    "condition": "table-drum"
+  },
+  {
+    "id": 158,
+    "key": "table_wt_sub",
+    "page": "TABLE WT HIT",
+    "name": "Drum Sub Level",
+    "scope": "engine",
+    "engines": [
+      15
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 290,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "condition": "table-drum"
+  },
+  {
+    "id": 159,
+    "key": "table_impact",
+    "page": "TABLE WT HIT",
+    "name": "Impact Level",
+    "scope": "engine",
+    "engines": [
+      15
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 291,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "condition": "table-drum"
+  },
+  {
+    "id": 160,
+    "key": "table_noise_decay",
+    "page": "TABLE WT HIT",
+    "name": "Noise Decay",
+    "scope": "engine",
+    "engines": [
+      15
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 292,
+    "min": 1,
+    "max": 4000,
+    "octaves": 2,
+    "condition": "table-drum"
+  },
+  {
+    "id": 161,
+    "key": "table_tone",
+    "page": "TABLE WT COLOR",
+    "name": "Drum Brightness",
+    "scope": "engine",
+    "engines": [
+      15
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 294,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "condition": "table-drum"
+  },
+  {
+    "id": 162,
+    "key": "table_compression",
+    "page": "TABLE WT COLOR",
+    "name": "Drum Compression",
+    "scope": "engine",
+    "engines": [
+      15
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 295,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "condition": "table-drum"
+  },
+  {
+    "id": 163,
+    "key": "scanned_tune",
+    "page": "SCANNED",
+    "name": "Transpose",
+    "scope": "engine",
+    "engines": [
+      16
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 323,
+    "min": -48,
+    "max": 48,
+    "octaves": 0,
+    "condition": "always"
+  },
+  {
+    "id": 164,
+    "key": "scanned_motion",
+    "page": "SCANNED",
+    "name": "Mechanical Motion",
+    "scope": "engine",
+    "engines": [
+      16
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 324,
+    "min": 0.05,
+    "max": 6,
+    "octaves": 2,
+    "condition": "always"
+  },
+  {
+    "id": 165,
+    "key": "scanned_damping",
+    "page": "SCANNED",
+    "name": "Mechanical Damping",
+    "scope": "engine",
+    "engines": [
+      16
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 325,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "condition": "always"
+  },
+  {
+    "id": 166,
+    "key": "scanned_brightness",
+    "page": "SCANNED",
+    "name": "Readout Brightness",
+    "scope": "engine",
+    "engines": [
+      16
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 326,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "condition": "always"
+  },
+  {
+    "id": 167,
+    "key": "scanned_width",
+    "page": "SCANNED",
+    "name": "Stereo Width",
+    "scope": "engine",
+    "engines": [
+      16
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 327,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "condition": "always"
+  },
+  {
+    "id": 168,
+    "key": "scanned_mass",
+    "page": "SCAN BODY",
+    "name": "Mass Variation",
+    "scope": "engine",
+    "engines": [
+      16
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 328,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "condition": "always"
+  },
+  {
+    "id": 169,
+    "key": "scanned_tension",
+    "page": "SCAN BODY",
+    "name": "Spring Variation",
+    "scope": "engine",
+    "engines": [
+      16
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 329,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "condition": "always"
+  },
+  {
+    "id": 170,
+    "key": "scanned_center",
+    "page": "SCAN BODY",
+    "name": "Centering Springs",
+    "scope": "engine",
+    "engines": [
+      16
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 330,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "condition": "always"
+  },
+  {
+    "id": 171,
+    "key": "scanned_force",
+    "page": "SCAN BODY",
+    "name": "Continuous Force",
+    "scope": "engine",
+    "engines": [
+      16
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 332,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "condition": "always"
+  },
+  {
+    "id": 172,
+    "key": "scanned_pressure",
+    "page": "SCAN BODY",
+    "name": "Pressure Force Depth",
+    "scope": "engine",
+    "engines": [
+      16
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 333,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "condition": "always"
+  },
+  {
+    "id": 173,
+    "key": "scanned_decay",
+    "page": "SCAN HIT",
+    "name": "Percussion Decay",
+    "scope": "engine",
+    "engines": [
+      16
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 339,
+    "min": 10,
+    "max": 4000,
+    "octaves": 2,
+    "condition": "always"
+  },
+  {
+    "id": 174,
+    "key": "scanned_bend",
+    "page": "SCAN HIT",
+    "name": "Pitch Sweep",
+    "scope": "engine",
+    "engines": [
+      16
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 340,
+    "min": -48,
+    "max": 48,
+    "octaves": 0,
+    "condition": "always"
+  },
+  {
+    "id": 175,
+    "key": "scanned_sweep_time",
+    "page": "SCAN HIT",
+    "name": "Pitch Sweep Time",
+    "scope": "engine",
+    "engines": [
+      16
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 341,
+    "min": 5,
+    "max": 2000,
+    "octaves": 2,
+    "condition": "always"
+  },
+  {
+    "id": 176,
+    "key": "scanned_loss",
+    "page": "SCAN HIT",
+    "name": "Harmonic Decay",
+    "scope": "engine",
+    "engines": [
+      16
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 342,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "condition": "always"
+  },
+  {
+    "id": 177,
+    "key": "scanned_amp_gain",
+    "page": "SCAN AMP",
+    "name": "Amp Gain",
+    "scope": "engine",
+    "engines": [
+      16
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 344,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "condition": "always"
+  },
+  {
+    "id": 178,
+    "key": "scanned_amp_bass",
+    "page": "SCAN AMP",
+    "name": "Amp Bass",
+    "scope": "engine",
+    "engines": [
+      16
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 345,
+    "min": -12,
+    "max": 12,
+    "octaves": 0,
+    "condition": "always"
+  },
+  {
+    "id": 179,
+    "key": "scanned_amp_mid",
+    "page": "SCAN AMP",
+    "name": "Amp Midrange",
+    "scope": "engine",
+    "engines": [
+      16
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 346,
+    "min": -20,
+    "max": 10,
+    "octaves": 0,
+    "condition": "always"
+  },
+  {
+    "id": 180,
+    "key": "scanned_amp_treble",
+    "page": "SCAN AMP",
+    "name": "Amp Treble",
+    "scope": "engine",
+    "engines": [
+      16
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 348,
+    "min": -20,
+    "max": 15,
+    "octaves": 0,
+    "condition": "always"
+  },
+  {
+    "id": 181,
+    "key": "scanned_amp_cab",
+    "page": "SCAN AMP",
+    "name": "Cabinet Amount",
+    "scope": "engine",
+    "engines": [
+      16
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 349,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "condition": "always"
+  },
+  {
+    "id": 182,
+    "key": "scanned_amp_level",
+    "page": "SCAN AMP",
+    "name": "Amp Output",
+    "scope": "engine",
+    "engines": [
+      16
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 350,
+    "min": -18,
+    "max": 6,
+    "octaves": 0,
+    "condition": "always"
+  },
+  {
+    "id": 183,
+    "key": "fm_tune",
+    "page": "FM",
+    "name": "FM Transpose",
+    "scope": "engine",
+    "engines": [
+      17
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 385,
+    "min": -48,
+    "max": 48,
+    "octaves": 0,
+    "condition": "always"
+  },
+  {
+    "id": 184,
+    "key": "fm_width",
+    "page": "FM",
+    "name": "FM Stereo Width",
+    "scope": "engine",
+    "engines": [
+      17
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 386,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "condition": "always"
+  },
+  {
+    "id": 185,
+    "key": "fm_level",
+    "page": "FM",
+    "name": "FM Level",
+    "scope": "engine",
+    "engines": [
+      17
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 387,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "condition": "always"
+  },
+  {
+    "id": 186,
+    "key": "fm_ratio1",
+    "page": "FM",
+    "name": "Modulator 1 Ratio",
+    "scope": "engine",
+    "engines": [
+      17
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 389,
+    "min": 0.125,
+    "max": 32,
+    "octaves": 0,
+    "condition": "always"
+  },
+  {
+    "id": 187,
+    "key": "fm_index1",
+    "page": "FM",
+    "name": "Modulator 1 Index",
+    "scope": "engine",
+    "engines": [
+      17
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 390,
+    "min": 0,
+    "max": 12,
+    "octaves": 0,
+    "condition": "always"
+  },
+  {
+    "id": 188,
+    "key": "fm_feedback",
+    "page": "FM",
+    "name": "FM Feedback",
+    "scope": "engine",
+    "engines": [
+      17
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 391,
+    "min": 0,
+    "max": 90,
+    "octaves": 0,
+    "condition": "always"
+  },
+  {
+    "id": 189,
+    "key": "fm_ratio2",
+    "page": "FM COLOR",
+    "name": "Modulator 2 Ratio",
+    "scope": "engine",
+    "engines": [
+      17
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 392,
+    "min": 0.125,
+    "max": 32,
+    "octaves": 0,
+    "condition": "always"
+  },
+  {
+    "id": 190,
+    "key": "fm_index2",
+    "page": "FM COLOR",
+    "name": "Modulator 2 Index",
+    "scope": "engine",
+    "engines": [
+      17
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 393,
+    "min": 0,
+    "max": 12,
+    "octaves": 0,
+    "condition": "always"
+  },
+  {
+    "id": 191,
+    "key": "fm_detune",
+    "page": "FM COLOR",
+    "name": "FM Stereo Detune",
+    "scope": "engine",
+    "engines": [
+      17
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 394,
+    "min": 0,
+    "max": 30,
+    "octaves": 0,
+    "condition": "always"
+  },
+  {
+    "id": 192,
+    "key": "fm_mix",
+    "page": "FM COLOR",
+    "name": "FM Wet Mix",
+    "scope": "engine",
+    "engines": [
+      17
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 395,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "condition": "always"
+  },
+  {
+    "id": 193,
+    "key": "fm_cutoff",
+    "page": "FM COLOR",
+    "name": "FM Filter Cutoff",
+    "scope": "engine",
+    "engines": [
+      17
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 396,
+    "min": 20,
+    "max": 20000,
+    "octaves": 2,
+    "condition": "always"
+  },
+  {
+    "id": 194,
+    "key": "fm_resonance",
+    "page": "FM COLOR",
+    "name": "FM Filter Resonance",
+    "scope": "engine",
+    "engines": [
+      17
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 397,
+    "min": 0,
+    "max": 85,
+    "octaves": 0,
+    "condition": "always"
+  },
+  {
+    "id": 195,
+    "key": "fm_drive",
+    "page": "FM COLOR",
+    "name": "FM Drive",
+    "scope": "engine",
+    "engines": [
+      17
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 398,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "condition": "always"
+  },
+  {
+    "id": 196,
+    "key": "fm_decay",
+    "page": "FM HIT",
+    "name": "FM Drum Decay",
+    "scope": "engine",
+    "engines": [
+      17
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 399,
+    "min": 10,
+    "max": 8000,
+    "octaves": 2,
+    "condition": "always"
+  },
+  {
+    "id": 197,
+    "key": "fm_fm_decay",
+    "page": "FM HIT",
+    "name": "FM Index Decay",
+    "scope": "engine",
+    "engines": [
+      17
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 400,
+    "min": 2,
+    "max": 4000,
+    "octaves": 2,
+    "condition": "always"
+  },
+  {
+    "id": 198,
+    "key": "fm_bend",
+    "page": "FM HIT",
+    "name": "FM Pitch Sweep",
+    "scope": "engine",
+    "engines": [
+      17
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 401,
+    "min": -48,
+    "max": 48,
+    "octaves": 0,
+    "condition": "always"
+  },
+  {
+    "id": 199,
+    "key": "fm_sweep_time",
+    "page": "FM HIT",
+    "name": "FM Pitch Sweep Time",
+    "scope": "engine",
+    "engines": [
+      17
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 402,
+    "min": 1,
+    "max": 2000,
+    "octaves": 2,
+    "condition": "always"
+  },
+  {
+    "id": 200,
+    "key": "fm_noise",
+    "page": "FM HIT",
+    "name": "FM Noise Body",
+    "scope": "engine",
+    "engines": [
+      17
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 404,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "condition": "always"
+  },
+  {
+    "id": 201,
+    "key": "fm_noise_decay",
+    "page": "FM HIT",
+    "name": "FM Noise Decay",
+    "scope": "engine",
+    "engines": [
+      17
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 405,
+    "min": 1,
+    "max": 4000,
+    "octaves": 2,
+    "condition": "always"
+  }
+]

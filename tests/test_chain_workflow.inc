@@ -104,8 +104,12 @@ void testFormerTransitionTakeMigration() {
     constexpr long directionBytes=4+64*4*8;
     constexpr long shiftBytes=4+64*4*4;
     constexpr long pathBytes=4+64*4*4;
-    assert(std::fseek(file,-8-directionBytes-shiftBytes-pathBytes,SEEK_END)==0);std::uint32_t recipeBytes=0;assert(readU32(file,recipeBytes));
-    const long currentTailBytes=engineTailBytes+recipeBytes+4+directionBytes+shiftBytes+pathBytes;
+    constexpr long lfoBytes=4+64*(10*124+4*2*32*24)+4+64*(8*200+4*2*32*72)+4+64*8*72+4+64*5*4*40*4;
+    constexpr long scannedBytes=4+64*5*4*16*4+4+64*5*4*7*4+4+64*5*4*8*4+4+64*5*4*23*4;
+    assert(std::fseek(file,-8-scannedBytes,SEEK_END)==0);std::uint32_t soundLockTailBytes=0;assert(readU32(file,soundLockTailBytes));
+    assert(soundLockTailBytes>=264u);
+    assert(std::fseek(file,-8-directionBytes-shiftBytes-pathBytes-lfoBytes-soundLockTailBytes-scannedBytes,SEEK_END)==0);std::uint32_t recipeBytes=0;assert(readU32(file,recipeBytes));
+    const long currentTailBytes=engineTailBytes+recipeBytes+4+directionBytes+shiftBytes+pathBytes+lfoBytes+soundLockTailBytes+scannedBytes;
     assert(std::fseek(file,-8-currentTailBytes,SEEK_END)==0);std::uint32_t voicePlayBytes=0;assert(readU32(file,voicePlayBytes));
     assert(std::fseek(file,-static_cast<long>(4100+37128+15364+voicePlayBytes+currentTailBytes),SEEK_END)==0);std::uint32_t count=99;
     for(std::size_t i=0;i<kSavedChainCount*kClipChainLength;++i){assert(readU32(file,count));assert(count==0u);}

@@ -89,7 +89,7 @@
         <table class="readout-table">
           <thead><tr><th>Control</th><th>Action</th></tr></thead>
           <tbody>
-            <tr><td><kbd>Shift</kbd> + <kbd>Loop</kbd></td><td>In Synth: randomize unprotected sound controls using the Random page’s AMT. Available from any Synth page, outside menus and filename/source browsing.</td></tr>
+            <tr><td><kbd>Shift</kbd> + <kbd>Loop</kbd></td><td>In Synth: randomize and render unprotected sound controls using the Random page’s AMT. Available from any Synth page, outside menus and filename/source browsing.</td></tr>
 
             <tr><td>Touch knob 3 on Pattern Fade</td><td>Hold the blend for manual crossfading. Touch before selecting a destination to arm a change held at 0%; finger release leaves Hold on.</td></tr>
             <tr><td>Click main encoder on Pattern Fade</td><td>Toggle Hold or resume the pattern transition. While idle, toggle manual arming for the next destination.</td></tr>
@@ -125,7 +125,7 @@
             <tr><td>Shift + Menu</td><td>Open or close the four-page System Report / Shortcuts view.</td></tr>
             <tr><td>Shift + Delete</td><td>In a report view: reset diagnostic peaks and miss counters.</td></tr>
             <tr><td>Shift + Play</td><td>Cycle Main → Clip Overview → Chain → Main. In Chain, knob 6 selects saved chains; knob 8 requests NEXT. See <a href="performance.html#chain">Chain controls</a>.</td></tr>
-            <tr><td>Back</td><td>Close a secondary view; from Main, save and exit Overtake.</td></tr>
+            <tr><td>Back</td><td>Close a secondary view. From Main, open exit confirmation with Keep Playing selected. Turn the main wheel to Exit to Schwung and click to leave; Back or Menu cancels. Audio continues until exit is confirmed.</td></tr>
           </tbody>
         </table>
 
@@ -197,18 +197,20 @@
         <table class="readout-table"><thead><tr><th>Control</th><th>Action</th></tr></thead><tbody>
           <tr><td>Menu</td><td>Choose Sound, Motion, Output or Actions. Up/Down and the main wheel move within the selected group.</td></tr>
           <tr><td>Back</td><td>Return to the Synth overview; Back again exits. Within an action overlay, Back first closes that overlay.</td></tr>
-          <tr><td>Loop</td><td>Audition the rendered sample.</td></tr>
+          <tr><td>Capture tap</td><td>Render the current Synth settings. Editing controls does not render automatically; Capture + Menu/Track shortcuts still navigate.</td></tr>
+          <tr><td>Loop</td><td>Audition the last completed render, including while editing a new draft.</td></tr>
           <tr><td>Record</td><td>Save the completed render and load it into the selected lane. The light brightens when ready.</td></tr>
           <tr><td>Shift + Record</td><td>Save the completed render without loading it.</td></tr>
           <tr><td>Track 1–4</td><td>Choose the save/load destination. Convolution file selection leaves the destination unchanged.</td></tr>
         </tbody></table>
         <p>See <a href="synthesis.html">Synthesis</a> for source selection, generator controls and recipe recall.</p>
 
+        <p>On TRIG LFO, hold <kbd>Delete/X</kbd> and turn a lock encoder to clear that LFO rate/depth lock or restore restart permission. See <a href="performance.html#control-lfos">Control LFOs</a>.</p>
         <h2 id="oxi-e16">OXI E16 Remote</h2>
         <p>The Remote interface provides Engine, Stack, engine-specific and effect pages. Hold E16 Shift and turn encoder 1 to change pages. A occupies the top two encoder rows; B occupies the bottom two. The layout follows Single, Split, Shared Dual and Quad. Hold an encoder while turning for fine adjustment. In Quad, Shift + encoder 1 switches A/B ↔ C/D; Shift + encoder 16 leaves Remote. Edits preserve Move’s current part and page. See <a href="midi.html#e16-setup">MIDI control</a> for setup and connection checks.</p>
 
         <h2 id="nrpn">High-resolution MIDI</h2>
-        <p>The NRPN map has <strong>458 fixed NRPN addresses</strong>. Channels 5–8 control A–D; channel 16 controls shared parameters. Musical notes and polyphonic aftertouch use channels 1–4. See the <a href="midi.html#nrpn">high-resolution MIDI guide</a> for complete value messages, ranges and feedback.</p>
+        <p>The NRPN map has <strong>620 fixed NRPN addresses</strong>. Channels 5–8 control A–D; channel 16 controls shared parameters. Musical notes and polyphonic aftertouch use channels 1–4. See the <a href="midi.html#nrpn">high-resolution MIDI guide</a> for complete value messages, ranges and feedback.</p>
 
         <nav class="page-nav" aria-label="Page navigation">
           <a class="page-nav-link" href="midi.html"><span>Previous</span>MIDI Control</a>

@@ -9,7 +9,7 @@ cxx_bin="${CXX:-clang++}"
 common=(
   -std=c++17 -Wall -Wextra -Werror
   -Wno-deprecated-declarations
-  -pthread
+  -pthread -DS3G_THRU_HOST_TESTING=1
   -I"$repo_dir/include"
   "$repo_dir/src/dsp/thru_module.cpp"
   "$repo_dir/tests/test_thru.cpp"
@@ -26,18 +26,18 @@ ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 \
 
 # Separate translation unit measures the real module before compression/limiting.
 "$cxx_bin" -std=c++17 -O2 -Wall -Wextra -Werror -Wno-deprecated-declarations \
-  -pthread -I"$repo_dir/include" "$repo_dir/tests/test_dsp_transitions.cpp" \
+  -pthread -DS3G_THRU_HOST_TESTING=1 -I"$repo_dir/include" "$repo_dir/tests/test_dsp_transitions.cpp" \
   -o "$test_dir/test-transitions"
-S3G_THRU_SYNTH_TYPES_FIXTURE="$test_dir/synth-types.json" S3G_THRU_SYNTH_FIXTURE="$test_dir/spline.json" S3G_THRU_SOURCE_KIND_FIXTURE="$test_dir/sources.json" S3G_THRU_PATH_FIXTURE="$test_dir/paths.json" S3G_THRU_UNIT_FIXTURE="$test_dir/unit.json" S3G_THRU_GENERATOR_FIXTURE="$test_dir/generator.json" S3G_THRU_SEQUENCE_FIXTURE="$test_dir/sequence.json" S3G_THRU_GLIDE_FIXTURE="$test_dir/layers-glide.json" S3G_THRU_PROJECT_FIXTURE="$test_dir/portable.thru" S3G_THRU_EDITOR_FIXTURE="$test_dir/layers-editor.json" "$test_dir/test-transitions"
+S3G_THRU_FM_FIXTURE="$test_dir/fm.json" S3G_THRU_SCANNED_FIXTURE="$test_dir/scanned.json" S3G_THRU_SEQ_SOUND_FIXTURE="$test_dir/seq-sound.json" S3G_THRU_TABLE_FIXTURE="$test_dir/table.json" S3G_THRU_PLAYBACK_FIXTURE="$test_dir/playback.json" S3G_THRU_LFO_FIXTURE="$test_dir/lfos.json" S3G_THRU_SYNTH_TYPES_FIXTURE="$test_dir/synth-types.json" S3G_THRU_SYNTH_FIXTURE="$test_dir/spline.json" S3G_THRU_SOURCE_KIND_FIXTURE="$test_dir/sources.json" S3G_THRU_PATH_FIXTURE="$test_dir/paths.json" S3G_THRU_UNIT_FIXTURE="$test_dir/unit.json" S3G_THRU_GENERATOR_FIXTURE="$test_dir/generator.json" S3G_THRU_SEQUENCE_FIXTURE="$test_dir/sequence.json" S3G_THRU_GLIDE_FIXTURE="$test_dir/layers-glide.json" S3G_THRU_PROJECT_FIXTURE="$test_dir/portable.thru" S3G_THRU_EDITOR_FIXTURE="$test_dir/layers-editor.json" "$test_dir/test-transitions"
 python3 "$repo_dir/tests/test_project_format.py" "$test_dir/portable.thru"
 "$cxx_bin" -std=c++17 -O1 -g -Wall -Wextra -Werror -Wno-deprecated-declarations \
-  -pthread -fno-omit-frame-pointer -fsanitize=address,undefined \
+  -pthread -DS3G_THRU_HOST_TESTING=1 -fno-omit-frame-pointer -fsanitize=address,undefined \
   -I"$repo_dir/include" "$repo_dir/tests/test_dsp_transitions.cpp" \
   -o "$test_dir/test-transitions-sanitize"
 ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 \
   "$test_dir/test-transitions-sanitize"
 
-S3G_THRU_SYNTH_TYPES_FIXTURE="$test_dir/synth-types.json" S3G_THRU_SYNTH_FIXTURE="$test_dir/spline.json" S3G_THRU_SOURCE_KIND_FIXTURE="$test_dir/sources.json" S3G_THRU_PATH_FIXTURE="$test_dir/paths.json" S3G_THRU_UNIT_FIXTURE="$test_dir/unit.json" S3G_THRU_GENERATOR_FIXTURE="$test_dir/generator.json" S3G_THRU_SEQUENCE_FIXTURE="$test_dir/sequence.json" S3G_THRU_GLIDE_FIXTURE="$test_dir/layers-glide.json" S3G_THRU_EDITOR_FIXTURE="$test_dir/layers-editor.json" node "$repo_dir/tests/test_ui.mjs" "$repo_dir/src/ui.js"
+S3G_THRU_FM_FIXTURE="$test_dir/fm.json" S3G_THRU_SCANNED_FIXTURE="$test_dir/scanned.json" S3G_THRU_SEQ_SOUND_FIXTURE="$test_dir/seq-sound.json" S3G_THRU_TABLE_FIXTURE="$test_dir/table.json" S3G_THRU_PLAYBACK_FIXTURE="$test_dir/playback.json" S3G_THRU_LFO_FIXTURE="$test_dir/lfos.json" S3G_THRU_SYNTH_TYPES_FIXTURE="$test_dir/synth-types.json" S3G_THRU_SYNTH_FIXTURE="$test_dir/spline.json" S3G_THRU_SOURCE_KIND_FIXTURE="$test_dir/sources.json" S3G_THRU_PATH_FIXTURE="$test_dir/paths.json" S3G_THRU_UNIT_FIXTURE="$test_dir/unit.json" S3G_THRU_GENERATOR_FIXTURE="$test_dir/generator.json" S3G_THRU_SEQUENCE_FIXTURE="$test_dir/sequence.json" S3G_THRU_GLIDE_FIXTURE="$test_dir/layers-glide.json" S3G_THRU_EDITOR_FIXTURE="$test_dir/layers-editor.json" node "$repo_dir/tests/test_ui.mjs" "$repo_dir/src/ui.js"
 node "$repo_dir/tests/test_e16.mjs"
 node "$repo_dir/tests/test_e16_remote.mjs"
 node "$repo_dir/tests/test_e16_nrpn.mjs"
@@ -46,7 +46,9 @@ node "$repo_dir/controllers/oxi-e16/generate-remote-scene.mjs" --check
 node "$repo_dir/controllers/oxi-e16/generate-layout.mjs" --check
 node "$repo_dir/controllers/oxi-e16-monolit/generate-scene.mjs" --check
 node "$repo_dir/scripts/generate-custom-midi.mjs" --check
+node "$repo_dir/scripts/generate-sequence-locks.mjs" --check
 node "$repo_dir/scripts/generate-midi.mjs" --check
+node "$repo_dir/scripts/generate-lfo-destinations.mjs" --check
 node "$repo_dir/scripts/generate-midi-ui.mjs" --check
 node "$repo_dir/scripts/validate-help.mjs"
 

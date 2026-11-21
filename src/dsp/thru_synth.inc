@@ -1,4 +1,161 @@
+static bool fmRecipeType(int type){return type==s3g_thru_synth::fm||type==s3g_thru_synth::fmDrum;}
+void restoreLiveFmRecipe(const s3g_thru_synth::Recipe& recipe){
+ namespace f=s3g_thru_fm;namespace s=s3g_thru_synth;const int part=splitEnabled?splitFocus:0,lane=tableEditLane(part);f::Config cfg;
+ const auto assign=[&](int field,float value){f::set(cfg,field,value);};assign(f::width,recipe.v[s::width]*100);assign(f::level,recipe.v[s::level]*100);assign(f::tune,recipe.v[s::root]-settingsForPart(part).root);
+ if(recipe.type==s::fm){const int target[]{f::algorithm,f::ratio1,f::index1,f::ratio2,f::index2,f::feedback,f::detune,f::mix};for(int i=0;i<8;++i)assign(target[i],recipe.fmOsc[i]*((i==s::fFeedback||i==s::fMix)?100.f:1.f));}
+ else{assign(f::mode,1);assign(f::ratio1,recipe.drums[s::dRing]);assign(f::index1,12*recipe.drums[s::dContactX]);assign(f::feedback,90*recipe.drums[s::dDamping]);assign(f::decay,recipe.drums[s::dDecay]);assign(f::fm_decay,2*std::pow(2000.f,recipe.drums[s::dContactY]));assign(f::bend,recipe.drums[s::dBend]);assign(f::sweep_time,recipe.drums[s::dSweep]);assign(f::impact,100*recipe.drums[s::dHit]);assign(f::noise,100*recipe.drums[s::dNoise]);assign(f::noise_decay,recipe.drumExtra[s::xNoiseDecay]);assign(f::cutoff,300*std::pow(60.f,recipe.drums[s::dTone]));const float rootHz=440*std::exp2(float(settingsForPart(part).root-69)/12);assign(f::tune,12*std::log2(std::max(1.f,recipe.drums[s::dTune])/rootHz));}
+ controls.fm.patches[lane]=cfg;controls.algorithm=Engine::PlaybackAlgorithm::fm;if(auto* clip=activeClipSlot())captureFmPrograms(*clip);synthPreviewWanted=false;synthPreviewGain=0;synthOpened=false;++midiRevision;markPersistentStateDirty();
+}
+static bool tableRecipeType(int type){return type==s3g_thru_synth::wave||type==s3g_thru_synth::spline||type==s3g_thru_synth::wtDrum;}
+void restoreLiveTableRecipe(const s3g_thru_synth::Recipe& recipe){
+ namespace t=s3g_thru_table;namespace s=s3g_thru_synth;
+ const int part=splitEnabled?splitFocus:0,lane=tableEditLane(part);t::Config config;
+ const auto assign=[&](int field,float value){t::set(config,field,value);};
+ assign(t::type,recipe.type==s::wave?0:recipe.type==s::spline?1:2);
+ assign(t::width,recipe.v[s::width]*100);assign(t::level,recipe.v[s::level]*100);
+ assign(t::tune,recipe.v[s::root]-settingsForPart(part).root);
+ if(recipe.type==s::wave){const int target[]{t::shape,t::pulse,t::detune,t::sub,t::cutoff,t::resonance,t::noise};
+  for(int f=0;f<s::waveFields;++f)assign(target[f],recipe.osc[f]*((f==s::wPulse||f==s::wSub||f==s::wResonance||f==s::wNoise)?100.f:1.f));}
+ if(recipe.type==s::spline){const int target[]{t::points,t::evolution,t::drift,t::drift_rate,t::curve,t::dynamics};const int from[]{s::points,s::evolution,s::drift,s::driftRate,s::curvature,s::dynamics};
+  for(int f=0;f<6;++f)assign(target[f],recipe.v[from[f]]*(f>=4?100.f:1.f));
+  assign(t::seed,float(recipe.seed&65535u));}
+ if(recipe.type==s::wtDrum){t::start(config,int(recipe.wt[s::wtModel]));
+  const int target[]{t::model,t::decay,t::bend,t::pitch_decay,t::bank_a,t::pos_a,t::bank_b,t::pos_b,t::scan,t::scan_decay,t::blend,t::ratio,t::fm,t::wt_sub,t::noise,t::noise_decay,t::color,t::impact,t::tone,t::drive,t::compression,t::wt_detune};
+  const int from[]{s::wtModel,s::wtDecay,s::wtBend,s::wtPitchDecay,s::wtTableA,s::wtPosA,s::wtTableB,s::wtPosB,s::wtScan,s::wtScanDecay,s::wtBlend,s::wtRatio,s::wtFm,s::wtSub,s::wtNoise,s::wtNoiseDecay,s::wtNoiseColor,s::wtImpact,s::wtTone,s::wtDrive,s::wtComp,s::wtDetune};
+  for(int f=0;f<22;++f){const bool percent=f==5||f==7||f==8||f==10||f==12||f==13||f==14||f==17||f==18||f==19||f==20;assign(target[f],recipe.wt[from[f]]*(percent?100.f:1.f));}
+  const float rootHz=440.f*std::exp2(float(settingsForPart(part).root-69)/12);assign(t::tune,12*std::log2(std::max(1.f,recipe.wt[s::wtTune])/rootHz));
+ }
+ controls.table.patches[lane]=config;controls.algorithm=Engine::PlaybackAlgorithm::table;
+ if(auto* clip=activeClipSlot())captureTablePrograms(*clip);
+ synthPreviewWanted=false;synthPreviewGain=0;synthOpened=false;++midiRevision;markPersistentStateDirty();
+}
 std::unique_ptr<s3g_thru_synth::Worker> synthWorker;
+std::unique_ptr<s3g_thru_synth::Session> synthSession;
+std::unique_ptr<s3g_thru_synth::SessionStore> synthSessionStore;
+s3g_thru_synth::Worker::Request synthQueuedRender;
+bool synthSessionDirty = false;
+std::uint64_t synthSessionFailure = 0;
+void captureSynthDraft() {
+  if (!synthSession || !synthInitialized)
+    return;
+  auto &d = synthSession->drafts[synthRecipe.type];
+  d.used = true;
+  d.recipe = synthRecipe;
+  auto &e = d.editor;
+  e.row = synthRow;
+  e.point = synthPoint;
+  e.spectrum = synthSpectrum;
+  e.component = synthComponent;
+  e.name = synthName;
+  e.automaticName = synthNameAutomatic;
+  synthWorkspaces[synthRecipe.type] = synthRecipe;
+  synthWorkspaceValid[synthRecipe.type] = true;
+}
+void saveSynthSession() {
+  if (!synthSessionDirty || !synthSession || !synthSessionStore ||
+      !synthInitialized)
+    return;
+  captureSynthDraft();
+  synthSession->type = synthRecipe.type;
+  auto &sources = synthSession->sources;
+  sources[0].path = synthSourcePath;
+  sources[0].label = synthSourceLabel;
+  sources[0].embedded = synthSourceEmbedded;
+  for (int i = 0; i < 2; ++i) {
+    sources[i + 1].path = synthConvPaths[i];
+    sources[i + 1].label = synthConvLabels[i];
+    sources[i + 1].embedded = synthConvEmbedded[i];
+  }
+  for (int i = 0; i < 4; ++i) {
+    sources[i + 3].path = synthHybridPaths[i];
+    sources[i + 3].label = synthHybridLabels[i];
+    sources[i + 3].embedded = synthHybridEmbedded[i];
+  }
+  if (synthSessionStore->post(*synthSession))
+    synthSessionDirty = false;
+}
+void restoreSynthEditor(int type) {
+  using namespace s3g_thru_synth;
+  if (!synthSession)
+    return;
+  auto &d = synthSession->drafts[type];
+  auto &e = d.editor;
+  if (d.used) {
+    synthRow = e.row;
+    synthPoint = e.point;
+    synthSpectrum = e.spectrum;
+    synthComponent = e.component;
+    synthName = e.name;
+    synthNameAutomatic = e.automaticName;
+  } else {
+    e = EditorState{};
+    e.low = -limits(synthRecipe)[0] / 2;
+    e.high = limits(synthRecipe)[0] / 2;
+    synthRow = synthPoint = synthSpectrum = synthComponent = 0;
+    synthNameAutomatic = true;
+    std::snprintf(synthName.data(), synthName.size(), "%s-%d",
+                  generatorName(type), int(synthRecipe.v[root]));
+  }
+}
+int formatSynthEditor(char *out, int size) const {
+  if (!out || size < 1)
+    return -1;
+  const auto e = synthSession ? synthSession->drafts[synthRecipe.type].editor
+                              : s3g_thru_synth::EditorState{};
+  const int n = std::snprintf(
+      out, size, "%d,%d,%d,%d,%d,%.6g,%.6g,%.6g,%d", synthRecipe.type, e.page,
+      e.groups[0], e.groups[1], e.groups[2], double(e.amount), double(e.low),
+      double(e.high), e.keepEnds ? 1 : 0);
+  return n >= size ? -1 : n;
+}
+bool requestSynthRender() {
+  using namespace s3g_thru_synth;
+  using W = Worker;
+  if (!synthWorker)
+    return false;
+  if (synthWorker->state.load() != W::idle &&
+      synthWorker->request.op != W::generate) {
+    setError("Wait for synthesis job");
+    return false;
+  }
+  if (synthHybridMissing() ||
+      (synthRecipe.type == resynth && !synthSourcePath[0]) ||
+      (synthRecipe.type == convolution &&
+       (!synthConvPaths[0][0] || !synthConvPaths[1][0]))) {
+    setError("Choose synthesis sources first");
+    std::snprintf(synthMessage.data(), synthMessage.size(),
+                  "CHOOSE SOURCE FILES");
+    return false;
+  }
+  W::Request job;
+  job.op = W::generate;
+  job.recipe = synthRecipe;
+  job.revision = synthRevision;
+  job.rate = sampleRate;
+  job.source = synthSourcePath;
+  job.embeddedSource = synthSourceEmbedded;
+  job.sourceEpoch = synthSourceEpoch;
+  if (synthRecipe.type == convolution) {
+    job.source = synthConvPaths[0];
+    job.impulse = synthConvPaths[1];
+    job.sourceEpoch = synthConvEpochs[0];
+    job.impulseEpoch = synthConvEpochs[1];
+    job.embeddedSource = synthConvEmbedded[0];
+    job.embeddedImpulse = synthConvEmbedded[1];
+  }
+  if (synthRecipe.type == hybrid) {
+    job.hybridPaths = synthHybridPaths;
+    job.hybridEpochs = synthHybridEpochs;
+    job.hybridEmbedded = synthHybridEmbedded;
+  }
+  synthQueuedRender = job;
+  synthWantsRender = true;
+  if (synthWorker->state.load() != W::idle)
+    synthWorker->cancel.store(true);
+  saveSynthSession();
+  clearError();
+  return true;
+}
 s3g_thru_synth::Recipe synthRecipe;
 std::array<s3g_thru_synth::Recipe, s3g_thru_synth::generatorCount>
     synthWorkspaces{};
@@ -15,7 +172,7 @@ std::array<bool, 2> synthConvEmbedded{};
 bool synthWorkerReady = false, synthSavedLoading = false;
 bool synthOpened = false, synthInitialized = false, synthWantsRender = false,
      synthPreviewWanted = false;
-std::uint64_t synthRevision = 1, synthDebounce = 0;
+std::uint64_t synthRevision = 1;
 int synthActive = -1, synthFade = -1, synthRow = 0, synthPoint = 0;
 std::size_t synthPosition = 0, synthOldPosition = 0, synthFadeRemaining = 0;
 float synthPreviewGain = 0;
@@ -40,8 +197,15 @@ void selectSynthType(int wanted) {
   using namespace s3g_thru_synth;
   if (wanted < 0 || wanted >= generatorCount || wanted == synthRecipe.type)
     return;
+  captureSynthDraft();
   synthWorkspaces[synthRecipe.type] = synthRecipe;
   synthWorkspaceValid[synthRecipe.type] = true;
+  synthWantsRender = false;
+  synthPreviewWanted = false;
+  if (synthWorker &&
+      synthWorker->state.load() != s3g_thru_synth::Worker::idle &&
+      synthWorker->request.op == s3g_thru_synth::Worker::generate)
+    synthWorker->cancel.store(true);
   if (synthWorkspaceValid[wanted])
     synthRecipe = synthWorkspaces[wanted];
   else {
@@ -59,7 +223,7 @@ void selectSynthType(int wanted) {
       next.v[width] = 1;
       next.v[loop] = 0;
     }
-    if (wanted == drum || wanted == dust) {
+    if (isDrumType(wanted) || wanted == dust || wanted == wtDrum) {
       next.v[length] = 2;
       next.v[attack] = 0;
       next.v[release] = 2;
@@ -67,13 +231,7 @@ void selectSynthType(int wanted) {
     }
     synthRecipe = next;
   }
-  synthRow = 0;
-  synthPoint = 0;
-  synthSpectrum = int(synthRecipe.packets[bSpectrum]);
-  synthComponent = 0;
-  if (synthNameAutomatic)
-    std::snprintf(synthName.data(), synthName.size(), "%s-%d",
-                  generatorName(wanted), int(synthRecipe.v[root]));
+  restoreSynthEditor(wanted);
   synthEdited();
   if (synthHybridMissing()) {
     synthWantsRender = false;
@@ -97,12 +255,52 @@ bool prepareSynth() {
                 "/data/UserData/UserLibrary/Samples/s3g Thru/Synths");
   std::snprintf(synthName.data(), synthName.size(), "Spline");
   synthWorkerReady = synthWorker && synthWorker->prepare();
+  synthSession = std::make_unique<s3g_thru_synth::Session>();
+  synthSessionStore = std::make_unique<s3g_thru_synth::SessionStore>();
+  if (persistenceEnabled && moduleRootDirectory[0]) {
+    std::array<char, 1024> file{};
+    std::snprintf(file.data(), file.size(), "%s/thru-synth-session.bin",
+                  moduleRootDirectory.data());
+    const auto loaded =
+        s3g_thru_synth::SessionStore::load(file.data(), *synthSession);
+    if (loaded == s3g_thru_synth::SessionStore::loaded ||
+        loaded == s3g_thru_synth::SessionStore::recovered) {
+      for (int type = 0; type < s3g_thru_synth::generatorCount; ++type)
+        if (synthSession->drafts[type].used) {
+          synthWorkspaces[type] = synthSession->drafts[type].recipe;
+          synthWorkspaceValid[type] = true;
+        }
+      synthRecipe = synthWorkspaces[synthSession->type];
+      synthInitialized = true;
+      restoreSynthEditor(synthSession->type);
+      const auto &sources = synthSession->sources;
+      synthSourcePath = sources[0].path;
+      synthSourceLabel = sources[0].label;
+      synthSourceEmbedded = sources[0].embedded;
+      for (int i = 0; i < 2; ++i) {
+        synthConvPaths[i] = sources[i + 1].path;
+        synthConvLabels[i] = sources[i + 1].label;
+        synthConvEmbedded[i] = sources[i + 1].embedded;
+      }
+      for (int i = 0; i < 4; ++i) {
+        synthHybridPaths[i] = sources[i + 3].path;
+        synthHybridLabels[i] = sources[i + 3].label;
+        synthHybridEmbedded[i] = sources[i + 3].embedded;
+      }
+    }
+    synthSessionStore->prepare(file.data());
+  }
   return synthWorkerReady;
 }
 void stopSynth() {
+  if (!synthWorkerReady)
+    return;
+  saveSynthSession();
   synthWorkerReady = false;
   if (synthWorker)
     synthWorker->stop();
+  if (synthSessionStore)
+    synthSessionStore->stop();
 }
 bool synthReady() const {
   return synthWorker && synthActive >= 0 &&
@@ -110,16 +308,8 @@ bool synthReady() const {
 }
 void synthEdited() {
   ++synthRevision;
-  synthWantsRender = true;
-  synthMessage[0] = 0;
-  synthDebounce = renderClockSamples.load(std::memory_order_relaxed) +
-                  std::uint64_t(sampleRate * .2f);
-  if (synthWorker) {
-    const int job = synthWorker->state.load(std::memory_order_acquire);
-    if (job != s3g_thru_synth::Worker::idle &&
-        synthWorker->request.op != s3g_thru_synth::Worker::save)
-      synthWorker->cancel.store(true, std::memory_order_relaxed);
-  }
+  synthSessionDirty = true;
+  std::snprintf(synthMessage.data(), synthMessage.size(), "CAPTURE: RENDER");
 }
 void synthSetName(const char *text) {
   std::size_t n = 0;
@@ -134,10 +324,19 @@ void serviceSynth() {
   if (!synthWorker)
     return;
   auto &worker = *synthWorker;
+  if (synthSessionStore) {
+    const auto failed = synthSessionStore->failed.load();
+    if (failed > synthSessionFailure) {
+      synthSessionFailure = failed;
+      synthSessionDirty = true;
+      std::snprintf(synthMessage.data(), synthMessage.size(),
+                    "DRAFT SAVE FAILED");
+    }
+  }
   if (worker.state.load(std::memory_order_acquire) == W::complete) {
     const auto &job = worker.request;
     if (job.op == W::generate && worker.success && !worker.cancel.load() &&
-        job.revision == synthRevision) {
+        job.recipe.type == synthRecipe.type) {
       if (synthFadeRemaining)
         return; // Adopt on a later block, never retire a reader still fading.
       synthFade = synthPreviewGain > .0001f ? synthActive : -1;
@@ -148,8 +347,8 @@ void serviceSynth() {
               : 0;
       synthActive = job.slot;
       synthPosition = 0;
-      synthWantsRender = false;
-      std::snprintf(synthMessage.data(), synthMessage.size(), "READY");
+      std::snprintf(synthMessage.data(), synthMessage.size(),
+                    synthReady() ? "READY" : "CAPTURE: RENDER");
     } else if (job.op == W::save) {
       if (worker.success) {
         std::snprintf(synthLastSaved.data(), synthLastSaved.size(), "%s",
@@ -167,6 +366,7 @@ void serviceSynth() {
                       worker.error.data());
     } else if (job.op == W::restore && worker.success &&
                job.revision == synthRevision) {
+      captureSynthDraft();
       synthWorkspaces[synthRecipe.type] = synthRecipe;
       synthWorkspaceValid[synthRecipe.type] = true;
       synthRecipe = worker.restored;
@@ -212,10 +412,14 @@ void serviceSynth() {
       synthSetName(leaf.data());
       synthEdited();
       std::snprintf(synthMessage.data(), synthMessage.size(), "RECIPE OPENED");
+      if(fmRecipeType(synthRecipe.type)){restoreLiveFmRecipe(synthRecipe);std::snprintf(synthMessage.data(),synthMessage.size(),"LOADED TO FM");}
+      else if(tableRecipeType(synthRecipe.type)){restoreLiveTableRecipe(synthRecipe);std::snprintf(synthMessage.data(),synthMessage.size(),"LOADED TO TABLE");}
     } else if (!worker.success && job.revision == synthRevision)
       std::snprintf(synthMessage.data(), synthMessage.size(), "%s",
                     worker.error.data());
     worker.state.store(W::idle, std::memory_order_release);
+    if (job.op == W::save || job.op == W::restore)
+      saveSynthSession();
   }
   if (synthLoadPath[0]) {
     if (activeClip != synthLoadClip) {
@@ -248,46 +452,15 @@ void serviceSynth() {
     }
   }
   if (!synthOpened || !synthWantsRender ||
-      worker.state.load(std::memory_order_acquire) != W::idle ||
-      renderClockSamples.load(std::memory_order_relaxed) < synthDebounce)
-    return;
-  if (synthHybridMissing()) {
-    std::snprintf(synthMessage.data(), synthMessage.size(), "PICK SOURCE %c",
-                  char('A' + synthHybridMissing() - 1));
-    return;
-  }
-  if (synthRecipe.type == s3g_thru_synth::resynth && !synthSourcePath[0])
-    return;
-  if (synthRecipe.type == s3g_thru_synth::convolution &&
-      (!synthConvPaths[0][0] || !synthConvPaths[1][0]))
+      worker.state.load(std::memory_order_acquire) != W::idle)
     return;
   int slot = 0;
   while (slot == synthActive || slot == synthFade)
     ++slot;
   if (slot >= 3)
     return;
-  W::Request job;
-  job.op = W::generate;
-  job.recipe = synthRecipe;
-  job.revision = synthRevision;
+  auto job = synthQueuedRender;
   job.slot = slot;
-  job.rate = sampleRate;
-  job.source = synthSourcePath;
-  job.embeddedSource = synthSourceEmbedded;
-  job.sourceEpoch = synthSourceEpoch;
-  if (synthRecipe.type == s3g_thru_synth::convolution) {
-    job.source = synthConvPaths[0];
-    job.impulse = synthConvPaths[1];
-    job.sourceEpoch = synthConvEpochs[0];
-    job.impulseEpoch = synthConvEpochs[1];
-    job.embeddedSource = synthConvEmbedded[0];
-    job.embeddedImpulse = synthConvEmbedded[1];
-  }
-  if (synthRecipe.type == s3g_thru_synth::hybrid) {
-    job.hybridPaths = synthHybridPaths;
-    job.hybridEpochs = synthHybridEpochs;
-    job.hybridEmbedded = synthHybridEmbedded;
-  }
   if (worker.post(job))
     synthWantsRender = false;
 }
@@ -311,11 +484,20 @@ void mixSynth(std::size_t count) {
     ++position;
   };
   const float step = 1.f / std::max(1.f, sampleRate * .008f);
+  const auto &a = synthWorker->audio[synthActive];
+  const bool drumOneShot = (s3g_thru_synth::isDrumType(a.recipe.type) ||
+                            a.recipe.type == s3g_thru_synth::wtDrum) &&
+                           a.recipe.v[s3g_thru_synth::loop] < .5f;
   for (std::size_t i = 0; i < count; ++i) {
     const float target = synthPreviewWanted ? 1.f : 0.f;
     synthPreviewGain += std::clamp(target - synthPreviewGain, -step, step);
     float l = 0, rr = 0;
-    if (synthPreviewGain > 0 || synthPreviewWanted)
+    // Settle the audition route and retire its old tail before starting a
+    // one-shot drum. Reading during the 8 ms ramp consumes the transient and
+    // can attenuate its peak by several dB. The file already has clean edges.
+    const bool waitForAttack = drumOneShot && synthPosition == 0 &&
+                               (synthPreviewGain < 1 || synthFadeRemaining);
+    if (!waitForAttack && (synthPreviewGain > 0 || synthPreviewWanted))
       read(synthActive, synthPosition, l, rr);
     if (synthFadeRemaining) {
       float oldL = 0, oldR = 0;
@@ -331,7 +513,6 @@ void mixSynth(std::size_t count) {
     previewLevelState += (previewLevel - previewLevelState) * gainControlSlew;
     directPreview[0][i] += l * previewLevelState * synthPreviewGain;
     directPreview[1][i] += rr * previewLevelState * synthPreviewGain;
-    const auto &a = synthWorker->audio[synthActive];
     if (synthPosition >= a.left.size() &&
         a.recipe.v[s3g_thru_synth::loop] < .5f)
       synthPreviewWanted = false;
@@ -343,6 +524,7 @@ bool setSynthParam(const char *key, const char *text) {
   using namespace s3g_thru_synth;
   using W = s3g_thru_synth::Worker;
   if (!std::strcmp(key, "synth_close")) {
+    saveSynthSession();
     synthOpened = false;
     synthPreviewWanted = false;
     synthWantsRender = false;
@@ -369,6 +551,7 @@ bool setSynthParam(const char *key, const char *text) {
         synthRecipe.scale |= std::uint16_t(
             1u << kScaleDefinitions[std::size_t(settings.scale)].intervals[i]);
       synthInitialized = true;
+      synthSessionDirty = true;
       std::snprintf(synthName.data(), synthName.size(), "Spline-%d",
                     settings.root);
     }
@@ -379,32 +562,49 @@ bool setSynthParam(const char *key, const char *text) {
     cancelPerformanceGestures();
     stopPreviewWithFade();
     synthOpened = true;
-    if (!synthReady()) {
-      synthWantsRender = true;
-      synthDebounce = 0;
-    }
+    if(tableRecipeType(synthRecipe.type)||fmRecipeType(synthRecipe.type)||synthRecipe.type==s3g_thru_synth::pluck)selectSynthType(s3g_thru_synth::drum);
+    if (!synthReady())
+      std::snprintf(synthMessage.data(), synthMessage.size(),
+                    "CAPTURE: RENDER");
     clearError();
     return true;
   }
   if (!synthOpened)
     return true;
-  if (!std::strcmp(key, "synth_preview")) {
-    synthPreviewWanted = parseInteger(text, 0) != 0;
-    if (synthPreviewWanted && synthHybridMissing()) {
-      synthPreviewWanted = false;
-      setError("Pick Hybrid source files first");
-      return true;
+  if (std::strcmp(key, "synth_preview") && std::strcmp(key, "synth_render") &&
+      std::strcmp(key, "synth_cancel"))
+    synthSessionDirty = true;
+  if (!std::strcmp(key, "synth_editor")) {
+    int type = -1, page = 0, g0 = 0, g1 = 5, g2 = 4, keep = 1;
+    float amount = .25f, low = -12, high = 12;
+    char extra = 0;
+    if (synthSession &&
+        std::sscanf(text, "%d,%d,%d,%d,%d,%f,%f,%f,%d %c", &type, &page, &g0,
+                    &g1, &g2, &amount, &low, &high, &keep, &extra) == 9 &&
+        type == synthRecipe.type) {
+      auto editor = synthSession->drafts[type].editor;
+      editor.page = page;
+      editor.groups = {g0, g1, g2};
+      editor.amount = amount;
+      editor.low = low;
+      editor.high = high;
+      editor.keepEnds = keep != 0;
+      if ((keep == 0 || keep == 1) && validEditor(editor))
+        synthSession->drafts[type].editor = editor;
     }
-    if (synthPreviewWanted &&
-        ((synthRecipe.type == resynth && !synthSourcePath[0]) ||
-         (synthRecipe.type == convolution &&
-          (!synthConvPaths[0][0] || !synthConvPaths[1][0])))) {
+    return true;
+  }
+  if (!std::strcmp(key, "synth_preview")) {
+    const bool preview = parseInteger(text, 0) != 0;
+    if (preview &&
+        (synthActive < 0 ||
+         synthWorker->audio[synthActive].recipe.type != synthRecipe.type)) {
       synthPreviewWanted = false;
       std::snprintf(synthMessage.data(), synthMessage.size(),
-                    synthRecipe.type == convolution ? "PICK PRIMARY AND IR"
-                                                    : "USE LANE SOURCE");
+                    "CAPTURE: RENDER");
       return true;
     }
+    synthPreviewWanted = preview;
     if (synthPreviewWanted) {
       stopPreviewWithFade();
       if (synthActive >= 0 && synthPreviewGain > .0001f) {
@@ -429,8 +629,7 @@ bool setSynthParam(const char *key, const char *text) {
     return true;
   }
   if (!std::strcmp(key, "synth_render")) {
-    synthWantsRender = true;
-    synthDebounce = 0;
+    requestSynthRender();
     return true;
   }
   if (!std::strcmp(key, "synth_save") || !std::strcmp(key, "synth_restore")) {
@@ -542,14 +741,18 @@ bool setSynthParam(const char *key, const char *text) {
                               ? 3
                               : !std::strcmp(key, "synth_events")
                                     ? 4
-                                    : !std::strcmp(key, "synth_timing") ? 5 : !std::strcmp(key, "synth_attack") ? 6 : 7;
+                                    : !std::strcmp(key, "synth_timing")
+                                          ? 5
+                                          : !std::strcmp(key, "synth_attack")
+                                                ? 6
+                                                : 7;
     const bool relevant =
         (group == 0 && synthRecipe.type == pluck) ||
         (group == 1 && synthRecipe.type == subharmonic) ||
         (group == 2 && synthRecipe.type == hybrid) ||
         (group == 3 && synthRecipe.type == resynth) ||
         ((group == 4 || group == 5) && supportsEvents(synthRecipe.type)) ||
-        ((group == 6 || group == 7) && synthRecipe.type == drum);
+        ((group == 6 || group == 7) && isDrumType(synthRecipe.type));
     if (relevant &&
         std::sscanf(text, "%d,%f %c", &field, &value, &extra) == 2) {
       const auto old = workshopGroup(synthRecipe, group);
@@ -566,8 +769,20 @@ bool setSynthParam(const char *key, const char *text) {
       synthRecipe.extendedLocks ^= 1u << bit;
     return true;
   }
+  if (!std::strcmp(key, "synth_wt_start")) {
+    if (synthRecipe.type == wtDrum && parseInteger(text, 0) > 0) {
+      initializeWtDrumModel(synthRecipe, int(synthRecipe.wt[wtModel]));
+      synthEdited();
+    }
+    return true;
+  }
+  if (!std::strcmp(key, "synth_wt_lock")) {
+    const int f = parseInteger(text, -1);
+    if (f >= 0 && f < wtFields) synthRecipe.wtLocks ^= 1u << f;
+    return true;
+  }
   if (!std::strcmp(key, "synth_drum_start")) {
-    if (synthRecipe.type == drum && parseInteger(text, 0) > 0) {
+    if (isDrumType(synthRecipe.type) && parseInteger(text, 0) > 0) {
       initializeDrumModel(synthRecipe, int(synthRecipe.drums[dModel]));
       synthEdited();
     }
@@ -605,8 +820,10 @@ bool setSynthParam(const char *key, const char *text) {
     clearError();
     return true;
   }
-  if(!std::strcmp(key,"synth_dust_lock")){
-    const int bit=parseInteger(text,-1);if(bit>=0 && bit<dustFields) synthRecipe.dustLocks ^= 1u<<bit;
+  if (!std::strcmp(key, "synth_dust_lock")) {
+    const int bit = parseInteger(text, -1);
+    if (bit >= 0 && bit < dustFields)
+      synthRecipe.dustLocks ^= 1u << bit;
     return true;
   }
   int f = -1;
@@ -634,7 +851,8 @@ bool setSynthParam(const char *key, const char *text) {
        !std::strcmp(key, "synth_mod") || !std::strcmp(key, "synth_resynth") ||
        !std::strcmp(key, "synth_additive") ||
        !std::strcmp(key, "synth_noise") || !std::strcmp(key, "synth_fm") ||
-       !std::strcmp(key, "synth_conv") || !std::strcmp(key, "synth_drum") || !std::strcmp(key,"synth_dust")) &&
+       !std::strcmp(key, "synth_conv") || !std::strcmp(key, "synth_drum") ||
+       !std::strcmp(key, "synth_dust") || !std::strcmp(key, "synth_wt")) &&
       std::sscanf(text, "%d,%f %c", &f, &value, &extra) == 2) {
     bool changed = false;
     if (!std::strcmp(key, "synth_wave") && synthRecipe.type == wave) {
@@ -676,11 +894,19 @@ bool setSynthParam(const char *key, const char *text) {
       changed =
           setConvolution(synthRecipe, f, value) && before != synthRecipe.conv;
     }
-    if (!std::strcmp(key, "synth_drum") && synthRecipe.type == drum) {
+    if (!std::strcmp(key, "synth_drum") && isDrumType(synthRecipe.type)) {
       const auto before = synthRecipe.drums;
       changed = setDrum(synthRecipe, f, value) && before != synthRecipe.drums;
     }
-    if(!std::strcmp(key,"synth_dust") && synthRecipe.type==dust){const auto before=synthRecipe.dustParams; changed=setDust(synthRecipe,f,value) && before!=synthRecipe.dustParams;}
+    if (!std::strcmp(key, "synth_dust") && synthRecipe.type == dust) {
+      const auto before = synthRecipe.dustParams;
+      changed =
+          setDust(synthRecipe, f, value) && before != synthRecipe.dustParams;
+    }
+    if (!std::strcmp(key, "synth_wt") && synthRecipe.type == wtDrum) {
+      const auto before = synthRecipe.wt;
+      changed = setWtDrum(synthRecipe, f, value) && before != synthRecipe.wt;
+    }
     if (changed)
       synthEdited();
     return true;
@@ -796,7 +1022,7 @@ int formatSynthSpectrum(int row, char *out, int capacity) const {
 int formatSynth(char *out, int capacity) const {
   if (!out || capacity < 1)
     return -1;
-  std::array<char, s3g_thru_synth::recipeBytes * 2 + 1> model{};
+  std::array<char, s3g_thru_synth::maximumRecipeBytes * 2 + 1> model{};
   std::size_t at = 0;
   constexpr char hex[] = "0123456789abcdef";
   s3g_thru_synth::serializeRecipe(synthRecipe, [&](std::uint8_t b) {
@@ -820,10 +1046,13 @@ int formatSynth(char *out, int capacity) const {
       synthPreviewWanted ? 1 : 0,
       static_cast<unsigned long long>(synthRevision), synthRow, synthPoint,
       synthSpectrum, synthComponent, synthName.data(), synthMessage.data(),
-      synthSourceLabel.data(), synthConvLabels[0].data(),
-      synthConvLabels[1].data(), synthHybridLabels[0].data(),
-      synthHybridLabels[1].data(), synthHybridLabels[2].data(),
-      synthHybridLabels[3].data(),
+      synthRecipe.type == s3g_thru_synth::resynth ? synthSourceLabel.data() : "",
+      synthRecipe.type == s3g_thru_synth::convolution ? synthConvLabels[0].data() : "",
+      synthRecipe.type == s3g_thru_synth::convolution ? synthConvLabels[1].data() : "",
+      synthRecipe.type == s3g_thru_synth::hybrid ? synthHybridLabels[0].data() : "",
+      synthRecipe.type == s3g_thru_synth::hybrid ? synthHybridLabels[1].data() : "",
+      synthRecipe.type == s3g_thru_synth::hybrid ? synthHybridLabels[2].data() : "",
+      synthRecipe.type == s3g_thru_synth::hybrid ? synthHybridLabels[3].data() : "",
       s3g_thru_synth::eventFitCount(synthRecipe, sampleRate),
       synthActive >= 0 &&
               synthWorker->audio[synthActive].recipe.type == synthRecipe.type

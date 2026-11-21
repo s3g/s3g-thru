@@ -272,10 +272,16 @@ source = source.replace(
 source = source.replace(
     /import \* as os[^;]+;/,
     'const os = globalThis.__os;');
+source += '\nglobalThis.__docSound={read:readSequenceSound,model:sequenceSoundUi};';
 source += '\nglobalThis.__docSequence={read:readSequence,model:sequenceUi};globalThis.__docGenerate={ui:sequenceGeneratorUi,read:readSequenceGenerator};';
 source += '\nglobalThis.__docLayers={read:readLayers,model:layersUi,openPicker:openLayersPicker,picker:layersPicker};';
 source += '\nglobalThis.__docSplit = {state, readMixerState, projectUi, readProject, openProjects, openBankRecovery, customMidiUi, readCustomMidi, openCustomMidiList, sliceUi, openSliceEditor, readSliceEditor, params:PARAMS, pages:parameterPages, redraw:()=>{clearDisplay();draw();}};';
+source += '\nglobalThis.__docLfo={read:readControlLfos,readLive:readControlLfoLive,draw:drawControlLfo,drawSettings,pages:LFO_PAGES,setup:LFO_SETUP_PAGE,trig:SEQUENCE_LFO_PAGE,model:lfoUi,openPicker:openLfoDestPicker,drawPicker:drawLfoDestPicker,groups:lfoDestGroups,catalog:LFO_DESTINATIONS};';
 source += '\nglobalThis.__docSynth={ui:synthUi,read:readSynth,draw:drawSynth};';
+source += '\nglobalThis.__docFm={read:readFm,model:fmUi};';
+source += '\nglobalThis.__docScanned={read:readScanned,model:scannedUi};';
+source += '\nglobalThis.__docTable={read:readTable,scopes:readTableScope,model:tableUi};';
+source += '\nglobalThis.__docReadout={read:readPlaybackReadout,model:playbackReadout};';
 await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
 
 function escapeXml(value) {
@@ -411,6 +417,7 @@ cc(52);cc(50);cc(50,0);cc(52,0);tick();
 capture('pages.svg','Scrolling Pages hub with working banks and position counter');
 const hubDoc=globalThis.__docSplit;hubDoc.state.pageSelection=8;hubDoc.redraw();capture('pages-projects.svg','Pages hub with Projects selected at 9 of 9','PAGES');
 cc(51);tick();
+cc(51);tick();capture('exit-confirm.svg','Exit confirmation with Keep Playing selected','EXIT s3g Thru?');cc(51);tick();
 params.save_status='2';tick(3);capture('save-pending.svg','Waveform with saving status');
 params.save_status='3';tick(3);capture('save-complete.svg','Waveform with saved confirmation');
 params.save_status='0';tick(3);
@@ -898,19 +905,21 @@ seqDoc.redraw();capture('sample-pages.svg','Sample group for recording, editing 
 
 // Spline source-creation workspace, using the actual production renderer.
 const synthDoc=globalThis.__docSynth;
-const synthExample={open:1,job:0,op:0,progress:100,ready:1,preview:0,rev:1,row:0,point:3,seed:37,locks:0x113f,name:'Glass Current',message:'READY',values:[2,60,.3,5,20,.75,7,32,.2,100,1,.25,0],
+const synthExample={type:8,events:[1,8,0,0,1,0,0,1],drums:[0,48,850,.25,.04,.2,.55,0,24,45,.1,.78,0,.6,.4,.7],drumExtra:[.94,4,80,.12,0,0,.35,.15],open:1,job:0,op:0,progress:100,ready:1,preview:0,rev:1,row:0,point:3,seed:37,locks:0x113f,name:'Glass Current',message:'READY',values:[2,60,.3,5,20,.75,7,32,.2,100,1,.25,0],
  curves:Array.from({length:4},()=>[255,...Array.from({length:8},(_,i)=>[i/7,0,2])]),
  wave:Array.from({length:112},(_,i)=>[-.55*Math.abs(Math.sin(i*.37)),.55*Math.abs(Math.cos(i*.31))])};
 synthExample.curves[0]=[255,...[0,3,7,12,7,3,0,0].map((v,i)=>[i/7,v,2])];
 params.synth_state=JSON.stringify(synthExample);synthDoc.read();
 Object.assign(seqDoc.state,{view:'synth',saveStatus:0,savedTicks:0});
-for(const [page,file,heading] of [[0,'setup','SYNTH SETUP'],[1,'sound','SPLINE'],[2,'curve','CURVE PITCH'],[3,'random','RANDOM'],[4,'preview','PREVIEW']]){
- synthDoc.ui.page=page;synthDoc.ui.overlay='';synthDoc.draw();capture('synth-'+file+'.svg','Spline '+file+' page',heading);
+for(const [page,file,heading] of [[0,'setup','SYNTH SETUP'],[1,'sound','DRUM'],[2,'curve','CURVE PITCH'],[3,'random','RANDOM'],[4,'preview','PREVIEW']]){
+ synthDoc.ui.page=page;synthDoc.ui.overlay='';synthDoc.draw();capture('synth-'+file+'.svg','Drum '+file+' page',heading);
 }
+synthExample.ready=0;synthExample.message='CAPTURE: RENDER';params.synth_state=JSON.stringify(synthExample);synthDoc.read();synthDoc.ui.page=4;synthDoc.draw();capture('synth-edited.svg','Edited draft keeps the last render until Capture is tapped','PREVIEW');
+synthExample.ready=1;synthExample.message='READY';
 synthDoc.ui.page=2;synthExample.point=7;params.synth_state=JSON.stringify(synthExample);synthDoc.read();synthDoc.draw();
-capture('synth-curve-end.svg','Final Spline point with fixed time and no outgoing shape','CURVE PITCH');
+capture('synth-curve-end.svg','Final Drum point with fixed time and no outgoing shape','CURVE PITCH');
 synthExample.point=3;synthExample.curves[0][0]&=~(1<<3);params.synth_state=JSON.stringify(synthExample);synthDoc.read();synthDoc.draw();
-capture('synth-curve-unused.svg','Unused Spline point selected with PT, before editing enables it','CURVE PITCH');
+capture('synth-curve-unused.svg','Unused Drum point selected with PT, before editing enables it','CURVE PITCH');
 // Contextual generator and shared-modulation pages.
 synthExample.curves=Array.from({length:4},()=>[129,...Array.from({length:8},(_,i)=>[i/7,0,2])]);
 synthExample.type=0;synthExample.mod=[1,5,.35,3,150,.25,1];synthExample.curves[0][0]=255;
@@ -948,9 +957,14 @@ for(const [model,name] of [[6,'membrane'],[7,'modal'],[8,'medium']]){
 synthExample.type=8;synthExample.drums=[9,44,3200,.88,.62,.72,.38,0,.56,.45,.5,.22,0,.2,.28,.55];synthExample.drumExtra=[.65,320,140,.35,0,0,.35,.15];params.synth_state=JSON.stringify(synthExample);synthDoc.read();synthDoc.ui.page=1;synthDoc.draw();capture('synth-concert.svg','Concert Bass main controls','DRUM');
 synthDoc.ui.page=6;synthDoc.draw();capture('synth-concert-detail.svg','Concert Bass head and articulation controls','DRUM DETAIL');
 synthExample.drums[12]=2;params.synth_state=JSON.stringify(synthExample);synthDoc.read();synthDoc.ui.page=13;synthDoc.draw();capture('synth-concert-attack.svg','Concert Bass rim excitation and transient controls','DRUM ATTACK');
-synthExample.type=8;synthExample.drums=[10,80,650,.8,.025,.3,.7,.4,24,30,1.5,.12,0,.35,.35,0];synthExample.drumExtra=[.8,3,120,0,0,0,.35,.15];synthExample.drumColor=[12,16000,9000,.7,0,0,0,0];params.synth_state=JSON.stringify(synthExample);synthDoc.read();synthDoc.ui.page=1;synthDoc.draw();capture('synth-fm-drum.svg','FM Drum carrier and transient controls','DRUM');
-synthDoc.ui.page=6;synthDoc.draw();capture('synth-fm-drum-detail.svg','FM Drum ratio feedback and decay controls','DRUM DETAIL');
+synthExample.type=14;synthExample.drums=[10,80,650,.8,.025,.3,.7,.4,24,30,1.5,.12,0,.35,.35,0];synthExample.drumExtra=[.8,3,120,0,0,0,.35,.15];synthExample.drumColor=[12,16000,9000,.7,0,0,0,0];params.synth_state=JSON.stringify(synthExample);synthDoc.read();synthDoc.ui.page=1;synthDoc.draw();capture('synth-fm-drum.svg','FM Drum carrier and transient controls','FM DRUM');
+synthDoc.ui.page=6;synthDoc.draw();capture('synth-fm-drum-detail.svg','FM Drum ratio feedback and decay controls','FM SHAPE');
+synthDoc.ui.page=13;synthDoc.draw();capture('synth-fm-drum-attack.svg','FM Drum punch snap and attack cleanup','FM ATTACK');
+synthDoc.ui.page=14;synthDoc.draw();capture('synth-fm-drum-color.svg','FM Drum drive compression bit and rate coloration','FM COLOR');
+synthExample.type=8;params.synth_state=JSON.stringify(synthExample);synthDoc.read();
 synthDoc.ui.page=14;synthDoc.draw();capture('synth-drum-color.svg','Native drive compression and offline bit rate coloration','DRUM COLOR');
+synthExample.type=13;synthExample.wt=[0,48,600,1,2,.18,.55,.8,.1,.35,2,.18,0,.35,.025,.85,32,22,38,18,2,.3,.45,.15];synthExample.values[2]=.5;
+for(const [page,file,title,caption]of [[1,'synth-wt-drum.svg','WT DRUM','Wavetable drum starting model body scan and attack'],[6,'synth-wt-osc.svg','WT OSC','Wavetable frame positions oscillator blend modulation noise and tone'],[13,'synth-wt-shape.svg','WT SHAPE','Wavetable drum envelope drive compression and edge controls']]){params.synth_state=JSON.stringify(synthExample);synthDoc.read();synthDoc.ui.page=page;synthDoc.draw();capture(file,caption,title);}
 synthExample.type=9;synthExample.plucked=[110,1400,.35,.65,.1,.4,.2,12];synthExample.events=[1,8,1,0,0,500,0,.35];synthExample.timing=[1,120,5,.7,0,0,0,0];synthExample.eventfit=8;
 params.synth_state=JSON.stringify(synthExample);synthDoc.read();synthDoc.ui.page=1;synthDoc.draw();capture('synth-pluck.svg','Pluck string synthesis controls','PLUCK');
 synthDoc.ui.page=9;synthDoc.draw();capture('synth-events.svg','Shared event composition controls','SYNTH EVENTS');
@@ -966,5 +980,72 @@ synthDoc.ui.page=1;synthDoc.draw();capture('synth-hybrid.svg','Multi-source trai
 synthDoc.ui.overlay='nav';synthDoc.ui.selection=0;synthDoc.draw();capture('synth-groups.svg','Synth Sound, Motion, Output and Actions navigation','SYNTH GROUPS');synthDoc.ui.overlay='';
 Object.assign(synthDoc.ui,{overlay:'name',name:'Glass Current',cursor:13});synthDoc.draw();capture('synth-name.svg','Name a generated Spline WAV with the pad keyboard','NAME WAV');
 
+// Render from the real UI, including the full-name picker and read-only target value.
+const lfoDoc=globalThis.__docLfo,lfoState=globalThis.__docSplit.state;
+const lfoId=key=>lfoDoc.catalog.find(d=>d.key===key).id;
+Object.assign(lfoState,{view:'settings',splitEnabled:true,splitFocus:0,quadMode:false,bankMode:false,sharedDual:false,algorithm:2,editorReady:true,actionMessageTicks:0});
+globalThis.__docLayers.model.active=false;globalThis.__docSequence.model.active=false;
+globalThis.__docSplit.params.algorithm.value=2;
+const lfoExample={selected:2,part:0,primary:2,values:Array.from({length:8},()=>[0,0,0,1,0,0,0,10,0,0,-1]),parts:[0,1,4],engines:[-1,2],allowed:lfoDoc.catalog.filter(d=>['off','engine','insert','mixer'].includes(d.scope)&&d.modes.includes(1)&&(!d.engines.length||d.engines.includes(2))).map(d=>d.id),trig:[]};
+lfoExample.values[2]=[lfoId('grain_size'),0,0,.25,.5,0,.25,20,0,0,-1,1];
+params.lfo_state=JSON.stringify(lfoExample);
+params.lfo_live=JSON.stringify({owner:0,v:[[0,'grain_size',180,90]],phase:Array(8).fill(.37),output:Array(8).fill(.29)});
+lfoDoc.read();lfoDoc.readLive();
+lfoState.settingsPage=globalThis.__docSplit.pages().findIndex(p=>p.title==='LFO');lfoDoc.draw(lfoDoc.pages[0]);capture('control-lfo.svg','Assignable Control LFO with real Grain Size destination','LFO');
+lfoState.settingsPage=globalThis.__docSplit.pages().findIndex(p=>p.title==='LFO SETUP');lfoDoc.draw(lfoDoc.setup);capture('control-lfo-setup.svg','Control LFO engine filter, phase, smoothing, offset and clip ownership','LFO SETUP');
+lfoDoc.openPicker();lfoDoc.drawPicker();capture('control-lfo-groups.svg','LFO destinations grouped by their existing parameter pages','DEST A');
+lfoDoc.model.picker.group=lfoDoc.groups().findIndex(g=>g.name==='GRAINS MAIN');lfoDoc.model.picker.selection=0;lfoDoc.model.picker.stage='params';lfoDoc.drawPicker();capture('control-lfo-destinations.svg','Full-name Grain Size, Pitch and Stereo Spread destinations','GRAINS MAIN');
+lfoDoc.model.picker=null;lfoState.view='settings';globalThis.__docSplit.params.grain_size.value=90;
+lfoState.settingsPage=globalThis.__docSplit.pages().findIndex(p=>p.title==='GRAINS MAIN');lfoDoc.drawSettings();capture('control-lfo-target.svg','Grains Main showing a modulated Size of 180 ms with its solid marker','A GRAINS MAIN');
+globalThis.__docSequence.model.active=true;lfoState.quadMode=true;lfoExample.parts=[0,1,2,3,4];lfoExample.values[2][5]=2;
+lfoExample.trig=[3<<4,255,...Array.from({length:8},(_,i)=>[i===2?.5:1,i===2?.6:0]).flat()];
+params.lfo_state=JSON.stringify(lfoExample);lfoDoc.read();lfoState.settingsPage=globalThis.__docSplit.pages().findIndex(p=>p.title==='TRIG LFO');lfoDoc.draw(lfoDoc.trig);capture('control-lfo-trig.svg','Sequence selected-LFO restart, rate and depth locks','TRIG LFO');
+// Stochastic engine destinations share the same real grouped picker.
+lfoExample.primary=13;lfoExample.engines=[-1,13];lfoExample.values[2][10]=-1;
+lfoExample.allowed=lfoDoc.catalog.filter(d=>['off','engine','insert','mixer'].includes(d.scope)&&d.condition!=='stochastic-listener'&&(!d.engines.length||d.engines.includes(13))).map(d=>d.id);
+params.lfo_state=JSON.stringify(lfoExample);lfoDoc.read();lfoDoc.openPicker();lfoDoc.model.picker.group=lfoDoc.groups().findIndex(g=>g.name==='STOCHASTIC');lfoDoc.model.picker.stage='params';lfoDoc.model.picker.selection=0;lfoDoc.drawPicker();capture('control-lfo-stochastic.svg','Stochastic LFO targets including Source Group Size and Evolution Rate','STOCHASTIC');
+lfoDoc.model.picker=null;lfoState.view='settings';
+// Playback readouts are independent of saved encoder values.
+globalThis.__docSequence.model.active=false;Object.assign(lfoState,{view:'settings',splitEnabled:true,splitFocus:0,quadMode:false,bankMode:false,sharedDual:false,algorithm:2,clipPlaying:true,clipRecording:false,activeClip:0});
+globalThis.__docSplit.params.split_mode.value=1;globalThis.__docSplit.params.voice_engine_edit.value=1;
+params.midi_state=JSON.stringify({v:1,owner:4,clip:0,playing:1,corner:0,entry:0,values:[[0,641,90]],playback:[[0,641,150]]});globalThis.__docReadout.read();
+params.lfo_live=JSON.stringify({owner:0,v:[]});lfoDoc.readLive();lfoState.settingsPage=globalThis.__docSplit.pages().findIndex(p=>p.title==='GRAINS MAIN');lfoDoc.drawSettings();capture('clip-automation.svg','Recorded Size movement with a hollow clip automation marker','> A GRAINS MAIN');
+params.lfo_live=JSON.stringify({owner:0,v:[[0,'grain_size',300,150]]});lfoDoc.readLive();lfoDoc.drawSettings();capture('clip-automation-lfo.svg','Recorded Size movement combined with LFO modulation and its solid marker','> A GRAINS MAIN');
+// TABLE scopes are actual native audio, captured by tests/test_table.inc.
+const tableDoc=globalThis.__docTable,tableExample=JSON.parse(fs.readFileSync(path.join(repoRoot,'tests/table_scope_fixture.json'),'utf8'));
+Object.assign(seqDoc.state,{view:'main',algorithm:15,splitEnabled:false,sharedDual:false,quadMode:false,bankMode:false,splitFocus:0,lane:2,mask:0,voiceCount:1,playheads:Array(8).fill(-1),stackPositions:[.5,...Array(7).fill(-1)],voiceAlgorithms:[15,...Array(7).fill(-1)],editorReady:true,clipPlaying:false,clipRecording:false,actionMessageTicks:0,messageTicks:0,saveStatus:0});
+globalThis.__docLayers.model.active=false;globalThis.__docSequence.model.active=false;
+Object.assign(params,{algorithm:'15',split_mode:'0',voice_engine_mode:'0',record_lane:'2'});seqDoc.params.split_mode.value=0;seqDoc.params.algorithm.value=15;seqDoc.params.voice_engine_mode.value=0;
+tableExample.state.edit=1;tableExample.state.revision=99999;params.table_state=JSON.stringify(tableExample.state);params.table_scope=JSON.stringify(tableExample.scope);tableDoc.read(false);tableDoc.scopes(false);
+seqDoc.redraw();capture('table-scope.svg','TABLE live pre-effects patch scopes without sample waveforms','THRU TABLE');
+for(const [variant,title,file] of [[0,'TABLE','table-common'],[0,'TABLE WAVE','table-wave'],[1,'TABLE SPLINE','table-spline'],[2,'TABLE WT OSC','table-wt-osc'],[2,'TABLE WT HIT','table-wt-hit'],[2,'TABLE WT COLOR','table-wt-color']]){
+ tableExample.state.patches[1][0]=variant;tableExample.state.patches[1][4]=variant===2?1:0;tableExample.state.patches[1][6]=variant===2?25:0;
+ params.table_state=JSON.stringify(tableExample.state);tableDoc.read(false);seqDoc.state.view='settings';seqDoc.state.settingsPage=seqDoc.pages().findIndex(p=>p.title===title);
+ seqDoc.redraw();capture(file+'.svg',title+' patch controls',title);
+}
+// SCANNED shows actual physical displacement from the native engine.
+const scannedDoc=globalThis.__docScanned,scannedExample=JSON.parse(fs.readFileSync(path.join(repoRoot,'tests/scanned_scope_fixture.json'),'utf8'));
+Object.assign(seqDoc.state,{view:'main',algorithm:16,splitEnabled:false,sharedDual:false,quadMode:false,bankMode:false,splitFocus:0,lane:2,mask:0,voiceCount:1,playheads:Array(8).fill(-1),stackPositions:[.5,...Array(7).fill(-1)],voiceAlgorithms:[16,...Array(7).fill(-1)],editorReady:true,clipPlaying:false,clipRecording:false,actionMessageTicks:0,messageTicks:0,saveStatus:0});
+seqDoc.params.algorithm.value=16;seqDoc.params.split_mode.value=0;seqDoc.params.voice_engine_mode.value=0;
+scannedExample.state.edit=1;scannedExample.state.revision=999999;params.scanned_state=JSON.stringify(scannedExample.state);params.table_scope=JSON.stringify(scannedExample.scope);scannedDoc.read(false);tableDoc.scopes(false);
+seqDoc.redraw();capture('scanned-string.svg','SCANNED moving string profiles and per-note stack markers','THRU SCANNED');
+for(const [title,file] of [['SCANNED','scanned-main'],['SCAN BODY','scanned-body'],['SCAN HIT','scanned-hit'],['SCAN AMP','scanned-amp']]){if(title==='SCAN HIT'){scannedExample.state.patches[1][16]=1;scannedExample.state.patches[1][20]=24;params.scanned_state=JSON.stringify(scannedExample.state);scannedDoc.read(false);}if(title==='SCAN AMP'){scannedExample.state.patches[1][23]=1;params.scanned_state=JSON.stringify(scannedExample.state);scannedDoc.read(false);}seqDoc.state.view='settings';seqDoc.state.settingsPage=seqDoc.pages().findIndex(p=>p.title===title);seqDoc.redraw();capture(file+'.svg',title+' physical patch controls',title);}
+// FM uses the same live scope surface as TABLE, with independent patch controls.
+const fmDoc=globalThis.__docFm,fmExample=JSON.parse(fs.readFileSync(path.join(repoRoot,'tests/fm_scope_fixture.json'),'utf8'));
+Object.assign(seqDoc.state,{view:'main',algorithm:17,splitEnabled:false,sharedDual:false,quadMode:false,bankMode:false,splitFocus:0,lane:2,mask:0,voiceCount:1,playheads:Array(8).fill(-1),stackPositions:[.5,...Array(7).fill(-1)],voiceAlgorithms:[17,...Array(7).fill(-1)],editorReady:true,clipPlaying:false,clipRecording:false,actionMessageTicks:0,messageTicks:0,saveStatus:0});
+seqDoc.params.algorithm.value=17;seqDoc.params.split_mode.value=0;seqDoc.params.voice_engine_mode.value=0;fmExample.state.edit=1;fmExample.state.revision=999999;params.fm_state=JSON.stringify(fmExample.state);params.table_scope=JSON.stringify(fmExample.scope);fmDoc.read(false);tableDoc.scopes(false);seqDoc.redraw();capture('fm-scope.svg','FM live scopes and per-note stack positions','THRU FM');
+for(const [title,file]of [['FM','fm-main'],['FM COLOR','fm-color'],['FM HIT','fm-hit']]){fmExample.state.patches[1][4]=1;if(title==='FM HIT'){fmExample.state.patches[1][0]=1;fmExample.state.patches[1][20]=20;}params.fm_state=JSON.stringify(fmExample.state);fmDoc.read(false);seqDoc.state.view='settings';seqDoc.state.settingsPage=seqDoc.pages().findIndex(p=>p.title===title);seqDoc.redraw();capture(file+'.svg',title+' patch controls',title);}
+// Held-trig pages use the same native sound-lock snapshot as the UI tests.
+const soundExample=JSON.parse(fs.readFileSync(path.join(repoRoot,'tests/sequence_sound_fixture.json'),'utf8'));
+Object.assign(seqDoc.state,{view:'settings',splitEnabled:true,quadMode:true,sharedDual:false,bankMode:false,splitFocus:0,algorithm:15,lane:1,editorReady:true,actionMessageTicks:0,messageTicks:0,saveStatus:0,savedTicks:0});
+seqDoc.params.split_mode.value=6;seqDoc.params.algorithm.value=15;
+globalThis.__docLayers.model.active=false;globalThis.__docSequence.model.active=true;globalThis.__docSequence.model.held=true;globalThis.__docSequence.model.pad=24;
+soundExample.table.revision=9999999;globalThis.__docTable.model.floor=0;
+Object.assign(params,{seq_state:JSON.stringify(soundExample.sequence),seq_sound_state:JSON.stringify(soundExample.sound),table_state:JSON.stringify(soundExample.table)});
+globalThis.__docSequence.read();globalThis.__docTable.read(false);globalThis.__docSound.read();
+seqDoc.state.settingsPage=seqDoc.pages().findIndex(p=>p.title==='TABLE');seqDoc.redraw();capture('sequence-table-locks.svg','TABLE voice locks on a held Sequence trig','T01 A TABLE');
+soundExample.sound.values=[[3867,-.5,1],[3871,3,1],[3872,-4.5,1],[3873,2,1],[3874,1400,1]];
+params.seq_sound_state=JSON.stringify(soundExample.sound);globalThis.__docSound.read();
+seqDoc.state.settingsPage=seqDoc.pages().findIndex(p=>p.sequenceStrip===0);seqDoc.redraw();capture('sequence-lane-locks.svg','Lane EQ locks change the shared lane bus','T01 STRIP 1');
 if (checkOnly && mismatches !== 0) process.exit(1);
 if (checkOnly) console.log('s3g Thru documentation screens: current');

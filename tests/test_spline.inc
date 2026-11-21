@@ -111,9 +111,27 @@ void waitSynth(ThruInstance &t, bool ready = true) {
     const auto limit = std::chrono::steady_clock::now() + std::chrono::seconds(60);
     do {
         renderSplit(t, 1);
+        // Legacy codec regressions still compare exact old WAV rebuilds.
+        // First verify the public restore migrated to TABLE, then explicitly
+        // reopen only the retained internal renderer for that comparison.
+        if(ready && !t.synthOpened && t.tableRecipeType(t.synthRecipe.type)
+            && !std::strcmp(t.synthMessage.data(),"LOADED TO TABLE")
+            && t.synthWorker->state.load()==s3g_thru_synth::Worker::idle){
+            assert(t.controls.algorithm==Engine::PlaybackAlgorithm::table);
+            t.synthOpened=true;t.synthEdited();
+        }
+        if(ready && !t.synthOpened && t.fmRecipeType(t.synthRecipe.type)
+            && !std::strcmp(t.synthMessage.data(),"LOADED TO FM")
+            && t.synthWorker->state.load()==s3g_thru_synth::Worker::idle){
+            assert(t.controls.algorithm==Engine::PlaybackAlgorithm::fm);
+            t.synthOpened=true;t.synthEdited();
+        }
         usleep(500);
+        if(ready && t.synthOpened && !t.synthReady() && !t.synthWantsRender && t.synthWorker->state.load()==s3g_thru_synth::Worker::idle)
+            setParam(&t,"synth_render","1"); // Simulate the explicit Render button.
         if (t.synthWorker->state.load() == s3g_thru_synth::Worker::idle &&
-            (!ready || t.synthReady()) && !t.synthWantsRender)
+            (!ready || t.synthReady()) && !t.synthWantsRender &&
+            (!t.synthSessionStore || t.synthSessionStore->idle()))
             return;
     } while (std::chrono::steady_clock::now() < limit);
     std::fprintf(stderr, "Synth timeout ready=%d state=%d msg=%s\n", t.synthReady(),
@@ -132,6 +150,7 @@ void testSplineWorkflow() {
     std::snprintf(t->synthDirectory.data(), t->synthDirectory.size(), "%s/captures/Synths", folder);
     const auto dirty = t->persistentRevision;
     setParam(t.get(), "synth_open", "1");
+    setParam(t.get(), "synth_type", "0");
     assert(t->synthOpened);
     setParam(t.get(), "synth_edit", "0,0.12");
     setParam(t.get(), "synth_edit", "8,0");
@@ -307,6 +326,7 @@ void testSplineWorkflow() {
     assert(t->engine.laneLoaded(1));
     setParam(t.get(), "record_lane", "2");
     setParam(t.get(), "synth_open", "1");
+    setParam(t.get(), "synth_type", "0");
     setParam(t.get(), "synth_restore", "1");
     waitSynth(*t);
     assert(encode(t->synthRecipe) == encoded);
@@ -321,7 +341,10 @@ void testSplineWorkflow() {
 #include "synth_v3_fixture.h"
 #include "test_synth_workshop.inc"
 #include "test_synth_fields.inc"
+#include "test_synth_session.inc"
+#include "test_synth_audition.inc"
 void testSpline() {
+    testSynthSessionStore();testSynthManualSession();testSynthDrumAudition();
     testSplineCore();
     testSplineWorkflow();
     testSynthGeneratorsCore();

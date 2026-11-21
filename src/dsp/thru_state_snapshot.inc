@@ -56,8 +56,10 @@
         bool sequenceActive=false;
         std::array<std::uint32_t,4> pulsarSeeds {};
         PartSettings currentSettings {};
+        s3g_thru_lfo::Pool controlLfoPool{};int controlLfoEdit=0;
         void capture(const ThruInstance& source) {
             controls=source.controls;
+            controlLfoPool=source.controlLfoPool;controlLfoEdit=source.controlLfoEdit;
             const auto* clip=source.activeClipSlot();
             for(int part=0;part<4;++part)pulsarSeeds[part]=clip&&clip->pulsarSeeds[part]
                 ?clip->pulsarSeeds[part]:ThruInstance::defaultPulsarSeed(source.activeClip,part);
@@ -157,7 +159,9 @@
                 append(",\"%s_voice_mode\":%d",names[group],ui.voiceMode);
                 appendVoiceEngineJson(append,group,ui.engines);
                 appendVoicePlayJson(append,group,ui.engines);
+                s3g_thru_lfo::appendJson(append,group,ui.lfos);
             }
+            s3g_thru_lfo::appendPoolJson(append,controlLfoPool);append(",\"lfo_edit\":%d",controlLfoEdit);
             const char* pathNames[]{"stack_path_single","stack_path_a","stack_path_b","stack_path_c","stack_path_d"};
             for(int group=0;group<5;++group) {
                 const auto& path=group==0?(splitEnabled?splitSingleControls.stackPath:controls.stackPath)
@@ -194,6 +198,46 @@
             if (!append("%s%.9g", i ? "," : "", layersLive.values[i]))
               return -1;
           return append("%s", "]}") ? at : -1;
+        }
+        int appendTableJson(char* out,int capacity,int length)const {
+          if(length<=0||length>=capacity||out[length-1]!='}')return -1;
+          int at=length-1;const auto append=[&](const char* fmt,auto... values){if(at<0||at>=capacity)return false;const int n=std::snprintf(out+at,capacity-at,fmt,values...);if(n<0||n>=capacity-at){at=-1;return false;}at+=n;return true;};
+          if(!append("%s",",\"table_programs\":["))return -1;
+          for(int group=0;group<5;++group){const auto& program=group==0?(splitEnabled?splitSingleControls.table:controls.table):(splitEnabled&&group-1==splitFocus?controls.table:splitParts[group-1].controls.table);
+            for(int lane=0;lane<4;++lane)for(int f=0;f<s3g_thru_table::fields;++f)if(!append(group||lane||f?",%.9g":"%.9g",double(program.patches[lane].v[f])))return -1;}
+          return append("%s","]}")?at:-1;
+        }
+        int appendScannedJson(char* out,int capacity,int length)const {
+          if(length<=0||length>=capacity||out[length-1]!='}')return -1;
+          int at=length-1;const auto append=[&](const char* fmt,auto... values){if(at<0||at>=capacity)return false;const int n=std::snprintf(out+at,capacity-at,fmt,values...);if(n<0||n>=capacity-at){at=-1;return false;}at+=n;return true;};
+          if(!append("%s",",\"scanned_programs\":["))return -1;
+          for(int group=0;group<5;++group){const auto& program=group==0?(splitEnabled?splitSingleControls.scanned:controls.scanned):(splitEnabled&&group-1==splitFocus?controls.scanned:splitParts[group-1].controls.scanned);
+            for(int lane=0;lane<4;++lane)for(int f=0;f<s3g_thru_scanned::legacyFields;++f)if(!append(group||lane||f?",%.9g":"%.9g",double(program.patches[lane].v[f])))return -1;}
+          return append("%s","]}")?at:-1;
+        }
+        int appendFmJson(char* out,int capacity,int length)const {
+          if(length<=0||length>=capacity||out[length-1]!='}')return -1;
+          int at=length-1;const auto append=[&](const char* fmt,auto... values){if(at<0||at>=capacity)return false;const int n=std::snprintf(out+at,capacity-at,fmt,values...);if(n<0||n>=capacity-at){at=-1;return false;}at+=n;return true;};
+          if(!append("%s",",\"fm_programs\":["))return -1;
+          for(int group=0;group<5;++group){const auto& program=group==0?(splitEnabled?splitSingleControls.fm:controls.fm):(splitEnabled&&group-1==splitFocus?controls.fm:splitParts[group-1].controls.fm);
+            for(int lane=0;lane<4;++lane)for(int f=0;f<s3g_thru_fm::fields;++f)if(!append(group||lane||f?",%.9g":"%.9g",double(program.patches[lane].v[f])))return -1;}
+          return append("%s","]}")?at:-1;
+        }
+        int appendScannedHitJson(char* out,int capacity,int length)const {
+          if(length<=0||length>=capacity||out[length-1]!='}')return -1;
+          int at=length-1;const auto append=[&](const char* fmt,auto... values){if(at<0||at>=capacity)return false;const int n=std::snprintf(out+at,capacity-at,fmt,values...);if(n<0||n>=capacity-at){at=-1;return false;}at+=n;return true;};
+          if(!append("%s",",\"scanned_hit_programs\":["))return -1;
+          for(int group=0;group<5;++group){const auto& program=group==0?(splitEnabled?splitSingleControls.scanned:controls.scanned):(splitEnabled&&group-1==splitFocus?controls.scanned:splitParts[group-1].controls.scanned);
+            for(int lane=0;lane<4;++lane)for(int f=s3g_thru_scanned::legacyFields;f<s3g_thru_scanned::percussionFields;++f)if(!append(group||lane||f!=s3g_thru_scanned::legacyFields?",%.9g":"%.9g",double(program.patches[lane].v[f])))return -1;}
+          return append("%s","]}")?at:-1;
+        }
+        int appendScannedAmpJson(char* out,int capacity,int length)const {
+          if(length<=0||length>=capacity||out[length-1]!='}')return -1;
+          int at=length-1;const auto append=[&](const char* fmt,auto... values){if(at<0||at>=capacity)return false;const int n=std::snprintf(out+at,capacity-at,fmt,values...);if(n<0||n>=capacity-at){at=-1;return false;}at+=n;return true;};
+          if(!append("%s",",\"scanned_amp_programs\":["))return -1;
+          for(int group=0;group<5;++group){const auto& program=group==0?(splitEnabled?splitSingleControls.scanned:controls.scanned):(splitEnabled&&group-1==splitFocus?controls.scanned:splitParts[group-1].controls.scanned);
+            for(int lane=0;lane<4;++lane)for(int f=s3g_thru_scanned::percussionFields;f<s3g_thru_scanned::fields;++f)if(!append(group||lane||f!=s3g_thru_scanned::percussionFields?",%.9g":"%.9g",double(program.patches[lane].v[f])))return -1;}
+          return append("%s","]}")?at:-1;
         }
         int serializeState(char* buffer, int bufferLength,
             std::uint64_t generation = kAnyPersistenceGeneration) const
@@ -403,7 +447,7 @@
             int result=appendLayersJson(buffer,bufferLength,appendPatternFadeJson(buffer,bufferLength,appendSplitJson(buffer,bufferLength,length)));
             if(result<=0||result>=bufferLength)return -1;
             const int extra=std::snprintf(buffer+result-1,bufferLength-result+1,",\"sequence_mode\":%d}",sequenceMode()?1:0);
-            return extra<0||extra>=bufferLength-result+1?-1:result-1+extra;
+            return extra<0||extra>=bufferLength-result+1?-1:appendFmJson(buffer,bufferLength,appendScannedAmpJson(buffer,bufferLength,appendScannedHitJson(buffer,bufferLength,appendScannedJson(buffer,bufferLength,appendTableJson(buffer,bufferLength,result-1+extra)))));
         }
     };
     static_assert(std::is_trivially_copyable<PersistentStateSnapshot>::value,

@@ -599,9 +599,14 @@ public:
   }
   template <class PatchType, class Buffer>
   void process(std::size_t frames, Buffer &bus, const PatchType &patch,
-               const RhythmClock &clock = {}) {
+               const RhythmClock &clock = {}, Point offset = {}) {
     std::array<std::array<float, 4>, 4> params{}, details{};
-    std::array<float, 4> targets{};
+    std::array<float, 4> targets{}, shifted{};
+    const bool moving=offset.x!=0||offset.y!=0;
+    if(moving){float sum=0;for(int c=0;c<4;++c)sum+=unit(patch.values[PatchType::config+PatchType::weight0+c]);
+      const float norm=std::max(1e-6f,sum);
+      shifted=weights({unit((patch.setting(PatchType::weight1)+patch.setting(PatchType::weight3))/norm+offset.x),unit((patch.setting(PatchType::weight2)+patch.setting(PatchType::weight3))/norm+offset.y)});
+    }
     float sum = 0;
     const float z = patch.setting(PatchType::pressure),
                 baseDepth = patch.setting(PatchType::depth);
@@ -626,13 +631,13 @@ public:
                       details[c]);
       (*slots_)[c].context(
           clock,
-          patch.values[PatchType::config + PatchType::weight0 + c] > .005f &&
+          (moving?shifted[c]:patch.values[PatchType::config + PatchType::weight0 + c]) > .005f &&
               baseDepth > 1e-4f &&
               (patch.setting(PatchType::zMode) >= .5f || z > 1e-4f) &&
               patch.values[i + 7] > 1e-4f);
       (*slots_)[c].beginBlock(params[c], details[c]);
       targets[c] =
-          unit(patch.values[PatchType::config + PatchType::weight0 + c]);
+          moving?shifted[c]:unit(patch.values[PatchType::config + PatchType::weight0 + c]);
       sum += targets[c];
     }
     if (sum < 1e-6f) {

@@ -3,6 +3,8 @@
 #include "test_synth_drum_color.inc"
 #include "test_synth_music.inc"
 #include "test_synth_dust.inc"
+#include "test_synth_wt_drum.inc"
+#include "test_synth_fm_type.inc"
 void testSynthFieldsCore() {
   using namespace s3g_thru_synth;
   const auto no = [] { return false; };
@@ -263,7 +265,9 @@ void testSynthFieldsCore() {
   testSynthDrumAttackCore();
   testSynthDrumColorCore();
   testSynthDustCore();
-  std::puts("Synth fields DSP: captured v5 migration, thirteen stable types, "
+  testSynthWtDrumCore();
+  testSynthFmTypeCore();
+  std::puts("Synth fields DSP: captured v5 migration, fifteen stable types, "
             "pluck tuning, band-limited Sub banks, shared event modes, "
             "linked/point/smear/frozen traces, four-source trait hybrids, "
             "stereo/mono, deterministic variation, cancellation and "
@@ -521,6 +525,8 @@ void testSynthFieldsWorkflow() {
   std::filesystem::remove_all(dir);
   testSynthDrumAttackWorkflow();
   testSynthDustWorkflow();
+  testSynthWtDrumWorkflow();
+  testSynthFmTypeWorkflow();
   std::puts("Synth fields workflow: Pluck/Sub save and stereo recall, all RSYN "
             "trace behaviors, isolated four-file Hybrid input, all sources "
             "embedded, corrupt-source refusal, exact stereo rebuild after "

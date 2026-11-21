@@ -688,6 +688,32 @@
             "takes new settings;",
             "older pulses finish."
           ]
+        },
+        {
+          "title": "TABLE synth",
+          "lines": [
+            "ALG TABLE needs no",
+            "sample loaded.",
+            "Each Track edits one",
+            "physical synth patch.",
+            "TYPE: Wave, Spline",
+            "or WT Drum.",
+            "Stack scanning blends",
+            "patches; selecting a",
+            "Track only edits it.",
+            "The scope shows live",
+            "left-channel audio",
+            "before part effects.",
+            "Quiet patches stay",
+            "visibly quiet.",
+            "No sample cursor.",
+            "POS/FLD/SPD/JOIN",
+            "show blank squares.",
+            "Use Amp Envelope,",
+            "scales and effects.",
+            "Patches and gestures",
+            "save with clips."
+          ]
         }
       ]
     },
@@ -1051,17 +1077,24 @@
             "Back closes a",
             "secondary view. From",
             "the main waveform,",
-            "Back saves and exits",
-            "takeover. Let pending",
-            "saving finish before",
-            "powering off.",
+            "Back asks to exit.",
+            "Keep Playing starts",
+            "selected. Turn the",
+            "main wheel to Exit",
+            "to Schwung and click",
+            "to leave takeover.",
+            "Back or Menu cancels.",
+            "Audio keeps running",
+            "until you confirm.",
+            "",
+            "Let saving finish",
+            "before powering off.",
             "",
             "For this help, leave",
             "takeover and open",
             "Schwung Global",
             "Settings, System,",
-            "Help, Modules, s3g",
-            "Thru."
+            "Help."
           ]
         },
         {
@@ -1911,6 +1944,26 @@
             "Equal-region fallback",
             "makes COUNT active."
           ]
+        },
+        {
+          "title": "Sound locks",
+          "lines": [
+            "Hold a step pad.",
+            "Menu: sound pages.",
+            "Turn: lock control.",
+            "Release: sequence.",
+            "X + dial: inherit.",
+            "",
+            "Solid: one voice.",
+            "Outline: lane bus.",
+            "Underline: parent.",
+            "TABLE TYPE can vary",
+            "from trig to trig.",
+            "ALG stays per lane.",
+            "Copy/Undo save locks.",
+            "32 locks per step;",
+            "1024 per clip."
+          ]
         }
       ]
     },
@@ -1923,61 +1976,66 @@
             "Capture + Menu >",
             "Sample > Synth.",
             "Choose TYPE in",
-            "Sound. TYPE order:",
-            "Wave, Drum, Pluck,",
+            "Sound. Twelve types:",
+            "Drum, FM Drum, Pluck,",
             "Partials, Noise Bank,",
-            "FM, Subharmonic,",
-            "Spline, Bloom,",
-            "Resynth, Hybrid and",
-            "Convolution. Each",
-            "keeps its workspace.",
-            "Menu opens Sound,",
-            "Motion and Output.",
-            "Up/Down stays in the",
-            "chosen group. Back",
-            "returns to the",
-            "overview, then",
-            "exits.",
-            "Loop auditions.",
-            "Record saves and",
-            "loads the render.",
-            "Shift + Record saves",
-            "without loading.",
+            "Dust, FM, Subharmonic,",
+            "Bloom, Resynth,",
+            "Hybrid, Convolution.",
+            "",
+            "Tap Capture: render.",
+            "Loop: last render.",
+            "Record: save + load.",
+            "Shift + Record: save.",
             "Track 1-4 chooses",
-            "the destination",
-            "lane."
+            "the destination.",
+            "Edits do not render.",
+            "Last settings return.",
+            "Wave, Spline and WT",
+            "Drum are now TABLE",
+            "engine variants."
           ]
         },
         {
           "title": "Wave",
           "lines": [
-            "Wave provides SINE,",
-            "TRI, SAW and PULS.",
-            "Starts clean: no",
-            "detuning, sub, noise",
-            "or modulation;",
-            "filter open.",
-            "",
-            "PW applies to PULS.",
-            "DETN adds a detuned",
-            "oscillator; SUB adds",
-            "a lower octave.",
-            "CUTO/RES filter the",
-            "sound; NOIS adds",
-            "noise.",
-            "",
-            "Curves: Pitch, Pulse",
-            "Width, Cutoff,",
-            "Level. Unused",
-            "controls show",
-            "squares."
+            "Now live in TABLE.",
+            "Select ALG TABLE on",
+            "the Engine page.",
+            "Track 1-4 selects",
+            "a synth patch.",
+            "Open TABLE and",
+            "choose its TYPE.",
+            "Old WAVs still play.",
+            "Recipe recall moves",
+            "base settings into",
+            "that TABLE patch.",
+            "Offline curves are",
+            "not transferred."
+          ]
+        },
+        {
+          "title": "WT Drum",
+          "lines": [
+            "Now live in TABLE.",
+            "Select ALG TABLE on",
+            "the Engine page.",
+            "Track 1-4 selects",
+            "a synth patch.",
+            "Open TABLE and",
+            "choose its TYPE.",
+            "Old WAVs still play.",
+            "Recipe recall moves",
+            "base settings into",
+            "that TABLE patch.",
+            "Offline curves are",
+            "not transferred."
           ]
         },
         {
           "title": "Drum sample",
           "lines": [
             "DRUM models include",
-            "FMD for FM",
             "percussion and CBAS",
             "for Concert Bass.",
             "Main: tune, decay,",
@@ -2323,24 +2381,19 @@
         {
           "title": "Spline controls",
           "lines": [
-            "Spline keeps its",
-            "evolving waveform",
-            "process. PTS and",
-            "CURV shape it; EVOL",
-            "sets cycles between",
-            "new shapes. DRFT/DRT",
-            "add pitch motion,",
-            "DYN adds level",
-            "variation.",
-            "",
-            "Its curve rows are",
-            "Pitch, Points,",
-            "Evolution, Level.",
-            "LOOP is shared on",
-            "Synth Mod, knob 8.",
-            "Saving needs a",
-            "current completed",
-            "render."
+            "Now live in TABLE.",
+            "Select ALG TABLE on",
+            "the Engine page.",
+            "Track 1-4 selects",
+            "a synth patch.",
+            "Open TABLE and",
+            "choose its TYPE.",
+            "Old WAVs still play.",
+            "Recipe recall moves",
+            "base settings into",
+            "that TABLE patch.",
+            "Offline curves are",
+            "not transferred."
           ]
         },
         {
@@ -2695,14 +2748,18 @@
             "Load assigns the",
             "selected lane.",
             "",
-            "Load a saved Spline",
+            "Load a saved Synth",
             "WAV, then Open",
             "Source Recipe to",
             "edit again. Assigned",
             "WAV recipes stay in",
             "project exports.",
-            "Save unsaved work",
-            "before exiting Thru."
+            "",
+            "Drafts, source picks",
+            "and each type's last",
+            "page and settings",
+            "survive exit/restart.",
+            "Render when ready."
           ]
         },
         {
@@ -2732,22 +2789,28 @@
         {
           "title": "FM Drum",
           "lines": [
-            "FMD creates",
-            "electronic drums.",
-            "Detail: BEND and",
-            "SWP shape pitch.",
-            "RATI sets modulator",
-            "ratio; FDBK",
-            "feedback; WAVE",
-            "carrier shape; FM",
-            "depth; FDEC its",
-            "decay; MOD direct",
-            "modulator level.",
-            "HIT and NOIS add",
-            "separate",
-            "transients. Drum",
-            "Color adds drive",
-            "and reduction."
+            "TYPE FMDR: dedicated",
+            "FM percussion.",
+            "Main: Tune, Decay,",
+            "Body, Tone, Ratio,",
+            "FM, Wave and FM",
+            "decay.",
+            "Shape: Bend, Sweep,",
+            "Feedback, Modulator,",
+            "Noise, Hit and",
+            "decays.",
+            "Attack: Punch, Snap",
+            "and Edge. FM Color",
+            "adds drive,",
+            "compression",
+            "and bit/rate",
+            "reduction.",
+            "Capture renders.",
+            "Loop auditions.",
+            "Record saves +",
+            "loads.",
+            "Old FMD WAV recipes",
+            "keep their sound."
           ]
         },
         {
@@ -2767,7 +2830,10 @@
             "shortcut. Loop",
             "alone auditions.",
             "Record saves and",
-            "loads the result."
+            "loads the result.",
+            "Shift + Loop also",
+            "renders the",
+            "variation."
           ]
         },
         {
@@ -2799,6 +2865,291 @@
             "loads."
           ]
         }
+      ]
+    },
+    {
+      "title": "Control LFOs",
+      "children": [
+        {
+          "title": "Assign an LFO",
+          "lines": [
+            "Capture + Menu:",
+            "Performance, LFO.",
+            "Knob 1 selects one",
+            "of eight LFOs. PART",
+            "chooses A-D or FX.",
+            "All eight can target",
+            "one part. Move focus",
+            "stays independent.",
+            "DPTH sets amount.",
+            "Stack scanning and",
+            "unsafe controls are",
+            "excluded."
+          ]
+        },
+        {
+          "title": "Choose destination",
+          "lines": [
+            "Turn DEST or click",
+            "the main wheel on",
+            "LFO. Select a menu",
+            "page, then a full",
+            "parameter name.",
+            "Click to assign.",
+            "Back returns to the",
+            "list or cancels.",
+            "Only available",
+            "targets are listed.",
+            "OFF disables it.",
+            "Engine pages first.",
+            "Stochastic has its",
+            "own target group."
+          ]
+        },
+        {
+          "title": "See modulation",
+          "lines": [
+            "Visit the target",
+            "parameter page.",
+            "Its moving value has",
+            "a small solid dot.",
+            "Turning its dial",
+            "edits the saved",
+            "base value. LFOs",
+            "add movement without",
+            "overwriting it.",
+            "ENG can restrict an",
+            "engine target.",
+            "ENG stays editable",
+            "with DEST OFF. ANY",
+            "clears the filter."
+          ]
+        },
+        {
+          "title": "Clock and run",
+          "lines": [
+            "BEAT follows tempo;",
+            "HZ runs by seconds.",
+            "RATE sets speed.",
+            "FREE always runs;",
+            "PLAY follows",
+            "transport; TRIG",
+            "restarts on notes;",
+            "ONE runs once.",
+            "LFO SETUP has PHAS",
+            "and SMTH to soften",
+            "movement."
+          ]
+        },
+        {
+          "title": "Clips or Live",
+          "lines": [
+            "LFO SETUP: FLOW.",
+            "CLIP recalls phase",
+            "on fresh Play or a",
+            "new clip. Repeats",
+            "preserve phase and",
+            "follow Clip Rate.",
+            "LIVE continues phase",
+            "and ignores recorded",
+            "LFO control edits.",
+            "Record stores the",
+            "recipe and starting",
+            "state."
+          ]
+        },
+        {
+          "title": "Sequence locks",
+          "lines": [
+            "Hold a step: TRIG",
+            "LFO. Knob 1 selects",
+            "an assigned LFO.",
+            "RST allows restart",
+            "in TRIG or ONE.",
+            "RATE and DPTH last",
+            "until the next",
+            "parent trig. Burst",
+            "children keep that",
+            "state. X + dial",
+            "restores inheritance."
+          ]
+        },
+        {
+          "title": "Record LFO edits",
+          "lines": [
+            "Record a clip and",
+            "turn RATE to record",
+            "modulation speed.",
+            "Depth, shape, clock,",
+            "phase, smoothing,",
+            "run mode and target",
+            "edits also record.",
+            "Slot selection is",
+            "navigation. FLOW is",
+            "a saved setting.",
+            "LIVE ignores those",
+            "recorded edits."
+          ]
+        },
+        {
+          "title": "Playback values",
+          "lines": [
+            "Open the recorded",
+            "parameter page while",
+            "the clip plays.",
+            "Values follow its",
+            "dial gestures.",
+            "A hollow marker is",
+            "clip automation; a",
+            "solid marker is LFO.",
+            "Both can combine.",
+            "Turning a dial edits",
+            "the saved base."
+          ]
+        },
+        {
+          "title": "Available parts",
+          "lines": [
+            "Single and Layers:",
+            "A and FX. Split,",
+            "Shared Dual, Bank:",
+            "A, B and FX. Quad",
+            "and Sequence: A-D",
+            "and FX. An inactive",
+            "saved PART shows a",
+            "square and stays",
+            "silent. Unused slots",
+            "default to an active",
+            "part when selected."
+          ]
+        },
+        {
+          "title": "AUTO offset",
+          "lines": [
+            "LFO Setup knob 6:",
+            "OFST BASE or AUTO.",
+            "BASE uses the manual",
+            "center and can clip.",
+            "AUTO moves center",
+            "inward to fit both",
+            "halves of the sweep.",
+            "Full DPTH: full range.",
+            "Negative DPTH flips.",
+            "Zero DPTH: manual.",
+            "SMTH softens changes.",
+            "Saved with the clip,",
+            "like FLOW. Ordinary",
+            "pages show movement."
+          ]
+        }
+      ]
+    },
+    {
+      "title": "SCANNED engine",
+      "lines": [
+        "Select ALG SCANNED.",
+        "Notes set pitch; MOTN",
+        "sets physical motion.",
+        "Track selects a patch.",
+        "",
+        "EXC plucks, strikes,",
+        "starts noise, or uses",
+        "the lane sample.",
+        "HIT is initial energy.",
+        "FORC sustains motion;",
+        "PRES adds pressure.",
+        "",
+        "FRZ holds the string",
+        "shape; notes continue.",
+        "Loop holds stack scan.",
+        "They are independent.",
+        "",
+        "Four sound pages:",
+        "SCANNED, SCAN BODY,",
+        "SCAN HIT, SCAN AMP.",
+        "Clip gestures and",
+        "trig sound locks."
+      ]
+    },
+    {
+      "title": "SCANNED percussion",
+      "lines": [
+        "Open SCAN HIT.",
+        "ART PERC gives each",
+        "new note a hammer",
+        "and a decaying body.",
+        "",
+        "IMPT: short impact.",
+        "HARD: hammer width.",
+        "DEC: body decay.",
+        "BEND/TIME: pitch drop",
+        "or upward sweep.",
+        "LOSS: darkening tail.",
+        "",
+        "New notes adopt ART,",
+        "IMPT and HARD. Live",
+        "DEC, BEND, TIME, LOSS",
+        "edits shape the tail.",
+        "",
+        "TONE keeps the prior",
+        "sustained behavior."
+      ]
+    },
+    {
+      "title": "SCANNED amp",
+      "lines": [
+        "Open SCAN AMP.",
+        "AMP OFF is clean.",
+        "TUBE: rounded drive.",
+        "FUZZ: stronger drive.",
+        "",
+        "GAIN: drive amount.",
+        "BASS/MID/TREB: tone.",
+        "FREQ: mid center.",
+        "CAB: speaker amount.",
+        "OUT: final amp level.",
+        "",
+        "Each physical patch",
+        "has its own settings.",
+        "All controls respond",
+        "while notes are held.",
+        "",
+        "Start: TUBE, GAIN 25,",
+        "CAB 70, tones flat.",
+        "Raise GAIN for fuzz."
+      ]
+    },
+    {
+      "title": "FM engine",
+      "lines": [
+        "Choose ALG FM.",
+        "Notes set pitch.",
+        "Tracks select",
+        "patches.",
+        "Stack scan blends",
+        "four FM patches.",
+        "",
+        "MODE TONE sustains.",
+        "DRUM decays when",
+        "held.",
+        "MODE starts next",
+        "note.",
+        "",
+        "FM: routing,",
+        "ratios,",
+        "index and feedback.",
+        "COLOR: stereo,",
+        "filter,",
+        "drive, operator",
+        "two.",
+        "HIT: drum",
+        "envelopes,",
+        "pitch sweep and",
+        "noise.",
+        "",
+        "Use Amp Envelope,",
+        "clips and trig",
+        "locks."
       ]
     }
   ]

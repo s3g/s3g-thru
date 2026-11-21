@@ -115,19 +115,19 @@ void testVoiceEngineMidiAndWorkers() {
     for(int mode:{1,2,3}) {
         auto t=splitFixture();t->setPerformanceMode(mode);const int focus=t->splitFocus,lane=t->selectedLane;
         nrpn(*t,6,"voice_engine_mode",16383);nrpn(*t,6,"voice_engine_order",s3g_thru_midi::encode(midiParameter("voice_engine_order"),2,5));
-        const auto& p=midiParameter("voice_engine_1");nrpn(*t,6,p.key,s3g_thru_midi::encode(p,12,14));
+        const auto& p=midiParameter("voice_engine_1");nrpn(*t,6,p.key,s3g_thru_midi::encode(p,12,p.maximum));
         assert(!t->settingsForPart(0).engines.enabled&&t->settingsForPart(1).engines.enabled);
         assert(t->settingsForPart(1).engines.order==2&&t->settingsForPart(1).engines.engines[0]==12);
         assert(t->splitFocus==focus&&static_cast<int>(t->selectedLane)==lane&&t->listUsesAlgorithm(12));
         assert(t->spectralRequested());
         nrpn(*t,6,"voice_engine_edit",16383);assert(t->settingsForPart(1).engines.edit==t->engineSlotCount()-1);
-        nrpn(*t,6,"algorithm",s3g_thru_midi::encode(midiParameter("algorithm"),8,14));
+        nrpn(*t,6,"algorithm",s3g_thru_midi::encode(midiParameter("algorithm"),8,midiParameter("algorithm").maximum));
         assert(t->settingsForPart(1).engines.engines[t->engineSlotCount()-1]==8&&t->splitFocus==focus);
     }
     {
         auto t=splitFixture();nrpn(*t,6,"voice_engine_mode",16383);
-        nrpn(*t,6,"voice_engine_2",s3g_thru_midi::encode(midiParameter("voice_engine_2"),2,14));
-        nrpn(*t,6,"voice_engine_4",s3g_thru_midi::encode(midiParameter("voice_engine_4"),12,14));
+        nrpn(*t,6,"voice_engine_2",s3g_thru_midi::encode(midiParameter("voice_engine_2"),2,midiParameter("voice_engine_2").maximum));
+        nrpn(*t,6,"voice_engine_4",s3g_thru_midi::encode(midiParameter("voice_engine_4"),12,midiParameter("voice_engine_4").maximum));
         nrpn(*t,6,"voice_engine_edit",16383);assert(t->liveControlsForPart(1).algorithm==Engine::PlaybackAlgorithm::formant);
         t->setPerformanceMode(3);
         assert(t->settingsForPart(1).engines.edit==1&&t->liveControlsForPart(1).algorithm==Engine::PlaybackAlgorithm::grains&&t->splitFocus==0);

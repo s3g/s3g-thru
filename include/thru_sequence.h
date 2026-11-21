@@ -1,4 +1,7 @@
 #pragma once
+#include "thru_control_lfo.h"
+#include "thru_sequence_sound_locks.h"
+#include "thru_sequence_lock_catalog.h"
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -26,6 +29,7 @@ struct Child {
   Values locks;
 };
 struct Step {
+  s3g_thru_lfo::TrigLocks lfos;
   bool enabled = false;
   float micro = 0, probability = 1;
   int count = 1;
@@ -61,6 +65,7 @@ struct Mix {
   float releaseMs = 220, hpfHz = 100, kneeDb = 6;
 };
 struct Pattern {
+  SoundLocks soundLocks;
   bool active = false, initialized = false;
   std::array<Lane, lanes> tracks{};
   Mix mix{};
@@ -512,6 +517,7 @@ inline bool set(Pattern &p, int index, float value) {
 inline constexpr int laneFields=12;
 inline constexpr int laneCurveOffset(int part,int field){return field<8?part*8+field:field<10?32+part*2+field-8:field==10?40+part:128+part;}
 struct Voice {
+  SoundLockSet soundLocks;
   bool active = false, audition = false, generatedPreview = false;
   int step = -1, child = -1;
   float position = 0, startPhase = 0, attack = 0, decay = 0, release = 3;

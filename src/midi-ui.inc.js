@@ -82,6 +82,7 @@ function pollMidiControls(){
     }
     let data;
     try{data=JSON.parse(String(getParam('midi_state','')));}catch(_){return;}
+    readPlaybackReadout(true);
     if(data?.v!==1||!Array.isArray(data.values))return;
     if(Number.isInteger(data.epoch)&&data.epoch!==midiSurface.epoch){
         midiSurface.epoch=data.epoch;midiFeedback.reset();

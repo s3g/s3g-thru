@@ -36,7 +36,8 @@ void waitForTestPersistenceCompletion(ThruInstance& instance)
 void waitForTestBackground(ThruInstance& instance, bool metadata)
 {
     std::array<std::int16_t, kBlockFrames * 2u> output {};
-    for (int attempt = 0; attempt < 6000; ++attempt) {
+    const auto deadline=std::chrono::steady_clock::now()+std::chrono::seconds(15);
+    while(std::chrono::steady_clock::now()<deadline) {
         renderBlock(&instance, output.data(), kBlockFrames);
         if (instance.pendingCaptureSaveMask == 0u && instance.waveDirtyMask == 0u
             && instance.laneJob.load(std::memory_order_acquire) == ThruInstance::backgroundIdle
@@ -44,7 +45,7 @@ void waitForTestBackground(ThruInstance& instance, bool metadata)
                 && instance.persistenceJob.load(std::memory_order_acquire) == ThruInstance::backgroundIdle))) return;
         usleep(500);
     }
-    std::fprintf(stderr, "Background job failed to settle: %s\n", instance.lastError.data());
+    std::fprintf(stderr, "Background job failed to settle: %s (capture=%u wave=%u lane=%d persistence=%d dirty=%d)\n", instance.lastError.data(),unsigned(instance.pendingCaptureSaveMask),unsigned(instance.waveDirtyMask),int(instance.laneJob.load()),int(instance.persistenceJob.load()),instance.persistentStateDirty);
     assert(false);
 }
 

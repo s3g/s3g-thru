@@ -100,7 +100,7 @@ void testSequencePathStorage(){
     restored->activateStoredClip(1,false);assert(restored->sequenceLive.tracks[0].path==2);restored.reset();
     const auto readBytes=[&](){auto* f=std::fopen(path.c_str(),"rb");assert(f);std::fseek(f,0,SEEK_END);const auto size=std::ftell(f);std::rewind(f);std::vector<unsigned char> bytes(std::size_t(size)-4);assert(std::fread(bytes.data(),1,bytes.size(),f)==bytes.size());std::fclose(f);return bytes;};
     const auto writeBytes=[&](const auto& bytes){std::uint32_t checksum=2166136261u;for(auto value:bytes){checksum^=value;checksum*=16777619u;}auto* f=std::fopen(path.c_str(),"wb");assert(f&&std::fwrite(bytes.data(),1,bytes.size(),f)==bytes.size()&&writeU32(f,checksum));std::fclose(f);};
-    auto bytes=readBytes();bytes[bytes.size()-(4+64*4*4)+4]=3;writeBytes(bytes);
+    auto bytes=readBytes();bytes[clipLegacyTailSize(bytes)-(4+64*4*4)+4]=3;writeBytes(bytes);
     restored=sequenceFixture();const auto before=restored->sequenceLive;assert(!restored->readClipFileFromPath(path.c_str())&&s3g_thru_generate::sameLane(before.tracks[0],restored->sequenceLive.tracks[0]));restored.reset();
     // A format-45 Euclidean bank keeps SHIFT and defaults PATH to HORIZ.
     auto legacy=sequenceFixture();setParam(legacy.get(),"seq_type","1");setParam(legacy.get(),"seq_recipe_shift","2");legacy->captureActiveClip(false);save(*legacy);legacy.reset();

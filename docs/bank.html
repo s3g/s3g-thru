@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="assets/styles.css">
   </head>
   <body>
-    <header class="site-header"><a class="brand" href="index.html">s3g Thru <span>manual</span></a><nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="synthesis.html">Synthesis</a><a href="projects.html">Projects</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="midi.html">MIDI</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav></header>
+    <header class="site-header"><a class="brand" href="index.html">s3g Thru <span>manual</span></a><nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="synthesis.html">Process</a><a href="projects.html">Projects</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="midi.html">MIDI</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav></header>
 
     <div class="page-shell">
       <main class="content" id="content">
@@ -52,7 +52,7 @@
         <figure><img src="assets/screens/bank-pads.svg" alt="Bank Pads shows Pad, Ratio, Pan, Play, Choke, Hold and Source."><figcaption>PAD selects which sample the per-pad controls edit. HOLD applies to all B pad latches; SRC selects the source for the next capture.</figcaption></figure>
         <table><thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>What it controls</th></tr></thead><tbody>
           <tr><td>1</td><td>PAD</td><td>1–16</td><td>Selected pad, without triggering it.</td></tr>
-          <tr><td>2</td><td>RTO</td><td>0.125–8×</td><td>Per-pad playback speed relative to the master RATE. At RATE 2×, a pad at RATIO 0.5× plays at its original speed. Pitch follows speed.</td></tr>
+          <tr><td>2</td><td>RTO</td><td>0.125–8×</td><td>Per-pad playback speed relative to the global RATE. At RATE 2×, a pad at RATIO 0.5× plays at its original speed. Pitch follows speed.</td></tr>
           <tr><td>3</td><td>PAN</td><td>−100–100</td><td>Per-pad stereo balance: left, original stereo at centre, or right. Changes are smoothed.</td></tr>
           <tr><td>4</td><td>PLAY</td><td>LOOP / ONE</td><td>Held or latched looping, or a one-shot that finishes after key release. Shift + pad can unlatch either.</td></tr>
           <tr><td>5</td><td>CHOK</td><td>Off / 1–4</td><td>Choke group. A trigger releases other Bank voices in that group using their release envelopes.</td></tr>
@@ -65,7 +65,7 @@
         <table><thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>What it controls</th></tr></thead><tbody>
           <tr><td>1</td><td>STRT</td><td>0–100%</td><td>Sample start. B’s waveform zoom follows the selected region.</td></tr>
           <tr><td>2</td><td>END</td><td>0–100%</td><td>Sample end, after Start.</td></tr>
-          <tr><td>3</td><td>RATE</td><td>0.125–8×</td><td>Master playback speed for every B pad. Each pad’s RATIO multiplies this value. A’s engine speed is independent.</td></tr>
+          <tr><td>3</td><td>RATE</td><td>0.125–8×</td><td>Global playback speed for every B pad. Each pad’s RATIO multiplies this value. A’s engine speed is independent.</td></tr>
           <tr><td>4</td><td>REV</td><td>Off / On</td><td>Reverse playback through the selected region.</td></tr>
           <tr><td>5</td><td>LVL</td><td>0–200%</td><td>Sample level before B’s part mixer.</td></tr>
           <tr><td>6</td><td>ATK</td><td>1 ms–10 s</td><td>Fade-in for each playback note.</td></tr>
@@ -74,7 +74,7 @@
         </tbody></table>
         <p>Use A/B Blend and the part level, color and rotary controls as in Shared Dual. Capture + encoder 8 remains the global A/B crossfade shortcut.</p>
         <h2 id="recall">Saved samples and performance clips</h2>
-        <p>Every capture creates a new WAV in Thru Recordings. Clip slots retain their own Bank sample assignments, per-pad settings, master rate and recording source; copying a clip keeps references to the same recordings. Clearing a pad leaves its archived take available to other clips and the sample library. Wait for the saved acknowledgement before powering off.</p>
+        <p>Every capture creates a new WAV in Thru Recordings. Clip slots retain their own Bank sample assignments, per-pad settings, global rate and recording source; copying a clip keeps references to the same recordings. Clearing a pad leaves its archived take available to other clips and the sample library. Wait for the saved acknowledgement before powering off.</p>
         <p>The performance recorder captures playing and latched Bank notes together with A. Holding an empty pad to capture audio is not recorded as a playback note. Existing clip and chain transitions can recall and fade Bank performances along with their sample assignments.</p>
         <nav class="page-nav" aria-label="Page navigation"><a class="page-nav-link" href="quad.html"><span>Previous</span>Quad Mode</a><a class="page-nav-link next" href="layers.html"><span>Next</span>Layers</a></nav>
       </main>

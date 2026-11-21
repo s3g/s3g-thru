@@ -254,6 +254,9 @@ void testSynthGeneratorWorkflow() {
   remember("bloom");
   for (int type = partialsType; type <= fm; ++type) {
     setParam(t.get(), "synth_type", std::to_string(type).c_str());
+    // The public initial Partials draft already exists; give every legacy
+    // codec fixture an explicit duration rather than relying on a fresh draft.
+    setParam(t.get(), "synth_edit", "0,0.12");
     const char *command = type == partialsType
                               ? "synth_additive"
                               : type == noiseBank ? "synth_noise" : "synth_fm";
@@ -287,6 +290,7 @@ void testSynthGeneratorWorkflow() {
              t->synthRecipe.partials[3][7] == -.4f);
   }
   setParam(t.get(), "synth_type", "3");
+  setParam(t.get(), "synth_edit", "0,0.12");
   assert(t->synthRecipe.type == resynth && !t->synthWantsRender &&
          !t->synthSourcePath[0]);
   setParam(t.get(), "synth_preview", "1");

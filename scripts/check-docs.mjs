@@ -25,7 +25,7 @@ const requiredPages = [
     'engine-motion.html', 'engine-lanes.html', 'engine-grains.html',
     'engine-cutups.html', 'engine-sample.html', 'engine-slices.html',
     'engine-glitch.html', 'engine-weave.html', 'engine-wavesets.html',
-    'engine-prism.html','engine-morph.html','engine-texture.html','engine-formant.html','engine-stochastic.html','engine-pulsar.html','engine-table.html','engine-scanned.html','engine-fm.html',
+    'engine-prism.html','engine-morph.html','engine-texture.html','engine-formant.html','engine-stochastic.html','engine-pulsar.html','engine-table.html','engine-scanned.html','engine-fm.html','engine-noise.html','engine-reson.html','engine-partials.html','engine-lowform.html',
     'effects.html', 'performance.html', 'midi.html', 'shortcuts.html',
 ];
 const missingPages = requiredPages.filter((name) =>

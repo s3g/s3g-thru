@@ -285,6 +285,34 @@
             fmOverrides.set(group);copiedFmCurves[lane*s3g_thru_fm::fields+field]=kClipFmOffset+group;
             captureClipPoint(ClipPointType::fmParameter,field,target*4+physical,to.controls.fm.patches[physical].v[field]);}}
         if(sequenceMode()&&!clipRecording)replaceSequenceAutomation(copiedFmCurves,true);
+        std::array<std::size_t,4*s3g_thru_noise::fields> copiedNoiseCurves;copiedNoiseCurves.fill(kClipCurveLaneCount);
+        for(int lane=0;lane<tableCount;++lane){const int physical=targetFirst+lane;
+          to.controls.noise.patches[physical]=from.controls.noise.patches[sourceFirst+lane];
+          for(int field=0;field<s3g_thru_noise::fields;++field){const auto group=(target*4+physical)*s3g_thru_noise::fields+field;
+            noiseOverrides.set(group);copiedNoiseCurves[lane*s3g_thru_noise::fields+field]=kClipNoiseOffset+group;
+            captureClipPoint(ClipPointType::noiseParameter,field,target*4+physical,to.controls.noise.patches[physical].v[field]);}}
+        if(sequenceMode()&&!clipRecording)replaceSequenceAutomation(copiedNoiseCurves,true);
+        std::array<std::size_t,4*s3g_thru_partials::fields> copiedPartialsCurves;copiedPartialsCurves.fill(kClipCurveLaneCount);
+        for(int lane=0;lane<tableCount;++lane){const int physical=targetFirst+lane;
+          to.controls.partials.patches[physical]=from.controls.partials.patches[sourceFirst+lane];
+          for(int field=0;field<s3g_thru_partials::fields;++field){const auto group=(target*4+physical)*s3g_thru_partials::fields+field;
+            partialsOverrides.set(group);copiedPartialsCurves[lane*s3g_thru_partials::fields+field]=kClipPartialsOffset+group;
+            captureClipPoint(ClipPointType::partialsParameter,field,target*4+physical,to.controls.partials.patches[physical].v[field]);}}
+        if(sequenceMode()&&!clipRecording)replaceSequenceAutomation(copiedPartialsCurves,true);
+        std::array<std::size_t,4*s3g_thru_reson::fields> copiedResonCurves;copiedResonCurves.fill(kClipCurveLaneCount);
+        for(int lane=0;lane<tableCount;++lane){const int physical=targetFirst+lane;
+          to.controls.reson.patches[physical]=from.controls.reson.patches[sourceFirst+lane];
+          for(int field=0;field<s3g_thru_reson::fields;++field){const auto group=(target*4+physical)*s3g_thru_reson::fields+field;
+            resonOverrides.set(group);copiedResonCurves[lane*s3g_thru_reson::fields+field]=kClipResonOffset+group;
+            captureClipPoint(ClipPointType::resonParameter,field,target*4+physical,to.controls.reson.patches[physical].v[field]);}}
+        if(sequenceMode()&&!clipRecording)replaceSequenceAutomation(copiedResonCurves,true);
+        std::array<std::size_t,4*s3g_thru_lowform::fields> copiedLowformCurves;copiedLowformCurves.fill(kClipCurveLaneCount);
+        for(int lane=0;lane<tableCount;++lane){const int physical=targetFirst+lane;
+          to.controls.lowform.patches[physical]=from.controls.lowform.patches[sourceFirst+lane];
+          for(int field=0;field<s3g_thru_lowform::fields;++field){const auto group=(target*4+physical)*s3g_thru_lowform::fields+field;
+            lowformOverrides.set(group);copiedLowformCurves[lane*s3g_thru_lowform::fields+field]=kClipLowformOffset+group;
+            captureClipPoint(ClipPointType::lowformParameter,field,target*4+physical,to.controls.lowform.patches[physical].v[field]);}}
+        if(sequenceMode()&&!clipRecording)replaceSequenceAutomation(copiedLowformCurves,true);
         to.controls.stackPath=from.controls.stackPath;
         // Copy the sound, preserving the destination's intentional mute.
         const int destinationMute = to.settings.muted;
@@ -779,8 +807,8 @@
             }
         }
         float bank=0;jsonNumber(json,"bank_mode",bank);bankMode=bank>=.5f && enabled>=.5f && shared>=.5f && quad<.5f;
-        float master=1,source=0,sourceVersion=1;jsonNumber(json,"bank_master_rate",master);
-        bankMasterRate=clampValue(master,.125f,8.f);bankRecordSource=2;
+        float baseRate=1,source=0,sourceVersion=1;jsonNumber(json,"bank_master_rate",baseRate);
+        bankMasterRate=clampValue(baseRate,.125f,8.f);bankRecordSource=2;
         if(jsonNumber(json,"bank_record_source",source)) {
             jsonNumber(json,"bank_source_version",sourceVersion);
             bankRecordSource=sourceVersion>=2?clampValue(static_cast<int>(source),0,3):(source>=.5f?0:2);

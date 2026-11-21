@@ -96,7 +96,7 @@ constexpr int kPadColumns = 8;
 constexpr int kPadRowInterval = 5;
 constexpr int kPadBaseNote = 48;
 constexpr std::size_t kPersistencePathSize = 768u;
-constexpr std::size_t kStateTextSize = 32768u;
+constexpr std::size_t kStateTextSize = 131072u;
 constexpr std::size_t kWavIoFrames = 512u;
 constexpr std::size_t kLibraryCopyFrames = 4096u;
 constexpr std::uint64_t kAnyPersistenceGeneration = ~std::uint64_t { 0u };
@@ -229,7 +229,7 @@ enum class ClipPointType : std::uint8_t {
     stackPath,
     notePressure,
     midiExpression,
-    layersParameter, layersBaseline, sequenceLane, sequenceRecipe, controlLfo, pooledLfo, tableParameter, scannedParameter, fmParameter,
+    layersParameter, layersBaseline, sequenceLane, sequenceRecipe, controlLfo, pooledLfo, tableParameter, scannedParameter, fmParameter, noiseParameter, resonParameter, partialsParameter, lowformParameter,
 };
 
 struct VoiceEntryVariation {
@@ -510,7 +510,11 @@ constexpr std::size_t kClipPooledLfoOffset=kClipLfoOffset+4*2*s3g_thru_lfo::fiel
 constexpr std::size_t kClipTableOffset=kClipPooledLfoOffset+8*11;
 constexpr std::size_t kClipScannedOffset=kClipTableOffset+16*s3g_thru_table::fields;
 constexpr std::size_t kClipFmOffset=kClipScannedOffset+16*s3g_thru_scanned::fields;
-constexpr std::size_t kClipCurveLaneCount=kClipFmOffset+16*s3g_thru_fm::fields;
+constexpr std::size_t kClipNoiseOffset=kClipFmOffset+16*s3g_thru_fm::fields;
+constexpr std::size_t kClipResonOffset=kClipNoiseOffset+16*s3g_thru_noise::fields;
+constexpr std::size_t kClipPartialsOffset=kClipResonOffset+16*s3g_thru_reson::fields;
+constexpr std::size_t kClipLowformOffset=kClipPartialsOffset+16*s3g_thru_partials::fields;
+constexpr std::size_t kClipCurveLaneCount=kClipLowformOffset+16*s3g_thru_lowform::fields;
 static_assert(kClipSequenceOffset+s3g_thru_sequence::laneCurveOffset(0,11)==kClipSequencePathOffset,"PATH must follow existing curve identities");
 constexpr std::size_t sequenceRecipeCurve(int part,int field){
     return part>=0&&part<4&&field>=1&&field<=21
@@ -552,6 +556,10 @@ struct ClipSlot {
     std::array<s3g_thru_table::Program,5> tablePrograms{};
     std::array<s3g_thru_scanned::Program,5> scannedPrograms{};
     std::array<s3g_thru_fm::Program,5> fmPrograms{};
+    std::array<s3g_thru_noise::Program,5> noisePrograms{};
+    std::array<s3g_thru_partials::Program,5> partialsPrograms{};
+    std::array<s3g_thru_reson::Program,5> resonPrograms{};
+    std::array<s3g_thru_lowform::Program,5> lowformPrograms{};
     s3g_thru_sequence::Pattern sequence;
     LayerPatch layers;
     std::array<s3g_thru::SliceLaneSettings,kLaneCount> sliceLanes {};
@@ -653,7 +661,7 @@ constexpr const char* kStochasticLawNames[]{"Smooth","Uniform","Wide","Listen"};
 constexpr const char* kTextureModeNames[]{"Spray","Grouped","Motif","Ornament"};
 constexpr const char* kAlgorithmNames[] {
     "Motion", "Lanes", "Grains", "Cutups", "Sample", "Slices", "Glitch",
-    "Weave", "Wavesets", "Prism", "Morph", "Texture", "Formant", "Stochastic", "Pulsar", "Table", "Scanned", "FM"
+    "Weave", "Wavesets", "Prism", "Morph", "Texture", "Formant", "Stochastic", "Pulsar", "Table", "Scanned", "FM", "Noise", "Reson", "Partials", "Lowform"
 };
 constexpr const char* kSampleModeNames[] {
     "Forward", "Reverse", "Loop", "Ping Pong"
@@ -824,6 +832,262 @@ constexpr const char kChainParams[] = R"json([
 {"key":"scanned_amp_treble","name":"Amp Treble","short_name":"TREB","type":"float","default":0,"min":-20,"max":15,"step":0.1},
 {"key":"scanned_amp_cab","name":"Cabinet Amount","short_name":"CAB","type":"float","default":70,"min":0,"max":100,"step":1},
 {"key":"scanned_amp_level","name":"Amp Output","short_name":"OUT","type":"float","default":0,"min":-18,"max":6,"step":0.1},
+{"key":"reson_mode","name":"Reson Articulation","short_name":"MODE","type":"enum","default":0,"options":["TONE","HIT"]},
+{"key":"reson_tune","name":"Reson Transpose","short_name":"TUNE","type":"float","default":0,"min":-48,"max":48,"step":0.1,"unit":"st"},
+{"key":"reson_width","name":"Reson Stereo Width","short_name":"WID","type":"float","default":30,"min":0,"max":100,"step":1,"unit":"%"},
+{"key":"reson_level","name":"Reson Level","short_name":"LVL","type":"float","default":80,"min":0,"max":100,"step":1,"unit":"%"},
+{"key":"reson_model","name":"Reson Body","short_name":"BODY","type":"enum","default":0,"options":["OPEN","KICK","SNAR","TOM","BELL","HAT","CRSH","CBAS"]},
+{"key":"reson_decay","name":"Reson Ring Decay","short_name":"DEC","type":"float","default":1000,"min":10,"max":8000,"step":1,"unit":"ms"},
+{"key":"reson_brightness","name":"Modal Brightness","short_name":"BRGT","type":"float","default":55,"min":0,"max":100,"step":1,"unit":"%"},
+{"key":"reson_damping","name":"Upper Mode Damping","short_name":"DAMP","type":"float","default":35,"min":0,"max":100,"step":1,"unit":"%"},
+{"key":"reson_stretch","name":"Modal Stretch","short_name":"STRC","type":"float","default":1,"min":0.5,"max":2,"step":0.01},
+{"key":"reson_inharmonic","name":"Body Inharmonicity","short_name":"INHR","type":"float","default":100,"min":0,"max":100,"step":1,"unit":"%"},
+{"key":"reson_mass","name":"Body Mass","short_name":"MASS","type":"float","default":50,"min":0,"max":100,"step":1,"unit":"%"},
+{"key":"reson_bend","name":"Strike Pitch Sweep","short_name":"BEND","type":"float","default":0,"min":-48,"max":48,"step":0.1,"unit":"st"},
+{"key":"reson_sweep","name":"Pitch Sweep Time","short_name":"TIME","type":"float","default":25,"min":1,"max":2000,"step":1,"unit":"ms"},
+{"key":"reson_noise","name":"Body Noise","short_name":"NOIS","type":"float","default":0,"min":0,"max":100,"step":1,"unit":"%"},
+{"key":"reson_noise_decay","name":"Body Noise Decay","short_name":"NDEC","type":"float","default":120,"min":1,"max":4000,"step":1,"unit":"ms"},
+{"key":"reson_color","name":"Body Noise Color","short_name":"COLR","type":"float","default":50,"min":0,"max":100,"step":1,"unit":"%"},
+{"key":"reson_hit","name":"Strike Level","short_name":"HIT","type":"float","default":10,"min":0,"max":100,"step":1,"unit":"%"},
+{"key":"reson_hardness","name":"Beater Hardness","short_name":"HARD","type":"float","default":60,"min":0,"max":100,"step":1,"unit":"%"},
+{"key":"reson_hit_decay","name":"Strike Decay","short_name":"HDEC","type":"float","default":4,"min":0.2,"max":100,"step":0.1,"unit":"ms"},
+{"key":"reson_punch","name":"Attack Punch","short_name":"PNCH","type":"float","default":35,"min":0,"max":100,"step":1,"unit":"%"},
+{"key":"reson_position","name":"Strike Position","short_name":"SPOT","type":"float","default":20,"min":0,"max":100,"step":1,"unit":"%"},
+{"key":"reson_coupling","name":"Mode Coupling","short_name":"COUP","type":"float","default":10,"min":0,"max":100,"step":1,"unit":"%"},
+{"key":"reson_detune","name":"Modal Stereo Detune","short_name":"DETN","type":"float","default":0,"min":0,"max":30,"step":0.1,"unit":"cent"},
+{"key":"reson_seed","name":"Strike Seed","short_name":"SEED","type":"float","default":1,"min":0,"max":65535,"step":1},
+{"key":"reson_drive","name":"Overload Drive","short_name":"DRIV","type":"float","default":0,"min":0,"max":100,"step":1,"unit":"%"},
+{"key":"reson_clip","name":"Overload Shape","short_name":"CLIP","type":"float","default":20,"min":0,"max":100,"step":1,"unit":"%"},
+{"key":"reson_bias","name":"Overload Asymmetry","short_name":"BIAS","type":"float","default":0,"min":-100,"max":100,"step":1,"unit":"%"},
+{"key":"reson_sag","name":"Overload Sag","short_name":"SAG","type":"float","default":15,"min":0,"max":100,"step":1,"unit":"%"},
+{"key":"reson_recovery","name":"Sag Recovery","short_name":"REC","type":"float","default":80,"min":5,"max":500,"step":1,"unit":"ms"},
+{"key":"reson_tone","name":"Overload Low Pass","short_name":"TONE","type":"float","default":20000,"min":200,"max":20000,"step":1,"unit":"Hz"},
+{"key":"reson_mix","name":"Overload Mix","short_name":"MIX","type":"float","default":100,"min":0,"max":100,"step":1,"unit":"%"},
+{"key":"reson_output","name":"Overload Output","short_name":"OUT","type":"float","default":0,"min":-18,"max":12,"step":0.5,"unit":"dB"},
+{"key":"partials_type","name":"Partials Type","short_name":"TYPE","type":"enum","default":0,"options":["BANK","SUB","PACKET"]},
+{"key":"partials_tune","name":"Partials Transpose","short_name":"TUNE","type":"float","default":0,"min":-48,"max":48,"step":0.1,"unit":"st"},
+{"key":"partials_width","name":"Partials Stereo Width","short_name":"WID","type":"float","default":35,"min":0,"max":100,"step":1,"unit":"%"},
+{"key":"partials_level","name":"Partials Level","short_name":"LVL","type":"float","default":80,"min":0,"max":100,"step":1,"unit":"%"},
+{"key":"partials_count","name":"Partial Count","short_name":"PART","type":"float","default":16,"min":1,"max":32,"step":0.1},
+{"key":"partials_tilt","name":"Spectral Tilt","short_name":"TILT","type":"float","default":0,"min":-24,"max":12,"step":0.5,"unit":"dB"},
+{"key":"partials_stretch","name":"Partial Stretch","short_name":"STRC","type":"float","default":1,"min":0.25,"max":4,"step":0.01},
+{"key":"partials_phase","name":"Initial Phase Spread","short_name":"PHAS","type":"float","default":0,"min":0,"max":100,"step":1,"unit":"%"},
+{"key":"partials_harmonics","name":"Harmonic Count","short_name":"HARM","type":"float","default":8,"min":1,"max":16,"step":0.1},
+{"key":"partials_subs","name":"Subharmonic Count","short_name":"SUBS","type":"float","default":4,"min":0,"max":16,"step":0.1},
+{"key":"partials_balance","name":"Subharmonic Balance","short_name":"BAL","type":"float","default":25,"min":0,"max":100,"step":1,"unit":"%"},
+{"key":"partials_detune","name":"Partial Detune","short_name":"DETN","type":"float","default":0,"min":0,"max":30,"step":0.1,"unit":"cent"},
+{"key":"partials_drift","name":"Partial Pitch Drift","short_name":"DRFT","type":"float","default":0,"min":0,"max":30,"step":0.1,"unit":"cent"},
+{"key":"partials_drift_rate","name":"Partial Drift Rate","short_name":"RATE","type":"float","default":0.5,"min":0.01,"max":20,"step":0.01,"unit":"Hz"},
+{"key":"partials_damping","name":"Upper Partial Decay","short_name":"DAMP","type":"float","default":0,"min":0,"max":100,"step":1,"unit":"%"},
+{"key":"partials_time","name":"Spectral Decay Time","short_name":"TIME","type":"float","default":2000,"min":10,"max":12000,"step":1,"unit":"ms"},
+{"key":"partials_gap","name":"Packet Interval","short_name":"GAP","type":"float","default":150,"min":10,"max":2000,"step":1,"unit":"ms"},
+{"key":"partials_scatter","name":"Packet Timing Scatter","short_name":"SCAT","type":"float","default":20,"min":0,"max":100,"step":1,"unit":"%"},
+{"key":"partials_rise","name":"Packet Rise","short_name":"RISE","type":"float","default":10,"min":0.5,"max":200,"step":0.1,"unit":"ms"},
+{"key":"partials_sustain","name":"Packet Sustain","short_name":"SUS","type":"float","default":20,"min":0,"max":1000,"step":1,"unit":"ms"},
+{"key":"partials_decay","name":"Packet Decay","short_name":"DEC","type":"float","default":120,"min":1,"max":4000,"step":1,"unit":"ms"},
+{"key":"partials_variation","name":"Packet Variation","short_name":"VAR","type":"float","default":20,"min":0,"max":100,"step":1,"unit":"%"},
+{"key":"partials_pitch_jitter","name":"Packet Pitch Variation","short_name":"PJIT","type":"float","default":0,"min":0,"max":12,"step":0.1,"unit":"st"},
+{"key":"partials_shape","name":"Packet Envelope Shape","short_name":"SHAP","type":"float","default":1,"min":0.25,"max":4,"step":0.01},
+{"key":"partials_ratio_1","name":"Partial 1 Ratio","short_name":"R1","type":"float","default":1,"min":1,"max":64,"step":0.01},
+{"key":"partials_ratio_2","name":"Partial 2 Ratio","short_name":"R2","type":"float","default":2,"min":1,"max":64,"step":0.01},
+{"key":"partials_ratio_3","name":"Partial 3 Ratio","short_name":"R3","type":"float","default":3,"min":1,"max":64,"step":0.01},
+{"key":"partials_ratio_4","name":"Partial 4 Ratio","short_name":"R4","type":"float","default":4,"min":1,"max":64,"step":0.01},
+{"key":"partials_ratio_5","name":"Partial 5 Ratio","short_name":"R5","type":"float","default":5,"min":1,"max":64,"step":0.01},
+{"key":"partials_ratio_6","name":"Partial 6 Ratio","short_name":"R6","type":"float","default":6,"min":1,"max":64,"step":0.01},
+{"key":"partials_ratio_7","name":"Partial 7 Ratio","short_name":"R7","type":"float","default":7,"min":1,"max":64,"step":0.01},
+{"key":"partials_ratio_8","name":"Partial 8 Ratio","short_name":"R8","type":"float","default":8,"min":1,"max":64,"step":0.01},
+{"key":"partials_ratio_9","name":"Partial 9 Ratio","short_name":"R9","type":"float","default":9,"min":1,"max":64,"step":0.01},
+{"key":"partials_ratio_10","name":"Partial 10 Ratio","short_name":"R10","type":"float","default":10,"min":1,"max":64,"step":0.01},
+{"key":"partials_ratio_11","name":"Partial 11 Ratio","short_name":"R11","type":"float","default":11,"min":1,"max":64,"step":0.01},
+{"key":"partials_ratio_12","name":"Partial 12 Ratio","short_name":"R12","type":"float","default":12,"min":1,"max":64,"step":0.01},
+{"key":"partials_ratio_13","name":"Partial 13 Ratio","short_name":"R13","type":"float","default":13,"min":1,"max":64,"step":0.01},
+{"key":"partials_ratio_14","name":"Partial 14 Ratio","short_name":"R14","type":"float","default":14,"min":1,"max":64,"step":0.01},
+{"key":"partials_ratio_15","name":"Partial 15 Ratio","short_name":"R15","type":"float","default":15,"min":1,"max":64,"step":0.01},
+{"key":"partials_ratio_16","name":"Partial 16 Ratio","short_name":"R16","type":"float","default":16,"min":1,"max":64,"step":0.01},
+{"key":"partials_ratio_17","name":"Partial 17 Ratio","short_name":"R17","type":"float","default":17,"min":1,"max":64,"step":0.01},
+{"key":"partials_ratio_18","name":"Partial 18 Ratio","short_name":"R18","type":"float","default":18,"min":1,"max":64,"step":0.01},
+{"key":"partials_ratio_19","name":"Partial 19 Ratio","short_name":"R19","type":"float","default":19,"min":1,"max":64,"step":0.01},
+{"key":"partials_ratio_20","name":"Partial 20 Ratio","short_name":"R20","type":"float","default":20,"min":1,"max":64,"step":0.01},
+{"key":"partials_ratio_21","name":"Partial 21 Ratio","short_name":"R21","type":"float","default":21,"min":1,"max":64,"step":0.01},
+{"key":"partials_ratio_22","name":"Partial 22 Ratio","short_name":"R22","type":"float","default":22,"min":1,"max":64,"step":0.01},
+{"key":"partials_ratio_23","name":"Partial 23 Ratio","short_name":"R23","type":"float","default":23,"min":1,"max":64,"step":0.01},
+{"key":"partials_ratio_24","name":"Partial 24 Ratio","short_name":"R24","type":"float","default":24,"min":1,"max":64,"step":0.01},
+{"key":"partials_ratio_25","name":"Partial 25 Ratio","short_name":"R25","type":"float","default":25,"min":1,"max":64,"step":0.01},
+{"key":"partials_ratio_26","name":"Partial 26 Ratio","short_name":"R26","type":"float","default":26,"min":1,"max":64,"step":0.01},
+{"key":"partials_ratio_27","name":"Partial 27 Ratio","short_name":"R27","type":"float","default":27,"min":1,"max":64,"step":0.01},
+{"key":"partials_ratio_28","name":"Partial 28 Ratio","short_name":"R28","type":"float","default":28,"min":1,"max":64,"step":0.01},
+{"key":"partials_ratio_29","name":"Partial 29 Ratio","short_name":"R29","type":"float","default":29,"min":1,"max":64,"step":0.01},
+{"key":"partials_ratio_30","name":"Partial 30 Ratio","short_name":"R30","type":"float","default":30,"min":1,"max":64,"step":0.01},
+{"key":"partials_ratio_31","name":"Partial 31 Ratio","short_name":"R31","type":"float","default":31,"min":1,"max":64,"step":0.01},
+{"key":"partials_ratio_32","name":"Partial 32 Ratio","short_name":"R32","type":"float","default":32,"min":1,"max":64,"step":0.01},
+{"key":"partials_band_1","name":"Partial 1 Level","short_name":"L1","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"partials_band_2","name":"Partial 2 Level","short_name":"L2","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"partials_band_3","name":"Partial 3 Level","short_name":"L3","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"partials_band_4","name":"Partial 4 Level","short_name":"L4","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"partials_band_5","name":"Partial 5 Level","short_name":"L5","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"partials_band_6","name":"Partial 6 Level","short_name":"L6","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"partials_band_7","name":"Partial 7 Level","short_name":"L7","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"partials_band_8","name":"Partial 8 Level","short_name":"L8","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"partials_band_9","name":"Partial 9 Level","short_name":"L9","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"partials_band_10","name":"Partial 10 Level","short_name":"L10","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"partials_band_11","name":"Partial 11 Level","short_name":"L11","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"partials_band_12","name":"Partial 12 Level","short_name":"L12","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"partials_band_13","name":"Partial 13 Level","short_name":"L13","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"partials_band_14","name":"Partial 14 Level","short_name":"L14","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"partials_band_15","name":"Partial 15 Level","short_name":"L15","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"partials_band_16","name":"Partial 16 Level","short_name":"L16","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"partials_band_17","name":"Partial 17 Level","short_name":"L17","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"partials_band_18","name":"Partial 18 Level","short_name":"L18","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"partials_band_19","name":"Partial 19 Level","short_name":"L19","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"partials_band_20","name":"Partial 20 Level","short_name":"L20","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"partials_band_21","name":"Partial 21 Level","short_name":"L21","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"partials_band_22","name":"Partial 22 Level","short_name":"L22","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"partials_band_23","name":"Partial 23 Level","short_name":"L23","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"partials_band_24","name":"Partial 24 Level","short_name":"L24","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"partials_band_25","name":"Partial 25 Level","short_name":"L25","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"partials_band_26","name":"Partial 26 Level","short_name":"L26","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"partials_band_27","name":"Partial 27 Level","short_name":"L27","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"partials_band_28","name":"Partial 28 Level","short_name":"L28","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"partials_band_29","name":"Partial 29 Level","short_name":"L29","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"partials_band_30","name":"Partial 30 Level","short_name":"L30","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"partials_band_31","name":"Partial 31 Level","short_name":"L31","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"partials_band_32","name":"Partial 32 Level","short_name":"L32","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"partials_divisor_1","name":"Subharmonic 1 Divider","short_name":"D1","type":"float","default":1,"min":1,"max":64,"step":0.01},
+{"key":"partials_divisor_2","name":"Subharmonic 2 Divider","short_name":"D2","type":"float","default":2,"min":1,"max":64,"step":0.01},
+{"key":"partials_divisor_3","name":"Subharmonic 3 Divider","short_name":"D3","type":"float","default":3,"min":1,"max":64,"step":0.01},
+{"key":"partials_divisor_4","name":"Subharmonic 4 Divider","short_name":"D4","type":"float","default":4,"min":1,"max":64,"step":0.01},
+{"key":"partials_divisor_5","name":"Subharmonic 5 Divider","short_name":"D5","type":"float","default":5,"min":1,"max":64,"step":0.01},
+{"key":"partials_divisor_6","name":"Subharmonic 6 Divider","short_name":"D6","type":"float","default":6,"min":1,"max":64,"step":0.01},
+{"key":"partials_divisor_7","name":"Subharmonic 7 Divider","short_name":"D7","type":"float","default":7,"min":1,"max":64,"step":0.01},
+{"key":"partials_divisor_8","name":"Subharmonic 8 Divider","short_name":"D8","type":"float","default":8,"min":1,"max":64,"step":0.01},
+{"key":"partials_divisor_9","name":"Subharmonic 9 Divider","short_name":"D9","type":"float","default":9,"min":1,"max":64,"step":0.01},
+{"key":"partials_divisor_10","name":"Subharmonic 10 Divider","short_name":"D10","type":"float","default":10,"min":1,"max":64,"step":0.01},
+{"key":"partials_divisor_11","name":"Subharmonic 11 Divider","short_name":"D11","type":"float","default":11,"min":1,"max":64,"step":0.01},
+{"key":"partials_divisor_12","name":"Subharmonic 12 Divider","short_name":"D12","type":"float","default":12,"min":1,"max":64,"step":0.01},
+{"key":"partials_divisor_13","name":"Subharmonic 13 Divider","short_name":"D13","type":"float","default":13,"min":1,"max":64,"step":0.01},
+{"key":"partials_divisor_14","name":"Subharmonic 14 Divider","short_name":"D14","type":"float","default":14,"min":1,"max":64,"step":0.01},
+{"key":"partials_divisor_15","name":"Subharmonic 15 Divider","short_name":"D15","type":"float","default":15,"min":1,"max":64,"step":0.01},
+{"key":"partials_divisor_16","name":"Subharmonic 16 Divider","short_name":"D16","type":"float","default":16,"min":1,"max":64,"step":0.01},
+{"key":"lowform_body","name":"Lowform Body","short_name":"BODY","type":"enum","default":0,"options":["PRESS","SWARM","ACID","RAVE","THROAT","SYNC"]},
+{"key":"lowform_tune","name":"Lowform Transpose","short_name":"TUNE","type":"float","default":0,"min":-48,"max":48,"step":0.1,"unit":"st"},
+{"key":"lowform_width","name":"Lowform Stereo Width","short_name":"WID","type":"float","default":45,"min":0,"max":100,"step":1,"unit":"%"},
+{"key":"lowform_level","name":"Lowform Level","short_name":"LVL","type":"float","default":80,"min":0,"max":100,"step":1,"unit":"%"},
+{"key":"lowform_foundation_wave","name":"Foundation Wave","short_name":"FWAV","type":"enum","default":0,"options":["SINE","TRI","ROUND"]},
+{"key":"lowform_foundation_octave","name":"Foundation Octave","short_name":"FOCT","type":"float","default":0,"min":-1,"max":0,"step":1},
+{"key":"lowform_foundation_level","name":"Foundation Level","short_name":"FND","type":"float","default":80,"min":0,"max":100,"step":1,"unit":"%"},
+{"key":"lowform_body_level","name":"Body Level","short_name":"BODL","type":"float","default":65,"min":0,"max":100,"step":1,"unit":"%"},
+{"key":"lowform_a","name":"Body Control A","short_name":"WAVE","type":"float","default":42,"min":0,"max":100,"step":1,"unit":"%"},
+{"key":"lowform_b","name":"Body Control B","short_name":"PRES","type":"float","default":48,"min":0,"max":100,"step":1,"unit":"%"},
+{"key":"lowform_c","name":"Body Control C","short_name":"PW","type":"float","default":40,"min":0,"max":100,"step":1,"unit":"%"},
+{"key":"lowform_d","name":"Body Control D","short_name":"CROSS","type":"float","default":24,"min":0,"max":100,"step":1,"unit":"%"},
+{"key":"lowform_e","name":"Body Control E","short_name":"DRIVE","type":"float","default":45,"min":0,"max":100,"step":1,"unit":"%"},
+{"key":"lowform_body_decay","name":"Body Decay","short_name":"BDEC","type":"float","default":12000,"min":20,"max":12000,"step":1,"unit":"ms"},
+{"key":"lowform_texture_type","name":"Texture Type","short_name":"TYPE","type":"enum","default":0,"options":["OFF","NOISE","CORR","RING","WIRE"]},
+{"key":"lowform_texture_level","name":"Texture Level","short_name":"LVL","type":"float","default":0,"min":0,"max":100,"step":1,"unit":"%"},
+{"key":"lowform_texture_color","name":"Texture Colour","short_name":"COLR","type":"float","default":52,"min":0,"max":100,"step":1,"unit":"%"},
+{"key":"lowform_texture_track","name":"Texture Pitch Track","short_name":"TRK","type":"float","default":72,"min":0,"max":100,"step":1,"unit":"%"},
+{"key":"lowform_texture_width","name":"Texture Width","short_name":"TWID","type":"float","default":45,"min":0,"max":100,"step":1,"unit":"%"},
+{"key":"lowform_filter_type","name":"Filter Type","short_name":"FILT","type":"enum","default":2,"options":["OFF","LP12","LP24","BP","HP","NOTCH"]},
+{"key":"lowform_cutoff","name":"Filter Cutoff","short_name":"CUT","type":"float","default":1200,"min":20,"max":18000,"step":1,"unit":"Hz"},
+{"key":"lowform_resonance","name":"Filter Resonance","short_name":"RES","type":"float","default":18,"min":0,"max":95,"step":1,"unit":"%"},
+{"key":"lowform_filter_drive","name":"Filter Drive","short_name":"FDRV","type":"float","default":25,"min":0,"max":100,"step":1,"unit":"%"},
+{"key":"lowform_keytrack","name":"Filter Key Track","short_name":"KEY","type":"float","default":34,"min":-100,"max":100,"step":1,"unit":"%"},
+{"key":"lowform_filter_env","name":"Filter Envelope","short_name":"FENV","type":"float","default":1.4,"min":-8,"max":8,"step":0.05,"unit":"oct"},
+{"key":"lowform_filter_decay","name":"Filter Envelope Decay","short_name":"FDEC","type":"float","default":180,"min":5,"max":4000,"step":1,"unit":"ms"},
+{"key":"lowform_punch","name":"Pitch Punch","short_name":"PUNC","type":"float","default":3,"min":-24,"max":48,"step":0.1,"unit":"st"},
+{"key":"lowform_punch_time","name":"Pitch Punch Time","short_name":"PTIM","type":"float","default":48,"min":1,"max":1000,"step":1,"unit":"ms"},
+{"key":"lowform_drive","name":"Lowform Overload","short_name":"DRIV","type":"float","default":0,"min":0,"max":100,"step":1,"unit":"%"},
+{"key":"lowform_low_return","name":"Foundation Low Return","short_name":"LOW","type":"float","default":72,"min":0,"max":100,"step":1,"unit":"%"},
+{"key":"lowform_texture_decay","name":"Texture Decay","short_name":"TDEC","type":"float","default":12000,"min":20,"max":12000,"step":1,"unit":"ms"},
+{"key":"lowform_texture_attack","name":"Texture Attack","short_name":"TATK","type":"float","default":0,"min":0,"max":2000,"step":1,"unit":"ms"},
+{"key":"noise_type","name":"Noise Type","short_name":"TYPE","type":"enum","default":0,"options":["BANK","DUST","CRKL","STAT","CLIK","CUTS","DATA"]},
+{"key":"noise_tune","name":"Noise Transpose","short_name":"TUNE","type":"float","default":0,"min":-48,"max":48,"step":0.1,"unit":"st"},
+{"key":"noise_width","name":"Noise Stereo Width","short_name":"WID","type":"float","default":50,"min":0,"max":100,"step":1,"unit":"%"},
+{"key":"noise_level","name":"Noise Level","short_name":"LVL","type":"float","default":75,"min":0,"max":100,"step":1,"unit":"%"},
+{"key":"noise_color","name":"Noise Color","short_name":"COLR","type":"enum","default":0,"options":["WHT","PINK","BRWN","BLUE"]},
+{"key":"noise_tone","name":"Noise Low Pass","short_name":"TONE","type":"float","default":16000,"min":20,"max":20000,"step":1,"unit":"Hz"},
+{"key":"noise_bits","name":"Noise Resolution","short_name":"BITS","type":"float","default":24,"min":2,"max":24,"step":0.1},
+{"key":"noise_seed","name":"Noise Seed","short_name":"SEED","type":"float","default":1,"min":0,"max":65535,"step":1},
+{"key":"noise_count","name":"Band Count","short_name":"BAND","type":"float","default":8,"min":1,"max":32,"step":0.1},
+{"key":"noise_bandwidth","name":"Band Width","short_name":"BW","type":"float","default":2,"min":0.1,"max":48,"step":0.1},
+{"key":"noise_tilt","name":"Band Tilt","short_name":"TILT","type":"float","default":0,"min":-24,"max":12,"step":0.5},
+{"key":"noise_stretch","name":"Band Stretch","short_name":"STR","type":"float","default":1,"min":0.25,"max":4,"step":0.01},
+{"key":"noise_motion","name":"Band Motion","short_name":"MOVE","type":"float","default":0,"min":0,"max":24,"step":0.1},
+{"key":"noise_motion_rate","name":"Band Motion Rate","short_name":"RATE","type":"float","default":0.2,"min":0.01,"max":20,"step":0.01},
+{"key":"noise_leak","name":"Unfiltered Noise","short_name":"LEAK","type":"float","default":0,"min":0,"max":100,"step":1},
+{"key":"noise_style","name":"Band Grid","short_name":"GRID","type":"enum","default":0,"options":["HARM","ODD","METL","CUST"]},
+{"key":"noise_rate","name":"Event Rate","short_name":"RATE","type":"float","default":20,"min":0.1,"max":2000,"step":0.1},
+{"key":"noise_size","name":"Event Size","short_name":"SIZE","type":"float","default":1.2,"min":0.02,"max":500,"step":0.01},
+{"key":"noise_clump","name":"Event Clustering","short_name":"CLMP","type":"float","default":20,"min":0,"max":100,"step":1},
+{"key":"noise_edge","name":"Event Edge","short_name":"EDGE","type":"float","default":25,"min":0,"max":100,"step":1},
+{"key":"noise_variation","name":"Event Variation","short_name":"VAR","type":"float","default":75,"min":0,"max":100,"step":1},
+{"key":"noise_bed","name":"Noise Bed","short_name":"BED","type":"float","default":0,"min":0,"max":100,"step":1},
+{"key":"noise_repeat","name":"Event Repeats","short_name":"REPT","type":"float","default":1,"min":1,"max":16,"step":1},
+{"key":"noise_fault","name":"Data Variation","short_name":"FAIL","type":"float","default":25,"min":0,"max":100,"step":1},
+{"key":"noise_ratio_1","name":"Band 1 Ratio","short_name":"R1","type":"float","default":1,"min":1,"max":64,"step":0.05},
+{"key":"noise_ratio_2","name":"Band 2 Ratio","short_name":"R2","type":"float","default":2,"min":1,"max":64,"step":0.05},
+{"key":"noise_ratio_3","name":"Band 3 Ratio","short_name":"R3","type":"float","default":3,"min":1,"max":64,"step":0.05},
+{"key":"noise_ratio_4","name":"Band 4 Ratio","short_name":"R4","type":"float","default":4,"min":1,"max":64,"step":0.05},
+{"key":"noise_ratio_5","name":"Band 5 Ratio","short_name":"R5","type":"float","default":5,"min":1,"max":64,"step":0.05},
+{"key":"noise_ratio_6","name":"Band 6 Ratio","short_name":"R6","type":"float","default":6,"min":1,"max":64,"step":0.05},
+{"key":"noise_ratio_7","name":"Band 7 Ratio","short_name":"R7","type":"float","default":7,"min":1,"max":64,"step":0.05},
+{"key":"noise_ratio_8","name":"Band 8 Ratio","short_name":"R8","type":"float","default":8,"min":1,"max":64,"step":0.05},
+{"key":"noise_ratio_9","name":"Band 9 Ratio","short_name":"R9","type":"float","default":9,"min":1,"max":64,"step":0.05},
+{"key":"noise_ratio_10","name":"Band 10 Ratio","short_name":"R10","type":"float","default":10,"min":1,"max":64,"step":0.05},
+{"key":"noise_ratio_11","name":"Band 11 Ratio","short_name":"R11","type":"float","default":11,"min":1,"max":64,"step":0.05},
+{"key":"noise_ratio_12","name":"Band 12 Ratio","short_name":"R12","type":"float","default":12,"min":1,"max":64,"step":0.05},
+{"key":"noise_ratio_13","name":"Band 13 Ratio","short_name":"R13","type":"float","default":13,"min":1,"max":64,"step":0.05},
+{"key":"noise_ratio_14","name":"Band 14 Ratio","short_name":"R14","type":"float","default":14,"min":1,"max":64,"step":0.05},
+{"key":"noise_ratio_15","name":"Band 15 Ratio","short_name":"R15","type":"float","default":15,"min":1,"max":64,"step":0.05},
+{"key":"noise_ratio_16","name":"Band 16 Ratio","short_name":"R16","type":"float","default":16,"min":1,"max":64,"step":0.05},
+{"key":"noise_ratio_17","name":"Band 17 Ratio","short_name":"R17","type":"float","default":17,"min":1,"max":64,"step":0.05},
+{"key":"noise_ratio_18","name":"Band 18 Ratio","short_name":"R18","type":"float","default":18,"min":1,"max":64,"step":0.05},
+{"key":"noise_ratio_19","name":"Band 19 Ratio","short_name":"R19","type":"float","default":19,"min":1,"max":64,"step":0.05},
+{"key":"noise_ratio_20","name":"Band 20 Ratio","short_name":"R20","type":"float","default":20,"min":1,"max":64,"step":0.05},
+{"key":"noise_ratio_21","name":"Band 21 Ratio","short_name":"R21","type":"float","default":21,"min":1,"max":64,"step":0.05},
+{"key":"noise_ratio_22","name":"Band 22 Ratio","short_name":"R22","type":"float","default":22,"min":1,"max":64,"step":0.05},
+{"key":"noise_ratio_23","name":"Band 23 Ratio","short_name":"R23","type":"float","default":23,"min":1,"max":64,"step":0.05},
+{"key":"noise_ratio_24","name":"Band 24 Ratio","short_name":"R24","type":"float","default":24,"min":1,"max":64,"step":0.05},
+{"key":"noise_ratio_25","name":"Band 25 Ratio","short_name":"R25","type":"float","default":25,"min":1,"max":64,"step":0.05},
+{"key":"noise_ratio_26","name":"Band 26 Ratio","short_name":"R26","type":"float","default":26,"min":1,"max":64,"step":0.05},
+{"key":"noise_ratio_27","name":"Band 27 Ratio","short_name":"R27","type":"float","default":27,"min":1,"max":64,"step":0.05},
+{"key":"noise_ratio_28","name":"Band 28 Ratio","short_name":"R28","type":"float","default":28,"min":1,"max":64,"step":0.05},
+{"key":"noise_ratio_29","name":"Band 29 Ratio","short_name":"R29","type":"float","default":29,"min":1,"max":64,"step":0.05},
+{"key":"noise_ratio_30","name":"Band 30 Ratio","short_name":"R30","type":"float","default":30,"min":1,"max":64,"step":0.05},
+{"key":"noise_ratio_31","name":"Band 31 Ratio","short_name":"R31","type":"float","default":31,"min":1,"max":64,"step":0.05},
+{"key":"noise_ratio_32","name":"Band 32 Ratio","short_name":"R32","type":"float","default":32,"min":1,"max":64,"step":0.05},
+{"key":"noise_band_1","name":"Band 1 Level","short_name":"L1","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"noise_band_2","name":"Band 2 Level","short_name":"L2","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"noise_band_3","name":"Band 3 Level","short_name":"L3","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"noise_band_4","name":"Band 4 Level","short_name":"L4","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"noise_band_5","name":"Band 5 Level","short_name":"L5","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"noise_band_6","name":"Band 6 Level","short_name":"L6","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"noise_band_7","name":"Band 7 Level","short_name":"L7","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"noise_band_8","name":"Band 8 Level","short_name":"L8","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"noise_band_9","name":"Band 9 Level","short_name":"L9","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"noise_band_10","name":"Band 10 Level","short_name":"L10","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"noise_band_11","name":"Band 11 Level","short_name":"L11","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"noise_band_12","name":"Band 12 Level","short_name":"L12","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"noise_band_13","name":"Band 13 Level","short_name":"L13","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"noise_band_14","name":"Band 14 Level","short_name":"L14","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"noise_band_15","name":"Band 15 Level","short_name":"L15","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"noise_band_16","name":"Band 16 Level","short_name":"L16","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"noise_band_17","name":"Band 17 Level","short_name":"L17","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"noise_band_18","name":"Band 18 Level","short_name":"L18","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"noise_band_19","name":"Band 19 Level","short_name":"L19","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"noise_band_20","name":"Band 20 Level","short_name":"L20","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"noise_band_21","name":"Band 21 Level","short_name":"L21","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"noise_band_22","name":"Band 22 Level","short_name":"L22","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"noise_band_23","name":"Band 23 Level","short_name":"L23","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"noise_band_24","name":"Band 24 Level","short_name":"L24","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"noise_band_25","name":"Band 25 Level","short_name":"L25","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"noise_band_26","name":"Band 26 Level","short_name":"L26","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"noise_band_27","name":"Band 27 Level","short_name":"L27","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"noise_band_28","name":"Band 28 Level","short_name":"L28","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"noise_band_29","name":"Band 29 Level","short_name":"L29","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"noise_band_30","name":"Band 30 Level","short_name":"L30","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"noise_band_31","name":"Band 31 Level","short_name":"L31","type":"float","default":1,"min":-1,"max":1,"step":0.01},
+{"key":"noise_band_32","name":"Band 32 Level","short_name":"L32","type":"float","default":1,"min":-1,"max":1,"step":0.01},
 {"key":"fm_mode","name":"FM Articulation","short_name":"MODE","type":"enum","default":0,"options":["TONE","DRUM"]},
 {"key":"fm_tune","name":"FM Transpose","short_name":"TUNE","type":"float","default":0,"min":-48,"max":48,"step":0.1},
 {"key":"fm_width","name":"FM Stereo Width","short_name":"WID","type":"float","default":35,"min":0,"max":100,"step":1},
@@ -907,7 +1171,7 @@ constexpr const char kChainParams[] = R"json([
 {"key":"bank_attack","name":"Bank Attack","short_name":"ATK","type":"float","min":1,"max":10000,"default":5},
 {"key":"bank_release","name":"Bank Release","short_name":"REL","type":"float","min":5,"max":10000,"default":40},
 {"key":"bank_fade","name":"Bank Loop Fade","short_name":"FADE","type":"float","min":2,"max":100,"default":8},
-{"key":"bank_master_rate","name":"Bank Master Rate","short_name":"RATE","type":"float","min":0.125,"max":8,"default":1},
+{"key":"bank_master_rate","name":"Bank Global Rate","short_name":"RATE","type":"float","min":0.125,"max":8,"default":1},
 {"key":"bank_pan","name":"Bank Pad Pan","short_name":"PAN","type":"float","min":-100,"max":100,"default":0},
 {"key":"bank_play","name":"Bank Pad Playback","short_name":"PLAY","type":"enum","options":["Held loop","One shot"],"default":0},
 {"key":"bank_choke","name":"Bank Pad Choke Group","short_name":"CHOK","type":"int","min":0,"max":4,"default":0},
@@ -1621,6 +1885,10 @@ void applyLockedValue(Engine::Controls& controls, float& outputGain,
                       std::size_t index, float value)
 {
     if(index>=s3g_thru_fm::controlOffset&&index<s3g_thru_fm::controlOffset+s3g_thru_fm::fields){for(auto& p:controls.fm.patches)s3g_thru_fm::set(p,int(index)-s3g_thru_fm::controlOffset,value);return;}
+    if(index>=s3g_thru_noise::controlOffset&&index<s3g_thru_noise::controlOffset+s3g_thru_noise::fields){for(auto& p:controls.noise.patches)s3g_thru_noise::set(p,int(index)-s3g_thru_noise::controlOffset,value);return;}
+    if(index>=s3g_thru_partials::controlOffset&&index<s3g_thru_partials::controlOffset+s3g_thru_partials::fields){for(auto& p:controls.partials.patches)s3g_thru_partials::set(p,int(index)-s3g_thru_partials::controlOffset,value);return;}
+    if(index>=s3g_thru_reson::controlOffset&&index<s3g_thru_reson::controlOffset+s3g_thru_reson::fields){for(auto& p:controls.reson.patches)s3g_thru_reson::set(p,int(index)-s3g_thru_reson::controlOffset,value);return;}
+    if(index>=s3g_thru_lowform::controlOffset&&index<s3g_thru_lowform::controlOffset+s3g_thru_lowform::fields){for(auto& p:controls.lowform.patches)s3g_thru_lowform::set(p,int(index)-s3g_thru_lowform::controlOffset,value);return;}
     if(index>=s3g_thru_scanned::controlOffset&&index<s3g_thru_scanned::controlOffset+s3g_thru_scanned::fields){for(auto& p:controls.scanned.patches)s3g_thru_scanned::set(p,int(index)-s3g_thru_scanned::controlOffset,value);return;}
     if(index>=s3g_thru_table::controlOffset&&index<s3g_thru_table::controlOffset+s3g_thru_table::fields) {
         const int field=int(index)-s3g_thru_table::controlOffset;
@@ -1889,6 +2157,10 @@ float lockedValue(const Engine::Controls& controls, float outputGain,
                   std::size_t index)
 {
     if(index>=s3g_thru_fm::controlOffset&&index<s3g_thru_fm::controlOffset+s3g_thru_fm::fields)return controls.fm.patches[std::clamp(controls.tableEditor,0,3)].v[index-s3g_thru_fm::controlOffset];
+    if(index>=s3g_thru_noise::controlOffset&&index<s3g_thru_noise::controlOffset+s3g_thru_noise::fields)return controls.noise.patches[std::clamp(controls.tableEditor,0,3)].v[index-s3g_thru_noise::controlOffset];
+    if(index>=s3g_thru_partials::controlOffset&&index<s3g_thru_partials::controlOffset+s3g_thru_partials::fields)return controls.partials.patches[std::clamp(controls.tableEditor,0,3)].v[index-s3g_thru_partials::controlOffset];
+    if(index>=s3g_thru_reson::controlOffset&&index<s3g_thru_reson::controlOffset+s3g_thru_reson::fields)return controls.reson.patches[std::clamp(controls.tableEditor,0,3)].v[index-s3g_thru_reson::controlOffset];
+    if(index>=s3g_thru_lowform::controlOffset&&index<s3g_thru_lowform::controlOffset+s3g_thru_lowform::fields)return controls.lowform.patches[std::clamp(controls.tableEditor,0,3)].v[index-s3g_thru_lowform::controlOffset];
     if(index>=s3g_thru_scanned::controlOffset&&index<s3g_thru_scanned::controlOffset+s3g_thru_scanned::fields)return controls.scanned.patches[std::clamp(controls.tableEditor,0,3)].v[index-s3g_thru_scanned::controlOffset];
     if(index>=s3g_thru_table::controlOffset&&index<s3g_thru_table::controlOffset+s3g_thru_table::fields)
         return controls.table.patches[std::clamp(controls.tableEditor,0,3)].v[index-s3g_thru_table::controlOffset];
@@ -5229,6 +5501,10 @@ struct ThruInstance : PlaybackEffectsState {
     {
         if(point.type==ClipPointType::scannedParameter)return point.sourcePad<16&&(point.parameter&255u)<s3g_thru_scanned::fields?kClipScannedOffset+point.sourcePad*s3g_thru_scanned::fields+(point.parameter&255u):kClipCurveLaneCount;
         if(point.type==ClipPointType::fmParameter)return point.sourcePad<16&&(point.parameter&255u)<s3g_thru_fm::fields?kClipFmOffset+point.sourcePad*s3g_thru_fm::fields+(point.parameter&255u):kClipCurveLaneCount;
+        if(point.type==ClipPointType::noiseParameter)return point.sourcePad<16&&(point.parameter&255u)<s3g_thru_noise::fields?kClipNoiseOffset+point.sourcePad*s3g_thru_noise::fields+(point.parameter&255u):kClipCurveLaneCount;
+        if(point.type==ClipPointType::partialsParameter)return point.sourcePad<16&&(point.parameter&255u)<s3g_thru_partials::fields?kClipPartialsOffset+point.sourcePad*s3g_thru_partials::fields+(point.parameter&255u):kClipCurveLaneCount;
+        if(point.type==ClipPointType::resonParameter)return point.sourcePad<16&&(point.parameter&255u)<s3g_thru_reson::fields?kClipResonOffset+point.sourcePad*s3g_thru_reson::fields+(point.parameter&255u):kClipCurveLaneCount;
+        if(point.type==ClipPointType::lowformParameter)return point.sourcePad<16&&(point.parameter&255u)<s3g_thru_lowform::fields?kClipLowformOffset+point.sourcePad*s3g_thru_lowform::fields+(point.parameter&255u):kClipCurveLaneCount;
         if(point.type==ClipPointType::tableParameter)return point.sourcePad<16&&(point.parameter&255u)<s3g_thru_table::fields?kClipTableOffset+point.sourcePad*s3g_thru_table::fields+(point.parameter&255u):kClipCurveLaneCount;
         if(point.type==ClipPointType::sequenceLane) {
             const auto field=point.parameter&255u;
@@ -5387,6 +5663,10 @@ struct ThruInstance : PlaybackEffectsState {
 #include "thru_table.inc"
 #include "thru_scanned.inc"
 #include "thru_fm.inc"
+#include "thru_noise.inc"
+#include "thru_partials.inc"
+#include "thru_reson.inc"
+#include "thru_lowform.inc"
 #include "thru_control_lfo.inc"
 
     void captureClipNoteOn(int note, int velocity, int sourcePad, int owner = -1)
@@ -5458,6 +5738,10 @@ struct ThruInstance : PlaybackEffectsState {
         std::size_t curveLane = kClipCurveLaneCount;
         if(type==ClipPointType::scannedParameter){curveLane=sourcePad>=0&&sourcePad<16&&parameter<s3g_thru_scanned::fields?kClipScannedOffset+sourcePad*s3g_thru_scanned::fields+parameter:kClipCurveLaneCount;}
         if(type==ClipPointType::fmParameter){curveLane=sourcePad>=0&&sourcePad<16&&parameter<s3g_thru_fm::fields?kClipFmOffset+sourcePad*s3g_thru_fm::fields+parameter:kClipCurveLaneCount;}
+        if(type==ClipPointType::noiseParameter){curveLane=sourcePad>=0&&sourcePad<16&&parameter<s3g_thru_noise::fields?kClipNoiseOffset+sourcePad*s3g_thru_noise::fields+parameter:kClipCurveLaneCount;}
+        if(type==ClipPointType::partialsParameter){curveLane=sourcePad>=0&&sourcePad<16&&parameter<s3g_thru_partials::fields?kClipPartialsOffset+sourcePad*s3g_thru_partials::fields+parameter:kClipCurveLaneCount;}
+        if(type==ClipPointType::resonParameter){curveLane=sourcePad>=0&&sourcePad<16&&parameter<s3g_thru_reson::fields?kClipResonOffset+sourcePad*s3g_thru_reson::fields+parameter:kClipCurveLaneCount;}
+        if(type==ClipPointType::lowformParameter){curveLane=sourcePad>=0&&sourcePad<16&&parameter<s3g_thru_lowform::fields?kClipLowformOffset+sourcePad*s3g_thru_lowform::fields+parameter:kClipCurveLaneCount;}
         else if(type==ClipPointType::tableParameter){curveLane=sourcePad>=0&&sourcePad<16&&parameter<s3g_thru_table::fields?kClipTableOffset+sourcePad*s3g_thru_table::fields+parameter:kClipCurveLaneCount;}
         else if(type==ClipPointType::pooledLfo){curveLane=sourcePad>=0&&sourcePad<8&&parameter<11?kClipPooledLfoOffset+sourcePad*11+parameter:kClipCurveLaneCount;}
         else if(type==ClipPointType::controlLfo){curveLane=sourcePad>=0&&sourcePad<4&&parameter<18?kClipLfoOffset+sourcePad*18+parameter:kClipCurveLaneCount;}
@@ -5525,7 +5809,7 @@ struct ThruInstance : PlaybackEffectsState {
             ClipPoint& previous = clip->clipPoints[
                 static_cast<std::size_t>(previousIndex)];
             if((type==ClipPointType::pressure||type==ClipPointType::notePressure||type==ClipPointType::midiExpression)&&time==previous.timeMs){previous.value=value;return;}
-            if((type==ClipPointType::layersParameter||type==ClipPointType::tableParameter||type==ClipPointType::scannedParameter||type==ClipPointType::fmParameter)&&time==previous.timeMs){previous.value=value;return;}
+            if((type==ClipPointType::layersParameter||type==ClipPointType::tableParameter||type==ClipPointType::scannedParameter||type==ClipPointType::fmParameter||type==ClipPointType::noiseParameter||type==ClipPointType::resonParameter||type==ClipPointType::lowformParameter||type==ClipPointType::partialsParameter)&&time==previous.timeMs){previous.value=value;return;}
             if(formantEdge && !forceEdge && time>=previous.timeMs && value==previous.value)return;
             if(formantEdge && time==previous.timeMs){previous.value=value;return;}
             if (!formantEdge && time >= previous.timeMs
@@ -6920,6 +7204,30 @@ struct ThruInstance : PlaybackEffectsState {
         for (std::size_t lane = 0u; lane < kClipCurveLaneCount; ++lane) {
             if(clip.clipPointCounts[lane]==0)continue;
             float value = 0.0f;
+            if(lane>=kClipLowformOffset){
+                const auto group=(lane-kClipLowformOffset)/s3g_thru_lowform::fields,field=(lane-kClipLowformOffset)%s3g_thru_lowform::fields;
+                if((splitEnabled||group/4==0)&&!lowformOverrides.test(group*s3g_thru_lowform::fields+field)&&sampleClipCurve(clip,lane,position,!s3g_thru_lowform::discrete(int(field)),value)){
+                  auto& c=splitEnabled?splitClipControls[group/4]:clipControls;s3g_thru_lowform::set(c.lowform.patches[group%4],int(field),value);
+                }continue;
+            }
+            if(lane>=kClipPartialsOffset){
+                const auto group=(lane-kClipPartialsOffset)/s3g_thru_partials::fields,field=(lane-kClipPartialsOffset)%s3g_thru_partials::fields;
+                if((splitEnabled||group/4==0)&&!partialsOverrides.test(group*s3g_thru_partials::fields+field)&&sampleClipCurve(clip,lane,position,!s3g_thru_partials::discrete(int(field)),value)){
+                  auto& c=splitEnabled?splitClipControls[group/4]:clipControls;s3g_thru_partials::set(c.partials.patches[group%4],int(field),value);
+                }continue;
+            }
+            if(lane>=kClipResonOffset){
+                const auto group=(lane-kClipResonOffset)/s3g_thru_reson::fields,field=(lane-kClipResonOffset)%s3g_thru_reson::fields;
+                if((splitEnabled||group/4==0)&&!resonOverrides.test(group*s3g_thru_reson::fields+field)&&sampleClipCurve(clip,lane,position,!s3g_thru_reson::discrete(int(field)),value)){
+                  auto& c=splitEnabled?splitClipControls[group/4]:clipControls;s3g_thru_reson::set(c.reson.patches[group%4],int(field),value);
+                }continue;
+            }
+            if(lane>=kClipNoiseOffset){
+                const auto group=(lane-kClipNoiseOffset)/s3g_thru_noise::fields,field=(lane-kClipNoiseOffset)%s3g_thru_noise::fields;
+                if((splitEnabled||group/4==0)&&!noiseOverrides.test(group*s3g_thru_noise::fields+field)&&sampleClipCurve(clip,lane,position,!s3g_thru_noise::discrete(int(field)),value)){
+                  auto& c=splitEnabled?splitClipControls[group/4]:clipControls;s3g_thru_noise::set(c.noise.patches[group%4],int(field),value);
+                }continue;
+            }
             if(lane>=kClipFmOffset){
                 const auto group=(lane-kClipFmOffset)/s3g_thru_fm::fields,field=(lane-kClipFmOffset)%s3g_thru_fm::fields;
                 if((splitEnabled||group/4==0)&&!fmOverrides.test(group*s3g_thru_fm::fields+field)&&sampleClipCurve(clip,lane,position,!s3g_thru_fm::discrete(int(field)),value)){
@@ -7068,7 +7376,7 @@ struct ThruInstance : PlaybackEffectsState {
             releaseClipVoices();
         } else if (!clipPlaying) {
             clipPlaying = true;
-            if(!clipRecording){layersOverrides.reset();tableOverrides.reset();scannedOverrides.reset();fmOverrides.reset();}
+            if(!clipRecording){layersOverrides.reset();tableOverrides.reset();scannedOverrides.reset();fmOverrides.reset();noiseOverrides.reset();resonOverrides.reset();lowformOverrides.reset();partialsOverrides.reset();}
             clipNeedsStart = true;
         }
         clipOpenNoteIndices.fill(-1);
@@ -7192,7 +7500,7 @@ struct ThruInstance : PlaybackEffectsState {
         }
         clip->occupied = true;
         clipRecording = false;
-        layersOverrides.reset();tableOverrides.reset();scannedOverrides.reset();fmOverrides.reset();
+        layersOverrides.reset();tableOverrides.reset();scannedOverrides.reset();fmOverrides.reset();noiseOverrides.reset();resonOverrides.reset();lowformOverrides.reset();partialsOverrides.reset();
         sequenceOverrides={};sequenceRecipeOverrides={};
         clipFinishPending = false;
         clipPlaying = true;
@@ -7200,7 +7508,7 @@ struct ThruInstance : PlaybackEffectsState {
             clipPositionMs = 0.0;
             clipAbsolutePositionMs = 0.0;
             pulsarClipCycle = 0;
-            if(!clipRecording){layersOverrides.reset();tableOverrides.reset();scannedOverrides.reset();fmOverrides.reset();}
+            if(!clipRecording){layersOverrides.reset();tableOverrides.reset();scannedOverrides.reset();fmOverrides.reset();noiseOverrides.reset();resonOverrides.reset();lowformOverrides.reset();partialsOverrides.reset();}
             clipNeedsStart = true;
         }
         markPersistentStateDirty();
@@ -7276,7 +7584,7 @@ struct ThruInstance : PlaybackEffectsState {
         }
         releaseClipRolls();
         for(auto& values:performanceRecorded)values.fill(0);
-        layersRecorded=layersLive;layersOverrides.reset();tableOverrides.reset();scannedOverrides.reset();fmOverrides.reset();
+        layersRecorded=layersLive;layersOverrides.reset();tableOverrides.reset();scannedOverrides.reset();fmOverrides.reset();noiseOverrides.reset();resonOverrides.reset();lowformOverrides.reset();partialsOverrides.reset();
         sequenceOverrides={};sequenceRecipeOverrides={};
         sequencePlayback=sequenceLive;invalidateSequenceRecipePlayback();syncSequenceRatePhases();
         if(sequenceMode()){
@@ -7421,7 +7729,7 @@ struct ThruInstance : PlaybackEffectsState {
                 clipPositionMs = 0.0;
                 clipAbsolutePositionMs = 0.0;
                 pulsarClipCycle = 0;
-                if(!clipRecording){layersOverrides.reset();tableOverrides.reset();scannedOverrides.reset();fmOverrides.reset();}
+                if(!clipRecording){layersOverrides.reset();tableOverrides.reset();scannedOverrides.reset();fmOverrides.reset();noiseOverrides.reset();resonOverrides.reset();lowformOverrides.reset();partialsOverrides.reset();}
                 clipNeedsStart = true;
             }
             return;
@@ -7504,7 +7812,7 @@ struct ThruInstance : PlaybackEffectsState {
             clipPositionMs = 0.0;
             clipAbsolutePositionMs = 0.0;
             pulsarClipCycle = 0;
-            if(!clipRecording){layersOverrides.reset();tableOverrides.reset();scannedOverrides.reset();fmOverrides.reset();}
+            if(!clipRecording){layersOverrides.reset();tableOverrides.reset();scannedOverrides.reset();fmOverrides.reset();noiseOverrides.reset();resonOverrides.reset();lowformOverrides.reset();partialsOverrides.reset();}
             clipNeedsStart = true;
             return;
         }
@@ -7523,7 +7831,7 @@ struct ThruInstance : PlaybackEffectsState {
         clipPositionMs = 0.0;
         clipAbsolutePositionMs = 0.0;
         pulsarClipCycle = 0;
-        if(!clipRecording){layersOverrides.reset();tableOverrides.reset();scannedOverrides.reset();fmOverrides.reset();}
+        if(!clipRecording){layersOverrides.reset();tableOverrides.reset();scannedOverrides.reset();fmOverrides.reset();noiseOverrides.reset();resonOverrides.reset();lowformOverrides.reset();partialsOverrides.reset();}
         clipNeedsStart = true;
         if(chainLaunchBank>=0){prepareChainLaunch();return;}
         if (chainEnabled) {
@@ -7579,7 +7887,7 @@ struct ThruInstance : PlaybackEffectsState {
     bool workingClipHasContent() const
     {
         const ClipSlot* clip = activeClipSlot();
-        bool synth=listUsesAlgorithm(int(Engine::PlaybackAlgorithm::table))||listUsesAlgorithm(int(Engine::PlaybackAlgorithm::scanned))||listUsesAlgorithm(int(Engine::PlaybackAlgorithm::fm));
+        bool synth=listUsesAlgorithm(int(Engine::PlaybackAlgorithm::table))||listUsesAlgorithm(int(Engine::PlaybackAlgorithm::scanned))||listUsesAlgorithm(int(Engine::PlaybackAlgorithm::fm))||listUsesAlgorithm(int(Engine::PlaybackAlgorithm::noise))||listUsesAlgorithm(int(Engine::PlaybackAlgorithm::reson))||listUsesAlgorithm(int(Engine::PlaybackAlgorithm::lowform))||listUsesAlgorithm(int(Engine::PlaybackAlgorithm::partials));
         for(int part=0;part<(splitEnabled?partCount():1);++part)
             synth|=Engine::sourceFree(liveControlsForPart(part).algorithm);
         return synth || (clip && clip->clipRecorded
@@ -7726,7 +8034,7 @@ struct ThruInstance : PlaybackEffectsState {
         restoreSplitClip(target);
         resetControlLfos(freshSequence);
         if(freshSequence)resetSequenceClock();else invalidateSequenceRecipePlayback();
-        layersLive=layersRecorded=target.layers;layersOverrides.reset();tableOverrides.reset();scannedOverrides.reset();fmOverrides.reset();clearLayersTouches();if(layersLive.active)layersRack.prime(layersLive);
+        layersLive=layersRecorded=target.layers;layersOverrides.reset();tableOverrides.reset();scannedOverrides.reset();fmOverrides.reset();noiseOverrides.reset();resonOverrides.reset();lowformOverrides.reset();partialsOverrides.reset();clearLayersTouches();if(layersLive.active)layersRack.prime(layersLive);
         if((previousSplit!=splitEnabled||previousShared!=sharedDual||previousQuad!=quadMode) && voices[0].engine.prepared())refreshPlaybackVoices();
         clipControls = controls;
         clipOutputGain = outputGain;
@@ -9198,7 +9506,7 @@ struct ThruInstance : PlaybackEffectsState {
                     auto& listenBus = stochasticListenBus[voice.part];
                     listenBus[0][frame] += listenLeft;listenBus[1][frame] += listenRight;
                     listenEnergy += .5f * (listenLeft*listenLeft + listenRight*listenRight);
-                    if(effective.algorithm==Engine::PlaybackAlgorithm::table||effective.algorithm==Engine::PlaybackAlgorithm::fm)for(int lane=0;lane<4;++lane)
+                    if(effective.algorithm==Engine::PlaybackAlgorithm::table||effective.algorithm==Engine::PlaybackAlgorithm::fm||effective.algorithm==Engine::PlaybackAlgorithm::noise||effective.algorithm==Engine::PlaybackAlgorithm::reson||effective.algorithm==Engine::PlaybackAlgorithm::lowform||effective.algorithm==Engine::PlaybackAlgorithm::partials)for(int lane=0;lane<4;++lane)
                         tableScopeBus[voice.part][lane][frame]+=voice.engine.tableScopeSample(lane,frame)*audibleEnvelope*voice.gainState;
                     target[0u][frame] += left * audibleEnvelope * voice.gainState;
                     target[1u][frame] += right * audibleEnvelope * voice.gainState;
@@ -9533,7 +9841,7 @@ struct ThruInstance : PlaybackEffectsState {
         if (!file) return false;
         const char magic[8] { 'S', '3', 'G', 'T', 'H', 'R', '3', '\0' };
         bool ok = writeBytes(file, magic, sizeof(magic))
-            && writeU32(file, 56u)
+            && writeU32(file, 60u)
             && writeU64(file, snapshot ? snapshot->generation : persistenceGeneration)
             && writeF32(file, snapshot ? snapshot->tempo : tempoBpm)
             && writeF32(file, snapshot ? snapshot->swing : tempoSwing)
@@ -9599,7 +9907,7 @@ struct ThruInstance : PlaybackEffectsState {
                     && writeU32(file, clipPointTake(point));
             }
         }
-        ok = ok && writeSplitExtension(file,savedClips) && writeStackPaths(file,savedClips) && writeChainBanks(file,savedBanks,savedBank) && writeChainPlaybackState(file,snapshot?snapshot->chainPlayBank:chainPlayBank) && writeNewEngineParameters(file,savedClips) && writeVoiceEngineExtension(file,savedClips) && writeVoicePlayExtension(file,savedClips) && writeStochasticParameters(file,savedClips) && writePulsarParameters(file,savedClips) && writePriorityParameters(file,savedClips) && writeBankExtension(file,savedClips) && writeBankPadExtension(file,savedClips) && writeSliceExtension(file,savedClips) && writeLayersExtension(file,savedClips) && writeSequenceExtension(file,savedClips) && writeSequenceMixExtension(file,savedClips) && writeSequenceCycleExtension(file,savedClips) && writeSplitLanePreferences(file,savedClips) && writePulsarSeeds(file,savedClips) && writeSequenceTypes(file,savedClips) && writeSequenceDirections(file,savedClips) && writeSequenceShifts(file,savedClips) && writeSequencePaths(file,savedClips) && writeControlLfos(file,savedClips) && writePooledLfos(file,savedClips) && writeLfoAutoExtension(file,savedClips) && writeTableExtension(file,savedClips) && writeSequenceSoundLocks(file,savedClips) && writeScannedExtension(file,savedClips) && writeScannedHitExtension(file,savedClips) && writeScannedAmpExtension(file,savedClips) && writeFmExtension(file,savedClips) && writeFmExtraExtension(file,savedClips);
+        ok = ok && writeSplitExtension(file,savedClips) && writeStackPaths(file,savedClips) && writeChainBanks(file,savedBanks,savedBank) && writeChainPlaybackState(file,snapshot?snapshot->chainPlayBank:chainPlayBank) && writeNewEngineParameters(file,savedClips) && writeVoiceEngineExtension(file,savedClips) && writeVoicePlayExtension(file,savedClips) && writeStochasticParameters(file,savedClips) && writePulsarParameters(file,savedClips) && writePriorityParameters(file,savedClips) && writeBankExtension(file,savedClips) && writeBankPadExtension(file,savedClips) && writeSliceExtension(file,savedClips) && writeLayersExtension(file,savedClips) && writeSequenceExtension(file,savedClips) && writeSequenceMixExtension(file,savedClips) && writeSequenceCycleExtension(file,savedClips) && writeSplitLanePreferences(file,savedClips) && writePulsarSeeds(file,savedClips) && writeSequenceTypes(file,savedClips) && writeSequenceDirections(file,savedClips) && writeSequenceShifts(file,savedClips) && writeSequencePaths(file,savedClips) && writeControlLfos(file,savedClips) && writePooledLfos(file,savedClips) && writeLfoAutoExtension(file,savedClips) && writeTableExtension(file,savedClips) && writeSequenceSoundLocks(file,savedClips) && writeScannedExtension(file,savedClips) && writeScannedHitExtension(file,savedClips) && writeScannedAmpExtension(file,savedClips) && writeFmExtension(file,savedClips) && writeFmExtraExtension(file,savedClips) && writeNoiseExtension(file,savedClips) && writeResonExtension(file,savedClips) && writePartialsExtension(file,savedClips) && writeLowformExtension(file,savedClips);
         const bool closed = std::fclose(file) == 0;
         ok = ok && closed && appendFileChecksum(temporary.data());
         if (!ok || (!stageOnly && !replaceFileWithBackup(temporary.data(), path.data()))) {
@@ -9663,7 +9971,7 @@ struct ThruInstance : PlaybackEffectsState {
             && (version == 1u || version == 2u || version == 3u
                 || version == 4u || version == 5u || version == 6u
                 || version == 7u || version == 8u || version == 9u
-                || version == 10u || version == 11u || version == 12u || version == 13u || version == 14u || version==15u || version==16u || version==17u || version==18u || version==19u || version==20u || version==21u || version==22u || version==23u || version==24u || version==25u || version==26u || version==27u || version==28u || version==29u || version==30u || version==31u || version==32u || version==33u || version==34u || version==35u || version==36u || version==37u || version==38u || version==39u || version==40u || version==41u || version==42u || version==43u || version==44u || version==45u || version==46u || version==47u || version==48u || version==49u || version==50u || version==51u || version==52u || version==53u || version==54u || version==55u || version==56u)
+                || version == 10u || version == 11u || version == 12u || version == 13u || version == 14u || version==15u || version==16u || version==17u || version==18u || version==19u || version==20u || version==21u || version==22u || version==23u || version==24u || version==25u || version==26u || version==27u || version==28u || version==29u || version==30u || version==31u || version==32u || version==33u || version==34u || version==35u || version==36u || version==37u || version==38u || version==39u || version==40u || version==41u || version==42u || version==43u || version==44u || version==45u || version==46u || version==47u || version==48u || version==49u || version==50u || version==51u || version==52u || version==53u || version==54u || version==55u || version==56u || version==57u || version==58u || version==59u || version==60u)
             && readU64(file, generation) && generation != 0u;
         std::fclose(file);
         return ok;
@@ -9700,7 +10008,7 @@ struct ThruInstance : PlaybackEffectsState {
             && (version == 1u || version == 2u || version == 3u
                 || version == 4u || version == 5u || version == 6u
                 || version == 7u || version == 8u || version == 9u
-                || version == 10u || version == 11u || version == 12u || version == 13u || version == 14u || version==15u || version==16u || version==17u || version==18u || version==19u || version==20u || version==21u || version==22u || version==23u || version==24u || version==25u || version==26u || version==27u || version==28u || version==29u || version==30u || version==31u || version==32u || version==33u || version==34u || version==35u || version==36u || version==37u || version==38u || version==39u || version==40u || version==41u || version==42u || version==43u || version==44u || version==45u || version==46u || version==47u || version==48u || version==49u || version==50u || version==51u || version==52u || version==53u || version==54u || version==55u || version==56u)
+                || version == 10u || version == 11u || version == 12u || version == 13u || version == 14u || version==15u || version==16u || version==17u || version==18u || version==19u || version==20u || version==21u || version==22u || version==23u || version==24u || version==25u || version==26u || version==27u || version==28u || version==29u || version==30u || version==31u || version==32u || version==33u || version==34u || version==35u || version==36u || version==37u || version==38u || version==39u || version==40u || version==41u || version==42u || version==43u || version==44u || version==45u || version==46u || version==47u || version==48u || version==49u || version==50u || version==51u || version==52u || version==53u || version==54u || version==55u || version==56u || version==57u || version==58u || version==59u || version==60u)
             && readU64(file, loadedGeneration)
             && loadedGeneration != 0u
             && (expectedGeneration == kAnyPersistenceGeneration
@@ -9828,7 +10136,7 @@ struct ThruInstance : PlaybackEffectsState {
                         && readU32(file, velocity)
                         && readU32(file, sourcePad)
                         && (version < 2u || readU32(file, take))
-                        && (take & 255u) < std::max(1u,takeCount) && (version<14u?take<256u:version<24u?(take>>8u)<=(version>=15u?4u:2u):((take>>8u)&255u)<=4u&&((take>>16u)&255u)<=8u&&(take>>24u)<=(version>=52u?17u:version>=50u?16u:version>=29u?15u:version>=26u?14u:13u)&&(!((take>>16u)&255u)||(take>>24u)));
+                        && (take & 255u) < std::max(1u,takeCount) && (version<14u?take<256u:version<24u?(take>>8u)<=(version>=15u?4u:2u):((take>>8u)&255u)<=4u&&((take>>16u)&255u)<=8u&&(take>>24u)<=(version>=60u?22u:version>=59u?21u:version>=58u?20u:version>=57u?19u:version>=55u?18u:version>=52u?17u:version>=50u?16u:version>=29u?15u:version>=26u?14u:13u)&&(!((take>>16u)&255u)||(take>>24u)));
                     if (clip.clipDurationMs != 0u) {
                         note.startMs %= clip.clipDurationMs;
                     }
@@ -9859,13 +10167,17 @@ struct ThruInstance : PlaybackEffectsState {
                         && (version < 2u || readU32(file, take))
                         && parameter < kLockParameterCount
                         && type <= static_cast<std::uint32_t>(
-                            version>=55u?ClipPointType::fmParameter:version>=52u?ClipPointType::scannedParameter:version>=50u?ClipPointType::tableParameter:version>=48u?ClipPointType::pooledLfo:version>=47u?ClipPointType::controlLfo:version>=44u?ClipPointType::sequenceRecipe:version>=38u?ClipPointType::sequenceLane:version>=37u?ClipPointType::layersBaseline:version>=35u?ClipPointType::midiExpression:version>=25u?ClipPointType::notePressure:version>=17u?ClipPointType::stackPath:version>=16u?ClipPointType::performance:ClipPointType::partHold)
+                            version>=60u?ClipPointType::lowformParameter:version>=59u?ClipPointType::partialsParameter:version>=58u?ClipPointType::resonParameter:version>=57u?ClipPointType::noiseParameter:version>=55u?ClipPointType::fmParameter:version>=52u?ClipPointType::scannedParameter:version>=50u?ClipPointType::tableParameter:version>=48u?ClipPointType::pooledLfo:version>=47u?ClipPointType::controlLfo:version>=44u?ClipPointType::sequenceRecipe:version>=38u?ClipPointType::sequenceLane:version>=37u?ClipPointType::layersBaseline:version>=35u?ClipPointType::midiExpression:version>=25u?ClipPointType::notePressure:version>=17u?ClipPointType::stackPath:version>=16u?ClipPointType::performance:ClipPointType::partHold)
                         && (type!=static_cast<std::uint32_t>(ClipPointType::pooledLfo)||(sourcePad<8u&&parameter<11u&&validPooledLfoPoint(parameter,point.value)))
                         && (type!=static_cast<std::uint32_t>(ClipPointType::controlLfo)||(sourcePad<4u&&parameter<18u&&validControlLfoPoint(parameter,point.value)))
                         && (type<static_cast<std::uint32_t>(ClipPointType::layersParameter)||type==static_cast<std::uint32_t>(ClipPointType::controlLfo)||type==static_cast<std::uint32_t>(ClipPointType::pooledLfo)||type==static_cast<std::uint32_t>(ClipPointType::tableParameter)||type==static_cast<std::uint32_t>(ClipPointType::scannedParameter)||type==static_cast<std::uint32_t>(ClipPointType::fmParameter)||(sourcePad<6u && parameter<192u && sourcePad*192u+parameter<LayerPatch::size))
                         && (type!=static_cast<std::uint32_t>(ClipPointType::sequenceLane)||(sourcePad<4u&&parameter<(version>=46u?12u:version>=44u?11u:10u)&&std::isfinite(point.value)&&(parameter!=10u||(point.value>=0&&point.value<=4&&std::floor(point.value)==point.value))&&(parameter!=11u||(point.value>=0&&point.value<=2&&std::floor(point.value)==point.value))))
                         && (type!=static_cast<std::uint32_t>(ClipPointType::sequenceRecipe)||(sourcePad<4u&&parameter>=1u&&parameter<=(version>=45u?21u:20u)&&validSequenceRecipePoint(parameter,point.value)))
                         && (type!=static_cast<std::uint32_t>(ClipPointType::fmParameter)||(sourcePad<16u&&parameter<std::uint32_t(version>=56u?s3g_thru_fm::fields:s3g_thru_fm::legacyFields)&&point.value>=s3g_thru_fm::low[parameter]&&point.value<=s3g_thru_fm::high[parameter]&&(!s3g_thru_fm::discrete(int(parameter))||point.value==std::floor(point.value))))
+                        && (type!=static_cast<std::uint32_t>(ClipPointType::noiseParameter)||(sourcePad<16u&&parameter<std::uint32_t(s3g_thru_noise::fields)&&point.value>=s3g_thru_noise::low[parameter]&&point.value<=s3g_thru_noise::high[parameter]&&(!s3g_thru_noise::discrete(int(parameter))||point.value==std::floor(point.value))))
+                        && (type!=static_cast<std::uint32_t>(ClipPointType::partialsParameter)||(sourcePad<16u&&parameter<std::uint32_t(s3g_thru_partials::fields)&&point.value>=s3g_thru_partials::low[parameter]&&point.value<=s3g_thru_partials::high[parameter]&&(!s3g_thru_partials::discrete(int(parameter))||point.value==std::floor(point.value))))
+                        && (type!=static_cast<std::uint32_t>(ClipPointType::resonParameter)||(sourcePad<16u&&parameter<std::uint32_t(s3g_thru_reson::fields)&&point.value>=s3g_thru_reson::low[parameter]&&point.value<=s3g_thru_reson::high[parameter]&&(!s3g_thru_reson::discrete(int(parameter))||point.value==std::floor(point.value))))
+                        && (type!=static_cast<std::uint32_t>(ClipPointType::lowformParameter)||(sourcePad<16u&&parameter<std::uint32_t(s3g_thru_lowform::fields)&&point.value>=s3g_thru_lowform::low[parameter]&&point.value<=s3g_thru_lowform::high[parameter]&&(!s3g_thru_lowform::discrete(int(parameter))||point.value==std::floor(point.value))))
                         && (type!=static_cast<std::uint32_t>(ClipPointType::scannedParameter)||(sourcePad<16u&&parameter<std::uint32_t(version>=54u?s3g_thru_scanned::fields:version>=53u?s3g_thru_scanned::percussionFields:s3g_thru_scanned::legacyFields)&&point.value>=s3g_thru_scanned::low[parameter]&&point.value<=s3g_thru_scanned::high[parameter]&&(!s3g_thru_scanned::discrete(int(parameter))||point.value==std::floor(point.value))))
                         && (type!=static_cast<std::uint32_t>(ClipPointType::tableParameter)||(sourcePad<16u&&parameter<s3g_thru_table::fields&&point.value>=s3g_thru_table::low[parameter]&&point.value<=s3g_thru_table::high[parameter]&&(!s3g_thru_table::discrete(int(parameter))||point.value==std::floor(point.value))))
                         && take < std::max(1u, takeCount)
@@ -9931,6 +10243,10 @@ struct ThruInstance : PlaybackEffectsState {
         if(ok&&version>=54u)ok=readScannedAmpExtension(file,*loadedClips);
         if(ok&&version>=55u)ok=readFmExtension(file,*loadedClips);
         if(ok&&version>=56u)ok=readFmExtraExtension(file,*loadedClips);
+        if(ok&&version>=57u)ok=readNoiseExtension(file,*loadedClips);
+        if(ok&&version>=58u)ok=readResonExtension(file,*loadedClips);
+        if(ok&&version>=59u)ok=readPartialsExtension(file,*loadedClips);
+        if(ok&&version>=60u)ok=readLowformExtension(file,*loadedClips);
         // A legacy automatic policy preserves 1 ms for Transients and zero
         // for Equal independently, including shared lanes used by both parts.
         const bool atEnd = ok && std::ftell(file) == payloadSize;
@@ -10627,7 +10943,7 @@ struct ThruInstance : PlaybackEffectsState {
         const bool previousSplit = splitEnabled, previousShared = sharedDual, previousQuad=quadMode;
         if(!restorePulsarSeedsJson(json))return false;
         if(!restoreSplitJson(json))return false;
-        if(!restoreTableJson(json)||!restoreScannedJson(json)||!restoreScannedHitJson(json)||!restoreScannedAmpJson(json)||!restoreFmJson(json)||!restoreFmExtraJson(json))return false;
+        if(!restoreTableJson(json)||!restoreScannedJson(json)||!restoreScannedHitJson(json)||!restoreScannedAmpJson(json)||!restoreFmJson(json)||!restoreFmExtraJson(json)||!restoreNoiseJson(json)||!restoreResonJson(json)||!restorePartialsJson(json)||!restoreLowformJson(json))return false;
         if(!restoreLayersJson(json))return false;
         sequenceLive.active=jsonNumber(json,"sequence_mode",value)&&value>=.5f;
         if(sequenceMode()&&(!splitEnabled||!quadMode||layersLive.active||bankMode))return false;
@@ -10834,7 +11150,7 @@ void setParam(void* opaque, const char* key, const char* value)
     if(instance->setProjectParam(key,value))return;
     if(instance->projectLocked()&&std::strcmp(key,"panic")&&std::strcmp(key,"all_notes_off")&&std::strcmp(key,"shift_held")&&std::strcmp(key,"delete_held"))return;
     if(instance->setSequenceSoundParameter(key,value))return;
-    if(instance->setTableParam(key,value)||instance->setScannedParam(key,value)||instance->setFmParam(key,value))return;
+    if(instance->setTableParam(key,value)||instance->setScannedParam(key,value)||instance->setFmParam(key,value)||instance->setNoiseParam(key,value)||instance->setResonParam(key,value)||instance->setPartialsParam(key,value)||instance->setLowformParam(key,value))return;
     if(instance->setControlLfoParam(key,value))return;
     if(instance->setSynthParam(key,value))return;
     if (std::strcmp(key,"clip_clear_recording")==0){if(isTruthy(value))instance->clearRecordedPerformance();return;}
@@ -11216,9 +11532,13 @@ int getParamValue(void* opaque, const char* key, char* buffer, int bufferLength)
     if (!instance || !key || !buffer || bufferLength < 1) return -1;
     if(!std::strcmp(key,"table_scope"))return instance->formatTableScopes(buffer,bufferLength);
     if(!std::strcmp(key,"fm_state"))return instance->formatFmState(buffer,bufferLength);
+    if(!std::strcmp(key,"noise_state"))return instance->formatNoiseState(buffer,bufferLength);
+    if(!std::strcmp(key,"partials_state"))return instance->formatPartialsState(buffer,bufferLength);
+    if(!std::strcmp(key,"reson_state"))return instance->formatResonState(buffer,bufferLength);
+    if(!std::strcmp(key,"lowform_state"))return instance->formatLowformState(buffer,bufferLength);
     if(!std::strcmp(key,"scanned_state"))return instance->formatScannedState(buffer,bufferLength);
     if(!std::strcmp(key,"table_state"))return instance->formatTableState(buffer,bufferLength);
-    {float value=0;if((instance->tableParameterValue(key,instance->splitEnabled?instance->splitFocus:0,value)||instance->scannedParameterValue(key,instance->splitEnabled?instance->splitFocus:0,value)||instance->fmParameterValue(key,instance->splitEnabled?instance->splitFocus:0,value)))return std::snprintf(buffer,bufferLength,"%.9g",double(value));}
+    {float value=0;if((instance->tableParameterValue(key,instance->splitEnabled?instance->splitFocus:0,value)||instance->scannedParameterValue(key,instance->splitEnabled?instance->splitFocus:0,value)||instance->fmParameterValue(key,instance->splitEnabled?instance->splitFocus:0,value)||instance->noiseParameterValue(key,instance->splitEnabled?instance->splitFocus:0,value)||instance->resonParameterValue(key,instance->splitEnabled?instance->splitFocus:0,value)||instance->partialsParameterValue(key,instance->splitEnabled?instance->splitFocus:0,value)||instance->lowformParameterValue(key,instance->splitEnabled?instance->splitFocus:0,value)))return std::snprintf(buffer,bufferLength,"%.9g",double(value));}
     if (std::strncmp(key,"ui_poll_",8)==0)
         return formatUiPoll(opaque,key+8,buffer,bufferLength);
     if(!std::strcmp(key,"pattern_worker_state"))return instance->formatPatternWorker(buffer,bufferLength);

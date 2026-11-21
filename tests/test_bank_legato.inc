@@ -204,7 +204,7 @@ void testBankPadControlsAndSources() {
     t=std::make_unique<ThruInstance>();assert(t->prepare(folder));
     assert(t->bankMasterRate==2 && t->bankRecordSource==3);
     assert(t->bankSlots[0].rate==.5f && t->bankSlots[0].pan==1 && t->bankSlots[0].play==1 && t->bankSlots[0].choke==2);
-    // A test.47 format-32 set retains its original per-pad rate at master 1x.
+    // A test.47 format-32 set retains its original per-pad rate at global 1x.
     t->stopBackgroundWork();
     const std::string current=std::string(folder)+"/thru-clips.bin",legacy=std::string(folder)+"/legacy.bin";
     auto* file=std::fopen(current.c_str(),"rb");assert(file);assert(std::fseek(file,0,SEEK_END)==0);
@@ -232,7 +232,7 @@ void testBankPadControlsAndSources() {
     assert(t->bankMasterRate==1 && t->bankRecordSource==2 && t->bankSlots[0].rate==.5f);
     assert(t->bankSlots[0].pan==0 && t->bankSlots[0].play==0 && t->bankSlots[0].choke==0);
     t.reset();std::remove(legacy.c_str());removeBackgroundTestDirectory(folder);
-    std::puts("s3g Thru Bank master/ratio, live stereo balance, one-shot, choke, input source and restart recall: PASS");
+    std::puts("s3g Thru Bank global rate/ratio, live stereo balance, one-shot, choke, input source and restart recall: PASS");
 }
 
 

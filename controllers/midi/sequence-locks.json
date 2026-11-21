@@ -1696,5 +1696,1541 @@
     "key": "fm_curve2",
     "scope": "voice",
     "target": 415
+  },
+  {
+    "id": 4500,
+    "key": "noise_type",
+    "scope": "voice",
+    "target": 448
+  },
+  {
+    "id": 4501,
+    "key": "noise_tune",
+    "scope": "voice",
+    "target": 449
+  },
+  {
+    "id": 4502,
+    "key": "noise_width",
+    "scope": "voice",
+    "target": 450
+  },
+  {
+    "id": 4503,
+    "key": "noise_level",
+    "scope": "voice",
+    "target": 451
+  },
+  {
+    "id": 4504,
+    "key": "noise_color",
+    "scope": "voice",
+    "target": 452
+  },
+  {
+    "id": 4505,
+    "key": "noise_tone",
+    "scope": "voice",
+    "target": 453
+  },
+  {
+    "id": 4506,
+    "key": "noise_bits",
+    "scope": "voice",
+    "target": 454
+  },
+  {
+    "id": 4507,
+    "key": "noise_seed",
+    "scope": "voice",
+    "target": 455
+  },
+  {
+    "id": 4508,
+    "key": "noise_count",
+    "scope": "voice",
+    "target": 456
+  },
+  {
+    "id": 4509,
+    "key": "noise_bandwidth",
+    "scope": "voice",
+    "target": 457
+  },
+  {
+    "id": 4510,
+    "key": "noise_tilt",
+    "scope": "voice",
+    "target": 458
+  },
+  {
+    "id": 4511,
+    "key": "noise_stretch",
+    "scope": "voice",
+    "target": 459
+  },
+  {
+    "id": 4512,
+    "key": "noise_motion",
+    "scope": "voice",
+    "target": 460
+  },
+  {
+    "id": 4513,
+    "key": "noise_motion_rate",
+    "scope": "voice",
+    "target": 461
+  },
+  {
+    "id": 4514,
+    "key": "noise_leak",
+    "scope": "voice",
+    "target": 462
+  },
+  {
+    "id": 4515,
+    "key": "noise_style",
+    "scope": "voice",
+    "target": 463
+  },
+  {
+    "id": 4516,
+    "key": "noise_rate",
+    "scope": "voice",
+    "target": 464
+  },
+  {
+    "id": 4517,
+    "key": "noise_size",
+    "scope": "voice",
+    "target": 465
+  },
+  {
+    "id": 4518,
+    "key": "noise_clump",
+    "scope": "voice",
+    "target": 466
+  },
+  {
+    "id": 4519,
+    "key": "noise_edge",
+    "scope": "voice",
+    "target": 467
+  },
+  {
+    "id": 4520,
+    "key": "noise_variation",
+    "scope": "voice",
+    "target": 468
+  },
+  {
+    "id": 4521,
+    "key": "noise_bed",
+    "scope": "voice",
+    "target": 469
+  },
+  {
+    "id": 4522,
+    "key": "noise_repeat",
+    "scope": "voice",
+    "target": 470
+  },
+  {
+    "id": 4523,
+    "key": "noise_fault",
+    "scope": "voice",
+    "target": 471
+  },
+  {
+    "id": 4524,
+    "key": "noise_ratio_1",
+    "scope": "voice",
+    "target": 472
+  },
+  {
+    "id": 4525,
+    "key": "noise_ratio_2",
+    "scope": "voice",
+    "target": 473
+  },
+  {
+    "id": 4526,
+    "key": "noise_ratio_3",
+    "scope": "voice",
+    "target": 474
+  },
+  {
+    "id": 4527,
+    "key": "noise_ratio_4",
+    "scope": "voice",
+    "target": 475
+  },
+  {
+    "id": 4528,
+    "key": "noise_ratio_5",
+    "scope": "voice",
+    "target": 476
+  },
+  {
+    "id": 4529,
+    "key": "noise_ratio_6",
+    "scope": "voice",
+    "target": 477
+  },
+  {
+    "id": 4530,
+    "key": "noise_ratio_7",
+    "scope": "voice",
+    "target": 478
+  },
+  {
+    "id": 4531,
+    "key": "noise_ratio_8",
+    "scope": "voice",
+    "target": 479
+  },
+  {
+    "id": 4532,
+    "key": "noise_ratio_9",
+    "scope": "voice",
+    "target": 480
+  },
+  {
+    "id": 4533,
+    "key": "noise_ratio_10",
+    "scope": "voice",
+    "target": 481
+  },
+  {
+    "id": 4534,
+    "key": "noise_ratio_11",
+    "scope": "voice",
+    "target": 482
+  },
+  {
+    "id": 4535,
+    "key": "noise_ratio_12",
+    "scope": "voice",
+    "target": 483
+  },
+  {
+    "id": 4536,
+    "key": "noise_ratio_13",
+    "scope": "voice",
+    "target": 484
+  },
+  {
+    "id": 4537,
+    "key": "noise_ratio_14",
+    "scope": "voice",
+    "target": 485
+  },
+  {
+    "id": 4538,
+    "key": "noise_ratio_15",
+    "scope": "voice",
+    "target": 486
+  },
+  {
+    "id": 4539,
+    "key": "noise_ratio_16",
+    "scope": "voice",
+    "target": 487
+  },
+  {
+    "id": 4540,
+    "key": "noise_ratio_17",
+    "scope": "voice",
+    "target": 488
+  },
+  {
+    "id": 4541,
+    "key": "noise_ratio_18",
+    "scope": "voice",
+    "target": 489
+  },
+  {
+    "id": 4542,
+    "key": "noise_ratio_19",
+    "scope": "voice",
+    "target": 490
+  },
+  {
+    "id": 4543,
+    "key": "noise_ratio_20",
+    "scope": "voice",
+    "target": 491
+  },
+  {
+    "id": 4544,
+    "key": "noise_ratio_21",
+    "scope": "voice",
+    "target": 492
+  },
+  {
+    "id": 4545,
+    "key": "noise_ratio_22",
+    "scope": "voice",
+    "target": 493
+  },
+  {
+    "id": 4546,
+    "key": "noise_ratio_23",
+    "scope": "voice",
+    "target": 494
+  },
+  {
+    "id": 4547,
+    "key": "noise_ratio_24",
+    "scope": "voice",
+    "target": 495
+  },
+  {
+    "id": 4548,
+    "key": "noise_ratio_25",
+    "scope": "voice",
+    "target": 496
+  },
+  {
+    "id": 4549,
+    "key": "noise_ratio_26",
+    "scope": "voice",
+    "target": 497
+  },
+  {
+    "id": 4550,
+    "key": "noise_ratio_27",
+    "scope": "voice",
+    "target": 498
+  },
+  {
+    "id": 4551,
+    "key": "noise_ratio_28",
+    "scope": "voice",
+    "target": 499
+  },
+  {
+    "id": 4552,
+    "key": "noise_ratio_29",
+    "scope": "voice",
+    "target": 500
+  },
+  {
+    "id": 4553,
+    "key": "noise_ratio_30",
+    "scope": "voice",
+    "target": 501
+  },
+  {
+    "id": 4554,
+    "key": "noise_ratio_31",
+    "scope": "voice",
+    "target": 502
+  },
+  {
+    "id": 4555,
+    "key": "noise_ratio_32",
+    "scope": "voice",
+    "target": 503
+  },
+  {
+    "id": 4556,
+    "key": "noise_band_1",
+    "scope": "voice",
+    "target": 504
+  },
+  {
+    "id": 4557,
+    "key": "noise_band_2",
+    "scope": "voice",
+    "target": 505
+  },
+  {
+    "id": 4558,
+    "key": "noise_band_3",
+    "scope": "voice",
+    "target": 506
+  },
+  {
+    "id": 4559,
+    "key": "noise_band_4",
+    "scope": "voice",
+    "target": 507
+  },
+  {
+    "id": 4560,
+    "key": "noise_band_5",
+    "scope": "voice",
+    "target": 508
+  },
+  {
+    "id": 4561,
+    "key": "noise_band_6",
+    "scope": "voice",
+    "target": 509
+  },
+  {
+    "id": 4562,
+    "key": "noise_band_7",
+    "scope": "voice",
+    "target": 510
+  },
+  {
+    "id": 4563,
+    "key": "noise_band_8",
+    "scope": "voice",
+    "target": 511
+  },
+  {
+    "id": 4564,
+    "key": "noise_band_9",
+    "scope": "voice",
+    "target": 512
+  },
+  {
+    "id": 4565,
+    "key": "noise_band_10",
+    "scope": "voice",
+    "target": 513
+  },
+  {
+    "id": 4566,
+    "key": "noise_band_11",
+    "scope": "voice",
+    "target": 514
+  },
+  {
+    "id": 4567,
+    "key": "noise_band_12",
+    "scope": "voice",
+    "target": 515
+  },
+  {
+    "id": 4568,
+    "key": "noise_band_13",
+    "scope": "voice",
+    "target": 516
+  },
+  {
+    "id": 4569,
+    "key": "noise_band_14",
+    "scope": "voice",
+    "target": 517
+  },
+  {
+    "id": 4570,
+    "key": "noise_band_15",
+    "scope": "voice",
+    "target": 518
+  },
+  {
+    "id": 4571,
+    "key": "noise_band_16",
+    "scope": "voice",
+    "target": 519
+  },
+  {
+    "id": 4572,
+    "key": "noise_band_17",
+    "scope": "voice",
+    "target": 520
+  },
+  {
+    "id": 4573,
+    "key": "noise_band_18",
+    "scope": "voice",
+    "target": 521
+  },
+  {
+    "id": 4574,
+    "key": "noise_band_19",
+    "scope": "voice",
+    "target": 522
+  },
+  {
+    "id": 4575,
+    "key": "noise_band_20",
+    "scope": "voice",
+    "target": 523
+  },
+  {
+    "id": 4576,
+    "key": "noise_band_21",
+    "scope": "voice",
+    "target": 524
+  },
+  {
+    "id": 4577,
+    "key": "noise_band_22",
+    "scope": "voice",
+    "target": 525
+  },
+  {
+    "id": 4578,
+    "key": "noise_band_23",
+    "scope": "voice",
+    "target": 526
+  },
+  {
+    "id": 4579,
+    "key": "noise_band_24",
+    "scope": "voice",
+    "target": 527
+  },
+  {
+    "id": 4580,
+    "key": "noise_band_25",
+    "scope": "voice",
+    "target": 528
+  },
+  {
+    "id": 4581,
+    "key": "noise_band_26",
+    "scope": "voice",
+    "target": 529
+  },
+  {
+    "id": 4582,
+    "key": "noise_band_27",
+    "scope": "voice",
+    "target": 530
+  },
+  {
+    "id": 4583,
+    "key": "noise_band_28",
+    "scope": "voice",
+    "target": 531
+  },
+  {
+    "id": 4584,
+    "key": "noise_band_29",
+    "scope": "voice",
+    "target": 532
+  },
+  {
+    "id": 4585,
+    "key": "noise_band_30",
+    "scope": "voice",
+    "target": 533
+  },
+  {
+    "id": 4586,
+    "key": "noise_band_31",
+    "scope": "voice",
+    "target": 534
+  },
+  {
+    "id": 4587,
+    "key": "noise_band_32",
+    "scope": "voice",
+    "target": 535
+  },
+  {
+    "id": 4600,
+    "key": "reson_mode",
+    "scope": "voice",
+    "target": 544
+  },
+  {
+    "id": 4601,
+    "key": "reson_tune",
+    "scope": "voice",
+    "target": 545
+  },
+  {
+    "id": 4602,
+    "key": "reson_width",
+    "scope": "voice",
+    "target": 546
+  },
+  {
+    "id": 4603,
+    "key": "reson_level",
+    "scope": "voice",
+    "target": 547
+  },
+  {
+    "id": 4604,
+    "key": "reson_model",
+    "scope": "voice",
+    "target": 548
+  },
+  {
+    "id": 4605,
+    "key": "reson_decay",
+    "scope": "voice",
+    "target": 549
+  },
+  {
+    "id": 4606,
+    "key": "reson_brightness",
+    "scope": "voice",
+    "target": 550
+  },
+  {
+    "id": 4607,
+    "key": "reson_damping",
+    "scope": "voice",
+    "target": 551
+  },
+  {
+    "id": 4608,
+    "key": "reson_stretch",
+    "scope": "voice",
+    "target": 552
+  },
+  {
+    "id": 4609,
+    "key": "reson_inharmonic",
+    "scope": "voice",
+    "target": 553
+  },
+  {
+    "id": 4610,
+    "key": "reson_mass",
+    "scope": "voice",
+    "target": 554
+  },
+  {
+    "id": 4611,
+    "key": "reson_bend",
+    "scope": "voice",
+    "target": 555
+  },
+  {
+    "id": 4612,
+    "key": "reson_sweep",
+    "scope": "voice",
+    "target": 556
+  },
+  {
+    "id": 4613,
+    "key": "reson_noise",
+    "scope": "voice",
+    "target": 557
+  },
+  {
+    "id": 4614,
+    "key": "reson_noise_decay",
+    "scope": "voice",
+    "target": 558
+  },
+  {
+    "id": 4615,
+    "key": "reson_color",
+    "scope": "voice",
+    "target": 559
+  },
+  {
+    "id": 4616,
+    "key": "reson_hit",
+    "scope": "voice",
+    "target": 560
+  },
+  {
+    "id": 4617,
+    "key": "reson_hardness",
+    "scope": "voice",
+    "target": 561
+  },
+  {
+    "id": 4618,
+    "key": "reson_hit_decay",
+    "scope": "voice",
+    "target": 562
+  },
+  {
+    "id": 4619,
+    "key": "reson_punch",
+    "scope": "voice",
+    "target": 563
+  },
+  {
+    "id": 4620,
+    "key": "reson_position",
+    "scope": "voice",
+    "target": 564
+  },
+  {
+    "id": 4621,
+    "key": "reson_coupling",
+    "scope": "voice",
+    "target": 565
+  },
+  {
+    "id": 4622,
+    "key": "reson_detune",
+    "scope": "voice",
+    "target": 566
+  },
+  {
+    "id": 4623,
+    "key": "reson_seed",
+    "scope": "voice",
+    "target": 567
+  },
+  {
+    "id": 4624,
+    "key": "reson_drive",
+    "scope": "voice",
+    "target": 568
+  },
+  {
+    "id": 4625,
+    "key": "reson_clip",
+    "scope": "voice",
+    "target": 569
+  },
+  {
+    "id": 4626,
+    "key": "reson_bias",
+    "scope": "voice",
+    "target": 570
+  },
+  {
+    "id": 4627,
+    "key": "reson_sag",
+    "scope": "voice",
+    "target": 571
+  },
+  {
+    "id": 4628,
+    "key": "reson_recovery",
+    "scope": "voice",
+    "target": 572
+  },
+  {
+    "id": 4629,
+    "key": "reson_tone",
+    "scope": "voice",
+    "target": 573
+  },
+  {
+    "id": 4630,
+    "key": "reson_mix",
+    "scope": "voice",
+    "target": 574
+  },
+  {
+    "id": 4631,
+    "key": "reson_output",
+    "scope": "voice",
+    "target": 575
+  },
+  {
+    "id": 4800,
+    "key": "partials_type",
+    "scope": "voice",
+    "target": 576
+  },
+  {
+    "id": 4801,
+    "key": "partials_tune",
+    "scope": "voice",
+    "target": 577
+  },
+  {
+    "id": 4802,
+    "key": "partials_width",
+    "scope": "voice",
+    "target": 578
+  },
+  {
+    "id": 4803,
+    "key": "partials_level",
+    "scope": "voice",
+    "target": 579
+  },
+  {
+    "id": 4804,
+    "key": "partials_count",
+    "scope": "voice",
+    "target": 580
+  },
+  {
+    "id": 4805,
+    "key": "partials_tilt",
+    "scope": "voice",
+    "target": 581
+  },
+  {
+    "id": 4806,
+    "key": "partials_stretch",
+    "scope": "voice",
+    "target": 582
+  },
+  {
+    "id": 4807,
+    "key": "partials_phase",
+    "scope": "voice",
+    "target": 583
+  },
+  {
+    "id": 4808,
+    "key": "partials_harmonics",
+    "scope": "voice",
+    "target": 584
+  },
+  {
+    "id": 4809,
+    "key": "partials_subs",
+    "scope": "voice",
+    "target": 585
+  },
+  {
+    "id": 4810,
+    "key": "partials_balance",
+    "scope": "voice",
+    "target": 586
+  },
+  {
+    "id": 4811,
+    "key": "partials_detune",
+    "scope": "voice",
+    "target": 587
+  },
+  {
+    "id": 4812,
+    "key": "partials_drift",
+    "scope": "voice",
+    "target": 588
+  },
+  {
+    "id": 4813,
+    "key": "partials_drift_rate",
+    "scope": "voice",
+    "target": 589
+  },
+  {
+    "id": 4814,
+    "key": "partials_damping",
+    "scope": "voice",
+    "target": 590
+  },
+  {
+    "id": 4815,
+    "key": "partials_time",
+    "scope": "voice",
+    "target": 591
+  },
+  {
+    "id": 4816,
+    "key": "partials_gap",
+    "scope": "voice",
+    "target": 592
+  },
+  {
+    "id": 4817,
+    "key": "partials_scatter",
+    "scope": "voice",
+    "target": 593
+  },
+  {
+    "id": 4818,
+    "key": "partials_rise",
+    "scope": "voice",
+    "target": 594
+  },
+  {
+    "id": 4819,
+    "key": "partials_sustain",
+    "scope": "voice",
+    "target": 595
+  },
+  {
+    "id": 4820,
+    "key": "partials_decay",
+    "scope": "voice",
+    "target": 596
+  },
+  {
+    "id": 4821,
+    "key": "partials_variation",
+    "scope": "voice",
+    "target": 597
+  },
+  {
+    "id": 4822,
+    "key": "partials_pitch_jitter",
+    "scope": "voice",
+    "target": 598
+  },
+  {
+    "id": 4823,
+    "key": "partials_shape",
+    "scope": "voice",
+    "target": 599
+  },
+  {
+    "id": 4824,
+    "key": "partials_ratio_1",
+    "scope": "voice",
+    "target": 600
+  },
+  {
+    "id": 4825,
+    "key": "partials_ratio_2",
+    "scope": "voice",
+    "target": 601
+  },
+  {
+    "id": 4826,
+    "key": "partials_ratio_3",
+    "scope": "voice",
+    "target": 602
+  },
+  {
+    "id": 4827,
+    "key": "partials_ratio_4",
+    "scope": "voice",
+    "target": 603
+  },
+  {
+    "id": 4828,
+    "key": "partials_ratio_5",
+    "scope": "voice",
+    "target": 604
+  },
+  {
+    "id": 4829,
+    "key": "partials_ratio_6",
+    "scope": "voice",
+    "target": 605
+  },
+  {
+    "id": 4830,
+    "key": "partials_ratio_7",
+    "scope": "voice",
+    "target": 606
+  },
+  {
+    "id": 4831,
+    "key": "partials_ratio_8",
+    "scope": "voice",
+    "target": 607
+  },
+  {
+    "id": 4832,
+    "key": "partials_ratio_9",
+    "scope": "voice",
+    "target": 608
+  },
+  {
+    "id": 4833,
+    "key": "partials_ratio_10",
+    "scope": "voice",
+    "target": 609
+  },
+  {
+    "id": 4834,
+    "key": "partials_ratio_11",
+    "scope": "voice",
+    "target": 610
+  },
+  {
+    "id": 4835,
+    "key": "partials_ratio_12",
+    "scope": "voice",
+    "target": 611
+  },
+  {
+    "id": 4836,
+    "key": "partials_ratio_13",
+    "scope": "voice",
+    "target": 612
+  },
+  {
+    "id": 4837,
+    "key": "partials_ratio_14",
+    "scope": "voice",
+    "target": 613
+  },
+  {
+    "id": 4838,
+    "key": "partials_ratio_15",
+    "scope": "voice",
+    "target": 614
+  },
+  {
+    "id": 4839,
+    "key": "partials_ratio_16",
+    "scope": "voice",
+    "target": 615
+  },
+  {
+    "id": 4840,
+    "key": "partials_ratio_17",
+    "scope": "voice",
+    "target": 616
+  },
+  {
+    "id": 4841,
+    "key": "partials_ratio_18",
+    "scope": "voice",
+    "target": 617
+  },
+  {
+    "id": 4842,
+    "key": "partials_ratio_19",
+    "scope": "voice",
+    "target": 618
+  },
+  {
+    "id": 4843,
+    "key": "partials_ratio_20",
+    "scope": "voice",
+    "target": 619
+  },
+  {
+    "id": 4844,
+    "key": "partials_ratio_21",
+    "scope": "voice",
+    "target": 620
+  },
+  {
+    "id": 4845,
+    "key": "partials_ratio_22",
+    "scope": "voice",
+    "target": 621
+  },
+  {
+    "id": 4846,
+    "key": "partials_ratio_23",
+    "scope": "voice",
+    "target": 622
+  },
+  {
+    "id": 4847,
+    "key": "partials_ratio_24",
+    "scope": "voice",
+    "target": 623
+  },
+  {
+    "id": 4848,
+    "key": "partials_ratio_25",
+    "scope": "voice",
+    "target": 624
+  },
+  {
+    "id": 4849,
+    "key": "partials_ratio_26",
+    "scope": "voice",
+    "target": 625
+  },
+  {
+    "id": 4850,
+    "key": "partials_ratio_27",
+    "scope": "voice",
+    "target": 626
+  },
+  {
+    "id": 4851,
+    "key": "partials_ratio_28",
+    "scope": "voice",
+    "target": 627
+  },
+  {
+    "id": 4852,
+    "key": "partials_ratio_29",
+    "scope": "voice",
+    "target": 628
+  },
+  {
+    "id": 4853,
+    "key": "partials_ratio_30",
+    "scope": "voice",
+    "target": 629
+  },
+  {
+    "id": 4854,
+    "key": "partials_ratio_31",
+    "scope": "voice",
+    "target": 630
+  },
+  {
+    "id": 4855,
+    "key": "partials_ratio_32",
+    "scope": "voice",
+    "target": 631
+  },
+  {
+    "id": 4856,
+    "key": "partials_band_1",
+    "scope": "voice",
+    "target": 632
+  },
+  {
+    "id": 4857,
+    "key": "partials_band_2",
+    "scope": "voice",
+    "target": 633
+  },
+  {
+    "id": 4858,
+    "key": "partials_band_3",
+    "scope": "voice",
+    "target": 634
+  },
+  {
+    "id": 4859,
+    "key": "partials_band_4",
+    "scope": "voice",
+    "target": 635
+  },
+  {
+    "id": 4860,
+    "key": "partials_band_5",
+    "scope": "voice",
+    "target": 636
+  },
+  {
+    "id": 4861,
+    "key": "partials_band_6",
+    "scope": "voice",
+    "target": 637
+  },
+  {
+    "id": 4862,
+    "key": "partials_band_7",
+    "scope": "voice",
+    "target": 638
+  },
+  {
+    "id": 4863,
+    "key": "partials_band_8",
+    "scope": "voice",
+    "target": 639
+  },
+  {
+    "id": 4864,
+    "key": "partials_band_9",
+    "scope": "voice",
+    "target": 640
+  },
+  {
+    "id": 4865,
+    "key": "partials_band_10",
+    "scope": "voice",
+    "target": 641
+  },
+  {
+    "id": 4866,
+    "key": "partials_band_11",
+    "scope": "voice",
+    "target": 642
+  },
+  {
+    "id": 4867,
+    "key": "partials_band_12",
+    "scope": "voice",
+    "target": 643
+  },
+  {
+    "id": 4868,
+    "key": "partials_band_13",
+    "scope": "voice",
+    "target": 644
+  },
+  {
+    "id": 4869,
+    "key": "partials_band_14",
+    "scope": "voice",
+    "target": 645
+  },
+  {
+    "id": 4870,
+    "key": "partials_band_15",
+    "scope": "voice",
+    "target": 646
+  },
+  {
+    "id": 4871,
+    "key": "partials_band_16",
+    "scope": "voice",
+    "target": 647
+  },
+  {
+    "id": 4872,
+    "key": "partials_band_17",
+    "scope": "voice",
+    "target": 648
+  },
+  {
+    "id": 4873,
+    "key": "partials_band_18",
+    "scope": "voice",
+    "target": 649
+  },
+  {
+    "id": 4874,
+    "key": "partials_band_19",
+    "scope": "voice",
+    "target": 650
+  },
+  {
+    "id": 4875,
+    "key": "partials_band_20",
+    "scope": "voice",
+    "target": 651
+  },
+  {
+    "id": 4876,
+    "key": "partials_band_21",
+    "scope": "voice",
+    "target": 652
+  },
+  {
+    "id": 4877,
+    "key": "partials_band_22",
+    "scope": "voice",
+    "target": 653
+  },
+  {
+    "id": 4878,
+    "key": "partials_band_23",
+    "scope": "voice",
+    "target": 654
+  },
+  {
+    "id": 4879,
+    "key": "partials_band_24",
+    "scope": "voice",
+    "target": 655
+  },
+  {
+    "id": 4880,
+    "key": "partials_band_25",
+    "scope": "voice",
+    "target": 656
+  },
+  {
+    "id": 4881,
+    "key": "partials_band_26",
+    "scope": "voice",
+    "target": 657
+  },
+  {
+    "id": 4882,
+    "key": "partials_band_27",
+    "scope": "voice",
+    "target": 658
+  },
+  {
+    "id": 4883,
+    "key": "partials_band_28",
+    "scope": "voice",
+    "target": 659
+  },
+  {
+    "id": 4884,
+    "key": "partials_band_29",
+    "scope": "voice",
+    "target": 660
+  },
+  {
+    "id": 4885,
+    "key": "partials_band_30",
+    "scope": "voice",
+    "target": 661
+  },
+  {
+    "id": 4886,
+    "key": "partials_band_31",
+    "scope": "voice",
+    "target": 662
+  },
+  {
+    "id": 4887,
+    "key": "partials_band_32",
+    "scope": "voice",
+    "target": 663
+  },
+  {
+    "id": 4888,
+    "key": "partials_divisor_1",
+    "scope": "voice",
+    "target": 664
+  },
+  {
+    "id": 4889,
+    "key": "partials_divisor_2",
+    "scope": "voice",
+    "target": 665
+  },
+  {
+    "id": 4890,
+    "key": "partials_divisor_3",
+    "scope": "voice",
+    "target": 666
+  },
+  {
+    "id": 4891,
+    "key": "partials_divisor_4",
+    "scope": "voice",
+    "target": 667
+  },
+  {
+    "id": 4892,
+    "key": "partials_divisor_5",
+    "scope": "voice",
+    "target": 668
+  },
+  {
+    "id": 4893,
+    "key": "partials_divisor_6",
+    "scope": "voice",
+    "target": 669
+  },
+  {
+    "id": 4894,
+    "key": "partials_divisor_7",
+    "scope": "voice",
+    "target": 670
+  },
+  {
+    "id": 4895,
+    "key": "partials_divisor_8",
+    "scope": "voice",
+    "target": 671
+  },
+  {
+    "id": 4896,
+    "key": "partials_divisor_9",
+    "scope": "voice",
+    "target": 672
+  },
+  {
+    "id": 4897,
+    "key": "partials_divisor_10",
+    "scope": "voice",
+    "target": 673
+  },
+  {
+    "id": 4898,
+    "key": "partials_divisor_11",
+    "scope": "voice",
+    "target": 674
+  },
+  {
+    "id": 4899,
+    "key": "partials_divisor_12",
+    "scope": "voice",
+    "target": 675
+  },
+  {
+    "id": 4900,
+    "key": "partials_divisor_13",
+    "scope": "voice",
+    "target": 676
+  },
+  {
+    "id": 4901,
+    "key": "partials_divisor_14",
+    "scope": "voice",
+    "target": 677
+  },
+  {
+    "id": 4902,
+    "key": "partials_divisor_15",
+    "scope": "voice",
+    "target": 678
+  },
+  {
+    "id": 4903,
+    "key": "partials_divisor_16",
+    "scope": "voice",
+    "target": 679
+  },
+  {
+    "id": 5000,
+    "key": "lowform_body",
+    "scope": "voice",
+    "target": 704
+  },
+  {
+    "id": 5001,
+    "key": "lowform_tune",
+    "scope": "voice",
+    "target": 705
+  },
+  {
+    "id": 5002,
+    "key": "lowform_width",
+    "scope": "voice",
+    "target": 706
+  },
+  {
+    "id": 5003,
+    "key": "lowform_level",
+    "scope": "voice",
+    "target": 707
+  },
+  {
+    "id": 5004,
+    "key": "lowform_foundation_wave",
+    "scope": "voice",
+    "target": 708
+  },
+  {
+    "id": 5005,
+    "key": "lowform_foundation_octave",
+    "scope": "voice",
+    "target": 709
+  },
+  {
+    "id": 5006,
+    "key": "lowform_foundation_level",
+    "scope": "voice",
+    "target": 710
+  },
+  {
+    "id": 5007,
+    "key": "lowform_body_level",
+    "scope": "voice",
+    "target": 711
+  },
+  {
+    "id": 5008,
+    "key": "lowform_a",
+    "scope": "voice",
+    "target": 712
+  },
+  {
+    "id": 5009,
+    "key": "lowform_b",
+    "scope": "voice",
+    "target": 713
+  },
+  {
+    "id": 5010,
+    "key": "lowform_c",
+    "scope": "voice",
+    "target": 714
+  },
+  {
+    "id": 5011,
+    "key": "lowform_d",
+    "scope": "voice",
+    "target": 715
+  },
+  {
+    "id": 5012,
+    "key": "lowform_e",
+    "scope": "voice",
+    "target": 716
+  },
+  {
+    "id": 5013,
+    "key": "lowform_body_decay",
+    "scope": "voice",
+    "target": 717
+  },
+  {
+    "id": 5014,
+    "key": "lowform_texture_type",
+    "scope": "voice",
+    "target": 718
+  },
+  {
+    "id": 5015,
+    "key": "lowform_texture_level",
+    "scope": "voice",
+    "target": 719
+  },
+  {
+    "id": 5016,
+    "key": "lowform_texture_color",
+    "scope": "voice",
+    "target": 720
+  },
+  {
+    "id": 5017,
+    "key": "lowform_texture_track",
+    "scope": "voice",
+    "target": 721
+  },
+  {
+    "id": 5018,
+    "key": "lowform_texture_width",
+    "scope": "voice",
+    "target": 722
+  },
+  {
+    "id": 5019,
+    "key": "lowform_filter_type",
+    "scope": "voice",
+    "target": 723
+  },
+  {
+    "id": 5020,
+    "key": "lowform_cutoff",
+    "scope": "voice",
+    "target": 724
+  },
+  {
+    "id": 5021,
+    "key": "lowform_resonance",
+    "scope": "voice",
+    "target": 725
+  },
+  {
+    "id": 5022,
+    "key": "lowform_filter_drive",
+    "scope": "voice",
+    "target": 726
+  },
+  {
+    "id": 5023,
+    "key": "lowform_keytrack",
+    "scope": "voice",
+    "target": 727
+  },
+  {
+    "id": 5024,
+    "key": "lowform_filter_env",
+    "scope": "voice",
+    "target": 728
+  },
+  {
+    "id": 5025,
+    "key": "lowform_filter_decay",
+    "scope": "voice",
+    "target": 729
+  },
+  {
+    "id": 5026,
+    "key": "lowform_punch",
+    "scope": "voice",
+    "target": 730
+  },
+  {
+    "id": 5027,
+    "key": "lowform_punch_time",
+    "scope": "voice",
+    "target": 731
+  },
+  {
+    "id": 5028,
+    "key": "lowform_drive",
+    "scope": "voice",
+    "target": 732
+  },
+  {
+    "id": 5029,
+    "key": "lowform_low_return",
+    "scope": "voice",
+    "target": 733
+  },
+  {
+    "id": 5030,
+    "key": "lowform_texture_decay",
+    "scope": "voice",
+    "target": 734
+  },
+  {
+    "id": 5031,
+    "key": "lowform_texture_attack",
+    "scope": "voice",
+    "target": 735
   }
 ]

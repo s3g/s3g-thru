@@ -39,6 +39,7 @@ float midiMaximum(const ThruInstance& t,const MidiParameter& p,int part=-1) {
     if(!std::strcmp(p.key,"seq_recipe_hits")||!std::strcmp(p.key,"seq_recipe_shift"))return float((t.sequenceRunning()?t.sequencePlayback:t.sequenceLive).tracks[owner].length-(!std::strcmp(p.key,"seq_recipe_shift")?1:0));
     if(!std::strcmp(p.key,"seq_recipe_min")||!std::strcmp(p.key,"seq_recipe_max"))return (t.sequenceRunning()?t.sequencePlayback:t.sequenceLive).tracks[owner].timeMode?30000.f:32.f;
     if(!std::strcmp(p.key,"seq_duck_key"))return float(t.outputMixerCount());
+    if(!std::strcmp(p.key,"partials_count")){auto c=t.liveControlsForPart(owner).partials.patches[t.tableEditLane(owner)];float locked=0;if(t.sequenceSoundEditValue(4800,owner,locked))s3g_thru_partials::set(c,s3g_thru_partials::type,locked);if(c.v[s3g_thru_partials::type]>1.5f)return 8;}
     return p.maximum;
 }
 
@@ -46,7 +47,7 @@ float midiRead(ThruInstance& t,const MidiParameter& p,int part) {
     if(t.sequenceSoundEditing()){int owner=p.part?part:t.splitFocus;const auto* mapped=t.sequenceSoundParameter(p.key,owner);float locked=0;if(mapped&&t.sequenceSoundEditValue(mapped->id,owner,locked))return locked;}
     part=clampValue(part,0,t.isQuad()?3:t.splitEnabled?1:0);
     const char* key=p.key;
-    {float value=0;if(t.tableParameterValue(key,part,value)||t.scannedParameterValue(key,part,value)||t.fmParameterValue(key,part,value)||t.controlLfoParameterValue(key,part,value))return value;}
+    {float value=0;if(t.tableParameterValue(key,part,value)||t.scannedParameterValue(key,part,value)||t.fmParameterValue(key,part,value)||t.noiseParameterValue(key,part,value)||t.resonParameterValue(key,part,value)||t.partialsParameterValue(key,part,value)||t.lowformParameterValue(key,part,value)||t.controlLfoParameterValue(key,part,value))return value;}
     if(std::strcmp(key,"part_level")==0)return lockedValue(t.controls,t.outputGain,t.partLevelParameter(part));
     if(std::strcmp(key,"part_delay")==0)return lockedValue(t.controls,t.outputGain,t.partDelayParameter(part));
     if(std::strcmp(key,"part_reverb")==0)return lockedValue(t.controls,t.outputGain,t.partReverbParameter(part));
@@ -482,8 +483,30 @@ const MidiParameter* e16PageSlotParameter(ThruInstance& t,int page,int slot,int&
         || (t.isQuad() && (id==k[15] || id==k[16])))return nullptr;
     if(id==3205 && c.algorithm==Engine::PlaybackAlgorithm::stochastic
         && c.stochasticLaw>=2.5f)id=3210;
+    if(tableControls.algorithm==Engine::PlaybackAlgorithm::noise&&((id>=4524&&id<4528)||(id>=4556&&id<4560)))id+=t.noiseBandGroups[std::clamp(part,0,3)]*4;
+    if(tableControls.algorithm==Engine::PlaybackAlgorithm::partials&&((id>=4824&&id<4828)||(id>=4856&&id<4860))){const int group=t.partialsBandGroups[std::clamp(part,0,3)];const int component=group*4+(id>=4856?id-4856:id-4824);auto componentContext=tableControls.partials.patches[t.tableEditLane(part)];float lockedType=0;if(t.sequenceSoundEditValue(4800,part,lockedType))s3g_thru_partials::set(componentContext,s3g_thru_partials::type,lockedType);id=id>=4856?4856+component:4800+s3g_thru_partials::componentField(componentContext,component);}
     const auto* p=s3g_thru_midi::find(id);
     if(p&&tableControls.algorithm==Engine::PlaybackAlgorithm::table){const int field=s3g_thru_table::index(p->key);if(field>=0&&!s3g_thru_table::applicable(patch,field))return nullptr;if(!std::strcmp(p->key,"locus")||!std::strcmp(p->key,"field")||!std::strcmp(p->key,"speed")||!std::strcmp(p->key,"join"))return nullptr;}
+    if(p&&tableControls.algorithm==Engine::PlaybackAlgorithm::lowform){
+      auto context=tableControls.lowform.patches[t.tableEditLane(part)];for(int f:{s3g_thru_lowform::body,s3g_thru_lowform::body_level,s3g_thru_lowform::foundation_level,s3g_thru_lowform::texture_type,s3g_thru_lowform::texture_level,s3g_thru_lowform::filter_type,s3g_thru_lowform::filter_env,s3g_thru_lowform::punch}){float value=0;if(t.sequenceSoundEditValue(5000+f,part,value))s3g_thru_lowform::set(context,f,value);}
+      const int f=s3g_thru_lowform::index(p->key);if(f>=0&&!s3g_thru_lowform::applicable(context,f))return nullptr;
+      if(!std::strcmp(p->key,"speed")||!std::strcmp(p->key,"join")||!std::strcmp(p->key,"locus")||!std::strcmp(p->key,"field"))return nullptr;
+    }
+    if(p&&tableControls.algorithm==Engine::PlaybackAlgorithm::reson){
+      auto context=tableControls.reson.patches[t.tableEditLane(part)];for(int f:{s3g_thru_reson::mode,s3g_thru_reson::model,s3g_thru_reson::bend,s3g_thru_reson::noise,s3g_thru_reson::hit,s3g_thru_reson::drive,s3g_thru_reson::sag}){float value=0;if(t.sequenceSoundEditValue(4600+f,part,value))s3g_thru_reson::set(context,f,value);}
+      const int f=s3g_thru_reson::index(p->key);if(f>=0&&!s3g_thru_reson::applicable(context,f))return nullptr;
+      if(!std::strcmp(p->key,"speed")||!std::strcmp(p->key,"join")||!std::strcmp(p->key,"locus")||!std::strcmp(p->key,"field"))return nullptr;
+    }
+    if(p&&tableControls.algorithm==Engine::PlaybackAlgorithm::partials){
+      auto context=tableControls.partials.patches[t.tableEditLane(part)];for(int f:{s3g_thru_partials::type,s3g_thru_partials::subs,s3g_thru_partials::drift,s3g_thru_partials::damping}){float value=0;if(t.sequenceSoundEditValue(4800+f,part,value))s3g_thru_partials::set(context,f,value);}
+      const int f=s3g_thru_partials::index(p->key);if(f>=0&&!s3g_thru_partials::applicable(context,f))return nullptr;
+      if(!std::strcmp(p->key,"speed")||!std::strcmp(p->key,"join")||!std::strcmp(p->key,"locus")||!std::strcmp(p->key,"field"))return nullptr;
+    }
+    if(p&&tableControls.algorithm==Engine::PlaybackAlgorithm::noise){
+      auto context=tableControls.noise.patches[t.tableEditLane(part)];for(int f:{s3g_thru_noise::type,s3g_thru_noise::style}){float value=0;if(t.sequenceSoundEditValue(4500+f,part,value))s3g_thru_noise::set(context,f,value);}
+      const int f=s3g_thru_noise::index(p->key);if(f>=0&&!s3g_thru_noise::applicable(context,f))return nullptr;
+      if(!std::strcmp(p->key,"speed")||!std::strcmp(p->key,"join")||!std::strcmp(p->key,"locus")||!std::strcmp(p->key,"field"))return nullptr;
+    }
     if(p&&tableControls.algorithm==Engine::PlaybackAlgorithm::fm){
       auto context=tableControls.fm.patches[t.tableEditLane(part)];for(int f:{s3g_thru_fm::mode,s3g_thru_fm::algorithm,s3g_thru_fm::bend,s3g_thru_fm::noise,s3g_thru_fm::impact,s3g_thru_fm::decay1,s3g_thru_fm::decay2,s3g_thru_fm::end1,s3g_thru_fm::end2}){float value=0;if(t.sequenceSoundEditValue(4400+f,part,value))s3g_thru_fm::set(context,f,value);}
       const int f=s3g_thru_fm::index(p->key);if(f>=0&&!s3g_thru_fm::applicable(context,f))return nullptr;

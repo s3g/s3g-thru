@@ -178,3 +178,11 @@ TABLE adds controls 4200–4239 on the part channel. Track selection chooses the
 SCANNED uses IDs 4300–4330 on the existing part channels. The selected Track chooses its physical patch; four adaptive engine pages expose the same controls as Move.
 
 FM uses IDs 4400–4431 on the existing part channels. The starting-sound action is ID 4490 (0=KEEP, 1–9=BASS/BELL/KEYS/PAD/KICK/SNARE/TOM/METAL/HAT). Tracks select its four patches; four adaptive engine pages mirror Move.
+
+NOISE adds IDs 4500–4587: 24 sound controls and 32 band ratios/levels. Move’s BANDS group selects the E16 fourth page’s four ratios and four levels.
+
+RESON adds IDs 4600–4631 across four eight-control pages, plus explicit starting-sound action 4690. Both E16 parts follow their own selected patch.
+
+PARTIALS adds IDs 4800–4903: 24 macros, 32 ratios, 32 signed levels and 16 independent dividers. Move/E16 component groups select the appropriate ratio or divider for SUB.
+
+LOWFORM adds IDs 5000–5031 for its four sound pages and 5090 for starting sounds. Each part stores four patch programs.

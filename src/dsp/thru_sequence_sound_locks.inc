@@ -74,7 +74,7 @@ bool setSequenceSoundParameter(const char* key,const char* text){
   }
   if(!std::strcmp(key,"clip_automation"))return true;
   if(!s3g_thru_sequence::soundDescriptor(p->id)){
-    if(!std::strcmp(mapped,"algorithm")||!std::strcmp(mapped,"table_model")||!std::strcmp(mapped,"fm_start")){setError("Lane setting, not a trig lock");return true;}
+    if(!std::strcmp(mapped,"algorithm")||!std::strcmp(mapped,"table_model")||!std::strcmp(mapped,"fm_start")||!std::strcmp(mapped,"reson_start")||!std::strcmp(mapped,"lowform_start")){setError("Lane setting, not a trig lock");return true;}
     return false;
   }
   return editSequenceSoundLock(p->id,parseFloat(text,NAN));
@@ -82,7 +82,11 @@ bool setSequenceSoundParameter(const char* key,const char* text){
 void applySequenceVoiceSound(Engine::Controls& c,const s3g_thru_sequence::SoundLockSet& set,int part)const {
   float ignored=1;
   for(int n=0;n<set.count;++n){const auto& x=set.values[n];const auto* d=s3g_thru_sequence::soundDescriptor(x.id);if(!d||d->lane)continue;
-    if(x.id>=4400&&x.id<4400+s3g_thru_fm::fields){if(c.algorithm==Engine::PlaybackAlgorithm::fm)s3g_thru_fm::set(c.fm.patches[part],x.id-4400,x.value);}
+    if(x.id>=5000&&x.id<5000+s3g_thru_lowform::fields){if(c.algorithm==Engine::PlaybackAlgorithm::lowform)s3g_thru_lowform::set(c.lowform.patches[part],x.id-5000,x.value);}
+    else if(x.id>=4800&&x.id<4800+s3g_thru_partials::fields){if(c.algorithm==Engine::PlaybackAlgorithm::partials)s3g_thru_partials::set(c.partials.patches[part],x.id-4800,x.value);}
+    else if(x.id>=4600&&x.id<4600+s3g_thru_reson::fields){if(c.algorithm==Engine::PlaybackAlgorithm::reson)s3g_thru_reson::set(c.reson.patches[part],x.id-4600,x.value);}
+    else if(x.id>=4500&&x.id<4500+s3g_thru_noise::fields){if(c.algorithm==Engine::PlaybackAlgorithm::noise)s3g_thru_noise::set(c.noise.patches[part],x.id-4500,x.value);}
+    else if(x.id>=4400&&x.id<4400+s3g_thru_fm::fields){if(c.algorithm==Engine::PlaybackAlgorithm::fm)s3g_thru_fm::set(c.fm.patches[part],x.id-4400,x.value);}
     else if(x.id>=4300&&x.id<4300+s3g_thru_scanned::fields){if(c.algorithm==Engine::PlaybackAlgorithm::scanned)s3g_thru_scanned::set(c.scanned.patches[part],x.id-4300,x.value);}
     else if(x.id>=4200&&x.id<4240){if(c.algorithm==Engine::PlaybackAlgorithm::table)s3g_thru_table::set(c.table.patches[part],x.id-4200,x.value);}
     else if(d->target>=0)applyLockedValue(c,ignored,d->target,x.value);

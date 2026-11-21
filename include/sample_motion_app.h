@@ -9,6 +9,10 @@
 #include "thru_table_voice.h"
 #include "thru_scanned_voice.h"
 #include "thru_fm_voice.h"
+#include "thru_noise_voice.h"
+#include "thru_reson_voice.h"
+#include "thru_partials_voice.h"
+#include "thru_lowform_voice.h"
 #include "thru_fm_starts.h"
 
 #include <algorithm>
@@ -48,11 +52,11 @@ public:
         glitch,
         longGrains,
         wavesets,
-        prism, morph, texture, formant, stochastic, pulsar, table, scanned, fm,
+        prism, morph, texture, formant, stochastic, pulsar, table, scanned, fm, noise, reson, partials, lowform,
     };
 
-    static constexpr std::size_t kPlaybackAlgorithmCount = 18u;
-    static constexpr bool sourceFree(PlaybackAlgorithm a){return a==PlaybackAlgorithm::table||a==PlaybackAlgorithm::scanned||a==PlaybackAlgorithm::fm;}
+    static constexpr std::size_t kPlaybackAlgorithmCount = 22u;
+    static constexpr bool sourceFree(PlaybackAlgorithm a){return a==PlaybackAlgorithm::table||a==PlaybackAlgorithm::scanned||a==PlaybackAlgorithm::fm||a==PlaybackAlgorithm::noise||a==PlaybackAlgorithm::reson||a==PlaybackAlgorithm::partials||a==PlaybackAlgorithm::lowform;}
 
     enum class SampleMode : std::uint8_t {
         forward,
@@ -393,6 +397,10 @@ public:
         s3g_thru_table::Program table;
         s3g_thru_scanned::Program scanned;
         s3g_thru_fm::Program fm;
+        s3g_thru_noise::Program noise;
+        s3g_thru_reson::Program reson;
+        s3g_thru_lowform::Program lowform;
+        s3g_thru_partials::Program partials;
         float scannedPressure=0;
         int tableEditor=0; // Physical patch lane; transient editor identity.
         float tableNoteHz=261.625565f;
@@ -654,7 +662,7 @@ public:
         laneCapacityFrames_ = capacityFrames_ / kLaneChannels;
         (void)s3g_daisy::ThruSpectralPlan::get();
         tableInstrument_.prepare();
-        scannedInstrument_.prepare();fmInstrument_.prepare();
+        scannedInstrument_.prepare();fmInstrument_.prepare();noiseInstrument_.prepare();partialsInstrument_.prepare();resonInstrument_.prepare();lowformInstrument_.prepare();
         outputSampleRate_ = outputSampleRate;
         windowFadeFrames_ = std::max<std::size_t>(
             32u, static_cast<std::size_t>(outputSampleRate_ * 0.030f));
@@ -1202,6 +1210,10 @@ public:
             tableInstrument_.beginBlock(controls.table.patches);
         if(controls.algorithm==PlaybackAlgorithm::scanned||currentAlgorithm_==PlaybackAlgorithm::scanned)scannedInstrument_.beginBlock(controls.scanned.patches);
         if(controls.algorithm==PlaybackAlgorithm::fm||currentAlgorithm_==PlaybackAlgorithm::fm)fmInstrument_.beginBlock(controls.fm.patches);
+        if(controls.algorithm==PlaybackAlgorithm::noise||currentAlgorithm_==PlaybackAlgorithm::noise)noiseInstrument_.beginBlock(controls.noise.patches);
+        if(controls.algorithm==PlaybackAlgorithm::partials||currentAlgorithm_==PlaybackAlgorithm::partials)partialsInstrument_.beginBlock(controls.partials.patches);
+        if(controls.algorithm==PlaybackAlgorithm::reson||currentAlgorithm_==PlaybackAlgorithm::reson)resonInstrument_.beginBlock(controls.reson.patches);
+        if(controls.algorithm==PlaybackAlgorithm::lowform||currentAlgorithm_==PlaybackAlgorithm::lowform)lowformInstrument_.beginBlock(controls.lowform.patches);
         std::size_t laneControlCountdown = 0u;
         for (std::size_t frame = 0u; frame < frames; ++frame) {
             for (std::size_t lane = 0u; lane < kStackLanes; ++lane) {
@@ -1297,6 +1309,10 @@ public:
                 case PlaybackAlgorithm::table: renderTableFrame(controls,wetOutput,frame);break;
                 case PlaybackAlgorithm::scanned: renderScannedFrame(controls,wetOutput);break;
                 case PlaybackAlgorithm::fm: renderFmFrame(controls,wetOutput,frame);break;
+                case PlaybackAlgorithm::noise: renderNoiseFrame(controls,wetOutput,frame);break;
+                case PlaybackAlgorithm::partials: renderPartialsFrame(controls,wetOutput,frame);break;
+                case PlaybackAlgorithm::reson: renderResonFrame(controls,wetOutput,frame);break;
+                case PlaybackAlgorithm::lowform: renderLowformFrame(controls,wetOutput,frame);break;
                 case PlaybackAlgorithm::texture: renderTextureFrame(preparedControls,wetOutput);break;
                 case PlaybackAlgorithm::wavesets:
                     // Wavesets glides continuous controls without rebuilding
@@ -1323,7 +1339,7 @@ public:
                     = (input[channel][frame] * (1.0f - dryWet) + wet * dryWet)
                         * recordGain;
             }
-            if(currentAlgorithm_==PlaybackAlgorithm::table||currentAlgorithm_==PlaybackAlgorithm::fm){
+            if(currentAlgorithm_==PlaybackAlgorithm::table||currentAlgorithm_==PlaybackAlgorithm::fm||currentAlgorithm_==PlaybackAlgorithm::noise||currentAlgorithm_==PlaybackAlgorithm::reson||currentAlgorithm_==PlaybackAlgorithm::partials||currentAlgorithm_==PlaybackAlgorithm::lowform){
                 float gain=algorithmGain*retriggerGain*motionSoundGain*motionSeedGain*sampleTransition*dryWet*recordGain;
                 if(retriggerFadeRemaining_!=0u)gain*=smoothStep(1-float(retriggerFadeRemaining_)/float(retriggerFadeFrames_));
                 for(auto& lane:tableScope_)lane[frame%128]*=gain;
@@ -1342,7 +1358,7 @@ public:
                 --retriggerFadeRemaining_;
             }
         }
-        tableInstrument_.endBlock();scannedInstrument_.endBlock();fmInstrument_.endBlock();
+        tableInstrument_.endBlock();scannedInstrument_.endBlock();fmInstrument_.endBlock();noiseInstrument_.endBlock();partialsInstrument_.endBlock();resonInstrument_.endBlock();lowformInstrument_.endBlock();
         if (currentAlgorithm_ == PlaybackAlgorithm::wavesets) refreshWavesetTelemetry();
     }
 
@@ -1421,6 +1437,10 @@ public:
 
     float tableScopeFrequency(int lane)const {
         if(currentAlgorithm_==PlaybackAlgorithm::fm&&lane>=0&&lane<4)return fmInstrument_.models[lane].hz;
+        if(currentAlgorithm_==PlaybackAlgorithm::noise&&lane>=0&&lane<4)return noiseInstrument_.models[lane].hz;
+        if(currentAlgorithm_==PlaybackAlgorithm::partials&&lane>=0&&lane<4)return partialsInstrument_.models[lane].hz*s3g_thru_table::Library::get().pitchRatio(partialsInstrument_.models[lane].current[s3g_thru_partials::tune]);
+        if(currentAlgorithm_==PlaybackAlgorithm::reson&&lane>=0&&lane<4)return resonInstrument_.models[lane].hz;
+        if(currentAlgorithm_==PlaybackAlgorithm::lowform&&lane>=0&&lane<4)return lowformInstrument_.models[lane].hz;
         for(int slot=0;slot<2;++slot)if(tableInstrument_.lanes[slot]==lane&&tableInstrument_.voices[slot].initialized){
             const auto& state=tableInstrument_.voices[slot].current;return state.hz*state.frequencyRatio;
         }
@@ -2432,7 +2452,7 @@ private:
 
     void resetPlaybackForAlgorithm()
     {
-        tableInstrument_.reset();scannedInstrument_.reset();fmInstrument_.reset();
+        tableInstrument_.reset();scannedInstrument_.reset();fmInstrument_.reset();noiseInstrument_.reset();partialsInstrument_.reset();resonInstrument_.reset();lowformInstrument_.reset();
         noteStartPending_=true;
         phase_ = 0.0;
         windowFadeRemaining_ = 0u;
@@ -2521,7 +2541,7 @@ private:
 
     void resetReader()
     {
-        tableInstrument_.reset();scannedInstrument_.reset();fmInstrument_.reset();
+        tableInstrument_.reset();scannedInstrument_.reset();fmInstrument_.reset();noiseInstrument_.reset();partialsInstrument_.reset();resonInstrument_.reset();lowformInstrument_.reset();
         noteStartPending_=true;
         phase_ = 0.0;
         lanePhase_ = 0.0f;
@@ -5374,6 +5394,30 @@ private:
         for(std::size_t ch=0;ch<kChannels;++ch)wet[ch]=out[ch&1u];
         for(int lane=0;lane<4;++lane)tableScope_[lane][frame%128]=fmInstrument_.laneOutput[lane];
     }
+    void renderNoiseFrame(const Controls& c,float* wet,std::size_t frame){
+        if(!noiseInstrument_.started)noiseInstrument_.identity=c.tableNoteSeed;
+        const auto out=noiseInstrument_.tick(c.noise.patches,tableLaneTarget_,c.tableNoteHz,outputSampleRate_,c.laneSlewMs,activeControlsLaneGains_);lanePosition_=noiseInstrument_.position;
+        for(std::size_t ch=0;ch<kChannels;++ch)wet[ch]=out[ch&1u];
+        for(int lane=0;lane<4;++lane)tableScope_[lane][frame%128]=noiseInstrument_.laneOutput[lane];
+    }
+    void renderPartialsFrame(const Controls& c,float* wet,std::size_t frame){
+        if(!partialsInstrument_.started)partialsInstrument_.identity=c.tableNoteSeed;
+        const auto out=partialsInstrument_.tick(c.partials.patches,tableLaneTarget_,c.tableNoteHz,outputSampleRate_,c.laneSlewMs,activeControlsLaneGains_);lanePosition_=partialsInstrument_.position;
+        for(std::size_t ch=0;ch<kChannels;++ch)wet[ch]=out[ch&1u];
+        for(int lane=0;lane<4;++lane)tableScope_[lane][frame%128]=partialsInstrument_.laneOutput[lane];
+    }
+    void renderResonFrame(const Controls& c,float* wet,std::size_t frame){
+        if(!resonInstrument_.started)resonInstrument_.identity=c.tableNoteSeed;
+        const auto out=resonInstrument_.tick(c.reson.patches,tableLaneTarget_,c.tableNoteHz,outputSampleRate_,c.laneSlewMs,activeControlsLaneGains_);lanePosition_=resonInstrument_.position;
+        for(std::size_t ch=0;ch<kChannels;++ch)wet[ch]=out[ch&1u];
+        for(int lane=0;lane<4;++lane)tableScope_[lane][frame%128]=resonInstrument_.laneOutput[lane];
+    }
+    void renderLowformFrame(const Controls& c,float* wet,std::size_t frame){
+        if(!lowformInstrument_.started)lowformInstrument_.identity=c.tableNoteSeed;
+        const auto out=lowformInstrument_.tick(c.lowform.patches,tableLaneTarget_,c.tableNoteHz,outputSampleRate_,c.laneSlewMs,activeControlsLaneGains_);lanePosition_=lowformInstrument_.position;
+        for(std::size_t ch=0;ch<kChannels;++ch)wet[ch]=out[ch&1u];
+        for(int lane=0;lane<4;++lane)tableScope_[lane][frame%128]=lowformInstrument_.laneOutput[lane];
+    }
     void renderTableFrame(const Controls& c,float* wet,std::size_t frame) {
         if(!tableInstrument_.started)tableInstrument_.identity=c.tableNoteSeed;
         const auto audio=tableInstrument_.tick(c.table.patches,tableLaneTarget_,c.tableNoteHz,outputSampleRate_,c.laneSlewMs,activeControlsLaneGains_);
@@ -6982,6 +7026,10 @@ private:
     s3g_thru_table::Instrument tableInstrument_;
     s3g_thru_scanned::Instrument scannedInstrument_;
     s3g_thru_fm::Instrument fmInstrument_;
+    s3g_thru_noise::Instrument noiseInstrument_;
+    s3g_thru_partials::Instrument partialsInstrument_;
+    s3g_thru_reson::Instrument resonInstrument_;
+    s3g_thru_lowform::Instrument lowformInstrument_;
     float tableLaneTarget_=0;
     std::array<std::array<float,128>,4> tableScope_{};
     bool playing_ = false;

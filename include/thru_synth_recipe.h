@@ -299,6 +299,16 @@ enum HybridField {
   hLife,
   hDrift
 };
+// The legacy eight Hybrid values retain their identities and renderer.
+enum HybridTransferField {
+  htEnvelope, htSpectrum, htPitch, htAlign, htOffset, htAttack, htNoise,
+  htTune, htSources, htEnvSource, htSpecSource, htPitchSource, htSmooth,
+  htRandom, htStart, hybridTransferFields
+};
+inline constexpr std::array<float, hybridTransferFields>
+  hybridTransferMin{0,0,0,0,-10000,0,0,-24,2,1,1,1,5,0,0},
+  hybridTransferMax{1,1,1,2,10000,1,1,24,4,3,3,3,200,1,4},
+  hybridTransferDefaults{.8f,0,0,0,0,.75f,1,0,2,1,1,1,20,0,1};
 enum TraceField {
   tMode,
   tDensity,
@@ -390,6 +400,8 @@ struct Recipe {
                        hybridParams = hybridDefaults, trace = traceDefaults,
                        events = eventDefaults, timing = timingDefaults,
                        drumExtra = attackDefaults, drumColor = colorDefaults;
+  std::uint32_t hybridStyle = 1, hybridLocks = 0x5f98;
+  std::array<float, hybridTransferFields> transfer = hybridTransferDefaults;
   std::array<float, wtFields> wt = wtDefaults;
   std::uint32_t wtLocks = 3; // Protect model and tuning during mutation.
   std::array<float, dustFields> dustParams = dustDefaults;
@@ -404,6 +416,27 @@ struct Recipe {
                               (1u << 26) | (1u << 29) | (1ULL << 38) |
                               (1ULL << 46) | (1ULL << 54);
 };
+inline int hybridSourceCount(const Recipe &r) {
+  return int(r.hybridStyle ? r.transfer[htSources] : r.hybridParams[hSources]);
+}
+inline bool setHybridTransfer(Recipe &r, int field, float value) {
+  if (field < 0 || field >= hybridTransferFields || !std::isfinite(value)) return false;
+  value = std::clamp(value, hybridTransferMin[field], hybridTransferMax[field]);
+  if (field == htAlign || (field >= htSources && field <= htPitchSource) || field == htStart)
+    value = std::round(value);
+  if (field == htStart && value > 0) {
+    r.transfer[htEnvelope] = value == 1 || value == 4 ? .8f : 0;
+    r.transfer[htSpectrum] = value == 2 || value == 4 ? .7f : 0;
+    r.transfer[htPitch] = value == 3 || value == 4 ? 1.f : 0;
+  } else if (field <= htPitch) r.transfer[htStart] = 0;
+  r.transfer[field] = value;
+  if (field == htSources)
+    for (int f : {htEnvSource, htSpecSource, htPitchSource})
+      r.transfer[f] = std::min(r.transfer[f], value - 1);
+  if (field >= htEnvSource && field <= htPitchSource)
+    r.transfer[field] = std::min(r.transfer[field], r.transfer[htSources] - 1);
+  return true;
+}
 inline void initializeWtDrumModel(Recipe &r, int model) {
   static constexpr std::array<std::array<float, wtFields>, wtModelCount> starts{{
     wtDefaults,
@@ -572,6 +605,7 @@ inline void initializeGenerator(Recipe &r, int type) {
     r.v[attack] = 0;
     r.v[release] = 10;
   }
+  if (type == hybrid) r.v[width] = 1;
   if (type == subharmonic)
     initializeSubBank(r);
   if (type == partialsType || type == noiseBank)
@@ -930,6 +964,14 @@ inline bool setWorkshop(Recipe &r, int group, int field, float value) {
 }
 
 inline bool valid(const Recipe &r) {
+  if (r.hybridStyle > 1 || r.hybridLocks >= (1u << hybridTransferFields)) return false;
+  for (int f = 0; f < hybridTransferFields; ++f) {
+    const float v = r.transfer[f];
+    if (!std::isfinite(v) || v < hybridTransferMin[f] || v > hybridTransferMax[f] ||
+        ((f == htAlign || (f >= htSources && f <= htPitchSource) || f == htStart) && v != std::round(v))) return false;
+  }
+  for (int f : {htEnvSource, htSpecSource, htPitchSource})
+    if (r.transfer[f] >= r.transfer[htSources]) return false;
   if (r.drumFlags > 1 || r.dustLocks >= (1u << dustFields))
     return false;
   for (int f = 0; f < dustFields; ++f) {
@@ -1186,7 +1228,7 @@ inline float animatedCurve(const Recipe &r, int row, float time,
                       : 0);
 }
 inline void clean(Recipe &r) {
-  r.v[width] = r.type == resynth ? 1.f : 0.f;
+  r.v[width] = r.type == resynth || (r.type == hybrid && r.hybridStyle) ? 1.f : 0.f;
   r.v[drift] = 0;
   r.v[dynamics] = 0;
   r.mod = modDefaults;
@@ -1214,6 +1256,10 @@ inline void clean(Recipe &r) {
   r.sub[sDetune] = r.sub[sDrift] = 0;
   r.timing[eSwing] = 0;
   r.hybridParams[hMutation] = r.hybridParams[hDrift] = 0;
+  if (r.type == hybrid && r.hybridStyle) {
+    r.transfer[htEnvelope] = r.transfer[htSpectrum] = r.transfer[htPitch] = 0;
+    r.transfer[htRandom] = r.transfer[htTune] = r.transfer[htStart] = 0;
+  }
   r.trace[tDrift] = r.trace[tJitter] = r.trace[tSpread] = 0;
   r.events[eJitter] = r.events[ePitch] = r.events[eVariation] = r.events[ePan] =
       0;
@@ -1322,7 +1368,7 @@ inline void mutateExtra(Recipe &r, float amount, std::uint32_t seed) {
     const bool relevant =
         (group == 0 && r.type == pluck) ||
         (group == 1 && r.type == subharmonic) ||
-        (group == 2 && r.type == hybrid) || (group == 3 && r.type == resynth) ||
+        (group == 2 && r.type == hybrid && !r.hybridStyle) || (group == 3 && r.type == resynth) ||
         ((group == 4 || group == 5) && supportsEvents(r.type)) ||
         ((group == 6 || group == 7) && isDrumType(r.type));
     if (relevant)
@@ -1346,6 +1392,11 @@ inline void mutateExtra(Recipe &r, float amount, std::uint32_t seed) {
                                             (hi[f] - lo[f]) * .2f);
         }
   }
+  if (r.type == hybrid && r.hybridStyle)
+    for (int f = 0; f < hybridTransferFields - 1; ++f)
+      if (!(r.hybridLocks & (1u << f)))
+        setHybridTransfer(r, f, r.transfer[f] + delta(300 + f) *
+          (hybridTransferMax[f] - hybridTransferMin[f]) * .2f);
   for (int f = 0; f < modFields; ++f)
     if (!(r.detailLocks & (1u << (waveFields + bloomFields + f))) &&
         modAvailable(r, f)) {
@@ -1389,7 +1440,7 @@ template <class Emit> inline void serializeRecipe(const Recipe &r, Emit emit) {
     std::memcpy(&bits, &v, 4);
     integer(bits);
   };
-  integer(r.type == wtDrum ? 11 : r.type==fmDrum?12:10);
+  integer(r.type == hybrid ? 13 : r.type == wtDrum ? 11 : r.type==fmDrum?12:10);
   integer(std::uint32_t(r.type));
   integer(r.seed);
   integer(r.locks);
@@ -1448,6 +1499,10 @@ template <class Emit> inline void serializeRecipe(const Recipe &r, Emit emit) {
     for (float v : r.wt) scalar(v);
     integer(r.wtLocks);
   }
+  if (r.type == hybrid) {
+    integer(r.hybridStyle); integer(r.hybridLocks);
+    for (float v : r.transfer) scalar(v);
+  }
   for (int i = 0; i < 4; ++i)
     emit(std::uint8_t(crc >> (i * 8)));
 }
@@ -1462,12 +1517,12 @@ inline constexpr std::size_t legacyRecipeBytes = 476, previousRecipeBytes = 892,
                              fifthRecipeBytes = 1088, sixthRecipeBytes = 1256,
                              seventhRecipeBytes = 1288,
                              eighthRecipeBytes = 1324, ninthRecipeBytes = 1356,
-                             recipeBytes = 1408, wtRecipeBytes = 1508, maximumRecipeBytes = wtRecipeBytes;
+                             recipeBytes = 1408, hybridRecipeBytes = 1476, wtRecipeBytes = 1508, maximumRecipeBytes = wtRecipeBytes;
 inline constexpr std::size_t recipeSize(int type) {
-  return type == wtDrum ? wtRecipeBytes : recipeBytes;
+  return type == hybrid ? hybridRecipeBytes : type == wtDrum ? wtRecipeBytes : recipeBytes;
 }
 inline bool decode(const std::uint8_t *data, std::size_t count, Recipe &out) {
-  if (!data || (count != recipeBytes && count != wtRecipeBytes && count != previousRecipeBytes &&
+  if (!data || (count != recipeBytes && count != hybridRecipeBytes && count != wtRecipeBytes && count != previousRecipeBytes &&
                 count != thirdRecipeBytes && count != fourthRecipeBytes &&
                 count != fifthRecipeBytes && count != sixthRecipeBytes &&
                 count != seventhRecipeBytes && count != eighthRecipeBytes &&
@@ -1492,7 +1547,8 @@ inline bool decode(const std::uint8_t *data, std::size_t count, Recipe &out) {
         (version == 9 && kind < 12 && count == ninthRecipeBytes) ||
         (version == 10 && kind < 13 && count == recipeBytes) ||
         (version == 11 && kind == wtDrum && count == wtRecipeBytes) ||
-        (version == 12 && kind == fmDrum && count == recipeBytes)))
+        (version == 12 && kind == fmDrum && count == recipeBytes) ||
+        (version == 13 && kind == hybrid && count == hybridRecipeBytes)))
     return false;
   Recipe next;
   next.type = version == 1 ? spline : int(kind);
@@ -1583,6 +1639,10 @@ inline bool decode(const std::uint8_t *data, std::size_t count, Recipe &out) {
     for (auto &v : next.wt) v = getFloat();
     next.wtLocks = get();
   }
+  if (version == 13) {
+    next.hybridStyle = get(); next.hybridLocks = get();
+    for (float &v : next.transfer) v = getFloat();
+  } else next.hybridStyle = 0;
   const std::vector<std::uint8_t> checked(data, data + count - 4);
   if (get() != checksum(checked))
     return false;

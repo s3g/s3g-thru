@@ -10,7 +10,7 @@
   <body>
     <header class="site-header">
       <a class="brand" href="index.html">s3g Thru <span>manual</span></a>
-      <nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="synthesis.html">Synthesis</a><a href="projects.html">Projects</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="midi.html">MIDI</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav>
+      <nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="synthesis.html">Process</a><a href="projects.html">Projects</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="midi.html">MIDI</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav>
     </header>
 
     <div class="page-shell">
@@ -89,7 +89,7 @@
         <table class="readout-table">
           <thead><tr><th>Control</th><th>Action</th></tr></thead>
           <tbody>
-            <tr><td><kbd>Shift</kbd> + <kbd>Loop</kbd></td><td>In Synth: randomize and render unprotected sound controls using the Random page’s AMT. Available from any Synth page, outside menus and filename/source browsing.</td></tr>
+            <tr><td><kbd>Shift</kbd> + <kbd>Loop</kbd></td><td>In Process: randomize and render unprotected sound controls using the Random page’s AMT. Available from any Process page, outside menus and filename/source browsing.</td></tr>
 
             <tr><td>Touch knob 3 on Pattern Fade</td><td>Hold the blend for manual crossfading. Touch before selecting a destination to arm a change held at 0%; finger release leaves Hold on.</td></tr>
             <tr><td>Click main encoder on Pattern Fade</td><td>Toggle Hold or resume the pattern transition. While idle, toggle manual arming for the next destination.</td></tr>
@@ -175,7 +175,7 @@
           <tbody>
             <tr><td>Pads</td><td>In Single’s named Keys scales, playable pads are dark neutral grey and tonic pads are full white; the recalled map appears as soon as takeover opens. Active voices replace those colors with stable red, orange, yellow, green, azure, blue-violet, purple, and magenta slot colors. Split B uses muted teal and brighter teal roots; Shared Dual B uses muted plum and pink roots. Quad zones use neutral, teal, amber, and plum backgrounds with brighter roots. Active voice, cue, and roll colors take priority. Momentary notes return to their idle color on release. Latched notes remain lit until toggle-off or Hold Off expires; their voice color dims outside the stored pitch's pad mapping and brightens when that mapping returns.</td></tr>
             <tr><td>Steps</td><td>White occupied; orange active/stopped; green active/playing; red recording; blue-violet queued.</td></tr>
-            <tr><td>Record</td><td>Red during performance-data capture; orange during audio-lane capture; dim while idle. In Synth, bright when the current render is ready to save.</td></tr>
+            <tr><td>Record</td><td>Red during performance-data capture; orange during audio-lane capture; dim while idle. In Process, bright when the current render is ready to save.</td></tr>
             <tr><td>Play</td><td>Green while a performance loop runs; blue-violet while launch is queued.</td></tr>
             <tr><td>Menu / Back</td><td>Dim when available; Menu bright in parameter/menu/help views; Back bright in secondary views.</td></tr>
             <tr><td>Undo</td><td>Bright when a one-level safety undo is available; off when unavailable or recording. The key is the curved reverse arrow beside Shift.</td></tr>
@@ -193,17 +193,17 @@
         <p>Musical notes, note-offs and polyphonic aftertouch use channels 1–4 for A–D according to the instrument mode. All Sound Off (CC 120) and All Notes Off (CC 123) are also accepted. External notes keep the pitches sent by the keyboard; Move’s pad scale does not quantize them.</p>
         <p>High-resolution parameters use separate channels: <strong>5–8 for A–D, 16 for shared controls</strong>. Part-control edits preserve Move’s selected part and page. Channels 5–8 and 16 also carry controller commands, so keep note input on 1–4. See <a href="midi.html">MIDI control</a> for setup, the current NRPN map and two-way feedback.</p>
 
-        <h2 id="synth">Synth controls</h2>
+        <h2 id="synth">Process controls</h2>
         <table class="readout-table"><thead><tr><th>Control</th><th>Action</th></tr></thead><tbody>
           <tr><td>Menu</td><td>Choose Sound, Motion, Output or Actions. Up/Down and the main wheel move within the selected group.</td></tr>
-          <tr><td>Back</td><td>Return to the Synth overview; Back again exits. Within an action overlay, Back first closes that overlay.</td></tr>
-          <tr><td>Capture tap</td><td>Render the current Synth settings. Editing controls does not render automatically; Capture + Menu/Track shortcuts still navigate.</td></tr>
+          <tr><td>Back</td><td>Return to the Process overview; Back again exits. Within an action overlay, Back first closes that overlay.</td></tr>
+          <tr><td>Capture tap</td><td>Render the current Process settings. Editing controls does not render automatically; Capture + Menu/Track shortcuts still navigate.</td></tr>
           <tr><td>Loop</td><td>Audition the last completed render, including while editing a new draft.</td></tr>
           <tr><td>Record</td><td>Save the completed render and load it into the selected lane. The light brightens when ready.</td></tr>
           <tr><td>Shift + Record</td><td>Save the completed render without loading it.</td></tr>
           <tr><td>Track 1–4</td><td>Choose the save/load destination. Convolution file selection leaves the destination unchanged.</td></tr>
         </tbody></table>
-        <p>See <a href="synthesis.html">Synthesis</a> for source selection, generator controls and recipe recall.</p>
+        <p>See <a href="synthesis.html">Process</a> for source selection, generator controls and recipe recall.</p>
 
         <p>On TRIG LFO, hold <kbd>Delete/X</kbd> and turn a lock encoder to clear that LFO rate/depth lock or restore restart permission. See <a href="performance.html#control-lfos">Control LFOs</a>.</p>
         <h2 id="oxi-e16">OXI E16 Remote</h2>
@@ -216,10 +216,10 @@
           <a class="page-nav-link" href="midi.html"><span>Previous</span>MIDI Control</a>
           <a class="page-nav-link next" href="index.html"><span>Return</span>Manual Start</a>
         </nav>
-      <h2 id="fm-controls">FM sound controls</h2><table class="readout-table"><thead><tr><th>Control</th><th>Action</th></tr></thead><tbody><tr><td>Touch knob 5 on FM</td><td>Show the current operator routing while touched.</td></tr><tr><td>Click main encoder on an FM page</td><td>Choose a starting sound for the selected Track’s patch. Turn to choose, click to load; Back cancels.</td></tr></tbody></table></main>
+      <h2 id="engine-picker">Choose an engine</h2><p>Click the main encoder on ENGINE to open the playback engine list. Turn to choose, click to set it, or press Back to cancel. On NOISE BANDS, turn the main encoder to move between groups of four bands.</p><h2 id="fm-controls">FM sound controls</h2><table class="readout-table"><thead><tr><th>Control</th><th>Action</th></tr></thead><tbody><tr><td>Touch knob 5 on FM</td><td>Show the current operator routing while touched.</td></tr><tr><td>Click main encoder on an FM page</td><td>Choose a starting sound for the selected Track’s patch. Turn to choose, click to load; Back cancels.</td></tr></tbody></table></main>
 
       <aside class="toc" aria-label="Page navigation">
-        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="synthesis.html">Synthesis</a><a href="projects.html">Projects</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="midi.html">MIDI</a><a href="shortcuts.html">Shortcuts</a></div>
+        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="synthesis.html">Process</a><a href="projects.html">Projects</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="midi.html">MIDI</a><a href="shortcuts.html">Shortcuts</a></div>
         <div class="toc-section"><h2>Instrument modes</h2><a href="playing.html">Single · Basic playing</a><a href="modes.html">Compare modes</a><a href="split.html">Split</a><a href="shared-dual.html">Shared Dual</a><a href="quad.html">Quad</a><a href="bank.html">Bank</a><a href="layers.html">Layers</a><a href="sequence.html">Sequence</a></div>
         <div class="toc-section"><h2>On this page</h2><a href="#known-issues">Schwung Skipback</a><a href="#global">Global</a><a href="#editing">Editing</a><a href="#context">By view</a><a href="#leds">LEDs</a><a href="#midi">External MIDI</a><a href="#oxi-e16">OXI E16</a><a href="#nrpn">High-resolution MIDI</a></div>
       </aside>

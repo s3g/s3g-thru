@@ -99,6 +99,22 @@ bool controlLfoDestinationAvailable(const s3g_thru_lfo::Config &c,
     return d.condition!=15 || algorithm!=int(Engine::PlaybackAlgorithm::glitch)
         || (!program.glitchBufferLocked && !settingsForPart(c.target).glitchHold);
   };
+  if(d.parameter>=s3g_thru_lowform::controlOffset&&d.parameter<s3g_thru_lowform::controlOffset+s3g_thru_lowform::fields){bool used=false;const int first=splitEnabled&&!sharedDual?firstLaneForPart(c.target):0,last=splitEnabled&&!sharedDual?first+(isQuad()?0:1):3;
+    for(int lane=first;lane<=last;++lane)used|=s3g_thru_lowform::applicable(program.lowform.patches[lane],d.parameter-s3g_thru_lowform::controlOffset);
+    if(!used)return false;
+  }
+  if(d.parameter>=s3g_thru_reson::controlOffset&&d.parameter<s3g_thru_reson::controlOffset+s3g_thru_reson::fields){bool used=false;const int first=splitEnabled&&!sharedDual?firstLaneForPart(c.target):0,last=splitEnabled&&!sharedDual?first+(isQuad()?0:1):3;
+    for(int lane=first;lane<=last;++lane)used|=s3g_thru_reson::applicable(program.reson.patches[lane],d.parameter-s3g_thru_reson::controlOffset);
+    if(!used)return false;
+  }
+  if(d.parameter>=s3g_thru_partials::controlOffset&&d.parameter<s3g_thru_partials::controlOffset+s3g_thru_partials::fields){bool used=false;const int first=splitEnabled&&!sharedDual?firstLaneForPart(c.target):0,last=splitEnabled&&!sharedDual?first+(isQuad()?0:1):3;
+    for(int lane=first;lane<=last;++lane)used|=s3g_thru_partials::applicable(program.partials.patches[lane],d.parameter-s3g_thru_partials::controlOffset);
+    if(!used)return false;
+  }
+  if(d.parameter>=s3g_thru_noise::controlOffset&&d.parameter<s3g_thru_noise::controlOffset+s3g_thru_noise::fields){bool used=false;const int first=splitEnabled&&!sharedDual?firstLaneForPart(c.target):0,last=splitEnabled&&!sharedDual?first+(isQuad()?0:1):3;
+    for(int lane=first;lane<=last;++lane)used|=s3g_thru_noise::applicable(program.noise.patches[lane],d.parameter-s3g_thru_noise::controlOffset);
+    if(!used)return false;
+  }
   if(d.parameter>=s3g_thru_fm::controlOffset&&d.parameter<s3g_thru_fm::controlOffset+s3g_thru_fm::fields){bool used=false;const int first=splitEnabled&&!sharedDual?firstLaneForPart(c.target):0,last=splitEnabled&&!sharedDual?first+(isQuad()?0:1):3;
     for(int lane=first;lane<=last;++lane)used|=s3g_thru_fm::applicable(program.fm.patches[lane],d.parameter-s3g_thru_fm::controlOffset);
     if(!used)return false;
@@ -295,6 +311,7 @@ void applyControlLfoWindow(Engine::Controls &c,int part,bool position=true) cons
 }
 float controlLfoValueForKey(int target,const char*key,float base,int algorithm=-1,float fraction=1) const {
   const int id=controlLfoDestinationForKey(key);
+  if(id&& !std::strcmp(key,"partials_count")){const auto c=controlLfoProgram(target);const auto& patch=c.partials.patches[tableEditLane(target)];if(patch.v[s3g_thru_partials::type]>1.5f){auto bounded=s3g_thru_lfo::destinations[id];bounded.high=8;return s3g_thru_lfo::mapped(bounded,std::min(8.f,base),controlLfoModulation(target,id,algorithm,fraction));}}
   if(id==127) {
     auto c=controlLfoProgram(target);
     c.field=s3g_thru_lfo::mapped(s3g_thru_lfo::destinations[128],c.field,controlLfoModulation(target,128,algorithm,fraction));
@@ -330,7 +347,15 @@ void applyControlLfoControls(Engine::Controls &c, int part,
   for (std::size_t i = 1; i < amounts.size(); ++i)
     if (i!=127 && i!=128 && (amounts[i].base != 0 || amounts[i].automatic != 0 || amounts[i].span > 0)) {
       const auto &d = destinations[i];
-      if(d.parameter>=s3g_thru_fm::controlOffset&&d.parameter<s3g_thru_fm::controlOffset+s3g_thru_fm::fields){const int field=d.parameter-s3g_thru_fm::controlOffset;
+      if(d.parameter>=s3g_thru_lowform::controlOffset&&d.parameter<s3g_thru_lowform::controlOffset+s3g_thru_lowform::fields){const int field=d.parameter-s3g_thru_lowform::controlOffset;
+        for(auto& patch:c.lowform.patches)if(s3g_thru_lowform::applicable(patch,field))s3g_thru_lowform::set(patch,field,mapped(d,patch.v[field],amounts[i]));
+      }else if(d.parameter>=s3g_thru_reson::controlOffset&&d.parameter<s3g_thru_reson::controlOffset+s3g_thru_reson::fields){const int field=d.parameter-s3g_thru_reson::controlOffset;
+        for(auto& patch:c.reson.patches)if(s3g_thru_reson::applicable(patch,field))s3g_thru_reson::set(patch,field,mapped(d,patch.v[field],amounts[i]));
+      }else if(d.parameter>=s3g_thru_partials::controlOffset&&d.parameter<s3g_thru_partials::controlOffset+s3g_thru_partials::fields){const int field=d.parameter-s3g_thru_partials::controlOffset;
+        for(auto& patch:c.partials.patches)if(s3g_thru_partials::applicable(patch,field)){auto bounded=d;if(field==s3g_thru_partials::count&&patch.v[s3g_thru_partials::type]>1.5f)bounded.high=8;s3g_thru_partials::set(patch,field,mapped(bounded,s3g_thru_partials::resolved(patch,field),amounts[i]));}
+      }else if(d.parameter>=s3g_thru_noise::controlOffset&&d.parameter<s3g_thru_noise::controlOffset+s3g_thru_noise::fields){const int field=d.parameter-s3g_thru_noise::controlOffset;
+        for(auto& patch:c.noise.patches)if(s3g_thru_noise::applicable(patch,field))s3g_thru_noise::set(patch,field,mapped(d,patch.v[field],amounts[i]));
+      }else if(d.parameter>=s3g_thru_fm::controlOffset&&d.parameter<s3g_thru_fm::controlOffset+s3g_thru_fm::fields){const int field=d.parameter-s3g_thru_fm::controlOffset;
         for(auto& patch:c.fm.patches)if(s3g_thru_fm::applicable(patch,field))s3g_thru_fm::set(patch,field,mapped(d,s3g_thru_fm::resolved(patch,field),amounts[i]));
       }else if(d.parameter>=s3g_thru_scanned::controlOffset&&d.parameter<s3g_thru_scanned::controlOffset+s3g_thru_scanned::fields){const int field=d.parameter-s3g_thru_scanned::controlOffset;
         for(auto& patch:c.scanned.patches)if(s3g_thru_scanned::applicable(patch,field))s3g_thru_scanned::set(patch,field,mapped(d,patch.v[field],amounts[i]));
@@ -691,6 +716,10 @@ float controlLfoManualBase(int target, int dest) const {
   if (d.parameter == int(LockParameter::splitBlend))
     return lockedValue(effectiveSplitMixer(clipControls), outputGain,
                        d.parameter);
+  if(d.parameter>=s3g_thru_lowform::controlOffset&&d.parameter<s3g_thru_lowform::controlOffset+s3g_thru_lowform::fields)return c.lowform.patches[tableEditLane(target)].v[d.parameter-s3g_thru_lowform::controlOffset];
+  if(d.parameter>=s3g_thru_reson::controlOffset&&d.parameter<s3g_thru_reson::controlOffset+s3g_thru_reson::fields)return c.reson.patches[tableEditLane(target)].v[d.parameter-s3g_thru_reson::controlOffset];
+  if(d.parameter>=s3g_thru_partials::controlOffset&&d.parameter<s3g_thru_partials::controlOffset+s3g_thru_partials::fields)return c.partials.patches[tableEditLane(target)].v[d.parameter-s3g_thru_partials::controlOffset];
+  if(d.parameter>=s3g_thru_noise::controlOffset&&d.parameter<s3g_thru_noise::controlOffset+s3g_thru_noise::fields)return c.noise.patches[tableEditLane(target)].v[d.parameter-s3g_thru_noise::controlOffset];
   if(d.parameter>=s3g_thru_fm::controlOffset&&d.parameter<s3g_thru_fm::controlOffset+s3g_thru_fm::fields)return s3g_thru_fm::resolved(c.fm.patches[tableEditLane(target)],d.parameter-s3g_thru_fm::controlOffset);
   if(d.parameter>=s3g_thru_scanned::controlOffset&&d.parameter<s3g_thru_scanned::controlOffset+s3g_thru_scanned::fields)return c.scanned.patches[tableEditLane(target)].v[d.parameter-s3g_thru_scanned::controlOffset];
   if(d.parameter>=s3g_thru_table::controlOffset&&d.parameter<s3g_thru_table::controlOffset+s3g_thru_table::fields)return c.table.patches[tableEditLane(target)].v[d.parameter-s3g_thru_table::controlOffset];

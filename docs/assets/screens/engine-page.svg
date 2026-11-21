@@ -7,22 +7,23 @@
     <text x="1" y="5.5" fill="#dce8e1">ENGINE</text>
     <text x="110" y="5.5" fill="#dce8e1">1/6</text>
     <rect x="0" y="8" width="128" height="1" fill="#dce8e1"/>
-    <text x="3" y="18.5" fill="#dce8e1">ALG</text>
-    <text x="3" y="29.5" fill="#dce8e1">LANE</text>
-    <text x="35" y="18.5" fill="#dce8e1">POS</text>
-    <text x="35" y="29.5" fill="#dce8e1">0.42</text>
-    <text x="67" y="18.5" fill="#dce8e1">FLD</text>
-    <text x="67" y="29.5" fill="#dce8e1">0.80</text>
-    <text x="99" y="18.5" fill="#dce8e1">SPD</text>
-    <text x="99" y="29.5" fill="#dce8e1">1.00</text>
-    <text x="3" y="44.5" fill="#dce8e1">STAK</text>
-    <text x="3" y="55.5" fill="#dce8e1">1.60</text>
-    <text x="35" y="44.5" fill="#dce8e1">RATE</text>
-    <text x="35" y="55.5" fill="#dce8e1">0.50</text>
-    <text x="67" y="44.5" fill="#dce8e1">JOIN</text>
-    <text x="67" y="55.5" fill="#dce8e1">0.72</text>
-    <text x="99" y="44.5" fill="#dce8e1">LEVL</text>
-    <text x="99" y="55.5" fill="#dce8e1">1.00</text>
+    <text x="3" y="16.5" fill="#dce8e1">ALG</text>
+    <text x="3" y="27.5" fill="#dce8e1">LANE</text>
+    <text x="35" y="16.5" fill="#dce8e1">POS</text>
+    <text x="35" y="27.5" fill="#dce8e1">0.42</text>
+    <text x="67" y="16.5" fill="#dce8e1">FLD</text>
+    <text x="67" y="27.5" fill="#dce8e1">0.80</text>
+    <text x="99" y="16.5" fill="#dce8e1">SPD</text>
+    <text x="99" y="27.5" fill="#dce8e1">1.00</text>
+    <text x="3" y="40.5" fill="#dce8e1">STAK</text>
+    <text x="3" y="51.5" fill="#dce8e1">1.60</text>
+    <text x="35" y="40.5" fill="#dce8e1">RATE</text>
+    <text x="35" y="51.5" fill="#dce8e1">0.50</text>
+    <text x="67" y="40.5" fill="#dce8e1">JOIN</text>
+    <text x="67" y="51.5" fill="#dce8e1">0.72</text>
+    <text x="99" y="40.5" fill="#dce8e1">LEVL</text>
+    <text x="99" y="51.5" fill="#dce8e1">1.00</text>
+    <text x="1" y="62.5" fill="#dce8e1">CLICK: CHOOSE ENGINE</text>
   </g>
   <rect x="0.25" y="0.25" width="127.5" height="63.5" fill="none" stroke="#5b6661" stroke-width="0.5"/>
 </svg>

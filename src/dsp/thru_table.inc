@@ -45,14 +45,14 @@ static bool readTableExtension(std::FILE *file,
   return true;
 }
 void captureTablePrograms(ClipSlot &clip) const {
-  captureScannedPrograms(clip);captureFmPrograms(clip);
+  captureScannedPrograms(clip);captureFmPrograms(clip);captureNoisePrograms(clip);captureResonPrograms(clip);captureLowformPrograms(clip);capturePartialsPrograms(clip);
   clip.tablePrograms[0] =
       splitEnabled ? splitSingleControls.table : controls.table;
   for (int part = 0; part < 4; ++part)
     clip.tablePrograms[part + 1] = liveControlsForPart(part).table;
 }
 void restoreTablePrograms(const ClipSlot &clip) {
-  restoreScannedPrograms(clip);restoreFmPrograms(clip);
+  restoreScannedPrograms(clip);restoreFmPrograms(clip);restoreNoisePrograms(clip);restoreResonPrograms(clip);restoreLowformPrograms(clip);restorePartialsPrograms(clip);
   splitSingleControls.table = clip.tablePrograms[0];
   if (splitEnabled) {
     for (int part = 0; part < 4; ++part)
@@ -163,6 +163,10 @@ int formatTableScopes(char *out, int capacity) const {
         last = &v;
     if (last)
       hz = last->engine.tableScopeFrequency(lane);
+    else if(liveControlsForPart(part).algorithm==Engine::PlaybackAlgorithm::lowform)hz*=std::exp2(liveControlsForPart(part).lowform.patches[lane].v[s3g_thru_lowform::tune]/12);
+    else if(liveControlsForPart(part).algorithm==Engine::PlaybackAlgorithm::reson)hz*=std::exp2(liveControlsForPart(part).reson.patches[lane].v[s3g_thru_reson::tune]/12);
+    else if(liveControlsForPart(part).algorithm==Engine::PlaybackAlgorithm::partials)hz*=std::exp2(liveControlsForPart(part).partials.patches[lane].v[s3g_thru_partials::tune]/12);
+    else if(liveControlsForPart(part).algorithm==Engine::PlaybackAlgorithm::noise)hz*=std::exp2(liveControlsForPart(part).noise.patches[lane].v[s3g_thru_noise::tune]/12);
     else if(liveControlsForPart(part).algorithm==Engine::PlaybackAlgorithm::fm)hz*=std::exp2(liveControlsForPart(part).fm.patches[lane].v[s3g_thru_fm::tune]/12);
     else
       hz *= std::exp2(liveControlsForPart(part)
@@ -190,7 +194,7 @@ int formatTableScopes(char *out, int capacity) const {
 }
 
 void seedTableRecording() {
-  seedScannedRecording();seedFmRecording();
+  seedScannedRecording();seedFmRecording();seedNoiseRecording();seedResonRecording();seedLowformRecording();seedPartialsRecording();
   if (!clipRecording)
     return;
   const int count = splitEnabled ? partCount() : 1;

@@ -237,7 +237,7 @@ void testSynthFieldsCore() {
   for (int count = 2; count <= 4; ++count)
     for (int mode = 0; mode < 5; ++mode) {
       Recipe r;
-      r.type = hybrid;
+      r.type = hybrid; r.hybridStyle = 0;
       r.v[length] = .3f;
       r.v[attack] = 0;
       r.v[width] = 1;
@@ -394,7 +394,7 @@ void testSynthFieldsWorkflow() {
   assert(t->synthHybridMissing());
   setParam(t.get(), "synth_preview", "1");
   assert(!t->synthPreviewWanted);
-  setParam(t.get(), "synth_hybrid", "1,4");
+  setParam(t.get(), "synth_transfer", "8,4");
   setParam(t.get(), "synth_edit", "0,0.18");
   for (int j = 0; j < 4; ++j)
     setParam(t.get(), ("synth_hybrid" + std::to_string(j) + "_file").c_str(),

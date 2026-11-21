@@ -1,5 +1,10 @@
 #pragma once
+inline void stripLowformPrograms(std::vector<unsigned char>& bytes){if(bytes.size()<16||bytes[8]!=60)return;constexpr std::size_t size=4+64*5*4*32*4;const auto at=bytes.size()-size;assert(bytes[at]=='L'&&bytes[at+1]=='F'&&bytes[at+2]=='P'&&bytes[at+3]=='1');bytes.resize(at);bytes[8]=59;}
+inline void stripPartialsPrograms(std::vector<unsigned char>& bytes){stripLowformPrograms(bytes);if(bytes.size()<16||bytes[8]!=59)return;constexpr std::size_t size=4+64*5*4*104*4;const auto at=bytes.size()-size;assert(bytes[at]=='P'&&bytes[at+1]=='T'&&bytes[at+2]=='P'&&bytes[at+3]=='1');bytes.resize(at);bytes[8]=58;}
+inline void stripResonPrograms(std::vector<unsigned char>& bytes){stripPartialsPrograms(bytes);if(bytes.size()<16||bytes[8]!=58)return;constexpr std::size_t size=4+64*5*4*32*4;const auto at=bytes.size()-size;assert(bytes[at]=='R'&&bytes[at+1]=='S'&&bytes[at+2]=='P'&&bytes[at+3]=='1');bytes.resize(at);bytes[8]=57;}
+inline void stripNoisePrograms(std::vector<unsigned char>& bytes){stripResonPrograms(bytes);if(bytes.size()<16||bytes[8]!=57)return;constexpr std::size_t size=4+64*5*4*88*4;const auto at=bytes.size()-size;assert(bytes[at]=='N'&&bytes[at+1]=='I'&&bytes[at+2]=='S'&&bytes[at+3]=='1');bytes.resize(at);bytes[8]=56;}
 inline void stripFmExtras(std::vector<unsigned char>& bytes){
+ stripNoisePrograms(bytes);
  if(bytes.size()<16||bytes[8]!=56)return;constexpr std::size_t size=4+64*5*4*9*4;const auto at=bytes.size()-size;assert(bytes[at]=='F'&&bytes[at+1]=='M'&&bytes[at+2]=='X'&&bytes[at+3]=='1');bytes.resize(at);bytes[8]=55;
 }
 inline void stripFmPrograms(std::vector<unsigned char>& bytes){

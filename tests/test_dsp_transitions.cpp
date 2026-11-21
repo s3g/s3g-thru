@@ -373,10 +373,20 @@ void testPreviewIsolation()
 #include "test_table.inc"
 #include "test_sequence_sound_locks.inc"
 #include "test_scanned.inc"
+#include "test_noise.inc"
+#include "test_reson.inc"
+#include "test_partials.inc"
+#include "test_lowform.inc"
+#include "test_synth_hybrid.inc"
 } // namespace
 
 int main(int argc,char** argv)
 {
+    if(argc==2&&std::strcmp(argv[1],"--lowform")==0){testLowform();return 0;}
+    if(argc==2&&std::strcmp(argv[1],"--hybrid")==0){testSynthHybridTransfer();testSynthFieldsWorkflow();testSynthManualSession();return 0;}
+    if(argc==2&&std::strcmp(argv[1],"--partials")==0){testPartials();return 0;}
+    if(argc==2&&std::strcmp(argv[1],"--reson")==0){testReson();return 0;}
+    if(argc==2&&std::strcmp(argv[1],"--noise")==0){testNoise();return 0;}
     if(argc==2&&std::strcmp(argv[1],"--fm")==0){testFm();return 0;}
     if(argc==2&&std::strcmp(argv[1],"--scanned")==0){testScanned();return 0;}
     if(argc==2&&std::strcmp(argv[1],"--table-polyphony")==0){testTableSplinePolyphony();return 0;}
@@ -385,7 +395,7 @@ int main(int argc,char** argv)
     if(argc==2&&std::strcmp(argv[1],"--table-ui-compat")==0){testTable();testSharedDualLiveZoom();return 0;}
     if(argc==2&&std::strcmp(argv[1],"--slice-edits")==0){testSliceSampleEditAlignment();return 0;}
     if(argc==2&&std::strcmp(argv[1],"--table")==0){testTable();return 0;}
-    testFm();testScanned();testTable();testSequenceSoundLocks();
+    testLowform();testSynthHybridTransfer();testPartials();testReson();testNoise();testFm();testScanned();testTable();testSequenceSoundLocks();
     if(argc==2&&std::strcmp(argv[1],"--lfo")==0){testControlLfos();testPlaybackReadouts();testExpandedLfoDestinations();return 0;}
     testControlLfos();testPlaybackReadouts();testExpandedLfoDestinations();
     if(argc==2&&std::strcmp(argv[1],"--synth")==0){testSpline();return 0;}

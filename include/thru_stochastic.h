@@ -8,7 +8,7 @@
 namespace s3g_daisy {
 // Internal note bus, before output/part gain and effects. A shared
 // previous-block reference makes capture independent of voice processing order
-// and master level.
+// and overall level.
 struct ThruStochasticPartMeter {
     float rms = 0, peak = 0, decay = 0, rate = 0;
     std::size_t block = 0;

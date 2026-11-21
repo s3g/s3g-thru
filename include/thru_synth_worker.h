@@ -311,7 +311,7 @@ private:
         break;
       }
       if (!std::memcmp(chunk, "sgSy", 4)) {
-        if (size != recipeBytes && size != wtRecipeBytes && size != previousRecipeBytes &&
+        if (size != recipeBytes && size != hybridRecipeBytes && size != wtRecipeBytes && size != previousRecipeBytes &&
             size != thirdRecipeBytes && size != fourthRecipeBytes &&
             size != fifthRecipeBytes && size != sixthRecipeBytes &&
             size != seventhRecipeBytes && size != eighthRecipeBytes &&
@@ -339,7 +339,7 @@ private:
       return false;
     }
     if (ok && found && restored.type == hybrid)
-      for (int i = 0; i < int(restored.hybridParams[hSources]); ++i)
+      for (int i = 0; i < hybridSourceCount(restored); ++i)
         if (!hybridInput(i, true)) {
           std::snprintf(error.data(), error.size(),
                         "Embedded Hybrid source damaged");
@@ -369,7 +369,7 @@ private:
           HybridInputs hybridSources{};
           bool hybridReady = true;
           if (self.request.recipe.type == hybrid)
-            for (int i = 0; i < int(self.request.recipe.hybridParams[hSources]);
+            for (int i = 0; i < hybridSourceCount(self.request.recipe);
                  ++i) {
               hybridSources[i] =
                   self.hybridInput(i, self.request.hybridEmbedded[i]);

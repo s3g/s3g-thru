@@ -12,6 +12,22 @@ bool midiPlaybackReadout(const ThruInstance &t, const MidiParameter &p,
     return curve < kClipCurveLaneCount && clip->clipPointCounts[curve] > 0;
   };
   const char *key = p.key;
+  const int lowformField=s3g_thru_lowform::index(key);
+  if(lowformField>=0){const int lane=t.tableEditLane(part);if(t.lowformOverrides.test((part*4+lane)*s3g_thru_lowform::fields+lowformField)||!has(kClipLowformOffset+(part*4+lane)*s3g_thru_lowform::fields+lowformField))return false;
+    value=(t.splitEnabled?t.splitClipControls[part]:t.clipControls).lowform.patches[lane].v[lowformField];return true;}
+
+  const int resonField=s3g_thru_reson::index(key);
+  if(resonField>=0){const int lane=t.tableEditLane(part);if(t.resonOverrides.test((part*4+lane)*s3g_thru_reson::fields+resonField)||!has(kClipResonOffset+(part*4+lane)*s3g_thru_reson::fields+resonField))return false;
+    value=(t.splitEnabled?t.splitClipControls[part]:t.clipControls).reson.patches[lane].v[resonField];return true;}
+
+  const int partialsField=s3g_thru_partials::index(key);
+  if(partialsField>=0){const int lane=t.tableEditLane(part);if(t.partialsOverrides.test((part*4+lane)*s3g_thru_partials::fields+partialsField)||!has(kClipPartialsOffset+(part*4+lane)*s3g_thru_partials::fields+partialsField))return false;
+    value=(t.splitEnabled?t.splitClipControls[part]:t.clipControls).partials.patches[lane].v[partialsField];return true;}
+
+  const int noiseField=s3g_thru_noise::index(key);
+  if(noiseField>=0){const int lane=t.tableEditLane(part);if(t.noiseOverrides.test((part*4+lane)*s3g_thru_noise::fields+noiseField)||!has(kClipNoiseOffset+(part*4+lane)*s3g_thru_noise::fields+noiseField))return false;
+    value=(t.splitEnabled?t.splitClipControls[part]:t.clipControls).noise.patches[lane].v[noiseField];return true;}
+
   const int fmField=s3g_thru_fm::index(key);
   if(fmField>=0){const int lane=t.tableEditLane(part);if(t.fmOverrides.test((part*4+lane)*s3g_thru_fm::fields+fmField)||!has(kClipFmOffset+(part*4+lane)*s3g_thru_fm::fields+fmField))return false;
     value=(t.splitEnabled?t.splitClipControls[part]:t.clipControls).fm.patches[lane].v[fmField];return true;}

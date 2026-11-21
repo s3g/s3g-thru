@@ -12,15 +12,46 @@ with zipfile.ZipFile(sys.argv[1]) as archive:
         'manifest.json', 'thru-state.json', 'thru-clips.bin', 'assets/a000000.wav'}
     manifest = json.loads(archive.read('manifest.json'))
     assert manifest == {'format': 's3g-thru-project', 'version': 1,
-                        'clip_format': 56, 'assets': 1}
+                        'clip_format': 60, 'assets': 1}
     state = json.loads(archive.read('thru-state.json'))
     clips = archive.read('thru-clips.bin')
     version, generation = struct.unpack_from('<IQ', clips, 8)
-    assert version == 56 and generation == state['generation']
+    assert version == 60 and generation == state['generation']
     checksum = 2166136261
     for value in clips[:-4]:
         checksum = ((checksum ^ value) * 16777619) & 0xffffffff
     assert checksum == struct.unpack('<I', clips[-4:])[0]
+    lowform_size=4+64*5*4*32*4
+    lowform_at=len(clips)-4-lowform_size
+    assert clips[lowform_at:lowform_at+4]==b'LFP1'
+    meta=json.loads((Path(__file__).resolve().parents[1]/'controllers/midi/lowform-parameters.json').read_text())
+    for i,x in enumerate(struct.unpack_from('<'+str(64*5*4*32)+'f',clips,lowform_at+4)):
+        m=meta[i%32];assert m['min']<=x<=m['max']
+        if m['options'] or i%32==5:assert x==int(x)
+    clips=clips[:lowform_at]+clips[-4:]
+    partials_size=4+64*5*4*104*4
+    partials_at=len(clips)-4-partials_size
+    assert clips[partials_at:partials_at+4]==b'PTP1'
+    meta=json.loads((Path(__file__).resolve().parents[1]/'controllers/midi/partials-parameters.json').read_text())
+    for i,x in enumerate(struct.unpack_from('<'+str(64*5*4*104)+'f',clips,partials_at+4)):
+        m=meta[i%104];assert m['min']<=x<=m['max']
+        if m['options']:assert x==int(x)
+    clips=clips[:partials_at]+clips[-4:]
+    reson_size=4+64*5*4*32*4
+    reson_at=len(clips)-4-reson_size
+    assert clips[reson_at:reson_at+4]==b'RSP1'
+    meta=json.loads((Path(__file__).resolve().parents[1]/'controllers/midi/reson-parameters.json').read_text())
+    for i,x in enumerate(struct.unpack_from('<'+str(64*5*4*32)+'f',clips,reson_at+4)):
+        m=meta[i%32];assert m['min']<=x<=m['max']
+        if m['options']:assert x==int(x)
+    clips=clips[:reson_at]+clips[-4:]
+    noise_size=4+64*5*4*88*4
+    noise_at=len(clips)-4-noise_size
+    assert clips[noise_at:noise_at+4]==b'NIS1'
+    meta=json.loads((Path(__file__).resolve().parents[1]/'controllers/midi/noise-parameters.json').read_text())
+    for i,x in enumerate(struct.unpack_from('<'+str(64*5*4*88)+'f',clips,noise_at+4)):
+        m=meta[i%88];assert m['min']<=x<=m['max']
+    clips=clips[:noise_at]+clips[-4:]
     extra_size=4+64*5*4*9*4
     extra_at=len(clips)-4-extra_size
     assert clips[extra_at:extra_at+4]==b'FMX1'

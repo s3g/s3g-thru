@@ -126,6 +126,24 @@ void waitSynth(ThruInstance &t, bool ready = true) {
             assert(t.controls.algorithm==Engine::PlaybackAlgorithm::fm);
             t.synthOpened=true;t.synthEdited();
         }
+        if(ready && !t.synthOpened && t.noiseRecipeType(t.synthRecipe.type)
+            && !std::strcmp(t.synthMessage.data(),"LOADED TO NOISE")
+            && t.synthWorker->state.load()==s3g_thru_synth::Worker::idle){
+            assert(t.controls.algorithm==Engine::PlaybackAlgorithm::noise);
+            t.synthOpened=true;t.synthEdited();
+        }
+        if(ready && !t.synthOpened && t.resonRecipeType(t.synthRecipe.type,int(t.synthRecipe.drums[s3g_thru_synth::dModel]))
+            && !std::strcmp(t.synthMessage.data(),"LOADED TO RESON")
+            && t.synthWorker->state.load()==s3g_thru_synth::Worker::idle){
+            assert(t.controls.algorithm==Engine::PlaybackAlgorithm::reson);
+            t.synthOpened=true;t.synthEdited();
+        }
+        if(ready && !t.synthOpened && t.partialsRecipeType(t.synthRecipe.type)
+            && !std::strcmp(t.synthMessage.data(),"LOADED TO PARTIALS")
+            && t.synthWorker->state.load()==s3g_thru_synth::Worker::idle){
+            assert(t.controls.algorithm==Engine::PlaybackAlgorithm::partials);
+            t.synthOpened=true;t.synthEdited();
+        }
         usleep(500);
         if(ready && t.synthOpened && !t.synthReady() && !t.synthWantsRender && t.synthWorker->state.load()==s3g_thru_synth::Worker::idle)
             setParam(&t,"synth_render","1"); // Simulate the explicit Render button.

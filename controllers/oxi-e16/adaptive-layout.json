@@ -523,6 +523,214 @@
       ]
     },
     {
+      "name": "NOISE",
+      "keys": [
+        "noise_type",
+        "noise_tune",
+        "noise_width",
+        "noise_level",
+        "noise_color",
+        "noise_tone",
+        "noise_bits",
+        "noise_seed"
+      ]
+    },
+    {
+      "name": "NOISE BANK",
+      "keys": [
+        "noise_count",
+        "noise_bandwidth",
+        "noise_tilt",
+        "noise_stretch",
+        "noise_motion",
+        "noise_motion_rate",
+        "noise_leak",
+        "noise_style"
+      ]
+    },
+    {
+      "name": "NOISE EVENTS",
+      "keys": [
+        "noise_rate",
+        "noise_size",
+        "noise_clump",
+        "noise_edge",
+        "noise_variation",
+        "noise_bed",
+        "noise_repeat",
+        "noise_fault"
+      ]
+    },
+    {
+      "name": "NOISE BANDS",
+      "keys": [
+        "noise_ratio_1",
+        "noise_ratio_2",
+        "noise_ratio_3",
+        "noise_ratio_4",
+        "noise_band_1",
+        "noise_band_2",
+        "noise_band_3",
+        "noise_band_4"
+      ]
+    },
+    {
+      "name": "RESON",
+      "keys": [
+        "reson_mode",
+        "reson_tune",
+        "reson_width",
+        "reson_level",
+        "reson_model",
+        "reson_decay",
+        "reson_brightness",
+        "reson_damping"
+      ]
+    },
+    {
+      "name": "RESON BODY",
+      "keys": [
+        "reson_stretch",
+        "reson_inharmonic",
+        "reson_mass",
+        "reson_bend",
+        "reson_sweep",
+        "reson_noise",
+        "reson_noise_decay",
+        "reson_color"
+      ]
+    },
+    {
+      "name": "RESON HIT",
+      "keys": [
+        "reson_hit",
+        "reson_hardness",
+        "reson_hit_decay",
+        "reson_punch",
+        "reson_position",
+        "reson_coupling",
+        "reson_detune",
+        "reson_seed"
+      ]
+    },
+    {
+      "name": "RESON DRIVE",
+      "keys": [
+        "reson_drive",
+        "reson_clip",
+        "reson_bias",
+        "reson_sag",
+        "reson_recovery",
+        "reson_tone",
+        "reson_mix",
+        "reson_output"
+      ]
+    },
+    {
+      "name": "PARTIALS",
+      "keys": [
+        "partials_type",
+        "partials_tune",
+        "partials_width",
+        "partials_level",
+        "partials_count",
+        "partials_tilt",
+        "partials_stretch",
+        "partials_phase"
+      ]
+    },
+    {
+      "name": "PARTIALS TONE",
+      "keys": [
+        "partials_harmonics",
+        "partials_subs",
+        "partials_balance",
+        "partials_detune",
+        "partials_drift",
+        "partials_drift_rate",
+        "partials_damping",
+        "partials_time"
+      ]
+    },
+    {
+      "name": "PARTIALS PACKET",
+      "keys": [
+        "partials_gap",
+        "partials_scatter",
+        "partials_rise",
+        "partials_sustain",
+        "partials_decay",
+        "partials_variation",
+        "partials_pitch_jitter",
+        "partials_shape"
+      ]
+    },
+    {
+      "name": "PARTIALS BANDS",
+      "keys": [
+        "partials_ratio_1",
+        "partials_ratio_2",
+        "partials_ratio_3",
+        "partials_ratio_4",
+        "partials_band_1",
+        "partials_band_2",
+        "partials_band_3",
+        "partials_band_4"
+      ]
+    },
+    {
+      "name": "LOWFORM",
+      "keys": [
+        "lowform_body",
+        "lowform_tune",
+        "lowform_foundation_level",
+        "lowform_body_level",
+        "lowform_cutoff",
+        "lowform_resonance",
+        "lowform_width",
+        "lowform_level"
+      ]
+    },
+    {
+      "name": "LOWFORM BODY",
+      "keys": [
+        "lowform_a",
+        "lowform_b",
+        "lowform_c",
+        "lowform_d",
+        "lowform_e",
+        "lowform_body_decay",
+        "lowform_punch",
+        "lowform_punch_time"
+      ]
+    },
+    {
+      "name": "LOWFORM SHAPE",
+      "keys": [
+        "lowform_filter_type",
+        "lowform_filter_drive",
+        "lowform_keytrack",
+        "lowform_filter_env",
+        "lowform_filter_decay",
+        "lowform_foundation_wave",
+        "lowform_foundation_octave",
+        "lowform_low_return"
+      ]
+    },
+    {
+      "name": "LOWFORM TEXTURE",
+      "keys": [
+        "lowform_texture_type",
+        "lowform_texture_level",
+        "lowform_texture_color",
+        "lowform_texture_track",
+        "lowform_texture_width",
+        "lowform_texture_attack",
+        "lowform_texture_decay",
+        "lowform_drive"
+      ]
+    },
+    {
       "name": "PACKETS",
       "keys": [
         "motion_rate",
@@ -735,18 +943,42 @@
       37,
       38,
       39
+    ],
+    [
+      40,
+      41,
+      42,
+      43
+    ],
+    [
+      44,
+      45,
+      46,
+      47
+    ],
+    [
+      48,
+      49,
+      50,
+      51
+    ],
+    [
+      52,
+      53,
+      54,
+      55
     ]
   ],
   "engine": 1,
   "stack": 2,
-  "extraStart": 40,
-  "color": 44,
-  "rotary": 45,
-  "sends": 46,
-  "quadSends": 47,
-  "delay": 48,
-  "reverb": 49,
-  "tape": 50,
+  "extraStart": 56,
+  "color": 60,
+  "rotary": 61,
+  "sends": 62,
+  "quadSends": 63,
+  "delay": 64,
+  "reverb": 65,
+  "tape": 66,
   "ids": {
     "algorithm": 4,
     "locus": 0,
@@ -1007,6 +1239,134 @@
     "fm_decay2": 4429,
     "fm_end2": 4430,
     "fm_curve2": 4431,
+    "noise_type": 4500,
+    "noise_tune": 4501,
+    "noise_width": 4502,
+    "noise_level": 4503,
+    "noise_color": 4504,
+    "noise_tone": 4505,
+    "noise_bits": 4506,
+    "noise_seed": 4507,
+    "noise_count": 4508,
+    "noise_bandwidth": 4509,
+    "noise_tilt": 4510,
+    "noise_stretch": 4511,
+    "noise_motion": 4512,
+    "noise_motion_rate": 4513,
+    "noise_leak": 4514,
+    "noise_style": 4515,
+    "noise_rate": 4516,
+    "noise_size": 4517,
+    "noise_clump": 4518,
+    "noise_edge": 4519,
+    "noise_variation": 4520,
+    "noise_bed": 4521,
+    "noise_repeat": 4522,
+    "noise_fault": 4523,
+    "noise_ratio_1": 4524,
+    "noise_ratio_2": 4525,
+    "noise_ratio_3": 4526,
+    "noise_ratio_4": 4527,
+    "noise_band_1": 4556,
+    "noise_band_2": 4557,
+    "noise_band_3": 4558,
+    "noise_band_4": 4559,
+    "reson_mode": 4600,
+    "reson_tune": 4601,
+    "reson_width": 4602,
+    "reson_level": 4603,
+    "reson_model": 4604,
+    "reson_decay": 4605,
+    "reson_brightness": 4606,
+    "reson_damping": 4607,
+    "reson_stretch": 4608,
+    "reson_inharmonic": 4609,
+    "reson_mass": 4610,
+    "reson_bend": 4611,
+    "reson_sweep": 4612,
+    "reson_noise": 4613,
+    "reson_noise_decay": 4614,
+    "reson_color": 4615,
+    "reson_hit": 4616,
+    "reson_hardness": 4617,
+    "reson_hit_decay": 4618,
+    "reson_punch": 4619,
+    "reson_position": 4620,
+    "reson_coupling": 4621,
+    "reson_detune": 4622,
+    "reson_seed": 4623,
+    "reson_drive": 4624,
+    "reson_clip": 4625,
+    "reson_bias": 4626,
+    "reson_sag": 4627,
+    "reson_recovery": 4628,
+    "reson_tone": 4629,
+    "reson_mix": 4630,
+    "reson_output": 4631,
+    "partials_type": 4800,
+    "partials_tune": 4801,
+    "partials_width": 4802,
+    "partials_level": 4803,
+    "partials_count": 4804,
+    "partials_tilt": 4805,
+    "partials_stretch": 4806,
+    "partials_phase": 4807,
+    "partials_harmonics": 4808,
+    "partials_subs": 4809,
+    "partials_balance": 4810,
+    "partials_detune": 4811,
+    "partials_drift": 4812,
+    "partials_drift_rate": 4813,
+    "partials_damping": 4814,
+    "partials_time": 4815,
+    "partials_gap": 4816,
+    "partials_scatter": 4817,
+    "partials_rise": 4818,
+    "partials_sustain": 4819,
+    "partials_decay": 4820,
+    "partials_variation": 4821,
+    "partials_pitch_jitter": 4822,
+    "partials_shape": 4823,
+    "partials_ratio_1": 4824,
+    "partials_ratio_2": 4825,
+    "partials_ratio_3": 4826,
+    "partials_ratio_4": 4827,
+    "partials_band_1": 4856,
+    "partials_band_2": 4857,
+    "partials_band_3": 4858,
+    "partials_band_4": 4859,
+    "lowform_body": 5000,
+    "lowform_tune": 5001,
+    "lowform_foundation_level": 5006,
+    "lowform_body_level": 5007,
+    "lowform_cutoff": 5020,
+    "lowform_resonance": 5021,
+    "lowform_width": 5002,
+    "lowform_level": 5003,
+    "lowform_a": 5008,
+    "lowform_b": 5009,
+    "lowform_c": 5010,
+    "lowform_d": 5011,
+    "lowform_e": 5012,
+    "lowform_body_decay": 5013,
+    "lowform_punch": 5026,
+    "lowform_punch_time": 5027,
+    "lowform_filter_type": 5019,
+    "lowform_filter_drive": 5022,
+    "lowform_keytrack": 5023,
+    "lowform_filter_env": 5024,
+    "lowform_filter_decay": 5025,
+    "lowform_foundation_wave": 5004,
+    "lowform_foundation_octave": 5005,
+    "lowform_low_return": 5029,
+    "lowform_texture_type": 5014,
+    "lowform_texture_level": 5015,
+    "lowform_texture_color": 5016,
+    "lowform_texture_track": 5017,
+    "lowform_texture_width": 5018,
+    "lowform_texture_attack": 5031,
+    "lowform_texture_decay": 5030,
+    "lowform_drive": 5028,
     "motion_rate": 514,
     "packet_duty": 521,
     "motor_rate": 522,
@@ -1067,13 +1427,142 @@
     "effect_tape_mix": 2183,
     "part_level": 6,
     "cut_lane_advance": 896,
-    "stochastic_capture": 3210
+    "stochastic_capture": 3210,
+    "noise_ratio_5": 4528,
+    "noise_ratio_6": 4529,
+    "noise_ratio_7": 4530,
+    "noise_ratio_8": 4531,
+    "noise_ratio_9": 4532,
+    "noise_ratio_10": 4533,
+    "noise_ratio_11": 4534,
+    "noise_ratio_12": 4535,
+    "noise_ratio_13": 4536,
+    "noise_ratio_14": 4537,
+    "noise_ratio_15": 4538,
+    "noise_ratio_16": 4539,
+    "noise_ratio_17": 4540,
+    "noise_ratio_18": 4541,
+    "noise_ratio_19": 4542,
+    "noise_ratio_20": 4543,
+    "noise_ratio_21": 4544,
+    "noise_ratio_22": 4545,
+    "noise_ratio_23": 4546,
+    "noise_ratio_24": 4547,
+    "noise_ratio_25": 4548,
+    "noise_ratio_26": 4549,
+    "noise_ratio_27": 4550,
+    "noise_ratio_28": 4551,
+    "noise_ratio_29": 4552,
+    "noise_ratio_30": 4553,
+    "noise_ratio_31": 4554,
+    "noise_ratio_32": 4555,
+    "noise_band_5": 4560,
+    "noise_band_6": 4561,
+    "noise_band_7": 4562,
+    "noise_band_8": 4563,
+    "noise_band_9": 4564,
+    "noise_band_10": 4565,
+    "noise_band_11": 4566,
+    "noise_band_12": 4567,
+    "noise_band_13": 4568,
+    "noise_band_14": 4569,
+    "noise_band_15": 4570,
+    "noise_band_16": 4571,
+    "noise_band_17": 4572,
+    "noise_band_18": 4573,
+    "noise_band_19": 4574,
+    "noise_band_20": 4575,
+    "noise_band_21": 4576,
+    "noise_band_22": 4577,
+    "noise_band_23": 4578,
+    "noise_band_24": 4579,
+    "noise_band_25": 4580,
+    "noise_band_26": 4581,
+    "noise_band_27": 4582,
+    "noise_band_28": 4583,
+    "noise_band_29": 4584,
+    "noise_band_30": 4585,
+    "noise_band_31": 4586,
+    "noise_band_32": 4587,
+    "partials_ratio_5": 4828,
+    "partials_ratio_6": 4829,
+    "partials_ratio_7": 4830,
+    "partials_ratio_8": 4831,
+    "partials_ratio_9": 4832,
+    "partials_ratio_10": 4833,
+    "partials_ratio_11": 4834,
+    "partials_ratio_12": 4835,
+    "partials_ratio_13": 4836,
+    "partials_ratio_14": 4837,
+    "partials_ratio_15": 4838,
+    "partials_ratio_16": 4839,
+    "partials_ratio_17": 4840,
+    "partials_ratio_18": 4841,
+    "partials_ratio_19": 4842,
+    "partials_ratio_20": 4843,
+    "partials_ratio_21": 4844,
+    "partials_ratio_22": 4845,
+    "partials_ratio_23": 4846,
+    "partials_ratio_24": 4847,
+    "partials_ratio_25": 4848,
+    "partials_ratio_26": 4849,
+    "partials_ratio_27": 4850,
+    "partials_ratio_28": 4851,
+    "partials_ratio_29": 4852,
+    "partials_ratio_30": 4853,
+    "partials_ratio_31": 4854,
+    "partials_ratio_32": 4855,
+    "partials_band_5": 4860,
+    "partials_band_6": 4861,
+    "partials_band_7": 4862,
+    "partials_band_8": 4863,
+    "partials_band_9": 4864,
+    "partials_band_10": 4865,
+    "partials_band_11": 4866,
+    "partials_band_12": 4867,
+    "partials_band_13": 4868,
+    "partials_band_14": 4869,
+    "partials_band_15": 4870,
+    "partials_band_16": 4871,
+    "partials_band_17": 4872,
+    "partials_band_18": 4873,
+    "partials_band_19": 4874,
+    "partials_band_20": 4875,
+    "partials_band_21": 4876,
+    "partials_band_22": 4877,
+    "partials_band_23": 4878,
+    "partials_band_24": 4879,
+    "partials_band_25": 4880,
+    "partials_band_26": 4881,
+    "partials_band_27": 4882,
+    "partials_band_28": 4883,
+    "partials_band_29": 4884,
+    "partials_band_30": 4885,
+    "partials_band_31": 4886,
+    "partials_band_32": 4887,
+    "partials_divisor_1": 4888,
+    "partials_divisor_2": 4889,
+    "partials_divisor_3": 4890,
+    "partials_divisor_4": 4891,
+    "partials_divisor_5": 4892,
+    "partials_divisor_6": 4893,
+    "partials_divisor_7": 4894,
+    "partials_divisor_8": 4895,
+    "partials_divisor_9": 4896,
+    "partials_divisor_10": 4897,
+    "partials_divisor_11": 4898,
+    "partials_divisor_12": 4899,
+    "partials_divisor_13": 4900,
+    "partials_divisor_14": 4901,
+    "partials_divisor_15": 4902,
+    "partials_divisor_16": 4903,
+    "lowform_start": 5090
   },
   "meta": [
     {
       "id": 4,
       "label": "ENG ",
-      "steps": 17,
+      "steps": 21,
       "scope": "part"
     },
     {
@@ -2625,6 +3114,774 @@
       "scope": "part"
     },
     {
+      "id": 4500,
+      "label": "TYPE",
+      "steps": 6,
+      "scope": "part"
+    },
+    {
+      "id": 4501,
+      "label": "TUNE",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4502,
+      "label": "WID ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4503,
+      "label": "LVL ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4504,
+      "label": "COLR",
+      "steps": 3,
+      "scope": "part"
+    },
+    {
+      "id": 4505,
+      "label": "TONE",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4506,
+      "label": "BITS",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4507,
+      "label": "SEED",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4508,
+      "label": "BAND",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4509,
+      "label": "BW  ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4510,
+      "label": "TILT",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4511,
+      "label": "STR ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4512,
+      "label": "MOVE",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4513,
+      "label": "RATE",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4514,
+      "label": "LEAK",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4515,
+      "label": "GRID",
+      "steps": 3,
+      "scope": "part"
+    },
+    {
+      "id": 4516,
+      "label": "RATE",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4517,
+      "label": "SIZE",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4518,
+      "label": "CLMP",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4519,
+      "label": "EDGE",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4520,
+      "label": "VAR ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4521,
+      "label": "BED ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4522,
+      "label": "REPT",
+      "steps": 15,
+      "scope": "part"
+    },
+    {
+      "id": 4523,
+      "label": "FAIL",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4524,
+      "label": "R1  ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4525,
+      "label": "R2  ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4526,
+      "label": "R3  ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4527,
+      "label": "R4  ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4556,
+      "label": "L1  ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4557,
+      "label": "L2  ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4558,
+      "label": "L3  ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4559,
+      "label": "L4  ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4600,
+      "label": "MODE",
+      "steps": 1,
+      "scope": "part"
+    },
+    {
+      "id": 4601,
+      "label": "TUNE",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4602,
+      "label": "WID ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4603,
+      "label": "LVL ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4604,
+      "label": "BODY",
+      "steps": 7,
+      "scope": "part"
+    },
+    {
+      "id": 4605,
+      "label": "DEC ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4606,
+      "label": "BRGT",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4607,
+      "label": "DAMP",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4608,
+      "label": "STRC",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4609,
+      "label": "INHR",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4610,
+      "label": "MASS",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4611,
+      "label": "BEND",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4612,
+      "label": "TIME",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4613,
+      "label": "NOIS",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4614,
+      "label": "NDEC",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4615,
+      "label": "COLR",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4616,
+      "label": "HIT ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4617,
+      "label": "HARD",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4618,
+      "label": "HDEC",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4619,
+      "label": "PNCH",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4620,
+      "label": "SPOT",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4621,
+      "label": "COUP",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4622,
+      "label": "DETN",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4623,
+      "label": "SEED",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4624,
+      "label": "DRIV",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4625,
+      "label": "CLIP",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4626,
+      "label": "BIAS",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4627,
+      "label": "SAG ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4628,
+      "label": "REC ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4629,
+      "label": "TONE",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4630,
+      "label": "MIX ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4631,
+      "label": "OUT ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4800,
+      "label": "TYPE",
+      "steps": 2,
+      "scope": "part"
+    },
+    {
+      "id": 4801,
+      "label": "TUNE",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4802,
+      "label": "WID ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4803,
+      "label": "LVL ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4804,
+      "label": "PART",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4805,
+      "label": "TILT",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4806,
+      "label": "STRC",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4807,
+      "label": "PHAS",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4808,
+      "label": "HARM",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4809,
+      "label": "SUBS",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4810,
+      "label": "BAL ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4811,
+      "label": "DETN",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4812,
+      "label": "DRFT",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4813,
+      "label": "RATE",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4814,
+      "label": "DAMP",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4815,
+      "label": "TIME",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4816,
+      "label": "GAP ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4817,
+      "label": "SCAT",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4818,
+      "label": "RISE",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4819,
+      "label": "SUS ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4820,
+      "label": "DEC ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4821,
+      "label": "VAR ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4822,
+      "label": "PJIT",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4823,
+      "label": "SHAP",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4824,
+      "label": "R1  ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4825,
+      "label": "R2  ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4826,
+      "label": "R3  ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4827,
+      "label": "R4  ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4856,
+      "label": "L1  ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4857,
+      "label": "L2  ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4858,
+      "label": "L3  ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4859,
+      "label": "L4  ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 5000,
+      "label": "BODY",
+      "steps": 5,
+      "scope": "part"
+    },
+    {
+      "id": 5001,
+      "label": "TUNE",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 5006,
+      "label": "FND ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 5007,
+      "label": "BODL",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 5020,
+      "label": "CUT ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 5021,
+      "label": "RES ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 5002,
+      "label": "WID ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 5003,
+      "label": "LVL ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 5008,
+      "label": "WAVE",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 5009,
+      "label": "PRES",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 5010,
+      "label": "PW  ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 5011,
+      "label": "CROS",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 5012,
+      "label": "DRIV",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 5013,
+      "label": "BDEC",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 5026,
+      "label": "PUNC",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 5027,
+      "label": "PTIM",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 5019,
+      "label": "FILT",
+      "steps": 5,
+      "scope": "part"
+    },
+    {
+      "id": 5022,
+      "label": "FDRV",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 5023,
+      "label": "KEY ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 5024,
+      "label": "FENV",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 5025,
+      "label": "FDEC",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 5004,
+      "label": "FWAV",
+      "steps": 2,
+      "scope": "part"
+    },
+    {
+      "id": 5005,
+      "label": "FOCT",
+      "steps": 1,
+      "scope": "part"
+    },
+    {
+      "id": 5029,
+      "label": "LOW ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 5014,
+      "label": "TYPE",
+      "steps": 4,
+      "scope": "part"
+    },
+    {
+      "id": 5015,
+      "label": "LVL ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 5016,
+      "label": "COLR",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 5017,
+      "label": "TRK ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 5018,
+      "label": "TWID",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 5031,
+      "label": "TATK",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 5030,
+      "label": "TDEC",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 5028,
+      "label": "DRIV",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
       "id": 514,
       "label": "RATE",
       "steps": 0,
@@ -2988,6 +4245,780 @@
       "id": 3210,
       "label": "CAPT",
       "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4528,
+      "label": "R5  ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4529,
+      "label": "R6  ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4530,
+      "label": "R7  ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4531,
+      "label": "R8  ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4532,
+      "label": "R9  ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4533,
+      "label": "R10 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4534,
+      "label": "R11 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4535,
+      "label": "R12 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4536,
+      "label": "R13 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4537,
+      "label": "R14 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4538,
+      "label": "R15 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4539,
+      "label": "R16 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4540,
+      "label": "R17 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4541,
+      "label": "R18 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4542,
+      "label": "R19 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4543,
+      "label": "R20 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4544,
+      "label": "R21 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4545,
+      "label": "R22 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4546,
+      "label": "R23 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4547,
+      "label": "R24 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4548,
+      "label": "R25 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4549,
+      "label": "R26 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4550,
+      "label": "R27 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4551,
+      "label": "R28 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4552,
+      "label": "R29 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4553,
+      "label": "R30 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4554,
+      "label": "R31 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4555,
+      "label": "R32 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4560,
+      "label": "L5  ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4561,
+      "label": "L6  ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4562,
+      "label": "L7  ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4563,
+      "label": "L8  ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4564,
+      "label": "L9  ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4565,
+      "label": "L10 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4566,
+      "label": "L11 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4567,
+      "label": "L12 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4568,
+      "label": "L13 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4569,
+      "label": "L14 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4570,
+      "label": "L15 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4571,
+      "label": "L16 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4572,
+      "label": "L17 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4573,
+      "label": "L18 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4574,
+      "label": "L19 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4575,
+      "label": "L20 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4576,
+      "label": "L21 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4577,
+      "label": "L22 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4578,
+      "label": "L23 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4579,
+      "label": "L24 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4580,
+      "label": "L25 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4581,
+      "label": "L26 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4582,
+      "label": "L27 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4583,
+      "label": "L28 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4584,
+      "label": "L29 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4585,
+      "label": "L30 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4586,
+      "label": "L31 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4587,
+      "label": "L32 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4828,
+      "label": "R5  ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4829,
+      "label": "R6  ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4830,
+      "label": "R7  ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4831,
+      "label": "R8  ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4832,
+      "label": "R9  ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4833,
+      "label": "R10 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4834,
+      "label": "R11 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4835,
+      "label": "R12 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4836,
+      "label": "R13 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4837,
+      "label": "R14 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4838,
+      "label": "R15 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4839,
+      "label": "R16 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4840,
+      "label": "R17 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4841,
+      "label": "R18 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4842,
+      "label": "R19 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4843,
+      "label": "R20 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4844,
+      "label": "R21 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4845,
+      "label": "R22 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4846,
+      "label": "R23 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4847,
+      "label": "R24 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4848,
+      "label": "R25 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4849,
+      "label": "R26 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4850,
+      "label": "R27 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4851,
+      "label": "R28 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4852,
+      "label": "R29 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4853,
+      "label": "R30 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4854,
+      "label": "R31 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4855,
+      "label": "R32 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4860,
+      "label": "L5  ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4861,
+      "label": "L6  ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4862,
+      "label": "L7  ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4863,
+      "label": "L8  ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4864,
+      "label": "L9  ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4865,
+      "label": "L10 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4866,
+      "label": "L11 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4867,
+      "label": "L12 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4868,
+      "label": "L13 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4869,
+      "label": "L14 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4870,
+      "label": "L15 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4871,
+      "label": "L16 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4872,
+      "label": "L17 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4873,
+      "label": "L18 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4874,
+      "label": "L19 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4875,
+      "label": "L20 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4876,
+      "label": "L21 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4877,
+      "label": "L22 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4878,
+      "label": "L23 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4879,
+      "label": "L24 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4880,
+      "label": "L25 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4881,
+      "label": "L26 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4882,
+      "label": "L27 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4883,
+      "label": "L28 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4884,
+      "label": "L29 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4885,
+      "label": "L30 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4886,
+      "label": "L31 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4887,
+      "label": "L32 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4888,
+      "label": "D1  ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4889,
+      "label": "D2  ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4890,
+      "label": "D3  ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4891,
+      "label": "D4  ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4892,
+      "label": "D5  ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4893,
+      "label": "D6  ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4894,
+      "label": "D7  ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4895,
+      "label": "D8  ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4896,
+      "label": "D9  ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4897,
+      "label": "D10 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4898,
+      "label": "D11 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4899,
+      "label": "D12 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4900,
+      "label": "D13 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4901,
+      "label": "D14 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4902,
+      "label": "D15 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4903,
+      "label": "D16 ",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 5090,
+      "label": "STAR",
+      "steps": 6,
       "scope": "part"
     }
   ]

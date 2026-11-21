@@ -959,7 +959,7 @@ void midi(plugin_api_v2_t* api, void* instance,
 
 std::string get(plugin_api_v2_t* api, void* instance, const char* key)
 {
-    std::array<char, 32768> buffer {};
+    std::array<char, 131072> buffer {};
     const int length = api->get_param(instance, key, buffer.data(),
                                       static_cast<int>(buffer.size()));
     if(length<0)std::fprintf(stderr,"get_param failed for %s (capacity %zu)\n",key,buffer.size());
@@ -3733,7 +3733,7 @@ int main()
         == sizeof(clipMagic));
     assert(std::memcmp(clipMagic, "S3GTHR3", 7u) == 0);
     assert(std::fread(&clipVersion, sizeof(clipVersion), 1u, clipFile) == 1u);
-    assert(clipVersion == 56u);
+    assert(clipVersion == 60u);
     std::fclose(stateFile);
     std::fclose(laneFile);
     std::fclose(clipFile);
@@ -3931,7 +3931,7 @@ int main()
     assert(std::fread(clipMagic, 1u, sizeof(clipMagic), clipFile)
         == sizeof(clipMagic));
     assert(std::fread(&clipVersion, sizeof(clipVersion), 1u, clipFile) == 1u);
-    assert(clipVersion == 56u);
+    assert(clipVersion == 60u);
     assert(std::fclose(clipFile) == 0);
 
     std::remove(statePath.c_str());

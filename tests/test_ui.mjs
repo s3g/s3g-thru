@@ -136,7 +136,7 @@ globalThis.host_module_get_param = (key) => {
         // Match native formatEditorState: sequence controls arrive in seq_state,
         // not in the engine/editor scalar chunks.
         const values = Object.fromEntries(Object.entries(globalThis.__testParams || {})
-            .filter(([key,p]) => !p.lfoField&&!p.momentary&&!key.startsWith('layers_')&&!key.startsWith('seq_')&&!key.startsWith('table_')&&key!=='mix_mute')
+            .filter(([key,p]) => !p.lfoField&&!p.momentary&&!key.startsWith('layers_')&&!key.startsWith('seq_')&&!key.startsWith('table_')&&!key.startsWith('noise_')&&!key.startsWith('reson_')&&!key.startsWith('partials_')&&!key.startsWith('lowform_')&&key!=='mix_mute')
             .map(([key,p]) => [key, Number(params[key] ?? p.value)]));
         const split = JSON.parse(params.split_state || '{"enabled":0,"focus":0,"blend":0.5,"parts":[{},{}]}');
         if(!split.enabled||!split.quad)split.parts=split.parts.slice(0,2);
@@ -287,9 +287,13 @@ globalThis.__testFx = { adjust: adjustFxOrder, sync: syncFxOrder,
     parseClip: parseClipBankState, draw: drawSettings,
     pageIndex: () => parameterPages().indexOf(FX_ORDER_PAGE) };
 `;
+source += '\nglobalThis.__testLowform={model:lowformUi,read:readLowform};';
 source += '\nglobalThis.__testSynth={model:synthUi,open:openSynth,read:readSynth,draw:drawSynth,color:synthPadColor,pages:synthGroupPages,allPages:synthPageIds,decode:decodeSynthRecipe,locks:synthLockEntries,actions:synthActions};';
 source += '\nglobalThis.__testSequenceGenerate={ui:sequenceGeneratorUi,open:openSequenceGenerator,close:closeSequenceGenerator,read:readSequenceGenerator,pages:GEN_PAGES,control:generatorControl,draw:drawSequenceGenerator,green:NeonGreen,color:generatorPadColor,position:settingsPagePosition,activate:activatePageEntry};';
 source += '\nglobalThis.__testLfo={model:lfoUi,read:readControlLfos,adjust:adjustControlLfo,draw:drawControlLfo,control:controlLfoForKey,pages:LFO_PAGES,setup:LFO_SETUP_PAGE,trig:SEQUENCE_LFO_PAGE,readLive:readControlLfoLive,display:lfoDisplayControl,openPicker:openLfoDestPicker,handle:handleLfoPickerMidi,groups:lfoDestGroups,rows:lfoPickerRows,drawPicker:drawLfoDestPicker,catalog:LFO_DESTINATIONS};';
+source += '\nglobalThis.__testPartials={read:readPartials,model:partialsUi,pages:parameterPages};';
+source += '\nglobalThis.__testReson={read:readReson,model:resonUi,pages:parameterPages,handle:handleResonMidi};';
+source += '\nglobalThis.__testNoise={read:readNoise,model:noiseUi,pages:parameterPages};globalThis.__testEnginePicker={ui:enginePicker,handle:handleEnginePicker,open:openEnginePicker,draw:drawEnginePicker};';
 source += '\nglobalThis.__testFm={pages:parameterPages,read:readFm,model:fmUi,routing:drawFmRouting,starts:drawFmStarts,handle:handleFmMidi,page:FM_PAGE,envs:FM_ENVS_PAGE};';
 source += '\nglobalThis.__testScanned={read:readScanned,model:scannedUi,controls:SCANNED_CONTROLS};';
 source += '\nglobalThis.__testTable={read:readTable,scopes:readTableScope,model:tableUi,controls:TABLE_CONTROLS,variantPages:playbackPagesForAlgorithm};';
@@ -615,10 +619,10 @@ globalThis.onMidiMessageInternal([0xB0, 50, 127]);
 const settingsDrawStart = drawWrites.length;
 globalThis.tick();
 const settingsLines = drawWrites.slice(settingsDrawStart).filter((write) =>
-    write[0] === 'print' && write[2] >= 10);
+    write[0] === 'print' && write[2] >= 10 && write[2] < 57);
 assert.equal(settingsLines.length, 16, 'eight dials need separate name/value rows');
 assert.deepEqual([...new Set(settingsLines.map((write) => write[2]))],
-    [13, 24, 39, 50]);
+    [11, 22, 35, 46]);
 assert(!drawWrites.slice(settingsDrawStart).some((write) => write[0] === 'rect'
     && write[3] === 7 && write[4] === 1), 'parameter cells should not draw dials');
 globalThis.onMidiMessageInternal([0xB0, 71, 2]);
@@ -2642,7 +2646,7 @@ console.log('s3g Thru Bank A hollow markers over waveforms, intersecting voices 
   globalThis.__testMidi.poll();
   assert.equal(globalThis.__testMidi.model.query.split(';')[5],'-1:-1','Generic CC keeps the reserved Engine slot');
   const draws=drawWrites.length;globalThis.__testFx.draw();
-  assert(drawWrites.slice(draws).some(w=>w[0]==='rect'&&w[1]===46&&w[2]===46&&w[3]===4&&w[4]===4&&w[5]===1),
+  assert(drawWrites.slice(draws).some(w=>w[0]==='rect'&&w[1]===46&&w[2]===42&&w[3]===4&&w[4]===4&&w[5]===1),
    'Sample/Slices Engine RATE is a reserved hollow box');
   let writes=paramWrites.length;globalThis.__testResetEncoders();
   globalThis.onMidiMessageInternal([0xb0,76,32]);
@@ -4182,17 +4186,18 @@ if(process.env.S3G_THRU_UNIT_FIXTURE){
  const originalSet=globalThis.host_module_set_param_blocking;
  globalThis.host_module_set_param_blocking=(key,value)=>{
    const result=originalSet(key,value);
-   // Native Synth commands are ignored after the tool closes.
+   // Native Process commands are ignored after the tool closes.
    if(key.startsWith('synth_')&&!['synth_open','synth_close'].includes(key)&&!fixture.open)return result;
    fixture.type??=0;fixture.osc??=[0,.5,0,0,20000,0,0];fixture.packets??=[0,0,8,150,.2,10,20,120,.2,.2,.2,0,.1,0,0,1];fixture.mod??=[0,.5,0,1,0,0,0];fixture.spectral??=[0,0,0,1,0,0,24,-96];fixture.protected??='0'.repeat(62);
    fixture.additive??=[16,0,1,0,0,0,.5,0];fixture.noise??=[8,3,0,1,0,0,.5,0];fixture.fmOsc??=[0,1,1,2,0,0,0,1];
    fixture.plucked??=[110,1200,.35,.65,.08,.35,.1,8];fixture.sub??=[8,4,.25,-6,0,0,.25,0];fixture.hybridParams??=[0,2,0,.8,.65,.35,140,.1];fixture.trace??=[0,1,120,0,0,144,.5,0];fixture.events??=[0,8,1,0,0,500,0,.35];fixture.timing??=[1,120,5,.7,0,0,0,0];fixture.drumExtra??=[.94,4,80,.12,0,0,.35,.15];fixture.drumColor??=[24,48000,20000,1,0,0,0,0];fixture.dustParams??=[0,20,1.2,.2,10000,0,16,.75,0,0,1,.25];fixture.dustProtected??='100000000000';fixture.inputs??=[];
+   fixture.hybridStyle??=0;fixture.hybridLocks??=0x5f98;fixture.transfer??=[.8,0,0,0,0,.75,1,0,2,1,1,1,20,0,1];
    fixture.wt??=[0,48,600,1,2,.18,.55,.8,.1,.35,2,.18,0,.35,.025,.85,32,22,38,18,2,.3,.45,.15];fixture.wtProtected??='11'+'0'.repeat(22);
    fixture.workProtected??=Array.from({length:64},(_,i)=>[0,8,9,16,17,24,32,33,40,41,42,43,44,54,55,56,57,58,59].includes(i)?'1':'0').join('');
    fixture.conv??=[0,12000,0,1000,0,0,1,1];fixture.drums??=[0,48,600,.7,.25,.2,.5,0,12,40,.3,.4,0,.6,.4,.7];fixture.extendedLocks??=0x10f;
    fixture.partials??=Array.from({length:8},(_,i)=>[i+1,i?0:1]);fixture.partial_masks??=[1,1,1,1];fixture.spectrum??=0;fixture.component??=0;
    if(key==='synth_type'){fixture.type=Number(value);fixture.row=fixture.point=0;}
-   for(const [command,name] of [['synth_wave','osc'],['synth_bloom','packets'],['synth_mod','mod'],['synth_resynth','spectral'],['synth_additive','additive'],['synth_noise','noise'],['synth_fm','fmOsc'],['synth_conv','conv'],['synth_drum','drums'],['synth_pluck','plucked'],['synth_sub','sub'],['synth_hybrid','hybridParams'],['synth_trace','trace'],['synth_events','events'],['synth_timing','timing'],['synth_attack','drumExtra'],['synth_color','drumColor'],['synth_dust','dustParams'],['synth_wt','wt']])if(key===command){const [field,v]=String(value).split(',').map(Number);fixture[name][field]=v;}
+   for(const [command,name] of [['synth_transfer','transfer'],['synth_wave','osc'],['synth_bloom','packets'],['synth_mod','mod'],['synth_resynth','spectral'],['synth_additive','additive'],['synth_noise','noise'],['synth_fm','fmOsc'],['synth_conv','conv'],['synth_drum','drums'],['synth_pluck','plucked'],['synth_sub','sub'],['synth_hybrid','hybridParams'],['synth_trace','trace'],['synth_events','events'],['synth_timing','timing'],['synth_attack','drumExtra'],['synth_color','drumColor'],['synth_dust','dustParams'],['synth_wt','wt']])if(key===command){const [field,v]=String(value).split(',').map(Number);fixture[name][field]=v;}
    if(key==='synth_spec_select'){const [row,point]=String(value).split(',').map(Number);fixture.spectrum=row;fixture.component=point;}
    if(key==='synth_spec_edit'){const [row,point,field,v]=String(value).split(',').map(Number);fixture.spectrum=row;fixture.partials[point][field]=v;}
    if(key==='synth_detail_lock'){const field=Number(value),bits=fixture.protected.split('');bits[field]=bits[field]==='1'?'0':'1';fixture.protected=bits.join('');}
@@ -4201,6 +4206,8 @@ if(process.env.S3G_THRU_UNIT_FIXTURE){
    if(key==='synth_primary_file')fixture.primary='Primary.wav';
    if(key==='synth_impulse_file')fixture.impulse='Impulse.wav';
    if(/^synth_hybrid[0-3]_file$/.test(key))fixture.inputs[Number(key[12])]='Source '+String.fromCharCode(65+Number(key[12]))+'.wav';
+   if(key==='synth_transfer_lock')fixture.hybridLocks^=1<<Number(value);
+   if(key==='synth_hybrid_upgrade')fixture.hybridStyle=1;
    if(key==='synth_work_lock'){const bits=fixture.workProtected.split(''),f=Number(value);bits[f]=bits[f]==='1'?'0':'1';fixture.workProtected=bits.join('');}
    if(key==='synth_wt_lock'){const bits=fixture.wtProtected.split(''),f=Number(value);bits[f]=bits[f]==='1'?'0':'1';fixture.wtProtected=bits.join('');}
    if(key==='synth_dust_lock'){const bits=fixture.dustProtected.split(''),f=Number(value);bits[f]=bits[f]==='1'?'0':'1';fixture.dustProtected=bits.join('');}
@@ -4272,7 +4279,7 @@ if(process.env.S3G_THRU_UNIT_FIXTURE){
    cc(51);assert.equal(ui.model.overlay,'nav');cc(51);assert.equal(state.view,'pages');assert.equal(state.pageCategory,1);assert.equal(fixture.open,0);
    ui.open();cc(52);cc(50);cc(52,0);assert.equal(state.view,'pages');assert.equal(state.pageTier,'hub');assert.equal(fixture.open,0);
    // TYPE and all new controls use their own transient commands and contextual pages.
-   ui.open();fixture.type=1;params.synth_state=JSON.stringify(fixture);ui.read();ui.model.page=0;globalThis.__testResetEncoders();cc(71,124);assert.equal(fixture.type,8);fixture.type=1;params.synth_state=JSON.stringify(fixture);ui.read();
+   ui.open();fixture.type=1;params.synth_state=JSON.stringify(fixture);ui.read();ui.model.page=0;globalThis.__testResetEncoders();cc(71,124);assert.equal(fixture.type,3);fixture.type=1;params.synth_state=JSON.stringify(fixture);ui.read();
    assert.equal(ui.pages().length,2);ui.model.page=1;
    let before=blockingWrites.length;globalThis.__testResetEncoders();cc(72,8);cc(76,8);
    assert(!blockingWrites.slice(before).some(([k])=>k==='synth_wave'),'inactive pulse width and resonance are inert');
@@ -4280,7 +4287,7 @@ if(process.env.S3G_THRU_UNIT_FIXTURE){
    before=blockingWrites.length;globalThis.__testResetEncoders();cc(72,4);assert(blockingWrites.slice(before).some(([k,v])=>k==='synth_wave'&&v.startsWith('1,')));
    ui.model.page=5;fixture.mod[2]=0;params.synth_state=JSON.stringify(fixture);ui.read();before=blockingWrites.length;cc(72,8);assert.equal(blockingWrites.length,before);
    globalThis.__testResetEncoders();cc(73,4);assert(fixture.mod[2]>0);before=blockingWrites.length;cc(72,4);assert(blockingWrites.slice(before).some(([k,v])=>k==='synth_mod'&&v.startsWith('1,')));
-   fixture.type=0;params.synth_state=JSON.stringify(fixture);ui.read();ui.model.page=0;globalThis.__testResetEncoders();cc(71,4);assert.equal(fixture.type,8);fixture.type=2;params.synth_state=JSON.stringify(fixture);ui.read();assert.equal(ui.pages().length,6);
+   fixture.type=0;params.synth_state=JSON.stringify(fixture);ui.read();ui.model.page=0;globalThis.__testResetEncoders();cc(71,4);assert.equal(fixture.type,3);fixture.type=2;params.synth_state=JSON.stringify(fixture);ui.read();assert.equal(ui.pages().length,6);
    ui.model.page=6;before=blockingWrites.length;globalThis.__testResetEncoders();cc(78,4);assert(blockingWrites.slice(before).some(([k,v])=>k==='synth_bloom'&&v.startsWith('15,')));
    ui.model.page=7;pad(17);pad(17,false);assert.equal(fixture.spectrum,1);assert.equal(fixture.component,1);
    before=blockingWrites.length;globalThis.__testResetEncoders();cc(75,4);cc(76,4);cc(78,4);
@@ -4308,14 +4315,14 @@ if(process.env.S3G_THRU_UNIT_FIXTURE){
      }
    }
    // TYPE walks the musical presentation order while sending stable recipe IDs.
-   const typeOrder=[[8,'DRUM'],[4,'PART'],[5,'NOISE'],[12,'DUST'],[10,'SUB'],[2,'BLOOM'],[3,'RSYN'],[11,'HYBR'],[7,'CONV']];
+   const typeOrder=[[3,'RSYN'],[11,'HYBR'],[7,'CONV']];
    const selectType=id=>{fixture.type=id;params.synth_state=JSON.stringify(fixture);ui.read();ui.model.page=0;ui.model.overlay='';};
    const assertType=(id,label)=>{assert.equal(fixture.type,id);const at=drawWrites.length;ui.draw();assert(drawWrites.slice(at).some(w=>w[0]==='print'&&w[3]===label),'stable recipe ID displays '+label);};
    selectType(typeOrder[0][0]);
    for(const [i,[id,label]] of typeOrder.entries()){if(i){globalThis.__testResetEncoders();cc(71,4);}assertType(id,label);}
    globalThis.__testResetEncoders();cc(71,4);assertType(7,'CONV');
    for(const [id,label] of [...typeOrder].reverse().slice(1)){globalThis.__testResetEncoders();cc(71,124);assertType(id,label);}
-   globalThis.__testResetEncoders();cc(71,124);assertType(8,'DRUM');
+   globalThis.__testResetEncoders();cc(71,124);assertType(3,'RSYN');
    for(const [id,label] of typeOrder){selectType(id);assertType(id,label);}
    selectType(13);assert.deepEqual(ui.pages(),[0,1,6,13]);
    for(const [page,title,labels] of [[1,'WT DRUM',['MODL','TUNE','DEC','WT A','WT B','MIX','SCAN','HIT']],[6,'WT OSC',['POSA','POSB','RATI','PM','SUB','NOIS','TONE']],[13,'WT SHAPE',['BEND','PDEC','SDEC','NDEC','COLR','DRIV','COMP','EDGE']]]){
@@ -4332,13 +4339,13 @@ if(process.env.S3G_THRU_UNIT_FIXTURE){
    ui.model.page=1;ui.model.overlay='';cc(50);assert.equal(ui.model.overlay,'nav');cc(14,1);cc(3);assert.equal(ui.model.page,5);assert.equal(ui.model.overlay,'');cc(54);assert.equal(ui.model.page,2);cc(54);assert.equal(ui.model.page,3);cc(54);assert.equal(ui.model.page,3);
    cc(50);ui.model.selection=0;cc(3);assert.equal(ui.model.page,1);cc(50);ui.model.selection=1;cc(3);assert.equal(ui.model.page,3);
    cc(50);ui.model.selection=2;cc(3);assert.equal(ui.model.page,4);assert.deepEqual(ui.pages(),[4]);
-   // The primary and impulse pickers return to Synth without loading or selecting an audio lane.
+   // The primary and impulse pickers return to Process without loading or selecting an audio lane.
    fixture.type=7;params.synth_state=JSON.stringify(fixture);ui.read();ui.model.page=8;ui.model.overlay='actions';ui.model.selection=0;
    const nativeUiState=params.ui_state.split(',');nativeUiState[0]=String(state.lane);params.ui_state=nativeUiState.join(',');
    const dest=state.lane;before=blockingWrites.length;cc(3);assert.equal(state.view,'library');assert.equal(ui.model.browserTarget,'primary');
    // A real user spends multiple display frames browsing before choosing a WAV.
    const browseFrames=()=>{const now=Date.now;let frame=now();Date.now=()=>frame;try{for(let i=0;i<12;++i){frame+=20;globalThis.tick();}}finally{Date.now=now;}};
-   browseFrames();assert.equal(fixture.open,1,'Synth stays open while browsing its inputs');assert.equal(ui.model.opened,true);
+   browseFrames();assert.equal(fixture.open,1,'Process stays open while browsing its inputs');assert.equal(ui.model.opened,true);
    cc(40);assert.equal(state.lane,dest);state.libraryItems=[{name:'Primary.wav',path:'/tmp/Primary.wav',directory:false}];state.libraryIndex=0;cc(3);
    assert.equal(fixture.primary,'Primary.wav','primary reaches the still-open native tool');
    assert.equal(state.view,'synth');assert.equal(ui.model.browserTarget,'');assert.equal(state.lane,dest);assert(blockingWrites.slice(before).some(([k,v])=>k==='synth_primary_file'&&v==='/tmp/Primary.wav'));assert(!blockingWrites.slice(before).some(([k])=>k==='load_lane_file'||k==='record_lane'));
@@ -4419,6 +4426,18 @@ if(process.env.S3G_THRU_UNIT_FIXTURE){
    for(let i=0;i<4;++i){ui.model.overlay='actions';ui.model.selection=i;cc(3);assert.equal(ui.model.browserTarget,'hybrid'+i);browseFrames();state.libraryItems=[{name:'Source.wav',path:'/tmp/Source'+i+'.wav',directory:false}];state.libraryIndex=0;cc(3);assert.equal(state.view,'synth');assert.equal(ui.model.page,11);assert(fixture.inputs[i]);}
    assert(!blockingWrites.slice(filesStart).some(([key])=>key==='load_lane_file'||key==='record_lane'||key==='synth_close'));
    ui.model.overlay='locks';ui.model.selection=ui.locks().findIndex(e=>e.family==='work_lock'&&e.field===17);assert(ui.model.selection>=0);const protectedSources=fixture.workProtected[17];cc(3);assert.notEqual(fixture.workProtected[17],protectedSources);ui.model.overlay='';
+   // Redesigned Hybrid uses the real page grid, family commands and source routing.
+   fixture.hybridStyle=1;fixture.transfer=[.8,.2,.3,0,0,.75,1,0,4,1,2,3,20,0,4];
+   params.synth_state=JSON.stringify(fixture);ui.read();assert.deepEqual(ui.pages(),[0,11,1,6]);
+   for(const [page,title,labels] of [[1,'HYBRID',['ENV','SPEC','PTCH','ALGN','OFFS','ATK','NOIS','TUNE']],[6,'HYBRID ROUTE',['SRCS','ENVS','SPCS','PTCS','SMTH','RAND','STRT']]]){
+     ui.model.page=page;const at=drawWrites.length;ui.draw();const frame=drawWrites.slice(at);
+     assert(frame.some(w=>w[0]==='print'&&w[3]===title));for(const label of labels)assert(frame.some(w=>w[0]==='print'&&w[3]===label),label);
+     for(let knob=0;knob<(page===1?8:7);++knob){const at=blockingWrites.length;globalThis.__testResetEncoders();cc(71+knob,4);assert(blockingWrites.slice(at).some(([k,v])=>k==='synth_transfer'&&v.startsWith(((page===1?0:8)+knob)+',')));}
+   }
+   ui.model.page=1;for(const [offset,label] of [[-10000,'-10s'],[-995,'-.99s'],[995,'+.99s'],[10000,'+10s']]){fixture.transfer[4]=offset;params.synth_state=JSON.stringify(fixture);ui.read();const at=drawWrites.length;ui.draw();assert(drawWrites.slice(at).some(w=>w[0]==='print'&&w[3]===label));}ui.model.page=6;
+   const reserved=blockingWrites.length;globalThis.__testResetEncoders();cc(78,8);assert.equal(blockingWrites.length,reserved);
+   ui.model.overlay='locks';ui.model.selection=ui.locks().findIndex(e=>e.family==='transfer_lock'&&e.field===8);assert(ui.model.selection>=0);const hybridBit=fixture.hybridLocks;cc(3);assert.equal(fixture.hybridLocks,hybridBit^(1<<8));
+   fixture.hybridStyle=0;params.synth_state=JSON.stringify(fixture);ui.read();ui.model.overlay='';
    ui.model.overlay='name';ui.model.name='Quick Hit';before=blockingWrites.length;cc(86);assert.equal(ui.model.overlay,'');assert.equal(fixture.name,'Quick Hit');const commit=blockingWrites.slice(before);assert(commit.findIndex(([k])=>k==='synth_name')<commit.findIndex(([k])=>k==='synth_save'));
    // Capture alone renders on release; its navigation chords never render.
    ui.model.overlay='';state.focusButtonHeld=false;state.focusButtonUsed=false;state.shiftHeld=false;state.deleteHeld=false;
@@ -4436,10 +4455,10 @@ if(process.env.S3G_THRU_UNIT_FIXTURE){
      }
    }
    ui.model.overlay='';cc(51);assert.equal(ui.model.overlay,'nav');cc(51);assert.equal(state.view,'pages');
-   browseFrames();assert.equal(fixture.open,0,'leaving Synth still closes the native tool');
+   browseFrames();assert.equal(fixture.open,0,'leaving Process still closes the native tool');
    fixture.type=7;params.synth_state=JSON.stringify(fixture);ui.open();ui.model.overlay='actions';ui.model.selection=0;cc(3);browseFrames();assert.equal(fixture.open,1);
    state.view='main';browseFrames();assert.equal(fixture.open,0);assert.equal(ui.model.browserTarget,'','leaving the picker clears its source target');
-   console.log('s3g Thru Synth UI: nine public render types and six legacy recipe decoders with stable recipe IDs, grouped navigation, safe dual file picks across display refreshes, cancellation and cleanup, commit shortcuts, 32-component banks, contextual controls, native recipe codec, generator-aware page fractions, PT encoder/pad selection, unchanged recipe on navigation, inactive endpoint controls, hollow marker, curve editing, copy/paste/delete, destination, preview, pad naming and Back: PASS');
+   console.log('s3g Thru Process UI: three public processing types and twelve legacy recipe decoders with stable recipe IDs, grouped navigation, safe dual file picks across display refreshes, cancellation and cleanup, commit shortcuts, 32-component banks, contextual controls, native recipe codec, generator-aware page fractions, PT encoder/pad selection, unchanged recipe on navigation, inactive endpoint controls, hollow marker, curve editing, copy/paste/delete, destination, preview, pad naming and Back: PASS');
  }finally{globalThis.host_module_set_param_blocking=originalSet;}
 }
 
@@ -4535,7 +4554,7 @@ if(process.env.S3G_THRU_UNIT_FIXTURE){
   assert.equal(globalThis.__testCompactControlValue({...p[key],value:15}),'TABLE');
   assert.equal(metadata.find(row=>row.key===key).options[15],'Table');
  }
- assert.equal(metadata.find(row=>row.key==='algorithm').options.length,18);
+ assert.equal(metadata.find(row=>row.key==='algorithm').options.length,22);
  const data=fixture.state;data.edit=1;data.revision=9999;params.table_state=JSON.stringify(data);table.read(false);
  for(let variant=0;variant<3;++variant){data.patches[1][0]=variant;params.table_state=JSON.stringify(data);table.read(false);
   const titles=table.variantPages(15,0).map(q=>q.title);assert.equal(titles.filter(t=>t.startsWith('TABLE')).length,variant===2?4:2);
@@ -4681,4 +4700,55 @@ if(process.env.S3G_THRU_UNIT_FIXTURE){
  assert.equal(globalThis.__testNextControlValue({...p.fm_decay1,value:0},1),1);assert(globalThis.__testNextControlValue({...p.fm_decay1,value:4000},1)>4000);assert.equal(globalThis.__testCompactControlValue({...p.fm_decay1,value:8000}),'8s');
  assert.equal(globalThis.__testCompactControlValue({...p.fm_end1,value:-1}),'AUTO');assert.equal(globalThis.__testCompactControlValue({...p.fm_decay1,value:0}),'LINK');
  const old=ui.model.data;params.fm_state=JSON.stringify({...f.state,part:1});ui.read(false);assert.equal(ui.model.data,old);console.log('s3g Thru FM UI: native patch/scope fixtures, four pages, contextual controls, Engine List label and stale-part isolation: PASS');
+}
+
+{
+ const state=globalThis.__testFx.state(),p=globalThis.__testParams,noise=globalThis.__testNoise,choose=globalThis.__testEnginePicker,seq=globalThis.__testSequence;
+ Object.assign(state,{view:'settings',splitEnabled:false,sharedDual:false,quadMode:false,bankMode:false,splitFocus:0,algorithm:18,lane:1,editorReady:true,performanceVisible:false,shiftHeld:false,focusButtonHeld:false});p.algorithm.value=18;p.voice_engine_mode.value=0;p.split_mode.value=0;globalThis.__testLayers.model.active=false;seq.model.active=false;globalThis.__testSequenceSound.model.data=null;
+ const fixture=JSON.parse(fs.readFileSync(process.env.S3G_THRU_NOISE_FIXTURE||new URL('./noise_scope_fixture.json',import.meta.url),'utf8'));fixture.state.revision=999999;fixture.state.edit=0;fixture.state.group=0;params.noise_state=JSON.stringify(fixture.state);noise.read(false);assert(noise.model.data);assert.equal(noise.model.data.patches[0].length,88);
+ const titles=globalThis.__testTable.variantPages(18,0).map(p=>p.title);for(const title of ['NOISE','NOISE BANK','NOISE EVENTS','BANDS 1-4'])assert(titles.includes(title));for(const key of ['locus','field','speed','join','pad_mode'])assert.equal(seq.control(key),null,key);
+ p.noise_type.value=0;assert(seq.control('noise_bandwidth'));assert.equal(seq.control('noise_rate'),null);p.noise_type.value=6;assert(seq.control('noise_rate'));assert.equal(seq.control('noise_bandwidth'),null);p.noise_type.value=0;
+ fixture.state.group=7;params.noise_state=JSON.stringify(fixture.state);noise.read(false);const page=noise.pages().find(p=>p.noiseBands);assert.deepEqual(page.keys,['noise_ratio_29','noise_ratio_30','noise_ratio_31','noise_ratio_32','noise_band_29','noise_band_30','noise_band_31','noise_band_32']);
+ state.settingsPage=noise.pages().findIndex(p=>p.title==='ENGINE');let start=blockingWrites.length;assert(choose.handle(0xb0,3,127));assert(choose.ui.open);assert(choose.handle(0xb0,3,127));assert(choose.ui.open,'duplicate initial press cannot confirm');choose.handle(0xb0,3,0);choose.handle(0xb0,14,126);assert.equal(choose.ui.selected,16);choose.handle(0xb0,51,127);assert(!choose.ui.open);assert(!blockingWrites.slice(start).some(w=>w[0]==='algorithm'));
+ choose.handle(0xb0,3,127);choose.handle(0xb0,3,0);choose.handle(0xb0,14,126);start=blockingWrites.length;choose.handle(0xb0,3,127);assert(!choose.ui.open);assert(blockingWrites.slice(start).some(w=>w[0]==='algorithm'&&Number(w[1])===16));
+ console.log('s3g Thru NOISE UI: native 88-control fixture, four contextual pages, all band groups and armed main-wheel engine chooser/cancel: PASS');
+}
+
+{
+ const state=globalThis.__testFx.state(),p=globalThis.__testParams,ui=globalThis.__testReson,seq=globalThis.__testSequence;
+ Object.assign(state,{view:'settings',splitEnabled:false,sharedDual:false,quadMode:false,bankMode:false,splitFocus:0,algorithm:19,lane:1,editorReady:true,performanceVisible:false,shiftHeld:false,focusButtonHeld:false});p.algorithm.value=19;p.voice_engine_mode.value=0;p.split_mode.value=0;globalThis.__testLayers.model.active=false;seq.model.active=false;globalThis.__testSequenceSound.model.data=null;
+ const f=JSON.parse(fs.readFileSync(process.env.S3G_THRU_RESON_FIXTURE||new URL('./reson_scope_fixture.json',import.meta.url),'utf8'));f.state.edit=0;f.state.revision=999999;params.reson_state=JSON.stringify(f.state);ui.read(false);assert.equal(ui.model.data.patches[0].length,32);
+ assert.deepEqual(globalThis.__testTable.variantPages(19,0).map(p=>p.title),['STACK PATH','RESON','RESON BODY','RESON HIT','RESON DRIVE']);
+ for(const key of ['locus','field','speed','join','pad_mode'])assert.equal(seq.control(key),null,key);
+ p.reson_mode.value=0;p.reson_bend.value=0;assert.equal(seq.control('reson_bend'),null);assert.equal(seq.control('reson_sweep'),null);p.reson_mode.value=1;p.reson_bend.value=12;assert(seq.control('reson_sweep'));
+ p.reson_noise.value=0;assert.equal(seq.control('reson_color'),null);p.reson_noise.value=50;assert(seq.control('reson_color'));p.reson_drive.value=0;assert.equal(seq.control('reson_clip'),null);p.reson_drive.value=30;assert(seq.control('reson_clip'));
+ assert.equal(globalThis.__testCompactControlValue({...p.voice_engine_1,value:19}),'RSN');assert.equal(globalThis.__testCompactControlValue({...p.reson_decay,value:8000}),'8s');
+ state.settingsPage=ui.pages().findIndex(p=>p.reson);let at=blockingWrites.length;ui.handle(0xb0,3,127);assert(ui.model.startsOpen);ui.handle(0xb0,3,127);assert(ui.model.startsOpen);ui.handle(0xb0,14,7);ui.handle(0xb0,51,127);assert(!ui.model.startsOpen);assert(!blockingWrites.slice(at).some(w=>w[0]==='reson_start'));
+ ui.handle(0xb0,3,127);ui.handle(0xb0,3,0);ui.handle(0xb0,14,7);at=blockingWrites.length;ui.handle(0xb0,3,127);assert(!ui.model.startsOpen);assert(blockingWrites.slice(at).some(w=>w[0]==='reson_start'&&Number(w[1])===8));
+ const old=ui.model.data;params.reson_state=JSON.stringify({...f.state,part:1});ui.read(false);assert.equal(ui.model.data,old);
+ console.log('s3g Thru RESON UI: native 32-control fixture, four pages, unavailable controls, armed starting sounds, keyboard/list label and stale-part isolation: PASS');
+}
+
+{
+ const state=globalThis.__testFx.state(),p=globalThis.__testParams,ui=globalThis.__testPartials,seq=globalThis.__testSequence;
+ Object.assign(state,{view:'settings',splitEnabled:false,sharedDual:false,quadMode:false,bankMode:false,splitFocus:0,algorithm:20,lane:1,editorReady:true,performanceVisible:false,shiftHeld:false,focusButtonHeld:false});p.algorithm.value=20;p.voice_engine_mode.value=0;p.split_mode.value=0;globalThis.__testLayers.model.active=false;seq.model.active=false;globalThis.__testSequenceSound.model.data=null;
+ const f=JSON.parse(fs.readFileSync(process.env.S3G_THRU_PARTIALS_FIXTURE||new URL('./partials_scope_fixture.json',import.meta.url),'utf8'));f.state.edit=0;f.state.revision=999999;params.partials_state=JSON.stringify(f.state);ui.read(false);assert.equal(ui.model.data.patches[0].length,104);
+ assert.deepEqual(globalThis.__testTable.variantPages(20,0).map(p=>p.title),['STACK PATH','PARTIALS','PARTIALS TONE','PARTIALS PACKET','PART 1-4']);for(const key of ['locus','field','speed','join','pad_mode'])assert.equal(seq.control(key),null,key);
+ p.partials_type.value=0;assert(seq.control('partials_count'));assert.equal(seq.control('partials_harmonics'),null);assert.equal(seq.control('partials_gap'),null);p.partials_type.value=1;assert.equal(seq.control('partials_count'),null);assert(seq.control('partials_harmonics'));p.partials_type.value=2;p.partials_count.value=16;assert.equal(seq.control('partials_count').max,8);assert(seq.control('partials_gap'));assert.equal(seq.control('partials_damping'),null);
+ f.state.group=7;f.state.patches[0][0]=1;params.partials_state=JSON.stringify(f.state);ui.read(false);const page=ui.pages().find(q=>q.partialsBands);assert.deepEqual(page.keys,['partials_divisor_13','partials_divisor_14','partials_divisor_15','partials_divisor_16','partials_band_29','partials_band_30','partials_band_31','partials_band_32']);assert.equal(globalThis.__testCompactControlValue({...p.voice_engine_1,value:20}),'PART');
+ assert.equal(globalThis.__testCompactControlValue({...p.partials_gap,value:2000}),'2s');const old=ui.model.data;params.partials_state=JSON.stringify({...f.state,part:1});ui.read(false);assert.equal(ui.model.data,old);
+ console.log('s3g Thru PARTIALS UI: native 104-control fixture, four contextual pages, eight-component packet bound, independent divider groups, list label and stale-part isolation: PASS');
+}
+
+{
+ const state=globalThis.__testFx.state(),p=globalThis.__testParams,ui=globalThis.__testLowform,seq=globalThis.__testSequence;
+ Object.assign(state,{view:'settings',splitEnabled:false,sharedDual:false,quadMode:false,bankMode:false,splitFocus:0,algorithm:21,lane:1,editorReady:true,performanceVisible:false,shiftHeld:false,focusButtonHeld:false});p.algorithm.value=21;p.voice_engine_mode.value=0;p.split_mode.value=0;globalThis.__testLayers.model.active=false;seq.model.active=false;globalThis.__testSequenceSound.model.data=null;
+ const f=JSON.parse(fs.readFileSync(process.env.S3G_THRU_LOWFORM_FIXTURE||new URL('./lowform_scope_fixture.json',import.meta.url),'utf8'));f.state.edit=0;f.state.revision=999999;params.lowform_state=JSON.stringify(f.state);ui.read(false);assert.equal(ui.model.data.patches[0].length,32);
+ assert.deepEqual(globalThis.__testTable.variantPages(21,0).map(p=>p.title),['STACK PATH','LOWFORM','LOWFORM BODY','LOWFORM SHAPE','LOWFORM TEXTURE']);for(const key of ['locus','field','speed','join','pad_mode'])assert.equal(seq.control(key),null,key);
+ assert.equal(seq.control('lowform_texture_level'),null);p.lowform_texture_type.value=1;assert(seq.control('lowform_texture_level'));assert.equal(seq.control('lowform_texture_track'),null);p.lowform_texture_level.value=50;p.lowform_texture_type.value=2;assert(seq.control('lowform_texture_track'));
+ for(const [body,labels] of [[0,['WAVE','PRES','PW','CROS','DRIV']],[1,['DRIV','DETN','VOIC','DRFT','TONE']],[2,['WAVE','RES','PW','DRIV','CUT']],[3,['WAVE','SUB','SMER','NOIS','DRIV']],[4,['VOWL','SHFT','FOCS','SRC','DRIV']],[5,['WAVE','RATI','SWP','DEC','RING']]]){p.lowform_body.value=body;for(let i=0;i<5;i++)assert.equal(seq.control('lowform_'+'abcde'[i]).shortLabel,labels[i]);}
+ p.lowform_body.value=0;p.lowform_filter_type.value=0;assert.equal(seq.control('lowform_cutoff'),null);p.lowform_body.value=2;assert(seq.control('lowform_cutoff'),'Acid ladder retains its cutoff with the common filter bypassed');
+ assert.equal(globalThis.__testCompactControlValue({...p.lowform_body_decay,value:12000}),'HOLD');assert.equal(globalThis.__testCompactControlValue({...p.voice_engine_1,value:21}),'LOWF');
+ const old=ui.model.data;params.lowform_state=JSON.stringify({...f.state,part:1});ui.read(false);assert.equal(ui.model.data,old);
+ console.log('s3g Thru LOWFORM UI: native 32-control fixture, four contextual pages, six body labels, Acid filter context, source-free controls and stale-part isolation: PASS');
 }

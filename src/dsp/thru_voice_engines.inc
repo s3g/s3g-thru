@@ -229,7 +229,7 @@
             std::uint32_t enabled=0,order=0,edit=0,configured=0;
             if(!readU32(file,enabled)||enabled>1||!readU32(file,order)||order>(version>=25u?5u:2u)||!readU32(file,edit)||edit>7||!readU32(file,configured)||configured>1)return false;
             c.enabled=enabled;c.order=order;c.edit=edit;c.configured=configured;
-            for(auto& engine:c.engines){std::uint32_t n=0;if(!readU32(file,n)||n>=(version>=52u?17u:version>=50u?16u:version>=29u?15u:version>=26u?14u:13u))return false;engine=static_cast<std::uint8_t>(n);}
+            for(auto& engine:c.engines){std::uint32_t n=0;if(!readU32(file,n)||n>=(version>=60u?22u:version>=59u?21u:version>=58u?20u:version>=57u?19u:version>=55u?18u:version>=52u?17u:version>=50u?16u:version>=29u?15u:version>=26u?14u:13u))return false;engine=static_cast<std::uint8_t>(n);}
         }
         return true;
     }

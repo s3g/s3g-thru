@@ -1,3 +1,31 @@
+static bool partialsRecipeType(int type){return type==s3g_thru_synth::partialsType||type==s3g_thru_synth::subharmonic||type==s3g_thru_synth::bloom;}
+void restoreLivePartialsRecipe(const s3g_thru_synth::Recipe& recipe){
+ namespace t=s3g_thru_partials;namespace s=s3g_thru_synth;const int part=splitEnabled?splitFocus:0,selected=tableEditLane(part);const auto assign=[&](t::Config& c,int f,float x){t::set(c,f,x);};
+ const auto configure=[&](int spectrum){t::Config c;assign(c,t::width,recipe.v[s::width]*100);assign(c,t::level,recipe.v[s::level]*100);const int root=settingsForPart(part).root;assign(c,t::tune,recipe.v[s::root]-root);assign(c,t::time,recipe.v[s::length]*1000);
+  for(int j=0;j<32;++j){assign(c,t::ratios+j,recipe.ratios[j/8][j%8]);assign(c,t::bands+j,recipe.partials[j/8][j%8]);}
+  if(recipe.type==s::partialsType){assign(c,t::type,0);assign(c,t::count,recipe.additive[s::aCount]);assign(c,t::tilt,recipe.additive[s::aTilt]);assign(c,t::stretch,recipe.additive[s::aStretch]);assign(c,t::detune,recipe.additive[s::aDetune]);assign(c,t::phase,recipe.additive[s::aPhase]*100);assign(c,t::drift,recipe.additive[s::aDrift]*30);assign(c,t::drift_rate,recipe.additive[s::aDriftRate]);assign(c,t::damping,recipe.additive[s::aDecay]*100);}
+  else if(recipe.type==s::subharmonic){assign(c,t::type,1);assign(c,t::harmonics,recipe.sub[s::sHarmonics]);assign(c,t::subs,recipe.sub[s::sSubs]);assign(c,t::balance,recipe.sub[s::sBalance]*100);assign(c,t::tilt,recipe.sub[s::sTilt]);assign(c,t::detune,recipe.sub[s::sDetune]);assign(c,t::drift,recipe.sub[s::sDrift]);assign(c,t::drift_rate,recipe.sub[s::sRate]);assign(c,t::tune,recipe.v[s::root]-root+recipe.sub[s::sRegister]*12);for(int j=0;j<16;++j)assign(c,t::divisors+j,recipe.ratios[2+j/8][j%8]);}
+  else {assign(c,t::type,2);assign(c,t::count,recipe.packets[s::bCount]);assign(c,t::gap,recipe.packets[s::bGap]);assign(c,t::scatter,recipe.packets[s::bScatter]*100);assign(c,t::rise,recipe.packets[s::bRise]);assign(c,t::sustain,recipe.packets[s::bSustain]);assign(c,t::decay,recipe.packets[s::bDecay]);assign(c,t::variation,std::max({recipe.packets[s::bRiseVar],recipe.packets[s::bSustainVar],recipe.packets[s::bDecayVar],recipe.packets[s::bAmpJitter]})*100);assign(c,t::pitch_jitter,recipe.packets[s::bPitchJitter]);assign(c,t::shape,recipe.packets[s::bShape]);for(int j=0;j<8;++j){assign(c,t::ratios+j,recipe.ratios[spectrum][j]);assign(c,t::bands+j,recipe.partials[spectrum][j]);}}
+  return c;};
+ pushClipUndo(activeClip);
+ if(recipe.type==s::bloom){const int first=splitEnabled&&!sharedDual?firstLaneForPart(part):0,count=splitEnabled&&!sharedDual?(isQuad()?1:2):4;const int chosen=int(recipe.packets[s::bSpectrum]);for(int j=0;j<count;++j){const int lane=first+(selected-first+j)%count;controls.partials.patches[lane]=configure((chosen+j)%4);}}
+ else controls.partials.patches[selected]=configure(0);
+ controls.algorithm=Engine::PlaybackAlgorithm::partials;if(auto* clip=activeClipSlot())capturePartialsPrograms(*clip);synthPreviewWanted=false;synthPreviewGain=0;synthOpened=false;++midiRevision;markPersistentStateDirty();
+}
+static bool resonRecipeType(int type,int model){return type==s3g_thru_synth::drum&&((model>=0&&model<=5)||model==9);}
+void restoreLiveResonRecipe(const s3g_thru_synth::Recipe& recipe){
+ namespace t=s3g_thru_reson;namespace s=s3g_thru_synth;const int part=splitEnabled?splitFocus:0,lane=tableEditLane(part),body=recipe.drums[s::dModel]==9?7:int(recipe.drums[s::dModel])+1;auto c=t::startingSound(body+1,controls.reson.patches[lane]);const auto assign=[&](int f,float v){t::set(c,f,v);};
+ assign(t::mode,1);assign(t::model,float(body));assign(t::width,recipe.v[s::width]*100);assign(t::level,recipe.v[s::level]*100);const float rootHz=440*std::exp2(float(settingsForPart(part).root-69)/12);assign(t::tune,12*std::log2(std::max(1.f,recipe.drums[s::dTune])/rootHz));assign(t::decay,recipe.drums[s::dDecay]);assign(t::brightness,recipe.drums[s::dTone]*100);assign(t::damping,recipe.drums[s::dDamping]*100);assign(t::mass,recipe.drums[s::dBody]*100);assign(t::inharmonic,recipe.drums[s::dRing]*100);assign(t::bend,recipe.drums[s::dBend]);assign(t::sweep,recipe.drums[s::dSweep]);assign(t::noise,recipe.drums[s::dNoise]*100);assign(t::noise_decay,recipe.drumExtra[s::xNoiseDecay]);assign(t::color,recipe.drums[s::dTone]*100);assign(t::hit,recipe.drums[s::dHit]*100);assign(t::hit_decay,recipe.drumExtra[s::xHitDecay]);assign(t::punch,(recipe.drumExtra[s::xPunch]+.5f*recipe.drumExtra[s::xSnap])*100);assign(t::drive,recipe.drums[s::dCharacter]*100);assign(t::bias,recipe.drumExtra[s::xBias]*200);assign(t::tone,recipe.drumColor[s::cLowpass]);assign(t::seed,float(recipe.seed&65535u));
+ controls.reson.patches[lane]=c;controls.algorithm=Engine::PlaybackAlgorithm::reson;if(auto* clip=activeClipSlot())captureResonPrograms(*clip);synthPreviewWanted=false;synthPreviewGain=0;synthOpened=false;++midiRevision;markPersistentStateDirty();
+}
+static bool noiseRecipeType(int type){return type==s3g_thru_synth::noiseBank||type==s3g_thru_synth::dust;}
+void restoreLiveNoiseRecipe(const s3g_thru_synth::Recipe& recipe){
+ namespace n=s3g_thru_noise;namespace s=s3g_thru_synth;const int part=splitEnabled?splitFocus:0,lane=tableEditLane(part);n::Config cfg;
+ const auto assign=[&](int field,float value){n::set(cfg,field,value);};assign(n::width,recipe.v[s::width]*100);assign(n::level,recipe.v[s::level]*100);assign(n::tune,recipe.v[s::root]-settingsForPart(part).root);assign(n::seed,float(recipe.seed&65535u));
+ if(recipe.type==s::noiseBank){const int fields[]{n::count,n::bandwidth,n::tilt,n::stretch,n::color,n::motion,n::motion_rate,n::leak};for(int f=0;f<8;++f)assign(fields[f],recipe.noise[f]*(f==7?100.f:1.f));for(int j=0;j<32;++j){cfg.v[n::ratios+j]=recipe.ratios[j/8][j%8];cfg.v[n::bands+j]=recipe.partials[j/8][j%8];}cfg.v[n::style]=3;}
+ else{assign(n::type,recipe.dustParams[s::uMode]+1);const int fields[]{n::type,n::rate,n::size,n::clump,n::tone,n::edge,n::bits,n::variation,n::bed,n::color,n::repeat,n::fault};for(int f=1;f<s::dustFields;++f)assign(fields[f],recipe.dustParams[f]*((f==3||f==5||f==7||f==8||f==11)?100.f:1.f));}
+ controls.noise.patches[lane]=cfg;controls.algorithm=Engine::PlaybackAlgorithm::noise;if(auto* clip=activeClipSlot())captureNoisePrograms(*clip);synthPreviewWanted=false;synthPreviewGain=0;synthOpened=false;++midiRevision;markPersistentStateDirty();
+}
 static bool fmRecipeType(int type){return type==s3g_thru_synth::fm||type==s3g_thru_synth::fmDrum;}
 void restoreLiveFmRecipe(const s3g_thru_synth::Recipe& recipe){
  namespace f=s3g_thru_fm;namespace s=s3g_thru_synth;const int part=splitEnabled?splitFocus:0,lane=tableEditLane(part);f::Config cfg;
@@ -186,7 +214,7 @@ std::array<bool, 4> synthHybridEmbedded{};
 int synthHybridMissing() const {
   if (synthRecipe.type != s3g_thru_synth::hybrid)
     return 0;
-  for (int i = 0; i < int(synthRecipe.hybridParams[s3g_thru_synth::hSources]);
+  for (int i = 0; i < s3g_thru_synth::hybridSourceCount(synthRecipe);
        ++i)
     if (!synthHybridPaths[i][0])
       return i + 1;
@@ -391,7 +419,7 @@ void serviceSynth() {
         }
       if (synthRecipe.type == s3g_thru_synth::hybrid)
         for (int i = 0;
-             i < int(synthRecipe.hybridParams[s3g_thru_synth::hSources]); ++i) {
+             i < s3g_thru_synth::hybridSourceCount(synthRecipe); ++i) {
           synthHybridPaths[i] = job.source;
           synthHybridEpochs[i] = job.sourceEpoch;
           synthHybridEmbedded[i] = true;
@@ -412,7 +440,10 @@ void serviceSynth() {
       synthSetName(leaf.data());
       synthEdited();
       std::snprintf(synthMessage.data(), synthMessage.size(), "RECIPE OPENED");
-      if(fmRecipeType(synthRecipe.type)){restoreLiveFmRecipe(synthRecipe);std::snprintf(synthMessage.data(),synthMessage.size(),"LOADED TO FM");}
+      if(partialsRecipeType(synthRecipe.type)){restoreLivePartialsRecipe(synthRecipe);std::snprintf(synthMessage.data(),synthMessage.size(),"LOADED TO PARTIALS");}
+      else if(resonRecipeType(synthRecipe.type,int(synthRecipe.drums[s3g_thru_synth::dModel]))){restoreLiveResonRecipe(synthRecipe);std::snprintf(synthMessage.data(),synthMessage.size(),"LOADED TO RESON");}
+      else if(noiseRecipeType(synthRecipe.type)){restoreLiveNoiseRecipe(synthRecipe);std::snprintf(synthMessage.data(),synthMessage.size(),"LOADED TO NOISE");}
+      else if(fmRecipeType(synthRecipe.type)){restoreLiveFmRecipe(synthRecipe);std::snprintf(synthMessage.data(),synthMessage.size(),"LOADED TO FM");}
       else if(tableRecipeType(synthRecipe.type)){restoreLiveTableRecipe(synthRecipe);std::snprintf(synthMessage.data(),synthMessage.size(),"LOADED TO TABLE");}
     } else if (!worker.success && job.revision == synthRevision)
       std::snprintf(synthMessage.data(), synthMessage.size(), "%s",
@@ -562,7 +593,7 @@ bool setSynthParam(const char *key, const char *text) {
     cancelPerformanceGestures();
     stopPreviewWithFade();
     synthOpened = true;
-    if(tableRecipeType(synthRecipe.type)||fmRecipeType(synthRecipe.type)||synthRecipe.type==s3g_thru_synth::pluck)selectSynthType(s3g_thru_synth::drum);
+    if(partialsRecipeType(synthRecipe.type)||tableRecipeType(synthRecipe.type)||fmRecipeType(synthRecipe.type)||noiseRecipeType(synthRecipe.type)||synthRecipe.type==s3g_thru_synth::pluck||synthRecipe.type==s3g_thru_synth::drum)selectSynthType(s3g_thru_synth::resynth);
     if (!synthReady())
       std::snprintf(synthMessage.data(), synthMessage.size(),
                     "CAPTURE: RENDER");
@@ -716,6 +747,22 @@ bool setSynthParam(const char *key, const char *text) {
     clearError();
     synthEdited();
     return true;
+  }
+  if (!std::strcmp(key, "synth_transfer") && synthRecipe.type == hybrid && synthRecipe.hybridStyle) {
+    int field = -1; float value = 0; char extra = 0;
+    if (std::sscanf(text, "%d,%f %c", &field, &value, &extra) == 2 &&
+        setHybridTransfer(synthRecipe, field, value)) synthEdited();
+    return true;
+  }
+  if (!std::strcmp(key, "synth_transfer_lock")) {
+    const int field = parseInteger(text, -1);
+    if (field >= 0 && field < hybridTransferFields) synthRecipe.hybridLocks ^= 1u << field;
+    return true;
+  }
+  if (!std::strcmp(key, "synth_hybrid_upgrade") && synthRecipe.type == hybrid) {
+    synthRecipe.hybridStyle = 1; synthRecipe.transfer = hybridTransferDefaults;
+    synthRecipe.transfer[htSources] = synthRecipe.hybridParams[hSources];
+    synthEdited(); return true;
   }
   if (!std::strcmp(key, "synth_work_lock")) {
     const int bit = parseInteger(text, -1);

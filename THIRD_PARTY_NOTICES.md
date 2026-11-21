@@ -192,3 +192,11 @@ No LXR source, tables, samples or presets are included. This is not a port
 or an emulation of the LXR firmware. Drum coloration reuses the already
 credited s3g-dsp native drive/compression and adds original offline bit/rate/tone
 processing.
+
+## Lowform voice adaptation
+
+The Lowform engine adapts Foundation, Harmonic Body and Texture construction from s3g Processor Lowform, with voice management and output processing for Thru.
+
+- Source: https://github.com/s3g/s3g-dsp/blob/main/dsp/s3g_processor_lowform.h
+- Copyright: s3g
+- License: BSD-3-Clause (see LICENSE)

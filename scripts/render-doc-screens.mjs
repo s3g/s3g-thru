@@ -278,6 +278,10 @@ source += '\nglobalThis.__docLayers={read:readLayers,model:layersUi,openPicker:o
 source += '\nglobalThis.__docSplit = {state, readMixerState, projectUi, readProject, openProjects, openBankRecovery, customMidiUi, readCustomMidi, openCustomMidiList, sliceUi, openSliceEditor, readSliceEditor, params:PARAMS, pages:parameterPages, redraw:()=>{clearDisplay();draw();}};';
 source += '\nglobalThis.__docLfo={read:readControlLfos,readLive:readControlLfoLive,draw:drawControlLfo,drawSettings,pages:LFO_PAGES,setup:LFO_SETUP_PAGE,trig:SEQUENCE_LFO_PAGE,model:lfoUi,openPicker:openLfoDestPicker,drawPicker:drawLfoDestPicker,groups:lfoDestGroups,catalog:LFO_DESTINATIONS};';
 source += '\nglobalThis.__docSynth={ui:synthUi,read:readSynth,draw:drawSynth};';
+source += '\nglobalThis.__docPartials={read:readPartials,model:partialsUi};';
+source += '\nglobalThis.__docLowform={read:readLowform,model:lowformUi,draw:drawLowformStarts};';
+source += '\nglobalThis.__docReson={read:readReson,model:resonUi,draw:drawResonStarts};';
+source += '\nglobalThis.__docNoise={read:readNoise,model:noiseUi};globalThis.__docEnginePicker={ui:enginePicker,draw:drawEnginePicker};';
 source += '\nglobalThis.__docFm={read:readFm,model:fmUi};';
 source += '\nglobalThis.__docScanned={read:readScanned,model:scannedUi};';
 source += '\nglobalThis.__docTable={read:readTable,scopes:readTableScope,model:tableUi};';
@@ -315,6 +319,7 @@ ${elements}
 
 let mismatches = 0;
 function capture(filename, title, expectedHeading = '') {
+    if(filename.startsWith('synth-')&&!fs.readdirSync(path.join(repoRoot,'docs')).filter(n=>n.endsWith('.html')).some(n=>fs.readFileSync(path.join(repoRoot,'docs',n),'utf8').includes('assets/screens/'+filename)))return;
     if(frame.some(item=>item.type==='text'&&item.value==='UPDATING EDITOR'))
         throw new Error('Editor snapshot is incomplete for '+filename);
     if (expectedHeading) {
@@ -905,25 +910,25 @@ seqDoc.redraw();capture('sample-pages.svg','Sample group for recording, editing 
 
 // Spline source-creation workspace, using the actual production renderer.
 const synthDoc=globalThis.__docSynth;
-const synthExample={type:8,events:[1,8,0,0,1,0,0,1],drums:[0,48,850,.25,.04,.2,.55,0,24,45,.1,.78,0,.6,.4,.7],drumExtra:[.94,4,80,.12,0,0,.35,.15],open:1,job:0,op:0,progress:100,ready:1,preview:0,rev:1,row:0,point:3,seed:37,locks:0x113f,name:'Glass Current',message:'READY',values:[2,60,.3,5,20,.75,7,32,.2,100,1,.25,0],
+const synthExample={type:3,source:'glass-loop.wav',spectral:[0,0,0,1,.2,.3,24,-60],additive:[16,0,1,0,0,0,.5,0],events:[1,8,0,0,1,0,0,1],drums:[0,48,850,.25,.04,.2,.55,0,24,45,.1,.78,0,.6,.4,.7],drumExtra:[.94,4,80,.12,0,0,.35,.15],open:1,job:0,op:0,progress:100,ready:1,preview:0,rev:1,row:0,point:3,seed:37,locks:0x113f,name:'Glass Current',message:'READY',values:[2,60,.3,5,20,.75,7,32,.2,100,1,.25,0],
  curves:Array.from({length:4},()=>[255,...Array.from({length:8},(_,i)=>[i/7,0,2])]),
  wave:Array.from({length:112},(_,i)=>[-.55*Math.abs(Math.sin(i*.37)),.55*Math.abs(Math.cos(i*.31))])};
 synthExample.curves[0]=[255,...[0,3,7,12,7,3,0,0].map((v,i)=>[i/7,v,2])];
 params.synth_state=JSON.stringify(synthExample);synthDoc.read();
 Object.assign(seqDoc.state,{view:'synth',saveStatus:0,savedTicks:0});
-for(const [page,file,heading] of [[0,'setup','SYNTH SETUP'],[1,'sound','DRUM'],[2,'curve','CURVE PITCH'],[3,'random','RANDOM'],[4,'preview','PREVIEW']]){
- synthDoc.ui.page=page;synthDoc.ui.overlay='';synthDoc.draw();capture('synth-'+file+'.svg','Drum '+file+' page',heading);
+for(const [page,file,heading] of [[0,'setup','PROCESS SETUP'],[1,'sound','RESYNTH'],[2,'curve','CURVE PITCH'],[3,'random','RANDOM'],[4,'preview','PREVIEW']]){
+ synthDoc.ui.page=page;synthDoc.ui.overlay='';synthDoc.draw();capture('synth-'+file+'.svg','Process '+file+' page',heading);
 }
 synthExample.ready=0;synthExample.message='CAPTURE: RENDER';params.synth_state=JSON.stringify(synthExample);synthDoc.read();synthDoc.ui.page=4;synthDoc.draw();capture('synth-edited.svg','Edited draft keeps the last render until Capture is tapped','PREVIEW');
 synthExample.ready=1;synthExample.message='READY';
 synthDoc.ui.page=2;synthExample.point=7;params.synth_state=JSON.stringify(synthExample);synthDoc.read();synthDoc.draw();
-capture('synth-curve-end.svg','Final Drum point with fixed time and no outgoing shape','CURVE PITCH');
+capture('synth-curve-end.svg','Final Process point with fixed time and no outgoing shape','CURVE PITCH');
 synthExample.point=3;synthExample.curves[0][0]&=~(1<<3);params.synth_state=JSON.stringify(synthExample);synthDoc.read();synthDoc.draw();
-capture('synth-curve-unused.svg','Unused Drum point selected with PT, before editing enables it','CURVE PITCH');
+capture('synth-curve-unused.svg','Unused Process point selected with PT, before editing enables it','CURVE PITCH');
 // Contextual generator and shared-modulation pages.
 synthExample.curves=Array.from({length:4},()=>[129,...Array.from({length:8},(_,i)=>[i/7,0,2])]);
 synthExample.type=0;synthExample.mod=[1,5,.35,3,150,.25,1];synthExample.curves[0][0]=255;
-params.synth_state=JSON.stringify(synthExample);synthDoc.read();synthDoc.ui.page=5;synthDoc.draw();capture('synth-mod.svg','Shared generator modulation and file loop controls','SYNTH MOD');
+params.synth_state=JSON.stringify(synthExample);synthDoc.read();synthDoc.ui.page=5;synthDoc.draw();capture('synth-mod.svg','Shared generator modulation and file loop controls','PROCESS MOD');
 synthExample.type=1;synthExample.osc=[3,.37,7.5,.15,3200,.25,.08];params.synth_state=JSON.stringify(synthExample);synthDoc.read();synthDoc.ui.page=1;synthDoc.draw();capture('synth-wave.svg','Wave generator pulse, detune, sub, filter and noise controls','WAVE');
 synthExample.type=2;synthExample.packets=[1,0,6.4,170,.3,12,30,240,.25,.3,.4,.2,.3,.4,.2,1.5];synthExample.spectrum=2;synthExample.component=2;
 synthExample.partials=[[1,1],[1.414,.7],[2.76,-.4],[3.414,.3],[4.8,.2],[6.1,0],[8.3,.1],[11,.05]];synthExample.partial_masks=[255,85,223,255];
@@ -967,17 +972,19 @@ synthExample.type=13;synthExample.wt=[0,48,600,1,2,.18,.55,.8,.1,.35,2,.18,0,.35
 for(const [page,file,title,caption]of [[1,'synth-wt-drum.svg','WT DRUM','Wavetable drum starting model body scan and attack'],[6,'synth-wt-osc.svg','WT OSC','Wavetable frame positions oscillator blend modulation noise and tone'],[13,'synth-wt-shape.svg','WT SHAPE','Wavetable drum envelope drive compression and edge controls']]){params.synth_state=JSON.stringify(synthExample);synthDoc.read();synthDoc.ui.page=page;synthDoc.draw();capture(file,caption,title);}
 synthExample.type=9;synthExample.plucked=[110,1400,.35,.65,.1,.4,.2,12];synthExample.events=[1,8,1,0,0,500,0,.35];synthExample.timing=[1,120,5,.7,0,0,0,0];synthExample.eventfit=8;
 params.synth_state=JSON.stringify(synthExample);synthDoc.read();synthDoc.ui.page=1;synthDoc.draw();capture('synth-pluck.svg','Pluck string synthesis controls','PLUCK');
-synthDoc.ui.page=9;synthDoc.draw();capture('synth-events.svg','Shared event composition controls','SYNTH EVENTS');
+synthDoc.ui.page=9;synthDoc.draw();capture('synth-events.svg','Shared event composition controls','PROCESS EVENTS');
 synthDoc.ui.page=12;synthDoc.draw();capture('synth-event-var.svg','Optional event variation and clock controls','EVENT VAR');
-synthExample.events[0]=0;params.synth_state=JSON.stringify(synthExample);synthDoc.read();synthDoc.ui.page=9;synthDoc.draw();capture('synth-events-off.svg','Inactive event controls','SYNTH EVENTS');
+synthExample.events[0]=0;params.synth_state=JSON.stringify(synthExample);synthDoc.read();synthDoc.ui.page=9;synthDoc.draw();capture('synth-events-off.svg','Inactive event controls','PROCESS EVENTS');
 synthExample.type=10;synthExample.sub=[8,4,.25,-6,0,0,.25,0];params.synth_state=JSON.stringify(synthExample);synthDoc.read();synthDoc.ui.page=1;synthDoc.draw();capture('synth-subharmonic.svg','Additive harmonic and subharmonic layers','SUBHARMONIC');
 synthExample.spectrum=2;synthExample.component=1;synthExample.partials=Array.from({length:8},(_,i)=>[i+2,i===1?.7:1]);params.synth_state=JSON.stringify(synthExample);synthDoc.read();synthDoc.ui.page=7;synthDoc.draw();capture('synth-sub-bank.svg','Subharmonic divisors and component levels','SUBS 1-8');
 synthExample.type=3;synthExample.spectral=[1,-3,0,1,.1,.2,24,-60];
 for(const [mode,name]of [[0,'linked'],[1,'point'],[2,'smear'],[3,'freeze']]){synthExample.trace=[mode,.75,150,.2,.15,144,.6,.5];params.synth_state=JSON.stringify(synthExample);synthDoc.read();synthDoc.ui.page=10;synthDoc.draw();capture('synth-trace-'+name+'.svg',name+' partial trace controls','RSYN TRACE');}
+synthExample.hybridStyle=1;synthExample.transfer=[.8,.45,.25,0,0,.75,1,0,4,1,2,3,20,0,4];synthExample.hybridLocks=0x5f98;
 synthExample.type=11;synthExample.hybridParams=[1,4,-2,.8,.65,.35,160,.2];synthExample.inputs=['voice.wav','bell.wav','rain.wav','strings.wav'];
 params.synth_state=JSON.stringify(synthExample);synthDoc.read();synthDoc.ui.page=11;synthDoc.draw();capture('synth-hybrid-files.svg','Four Hybrid source selections','HYBRID FILES');
-synthDoc.ui.page=1;synthDoc.draw();capture('synth-hybrid.svg','Multi-source trait Hybrid controls','HYBRID');
-synthDoc.ui.overlay='nav';synthDoc.ui.selection=0;synthDoc.draw();capture('synth-groups.svg','Synth Sound, Motion, Output and Actions navigation','SYNTH GROUPS');synthDoc.ui.overlay='';
+synthDoc.ui.page=1;synthDoc.draw();capture('synth-hybrid.svg','Envelope colour and pitch trait transfer controls','HYBRID');
+synthDoc.ui.page=6;synthDoc.draw();capture('synth-hybrid-route.svg','Explicit donor routing smoothing and starting settings','HYBRID ROUTE');
+synthDoc.ui.overlay='nav';synthDoc.ui.selection=0;synthDoc.draw();capture('synth-groups.svg','Process Sound, Motion, Output and Actions navigation','PROCESS GROUPS');synthDoc.ui.overlay='';
 Object.assign(synthDoc.ui,{overlay:'name',name:'Glass Current',cursor:13});synthDoc.draw();capture('synth-name.svg','Name a generated Spline WAV with the pad keyboard','NAME WAV');
 
 // Render from the real UI, including the full-name picker and read-only target value.
@@ -1051,5 +1058,28 @@ seqDoc.state.settingsPage=seqDoc.pages().findIndex(p=>p.title==='TABLE');seqDoc.
 soundExample.sound.values=[[3867,-.5,1],[3871,3,1],[3872,-4.5,1],[3873,2,1],[3874,1400,1]];
 params.seq_sound_state=JSON.stringify(soundExample.sound);globalThis.__docSound.read();
 seqDoc.state.settingsPage=seqDoc.pages().findIndex(p=>p.sequenceStrip===0);seqDoc.redraw();capture('sequence-lane-locks.svg','Lane EQ locks change the shared lane bus','T01 STRIP 1');
+
+
+const noiseDoc=globalThis.__docNoise,noiseExample=JSON.parse(fs.readFileSync(path.join(repoRoot,'tests/noise_scope_fixture.json'),'utf8'));
+globalThis.__docSequence.model.active=false;globalThis.__docLayers.model.active=false;seqDoc.state.performanceVisible=false;seqDoc.state.view='main';seqDoc.state.algorithm=18;seqDoc.state.splitEnabled=false;seqDoc.state.sharedDual=false;seqDoc.state.quadMode=false;seqDoc.state.bankMode=false;seqDoc.state.splitFocus=0;seqDoc.state.lane=1;seqDoc.params.algorithm.value=18;seqDoc.params.split_mode.value=0;seqDoc.params.voice_engine_mode.value=0;noiseExample.state.edit=0;noiseExample.state.revision=999999;params.noise_state=JSON.stringify(noiseExample.state);params.table_scope=JSON.stringify(noiseExample.scope);noiseDoc.read(false);tableDoc.scopes(false);seqDoc.redraw();capture('noise-scope.svg','NOISE live scopes','THRU NOISE');
+for(const [title,file,kind]of [['NOISE','noise-main',0],['NOISE BANK','noise-bank',0],['NOISE EVENTS','noise-events',6],['BANDS 29-32','noise-bands',0]]){noiseExample.state.patches[0][0]=kind;noiseExample.state.group=file==='noise-bands'?7:0;params.noise_state=JSON.stringify(noiseExample.state);noiseDoc.read(false);seqDoc.state.view='settings';seqDoc.state.settingsPage=seqDoc.pages().findIndex(p=>p.title===title);seqDoc.redraw();capture(file+'.svg',title+' patch controls',title);}
+
+
+const resonDoc=globalThis.__docReson,resonExample=JSON.parse(fs.readFileSync(path.join(repoRoot,'tests/reson_scope_fixture.json'),'utf8'));
+seqDoc.state.view='main';seqDoc.state.algorithm=19;seqDoc.state.splitEnabled=false;seqDoc.state.sharedDual=false;seqDoc.state.quadMode=false;seqDoc.state.bankMode=false;seqDoc.state.splitFocus=0;seqDoc.state.lane=1;seqDoc.params.algorithm.value=19;seqDoc.params.split_mode.value=0;seqDoc.params.voice_engine_mode.value=0;resonExample.state.edit=0;resonExample.state.revision=999999;params.reson_state=JSON.stringify(resonExample.state);params.table_scope=JSON.stringify(resonExample.scope);resonDoc.read(false);tableDoc.scopes(false);seqDoc.redraw();capture('reson-scope.svg','RESON live scopes','THRU RESON');
+resonExample.state.edit=2;seqDoc.state.lane=3;params.reson_state=JSON.stringify(resonExample.state);resonDoc.read(false);
+for(const [title,file]of [['RESON','reson-main'],['RESON BODY','reson-body'],['RESON HIT','reson-hit'],['RESON DRIVE','reson-drive']]){seqDoc.state.view='settings';seqDoc.state.settingsPage=seqDoc.pages().findIndex(p=>p.title===title);seqDoc.redraw();capture(file+'.svg',title+' patch controls',title);}
+resonDoc.model.start=2;resonDoc.model.renderKey=null;resonDoc.draw();capture('reson-starts.svg','RESON starting sound list','RESON START');
+
+
+const partialsDoc=globalThis.__docPartials,partialsExample=JSON.parse(fs.readFileSync(path.join(repoRoot,'tests/partials_scope_fixture.json'),'utf8'));
+seqDoc.state.view='main';seqDoc.state.algorithm=20;seqDoc.state.splitEnabled=false;seqDoc.state.sharedDual=false;seqDoc.state.quadMode=false;seqDoc.state.bankMode=false;seqDoc.state.splitFocus=0;seqDoc.state.lane=1;seqDoc.params.algorithm.value=20;seqDoc.params.split_mode.value=0;seqDoc.params.voice_engine_mode.value=0;partialsExample.state.edit=0;partialsExample.state.revision=999999;params.partials_state=JSON.stringify(partialsExample.state);params.table_scope=JSON.stringify(partialsExample.scope);partialsDoc.read(false);tableDoc.scopes(false);seqDoc.redraw();capture('partials-scope.svg','Four PARTIALS live patch scopes','THRU PARTIALS');
+for(const [title,file,type,group] of [['PARTIALS','partials-main',0,0],['PARTIALS TONE','partials-tone',1,0],['PARTIALS PACKET','partials-packet',2,0],['PART 1-4','partials-bands',0,0],['PART 29-32','partials-dividers',1,7]]){partialsExample.state.patches[0][0]=type;partialsExample.state.patches[0][4]=type===2?8:16;partialsExample.state.group=group;params.partials_state=JSON.stringify(partialsExample.state);partialsDoc.read(false);seqDoc.state.view='settings';seqDoc.state.settingsPage=seqDoc.pages().findIndex(p=>p.title===title);seqDoc.redraw();capture(file+'.svg',title+' controls',title);}
+globalThis.__docEnginePicker.ui.selected=20;globalThis.__docEnginePicker.ui.renderKey=null;globalThis.__docEnginePicker.draw();capture('engine-picker.svg','Twenty-two playback engines','PLAYBACK ENGINE');
+
+const lowformDoc=globalThis.__docLowform,lowformExample=JSON.parse(fs.readFileSync(path.join(repoRoot,'tests/lowform_scope_fixture.json'),'utf8'));
+Object.assign(seqDoc.state,{view:'main',algorithm:21,splitEnabled:false,sharedDual:false,quadMode:false,bankMode:false,splitFocus:0,lane:1});seqDoc.params.algorithm.value=21;seqDoc.params.split_mode.value=0;seqDoc.params.voice_engine_mode.value=0;globalThis.__docSequence.model.active=false;globalThis.__docLayers.model.active=false;lowformExample.state.edit=0;lowformExample.state.revision=999999;params.lowform_state=JSON.stringify(lowformExample.state);params.table_scope=JSON.stringify(lowformExample.scope);lowformDoc.read(false);tableDoc.scopes(false);seqDoc.redraw();capture('lowform-scope.svg','Four Lowform live patch scopes','THRU LOWFORM');
+for(const [title,file] of [['LOWFORM','lowform-main'],['LOWFORM BODY','lowform-body'],['LOWFORM SHAPE','lowform-shape'],['LOWFORM TEXTURE','lowform-texture']]){if(file==='lowform-texture'){lowformExample.state.patches[0][14]=2;lowformExample.state.patches[0][15]=35;params.lowform_state=JSON.stringify(lowformExample.state);lowformDoc.read(false);}seqDoc.state.view='settings';seqDoc.state.settingsPage=seqDoc.pages().findIndex(p=>p.title===title);seqDoc.redraw();capture(file+'.svg',title+' patch controls',title);}
+lowformDoc.model.start=2;lowformDoc.model.renderKey=null;lowformDoc.draw();capture('lowform-starts.svg','Lowform starting sounds','LOWFORM START');
 if (checkOnly && mismatches !== 0) process.exit(1);
 if (checkOnly) console.log('s3g Thru documentation screens: current');

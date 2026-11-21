@@ -440,7 +440,7 @@ void testSynthWorkshopWorkflow() {
   if (drumSaved != t->currentLaneSourcePaths[t->selectedLane].data()) {
     std::fprintf(stderr,
                  "Load diagnostics state=%d error=%s pending=%u clear=%u "
-                 "master=%u copy=%zu frames=%zu request=%s\n",
+                 "source=%u copy=%zu frames=%zu request=%s\n",
                  t->sampleLoadState.load(), t->sampleLoadError.data(),
                  t->pendingCaptureSaveMask, t->pendingClearMask,
                  t->engine.loadedLaneMask(), t->sampleCopyFrame,

@@ -59,7 +59,8 @@ void testSynthManualSession(){
  setParam(t.get(),"synth_edit","1,63");setParam(t.get(),"synth_dust","1,42");
  const auto draft=encode(t->synthRecipe);setParam(t.get(),"synth_close","1");t.reset();
  t=std::make_unique<ThruInstance>();assert(t->prepare(directory));t->stopBackgroundWork();
- setParam(t.get(),"synth_open","1");assert(t->synthRecipe.type==dust&&encode(t->synthRecipe)==draft&&!t->synthWantsRender&&!t->synthReady()&&std::string(t->synthName.data())=="Keep Dust");
+ setParam(t.get(),"synth_open","1");assert(t->synthRecipe.type==resynth);setParam(t.get(),"synth_type","12");
+ assert(t->synthRecipe.type==dust&&encode(t->synthRecipe)==draft&&!t->synthWantsRender&&!t->synthReady()&&std::string(t->synthName.data())=="Keep Dust");
  std::array<char,256> editor{};assert(getParamValue(t.get(),"synth_editor",editor.data(),editor.size())>0&&std::string(editor.data()).find("12,6,6,2,4,0.37,-1,1,0")==0);
  assert(t->synthSourcePath.data()==source&&t->synthConvPaths[0].data()==source&&t->synthConvPaths[1].data()==source&&t->synthHybridPaths[0].data()==source&&t->synthHybridPaths[1].data()==source);
  setParam(t.get(),"synth_type","4");assert(t->synthRow==1);assert(getParamValue(t.get(),"synth_editor",editor.data(),editor.size())>0&&std::string(editor.data()).find("4,3,0,3,4,0.5,-31,31,1")==0);

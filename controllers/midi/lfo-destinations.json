@@ -82,7 +82,8 @@
       14,
       15,
       16,
-      17
+      17,
+      18
     ],
     "modes": [
       0,
@@ -123,7 +124,8 @@
       14,
       15,
       16,
-      17
+      17,
+      18
     ],
     "modes": [
       0,
@@ -164,7 +166,8 @@
       14,
       15,
       16,
-      17
+      17,
+      18
     ],
     "modes": [
       1,
@@ -203,7 +206,8 @@
       14,
       15,
       16,
-      17
+      17,
+      18
     ],
     "modes": [
       1,
@@ -5455,6 +5459,2214 @@
     "min": 0,
     "max": 100,
     "octaves": 0,
+    "condition": "always"
+  },
+  {
+    "key": "noise_width",
+    "page": "NOISE",
+    "name": "Noise Stereo Width",
+    "scope": "engine",
+    "engines": [
+      18
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 450,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 209,
+    "condition": "always"
+  },
+  {
+    "key": "noise_level",
+    "page": "NOISE",
+    "name": "Noise Level",
+    "scope": "engine",
+    "engines": [
+      18
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 451,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 210,
+    "condition": "always"
+  },
+  {
+    "key": "noise_tone",
+    "page": "NOISE",
+    "name": "Noise Low Pass",
+    "scope": "engine",
+    "engines": [
+      18
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 453,
+    "min": 20,
+    "max": 20000,
+    "octaves": 1,
+    "id": 211,
+    "condition": "always"
+  },
+  {
+    "key": "noise_bits",
+    "page": "NOISE",
+    "name": "Noise Resolution",
+    "scope": "engine",
+    "engines": [
+      18
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 454,
+    "min": 2,
+    "max": 24,
+    "octaves": 0,
+    "id": 212,
+    "condition": "always"
+  },
+  {
+    "key": "noise_count",
+    "page": "NOISE BANK",
+    "name": "Band Count",
+    "scope": "engine",
+    "engines": [
+      18
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 456,
+    "min": 1,
+    "max": 32,
+    "octaves": 0,
+    "id": 213,
+    "condition": "always"
+  },
+  {
+    "key": "noise_bandwidth",
+    "page": "NOISE BANK",
+    "name": "Band Width",
+    "scope": "engine",
+    "engines": [
+      18
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 457,
+    "min": 0.1,
+    "max": 48,
+    "octaves": 1,
+    "id": 214,
+    "condition": "always"
+  },
+  {
+    "key": "noise_tilt",
+    "page": "NOISE BANK",
+    "name": "Band Tilt",
+    "scope": "engine",
+    "engines": [
+      18
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 458,
+    "min": -24,
+    "max": 12,
+    "octaves": 0,
+    "id": 215,
+    "condition": "always"
+  },
+  {
+    "key": "noise_stretch",
+    "page": "NOISE BANK",
+    "name": "Band Stretch",
+    "scope": "engine",
+    "engines": [
+      18
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 459,
+    "min": 0.25,
+    "max": 4,
+    "octaves": 0,
+    "id": 216,
+    "condition": "always"
+  },
+  {
+    "key": "noise_motion",
+    "page": "NOISE BANK",
+    "name": "Band Motion",
+    "scope": "engine",
+    "engines": [
+      18
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 460,
+    "min": 0,
+    "max": 24,
+    "octaves": 0,
+    "id": 217,
+    "condition": "always"
+  },
+  {
+    "key": "noise_motion_rate",
+    "page": "NOISE BANK",
+    "name": "Band Motion Rate",
+    "scope": "engine",
+    "engines": [
+      18
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 461,
+    "min": 0.01,
+    "max": 20,
+    "octaves": 1,
+    "id": 218,
+    "condition": "always"
+  },
+  {
+    "key": "noise_leak",
+    "page": "NOISE BANK",
+    "name": "Unfiltered Noise",
+    "scope": "engine",
+    "engines": [
+      18
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 462,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 219,
+    "condition": "always"
+  },
+  {
+    "key": "noise_rate",
+    "page": "NOISE EVENTS",
+    "name": "Event Rate",
+    "scope": "engine",
+    "engines": [
+      18
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 464,
+    "min": 0.1,
+    "max": 2000,
+    "octaves": 1,
+    "id": 220,
+    "condition": "always"
+  },
+  {
+    "key": "noise_size",
+    "page": "NOISE EVENTS",
+    "name": "Event Size",
+    "scope": "engine",
+    "engines": [
+      18
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 465,
+    "min": 0.02,
+    "max": 500,
+    "octaves": 1,
+    "id": 221,
+    "condition": "always"
+  },
+  {
+    "key": "noise_clump",
+    "page": "NOISE EVENTS",
+    "name": "Event Clustering",
+    "scope": "engine",
+    "engines": [
+      18
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 466,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 222,
+    "condition": "always"
+  },
+  {
+    "key": "noise_edge",
+    "page": "NOISE EVENTS",
+    "name": "Event Edge",
+    "scope": "engine",
+    "engines": [
+      18
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 467,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 223,
+    "condition": "always"
+  },
+  {
+    "key": "noise_variation",
+    "page": "NOISE EVENTS",
+    "name": "Event Variation",
+    "scope": "engine",
+    "engines": [
+      18
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 468,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 224,
+    "condition": "always"
+  },
+  {
+    "key": "noise_bed",
+    "page": "NOISE EVENTS",
+    "name": "Noise Bed",
+    "scope": "engine",
+    "engines": [
+      18
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 469,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 225,
+    "condition": "always"
+  },
+  {
+    "key": "noise_fault",
+    "page": "NOISE EVENTS",
+    "name": "Data Variation",
+    "scope": "engine",
+    "engines": [
+      18
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 471,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 226,
+    "condition": "always"
+  },
+  {
+    "key": "reson_width",
+    "page": "RESON",
+    "name": "Reson Stereo Width",
+    "scope": "engine",
+    "engines": [
+      19
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 546,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 227,
+    "condition": "always"
+  },
+  {
+    "key": "reson_level",
+    "page": "RESON",
+    "name": "Reson Level",
+    "scope": "engine",
+    "engines": [
+      19
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 547,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 228,
+    "condition": "always"
+  },
+  {
+    "key": "reson_decay",
+    "page": "RESON",
+    "name": "Reson Ring Decay",
+    "scope": "engine",
+    "engines": [
+      19
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 549,
+    "min": 10,
+    "max": 8000,
+    "octaves": 1,
+    "id": 229,
+    "condition": "always"
+  },
+  {
+    "key": "reson_brightness",
+    "page": "RESON",
+    "name": "Modal Brightness",
+    "scope": "engine",
+    "engines": [
+      19
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 550,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 230,
+    "condition": "always"
+  },
+  {
+    "key": "reson_damping",
+    "page": "RESON",
+    "name": "Upper Mode Damping",
+    "scope": "engine",
+    "engines": [
+      19
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 551,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 231,
+    "condition": "always"
+  },
+  {
+    "key": "reson_stretch",
+    "page": "RESON BODY",
+    "name": "Modal Stretch",
+    "scope": "engine",
+    "engines": [
+      19
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 552,
+    "min": 0.5,
+    "max": 2,
+    "octaves": 0,
+    "id": 232,
+    "condition": "always"
+  },
+  {
+    "key": "reson_inharmonic",
+    "page": "RESON BODY",
+    "name": "Body Inharmonicity",
+    "scope": "engine",
+    "engines": [
+      19
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 553,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 233,
+    "condition": "always"
+  },
+  {
+    "key": "reson_mass",
+    "page": "RESON BODY",
+    "name": "Body Mass",
+    "scope": "engine",
+    "engines": [
+      19
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 554,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 234,
+    "condition": "always"
+  },
+  {
+    "key": "reson_bend",
+    "page": "RESON BODY",
+    "name": "Strike Pitch Sweep",
+    "scope": "engine",
+    "engines": [
+      19
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 555,
+    "min": -48,
+    "max": 48,
+    "octaves": 0,
+    "id": 235,
+    "condition": "always"
+  },
+  {
+    "key": "reson_sweep",
+    "page": "RESON BODY",
+    "name": "Pitch Sweep Time",
+    "scope": "engine",
+    "engines": [
+      19
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 556,
+    "min": 1,
+    "max": 2000,
+    "octaves": 1,
+    "id": 236,
+    "condition": "always"
+  },
+  {
+    "key": "reson_noise",
+    "page": "RESON BODY",
+    "name": "Body Noise",
+    "scope": "engine",
+    "engines": [
+      19
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 557,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 237,
+    "condition": "always"
+  },
+  {
+    "key": "reson_noise_decay",
+    "page": "RESON BODY",
+    "name": "Body Noise Decay",
+    "scope": "engine",
+    "engines": [
+      19
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 558,
+    "min": 1,
+    "max": 4000,
+    "octaves": 1,
+    "id": 238,
+    "condition": "always"
+  },
+  {
+    "key": "reson_color",
+    "page": "RESON BODY",
+    "name": "Body Noise Color",
+    "scope": "engine",
+    "engines": [
+      19
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 559,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 239,
+    "condition": "always"
+  },
+  {
+    "key": "reson_hit",
+    "page": "RESON HIT",
+    "name": "Strike Level",
+    "scope": "engine",
+    "engines": [
+      19
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 560,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 240,
+    "condition": "always"
+  },
+  {
+    "key": "reson_hardness",
+    "page": "RESON HIT",
+    "name": "Beater Hardness",
+    "scope": "engine",
+    "engines": [
+      19
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 561,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 241,
+    "condition": "always"
+  },
+  {
+    "key": "reson_hit_decay",
+    "page": "RESON HIT",
+    "name": "Strike Decay",
+    "scope": "engine",
+    "engines": [
+      19
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 562,
+    "min": 0.2,
+    "max": 100,
+    "octaves": 1,
+    "id": 242,
+    "condition": "always"
+  },
+  {
+    "key": "reson_punch",
+    "page": "RESON HIT",
+    "name": "Attack Punch",
+    "scope": "engine",
+    "engines": [
+      19
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 563,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 243,
+    "condition": "always"
+  },
+  {
+    "key": "reson_position",
+    "page": "RESON HIT",
+    "name": "Strike Position",
+    "scope": "engine",
+    "engines": [
+      19
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 564,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 244,
+    "condition": "always"
+  },
+  {
+    "key": "reson_coupling",
+    "page": "RESON HIT",
+    "name": "Mode Coupling",
+    "scope": "engine",
+    "engines": [
+      19
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 565,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 245,
+    "condition": "always"
+  },
+  {
+    "key": "reson_detune",
+    "page": "RESON HIT",
+    "name": "Modal Stereo Detune",
+    "scope": "engine",
+    "engines": [
+      19
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 566,
+    "min": 0,
+    "max": 30,
+    "octaves": 0,
+    "id": 246,
+    "condition": "always"
+  },
+  {
+    "key": "reson_drive",
+    "page": "RESON DRIVE",
+    "name": "Overload Drive",
+    "scope": "engine",
+    "engines": [
+      19
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 568,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 247,
+    "condition": "always"
+  },
+  {
+    "key": "reson_clip",
+    "page": "RESON DRIVE",
+    "name": "Overload Shape",
+    "scope": "engine",
+    "engines": [
+      19
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 569,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 248,
+    "condition": "always"
+  },
+  {
+    "key": "reson_bias",
+    "page": "RESON DRIVE",
+    "name": "Overload Asymmetry",
+    "scope": "engine",
+    "engines": [
+      19
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 570,
+    "min": -100,
+    "max": 100,
+    "octaves": 0,
+    "id": 249,
+    "condition": "always"
+  },
+  {
+    "key": "reson_sag",
+    "page": "RESON DRIVE",
+    "name": "Overload Sag",
+    "scope": "engine",
+    "engines": [
+      19
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 571,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 250,
+    "condition": "always"
+  },
+  {
+    "key": "reson_recovery",
+    "page": "RESON DRIVE",
+    "name": "Sag Recovery",
+    "scope": "engine",
+    "engines": [
+      19
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 572,
+    "min": 5,
+    "max": 500,
+    "octaves": 1,
+    "id": 251,
+    "condition": "always"
+  },
+  {
+    "key": "reson_tone",
+    "page": "RESON DRIVE",
+    "name": "Overload Low Pass",
+    "scope": "engine",
+    "engines": [
+      19
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 573,
+    "min": 200,
+    "max": 20000,
+    "octaves": 1,
+    "id": 252,
+    "condition": "always"
+  },
+  {
+    "key": "reson_mix",
+    "page": "RESON DRIVE",
+    "name": "Overload Mix",
+    "scope": "engine",
+    "engines": [
+      19
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 574,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 253,
+    "condition": "always"
+  },
+  {
+    "key": "reson_output",
+    "page": "RESON DRIVE",
+    "name": "Overload Output",
+    "scope": "engine",
+    "engines": [
+      19
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 575,
+    "min": -18,
+    "max": 12,
+    "octaves": 0,
+    "id": 254,
+    "condition": "always"
+  },
+  {
+    "key": "partials_width",
+    "page": "PARTIALS",
+    "name": "Partials Stereo Width",
+    "scope": "engine",
+    "engines": [
+      20
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 578,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 255,
+    "condition": "always"
+  },
+  {
+    "key": "partials_level",
+    "page": "PARTIALS",
+    "name": "Partials Level",
+    "scope": "engine",
+    "engines": [
+      20
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 579,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 256,
+    "condition": "always"
+  },
+  {
+    "key": "partials_count",
+    "page": "PARTIALS",
+    "name": "Partial Count",
+    "scope": "engine",
+    "engines": [
+      20
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 580,
+    "min": 1,
+    "max": 32,
+    "octaves": 0,
+    "id": 257,
+    "condition": "always"
+  },
+  {
+    "key": "partials_tilt",
+    "page": "PARTIALS",
+    "name": "Spectral Tilt",
+    "scope": "engine",
+    "engines": [
+      20
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 581,
+    "min": -24,
+    "max": 12,
+    "octaves": 0,
+    "id": 258,
+    "condition": "always"
+  },
+  {
+    "key": "partials_stretch",
+    "page": "PARTIALS",
+    "name": "Partial Stretch",
+    "scope": "engine",
+    "engines": [
+      20
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 582,
+    "min": 0.25,
+    "max": 4,
+    "octaves": 0,
+    "id": 259,
+    "condition": "always"
+  },
+  {
+    "key": "partials_harmonics",
+    "page": "PARTIALS TONE",
+    "name": "Harmonic Count",
+    "scope": "engine",
+    "engines": [
+      20
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 584,
+    "min": 1,
+    "max": 16,
+    "octaves": 0,
+    "id": 260,
+    "condition": "always"
+  },
+  {
+    "key": "partials_subs",
+    "page": "PARTIALS TONE",
+    "name": "Subharmonic Count",
+    "scope": "engine",
+    "engines": [
+      20
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 585,
+    "min": 0,
+    "max": 16,
+    "octaves": 0,
+    "id": 261,
+    "condition": "always"
+  },
+  {
+    "key": "partials_balance",
+    "page": "PARTIALS TONE",
+    "name": "Subharmonic Balance",
+    "scope": "engine",
+    "engines": [
+      20
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 586,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 262,
+    "condition": "always"
+  },
+  {
+    "key": "partials_detune",
+    "page": "PARTIALS TONE",
+    "name": "Partial Detune",
+    "scope": "engine",
+    "engines": [
+      20
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 587,
+    "min": 0,
+    "max": 30,
+    "octaves": 0,
+    "id": 263,
+    "condition": "always"
+  },
+  {
+    "key": "partials_drift",
+    "page": "PARTIALS TONE",
+    "name": "Partial Pitch Drift",
+    "scope": "engine",
+    "engines": [
+      20
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 588,
+    "min": 0,
+    "max": 30,
+    "octaves": 0,
+    "id": 264,
+    "condition": "always"
+  },
+  {
+    "key": "partials_drift_rate",
+    "page": "PARTIALS TONE",
+    "name": "Partial Drift Rate",
+    "scope": "engine",
+    "engines": [
+      20
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 589,
+    "min": 0.01,
+    "max": 20,
+    "octaves": 1,
+    "id": 265,
+    "condition": "always"
+  },
+  {
+    "key": "partials_damping",
+    "page": "PARTIALS TONE",
+    "name": "Upper Partial Decay",
+    "scope": "engine",
+    "engines": [
+      20
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 590,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 266,
+    "condition": "always"
+  },
+  {
+    "key": "partials_time",
+    "page": "PARTIALS TONE",
+    "name": "Spectral Decay Time",
+    "scope": "engine",
+    "engines": [
+      20
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 591,
+    "min": 10,
+    "max": 12000,
+    "octaves": 1,
+    "id": 267,
+    "condition": "always"
+  },
+  {
+    "key": "partials_gap",
+    "page": "PARTIALS PACKET",
+    "name": "Packet Interval",
+    "scope": "engine",
+    "engines": [
+      20
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 592,
+    "min": 10,
+    "max": 2000,
+    "octaves": 1,
+    "id": 268,
+    "condition": "always"
+  },
+  {
+    "key": "partials_scatter",
+    "page": "PARTIALS PACKET",
+    "name": "Packet Timing Scatter",
+    "scope": "engine",
+    "engines": [
+      20
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 593,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 269,
+    "condition": "always"
+  },
+  {
+    "key": "partials_rise",
+    "page": "PARTIALS PACKET",
+    "name": "Packet Rise",
+    "scope": "engine",
+    "engines": [
+      20
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 594,
+    "min": 0.5,
+    "max": 200,
+    "octaves": 1,
+    "id": 270,
+    "condition": "always"
+  },
+  {
+    "key": "partials_sustain",
+    "page": "PARTIALS PACKET",
+    "name": "Packet Sustain",
+    "scope": "engine",
+    "engines": [
+      20
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 595,
+    "min": 0,
+    "max": 1000,
+    "octaves": 0,
+    "id": 271,
+    "condition": "always"
+  },
+  {
+    "key": "partials_decay",
+    "page": "PARTIALS PACKET",
+    "name": "Packet Decay",
+    "scope": "engine",
+    "engines": [
+      20
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 596,
+    "min": 1,
+    "max": 4000,
+    "octaves": 1,
+    "id": 272,
+    "condition": "always"
+  },
+  {
+    "key": "partials_variation",
+    "page": "PARTIALS PACKET",
+    "name": "Packet Variation",
+    "scope": "engine",
+    "engines": [
+      20
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 597,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 273,
+    "condition": "always"
+  },
+  {
+    "key": "partials_pitch_jitter",
+    "page": "PARTIALS PACKET",
+    "name": "Packet Pitch Variatio",
+    "scope": "engine",
+    "engines": [
+      20
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 598,
+    "min": 0,
+    "max": 12,
+    "octaves": 0,
+    "id": 274,
+    "condition": "always"
+  },
+  {
+    "key": "partials_shape",
+    "page": "PARTIALS PACKET",
+    "name": "Packet Envelope Shape",
+    "scope": "engine",
+    "engines": [
+      20
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 599,
+    "min": 0.25,
+    "max": 4,
+    "octaves": 0,
+    "id": 275,
+    "condition": "always"
+  },
+  {
+    "key": "lowform_width",
+    "page": "LOWFORM",
+    "name": "Lowform Stereo Width",
+    "scope": "engine",
+    "engines": [
+      21
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 706,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 276,
+    "condition": "always"
+  },
+  {
+    "key": "lowform_level",
+    "page": "LOWFORM",
+    "name": "Lowform Level",
+    "scope": "engine",
+    "engines": [
+      21
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 707,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 277,
+    "condition": "always"
+  },
+  {
+    "key": "lowform_foundation_level",
+    "page": "LOWFORM",
+    "name": "Foundation Level",
+    "scope": "engine",
+    "engines": [
+      21
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 710,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 278,
+    "condition": "always"
+  },
+  {
+    "key": "lowform_body_level",
+    "page": "LOWFORM",
+    "name": "Body Level",
+    "scope": "engine",
+    "engines": [
+      21
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 711,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 279,
+    "condition": "always"
+  },
+  {
+    "key": "lowform_a",
+    "page": "LOWFORM BODY",
+    "name": "Body Control A",
+    "scope": "engine",
+    "engines": [
+      21
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 712,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 280,
+    "condition": "always"
+  },
+  {
+    "key": "lowform_b",
+    "page": "LOWFORM BODY",
+    "name": "Body Control B",
+    "scope": "engine",
+    "engines": [
+      21
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 713,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 281,
+    "condition": "always"
+  },
+  {
+    "key": "lowform_c",
+    "page": "LOWFORM BODY",
+    "name": "Body Control C",
+    "scope": "engine",
+    "engines": [
+      21
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 714,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 282,
+    "condition": "always"
+  },
+  {
+    "key": "lowform_d",
+    "page": "LOWFORM BODY",
+    "name": "Body Control D",
+    "scope": "engine",
+    "engines": [
+      21
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 715,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 283,
+    "condition": "always"
+  },
+  {
+    "key": "lowform_e",
+    "page": "LOWFORM BODY",
+    "name": "Body Control E",
+    "scope": "engine",
+    "engines": [
+      21
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 716,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 284,
+    "condition": "always"
+  },
+  {
+    "key": "lowform_body_decay",
+    "page": "LOWFORM BODY",
+    "name": "Body Decay",
+    "scope": "engine",
+    "engines": [
+      21
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 717,
+    "min": 20,
+    "max": 12000,
+    "octaves": 1,
+    "id": 285,
+    "condition": "always"
+  },
+  {
+    "key": "lowform_texture_level",
+    "page": "LOWFORM TEXTURE",
+    "name": "Texture Level",
+    "scope": "engine",
+    "engines": [
+      21
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 719,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 286,
+    "condition": "always"
+  },
+  {
+    "key": "lowform_texture_color",
+    "page": "LOWFORM TEXTURE",
+    "name": "Texture Colour",
+    "scope": "engine",
+    "engines": [
+      21
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 720,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 287,
+    "condition": "always"
+  },
+  {
+    "key": "lowform_texture_track",
+    "page": "LOWFORM TEXTURE",
+    "name": "Texture Pitch Track",
+    "scope": "engine",
+    "engines": [
+      21
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 721,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 288,
+    "condition": "always"
+  },
+  {
+    "key": "lowform_texture_width",
+    "page": "LOWFORM TEXTURE",
+    "name": "Texture Width",
+    "scope": "engine",
+    "engines": [
+      21
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 722,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 289,
+    "condition": "always"
+  },
+  {
+    "key": "lowform_cutoff",
+    "page": "LOWFORM",
+    "name": "Filter Cutoff",
+    "scope": "engine",
+    "engines": [
+      21
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 724,
+    "min": 20,
+    "max": 18000,
+    "octaves": 1,
+    "id": 290,
+    "condition": "always"
+  },
+  {
+    "key": "lowform_resonance",
+    "page": "LOWFORM",
+    "name": "Filter Resonance",
+    "scope": "engine",
+    "engines": [
+      21
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 725,
+    "min": 0,
+    "max": 95,
+    "octaves": 0,
+    "id": 291,
+    "condition": "always"
+  },
+  {
+    "key": "lowform_filter_drive",
+    "page": "LOWFORM SHAPE",
+    "name": "Filter Drive",
+    "scope": "engine",
+    "engines": [
+      21
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 726,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 292,
+    "condition": "always"
+  },
+  {
+    "key": "lowform_keytrack",
+    "page": "LOWFORM SHAPE",
+    "name": "Filter Key Track",
+    "scope": "engine",
+    "engines": [
+      21
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 727,
+    "min": -100,
+    "max": 100,
+    "octaves": 0,
+    "id": 293,
+    "condition": "always"
+  },
+  {
+    "key": "lowform_filter_env",
+    "page": "LOWFORM SHAPE",
+    "name": "Filter Envelope",
+    "scope": "engine",
+    "engines": [
+      21
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 728,
+    "min": -8,
+    "max": 8,
+    "octaves": 0,
+    "id": 294,
+    "condition": "always"
+  },
+  {
+    "key": "lowform_filter_decay",
+    "page": "LOWFORM SHAPE",
+    "name": "Filter Envelope Decay",
+    "scope": "engine",
+    "engines": [
+      21
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 729,
+    "min": 5,
+    "max": 4000,
+    "octaves": 1,
+    "id": 295,
+    "condition": "always"
+  },
+  {
+    "key": "lowform_punch",
+    "page": "LOWFORM BODY",
+    "name": "Pitch Punch",
+    "scope": "engine",
+    "engines": [
+      21
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 730,
+    "min": -24,
+    "max": 48,
+    "octaves": 0,
+    "id": 296,
+    "condition": "always"
+  },
+  {
+    "key": "lowform_punch_time",
+    "page": "LOWFORM BODY",
+    "name": "Pitch Punch Time",
+    "scope": "engine",
+    "engines": [
+      21
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 731,
+    "min": 1,
+    "max": 1000,
+    "octaves": 1,
+    "id": 297,
+    "condition": "always"
+  },
+  {
+    "key": "lowform_drive",
+    "page": "LOWFORM TEXTURE",
+    "name": "Lowform Overload",
+    "scope": "engine",
+    "engines": [
+      21
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 732,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 298,
+    "condition": "always"
+  },
+  {
+    "key": "lowform_low_return",
+    "page": "LOWFORM SHAPE",
+    "name": "Foundation Low Return",
+    "scope": "engine",
+    "engines": [
+      21
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 733,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "id": 299,
+    "condition": "always"
+  },
+  {
+    "key": "lowform_texture_decay",
+    "page": "LOWFORM TEXTURE",
+    "name": "Texture Decay",
+    "scope": "engine",
+    "engines": [
+      21
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 734,
+    "min": 20,
+    "max": 12000,
+    "octaves": 1,
+    "id": 300,
     "condition": "always"
   }
 ]

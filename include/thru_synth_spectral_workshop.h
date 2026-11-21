@@ -219,7 +219,7 @@ bool renderTraceAtoms(const Recipe &r, float rate, Audio &out,
 }
 using HybridInputs = std::array<std::shared_ptr<const SourceAudio>, 4>;
 template <class Cancel, class Progress>
-bool renderHybrid(const Recipe &r, float rate, Audio &out,
+bool renderLegacyHybrid(const Recipe &r, float rate, Audio &out,
                   const HybridInputs &inputs, Cancel cancel,
                   Progress progress) {
   const int count = int(r.hybridParams[hSources]);
@@ -305,3 +305,11 @@ bool renderHybrid(const Recipe &r, float rate, Audio &out,
   return true;
 }
 } // namespace s3g_thru_synth
+
+#include "thru_synth_hybrid.h"
+namespace s3g_thru_synth {
+template<class Cancel,class Progress>
+bool renderHybrid(const Recipe& r,float rate,Audio& out,const HybridInputs& inputs,Cancel cancel,Progress progress){
+ return r.hybridStyle?renderHybridTransfer(r,rate,out,inputs,cancel,progress):renderLegacyHybrid(r,rate,out,inputs,cancel,progress);
+}
+}

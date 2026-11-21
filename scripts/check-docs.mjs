@@ -70,10 +70,20 @@ for (const file of htmlFiles) {
     const source = fs.readFileSync(file, 'utf8');
     const navs = [...source.matchAll(/<nav class="page-nav"[^>]*>([\s\S]*?)<\/nav>/g)];
     if (navs.length !== 1) throw new Error(`Expected one Previous/Next footer in ${path.basename(file)}`);
-    const links = [...navs[0][1].matchAll(/<a\b([^>]*)>/g)].map((match) => {
+    if (!/^<nav\b[^>]*aria-label="Page navigation"/.test(navs[0][0])) {
+        throw new Error(`Inconsistent Previous/Next navigation label in ${path.basename(file)}`);
+    }
+    const links = [...navs[0][1].matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/g)].map((match) => {
         const attrs = Object.fromEntries([...match[1].matchAll(/([\w-]+)="([^"]*)"/g)]
             .map((attribute) => [attribute[1], attribute[2]]));
-        return { href: attrs.href, next: (attrs.class || '').split(/\s+/).includes('next') };
+        const classes = (attrs.class || '').split(/\s+/);
+        const next = classes.includes('next');
+        const label = match[2].match(/^\s*<span>(Previous|Next|Return)<\/span>\s*(\S[\s\S]*)$/);
+        const expected = next ? (attrs.href === 'index.html' ? 'Return' : 'Next') : 'Previous';
+        if (!classes.includes('page-nav-link') || !label || label[1] !== expected) {
+            throw new Error(`Inconsistent Previous/Next button format in ${path.basename(file)}`);
+        }
+        return { href: attrs.href, next };
     });
     const next = links.filter((link) => link.next);
     const previous = links.filter((link) => !link.next);

@@ -2,7 +2,7 @@
 
 s3g Thru is a stereo sample and synthesis instrument for
 [Ableton Move](https://www.ableton.com/move/). It runs as a
-[Schwung](https://github.com/charlesvestal/schwung) takeover module, with four lanes, twenty-two playback and synthesis engines, eight
+[Schwung](https://github.com/charlesvestal/schwung) takeover module, with four lanes, 22 playback and synthesis engines, eight
 polyphonic voices, and performance-data looping. Single uses one four-lane stack; Split and Shared Dual offer
 two independent instruments; Quad offers four instruments with one lane each.
 Bank pairs a four-lane instrument with sixteen saved stereo sample pads.

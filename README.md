@@ -30,9 +30,9 @@ press **Step 2** for Global Settings. **Shift + main encoder click** opens its
 section picker: choose **System → Help → Modules → s3g Thru**. Inside Thru,
 **Shift + Menu** opens the diagnostic reports and shortcut reminder.
 
-Version 0.32.0 adds saved Euclidean and Onset sequencers, new grid paths,
-a mixer in every mode, and improved sequence editing and stability.
-See the [release notes](release-notes/RELEASE_NOTES_0.32.0.md).
+Version 0.33.0 adds seven realtime synthesis engines, assignable control LFOs,
+expanded Sequence sound locks, and offline sample processing.
+See the [release notes](release-notes/RELEASE_NOTES_0.33.0.md).
 Use the manual's [Projects guide](https://s3g.github.io/s3g-thru/projects.html)
 for backup and restore.
 

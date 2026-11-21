@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="768" height="384" viewBox="0 0 128 64" role="img" aria-labelledby="title desc">
+  <title id="title">FM operator routing 0</title>
+  <desc id="desc">FM operator routing 0 shown as it appears on Ableton Move.</desc>
+  <rect width="128" height="64" fill="#050706"/>
+  <g shape-rendering="crispEdges" font-family="DejaVu Sans Mono, IBM Plex Mono, monospace" font-size="6" font-style="normal" font-weight="400" text-rendering="geometricPrecision">
+    <text x="1" y="5.5" fill="#dce8e1">FM 2OP</text>
+    <text x="110" y="5.5" fill="#dce8e1">6/9</text>
+    <rect x="0" y="8" width="128" height="1" fill="#dce8e1"/>
+    <rect x="24" y="28" width="14" height="12" fill="#dce8e1"/>
+    <rect x="25" y="29" width="12" height="10" fill="#050706"/>
+    <text x="28" y="35.5" fill="#dce8e1">2</text>
+    <rect x="69" y="28" width="14" height="12" fill="#dce8e1"/>
+    <text x="73" y="35.5" fill="#050706">1</text>
+    <rect x="38" y="34" width="32" height="1" fill="#dce8e1"/>
+    <rect x="66" y="32" width="1" height="1" fill="#dce8e1"/>
+    <rect x="67" y="33" width="1" height="1" fill="#dce8e1"/>
+    <rect x="68" y="33" width="1" height="1" fill="#dce8e1"/>
+    <rect x="69" y="34" width="1" height="1" fill="#dce8e1"/>
+    <rect x="66" y="36" width="1" height="1" fill="#dce8e1"/>
+    <rect x="67" y="35" width="1" height="1" fill="#dce8e1"/>
+    <rect x="68" y="35" width="1" height="1" fill="#dce8e1"/>
+    <rect x="69" y="34" width="1" height="1" fill="#dce8e1"/>
+    <rect x="31" y="28" width="1" height="1" fill="#dce8e1"/>
+    <rect x="31" y="25" width="1" height="1" fill="#dce8e1"/>
+    <rect x="31" y="22" width="1" height="1" fill="#dce8e1"/>
+    <rect x="31" y="22" width="1" height="1" fill="#dce8e1"/>
+    <rect x="28" y="22" width="1" height="1" fill="#dce8e1"/>
+    <rect x="25" y="22" width="1" height="1" fill="#dce8e1"/>
+    <rect x="22" y="22" width="1" height="1" fill="#dce8e1"/>
+    <rect x="19" y="22" width="1" height="1" fill="#dce8e1"/>
+    <rect x="19" y="22" width="1" height="1" fill="#dce8e1"/>
+    <rect x="19" y="25" width="1" height="1" fill="#dce8e1"/>
+    <rect x="19" y="28" width="1" height="1" fill="#dce8e1"/>
+    <rect x="19" y="31" width="1" height="1" fill="#dce8e1"/>
+    <rect x="19" y="34" width="1" height="1" fill="#dce8e1"/>
+    <rect x="19" y="34" width="1" height="1" fill="#dce8e1"/>
+    <rect x="22" y="34" width="1" height="1" fill="#dce8e1"/>
+    <rect x="21" y="32" width="1" height="1" fill="#dce8e1"/>
+    <rect x="24" y="34" width="1" height="1" fill="#dce8e1"/>
+    <rect x="21" y="36" width="1" height="1" fill="#dce8e1"/>
+    <rect x="24" y="34" width="1" height="1" fill="#dce8e1"/>
+    <rect x="3" y="45" width="14" height="12" fill="#dce8e1"/>
+    <rect x="4" y="46" width="12" height="10" fill="#050706"/>
+    <text x="7" y="52.5" fill="#dce8e1">3</text>
+    <rect x="3" y="45" width="2" height="2" fill="#050706"/>
+    <rect x="15" y="55" width="2" height="2" fill="#050706"/>
+    <text x="20" y="52.5" fill="#dce8e1">UNUSED</text>
+    <rect x="83" y="34" width="27" height="1" fill="#dce8e1"/>
+    <rect x="106" y="32" width="1" height="1" fill="#dce8e1"/>
+    <rect x="107" y="33" width="1" height="1" fill="#dce8e1"/>
+    <rect x="108" y="33" width="1" height="1" fill="#dce8e1"/>
+    <rect x="109" y="34" width="1" height="1" fill="#dce8e1"/>
+    <rect x="106" y="36" width="1" height="1" fill="#dce8e1"/>
+    <rect x="107" y="35" width="1" height="1" fill="#dce8e1"/>
+    <rect x="108" y="35" width="1" height="1" fill="#dce8e1"/>
+    <rect x="109" y="34" width="1" height="1" fill="#dce8e1"/>
+    <text x="110" y="36.5" fill="#dce8e1">O</text>
+    <text x="1" y="62.5" fill="#dce8e1">2:RAT1 3:RAT2</text>
+  </g>
+  <rect x="0.25" y="0.25" width="127.5" height="63.5" fill="none" stroke="#5b6661" stroke-width="0.5"/>
+</svg>

@@ -74,7 +74,7 @@ bool setSequenceSoundParameter(const char* key,const char* text){
   }
   if(!std::strcmp(key,"clip_automation"))return true;
   if(!s3g_thru_sequence::soundDescriptor(p->id)){
-    if(!std::strcmp(mapped,"algorithm")||!std::strcmp(mapped,"table_model")){setError("Lane setting, not a trig lock");return true;}
+    if(!std::strcmp(mapped,"algorithm")||!std::strcmp(mapped,"table_model")||!std::strcmp(mapped,"fm_start")){setError("Lane setting, not a trig lock");return true;}
     return false;
   }
   return editSequenceSoundLock(p->id,parseFloat(text,NAN));

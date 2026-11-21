@@ -1642,5 +1642,59 @@
     "key": "fm_hardness",
     "scope": "voice",
     "target": 406
+  },
+  {
+    "id": 4423,
+    "key": "fm_harm",
+    "scope": "voice",
+    "target": 407
+  },
+  {
+    "id": 4424,
+    "key": "fm_attack1",
+    "scope": "voice",
+    "target": 408
+  },
+  {
+    "id": 4425,
+    "key": "fm_decay1",
+    "scope": "voice",
+    "target": 409
+  },
+  {
+    "id": 4426,
+    "key": "fm_end1",
+    "scope": "voice",
+    "target": 410
+  },
+  {
+    "id": 4427,
+    "key": "fm_curve1",
+    "scope": "voice",
+    "target": 411
+  },
+  {
+    "id": 4428,
+    "key": "fm_attack2",
+    "scope": "voice",
+    "target": 412
+  },
+  {
+    "id": 4429,
+    "key": "fm_decay2",
+    "scope": "voice",
+    "target": 413
+  },
+  {
+    "id": 4430,
+    "key": "fm_end2",
+    "scope": "voice",
+    "target": 414
+  },
+  {
+    "id": 4431,
+    "key": "fm_curve2",
+    "scope": "voice",
+    "target": 415
   }
 ]

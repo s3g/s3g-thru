@@ -331,7 +331,7 @@ void applyControlLfoControls(Engine::Controls &c, int part,
     if (i!=127 && i!=128 && (amounts[i].base != 0 || amounts[i].automatic != 0 || amounts[i].span > 0)) {
       const auto &d = destinations[i];
       if(d.parameter>=s3g_thru_fm::controlOffset&&d.parameter<s3g_thru_fm::controlOffset+s3g_thru_fm::fields){const int field=d.parameter-s3g_thru_fm::controlOffset;
-        for(auto& patch:c.fm.patches)if(s3g_thru_fm::applicable(patch,field))s3g_thru_fm::set(patch,field,mapped(d,patch.v[field],amounts[i]));
+        for(auto& patch:c.fm.patches)if(s3g_thru_fm::applicable(patch,field))s3g_thru_fm::set(patch,field,mapped(d,s3g_thru_fm::resolved(patch,field),amounts[i]));
       }else if(d.parameter>=s3g_thru_scanned::controlOffset&&d.parameter<s3g_thru_scanned::controlOffset+s3g_thru_scanned::fields){const int field=d.parameter-s3g_thru_scanned::controlOffset;
         for(auto& patch:c.scanned.patches)if(s3g_thru_scanned::applicable(patch,field))s3g_thru_scanned::set(patch,field,mapped(d,patch.v[field],amounts[i]));
       }else if(d.parameter>=s3g_thru_table::controlOffset&&d.parameter<s3g_thru_table::controlOffset+s3g_thru_table::fields){const int field=d.parameter-s3g_thru_table::controlOffset;
@@ -691,7 +691,7 @@ float controlLfoManualBase(int target, int dest) const {
   if (d.parameter == int(LockParameter::splitBlend))
     return lockedValue(effectiveSplitMixer(clipControls), outputGain,
                        d.parameter);
-  if(d.parameter>=s3g_thru_fm::controlOffset&&d.parameter<s3g_thru_fm::controlOffset+s3g_thru_fm::fields)return c.fm.patches[tableEditLane(target)].v[d.parameter-s3g_thru_fm::controlOffset];
+  if(d.parameter>=s3g_thru_fm::controlOffset&&d.parameter<s3g_thru_fm::controlOffset+s3g_thru_fm::fields)return s3g_thru_fm::resolved(c.fm.patches[tableEditLane(target)],d.parameter-s3g_thru_fm::controlOffset);
   if(d.parameter>=s3g_thru_scanned::controlOffset&&d.parameter<s3g_thru_scanned::controlOffset+s3g_thru_scanned::fields)return c.scanned.patches[tableEditLane(target)].v[d.parameter-s3g_thru_scanned::controlOffset];
   if(d.parameter>=s3g_thru_table::controlOffset&&d.parameter<s3g_thru_table::controlOffset+s3g_thru_table::fields)return c.table.patches[tableEditLane(target)].v[d.parameter-s3g_thru_table::controlOffset];
   if (d.parameter >= 0)

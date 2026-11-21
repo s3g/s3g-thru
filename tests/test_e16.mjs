@@ -65,6 +65,8 @@ assert.equal(viewContext.globalThis.value(p('effect_tape_hiss'),-84),'OFF');
 assert.equal(viewContext.globalThis.value(p('effect_reverb_damp'),12000),'12KHZ');
 assert.equal(viewContext.globalThis.value(p('pulsar_rate'),.1),'0.1HZ');
 assert.equal(viewContext.globalThis.value(p('stochastic_evolution'),1024),'CYC');
+assert.equal(viewContext.globalThis.value(p('fm_end1'),-1),'AUTO');
+assert.equal(viewContext.globalThis.value(p('fm_decay2'),0),'LINK');
 assert.equal(viewContext.globalThis.value(p('effect_mix'),25),'25%','Actual percentages must not be multiplied by 100');
 const layout=JSON.parse(read('controllers/oxi-e16/adaptive-layout.json'));
 for(const x of registry.parameters.filter(x=>layout.meta.some(m=>m.id===x.id)))for(const value of [x.min,x.max]){

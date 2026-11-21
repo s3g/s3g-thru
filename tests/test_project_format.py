@@ -12,15 +12,22 @@ with zipfile.ZipFile(sys.argv[1]) as archive:
         'manifest.json', 'thru-state.json', 'thru-clips.bin', 'assets/a000000.wav'}
     manifest = json.loads(archive.read('manifest.json'))
     assert manifest == {'format': 's3g-thru-project', 'version': 1,
-                        'clip_format': 55, 'assets': 1}
+                        'clip_format': 56, 'assets': 1}
     state = json.loads(archive.read('thru-state.json'))
     clips = archive.read('thru-clips.bin')
     version, generation = struct.unpack_from('<IQ', clips, 8)
-    assert version == 55 and generation == state['generation']
+    assert version == 56 and generation == state['generation']
     checksum = 2166136261
     for value in clips[:-4]:
         checksum = ((checksum ^ value) * 16777619) & 0xffffffff
     assert checksum == struct.unpack('<I', clips[-4:])[0]
+    extra_size=4+64*5*4*9*4
+    extra_at=len(clips)-4-extra_size
+    assert clips[extra_at:extra_at+4]==b'FMX1'
+    meta=json.loads((Path(__file__).resolve().parents[1]/'controllers/midi/fm-parameters.json').read_text())
+    for i,x in enumerate(struct.unpack_from('<'+str(64*5*4*9)+'f',clips,extra_at+4)):
+        m=meta[23+i%9];assert m['min']<=x<=m['max']
+    clips=clips[:extra_at]+clips[-4:]
     fm_size=4+64*5*4*23*4
     fm_at=len(clips)-4-fm_size
     assert clips[fm_at:fm_at+4]==b'FMP1'

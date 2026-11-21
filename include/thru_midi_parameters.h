@@ -668,7 +668,7 @@ inline constexpr Parameter parameters[]{
     {4406, "fm_index1", 0.0f, 12.0f, 1.0f, true, false, false, false, -1},
     {4407, "fm_feedback", 0.0f, 90.0f, 0.0f, true, false, false, false, -1},
     {4408, "fm_ratio2", 0.125f, 32.0f, 2.0f, true, false, false, false, -1},
-    {4409, "fm_index2", 0.0f, 12.0f, 0.0f, true, false, false, false, -1},
+    {4409, "fm_index2", 0.0f, 12.0f, 2.0f, true, false, false, false, -1},
     {4410, "fm_detune", 0.0f, 30.0f, 0.0f, true, false, false, false, -1},
     {4411, "fm_mix", 0.0f, 100.0f, 100.0f, true, false, false, false, -1},
     {4412, "fm_cutoff", 20.0f, 20000.0f, 18000.0f, true, false, false, true, -1},
@@ -682,6 +682,16 @@ inline constexpr Parameter parameters[]{
     {4420, "fm_noise", 0.0f, 100.0f, 0.0f, true, false, false, false, -1},
     {4421, "fm_noise_decay", 1.0f, 4000.0f, 70.0f, true, false, false, true, -1},
     {4422, "fm_hardness", 0.0f, 100.0f, 60.0f, true, false, false, false, -1},
+    {4423, "fm_harm", -100.0f, 100.0f, 0.0f, true, false, false, false, -1},
+    {4424, "fm_attack1", 0.0f, 4000.0f, 0.0f, true, false, false, false, -1},
+    {4425, "fm_decay1", 0.0f, 8000.0f, 750.0f, true, false, false, false, -1},
+    {4426, "fm_end1", -1.0f, 100.0f, 35.0f, true, false, false, false, -1},
+    {4427, "fm_curve1", 0.0f, 2.0f, 1.0f, true, true, false, false, -1},
+    {4428, "fm_attack2", 0.0f, 4000.0f, 0.0f, true, false, false, false, -1},
+    {4429, "fm_decay2", 0.0f, 8000.0f, 1200.0f, true, false, false, false, -1},
+    {4430, "fm_end2", -1.0f, 100.0f, 20.0f, true, false, false, false, -1},
+    {4431, "fm_curve2", 0.0f, 2.0f, 1.0f, true, true, false, false, -1},
+    {4490, "fm_start", 0.0f, 9.0f, 0.0f, true, true, true, false, -1},
 };
 inline constexpr std::size_t count = sizeof(parameters) / sizeof(parameters[0]);
 struct FeedbackSubscription {int part,id;};

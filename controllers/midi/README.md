@@ -177,4 +177,4 @@ TABLE adds controls 4200–4239 on the part channel. Track selection chooses the
 
 SCANNED uses IDs 4300–4330 on the existing part channels. The selected Track chooses its physical patch; four adaptive engine pages expose the same controls as Move.
 
-FM uses IDs 4400–4422 on the existing part channels. Tracks select its four patches; three adaptive engine pages mirror Move.
+FM uses IDs 4400–4431 on the existing part channels. The starting-sound action is ID 4490 (0=KEEP, 1–9=BASS/BELL/KEYS/PAD/KICK/SNARE/TOM/METAL/HAT). Tracks select its four patches; four adaptive engine pages mirror Move.

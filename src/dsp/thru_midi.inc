@@ -485,7 +485,7 @@ const MidiParameter* e16PageSlotParameter(ThruInstance& t,int page,int slot,int&
     const auto* p=s3g_thru_midi::find(id);
     if(p&&tableControls.algorithm==Engine::PlaybackAlgorithm::table){const int field=s3g_thru_table::index(p->key);if(field>=0&&!s3g_thru_table::applicable(patch,field))return nullptr;if(!std::strcmp(p->key,"locus")||!std::strcmp(p->key,"field")||!std::strcmp(p->key,"speed")||!std::strcmp(p->key,"join"))return nullptr;}
     if(p&&tableControls.algorithm==Engine::PlaybackAlgorithm::fm){
-      auto context=tableControls.fm.patches[t.tableEditLane(part)];for(int f:{s3g_thru_fm::mode,s3g_thru_fm::algorithm,s3g_thru_fm::bend,s3g_thru_fm::noise,s3g_thru_fm::impact}){float value=0;if(t.sequenceSoundEditValue(4400+f,part,value))s3g_thru_fm::set(context,f,value);}
+      auto context=tableControls.fm.patches[t.tableEditLane(part)];for(int f:{s3g_thru_fm::mode,s3g_thru_fm::algorithm,s3g_thru_fm::bend,s3g_thru_fm::noise,s3g_thru_fm::impact,s3g_thru_fm::decay1,s3g_thru_fm::decay2,s3g_thru_fm::end1,s3g_thru_fm::end2}){float value=0;if(t.sequenceSoundEditValue(4400+f,part,value))s3g_thru_fm::set(context,f,value);}
       const int f=s3g_thru_fm::index(p->key);if(f>=0&&!s3g_thru_fm::applicable(context,f))return nullptr;
       if(!std::strcmp(p->key,"speed")||!std::strcmp(p->key,"join")||!std::strcmp(p->key,"locus")||!std::strcmp(p->key,"field"))return nullptr;
     }

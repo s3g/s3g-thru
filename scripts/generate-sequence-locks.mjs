@@ -11,7 +11,7 @@ const excluded=new Set(['algorithm','locus','manual_lane','lane_cycles','lane_pa
 const rows=[];
 for(const p of all){
  let target=keys.indexOf(p.key),scope=0;
- if(p.id>=4400&&p.id<4423){target=384+p.id-4400;scope=1;}
+ if(p.id>=4400&&p.id<4432){target=384+p.id-4400;scope=1;}
  else if(p.id>=4300&&p.id<4331){target=320+p.id-4300;scope=1;}
  else if(p.id>=4200&&p.id<4240&&p.key!=='table_model'){target=256+p.id-4200;scope=1;}
  else if([6,7,8,3867,3871,3872,3873,3874].includes(p.id)){scope=2;}

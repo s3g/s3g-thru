@@ -5,7 +5,7 @@
 namespace s3g_thru_lfo {
 enum class Domain {off,engine,insert,mixer,shared,layers};
 struct DestinationInfo {const char *key,*page,*name;Domain domain;std::uint32_t engines;std::uint8_t modes;int parameter;float low,high,octaves;int condition;};
-inline constexpr std::array<DestinationInfo,202> destinations{{
+inline constexpr std::array<DestinationInfo,209> destinations{{
   {"off","Off","Off",Domain::off,0,127,-99,0.0f,1.0f,0.0f,0},
   {"speed","ENGINE","Speed",Domain::engine,32767,127,2,0.05f,4.0f,2.0f,0},
   {"part_level","MIXER","Level",Domain::mixer,262143,127,-1,0.0f,2.0f,0.0f,0},
@@ -208,5 +208,12 @@ inline constexpr std::array<DestinationInfo,202> destinations{{
   {"fm_sweep_time","FM HIT","FM Pitch Sweep Time",Domain::engine,131072,127,402,1.0f,2000.0f,2.0f,0},
   {"fm_noise","FM HIT","FM Noise Body",Domain::engine,131072,127,404,0.0f,100.0f,0.0f,0},
   {"fm_noise_decay","FM HIT","FM Noise Decay",Domain::engine,131072,127,405,1.0f,4000.0f,2.0f,0},
+  {"fm_harm","FM COLOR","Operator Harmonics",Domain::engine,131072,127,407,-100.0f,100.0f,0.0f,0},
+  {"fm_attack1","FM ENVS","Modulator 1 Attack",Domain::engine,131072,127,408,0.0f,4000.0f,0.0f,0},
+  {"fm_decay1","FM ENVS","Modulator 1 Decay",Domain::engine,131072,127,409,1.0f,8000.0f,0.0f,0},
+  {"fm_end1","FM ENVS","Modulator 1 End Level",Domain::engine,131072,127,410,0.0f,100.0f,0.0f,0},
+  {"fm_attack2","FM ENVS","Modulator 2 Attack",Domain::engine,131072,127,412,0.0f,4000.0f,0.0f,0},
+  {"fm_decay2","FM ENVS","Modulator 2 Decay",Domain::engine,131072,127,413,1.0f,8000.0f,0.0f,0},
+  {"fm_end2","FM ENVS","Modulator 2 End Level",Domain::engine,131072,127,414,0.0f,100.0f,0.0f,0},
 }};
 }

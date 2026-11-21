@@ -833,7 +833,7 @@ constexpr const char kChainParams[] = R"json([
 {"key":"fm_index1","name":"Modulator 1 Index","short_name":"IDX1","type":"float","default":1,"min":0,"max":12,"step":0.05},
 {"key":"fm_feedback","name":"FM Feedback","short_name":"FDBK","type":"float","default":0,"min":0,"max":90,"step":1},
 {"key":"fm_ratio2","name":"Modulator 2 Ratio","short_name":"RAT2","type":"float","default":2,"min":0.125,"max":32,"step":0.125},
-{"key":"fm_index2","name":"Modulator 2 Index","short_name":"IDX2","type":"float","default":0,"min":0,"max":12,"step":0.05},
+{"key":"fm_index2","name":"Modulator 2 Index","short_name":"IDX2","type":"float","default":2,"min":0,"max":12,"step":0.05},
 {"key":"fm_detune","name":"FM Stereo Detune","short_name":"DETN","type":"float","default":0,"min":0,"max":30,"step":0.1},
 {"key":"fm_mix","name":"FM Wet Mix","short_name":"MIX","type":"float","default":100,"min":0,"max":100,"step":1},
 {"key":"fm_cutoff","name":"FM Filter Cutoff","short_name":"CUTO","type":"float","default":18000,"min":20,"max":20000,"step":1},
@@ -847,6 +847,15 @@ constexpr const char kChainParams[] = R"json([
 {"key":"fm_noise","name":"FM Noise Body","short_name":"NOIS","type":"float","default":0,"min":0,"max":100,"step":1},
 {"key":"fm_noise_decay","name":"FM Noise Decay","short_name":"NDEC","type":"float","default":70,"min":1,"max":4000,"step":1},
 {"key":"fm_hardness","name":"FM Impact Hardness","short_name":"HARD","type":"float","default":60,"min":0,"max":100,"step":1},
+{"key":"fm_harm","name":"Operator Harmonics","short_name":"HARM","type":"float","default":0,"min":-100,"max":100,"step":1},
+{"key":"fm_attack1","name":"Modulator 1 Attack","short_name":"ATK1","type":"float","default":0,"min":0,"max":4000,"step":1},
+{"key":"fm_decay1","name":"Modulator 1 Decay","short_name":"DEC1","type":"float","default":750,"min":0,"max":8000,"step":1},
+{"key":"fm_end1","name":"Modulator 1 End Level","short_name":"END1","type":"float","default":35,"min":-1,"max":100,"step":1},
+{"key":"fm_curve1","name":"Modulator 1 Curve","short_name":"CRV1","type":"enum","default":1,"options":["LIN","EXP","LOG"]},
+{"key":"fm_attack2","name":"Modulator 2 Attack","short_name":"ATK2","type":"float","default":0,"min":0,"max":4000,"step":1},
+{"key":"fm_decay2","name":"Modulator 2 Decay","short_name":"DEC2","type":"float","default":1200,"min":0,"max":8000,"step":1},
+{"key":"fm_end2","name":"Modulator 2 End Level","short_name":"END2","type":"float","default":20,"min":-1,"max":100,"step":1},
+{"key":"fm_curve2","name":"Modulator 2 Curve","short_name":"CRV2","type":"enum","default":1,"options":["LIN","EXP","LOG"]},
 {"key":"table_type","name":"Table Variant","short_name":"TYPE","type":"enum","default":0,"options":["WAVE","SPLINE","WT DRUM"]},
 {"key":"table_tune","name":"Transpose","short_name":"TUNE","type":"float","default":0,"min":-48,"max":48,"step":0.1},
 {"key":"table_width","name":"Stereo Width","short_name":"WID","type":"float","default":40,"min":0,"max":100,"step":1},
@@ -9524,7 +9533,7 @@ struct ThruInstance : PlaybackEffectsState {
         if (!file) return false;
         const char magic[8] { 'S', '3', 'G', 'T', 'H', 'R', '3', '\0' };
         bool ok = writeBytes(file, magic, sizeof(magic))
-            && writeU32(file, 55u)
+            && writeU32(file, 56u)
             && writeU64(file, snapshot ? snapshot->generation : persistenceGeneration)
             && writeF32(file, snapshot ? snapshot->tempo : tempoBpm)
             && writeF32(file, snapshot ? snapshot->swing : tempoSwing)
@@ -9590,7 +9599,7 @@ struct ThruInstance : PlaybackEffectsState {
                     && writeU32(file, clipPointTake(point));
             }
         }
-        ok = ok && writeSplitExtension(file,savedClips) && writeStackPaths(file,savedClips) && writeChainBanks(file,savedBanks,savedBank) && writeChainPlaybackState(file,snapshot?snapshot->chainPlayBank:chainPlayBank) && writeNewEngineParameters(file,savedClips) && writeVoiceEngineExtension(file,savedClips) && writeVoicePlayExtension(file,savedClips) && writeStochasticParameters(file,savedClips) && writePulsarParameters(file,savedClips) && writePriorityParameters(file,savedClips) && writeBankExtension(file,savedClips) && writeBankPadExtension(file,savedClips) && writeSliceExtension(file,savedClips) && writeLayersExtension(file,savedClips) && writeSequenceExtension(file,savedClips) && writeSequenceMixExtension(file,savedClips) && writeSequenceCycleExtension(file,savedClips) && writeSplitLanePreferences(file,savedClips) && writePulsarSeeds(file,savedClips) && writeSequenceTypes(file,savedClips) && writeSequenceDirections(file,savedClips) && writeSequenceShifts(file,savedClips) && writeSequencePaths(file,savedClips) && writeControlLfos(file,savedClips) && writePooledLfos(file,savedClips) && writeLfoAutoExtension(file,savedClips) && writeTableExtension(file,savedClips) && writeSequenceSoundLocks(file,savedClips) && writeScannedExtension(file,savedClips) && writeScannedHitExtension(file,savedClips) && writeScannedAmpExtension(file,savedClips) && writeFmExtension(file,savedClips);
+        ok = ok && writeSplitExtension(file,savedClips) && writeStackPaths(file,savedClips) && writeChainBanks(file,savedBanks,savedBank) && writeChainPlaybackState(file,snapshot?snapshot->chainPlayBank:chainPlayBank) && writeNewEngineParameters(file,savedClips) && writeVoiceEngineExtension(file,savedClips) && writeVoicePlayExtension(file,savedClips) && writeStochasticParameters(file,savedClips) && writePulsarParameters(file,savedClips) && writePriorityParameters(file,savedClips) && writeBankExtension(file,savedClips) && writeBankPadExtension(file,savedClips) && writeSliceExtension(file,savedClips) && writeLayersExtension(file,savedClips) && writeSequenceExtension(file,savedClips) && writeSequenceMixExtension(file,savedClips) && writeSequenceCycleExtension(file,savedClips) && writeSplitLanePreferences(file,savedClips) && writePulsarSeeds(file,savedClips) && writeSequenceTypes(file,savedClips) && writeSequenceDirections(file,savedClips) && writeSequenceShifts(file,savedClips) && writeSequencePaths(file,savedClips) && writeControlLfos(file,savedClips) && writePooledLfos(file,savedClips) && writeLfoAutoExtension(file,savedClips) && writeTableExtension(file,savedClips) && writeSequenceSoundLocks(file,savedClips) && writeScannedExtension(file,savedClips) && writeScannedHitExtension(file,savedClips) && writeScannedAmpExtension(file,savedClips) && writeFmExtension(file,savedClips) && writeFmExtraExtension(file,savedClips);
         const bool closed = std::fclose(file) == 0;
         ok = ok && closed && appendFileChecksum(temporary.data());
         if (!ok || (!stageOnly && !replaceFileWithBackup(temporary.data(), path.data()))) {
@@ -9654,7 +9663,7 @@ struct ThruInstance : PlaybackEffectsState {
             && (version == 1u || version == 2u || version == 3u
                 || version == 4u || version == 5u || version == 6u
                 || version == 7u || version == 8u || version == 9u
-                || version == 10u || version == 11u || version == 12u || version == 13u || version == 14u || version==15u || version==16u || version==17u || version==18u || version==19u || version==20u || version==21u || version==22u || version==23u || version==24u || version==25u || version==26u || version==27u || version==28u || version==29u || version==30u || version==31u || version==32u || version==33u || version==34u || version==35u || version==36u || version==37u || version==38u || version==39u || version==40u || version==41u || version==42u || version==43u || version==44u || version==45u || version==46u || version==47u || version==48u || version==49u || version==50u || version==51u || version==52u || version==53u || version==54u || version==55u)
+                || version == 10u || version == 11u || version == 12u || version == 13u || version == 14u || version==15u || version==16u || version==17u || version==18u || version==19u || version==20u || version==21u || version==22u || version==23u || version==24u || version==25u || version==26u || version==27u || version==28u || version==29u || version==30u || version==31u || version==32u || version==33u || version==34u || version==35u || version==36u || version==37u || version==38u || version==39u || version==40u || version==41u || version==42u || version==43u || version==44u || version==45u || version==46u || version==47u || version==48u || version==49u || version==50u || version==51u || version==52u || version==53u || version==54u || version==55u || version==56u)
             && readU64(file, generation) && generation != 0u;
         std::fclose(file);
         return ok;
@@ -9691,7 +9700,7 @@ struct ThruInstance : PlaybackEffectsState {
             && (version == 1u || version == 2u || version == 3u
                 || version == 4u || version == 5u || version == 6u
                 || version == 7u || version == 8u || version == 9u
-                || version == 10u || version == 11u || version == 12u || version == 13u || version == 14u || version==15u || version==16u || version==17u || version==18u || version==19u || version==20u || version==21u || version==22u || version==23u || version==24u || version==25u || version==26u || version==27u || version==28u || version==29u || version==30u || version==31u || version==32u || version==33u || version==34u || version==35u || version==36u || version==37u || version==38u || version==39u || version==40u || version==41u || version==42u || version==43u || version==44u || version==45u || version==46u || version==47u || version==48u || version==49u || version==50u || version==51u || version==52u || version==53u || version==54u || version==55u)
+                || version == 10u || version == 11u || version == 12u || version == 13u || version == 14u || version==15u || version==16u || version==17u || version==18u || version==19u || version==20u || version==21u || version==22u || version==23u || version==24u || version==25u || version==26u || version==27u || version==28u || version==29u || version==30u || version==31u || version==32u || version==33u || version==34u || version==35u || version==36u || version==37u || version==38u || version==39u || version==40u || version==41u || version==42u || version==43u || version==44u || version==45u || version==46u || version==47u || version==48u || version==49u || version==50u || version==51u || version==52u || version==53u || version==54u || version==55u || version==56u)
             && readU64(file, loadedGeneration)
             && loadedGeneration != 0u
             && (expectedGeneration == kAnyPersistenceGeneration
@@ -9856,7 +9865,7 @@ struct ThruInstance : PlaybackEffectsState {
                         && (type<static_cast<std::uint32_t>(ClipPointType::layersParameter)||type==static_cast<std::uint32_t>(ClipPointType::controlLfo)||type==static_cast<std::uint32_t>(ClipPointType::pooledLfo)||type==static_cast<std::uint32_t>(ClipPointType::tableParameter)||type==static_cast<std::uint32_t>(ClipPointType::scannedParameter)||type==static_cast<std::uint32_t>(ClipPointType::fmParameter)||(sourcePad<6u && parameter<192u && sourcePad*192u+parameter<LayerPatch::size))
                         && (type!=static_cast<std::uint32_t>(ClipPointType::sequenceLane)||(sourcePad<4u&&parameter<(version>=46u?12u:version>=44u?11u:10u)&&std::isfinite(point.value)&&(parameter!=10u||(point.value>=0&&point.value<=4&&std::floor(point.value)==point.value))&&(parameter!=11u||(point.value>=0&&point.value<=2&&std::floor(point.value)==point.value))))
                         && (type!=static_cast<std::uint32_t>(ClipPointType::sequenceRecipe)||(sourcePad<4u&&parameter>=1u&&parameter<=(version>=45u?21u:20u)&&validSequenceRecipePoint(parameter,point.value)))
-                        && (type!=static_cast<std::uint32_t>(ClipPointType::fmParameter)||(sourcePad<16u&&parameter<s3g_thru_fm::fields&&point.value>=s3g_thru_fm::low[parameter]&&point.value<=s3g_thru_fm::high[parameter]&&(!s3g_thru_fm::discrete(int(parameter))||point.value==std::floor(point.value))))
+                        && (type!=static_cast<std::uint32_t>(ClipPointType::fmParameter)||(sourcePad<16u&&parameter<std::uint32_t(version>=56u?s3g_thru_fm::fields:s3g_thru_fm::legacyFields)&&point.value>=s3g_thru_fm::low[parameter]&&point.value<=s3g_thru_fm::high[parameter]&&(!s3g_thru_fm::discrete(int(parameter))||point.value==std::floor(point.value))))
                         && (type!=static_cast<std::uint32_t>(ClipPointType::scannedParameter)||(sourcePad<16u&&parameter<std::uint32_t(version>=54u?s3g_thru_scanned::fields:version>=53u?s3g_thru_scanned::percussionFields:s3g_thru_scanned::legacyFields)&&point.value>=s3g_thru_scanned::low[parameter]&&point.value<=s3g_thru_scanned::high[parameter]&&(!s3g_thru_scanned::discrete(int(parameter))||point.value==std::floor(point.value))))
                         && (type!=static_cast<std::uint32_t>(ClipPointType::tableParameter)||(sourcePad<16u&&parameter<s3g_thru_table::fields&&point.value>=s3g_thru_table::low[parameter]&&point.value<=s3g_thru_table::high[parameter]&&(!s3g_thru_table::discrete(int(parameter))||point.value==std::floor(point.value))))
                         && take < std::max(1u, takeCount)
@@ -9921,6 +9930,7 @@ struct ThruInstance : PlaybackEffectsState {
         if(ok&&version>=53u)ok=readScannedHitExtension(file,*loadedClips);
         if(ok&&version>=54u)ok=readScannedAmpExtension(file,*loadedClips);
         if(ok&&version>=55u)ok=readFmExtension(file,*loadedClips);
+        if(ok&&version>=56u)ok=readFmExtraExtension(file,*loadedClips);
         // A legacy automatic policy preserves 1 ms for Transients and zero
         // for Equal independently, including shared lanes used by both parts.
         const bool atEnd = ok && std::ftell(file) == payloadSize;
@@ -10617,7 +10627,7 @@ struct ThruInstance : PlaybackEffectsState {
         const bool previousSplit = splitEnabled, previousShared = sharedDual, previousQuad=quadMode;
         if(!restorePulsarSeedsJson(json))return false;
         if(!restoreSplitJson(json))return false;
-        if(!restoreTableJson(json)||!restoreScannedJson(json)||!restoreScannedHitJson(json)||!restoreScannedAmpJson(json)||!restoreFmJson(json))return false;
+        if(!restoreTableJson(json)||!restoreScannedJson(json)||!restoreScannedHitJson(json)||!restoreScannedAmpJson(json)||!restoreFmJson(json)||!restoreFmExtraJson(json))return false;
         if(!restoreLayersJson(json))return false;
         sequenceLive.active=jsonNumber(json,"sequence_mode",value)&&value>=.5f;
         if(sequenceMode()&&(!splitEnabled||!quadMode||layersLive.active||bankMode))return false;

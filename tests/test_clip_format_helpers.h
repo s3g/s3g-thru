@@ -1,5 +1,9 @@
 #pragma once
+inline void stripFmExtras(std::vector<unsigned char>& bytes){
+ if(bytes.size()<16||bytes[8]!=56)return;constexpr std::size_t size=4+64*5*4*9*4;const auto at=bytes.size()-size;assert(bytes[at]=='F'&&bytes[at+1]=='M'&&bytes[at+2]=='X'&&bytes[at+3]=='1');bytes.resize(at);bytes[8]=55;
+}
 inline void stripFmPrograms(std::vector<unsigned char>& bytes){
+ stripFmExtras(bytes);
  if(bytes.size()<16||bytes[8]!=55)return;constexpr std::size_t size=4+64*5*4*23*4;const auto at=bytes.size()-size;assert(bytes[at]=='F'&&bytes[at+1]=='M'&&bytes[at+2]=='P'&&bytes[at+3]=='1');bytes.resize(at);bytes[8]=54;
 }
 inline void stripScannedAmpPrograms(std::vector<unsigned char>& bytes){

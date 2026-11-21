@@ -278,6 +278,15 @@ inline constexpr SoundDescriptor soundCatalog[]{
   {4420,404,false},
   {4421,405,false},
   {4422,406,false},
+  {4423,407,false},
+  {4424,408,false},
+  {4425,409,false},
+  {4426,410,false},
+  {4427,411,false},
+  {4428,412,false},
+  {4429,413,false},
+  {4430,414,false},
+  {4431,415,false},
 };
 inline const SoundDescriptor* soundDescriptor(int id){
  int a=0,b=sizeof(soundCatalog)/sizeof(*soundCatalog);while(a<b){int m=(a+b)/2;if(soundCatalog[m].id<id)a=m+1;else b=m;}

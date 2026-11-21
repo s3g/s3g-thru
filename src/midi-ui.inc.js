@@ -114,6 +114,8 @@ function tickMidiFeedback(){
 function e16Number(value,places=2){return String(Number(value.toFixed(places)));}
 function e16Time(ms){return ms>=1000?e16Number(ms/1000,2)+'S':e16Number(ms,ms<10?2:0)+'MS';}
 function e16Value(p,value){
+    if(['fm_end1','fm_end2'].includes(p.key)&&value<0)return 'AUTO';
+    if(['fm_decay1','fm_decay2'].includes(p.key)&&value===0)return 'LINK';
     const key=p.key;
     if(key==='algorithm')return E16_ENGINES[Math.round(value)]||'?';
     if(key==='effect_cross_pan')return value<=-99.5?'NORMAL':value>=99.5?'SWAP':Math.abs(value)<.5?'MONO':Math.round(value)+'%';

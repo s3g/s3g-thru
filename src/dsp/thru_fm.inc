@@ -7,7 +7,7 @@ writeFmExtension(std::FILE *file,
   for (const auto &c : clips)
     for (const auto &program : c.fmPrograms)
       for (const auto &patch : program.patches)
-        for (int field=0;field<s3g_thru_fm::fields;++field)
+        for (int field=0;field<s3g_thru_fm::legacyFields;++field)
           if (!writeF32(file, patch.v[field]))
             return false;
   return true;
@@ -20,7 +20,37 @@ static bool readFmExtension(std::FILE *file,
   for (auto &c : clips)
     for (auto &program : c.fmPrograms)
       for (auto &patch : program.patches) {
-        for (int field=0;field<s3g_thru_fm::fields;++field)
+        s3g_thru_fm::legacyExtras(patch);
+        for (int field=0;field<s3g_thru_fm::legacyFields;++field)
+          if (!readF32(file, patch.v[field]))
+            return false;
+        if (!s3g_thru_fm::valid(patch))
+          return false;
+      }
+  return true;
+}
+static bool
+writeFmExtraExtension(std::FILE *file,
+                    const std::array<ClipSlot, kClipSlotCount> &clips) {
+  if (!writeU32(file, 0x31584d46u))
+    return false;
+  for (const auto &c : clips)
+    for (const auto &program : c.fmPrograms)
+      for (const auto &patch : program.patches)
+        for (int field=s3g_thru_fm::legacyFields;field<s3g_thru_fm::fields;++field)
+          if (!writeF32(file, patch.v[field]))
+            return false;
+  return true;
+}
+static bool readFmExtraExtension(std::FILE *file,
+                               std::array<ClipSlot, kClipSlotCount> &clips) {
+  std::uint32_t magic = 0;
+  if (!readU32(file, magic) || magic != 0x31584d46u)
+    return false;
+  for (auto &c : clips)
+    for (auto &program : c.fmPrograms)
+      for (auto &patch : program.patches) {
+        for (int field=s3g_thru_fm::legacyFields;field<s3g_thru_fm::fields;++field)
           if (!readF32(file, patch.v[field]))
             return false;
         if (!s3g_thru_fm::valid(patch))
@@ -45,6 +75,19 @@ void restoreFmPrograms(const ClipSlot &clip) {
 }
 bool setFmParam(const char *key, const char *text) {
   using namespace s3g_thru_fm;
+  if(!std::strcmp(key,"fm_start")){
+    const int choice=parseInteger(text,0);if(choice<=0||choice>9)return true;
+    if(controls.algorithm!=Engine::PlaybackAlgorithm::fm){setError("Select FM first");return true;}
+    if(sequenceSoundEditing()){setError("Starting sound is a lane setting");return true;}
+    const int part=splitEnabled?splitFocus:0,lane=tableEditLane(part);const auto before=controls.fm.patches[lane];const auto after=startingSound(choice,before);
+    pushClipUndo(activeClip);std::array<std::size_t,fields> replaced{};
+    for(int f=0;f<fields;++f){const auto at=(part*4+lane)*fields+f;fmOverrides.set(at);replaced[f]=kClipFmOffset+at;}
+    if(sequenceMode()&&!clipRecording)replaceSequenceAutomation(replaced,true);
+    controls.fm.patches[lane]=after;
+    if(clipRecording)for(int f=0;f<fields;++f)if(after.v[f]!=before.v[f])captureClipPoint(ClipPointType::fmParameter,f,part*4+lane,after.v[f]);
+    if(auto* clip=activeClipSlot())captureFmPrograms(*clip);
+    markPersistentStateDirty();++midiRevision;clearError();return true;
+  }
   const int field = index(key);
   if (field < 0)
     return false;
@@ -82,6 +125,7 @@ bool setFmParam(const char *key, const char *text) {
   return true;
 }
 bool fmParameterValue(const char *key, int part, float &value) const {
+  if(!std::strcmp(key,"fm_start")){value=0;return true;}
   const int field = s3g_thru_fm::index(key);
   if (field < 0)
     return false;
@@ -148,9 +192,50 @@ bool restoreFmJson(const char *json) {
   if (!at)
     return false;
   std::array<s3g_thru_fm::Program, 5> programs{};
+  for(auto& program:programs)for(auto& patch:program.patches)s3g_thru_fm::legacyExtras(patch);
   for (auto &program : programs)
     for (auto &patch : program.patches)
-      for (int f=0;f<s3g_thru_fm::fields;++f) {
+      for (int f=0;f<s3g_thru_fm::legacyFields;++f) {
+        auto& x=patch.v[f];
+        while (*at == '[' || *at == ',' || *at == ' ' || *at == '\n' ||
+               *at == ']')
+          ++at;
+        char *end = nullptr;
+        x = std::strtof(at, &end);
+        if (end == at || !std::isfinite(x))
+          return false;
+        at = end;
+      }
+  while (*at == ' ' || *at == '\n')
+    ++at;
+  if (*at != ']')
+    return false;
+  for (const auto &program : programs)
+    for (const auto &patch : program.patches)
+      if (!s3g_thru_fm::valid(patch))
+        return false;
+  splitSingleControls.fm = programs[0];
+  if (!splitEnabled)
+    controls.fm = programs[0];
+  for (int part = 0; part < 4; ++part)
+    splitParts[part].controls.fm = programs[part + 1];
+  if (splitEnabled)
+    controls.fm = splitParts[splitFocus].controls.fm;
+  return true;
+}
+
+
+bool restoreFmExtraJson(const char *json) {
+  const char *at = std::strstr(json, "\"fm_extra_programs\"");
+  if (!at)
+    return true;
+  at = std::strchr(at, '[');
+  if (!at)
+    return false;
+  std::array<s3g_thru_fm::Program, 5> programs{};programs[0]=splitEnabled?splitSingleControls.fm:controls.fm;for(int part=0;part<4;++part)programs[part+1]=splitParts[part].controls.fm;
+  for (auto &program : programs)
+    for (auto &patch : program.patches)
+      for (int f=s3g_thru_fm::legacyFields;f<s3g_thru_fm::fields;++f) {
         auto& x=patch.v[f];
         while (*at == '[' || *at == ',' || *at == ' ' || *at == '\n' ||
                *at == ']')

@@ -151,7 +151,7 @@ void testExpandedLfoDestinations() {
   auto t = splitFixture();
   t->stopBackgroundWork();
   t->setPerformanceMode(0);
-  assert(destinations.size() == 202);
+  assert(destinations.size() == 209);
   for (int id = 69; id < int(destinations.size()); ++id) {
     const auto &d = destinations[id];
     if(d.condition==15)continue;
@@ -163,7 +163,7 @@ void testExpandedLfoDestinations() {
     auto &c = t->controls;
     if(alg==15)for(auto& patch:c.table.patches){patch.v[s3g_thru_table::type]=d.condition==17?1:d.condition==18?2:0;patch.v[s3g_thru_table::art]=1;patch.v[s3g_thru_table::shape]=3;patch.v[s3g_thru_table::noise]=50;}
 
-    if(alg==17)for(auto& patch:c.fm.patches){patch.v[s3g_thru_fm::mode]=1;patch.v[s3g_thru_fm::algorithm]=1;patch.v[s3g_thru_fm::noise]=30;}
+    if(alg==17)for(auto& patch:c.fm.patches){patch.v[s3g_thru_fm::mode]=1;patch.v[s3g_thru_fm::algorithm]=1;patch.v[s3g_thru_fm::noise]=30;patch.v[s3g_thru_fm::decay1]=patch.v[s3g_thru_fm::decay2]=0;}
     if(d.parameter>=336&&d.parameter<384)for(auto& patch:c.scanned.patches){patch.v[s3g_thru_scanned::art]=1;patch.v[s3g_thru_scanned::bend]=12;patch.v[s3g_thru_scanned::amp_mode]=1;}
     c.sampleMode = Engine::SampleMode::loop;
     c.motionSound = static_cast<Engine::MotionSound>(

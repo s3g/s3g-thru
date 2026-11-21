@@ -5288,5 +5288,173 @@
     "max": 4000,
     "octaves": 2,
     "condition": "always"
+  },
+  {
+    "id": 202,
+    "key": "fm_harm",
+    "page": "FM COLOR",
+    "name": "Operator Harmonics",
+    "scope": "engine",
+    "engines": [
+      17
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 407,
+    "min": -100,
+    "max": 100,
+    "octaves": 0,
+    "condition": "always"
+  },
+  {
+    "id": 203,
+    "key": "fm_attack1",
+    "page": "FM ENVS",
+    "name": "Modulator 1 Attack",
+    "scope": "engine",
+    "engines": [
+      17
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 408,
+    "min": 0,
+    "max": 4000,
+    "octaves": 0,
+    "condition": "always"
+  },
+  {
+    "id": 204,
+    "key": "fm_decay1",
+    "page": "FM ENVS",
+    "name": "Modulator 1 Decay",
+    "scope": "engine",
+    "engines": [
+      17
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 409,
+    "min": 1,
+    "max": 8000,
+    "octaves": 0,
+    "condition": "always"
+  },
+  {
+    "id": 205,
+    "key": "fm_end1",
+    "page": "FM ENVS",
+    "name": "Modulator 1 End Level",
+    "scope": "engine",
+    "engines": [
+      17
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 410,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "condition": "always"
+  },
+  {
+    "id": 206,
+    "key": "fm_attack2",
+    "page": "FM ENVS",
+    "name": "Modulator 2 Attack",
+    "scope": "engine",
+    "engines": [
+      17
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 412,
+    "min": 0,
+    "max": 4000,
+    "octaves": 0,
+    "condition": "always"
+  },
+  {
+    "id": 207,
+    "key": "fm_decay2",
+    "page": "FM ENVS",
+    "name": "Modulator 2 Decay",
+    "scope": "engine",
+    "engines": [
+      17
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 413,
+    "min": 1,
+    "max": 8000,
+    "octaves": 0,
+    "condition": "always"
+  },
+  {
+    "id": 208,
+    "key": "fm_end2",
+    "page": "FM ENVS",
+    "name": "Modulator 2 End Level",
+    "scope": "engine",
+    "engines": [
+      17
+    ],
+    "modes": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "parameter": 414,
+    "min": 0,
+    "max": 100,
+    "octaves": 0,
+    "condition": "always"
   }
 ]

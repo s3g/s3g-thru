@@ -9,6 +9,7 @@
 #include "thru_table_voice.h"
 #include "thru_scanned_voice.h"
 #include "thru_fm_voice.h"
+#include "thru_fm_starts.h"
 
 #include <algorithm>
 #include <cmath>

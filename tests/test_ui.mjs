@@ -290,7 +290,7 @@ globalThis.__testFx = { adjust: adjustFxOrder, sync: syncFxOrder,
 source += '\nglobalThis.__testSynth={model:synthUi,open:openSynth,read:readSynth,draw:drawSynth,color:synthPadColor,pages:synthGroupPages,allPages:synthPageIds,decode:decodeSynthRecipe,locks:synthLockEntries,actions:synthActions};';
 source += '\nglobalThis.__testSequenceGenerate={ui:sequenceGeneratorUi,open:openSequenceGenerator,close:closeSequenceGenerator,read:readSequenceGenerator,pages:GEN_PAGES,control:generatorControl,draw:drawSequenceGenerator,green:NeonGreen,color:generatorPadColor,position:settingsPagePosition,activate:activatePageEntry};';
 source += '\nglobalThis.__testLfo={model:lfoUi,read:readControlLfos,adjust:adjustControlLfo,draw:drawControlLfo,control:controlLfoForKey,pages:LFO_PAGES,setup:LFO_SETUP_PAGE,trig:SEQUENCE_LFO_PAGE,readLive:readControlLfoLive,display:lfoDisplayControl,openPicker:openLfoDestPicker,handle:handleLfoPickerMidi,groups:lfoDestGroups,rows:lfoPickerRows,drawPicker:drawLfoDestPicker,catalog:LFO_DESTINATIONS};';
-source += '\nglobalThis.__testFm={read:readFm,model:fmUi};';
+source += '\nglobalThis.__testFm={pages:parameterPages,read:readFm,model:fmUi,routing:drawFmRouting,starts:drawFmStarts,handle:handleFmMidi,page:FM_PAGE,envs:FM_ENVS_PAGE};';
 source += '\nglobalThis.__testScanned={read:readScanned,model:scannedUi,controls:SCANNED_CONTROLS};';
 source += '\nglobalThis.__testTable={read:readTable,scopes:readTableScope,model:tableUi,controls:TABLE_CONTROLS,variantPages:playbackPagesForAlgorithm};';
 source += '\nglobalThis.__testReadout={read:readPlaybackReadout,model:playbackReadout,display:playbackDisplayControl};';
@@ -4670,8 +4670,15 @@ if(process.env.S3G_THRU_UNIT_FIXTURE){
 {
  const state=globalThis.__testFx.state(),p=globalThis.__testParams,ui=globalThis.__testFm,seq=globalThis.__testSequence;
  Object.assign(state,{view:'settings',splitEnabled:false,sharedDual:false,quadMode:false,bankMode:false,splitFocus:0,algorithm:17,lane:2,editorReady:true});globalThis.__testLayers.model.active=false;seq.model.active=false;globalThis.__testSequenceSound.model.data=null;p.split_mode.value=0;p.algorithm.value=17;
- const f=JSON.parse(fs.readFileSync(process.env.S3G_THRU_FM_FIXTURE||new URL('./fm_scope_fixture.json',import.meta.url),'utf8'));f.state.edit=1;f.state.revision=999999;params.fm_state=JSON.stringify(f.state);ui.read(false);assert.equal(ui.model.data.edit,1);assert.deepEqual(globalThis.__testTable.variantPages(17,0).map(p=>p.title),['STACK PATH','FM','FM COLOR','FM HIT']);
+ const f=JSON.parse(fs.readFileSync(process.env.S3G_THRU_FM_FIXTURE||new URL('./fm_scope_fixture.json',import.meta.url),'utf8'));f.state.edit=1;f.state.revision=999999;params.fm_state=JSON.stringify(f.state);ui.read(false);assert.equal(ui.model.data.edit,1);assert.deepEqual(globalThis.__testTable.variantPages(17,0).map(p=>p.title),['STACK PATH','FM','FM COLOR','FM HIT','FM ENVS']);
  for(const key of ['locus','field','speed','join','pad_mode'])assert.equal(seq.control(key),null);
- p.fm_algorithm.value=0;p.fm_mode.value=0;assert.equal(seq.control('fm_ratio2'),null);assert.equal(seq.control('fm_decay'),null);p.fm_mode.value=1;p.fm_algorithm.value=1;assert(seq.control('fm_ratio2'));assert(seq.control('fm_decay'));assert.equal(globalThis.__testCompactControlValue({...p.voice_engine_1,value:17}),'FM');
- const old=ui.model.data;params.fm_state=JSON.stringify({...f.state,part:1});ui.read(false);assert.equal(ui.model.data,old);console.log('s3g Thru FM UI: native patch/scope fixtures, three pages, contextual controls, Engine List label and stale-part isolation: PASS');
+ p.fm_algorithm.value=0;p.fm_mode.value=0;assert.equal(seq.control('fm_ratio2'),null);assert.equal(seq.control('fm_decay'),null);p.fm_mode.value=1;p.fm_algorithm.value=1;assert(seq.control('fm_ratio2'));assert(seq.control('fm_decay'));p.fm_decay1.value=0;assert(seq.control('fm_fm_decay'));p.fm_decay1.value=750;assert.equal(globalThis.__testCompactControlValue({...p.voice_engine_1,value:17}),'FM');
+ state.settingsPage=ui.pages().indexOf(ui.page);
+ assert(ui.handle(0x90,4,64));assert(ui.model.routingTouch);let at=drawWrites.length;ui.routing();assert(drawWrites.slice(at).some(w=>w[0]==='print'&&String(w[3]).includes('SER')));
+ assert(ui.handle(0x80,4,0));assert(!ui.model.routingTouch);
+ state.shiftHeld=false;state.focusButtonHeld=false;assert(ui.handle(0xb0,3,127));assert(ui.model.startsOpen);ui.handle(0xb0,14,4);assert.equal(ui.model.start,4);ui.handle(0xb0,51,127);assert(!ui.model.startsOpen);
+ assert(ui.handle(0xb0,3,127));ui.handle(0xb0,14,4);const writeAt=blockingWrites.length;ui.handle(0xb0,3,127);assert(!ui.model.startsOpen);assert(blockingWrites.slice(writeAt).some(w=>w[0]==='fm_start'&&Number(w[1])===5));
+ assert.equal(globalThis.__testNextControlValue({...p.fm_decay1,value:0},1),1);assert(globalThis.__testNextControlValue({...p.fm_decay1,value:4000},1)>4000);assert.equal(globalThis.__testCompactControlValue({...p.fm_decay1,value:8000}),'8s');
+ assert.equal(globalThis.__testCompactControlValue({...p.fm_end1,value:-1}),'AUTO');assert.equal(globalThis.__testCompactControlValue({...p.fm_decay1,value:0}),'LINK');
+ const old=ui.model.data;params.fm_state=JSON.stringify({...f.state,part:1});ui.read(false);assert.equal(ui.model.data,old);console.log('s3g Thru FM UI: native patch/scope fixtures, four pages, contextual controls, Engine List label and stale-part isolation: PASS');
 }

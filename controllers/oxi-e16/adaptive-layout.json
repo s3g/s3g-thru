@@ -493,7 +493,7 @@
         "fm_cutoff",
         "fm_resonance",
         "fm_drive",
-        null
+        "fm_harm"
       ]
     },
     {
@@ -507,6 +507,19 @@
         "fm_noise",
         "fm_noise_decay",
         "fm_hardness"
+      ]
+    },
+    {
+      "name": "FM ENVS",
+      "keys": [
+        "fm_attack1",
+        "fm_decay1",
+        "fm_end1",
+        "fm_curve1",
+        "fm_attack2",
+        "fm_decay2",
+        "fm_end2",
+        "fm_curve2"
       ]
     },
     {
@@ -720,19 +733,20 @@
     [
       36,
       37,
-      38
+      38,
+      39
     ]
   ],
   "engine": 1,
   "stack": 2,
-  "extraStart": 39,
-  "color": 43,
-  "rotary": 44,
-  "sends": 45,
-  "quadSends": 46,
-  "delay": 47,
-  "reverb": 48,
-  "tape": 49,
+  "extraStart": 40,
+  "color": 44,
+  "rotary": 45,
+  "sends": 46,
+  "quadSends": 47,
+  "delay": 48,
+  "reverb": 49,
+  "tape": 50,
   "ids": {
     "algorithm": 4,
     "locus": 0,
@@ -976,6 +990,7 @@
     "fm_cutoff": 4412,
     "fm_resonance": 4413,
     "fm_drive": 4414,
+    "fm_harm": 4423,
     "fm_decay": 4415,
     "fm_fm_decay": 4416,
     "fm_bend": 4417,
@@ -984,6 +999,14 @@
     "fm_noise": 4420,
     "fm_noise_decay": 4421,
     "fm_hardness": 4422,
+    "fm_attack1": 4424,
+    "fm_decay1": 4425,
+    "fm_end1": 4426,
+    "fm_curve1": 4427,
+    "fm_attack2": 4428,
+    "fm_decay2": 4429,
+    "fm_end2": 4430,
+    "fm_curve2": 4431,
     "motion_rate": 514,
     "packet_duty": 521,
     "motor_rate": 522,
@@ -2500,6 +2523,12 @@
       "scope": "part"
     },
     {
+      "id": 4423,
+      "label": "HARM",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
       "id": 4415,
       "label": "DEC ",
       "steps": 0,
@@ -2545,6 +2574,54 @@
       "id": 4422,
       "label": "HARD",
       "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4424,
+      "label": "ATK1",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4425,
+      "label": "DEC1",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4426,
+      "label": "END1",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4427,
+      "label": "CRV1",
+      "steps": 2,
+      "scope": "part"
+    },
+    {
+      "id": 4428,
+      "label": "ATK2",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4429,
+      "label": "DEC2",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4430,
+      "label": "END2",
+      "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 4431,
+      "label": "CRV2",
+      "steps": 2,
       "scope": "part"
     },
     {

@@ -437,6 +437,7 @@ struct Instrument {
   double age = 0, phase = 0;
   float position = 0, lastSlew = -1, positionSlew = 0;
   bool started = false, blockPrepared = false;
+  int firstPatch = 0, lastPatch = 3;
   std::uint32_t identity = 1;
   void prepare() { library = &Library::get(); }
   void reset(std::uint32_t id = 1) {
@@ -445,7 +446,16 @@ struct Instrument {
     lanes = {-1, -1};
     age = phase = 0;
     started = blockPrepared = false;
+    firstPatch = 0;
+    lastPatch = 3;
     identity = id;
+  }
+  // Fixed for this note; reset before changing lane ownership.
+  void setPatchRange(int first, int last) {
+    if (started) return;
+    const bool valid = first >= 0 && last < 4 && first <= last;
+    firstPatch = valid ? first : 0;
+    lastPatch = valid ? last : 3;
   }
   void beginBlock(const std::array<Config, 4> &patches) {
     for (int slot = 0; slot < 2; ++slot)
@@ -467,13 +477,34 @@ struct Instrument {
     }
     position += (targetPosition - position) * positionSlew;
     position = std::clamp(position, 0.f, 3.f);
+    // A fixed-lane instrument needs one table voice and no slot search or blend.
+    // Full-stack/Split voices retain the existing two-slot traversal and aging.
+    if (firstPatch == lastPatch && position == float(firstPatch)) {
+      const int lane = firstPatch;
+      const float gain = gains ? gains[lane] : 1.f;
+      std::array<float, 2> result{};
+      if (gain >= .000001f) {
+        if (lanes[0] != lane) {
+          lanes[0] = lane;
+          voices[0].reset();
+        }
+        const auto out = voices[0].tick(*library, patches[lane], hz, sr,
+            Library::hash(identity ^ std::uint32_t(lane)), age, phase, blockPrepared);
+        laneOutput[lane] = out[0] * gain;
+        for (int ch = 0; ch < 2; ++ch) result[ch] = out[ch] * gain;
+      }
+      age += 1 / sr;
+      phase += hz / sr;
+      phase -= std::floor(phase);
+      return result;
+    }
     const int first = int(position), second = std::min(3, first + 1);
     const float t = position - first, w = t * t * (3 - 2 * t);
     std::array<float, 2> result{};
     for (int i = 0; i < 2; ++i) {
       const int lane = i ? second : first;
       const float gain = (i ? w : 1 - w) * (gains ? gains[lane] : 1.f);
-      if (gain < .000001f)
+      if (lane < firstPatch || lane > lastPatch || gain < .000001f)
         continue;
       int slot = lanes[0] == lane ? 0 : lanes[1] == lane ? 1 : -1;
       if (slot < 0) {

@@ -5375,7 +5375,8 @@ private:
 
     void renderScannedFrame(const Controls& c,float* wet){
         if(!scannedInstrument_.started){
-          for(int lane=0;lane<4;++lane){const auto* src=laneData(lane,0);const auto n=laneFrames_[lane];
+          const auto range=synthPatchRange(c);scannedInstrument_.setPatchRange(range[0],range[1]);
+          for(int lane=std::max(0,range[0]);lane<4&&lane<=range[1];++lane){const auto* src=laneData(lane,0);const auto n=laneFrames_[lane];
             scannedInstrument_.hasSample[lane]=src&&n;
             if(src&&n){const float width=clamp(c.field,.02f,1.f),start=clamp(c.locus-width*.5f,0.f,1.f-width);float mean=0,peak=0;
               for(int i=0;i<64;++i){const auto at=std::min(n-1,std::size_t((start+width*float(i)/64)*float(n-1)));const float x=src[at];scannedInstrument_.sampleShape[lane][i]=x;mean+=x;}
@@ -5388,38 +5389,49 @@ private:
         for(std::size_t channel=0;channel<kChannels;++channel)wet[channel]=audio[channel&1u];
     }
 
+    static std::array<int, 2> synthPatchRange(const Controls& c) {
+        // Each part owns this range for the note lifetime. Voices reset when
+        // ownership changes. Keep all reachable patches aging for safe scanning.
+        const bool valid = c.stackFirstLane >= 0.f && c.stackLastLane <= 3.f
+            && c.stackFirstLane <= c.stackLastLane
+            && c.stackFirstLane == std::floor(c.stackFirstLane)
+            && c.stackLastLane == std::floor(c.stackLastLane);
+        return valid ? std::array<int, 2>{static_cast<int>(c.stackFirstLane), static_cast<int>(c.stackLastLane)}
+                     : std::array<int, 2>{0, 3};
+    }
+
     void renderFmFrame(const Controls& c,float* wet,std::size_t frame){
-        if(!fmInstrument_.started)fmInstrument_.identity=c.tableNoteSeed;
+        if(!fmInstrument_.started){fmInstrument_.identity=c.tableNoteSeed;const auto range=synthPatchRange(c);fmInstrument_.setPatchRange(range[0],range[1]);}
         const auto out=fmInstrument_.tick(c.fm.patches,tableLaneTarget_,c.tableNoteHz,outputSampleRate_,c.laneSlewMs,activeControlsLaneGains_);lanePosition_=fmInstrument_.position;
         for(std::size_t ch=0;ch<kChannels;++ch)wet[ch]=out[ch&1u];
         for(int lane=0;lane<4;++lane)tableScope_[lane][frame%128]=fmInstrument_.laneOutput[lane];
     }
     void renderNoiseFrame(const Controls& c,float* wet,std::size_t frame){
-        if(!noiseInstrument_.started)noiseInstrument_.identity=c.tableNoteSeed;
+        if(!noiseInstrument_.started){noiseInstrument_.identity=c.tableNoteSeed;const auto range=synthPatchRange(c);noiseInstrument_.setPatchRange(range[0],range[1]);}
         const auto out=noiseInstrument_.tick(c.noise.patches,tableLaneTarget_,c.tableNoteHz,outputSampleRate_,c.laneSlewMs,activeControlsLaneGains_);lanePosition_=noiseInstrument_.position;
         for(std::size_t ch=0;ch<kChannels;++ch)wet[ch]=out[ch&1u];
         for(int lane=0;lane<4;++lane)tableScope_[lane][frame%128]=noiseInstrument_.laneOutput[lane];
     }
     void renderPartialsFrame(const Controls& c,float* wet,std::size_t frame){
-        if(!partialsInstrument_.started)partialsInstrument_.identity=c.tableNoteSeed;
+        if(!partialsInstrument_.started){partialsInstrument_.identity=c.tableNoteSeed;const auto range=synthPatchRange(c);partialsInstrument_.setPatchRange(range[0],range[1]);}
         const auto out=partialsInstrument_.tick(c.partials.patches,tableLaneTarget_,c.tableNoteHz,outputSampleRate_,c.laneSlewMs,activeControlsLaneGains_);lanePosition_=partialsInstrument_.position;
         for(std::size_t ch=0;ch<kChannels;++ch)wet[ch]=out[ch&1u];
         for(int lane=0;lane<4;++lane)tableScope_[lane][frame%128]=partialsInstrument_.laneOutput[lane];
     }
     void renderResonFrame(const Controls& c,float* wet,std::size_t frame){
-        if(!resonInstrument_.started)resonInstrument_.identity=c.tableNoteSeed;
+        if(!resonInstrument_.started){resonInstrument_.identity=c.tableNoteSeed;const auto range=synthPatchRange(c);resonInstrument_.setPatchRange(range[0],range[1]);}
         const auto out=resonInstrument_.tick(c.reson.patches,tableLaneTarget_,c.tableNoteHz,outputSampleRate_,c.laneSlewMs,activeControlsLaneGains_);lanePosition_=resonInstrument_.position;
         for(std::size_t ch=0;ch<kChannels;++ch)wet[ch]=out[ch&1u];
         for(int lane=0;lane<4;++lane)tableScope_[lane][frame%128]=resonInstrument_.laneOutput[lane];
     }
     void renderLowformFrame(const Controls& c,float* wet,std::size_t frame){
-        if(!lowformInstrument_.started)lowformInstrument_.identity=c.tableNoteSeed;
+        if(!lowformInstrument_.started){lowformInstrument_.identity=c.tableNoteSeed;const auto range=synthPatchRange(c);lowformInstrument_.setPatchRange(range[0],range[1]);}
         const auto out=lowformInstrument_.tick(c.lowform.patches,tableLaneTarget_,c.tableNoteHz,outputSampleRate_,c.laneSlewMs,activeControlsLaneGains_);lanePosition_=lowformInstrument_.position;
         for(std::size_t ch=0;ch<kChannels;++ch)wet[ch]=out[ch&1u];
         for(int lane=0;lane<4;++lane)tableScope_[lane][frame%128]=lowformInstrument_.laneOutput[lane];
     }
     void renderTableFrame(const Controls& c,float* wet,std::size_t frame) {
-        if(!tableInstrument_.started)tableInstrument_.identity=c.tableNoteSeed;
+        if(!tableInstrument_.started){tableInstrument_.identity=c.tableNoteSeed;const auto range=synthPatchRange(c);tableInstrument_.setPatchRange(range[0],range[1]);}
         const auto audio=tableInstrument_.tick(c.table.patches,tableLaneTarget_,c.tableNoteHz,outputSampleRate_,c.laneSlewMs,activeControlsLaneGains_);
         lanePosition_=tableInstrument_.position;
         for(int lane=0;lane<4;++lane)tableScope_[lane][frame%128]=tableInstrument_.laneOutput[lane];

@@ -333,6 +333,7 @@ struct Instrument {
   std::array<float, 4> laneOutput{};
   float position = 0, noteHz = 261.625565f, positionPole = .01f, lastSlew = -1;
   bool started = false;
+  int firstPatch = 0, lastPatch = 3;
   std::uint32_t identity = 1;
   void prepare() {
     (void)s3g_thru_fm::Sines::get();
@@ -340,10 +341,19 @@ struct Instrument {
   }
   void reset() {
     started = false;
+    firstPatch = 0;
+    lastPatch = 3;
     lastSlew = -1;
   }
+  // Fixed for this note; reset before changing lane ownership.
+  void setPatchRange(int first, int last) {
+    if (started) return;
+    const bool valid = first >= 0 && last < 4 && first <= last;
+    firstPatch = valid ? first : 0;
+    lastPatch = valid ? last : 3;
+  }
   void beginBlock(const std::array<Config, 4> &p) {
-    for (int lane = 0; lane < 4; ++lane)
+    for (int lane = firstPatch; lane <= lastPatch; ++lane)
       models[lane].beginBlock(p[lane]);
   }
   void endBlock() {}
@@ -351,7 +361,7 @@ struct Instrument {
                             float targetPosition, float hz, float sr,
                             float slewMs = 5, const float *gains = nullptr) {
     if (!started) {
-      for (int lane = 0; lane < 4; ++lane)
+      for (int lane = firstPatch; lane <= lastPatch; ++lane)
         models[lane].reset(p[lane], identity + std::uint32_t(lane) * 7919u, sr,
                            hz);
       position = targetPosition;
@@ -369,7 +379,7 @@ struct Instrument {
     const float at = position - first, blend = at * at * (3 - 2 * at);
     std::array<float, 2> sum{};
     laneOutput = {};
-    for (int lane = 0; lane < 4; ++lane) {
+    for (int lane = firstPatch; lane <= lastPatch; ++lane) {
       const float gain =
           ((lane == first ? 1 - blend : 0) + (lane == second ? blend : 0)) *
           (gains ? gains[lane] : 1.f);

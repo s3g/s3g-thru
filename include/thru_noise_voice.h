@@ -42,10 +42,13 @@ struct Model {
  }
 };
 struct Instrument {
- std::array<Model,4> models{};std::array<float,4> laneOutput{};float position=0,noteHz=261.625565f,positionPole=0,lastSlew=-1;bool started=false;std::uint32_t identity=1;
- void prepare(){(void)s3g_thru_table::Library::get();}void reset(){started=false;lastSlew=-1;}
- void beginBlock(const std::array<Config,4>& p){for(int i=0;i<4;++i)if(models[i].target.v!=p[i].v){models[i].target=p[i];models[i].smoothing=true;}}
+ std::array<Model,4> models{};std::array<float,4> laneOutput{};float position=0,noteHz=261.625565f,positionPole=0,lastSlew=-1;bool started=false;int firstPatch=0,lastPatch=3;std::uint32_t identity=1;
+ void prepare(){(void)s3g_thru_table::Library::get();}void reset(){started=false;firstPatch=0;lastPatch=3;lastSlew=-1;}
+ // Fixed for this note. Reachable patches still age while scanning between them.
+ void setPatchRange(int first,int last){if(!started){const bool valid=first>=0&&last<4&&first<=last;firstPatch=valid?first:0;lastPatch=valid?last:3;}}
+
+ void beginBlock(const std::array<Config,4>& p){for(int i=firstPatch;i<=lastPatch;++i)if(models[i].target.v!=p[i].v){models[i].target=p[i];models[i].smoothing=true;}}
  void endBlock(){}
- std::array<float,2> tick(const std::array<Config,4>& p,float targetPosition,float hz,float sr,float slewMs=5,const float* gains=nullptr){if(!started){for(int i=0;i<4;++i)models[i].reset(p[i],identity+i*7919,sr,hz);position=targetPosition;noteHz=hz;started=true;}if(lastSlew!=slewMs){lastSlew=slewMs;positionPole=1-std::exp(-1/(sr*std::max(.005f,slewMs*.001f)));}position+=(targetPosition-position)*positionPole;position=std::clamp(position,0.f,3.f);noteHz+=(hz-noteHz)*.005f;const int first=int(position),second=std::min(3,first+1);const float x=position-first,mix=x*x*(3-2*x);laneOutput={};std::array<float,2> out{};for(int lane=0;lane<4;++lane){const float gain=((lane==first?1-mix:0)+(lane==second?mix:0))*(gains?gains[lane]:1.f);auto a=models[lane].tick(noteHz,sr,gain>1e-7f);for(int c=0;c<2;++c){a[c]*=gain*models[lane].current.v[level]*.0075f;out[c]+=a[c];}laneOutput[lane]=(a[0]+a[1])*.5f;}return out;}
+ std::array<float,2> tick(const std::array<Config,4>& p,float targetPosition,float hz,float sr,float slewMs=5,const float* gains=nullptr){if(!started){for(int i=firstPatch;i<=lastPatch;++i)models[i].reset(p[i],identity+i*7919,sr,hz);position=targetPosition;noteHz=hz;started=true;}if(lastSlew!=slewMs){lastSlew=slewMs;positionPole=1-std::exp(-1/(sr*std::max(.005f,slewMs*.001f)));}position+=(targetPosition-position)*positionPole;position=std::clamp(position,0.f,3.f);noteHz+=(hz-noteHz)*.005f;const int first=int(position),second=std::min(3,first+1);const float x=position-first,mix=x*x*(3-2*x);laneOutput={};std::array<float,2> out{};for(int lane=firstPatch;lane<=lastPatch;++lane){const float gain=((lane==first?1-mix:0)+(lane==second?mix:0))*(gains?gains[lane]:1.f);auto a=models[lane].tick(noteHz,sr,gain>1e-7f);for(int c=0;c<2;++c){a[c]*=gain*models[lane].current.v[level]*.0075f;out[c]+=a[c];}laneOutput[lane]=(a[0]+a[1])*.5f;}return out;}
 };
 }

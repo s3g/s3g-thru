@@ -99,30 +99,33 @@ struct Overload {
     targets[8] = std::clamp((19500 - c.v[tone]) / 2000, 0.f, 1.f);
     targets[9] = c.v[sag] * .06f;
     targets[10] = 1 - std::exp(-1000 / (sr * c.v[recovery]));
-    if (fresh) {
-      driveGain = targets[0];
-      normal = targets[1];
-      biasValue = targets[2];
-      edge = targets[3];
-      amount = targets[4];
-      mixValue = targets[5];
-      levelGain = targets[6];
-      tonePole = targets[7];
-      toneMix = targets[8];
-      sagAmount = targets[9];
-      release = targets[10];
-    }
+    if (fresh) snapToTargets();
+  }
+
+  void snapToTargets() {
+    driveGain = targets[0];
+    normal = targets[1];
+    biasValue = targets[2];
+    edge = targets[3];
+    amount = targets[4];
+    mixValue = targets[5];
+    levelGain = targets[6];
+    tonePole = targets[7];
+    toneMix = targets[8];
+    sagAmount = targets[9];
+    release = targets[10];
   }
 
   void reset(const Config &c, float sr) {
-    sampleRate = 0;
+    // Coefficients are cached; restarting audio state does not invalidate them.
+    prepare(c, sr);
+    snapToTargets();
     envelope = 0;
     previousInput = {};
     previousSub = {};
     low = {};
     dc = {};
     last = {};
-    prepare(c, sr);
     for (auto &s : signal)
       s.reset(biasValue);
     reference.reset(biasValue);
@@ -296,7 +299,7 @@ struct Model {
       m.weight = m.targetWeight;
       m.pan = j == 0 ? 0.f : ((j & 1) ? 1.f : -1.f) * (.2f + .1f * j);
     }
-    circuit.reset(current, sr);
+    // The circuit is reset on first audible use (and each later re-entry).
   }
   std::array<std::array<float, 2>, 2> tick(float noteHz, float sr,
                                            bool audible) {
@@ -403,6 +406,7 @@ struct Instrument {
   std::array<float, 4> laneOutput{};
   float position = 0, noteHz = 261.625565f, positionPole = 0, lastSlew = -1;
   bool started = false;
+  int firstPatch = 0, lastPatch = 3;
   std::uint32_t identity = 1;
   void prepare() {
     (void)s3g_thru_fm::Sines::get();
@@ -410,13 +414,22 @@ struct Instrument {
   }
   void reset() {
     started = false;
+    firstPatch = 0;
+    lastPatch = 3;
     lastSlew = -1;
     for (auto &d : decimator)
       for (auto &s : d.sections)
         s.z1 = s.z2 = 0;
   }
+  // Lane ownership is fixed for the note; the host resets voices on mode/owner changes.
+  void setPatchRange(int first, int last) {
+    if (started) return;
+    const bool valid = first >= 0 && last < 4 && first <= last;
+    firstPatch = valid ? first : 0;
+    lastPatch = valid ? last : 3;
+  }
   void beginBlock(const std::array<Config, 4> &p) {
-    for (int i = 0; i < 4; ++i)
+    for (int i = firstPatch; i <= lastPatch; ++i)
       if (models[i].target.v != p[i].v) {
         models[i].target = p[i];
         models[i].smoothing = true;
@@ -427,7 +440,7 @@ struct Instrument {
                             float targetPosition, float hz, float sr,
                             float slewMs = 5, const float *gains = nullptr) {
     if (!started) {
-      for (int i = 0; i < 4; ++i)
+      for (int i = firstPatch; i <= lastPatch; ++i)
         models[i].reset(p[i], identity + i * 7919, sr, hz);
       position = targetPosition;
       noteHz = hz;
@@ -444,7 +457,7 @@ struct Instrument {
     const float x = position - first, mix = x * x * (3 - 2 * x);
     std::array<std::array<float, 2>, 2> sum{};
     laneOutput = {};
-    for (int lane = 0; lane < 4; ++lane) {
+    for (int lane = firstPatch; lane <= lastPatch; ++lane) {
       const float gain =
           ((lane == first ? 1 - mix : 0) + (lane == second ? mix : 0)) *
           (gains ? gains[lane] : 1.f);

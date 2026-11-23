@@ -1,6 +1,6 @@
 {
   "name": "s3g-thru",
-  "version": "0.33.0",
+  "version": "0.33.1",
   "private": true,
   "type": "module",
   "description": "s3g Thru stereo sample and synthesis instrument for Ableton Move and Schwung.",

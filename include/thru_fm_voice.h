@@ -78,18 +78,20 @@ struct Model {
 };
 struct Instrument {
  std::array<Model,4> models{};std::array<s3g_thru_table::Decimator,2> decimator{};std::array<float,4> laneOutput{};
- float position=0,noteHz=261.625565f,positionPole=0,lastSlew=-1;bool started=false;std::uint32_t identity=1;
+ float position=0,noteHz=261.625565f,positionPole=0,lastSlew=-1;int firstPatch=0,lastPatch=3;bool started=false;std::uint32_t identity=1;
  void prepare(){(void)Extras::get();(void)Sines::get();(void)s3g_thru_table::Library::get();}
- void reset(){started=false;decimator={};lastSlew=-1;}
- void beginBlock(const std::array<Config,4>& patches){for(int i=0;i<4;++i)if(models[i].target.v!=patches[i].v){models[i].target=patches[i];models[i].smoothing=true;}}
+ void reset(){started=false;firstPatch=0;lastPatch=3;decimator={};lastSlew=-1;}
+ // Lane ownership is fixed for the note; the host resets voices on mode/owner changes.
+ void setPatchRange(int first,int last){if(!started){const bool valid=first>=0&&last<4&&first<=last;firstPatch=valid?first:0;lastPatch=valid?last:3;}}
+ void beginBlock(const std::array<Config,4>& patches){for(int i=firstPatch;i<=lastPatch;++i)if(models[i].target.v!=patches[i].v){models[i].target=patches[i];models[i].smoothing=true;}}
  void endBlock(){}
  std::array<float,2> tick(const std::array<Config,4>& patches,float targetPosition,float hz,float sr,float slewMs=5,const float* gains=nullptr){
-  if(!started){for(int lane=0;lane<4;++lane)models[lane].reset(patches[lane],identity+lane*7919,sr,hz);position=targetPosition;noteHz=hz;started=true;}
+  if(!started){for(int lane=firstPatch;lane<=lastPatch;++lane)models[lane].reset(patches[lane],identity+lane*7919,sr,hz);position=targetPosition;noteHz=hz;started=true;}
   if(slewMs!=lastSlew){lastSlew=slewMs;positionPole=1-std::exp(-1/(sr*std::max(.005f,slewMs*.001f)));}
   position+=(targetPosition-position)*positionPole;position=std::clamp(position,0.f,3.f);noteHz+=(hz-noteHz)*.005f;
   const int first=int(position),second=std::min(3,first+1);const float x=position-first,mix=x*x*(3-2*x);
   std::array<std::array<float,2>,2> summed{};laneOutput={};
-  for(int lane=0;lane<4;++lane){const float gain=((lane==first?1-mix:0)+(lane==second?mix:0))*(gains?gains[lane]:1.f);auto& model=models[lane];const auto audio=model.tick(noteHz,sr,gain>1e-7f);if(gain<=1e-7f)continue;
+  for(int lane=firstPatch;lane<=lastPatch;++lane){const float gain=((lane==first?1-mix:0)+(lane==second?mix:0))*(gains?gains[lane]:1.f);auto& model=models[lane];const auto audio=model.tick(noteHz,sr,gain>1e-7f);if(gain<=1e-7f)continue;
    const float amount=model.current.v[level]*.0075f*model.readGain*gain,width=model.current.v[s3g_thru_fm::width]*.01f;
    for(int sub=0;sub<2;++sub){const float mid=(audio[sub][0]+audio[sub][1])*.5f;for(int ch=0;ch<2;++ch)summed[sub][ch]+=(mid+(audio[sub][ch]-mid)*width)*amount;laneOutput[lane]+=mid*amount*.5f;}
   }

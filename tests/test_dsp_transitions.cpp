@@ -378,10 +378,12 @@ void testPreviewIsolation()
 #include "test_partials.inc"
 #include "test_lowform.inc"
 #include "test_synth_hybrid.inc"
+#include "test_sequence_synth_mix.inc"
 } // namespace
 
 int main(int argc,char** argv)
 {
+    if(argc==2&&std::strcmp(argv[1],"--synth-mix")==0){testSequenceSynthMix();return 0;}
     if(argc==2&&std::strcmp(argv[1],"--lowform")==0){testLowform();return 0;}
     if(argc==2&&std::strcmp(argv[1],"--hybrid")==0){testSynthHybridTransfer();testSynthFieldsWorkflow();testSynthManualSession();return 0;}
     if(argc==2&&std::strcmp(argv[1],"--partials")==0){testPartials();return 0;}
@@ -395,7 +397,7 @@ int main(int argc,char** argv)
     if(argc==2&&std::strcmp(argv[1],"--table-ui-compat")==0){testTable();testSharedDualLiveZoom();return 0;}
     if(argc==2&&std::strcmp(argv[1],"--slice-edits")==0){testSliceSampleEditAlignment();return 0;}
     if(argc==2&&std::strcmp(argv[1],"--table")==0){testTable();return 0;}
-    testLowform();testSynthHybridTransfer();testPartials();testReson();testNoise();testFm();testScanned();testTable();testSequenceSoundLocks();
+    testSequenceSynthMix();testLowform();testSynthHybridTransfer();testPartials();testReson();testNoise();testFm();testScanned();testTable();testSequenceSoundLocks();
     if(argc==2&&std::strcmp(argv[1],"--lfo")==0){testControlLfos();testPlaybackReadouts();testExpandedLfoDestinations();return 0;}
     testControlLfos();testPlaybackReadouts();testExpandedLfoDestinations();
     if(argc==2&&std::strcmp(argv[1],"--synth")==0){testSpline();return 0;}

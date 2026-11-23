@@ -3,6 +3,8 @@
 #include "thru_reson_parameters.h"
 namespace s3g_thru_reson {
 constexpr float tau = 6.2831853071795864769f;
+// Well below the 16-bit output floor, including the overload return.
+constexpr float tailSilence = 1e-8f;
 // Compact physical-body spectra: no nested voice pools, meshes or solvers.
 struct Profile {
   std::array<float, 8> ratios, weights;
@@ -178,6 +180,14 @@ struct Overload {
     previousInput = input;
     return out;
   }
+  bool quiet() const {
+    for (const auto &values : {previousInput, previousSub, low, dc, last})
+      for (float value : values)
+        if (!(std::abs(value) <= tailSilence)) return false;
+    for (const auto &stage : signal)
+      if (!(std::abs(stage.previous - biasValue) <= tailSilence)) return false;
+    return true;
+  }
   void flush() {
     for (int c = 0; c < 2; ++c)
       for (float *x :
@@ -202,8 +212,8 @@ struct Model {
         colorPole = .5f, hardPole = .5f, detuneRatio = 1, noiseGain = .35f,
         targetNoiseGain = .35f, readGain = 0, srPrepared = 0;
   std::uint32_t random = 1;
-  int countdown = 0;
-  bool latchedHit = false, smoothing = false, wasAudible = false;
+  int countdown = 0, quietFrames = 0;
+  bool latchedHit = false, smoothing = false, wasAudible = false, finished = false;
   float nextRandom() {
     random = s3g_thru_table::Library::hash(random + 0x9e3779b9u);
     return float(random >> 8) * (2.f / 16777215.f) - 1;
@@ -284,6 +294,8 @@ struct Model {
     noiseEnvelope = hitEnvelope = pitchEnvelope = punchEnvelope = 1;
     readGain = 0;
     countdown = 0;
+    quietFrames = 0;
+    finished = false;
     smoothing = false;
     wasAudible = false;
     srPrepared = 0;
@@ -301,8 +313,16 @@ struct Model {
     }
     // The circuit is reset on first audible use (and each later re-entry).
   }
+  bool exciterQuiet() const {
+    if (!latchedHit || !(noiseEnvelope <= tailSilence)
+        || !(hitEnvelope <= tailSilence)) return false;
+    for (const auto &m : modes)
+      if (!(m.envelope <= tailSilence)) return false;
+    return true;
+  }
   std::array<std::array<float, 2>, 2> tick(float noteHz, float sr,
                                            bool audible) {
+    if (finished) return {};
     if (smoothing) {
       smoothing = false;
       for (int f = 0; f < fields; ++f) {
@@ -397,6 +417,15 @@ struct Model {
     age(hitEnvelope, hitPole);
     age(pitchEnvelope, pitchPole);
     age(punchEnvelope, punchPole);
+    // Completion requires spent exciters AND quiet filter/overload history.
+    // It is never inferred from a waveform zero crossing or a muted level.
+    // An inaudible patch resets its circuit before any later audible entry.
+    if (latchedHit && countdown == 31) {
+      if (exciterQuiet() && (!wasAudible || circuit.quiet())) {
+        quietFrames += 32;
+        if (quietFrames >= sr * .005f) finished = true;
+      } else quietFrames = 0;
+    }
     return result;
   }
 };
@@ -405,7 +434,9 @@ struct Instrument {
   std::array<s3g_thru_table::Decimator, 2> decimator{};
   std::array<float, 4> laneOutput{};
   float position = 0, noteHz = 261.625565f, positionPole = 0, lastSlew = -1;
-  bool started = false;
+  bool started = false, released = false, finished = false;
+  float releasePosition = -1;
+  int finishCountdown = 0;
   int firstPatch = 0, lastPatch = 3;
   std::uint32_t identity = 1;
   void prepare() {
@@ -413,7 +444,9 @@ struct Instrument {
     (void)s3g_thru_table::Library::get();
   }
   void reset() {
-    started = false;
+    started = released = finished = false;
+    releasePosition = -1;
+    finishCountdown = 0;
     firstPatch = 0;
     lastPatch = 3;
     lastSlew = -1;
@@ -428,9 +461,32 @@ struct Instrument {
     firstPatch = valid ? first : 0;
     lastPatch = valid ? last : 3;
   }
+  void release() {
+    if (released) return;
+    released = true;
+    releasePosition = started ? std::clamp(position, float(firstPatch), float(lastPatch)) : -1.f;
+  }
+  bool relevantPatchesFinished() const {
+    if (!released) {
+      // Held mixed stacks must retain a TONE patch they can scan back into.
+      for (int lane = firstPatch; lane <= lastPatch; ++lane)
+        if (!models[lane].finished) return false;
+      return true;
+    }
+    if (!(releasePosition >= firstPatch && releasePosition <= lastPatch)) return false;
+    const int first = std::clamp(int(releasePosition), 0, 3), second = std::min(3, std::min(lastPatch, first + 1));
+    const float t = releasePosition - first, w = t * t * (3 - 2 * t);
+    return (w == 1.f || models[first].finished)
+        && (w == 0.f || models[second].finished);
+  }
+  bool decimatorQuiet() const {
+    for (const auto &d : decimator) for (const auto &s : d.sections)
+      if (!(std::abs(s.z1) <= tailSilence) || !(std::abs(s.z2) <= tailSilence)) return false;
+    return true;
+  }
   void beginBlock(const std::array<Config, 4> &p) {
     for (int i = firstPatch; i <= lastPatch; ++i)
-      if (models[i].target.v != p[i].v) {
+      if (!models[i].finished && models[i].target.v != p[i].v) {
         models[i].target = p[i];
         models[i].smoothing = true;
       }
@@ -439,12 +495,17 @@ struct Instrument {
   std::array<float, 2> tick(const std::array<Config, 4> &p,
                             float targetPosition, float hz, float sr,
                             float slewMs = 5, const float *gains = nullptr) {
+    if (finished) { laneOutput = {}; return {}; }
     if (!started) {
       for (int i = firstPatch; i <= lastPatch; ++i)
         models[i].reset(p[i], identity + i * 7919, sr, hz);
       position = targetPosition;
       noteHz = hz;
       started = true;
+    }
+    if (released) {
+      if (releasePosition < 0) releasePosition = std::clamp(targetPosition, float(firstPatch), float(lastPatch));
+      targetPosition = releasePosition;
     }
     if (lastSlew != slewMs) {
       lastSlew = slewMs;
@@ -458,6 +519,8 @@ struct Instrument {
     std::array<std::array<float, 2>, 2> sum{};
     laneOutput = {};
     for (int lane = firstPatch; lane <= lastPatch; ++lane) {
+      // A released blend cannot reach other patches again during this note.
+      if (released && !((lane == first && mix < 1.f) || (lane == second && mix > 0.f))) continue;
       const float gain =
           ((lane == first ? 1 - mix : 0) + (lane == second ? mix : 0)) *
           (gains ? gains[lane] : 1.f);
@@ -475,6 +538,10 @@ struct Instrument {
     for (int sub = 0; sub < 2; ++sub)
       for (int ch = 0; ch < 2; ++ch)
         out[ch] = decimator[ch].tick(sum[sub][ch]);
+    if (++finishCountdown >= 32) {
+      finishCountdown = 0;
+      if (relevantPatchesFinished() && decimatorQuiet()) finished = true;
+    }
     return out;
   }
 };

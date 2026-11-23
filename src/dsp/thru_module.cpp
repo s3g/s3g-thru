@@ -14,6 +14,7 @@
 #include "thru_e16_adaptive.h"
 #include "thru_midi_decoder.h"
 #include "thru_output_limiter.h"
+#include "thru_reson_density.h"
 #include "thru_lofi.h"
 #include "thru_part_effects.h"
 #include "thru_drive.h"
@@ -229,7 +230,7 @@ enum class ClipPointType : std::uint8_t {
     stackPath,
     notePressure,
     midiExpression,
-    layersParameter, layersBaseline, sequenceLane, sequenceRecipe, controlLfo, pooledLfo, tableParameter, scannedParameter, fmParameter, noiseParameter, resonParameter, partialsParameter, lowformParameter,
+    layersParameter, layersBaseline, sequenceLane, sequenceRecipe, controlLfo, pooledLfo, tableParameter, scannedParameter, fmParameter, noiseParameter, resonParameter, partialsParameter, lowformParameter, resonDensity,
 };
 
 struct VoiceEntryVariation {
@@ -514,7 +515,8 @@ constexpr std::size_t kClipNoiseOffset=kClipFmOffset+16*s3g_thru_fm::fields;
 constexpr std::size_t kClipResonOffset=kClipNoiseOffset+16*s3g_thru_noise::fields;
 constexpr std::size_t kClipPartialsOffset=kClipResonOffset+16*s3g_thru_reson::fields;
 constexpr std::size_t kClipLowformOffset=kClipPartialsOffset+16*s3g_thru_partials::fields;
-constexpr std::size_t kClipCurveLaneCount=kClipLowformOffset+16*s3g_thru_lowform::fields;
+constexpr std::size_t kClipResonDensityOffset=kClipLowformOffset+16*s3g_thru_lowform::fields;
+constexpr std::size_t kClipCurveLaneCount=kClipResonDensityOffset+4;
 static_assert(kClipSequenceOffset+s3g_thru_sequence::laneCurveOffset(0,11)==kClipSequencePathOffset,"PATH must follow existing curve identities");
 constexpr std::size_t sequenceRecipeCurve(int part,int field){
     return part>=0&&part<4&&field>=1&&field<=21
@@ -832,6 +834,7 @@ constexpr const char kChainParams[] = R"json([
 {"key":"scanned_amp_treble","name":"Amp Treble","short_name":"TREB","type":"float","default":0,"min":-20,"max":15,"step":0.1},
 {"key":"scanned_amp_cab","name":"Cabinet Amount","short_name":"CAB","type":"float","default":70,"min":0,"max":100,"step":1},
 {"key":"scanned_amp_level","name":"Amp Output","short_name":"OUT","type":"float","default":0,"min":-18,"max":6,"step":0.1},
+{"key":"reson_density","name":"Reson Density","short_name":"DENS","type":"float","default":0,"min":0,"max":100,"step":1,"unit":"%"},
 {"key":"reson_mode","name":"Reson Articulation","short_name":"MODE","type":"enum","default":0,"options":["TONE","HIT"]},
 {"key":"reson_tune","name":"Reson Transpose","short_name":"TUNE","type":"float","default":0,"min":-48,"max":48,"step":0.1,"unit":"st"},
 {"key":"reson_width","name":"Reson Stereo Width","short_name":"WID","type":"float","default":30,"min":0,"max":100,"step":1,"unit":"%"},
@@ -2989,6 +2992,8 @@ struct ThruInstance : PlaybackEffectsState {
     std::array<std::array<float, kBlockFrames>, 2u> monitorInput {};
     std::array<std::array<float, kBlockFrames>, 2u> voiceMix {};
     std::array<float, kBlockFrames> voiceEnvelopePower {};
+    std::array<std::array<std::array<float,kBlockFrames>,2>,4> resonBus {};
+    std::array<s3g_thru_reson::Density,4> resonDensity {};
     std::array<const float*, kChannelCount> inputPointers {};
     std::array<const float*, kChannelCount> silentInputPointers {};
     std::array<float*, kChannelCount> outputPointers {};
@@ -3347,6 +3352,7 @@ struct ThruInstance : PlaybackEffectsState {
             - std::exp(-1.0f / (sampleRate * 0.010f));
         programReleaseCoefficient = 1.0f
             - std::exp(-1.0f / (sampleRate * 0.180f));
+        for(auto& compressor:resonDensity)compressor.prepare(sampleRate);
         polyphonyAttackCoefficient = 1.0f
             - std::exp(-1.0f / (sampleRate * 0.002f));
         polyphonyReleaseCoefficient = 1.0f
@@ -5499,6 +5505,7 @@ struct ThruInstance : PlaybackEffectsState {
 
     static std::size_t clipPointLane(const ClipPoint& point)
     {
+        if(point.type==ClipPointType::resonDensity)return point.sourcePad<4u&&(point.parameter&255u)==0u?kClipResonDensityOffset+point.sourcePad:kClipCurveLaneCount;
         if(point.type==ClipPointType::scannedParameter)return point.sourcePad<16&&(point.parameter&255u)<s3g_thru_scanned::fields?kClipScannedOffset+point.sourcePad*s3g_thru_scanned::fields+(point.parameter&255u):kClipCurveLaneCount;
         if(point.type==ClipPointType::fmParameter)return point.sourcePad<16&&(point.parameter&255u)<s3g_thru_fm::fields?kClipFmOffset+point.sourcePad*s3g_thru_fm::fields+(point.parameter&255u):kClipCurveLaneCount;
         if(point.type==ClipPointType::noiseParameter)return point.sourcePad<16&&(point.parameter&255u)<s3g_thru_noise::fields?kClipNoiseOffset+point.sourcePad*s3g_thru_noise::fields+(point.parameter&255u):kClipCurveLaneCount;
@@ -5736,6 +5743,7 @@ struct ThruInstance : PlaybackEffectsState {
         if (!clipRecording || !clip) return;
         const std::uint32_t time = timeOverride==0xffffffffu ? clipCaptureTimeMs() : timeOverride;
         std::size_t curveLane = kClipCurveLaneCount;
+        if(type==ClipPointType::resonDensity){curveLane=sourcePad>=0&&sourcePad<4&&parameter==0?kClipResonDensityOffset+sourcePad:kClipCurveLaneCount;}
         if(type==ClipPointType::scannedParameter){curveLane=sourcePad>=0&&sourcePad<16&&parameter<s3g_thru_scanned::fields?kClipScannedOffset+sourcePad*s3g_thru_scanned::fields+parameter:kClipCurveLaneCount;}
         if(type==ClipPointType::fmParameter){curveLane=sourcePad>=0&&sourcePad<16&&parameter<s3g_thru_fm::fields?kClipFmOffset+sourcePad*s3g_thru_fm::fields+parameter:kClipCurveLaneCount;}
         if(type==ClipPointType::noiseParameter){curveLane=sourcePad>=0&&sourcePad<16&&parameter<s3g_thru_noise::fields?kClipNoiseOffset+sourcePad*s3g_thru_noise::fields+parameter:kClipCurveLaneCount;}
@@ -5809,7 +5817,7 @@ struct ThruInstance : PlaybackEffectsState {
             ClipPoint& previous = clip->clipPoints[
                 static_cast<std::size_t>(previousIndex)];
             if((type==ClipPointType::pressure||type==ClipPointType::notePressure||type==ClipPointType::midiExpression)&&time==previous.timeMs){previous.value=value;return;}
-            if((type==ClipPointType::layersParameter||type==ClipPointType::tableParameter||type==ClipPointType::scannedParameter||type==ClipPointType::fmParameter||type==ClipPointType::noiseParameter||type==ClipPointType::resonParameter||type==ClipPointType::lowformParameter||type==ClipPointType::partialsParameter)&&time==previous.timeMs){previous.value=value;return;}
+            if((type==ClipPointType::layersParameter||type==ClipPointType::tableParameter||type==ClipPointType::scannedParameter||type==ClipPointType::fmParameter||type==ClipPointType::noiseParameter||type==ClipPointType::resonParameter||type==ClipPointType::resonDensity||type==ClipPointType::lowformParameter||type==ClipPointType::partialsParameter)&&time==previous.timeMs){previous.value=value;return;}
             if(formantEdge && !forceEdge && time>=previous.timeMs && value==previous.value)return;
             if(formantEdge && time==previous.timeMs){previous.value=value;return;}
             if (!formantEdge && time >= previous.timeMs
@@ -6868,6 +6876,8 @@ struct ThruInstance : PlaybackEffectsState {
                 effective.ampAttackMs=voice.sequence.attack;effective.ampDecayMs=voice.sequence.decay;effective.ampReleaseMs=voice.sequence.release;
             }
         }
+        effective.resonNoteReleased = effective.algorithm == Engine::PlaybackAlgorithm::reson
+            && voice.envelopeStage == AmpEnvelopeStage::release;
         return effective;
     }
 
@@ -7204,6 +7214,12 @@ struct ThruInstance : PlaybackEffectsState {
         for (std::size_t lane = 0u; lane < kClipCurveLaneCount; ++lane) {
             if(clip.clipPointCounts[lane]==0)continue;
             float value = 0.0f;
+            if(lane>=kClipResonDensityOffset){
+                const auto part=lane-kClipResonDensityOffset;
+                if((splitEnabled||part==0)&&!resonDensityOverrides[part]&&sampleClipCurve(clip,lane,position,true,value))
+                    (splitEnabled?splitClipControls[part]:clipControls).reson.density=std::clamp(value,0.f,100.f);
+                continue;
+            }
             if(lane>=kClipLowformOffset){
                 const auto group=(lane-kClipLowformOffset)/s3g_thru_lowform::fields,field=(lane-kClipLowformOffset)%s3g_thru_lowform::fields;
                 if((splitEnabled||group/4==0)&&!lowformOverrides.test(group*s3g_thru_lowform::fields+field)&&sampleClipCurve(clip,lane,position,!s3g_thru_lowform::discrete(int(field)),value)){
@@ -7376,7 +7392,7 @@ struct ThruInstance : PlaybackEffectsState {
             releaseClipVoices();
         } else if (!clipPlaying) {
             clipPlaying = true;
-            if(!clipRecording){layersOverrides.reset();tableOverrides.reset();scannedOverrides.reset();fmOverrides.reset();noiseOverrides.reset();resonOverrides.reset();lowformOverrides.reset();partialsOverrides.reset();}
+            if(!clipRecording){layersOverrides.reset();tableOverrides.reset();scannedOverrides.reset();fmOverrides.reset();noiseOverrides.reset();resonOverrides.reset();resonDensityOverrides.reset();lowformOverrides.reset();partialsOverrides.reset();}
             clipNeedsStart = true;
         }
         clipOpenNoteIndices.fill(-1);
@@ -7500,7 +7516,7 @@ struct ThruInstance : PlaybackEffectsState {
         }
         clip->occupied = true;
         clipRecording = false;
-        layersOverrides.reset();tableOverrides.reset();scannedOverrides.reset();fmOverrides.reset();noiseOverrides.reset();resonOverrides.reset();lowformOverrides.reset();partialsOverrides.reset();
+        layersOverrides.reset();tableOverrides.reset();scannedOverrides.reset();fmOverrides.reset();noiseOverrides.reset();resonOverrides.reset();resonDensityOverrides.reset();lowformOverrides.reset();partialsOverrides.reset();
         sequenceOverrides={};sequenceRecipeOverrides={};
         clipFinishPending = false;
         clipPlaying = true;
@@ -7508,7 +7524,7 @@ struct ThruInstance : PlaybackEffectsState {
             clipPositionMs = 0.0;
             clipAbsolutePositionMs = 0.0;
             pulsarClipCycle = 0;
-            if(!clipRecording){layersOverrides.reset();tableOverrides.reset();scannedOverrides.reset();fmOverrides.reset();noiseOverrides.reset();resonOverrides.reset();lowformOverrides.reset();partialsOverrides.reset();}
+            if(!clipRecording){layersOverrides.reset();tableOverrides.reset();scannedOverrides.reset();fmOverrides.reset();noiseOverrides.reset();resonOverrides.reset();resonDensityOverrides.reset();lowformOverrides.reset();partialsOverrides.reset();}
             clipNeedsStart = true;
         }
         markPersistentStateDirty();
@@ -7584,7 +7600,7 @@ struct ThruInstance : PlaybackEffectsState {
         }
         releaseClipRolls();
         for(auto& values:performanceRecorded)values.fill(0);
-        layersRecorded=layersLive;layersOverrides.reset();tableOverrides.reset();scannedOverrides.reset();fmOverrides.reset();noiseOverrides.reset();resonOverrides.reset();lowformOverrides.reset();partialsOverrides.reset();
+        layersRecorded=layersLive;layersOverrides.reset();tableOverrides.reset();scannedOverrides.reset();fmOverrides.reset();noiseOverrides.reset();resonOverrides.reset();resonDensityOverrides.reset();lowformOverrides.reset();partialsOverrides.reset();
         sequenceOverrides={};sequenceRecipeOverrides={};
         sequencePlayback=sequenceLive;invalidateSequenceRecipePlayback();syncSequenceRatePhases();
         if(sequenceMode()){
@@ -7729,7 +7745,7 @@ struct ThruInstance : PlaybackEffectsState {
                 clipPositionMs = 0.0;
                 clipAbsolutePositionMs = 0.0;
                 pulsarClipCycle = 0;
-                if(!clipRecording){layersOverrides.reset();tableOverrides.reset();scannedOverrides.reset();fmOverrides.reset();noiseOverrides.reset();resonOverrides.reset();lowformOverrides.reset();partialsOverrides.reset();}
+                if(!clipRecording){layersOverrides.reset();tableOverrides.reset();scannedOverrides.reset();fmOverrides.reset();noiseOverrides.reset();resonOverrides.reset();resonDensityOverrides.reset();lowformOverrides.reset();partialsOverrides.reset();}
                 clipNeedsStart = true;
             }
             return;
@@ -7812,7 +7828,7 @@ struct ThruInstance : PlaybackEffectsState {
             clipPositionMs = 0.0;
             clipAbsolutePositionMs = 0.0;
             pulsarClipCycle = 0;
-            if(!clipRecording){layersOverrides.reset();tableOverrides.reset();scannedOverrides.reset();fmOverrides.reset();noiseOverrides.reset();resonOverrides.reset();lowformOverrides.reset();partialsOverrides.reset();}
+            if(!clipRecording){layersOverrides.reset();tableOverrides.reset();scannedOverrides.reset();fmOverrides.reset();noiseOverrides.reset();resonOverrides.reset();resonDensityOverrides.reset();lowformOverrides.reset();partialsOverrides.reset();}
             clipNeedsStart = true;
             return;
         }
@@ -7831,7 +7847,7 @@ struct ThruInstance : PlaybackEffectsState {
         clipPositionMs = 0.0;
         clipAbsolutePositionMs = 0.0;
         pulsarClipCycle = 0;
-        if(!clipRecording){layersOverrides.reset();tableOverrides.reset();scannedOverrides.reset();fmOverrides.reset();noiseOverrides.reset();resonOverrides.reset();lowformOverrides.reset();partialsOverrides.reset();}
+        if(!clipRecording){layersOverrides.reset();tableOverrides.reset();scannedOverrides.reset();fmOverrides.reset();noiseOverrides.reset();resonOverrides.reset();resonDensityOverrides.reset();lowformOverrides.reset();partialsOverrides.reset();}
         clipNeedsStart = true;
         if(chainLaunchBank>=0){prepareChainLaunch();return;}
         if (chainEnabled) {
@@ -8034,7 +8050,7 @@ struct ThruInstance : PlaybackEffectsState {
         restoreSplitClip(target);
         resetControlLfos(freshSequence);
         if(freshSequence)resetSequenceClock();else invalidateSequenceRecipePlayback();
-        layersLive=layersRecorded=target.layers;layersOverrides.reset();tableOverrides.reset();scannedOverrides.reset();fmOverrides.reset();noiseOverrides.reset();resonOverrides.reset();lowformOverrides.reset();partialsOverrides.reset();clearLayersTouches();if(layersLive.active)layersRack.prime(layersLive);
+        layersLive=layersRecorded=target.layers;layersOverrides.reset();tableOverrides.reset();scannedOverrides.reset();fmOverrides.reset();noiseOverrides.reset();resonOverrides.reset();resonDensityOverrides.reset();lowformOverrides.reset();partialsOverrides.reset();clearLayersTouches();if(layersLive.active)layersRack.prime(layersLive);
         if((previousSplit!=splitEnabled||previousShared!=sharedDual||previousQuad!=quadMode) && voices[0].engine.prepared())refreshPlaybackVoices();
         clipControls = controls;
         clipOutputGain = outputGain;
@@ -9438,8 +9454,10 @@ struct ThruInstance : PlaybackEffectsState {
             }
             for(auto& part:stochasticListenBus)for(auto& channel:part)channel.fill(0);
             for(auto& part:tableScopeBus)for(auto& lane:part)lane.fill(0);
+            for(auto& part:resonBus)for(auto& channel:part)channel.fill(0);
             markRenderProfile(1);
             advanceControlLfos(count);
+            bool completedResonVoice = false;
             for (auto& voice : voices) {
                 // Inactive voices have no envelope or playback state to
                 // advance. Processing all eight dormant engines multiplied
@@ -9456,9 +9474,16 @@ struct ThruInstance : PlaybackEffectsState {
                     : effectiveControls(voice,splitEnabled ? partSnapshots[static_cast<std::size_t>(voice.part)] : liveControlSnapshot,
                         splitEnabled ? splitClipControls[static_cast<std::size_t>(voice.part)] : clipControlSnapshot);
                 if(!stealingVoice)prepareSliceVoice(voice,effective);
-                if(voice.bankAsset>=0)renderBankVoice(voice,count,effective);
+                const bool spentReson = voice.bankAsset < 0 && effective.algorithm == Engine::PlaybackAlgorithm::reson
+                    && voice.engine.resonNoteFinished();
+                // Silent synthesis may sleep, but lane adoption/removal still
+                // needs the engine's bounded maintenance fade to advance.
+                if (spentReson && !voice.engine.laneTransitionActive()) for (auto& channel : voice.output) channel.fill(0);
+                else if(voice.bankAsset>=0)renderBankVoice(voice,count,effective);
                 else voice.engine.process(silentInputPointers.data(),voice.outputPointers.data(),count,effective);
                 if (!voice.active) continue;
+                const bool resonFinished = voice.bankAsset < 0 && effective.algorithm == Engine::PlaybackAlgorithm::reson
+                    && voice.engine.resonNoteFinished();
                 if (!stealingVoice && settingsForPart(voice.part).stackHold && !voice.clipOwned && voice.engine.cutupsHasLaneSelection()) {
                     const float held = voice.engine.normalizedLaneScanPhase();
                     if (!voice.liveStackPhaseValid || held != voice.liveStackPhase) {
@@ -9510,13 +9535,32 @@ struct ThruInstance : PlaybackEffectsState {
                         tableScopeBus[voice.part][lane][frame]+=voice.engine.tableScopeSample(lane,frame)*audibleEnvelope*voice.gainState;
                     target[0u][frame] += left * audibleEnvelope * voice.gainState;
                     target[1u][frame] += right * audibleEnvelope * voice.gainState;
-                    if (splitEnabled) splitEnvelopePower[voice.part][frame] += audibleEnvelope * audibleEnvelope;
-                    else voiceEnvelopePower[frame] += audibleEnvelope * audibleEnvelope;
+                    if(voice.bankAsset<0 && effective.algorithm==Engine::PlaybackAlgorithm::reson){
+                        // Single/Layers always share one part bus, including
+                        // voice slots initially tagged for later split use.
+                        auto& densityTarget=resonBus[splitEnabled?voice.part:0];
+                        densityTarget[0][frame]+=left*audibleEnvelope*voice.gainState;
+                        densityTarget[1][frame]+=right*audibleEnvelope*voice.gainState;
+                    }
+                    // A terminal HIT is silent even if its key is still held.
+                    // Keep key/list ownership, without attenuating other notes.
+                    if (!resonFinished) {
+                        if (splitEnabled) splitEnvelopePower[voice.part][frame] += audibleEnvelope * audibleEnvelope;
+                        else voiceEnvelopePower[frame] += audibleEnvelope * audibleEnvelope;
+                    }
                 }
                 voice.stochasticListenLevel = std::sqrt(listenEnergy / count);
                 if (voice.stealPending
                     && voice.stealFadeRemaining == 0u) {
                     completeVoiceStealTransition(voice);
+                }
+                if (resonFinished && !stealingVoice && (!voice.held || voice.clipOwned || voice.sequence.active || voice.sliceAudition)) {
+                    // Keep live held-key/list ownership until key-up. Finished
+                    // released/recorded HITs can retire after their final block;
+                    // shared insert/reverb/delay tails continue independently.
+                    voice.held = false;
+                    voice.envelopeStage = AmpEnvelopeStage::idle;
+                    completedResonVoice = true;
                 }
                 if (!voice.stealPending && !voice.held
                     && voice.envelopeStage == AmpEnvelopeStage::idle) {
@@ -9534,6 +9578,7 @@ struct ThruInstance : PlaybackEffectsState {
                 }
             }
 
+            if (completedResonVoice) updateActiveNote();
             captureTableScopes(count);
             markRenderProfile(2);
             for(int part=0;part<4;++part) {
@@ -9549,6 +9594,12 @@ struct ThruInstance : PlaybackEffectsState {
                     ? polyphonyAttackCoefficient
                     : polyphonyReleaseCoefficient;
                 polyphonyGain += (target - polyphonyGain) * coefficient;
+                const auto& densityControls=clipPlaying?clipControlSnapshot:liveControlSnapshot;
+                const float densityGain=splitEnabled?1.f:resonDensity[0].process(resonBus[0][0][frame]*polyphonyGain,resonBus[0][1][frame]*polyphonyGain,densityControls.reson.density);
+                if(!splitEnabled && densityGain!=1){
+                    voiceMix[0][frame]+=resonBus[0][0][frame]*(densityGain-1);
+                    voiceMix[1][frame]+=resonBus[0][1][frame]*(densityGain-1);
+                }
                 voiceMix[0u][frame] *= polyphonyGain;
                 voiceMix[1u][frame] *= polyphonyGain;
             }
@@ -9841,7 +9892,7 @@ struct ThruInstance : PlaybackEffectsState {
         if (!file) return false;
         const char magic[8] { 'S', '3', 'G', 'T', 'H', 'R', '3', '\0' };
         bool ok = writeBytes(file, magic, sizeof(magic))
-            && writeU32(file, 60u)
+            && writeU32(file, 61u)
             && writeU64(file, snapshot ? snapshot->generation : persistenceGeneration)
             && writeF32(file, snapshot ? snapshot->tempo : tempoBpm)
             && writeF32(file, snapshot ? snapshot->swing : tempoSwing)
@@ -9907,7 +9958,7 @@ struct ThruInstance : PlaybackEffectsState {
                     && writeU32(file, clipPointTake(point));
             }
         }
-        ok = ok && writeSplitExtension(file,savedClips) && writeStackPaths(file,savedClips) && writeChainBanks(file,savedBanks,savedBank) && writeChainPlaybackState(file,snapshot?snapshot->chainPlayBank:chainPlayBank) && writeNewEngineParameters(file,savedClips) && writeVoiceEngineExtension(file,savedClips) && writeVoicePlayExtension(file,savedClips) && writeStochasticParameters(file,savedClips) && writePulsarParameters(file,savedClips) && writePriorityParameters(file,savedClips) && writeBankExtension(file,savedClips) && writeBankPadExtension(file,savedClips) && writeSliceExtension(file,savedClips) && writeLayersExtension(file,savedClips) && writeSequenceExtension(file,savedClips) && writeSequenceMixExtension(file,savedClips) && writeSequenceCycleExtension(file,savedClips) && writeSplitLanePreferences(file,savedClips) && writePulsarSeeds(file,savedClips) && writeSequenceTypes(file,savedClips) && writeSequenceDirections(file,savedClips) && writeSequenceShifts(file,savedClips) && writeSequencePaths(file,savedClips) && writeControlLfos(file,savedClips) && writePooledLfos(file,savedClips) && writeLfoAutoExtension(file,savedClips) && writeTableExtension(file,savedClips) && writeSequenceSoundLocks(file,savedClips) && writeScannedExtension(file,savedClips) && writeScannedHitExtension(file,savedClips) && writeScannedAmpExtension(file,savedClips) && writeFmExtension(file,savedClips) && writeFmExtraExtension(file,savedClips) && writeNoiseExtension(file,savedClips) && writeResonExtension(file,savedClips) && writePartialsExtension(file,savedClips) && writeLowformExtension(file,savedClips);
+        ok = ok && writeSplitExtension(file,savedClips) && writeStackPaths(file,savedClips) && writeChainBanks(file,savedBanks,savedBank) && writeChainPlaybackState(file,snapshot?snapshot->chainPlayBank:chainPlayBank) && writeNewEngineParameters(file,savedClips) && writeVoiceEngineExtension(file,savedClips) && writeVoicePlayExtension(file,savedClips) && writeStochasticParameters(file,savedClips) && writePulsarParameters(file,savedClips) && writePriorityParameters(file,savedClips) && writeBankExtension(file,savedClips) && writeBankPadExtension(file,savedClips) && writeSliceExtension(file,savedClips) && writeLayersExtension(file,savedClips) && writeSequenceExtension(file,savedClips) && writeSequenceMixExtension(file,savedClips) && writeSequenceCycleExtension(file,savedClips) && writeSplitLanePreferences(file,savedClips) && writePulsarSeeds(file,savedClips) && writeSequenceTypes(file,savedClips) && writeSequenceDirections(file,savedClips) && writeSequenceShifts(file,savedClips) && writeSequencePaths(file,savedClips) && writeControlLfos(file,savedClips) && writePooledLfos(file,savedClips) && writeLfoAutoExtension(file,savedClips) && writeTableExtension(file,savedClips) && writeSequenceSoundLocks(file,savedClips) && writeScannedExtension(file,savedClips) && writeScannedHitExtension(file,savedClips) && writeScannedAmpExtension(file,savedClips) && writeFmExtension(file,savedClips) && writeFmExtraExtension(file,savedClips) && writeNoiseExtension(file,savedClips) && writeResonExtension(file,savedClips) && writePartialsExtension(file,savedClips) && writeLowformExtension(file,savedClips) && writeResonDensityExtension(file,savedClips);
         const bool closed = std::fclose(file) == 0;
         ok = ok && closed && appendFileChecksum(temporary.data());
         if (!ok || (!stageOnly && !replaceFileWithBackup(temporary.data(), path.data()))) {
@@ -9971,7 +10022,7 @@ struct ThruInstance : PlaybackEffectsState {
             && (version == 1u || version == 2u || version == 3u
                 || version == 4u || version == 5u || version == 6u
                 || version == 7u || version == 8u || version == 9u
-                || version == 10u || version == 11u || version == 12u || version == 13u || version == 14u || version==15u || version==16u || version==17u || version==18u || version==19u || version==20u || version==21u || version==22u || version==23u || version==24u || version==25u || version==26u || version==27u || version==28u || version==29u || version==30u || version==31u || version==32u || version==33u || version==34u || version==35u || version==36u || version==37u || version==38u || version==39u || version==40u || version==41u || version==42u || version==43u || version==44u || version==45u || version==46u || version==47u || version==48u || version==49u || version==50u || version==51u || version==52u || version==53u || version==54u || version==55u || version==56u || version==57u || version==58u || version==59u || version==60u)
+                || version == 10u || version == 11u || version == 12u || version == 13u || version == 14u || version==15u || version==16u || version==17u || version==18u || version==19u || version==20u || version==21u || version==22u || version==23u || version==24u || version==25u || version==26u || version==27u || version==28u || version==29u || version==30u || version==31u || version==32u || version==33u || version==34u || version==35u || version==36u || version==37u || version==38u || version==39u || version==40u || version==41u || version==42u || version==43u || version==44u || version==45u || version==46u || version==47u || version==48u || version==49u || version==50u || version==51u || version==52u || version==53u || version==54u || version==55u || version==56u || version==57u || version==58u || version==59u || version==60u || version==61u)
             && readU64(file, generation) && generation != 0u;
         std::fclose(file);
         return ok;
@@ -10008,7 +10059,7 @@ struct ThruInstance : PlaybackEffectsState {
             && (version == 1u || version == 2u || version == 3u
                 || version == 4u || version == 5u || version == 6u
                 || version == 7u || version == 8u || version == 9u
-                || version == 10u || version == 11u || version == 12u || version == 13u || version == 14u || version==15u || version==16u || version==17u || version==18u || version==19u || version==20u || version==21u || version==22u || version==23u || version==24u || version==25u || version==26u || version==27u || version==28u || version==29u || version==30u || version==31u || version==32u || version==33u || version==34u || version==35u || version==36u || version==37u || version==38u || version==39u || version==40u || version==41u || version==42u || version==43u || version==44u || version==45u || version==46u || version==47u || version==48u || version==49u || version==50u || version==51u || version==52u || version==53u || version==54u || version==55u || version==56u || version==57u || version==58u || version==59u || version==60u)
+                || version == 10u || version == 11u || version == 12u || version == 13u || version == 14u || version==15u || version==16u || version==17u || version==18u || version==19u || version==20u || version==21u || version==22u || version==23u || version==24u || version==25u || version==26u || version==27u || version==28u || version==29u || version==30u || version==31u || version==32u || version==33u || version==34u || version==35u || version==36u || version==37u || version==38u || version==39u || version==40u || version==41u || version==42u || version==43u || version==44u || version==45u || version==46u || version==47u || version==48u || version==49u || version==50u || version==51u || version==52u || version==53u || version==54u || version==55u || version==56u || version==57u || version==58u || version==59u || version==60u || version==61u)
             && readU64(file, loadedGeneration)
             && loadedGeneration != 0u
             && (expectedGeneration == kAnyPersistenceGeneration
@@ -10167,7 +10218,8 @@ struct ThruInstance : PlaybackEffectsState {
                         && (version < 2u || readU32(file, take))
                         && parameter < kLockParameterCount
                         && type <= static_cast<std::uint32_t>(
-                            version>=60u?ClipPointType::lowformParameter:version>=59u?ClipPointType::partialsParameter:version>=58u?ClipPointType::resonParameter:version>=57u?ClipPointType::noiseParameter:version>=55u?ClipPointType::fmParameter:version>=52u?ClipPointType::scannedParameter:version>=50u?ClipPointType::tableParameter:version>=48u?ClipPointType::pooledLfo:version>=47u?ClipPointType::controlLfo:version>=44u?ClipPointType::sequenceRecipe:version>=38u?ClipPointType::sequenceLane:version>=37u?ClipPointType::layersBaseline:version>=35u?ClipPointType::midiExpression:version>=25u?ClipPointType::notePressure:version>=17u?ClipPointType::stackPath:version>=16u?ClipPointType::performance:ClipPointType::partHold)
+                            version>=61u?ClipPointType::resonDensity:version>=60u?ClipPointType::lowformParameter:version>=59u?ClipPointType::partialsParameter:version>=58u?ClipPointType::resonParameter:version>=57u?ClipPointType::noiseParameter:version>=55u?ClipPointType::fmParameter:version>=52u?ClipPointType::scannedParameter:version>=50u?ClipPointType::tableParameter:version>=48u?ClipPointType::pooledLfo:version>=47u?ClipPointType::controlLfo:version>=44u?ClipPointType::sequenceRecipe:version>=38u?ClipPointType::sequenceLane:version>=37u?ClipPointType::layersBaseline:version>=35u?ClipPointType::midiExpression:version>=25u?ClipPointType::notePressure:version>=17u?ClipPointType::stackPath:version>=16u?ClipPointType::performance:ClipPointType::partHold)
+                        && (type!=static_cast<std::uint32_t>(ClipPointType::resonDensity)||(sourcePad<4u&&parameter==0u&&std::isfinite(point.value)&&point.value>=0&&point.value<=100))
                         && (type!=static_cast<std::uint32_t>(ClipPointType::pooledLfo)||(sourcePad<8u&&parameter<11u&&validPooledLfoPoint(parameter,point.value)))
                         && (type!=static_cast<std::uint32_t>(ClipPointType::controlLfo)||(sourcePad<4u&&parameter<18u&&validControlLfoPoint(parameter,point.value)))
                         && (type<static_cast<std::uint32_t>(ClipPointType::layersParameter)||type==static_cast<std::uint32_t>(ClipPointType::controlLfo)||type==static_cast<std::uint32_t>(ClipPointType::pooledLfo)||type==static_cast<std::uint32_t>(ClipPointType::tableParameter)||type==static_cast<std::uint32_t>(ClipPointType::scannedParameter)||type==static_cast<std::uint32_t>(ClipPointType::fmParameter)||(sourcePad<6u && parameter<192u && sourcePad*192u+parameter<LayerPatch::size))
@@ -10247,6 +10299,7 @@ struct ThruInstance : PlaybackEffectsState {
         if(ok&&version>=58u)ok=readResonExtension(file,*loadedClips);
         if(ok&&version>=59u)ok=readPartialsExtension(file,*loadedClips);
         if(ok&&version>=60u)ok=readLowformExtension(file,*loadedClips);
+        if(ok&&version>=61u)ok=readResonDensityExtension(file,*loadedClips);
         // A legacy automatic policy preserves 1 ms for Transients and zero
         // for Equal independently, including shared lanes used by both parts.
         const bool atEnd = ok && std::ftell(file) == payloadSize;
@@ -12075,7 +12128,7 @@ int formatEditorState(void* opaque, char* buffer, int bufferLength, int chunk)
         "split_focus",
         "part_mute",
         "bank_master_rate", "bank_pan", "bank_play", "bank_choke", "bank_record_source",
-        "polyphony_comp", "voice_mode", "bank_slot", "bank_start", "bank_end", "bank_rate", "bank_reverse", "bank_level", "bank_attack", "bank_release", "bank_fade",
+        "reson_density", "polyphony_comp", "voice_mode", "bank_slot", "bank_start", "bank_end", "bank_rate", "bank_reverse", "bank_level", "bank_attack", "bank_release", "bank_fade",
         "grain_quality",
         "pad_mode",
         "lane_variation",

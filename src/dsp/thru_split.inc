@@ -102,6 +102,7 @@
         normalizeVoiceEngineEditors();
         const auto& source = splitParts[static_cast<std::size_t>(part)];
         controls.stackPath=source.controls.stackPath;
+        controls.reson.density=source.controls.reson.density;
         controls.table=source.controls.table;controls.scanned=source.controls.scanned;controls.fm=source.controls.fm;
         for (std::size_t p=0;p<kLockParameterCount;++p)
             if (splitPartParameter(p)) applyLockedValue(controls,outputGain,p,lockedValue(source.controls,outputGain,p));
@@ -306,6 +307,9 @@
             resonOverrides.set(group);copiedResonCurves[lane*s3g_thru_reson::fields+field]=kClipResonOffset+group;
             captureClipPoint(ClipPointType::resonParameter,field,target*4+physical,to.controls.reson.patches[physical].v[field]);}}
         if(sequenceMode()&&!clipRecording)replaceSequenceAutomation(copiedResonCurves,true);
+        to.controls.reson.density=from.controls.reson.density;resonDensityOverrides.set(target);
+        if(sequenceMode()&&!clipRecording)replaceSequenceAutomation(std::array<std::size_t,1>{kClipResonDensityOffset+std::size_t(target)},true);
+        captureClipPoint(ClipPointType::resonDensity,0,target,to.controls.reson.density);
         std::array<std::size_t,4*s3g_thru_lowform::fields> copiedLowformCurves;copiedLowformCurves.fill(kClipCurveLaneCount);
         for(int lane=0;lane<tableCount;++lane){const int physical=targetFirst+lane;
           to.controls.lowform.patches[physical]=from.controls.lowform.patches[sourceFirst+lane];
@@ -517,6 +521,9 @@
                 const float target = polyphonyCompensation && power>1 ? 1/std::sqrt(power) : 1;
                 splitPolyGain[part] += (target-splitPolyGain[part])
                     * (target<splitPolyGain[part] ? polyphonyAttackCoefficient : polyphonyReleaseCoefficient);
+                const auto& densityControls=clipPlaying?splitClipControls[part]:live[part];
+                const float g=resonDensity[part].process(resonBus[part][0][frame]*splitPolyGain[part],resonBus[part][1][frame]*splitPolyGain[part],densityControls.reson.density);
+                if(g!=1)for(int ch=0;ch<2;++ch)splitBus[part][ch][frame]+=resonBus[part][ch][frame]*(g-1);
                 for(auto& channel:splitBus[part])channel[frame]*=splitPolyGain[part];
             }
             rememberSplitRollHistory(part,frames);

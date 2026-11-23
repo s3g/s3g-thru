@@ -405,6 +405,7 @@ public:
         int tableEditor=0; // Physical patch lane; transient editor identity.
         float tableNoteHz=261.625565f;
         std::uint32_t tableNoteSeed=1;
+        bool resonNoteReleased=false; // Ephemeral per-voice lifetime, never a stored parameter.
         float locus = 0.5f;
         float noteStartOffset = 0.0f; // Cached per-note phase; never a live reader jump.
         float field = 1.0f;
@@ -1433,6 +1434,7 @@ public:
     PlaybackAlgorithm playbackAlgorithm() const { return currentAlgorithm_; }
     bool prepared() const { return prepared_; }
     bool playing() const { return playing_; }
+    bool resonNoteFinished() const { return currentAlgorithm_ == PlaybackAlgorithm::reson && resonInstrument_.finished; }
     float tableScopeSample(int lane,std::size_t frame)const{return lane>=0&&lane<4?tableScope_[lane][frame%128]:0;}
 
     float tableScopeFrequency(int lane)const {
@@ -5420,6 +5422,7 @@ private:
     }
     void renderResonFrame(const Controls& c,float* wet,std::size_t frame){
         if(!resonInstrument_.started){resonInstrument_.identity=c.tableNoteSeed;const auto range=synthPatchRange(c);resonInstrument_.setPatchRange(range[0],range[1]);}
+        if(c.resonNoteReleased)resonInstrument_.release();
         const auto out=resonInstrument_.tick(c.reson.patches,tableLaneTarget_,c.tableNoteHz,outputSampleRate_,c.laneSlewMs,activeControlsLaneGains_);lanePosition_=resonInstrument_.position;
         for(std::size_t ch=0;ch<kChannels;++ch)wet[ch]=out[ch&1u];
         for(int lane=0;lane<4;++lane)tableScope_[lane][frame%128]=resonInstrument_.laneOutput[lane];

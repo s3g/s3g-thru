@@ -14604,6 +14604,20 @@
       "default": 0,
       "integer": true,
       "action": true
+    },
+    {
+      "id": 5091,
+      "key": "reson_density",
+      "name": "Reson Density",
+      "group": "Play Gain",
+      "scope": "part",
+      "min": 0,
+      "max": 100,
+      "default": 0,
+      "integer": false,
+      "action": false,
+      "unit": "%",
+      "short_name": "DENS"
     }
   ],
   "reserved_ids": [

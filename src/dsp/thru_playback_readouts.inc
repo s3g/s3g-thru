@@ -16,6 +16,8 @@ bool midiPlaybackReadout(const ThruInstance &t, const MidiParameter &p,
   if(lowformField>=0){const int lane=t.tableEditLane(part);if(t.lowformOverrides.test((part*4+lane)*s3g_thru_lowform::fields+lowformField)||!has(kClipLowformOffset+(part*4+lane)*s3g_thru_lowform::fields+lowformField))return false;
     value=(t.splitEnabled?t.splitClipControls[part]:t.clipControls).lowform.patches[lane].v[lowformField];return true;}
 
+  if(!std::strcmp(key,"reson_density")){if(t.resonDensityOverrides[part]||!has(kClipResonDensityOffset+part))return false;
+    value=(t.splitEnabled?t.splitClipControls[part]:t.clipControls).reson.density;return true;}
   const int resonField=s3g_thru_reson::index(key);
   if(resonField>=0){const int lane=t.tableEditLane(part);if(t.resonOverrides.test((part*4+lane)*s3g_thru_reson::fields+resonField)||!has(kClipResonOffset+(part*4+lane)*s3g_thru_reson::fields+resonField))return false;
     value=(t.splitEnabled?t.splitClipControls[part]:t.clipControls).reson.patches[lane].v[resonField];return true;}

@@ -12,15 +12,20 @@ with zipfile.ZipFile(sys.argv[1]) as archive:
         'manifest.json', 'thru-state.json', 'thru-clips.bin', 'assets/a000000.wav'}
     manifest = json.loads(archive.read('manifest.json'))
     assert manifest == {'format': 's3g-thru-project', 'version': 1,
-                        'clip_format': 60, 'assets': 1}
+                        'clip_format': 61, 'assets': 1}
     state = json.loads(archive.read('thru-state.json'))
     clips = archive.read('thru-clips.bin')
     version, generation = struct.unpack_from('<IQ', clips, 8)
-    assert version == 60 and generation == state['generation']
+    assert version == 61 and generation == state['generation']
     checksum = 2166136261
     for value in clips[:-4]:
         checksum = ((checksum ^ value) * 16777619) & 0xffffffff
     assert checksum == struct.unpack('<I', clips[-4:])[0]
+    density_size=4+64*5*4
+    density_at=len(clips)-4-density_size
+    assert clips[density_at:density_at+4]==b'RDN1'
+    assert all(0<=x<=100 for x in struct.unpack_from('<'+str(64*5)+'f',clips,density_at+4))
+    clips=clips[:density_at]+clips[-4:]
     lowform_size=4+64*5*4*32*4
     lowform_at=len(clips)-4-lowform_size
     assert clips[lowform_at:lowform_at+4]==b'LFP1'

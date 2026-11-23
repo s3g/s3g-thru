@@ -1069,6 +1069,8 @@ const resonDoc=globalThis.__docReson,resonExample=JSON.parse(fs.readFileSync(pat
 seqDoc.state.view='main';seqDoc.state.algorithm=19;seqDoc.state.splitEnabled=false;seqDoc.state.sharedDual=false;seqDoc.state.quadMode=false;seqDoc.state.bankMode=false;seqDoc.state.splitFocus=0;seqDoc.state.lane=1;seqDoc.params.algorithm.value=19;seqDoc.params.split_mode.value=0;seqDoc.params.voice_engine_mode.value=0;resonExample.state.edit=0;resonExample.state.revision=999999;params.reson_state=JSON.stringify(resonExample.state);params.table_scope=JSON.stringify(resonExample.scope);resonDoc.read(false);tableDoc.scopes(false);seqDoc.redraw();capture('reson-scope.svg','RESON live scopes','THRU RESON');
 resonExample.state.edit=2;seqDoc.state.lane=3;params.reson_state=JSON.stringify(resonExample.state);resonDoc.read(false);
 for(const [title,file]of [['RESON','reson-main'],['RESON BODY','reson-body'],['RESON HIT','reson-hit'],['RESON DRIVE','reson-drive']]){seqDoc.state.view='settings';seqDoc.state.settingsPage=seqDoc.pages().findIndex(p=>p.title===title);seqDoc.redraw();capture(file+'.svg',title+' patch controls',title);}
+seqDoc.params.reson_density.value=45;seqDoc.params.polyphony_comp.value=1;seqDoc.state.settingsPage=seqDoc.pages().findIndex(p=>p.title==='PLAY GAIN');seqDoc.redraw();capture('reson-density.svg','RESON overlap control on Play Gain','PLAY GAIN');
+seqDoc.state.settingsPage=seqDoc.pages().findIndex(p=>p.title==='RESON DRIVE');
 resonDoc.model.start=2;resonDoc.model.renderKey=null;resonDoc.draw();capture('reson-starts.svg','RESON starting sound list','RESON START');
 
 

@@ -2598,7 +2598,7 @@ console.log('s3g Thru fixed save geometry and Bank pages/LED states: PASS');
  assert(gain>=0);state.view='settings';state.settingsPage=gain;state.actionMessageTicks=0;
  const writes=drawWrites.length;tools.drawAll();
  assert(titleText(drawWrites.slice(writes)).startsWith('PLAY GAIN '));
- assert.deepEqual(pages[gain].keys,['polyphony_comp']);
+ assert.deepEqual(pages[gain].keys,['polyphony_comp',null]);
 }
 console.log('s3g Thru physical X modifier, Bank pad orientation and gain-page naming: PASS');
 
@@ -4719,6 +4719,13 @@ if(process.env.S3G_THRU_UNIT_FIXTURE){
  Object.assign(state,{view:'settings',splitEnabled:false,sharedDual:false,quadMode:false,bankMode:false,splitFocus:0,algorithm:19,lane:1,editorReady:true,performanceVisible:false,shiftHeld:false,focusButtonHeld:false});p.algorithm.value=19;p.voice_engine_mode.value=0;p.split_mode.value=0;globalThis.__testLayers.model.active=false;seq.model.active=false;globalThis.__testSequenceSound.model.data=null;
  const f=JSON.parse(fs.readFileSync(process.env.S3G_THRU_RESON_FIXTURE||new URL('./reson_scope_fixture.json',import.meta.url),'utf8'));f.state.edit=0;f.state.revision=999999;params.reson_state=JSON.stringify(f.state);ui.read(false);assert.equal(ui.model.data.patches[0].length,32);
  assert.deepEqual(globalThis.__testTable.variantPages(19,0).map(p=>p.title),['STACK PATH','RESON','RESON BODY','RESON HIT','RESON DRIVE']);
+ f.state.density=45;params.reson_state=JSON.stringify(f.state);ui.read(false);assert.equal(p.reson_density.value,45);
+ assert.deepEqual(ui.pages().find(p=>p.title==='PLAY GAIN').keys,['polyphony_comp','reson_density']);
+ assert(seq.control('reson_density'));state.settingsPage=ui.pages().findIndex(p=>p.title==='PLAY GAIN');
+ let densityDraw=drawWrites.length;globalThis.__testFx.draw();assert(drawWrites.slice(densityDraw).some(w=>w.includes('COMP ALL  DENS RESON')));
+ state.algorithm=15;assert.equal(seq.control('reson_density'),null);p.voice_engine_mode.value=1;p.voice_engine_1.value=19;assert(seq.control('reson_density'));
+ p.voice_engine_mode.value=0;state.algorithm=19;
+
  for(const key of ['locus','field','speed','join','pad_mode'])assert.equal(seq.control(key),null,key);
  p.reson_mode.value=0;p.reson_bend.value=0;assert.equal(seq.control('reson_bend'),null);assert.equal(seq.control('reson_sweep'),null);p.reson_mode.value=1;p.reson_bend.value=12;assert(seq.control('reson_sweep'));
  p.reson_noise.value=0;assert.equal(seq.control('reson_color'),null);p.reson_noise.value=50;assert(seq.control('reson_color'));p.reson_drive.value=0;assert.equal(seq.control('reson_clip'),null);p.reson_drive.value=30;assert(seq.control('reson_clip'));

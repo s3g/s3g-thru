@@ -89,7 +89,7 @@ const setButtonLED = typeof moveInputFilter.setButtonLED === 'function'
         }
     };
 
-const UI_VERSION = '0.33.1';
+const UI_VERSION = '0.33.2';
 const HELP_PAGE_COUNT=8;
 const WAVE_BINS = 112;
 const ALGORITHMS = ['MOTION', 'LANES', 'GRAINS', 'CUTUPS', 'SAMPLE', 'SLICES',
@@ -495,7 +495,8 @@ const MIDI_CONTROL_PAGE = {title:'MIDI CONTROL',global:true,keys:[
     null,null,null,null]};
 const VOICE_ENGINES_PAGE={title:'VOICE ENGINES',voiceEngines:true,keys:Array.from({length:8},(_,i)=>'voice_engine_'+(i+1))};
 const VOICE_SETUP_PAGE={title:'VOICE SETUP',voiceSetup:true,keys:['voice_engine_edit','voice_engine_assign','voice_engine_octave','voice_engine_position','voice_engine_stack','voice_engine_pan','voice_engine_depth',null]};
-const PLAY_GAIN_PAGE={title:'PLAY GAIN',global:true,scopeLabel:'',keys:['polyphony_comp']};
+PARAMS.reson_density={key:'reson_density',label:'RESON DENSITY',shortLabel:'DENS',min:0,max:100,step:1,value:0,unit:'%'};
+const PLAY_GAIN_PAGE={title:'PLAY GAIN',global:true,scopeLabel:'',keys:['polyphony_comp','reson_density']};
 const AMP_ENVELOPE_PAGE = { title: 'AMP ENVELOPE', breakpoint: true,
     keys: ['amp_attack', 'amp_decay', 'amp_sustain', 'amp_release'] };
 const SEQUENCE_ENVELOPE_PAGE = { title: 'SEQ AMP', sequenceEnvelope: true,
@@ -617,6 +618,7 @@ function readReson(cached=uiPolling.cached){let data;try{data=JSON.parse(String(
  if(data.edit!==expected)return;
  resonUi.data=data;if(!cached)resonUi.floor=data.revision;
  RESON_CONTROLS.forEach(p=>PARAMS[p.key].value=data.patches[data.edit][p.index]);
+ if(Number.isFinite(data.density))PARAMS.reson_density.value=data.density;
 }
 
 const RESON_STARTS=['OPEN','KICK','SNARE','TOM','BELL','HAT','CRASH','CBASS'];
@@ -4132,6 +4134,7 @@ function parameterPagesBase() {
 
 function inactiveControl(key) {
     if(!key)return false;
+    if(key==='reson_density')return sequenceSoundActive()||state.bankMode&&state.splitFocus===1||!(state.algorithm===19||voiceEngineListEnabled()&&VOICE_ENGINES_PAGE.keys.slice(0,voiceEngineCount()).some(k=>PARAMS[k].value===19));
     if(state.algorithm===15&&['locus','field','speed','join','pad_mode','lane_variation','seq_pos','voice_engine_position'].includes(key))return true;
     if(state.algorithm===16&&(['speed','join','pad_mode','lane_variation','voice_engine_position'].includes(key)||(['locus','field','seq_pos'].includes(key)&&sequenceSoundValue('scanned_excitation',PARAMS.scanned_excitation.value)!==3)))return true;
     if((state.algorithm===17||state.algorithm===18||state.algorithm===19||state.algorithm===20||state.algorithm===21)&&['locus','field','speed','join','pad_mode','lane_variation','seq_pos','voice_engine_position'].includes(key))return true;
@@ -4175,6 +4178,7 @@ function maskInactivePage(page) {
 function parameterPages(){const pages=parameterPagesBase();const lfoAt=pages.findIndex(p=>p.title===CHAIN_TOOLS_PAGE.title);pages.splice(lfoAt>=0?lfoAt+1:pages.length,0,...LFO_PAGES);const result=outputMixerPages(sequenceUi.active?sequencePages(pages):pages).map(maskInactivePage);return sequenceSoundActive()?result.filter(sequenceSoundPageAvailable):result;}
 function controlForKey(key){const c=sequenceSoundControl(controlForKeyBase(key));if(c&&/^lowform_[abcde]$/.test(key)){const body=Math.round(sequenceSoundValue('lowform_body',PARAMS.lowform_body.value)),label=LOWFORM_BODY_LABELS[clamp(body,0,5)][key.charCodeAt(8)-97];return {...c,label,shortLabel:label};}return c;}
 function controlForKeyBase(key) {
+    if(key==='reson_density'&&inactiveControl(key))return null;
     if(state.algorithm===15&&(['locus','field','speed','join','pad_mode','lane_variation','seq_pos','voice_engine_position'].includes(key)||(key?.startsWith('table_')&&inactiveControl(key))))return null;
     if((state.algorithm===16||state.algorithm===17||state.algorithm===18||state.algorithm===19||state.algorithm===20||state.algorithm===21)&&inactiveControl(key))return null;
     if(!key)return null;
@@ -4864,7 +4868,7 @@ function drawSettings() {
         return;
     }
     const drawPath=page.title===STACK_PATH_PAGE.title&&Math.round(PARAMS.lane_path.value)===8;
-    const hasFooter = page.title==='ENGINE' || sequenceSoundActive() || page.sliceEditor || page.pulsar || page.stochastic || page.voiceEngines || page.voiceSetup || page.table || page.scanned || page.fm || page.noise || page.reson || page.partials || page.lowform || drawPath || (state.splitEnabled && (isSendPage(page)
+    const hasFooter = page.title==='ENGINE' || sequenceSoundActive() || page.sliceEditor || page.pulsar || page.stochastic || page.voiceEngines || page.voiceSetup || page.table || page.scanned || page.fm || page.noise || page.reson || page.partials || page.lowform || page.title==='PLAY GAIN' || drawPath || (state.splitEnabled && (isSendPage(page)
         || page===DELAY_RETURN_PAGE || page.title===REVERB_PAGE.title));
     for (let index = 0; index < 8; index++) {
         const key = page.keys[index];
@@ -4882,6 +4886,7 @@ function drawSettings() {
     else if(page.stochastic)print(1,57,PARAMS.stochastic_source_hold.value>=.5?'SRC HELD CLICK: RUN':'CLICK: HOLD SOURCE',1);
     else if(page.title==='ENGINE')print(1,57,'CLICK: CHOOSE ENGINE',1);
     else if(page.lowform)print(1,57,'L'+((lowformUi.data?.edit??state.lane-1)+1)+' CLICK: STARTS',1);
+    else if(page.title==='PLAY GAIN')print(1,57,'COMP ALL'+(!inactiveControl('reson_density')?'  DENS '+(state.splitEnabled?partName():'RESON'):''),1);
     else if(page.reson)print(1,57,'L'+((resonUi.data?.edit??state.lane-1)+1)+' CLICK: STARTS',1);
     else if(page.partials)print(1,57,page.partialsBands?'TURN MAIN: GROUP':'PATCH L'+((partialsUi.data?.edit??state.lane-1)+1),1);
     else if(page.noise)print(1,57,page.noiseBands?'TURN MAIN: BAND GROUP':'PATCH L'+((noiseUi.data?.edit??state.lane-1)+1)+' TRACK:SELECT',1);

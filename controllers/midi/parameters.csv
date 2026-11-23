@@ -941,3 +941,4 @@
 "5030","39","38","LOWFORM TEXTURE","Texture Decay","lowform_texture_decay","5 A / 6 B / 7 C / 8 D","20","12000","linear","No"
 "5031","39","39","LOWFORM TEXTURE","Texture Attack","lowform_texture_attack","5 A / 6 B / 7 C / 8 D","0","2000","linear","No"
 "5090","39","98","LOWFORM","Lowform Starting Sound","lowform_start","5 A / 6 B / 7 C / 8 D","0","6","linear","Yes"
+"5091","39","99","Play Gain","Reson Density","reson_density","5 A / 6 B / 7 C / 8 D","0","100","linear","No"

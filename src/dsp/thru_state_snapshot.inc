@@ -229,6 +229,9 @@
           if(!append("%s",",\"reson_programs\":["))return -1;
           for(int group=0;group<5;++group){const auto& program=group==0?(splitEnabled?splitSingleControls.reson:controls.reson):(splitEnabled&&group-1==splitFocus?controls.reson:splitParts[group-1].controls.reson);
             for(int lane=0;lane<4;++lane)for(int f=0;f<s3g_thru_reson::fields;++f)if(!append(group||lane||f?",%.9g":"%.9g",double(program.patches[lane].v[f])))return -1;}
+          if(!append("%s" ,"],\"reson_density_values\":["))return -1;
+          for(int group=0;group<5;++group){const auto& program=group==0?(splitEnabled?splitSingleControls.reson:controls.reson):(splitEnabled&&group-1==splitFocus?controls.reson:splitParts[group-1].controls.reson);
+            if(!append(group?",%.9g":"%.9g",double(program.density)))return -1;}
           return append("%s","]}")?at:-1;
         }
         int appendPartialsJson(char* out,int capacity,int length)const {

@@ -223,6 +223,7 @@ inline Config startingSound(int which, const Config &old) {
   return c;
 }
 struct Program {
+  float density=0; // Part bus; independent of the four patch programs.
   std::array<Config, 4> patches{};
   Program() {
     patches[1] = startingSound(2, patches[1]);

@@ -105,7 +105,8 @@ void testFormerTransitionTakeMigration() {
     constexpr long shiftBytes=4+64*4*4;
     constexpr long pathBytes=4+64*4*4;
     constexpr long lfoBytes=4+64*(10*124+4*2*32*24)+4+64*(8*200+4*2*32*72)+4+64*8*72+4+64*5*4*40*4;
-    constexpr long scannedBytes=4+64*5*4*32*4+4+64*5*4*104*4+4+64*5*4*32*4+4+64*5*4*88*4+4+64*5*4*9*4+4+64*5*4*16*4+4+64*5*4*7*4+4+64*5*4*8*4+4+64*5*4*23*4;
+    // Include the append-only part density footer after all synth programs.
+    constexpr long scannedBytes=4+64*5*4+4+64*5*4*32*4+4+64*5*4*104*4+4+64*5*4*32*4+4+64*5*4*88*4+4+64*5*4*9*4+4+64*5*4*16*4+4+64*5*4*7*4+4+64*5*4*8*4+4+64*5*4*23*4;
     assert(std::fseek(file,-8-scannedBytes,SEEK_END)==0);std::uint32_t soundLockTailBytes=0;assert(readU32(file,soundLockTailBytes));
     assert(soundLockTailBytes>=264u);
     assert(std::fseek(file,-8-directionBytes-shiftBytes-pathBytes-lfoBytes-soundLockTailBytes-scannedBytes,SEEK_END)==0);std::uint32_t recipeBytes=0;assert(readU32(file,recipeBytes));

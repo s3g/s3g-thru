@@ -1,4 +1,15 @@
 std::bitset<16 * s3g_thru_reson::fields> resonOverrides{};
+std::bitset<4> resonDensityOverrides{};
+static bool writeResonDensityExtension(std::FILE* file,const std::array<ClipSlot,kClipSlotCount>& clips){
+  if(!writeU32(file,0x314e4452u))return false;
+  for(const auto& clip:clips)for(const auto& program:clip.resonPrograms)if(!writeF32(file,program.density))return false;
+  return true;
+}
+static bool readResonDensityExtension(std::FILE* file,std::array<ClipSlot,kClipSlotCount>& clips){
+  std::uint32_t magic=0;if(!readU32(file,magic)||magic!=0x314e4452u)return false;
+  for(auto& clip:clips)for(auto& program:clip.resonPrograms)if(!readF32(file,program.density)||!std::isfinite(program.density)||program.density<0||program.density>100)return false;
+  return true;
+}
 static bool
 writeResonExtension(std::FILE *file,
                     const std::array<ClipSlot, kClipSlotCount> &clips) {
@@ -45,6 +56,16 @@ void restoreResonPrograms(const ClipSlot &clip) {
 }
 bool setResonParam(const char *key, const char *text) {
   using namespace s3g_thru_reson;
+  if(!std::strcmp(key,"reson_density")){
+    const float value=parseFloat(text,NAN);if(!std::isfinite(value))return true;
+    const int part=splitEnabled?splitFocus:0;
+    if(sequenceSoundEditing()){setError("DENS is a part setting");return true;}
+    if(sequenceMode()&&!clipRecording)replaceSequenceAutomation(std::array<std::size_t,1>{kClipResonDensityOffset+std::size_t(part)},true);
+    controls.reson.density=std::clamp(value,0.f,100.f);resonDensityOverrides.set(part);
+    captureClipPoint(ClipPointType::resonDensity,0,part,controls.reson.density);
+    if(auto* clip=activeClipSlot())captureResonPrograms(*clip);
+    markPersistentStateDirty();++midiRevision;return true;
+  }
   if (!std::strcmp(key, "reson_start")) {
     const int choice = parseInteger(text, 0);
     if (choice <= 0 || choice > 8)
@@ -119,6 +140,7 @@ bool setResonParam(const char *key, const char *text) {
   return true;
 }
 bool resonParameterValue(const char *key, int part, float &value) const {
+  if(!std::strcmp(key,"reson_density")){value=liveControlsForPart(part).reson.density;return true;}
   if (!std::strcmp(key, "reson_start")) {
     value = 0;
     return true;
@@ -135,8 +157,8 @@ int formatResonState(char *out, int capacity) const {
   if (liveControlsForPart(part).algorithm != Engine::PlaybackAlgorithm::reson)
     return std::snprintf(out, capacity, "{}");
   int at = std::snprintf(
-      out, capacity, "{\"part\":%d,\"edit\":%d,\"revision\":%u,\"patches\":[",
-      part, edit, unsigned(midiRevision));
+      out, capacity, "{\"part\":%d,\"edit\":%d,\"revision\":%u,\"density\":%.7g,\"patches\":[",
+      part, edit, unsigned(midiRevision),double(program.density));
   for (int lane = 0; lane < 4; ++lane) {
     if (at < 0 || at >= capacity)
       return -1;
@@ -170,6 +192,8 @@ void seedResonRecording() {
         used |= cfg.engines[entry] == int(Engine::PlaybackAlgorithm::reson);
     if (!used)
       continue;
+    if(clipReplacing||!activeClipSlot()->clipPointCounts[kClipResonDensityOffset+part])
+      captureClipPoint(ClipPointType::resonDensity,0,part,c.reson.density,0,true);
     const int first = splitEnabled && !sharedDual ? firstLaneForPart(part) : 0,
               last =
                   splitEnabled && !sharedDual ? first + (isQuad() ? 0 : 1) : 3;
@@ -213,6 +237,31 @@ bool restoreResonJson(const char *json) {
     for (const auto &patch : program.patches)
       if (!s3g_thru_reson::valid(patch))
         return false;
+  const char* densities = std::strstr(json, "\"reson_density_values\"");
+  if (densities) {
+    densities = std::strchr(densities, '[');
+    if (!densities) return false;
+    ++densities;
+    const auto whitespace = [&]() {
+      while (*densities == ' ' || *densities == '\n' || *densities == '\r' || *densities == '\t') {
+        ++densities;
+      }
+    };
+    for (int group = 0; group < 5; ++group) {
+      char* end = nullptr;
+      const float value = std::strtof(densities, &end);
+      if (end == densities || !std::isfinite(value) || value < 0 || value > 100) return false;
+      programs[group].density = value;
+      densities = end;
+      whitespace();
+      if (group < 4) {
+        if (*densities != ',') return false;
+        ++densities;
+      }
+    }
+    whitespace();
+    if (*densities != ']') return false;
+  }
   splitSingleControls.reson = programs[0];
   if (!splitEnabled)
     controls.reson = programs[0];

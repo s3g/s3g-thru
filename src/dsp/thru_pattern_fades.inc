@@ -295,7 +295,7 @@
         s.splitParts=splitParts;s.splitSingleControls=splitSingleControls;s.splitSingleSettings=splitSingleSettings;
         s.splitLanePreferences=preferredSplitLanes();s.splitLaneApplied=splitLaneApplied;
         s.splitClipControls=splitClipControls;s.splitMixerOverrides=splitMixerOverrides;
-        s.splitPolyGain=splitPolyGain;s.splitBlendState=splitBlendState;s.splitCurveState=splitCurveState;
+        s.splitPolyGain=splitPolyGain;s.resonDensity=resonDensity;s.resonDensityOverrides=resonDensityOverrides;s.splitBlendState=splitBlendState;s.splitCurveState=splitCurveState;
         s.splitLevelState=splitLevelState;s.splitDelayState=splitDelayState;s.splitReverbState=splitReverbState;
         s.splitRollWrite=splitRollWrite;s.splitRollFrames=splitRollFrames;
         s.splitVariationCounter=splitVariationCounter;s.splitLastVariationLane=splitLastVariationLane;
@@ -426,7 +426,7 @@
         splitSingleSettings=s.splitSingleSettings;
         splitClipControls=s.splitClipControls;
         splitMixerOverrides=s.splitMixerOverrides;
-        splitPolyGain=s.splitPolyGain;
+        splitPolyGain=s.splitPolyGain;resonDensity=s.resonDensity;resonDensityOverrides=s.resonDensityOverrides;
         splitBlendState=s.splitBlendState;
         splitCurveState=s.splitCurveState;
         splitLevelState=s.splitLevelState;

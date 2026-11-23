@@ -950,6 +950,7 @@ inline constexpr Parameter parameters[]{
     {5030, "lowform_texture_decay", 20.0f, 12000.0f, 12000.0f, true, false, false, false, -1},
     {5031, "lowform_texture_attack", 0.0f, 2000.0f, 0.0f, true, false, false, false, -1},
     {5090, "lowform_start", 0.0f, 6.0f, 0.0f, true, true, true, false, -1},
+    {5091, "reson_density", 0.0f, 100.0f, 0.0f, true, false, false, false, -1},
 };
 inline constexpr std::size_t count = sizeof(parameters) / sizeof(parameters[0]);
 struct FeedbackSubscription {int part,id;};

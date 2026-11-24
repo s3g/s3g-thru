@@ -5,7 +5,11 @@
   <rect width="128" height="64" fill="#050706"/>
   <g shape-rendering="crispEdges" font-family="DejaVu Sans Mono, IBM Plex Mono, monospace" font-size="6" font-style="normal" font-weight="400" text-rendering="geometricPrecision">
     <rect x="0" y="0" width="128" height="9" fill="#050706"/>
-    <text x="1" y="5.5" fill="#dce8e1">A:SAM1 B:GRA1 50%</text>
+    <text x="1" y="5.5" fill="#dce8e1">A01 SPL</text>
+    <text x="49" y="5.5" fill="#dce8e1">A</text>
+    <text x="55" y="5.5" fill="#dce8e1">:SAM1</text>
+    <text x="91" y="5.5" fill="#dce8e1">B</text>
+    <text x="97" y="5.5" fill="#dce8e1">:GRA1</text>
     <rect x="0" y="10" width="12" height="40" fill="#050706"/>
     <text x="3" y="16.5" fill="#dce8e1">1</text>
     <rect x="9" y="12" width="2" height="7" fill="#dce8e1"/>
@@ -18,8 +22,8 @@
     <text x="3" y="46.5" fill="#050706">4</text>
     <rect x="0" y="30" width="12" height="1" fill="#dce8e1"/>
     <rect x="0" y="8" width="128" height="1" fill="#050706"/>
-    <rect x="12" y="8" width="21" height="1" fill="#dce8e1"/>
-    <rect x="66" y="8" width="19" height="1" fill="#dce8e1"/>
+    <rect x="61" y="8" width="14" height="1" fill="#dce8e1"/>
+    <rect x="103" y="8" width="13" height="1" fill="#dce8e1"/>
     <rect x="14" y="15" width="1" height="1" fill="#dce8e1"/>
     <rect x="14" y="23" width="1" height="5" fill="#dce8e1"/>
     <rect x="14" y="35" width="1" height="1" fill="#dce8e1"/>

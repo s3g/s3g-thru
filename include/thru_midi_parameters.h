@@ -951,6 +951,20 @@ inline constexpr Parameter parameters[]{
     {5031, "lowform_texture_attack", 0.0f, 2000.0f, 0.0f, true, false, false, false, -1},
     {5090, "lowform_start", 0.0f, 6.0f, 0.0f, true, true, true, false, -1},
     {5091, "reson_density", 0.0f, 100.0f, 0.0f, true, false, false, false, -1},
+    {5200, "travel_enabled", 0.0f, 1.0f, 0.0f, true, true, false, false, -1},
+    {5201, "travel_attack", 0.0f, 10000.0f, 100.0f, true, false, false, false, -1},
+    {5202, "travel_attack_rate", -4.0f, 4.0f, 1.0f, true, false, false, false, -1},
+    {5203, "travel_decay", 0.0f, 10000.0f, 500.0f, true, false, false, false, -1},
+    {5204, "travel_decay_rate", -4.0f, 4.0f, 1.0f, true, false, false, false, -1},
+    {5205, "travel_sustain_rate", -4.0f, 4.0f, 0.0f, true, false, false, false, -1},
+    {5206, "travel_release_rate", -4.0f, 4.0f, 1.0f, true, false, false, false, -1},
+    {5207, "travel_smooth", 0.0f, 200.0f, 20.0f, true, false, false, false, -1},
+    {5208, "live_source", 0.0f, 5.0f, 0.0f, true, true, false, false, -1},
+    {5209, "live_lookback", 10.0f, 10000.0f, 250.0f, true, false, false, false, -1},
+    {5210, "live_window", 50.0f, 12000.0f, 1000.0f, true, false, false, false, -1},
+    {5211, "live_freeze", 0.0f, 1.0f, 0.0f, true, true, false, false, -1},
+    {5212, "live_gain", 0.0f, 2.0f, 1.0f, true, false, false, false, -1},
+    {5213, "live_capture", 0.0f, 1.0f, 0.0f, true, true, true, false, -1},
 };
 inline constexpr std::size_t count = sizeof(parameters) / sizeof(parameters[0]);
 struct FeedbackSubscription {int part,id;};

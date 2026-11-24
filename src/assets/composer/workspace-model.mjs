@@ -1,6 +1,6 @@
 import {POINT_TYPES,noteName} from './format.mjs';
 import {PANEL_PARAMETERS} from './catalog.mjs';
-import {describeLayersAutomation} from './move-pages.mjs';
+import {describeLayersAutomation,moveScale} from './move-pages.mjs';
 export const TYPES=POINT_TYPES;
 const byKey=new Map(PANEL_PARAMETERS.map(p=>[p.key,p]));
 const domains=[['table-parameter',4200,40],['scanned-parameter',4300,31],['fm-parameter',4400,32],['noise-parameter',4500,88],['reson-parameter',4600,32],['partials-parameter',4800,104],['lowform-parameter',5000,32]];
@@ -11,6 +11,7 @@ export function curveMeta(target,context={}){
  if(target.key&&byKey.has(target.key))return byKey.get(target.key);
  if(['parameter','part-parameter'].includes(target.type))return byLock.get(target.index)||null;
  for(const[type,base,count]of domains)if(target.type===type&&target.index<count)return PANEL_PARAMETERS.find(p=>p.id===base+target.index)||null;
+ if(target.type==='source-parameter')return PANEL_PARAMETERS.find(p=>p.id===5200+target.index)||null;
  if(target.type==='reson-density')return byKey.get('reson_density');
  if(target.type==='sequence-lane')return byKey.get(laneKeys[target.index]);
  if(target.type==='sequence-recipe')return byKey.get(recipeKeys[target.index]);
@@ -72,3 +73,17 @@ export function validPerformance(p){if(!p||!Number.isInteger(p.clip)||!Array.isA
  const ids=new Set;for(const id of p.noteIds){if(!Number.isSafeInteger(id)||id<1||ids.has(id))throw Error('Invalid note identity');ids.add(id);}p.automation.forEach((c,i)=>{if(c.points.length!==p.pointIds[i].length||c.points.some(x=>!Number.isFinite(x[0])||!Number.isFinite(x[1])))throw Error('Incomplete curve snapshot');});return p;
 }
 export {noteName};
+
+// Display only the part's scale degrees. Keep imported/out-of-scale notes
+// reachable after a scale change, without allowing new notes on those rows.
+export function pianoLayout(root=60,scale=0,existing=[],otherScales=[]){
+ const definitions=[[root,scale],...otherScales];
+ const allowed=new Set(Array.from({length:128},(_,n)=>n).filter(n=>moveScale(scale).intervals.includes(((n-root)%12+12)%12)));
+ const visible=new Set(existing.filter(n=>Number.isInteger(n)&&n>=0&&n<128));
+ for(let n=0;n<128;++n)if(definitions.some(([r,s])=>moveScale(s).intervals.includes(((n-r)%12+12)%12)))visible.add(n);
+ const pitches=[...visible].sort((a,b)=>b-a),height=pitches.length*PIANO_ROW;
+ return {pitches,allowed,height,root,scale,label:moveScale(scale).label,shortLabel:moveScale(scale).shortLabel,
+  y:note=>Math.max(0,pitches.indexOf(Math.round(note)))*PIANO_ROW,
+  at:y=>pitches[Math.max(0,Math.min(pitches.length-1,Math.floor(y/PIANO_ROW)))],
+  nearest:note=>[...allowed].reduce((a,b)=>Math.abs(b-note)<Math.abs(a-note)?b:a,root)};
+}

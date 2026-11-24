@@ -7,10 +7,10 @@ import {fileURLToPath} from 'node:url';
 const here=path.dirname(fileURLToPath(import.meta.url)),root=path.resolve(here,'../..');
 const source=fs.readFileSync(path.join(root,'src/ui.js'),'utf8');
 // Evaluate only the declarative page block, never the UI or its host imports.
-const block=source.slice(source.indexOf('const ENGINE_PAGE ='),source.indexOf('const FX_ORDER_PAGE ='));
+const block=source.slice(source.indexOf('const TRAVEL_PAGE='),source.indexOf('const FX_ORDER_PAGE ='));
 // Offline layouts describe lane defaults; there is no held-trig context.
-const context=vm.createContext({PARAMS:{stochastic_law:{value:0},table_type:{value:0}},sequenceSoundValue:(_key,fallback)=>fallback});
-vm.runInContext(block+';globalThis.defs={ENGINE_PAGE,STACK_PATH_PAGE,PLAYBACK_PAGES,PART_COLOR_PAGE,STEREO_ROTARY_PAGE,DELAY_RETURN_PAGE,REVERB_PAGE,TAPE_PAGE,SPLIT_MIX_PAGE,QUAD_SEND_PAGE};',context);
+const context=vm.createContext({PARAMS:{stochastic_law:{value:0},table_type:{value:0},live_source:{value:0}},sequenceSoundValue:(_key,fallback)=>fallback});
+vm.runInContext(source.match(/const LIVE_MEMORY_ENGINES=\[[^\]]+\];/)[0]+block+';globalThis.defs={ENGINE_PAGE,STACK_PATH_PAGE,PLAYBACK_PAGES,PART_COLOR_PAGE,STEREO_ROTARY_PAGE,DELAY_RETURN_PAGE,REVERB_PAGE,TAPE_PAGE,SPLIT_MIX_PAGE,QUAD_SEND_PAGE};',context);
 const d=context.defs,registry=JSON.parse(fs.readFileSync(path.join(root,'controllers/midi/parameters.json')));
 const byKey=new Map(registry.parameters.map(p=>[p.key,p]));
 const id=k=>k==null?-1:byKey.get(k)?.id??assert.fail('Unmapped '+k);
@@ -20,10 +20,11 @@ const add=(name,keys)=>{const row={name,keys:pad(keys)};rows.push(row);return ro
 const engine=add('ENGINE',d.ENGINE_PAGE.keys),stack=add('STACK PATH',d.STACK_PATH_PAGE.keys);
 const engineRows=d.PLAYBACK_PAGES.map(p=>p.filter(p=>p.title!=='STACK PATH').map(p=>add(p.title,p.keys)));
 engineRows[15]=engineRows[15].slice(0,2); // Conditional TABLE rows are selected by the module.
-// Fail explicitly if a future engine outgrows the four E16 detail slots.
+// Travel/Live are shared Play pages; fixed E16 detail slots retain the engine pages.
+// Fail explicitly if a future engine outgrows those four detail slots.
 const enginePages=vm.runInContext('playbackPagesForAlgorithm',context);
 for(let a=0;a<d.PLAYBACK_PAGES.length;a++)for(let sound=0;sound<8;sound++)
- assert(enginePages(a,sound).filter(p=>p.title!=='STACK PATH').length<=4,'Engine '+a+' exceeds the four E16 detail pages');
+ assert(enginePages(a,sound).filter(p=>p.title!=='STACK PATH'&&!p.sourceMotion).length<=4,'Engine '+a+' exceeds the four E16 detail pages');
 // Motion's conditional details share fixed slots 3-6.
 for(const name of ['PACKETS_PAGE','MOTOR_PAGE','EVENT_CLOCK_PAGE','EVENT_SHAPE_PAGE']){
  const keys=vm.runInContext(name+'.keys',context);add(name.replace('_PAGE','').replaceAll('_',' '),keys);

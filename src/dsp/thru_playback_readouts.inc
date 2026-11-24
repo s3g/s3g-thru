@@ -12,6 +12,8 @@ bool midiPlaybackReadout(const ThruInstance &t, const MidiParameter &p,
     return curve < kClipCurveLaneCount && clip->clipPointCounts[curve] > 0;
   };
   const char *key = p.key;
+  const int sourceField=s3g_thru_source::index(key);
+  if(sourceField>=0){if(t.sourceMotionOverrides.test(part*s3g_thru_source::fields+sourceField)||!has(kClipSourceOffset+part*s3g_thru_source::fields+sourceField))return false;value=(t.splitEnabled?t.splitClipControls[part]:t.clipControls).sourceMotion.v[sourceField];return true;}
   const int lowformField=s3g_thru_lowform::index(key);
   if(lowformField>=0){const int lane=t.tableEditLane(part);if(t.lowformOverrides.test((part*4+lane)*s3g_thru_lowform::fields+lowformField)||!has(kClipLowformOffset+(part*4+lane)*s3g_thru_lowform::fields+lowformField))return false;
     value=(t.splitEnabled?t.splitClipControls[part]:t.clipControls).lowform.patches[lane].v[lowformField];return true;}

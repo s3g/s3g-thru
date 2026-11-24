@@ -163,6 +163,8 @@
                 s3g_thru_lfo::appendJson(append,group,ui.lfos);
             }
             s3g_thru_lfo::appendPoolJson(append,controlLfoPool);append(",\"lfo_edit\":%d",controlLfoEdit);
+            append("%s",",\"source_motion_v1\":[");
+            for(int group=0;group<5;++group){const auto& cfg=group==0?(splitEnabled?splitSingleControls.sourceMotion:controls.sourceMotion):(splitEnabled&&group-1==splitFocus?controls.sourceMotion:splitParts[group-1].controls.sourceMotion);for(int f=0;f<s3g_thru_source::fields;++f)append(group||f?",%.9g":"%.9g",double(cfg.v[f]));}append("%s","]");
             const char* pathNames[]{"stack_path_single","stack_path_a","stack_path_b","stack_path_c","stack_path_d"};
             for(int group=0;group<5;++group) {
                 const auto& path=group==0?(splitEnabled?splitSingleControls.stackPath:controls.stackPath)

@@ -137,7 +137,7 @@ void renderTextureFrame(const Controls &controls, float *wet) {
                 makeNaturalEventLaneBlend(lanePhase_ + controls.lanePhaseOffset, controls);
             const auto lane = event->lanes.first;
             double low = window.low, high = window.high, position = low + origin * width;
-            if (lane < kStackLanes && laneRegionCounts_[lane] > 1) {
+            if (!liveView_ && lane < kStackLanes && laneRegionCounts_[lane] > 1) {
                 const auto count = laneRegionCounts_[lane];
                 std::size_t region = 0;
                 const float unit =
@@ -172,6 +172,9 @@ void renderTextureFrame(const Controls &controls, float *wet) {
             event->seam =
                 std::min((high - low) * .25,
                          std::max(4.0, sourceSampleRate_ * (.002 + .018 * clamp01(controls.join))));
+            event->liveAnchor=liveBirthAnchor();
+            if(liveView_)event->duration=std::min(event->duration,std::max<std::size_t>(16,liveView_.safeFrames));
+            event->edgeFrames=std::min(event->edgeFrames,std::max<std::size_t>(1,event->duration/2));
             event->age = 0;
             event->active = true;
             event->shape = LongGrainShape::plateau;
@@ -200,7 +203,8 @@ void renderTextureFrame(const Controls &controls, float *wet) {
                                                 event.high, event.seam);
             for (std::size_t ch = 0; ch < 2; ++ch)
                 stereo[ch] +=
-                    readLaneBlendHead(ch, head, event.lanes) * gain * event.channelGains[ch];
+                    (liveView_ ? readLiveHead(ch,head.a,head.b,head.mix,head.gain,event.liveAnchor)
+                               : readLaneBlendHead(ch, head, event.lanes)) * gain * event.channelGains[ch];
             advanceEventPosition(event.position, event.increment, event.low, event.high,
                                  event.seam);
             if (++event.age >= event.duration)

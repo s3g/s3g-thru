@@ -11,7 +11,7 @@ static int composerMode(const ClipSlot &c) {
       : c.bankMode ? 4 : c.quadMode ? 3 : c.sharedDual ? 2 : 1;
 }
 static bool composerPanelSetting(const char* key) {
-  if(!std::strncmp(key,"layers_",7))return true;
+  if(!std::strncmp(key,"layers_",7)||!std::strncmp(key,"lfo",3))return true;
   static constexpr const char* keys[]{"pad_mode","voice_mode","hold_release_ms","scale","pad_octave","pressure_mode","lane_variation","part_mute","stack_scan_paused","glitch_buffer_lock","polyphony_comp",
     "voice_engine_mode","voice_engine_order","voice_engine_edit","voice_engine_assign","voice_engine_depth","voice_engine_octave","voice_engine_position","voice_engine_stack","voice_engine_pan",
     "voice_engine_1","voice_engine_2","voice_engine_3","voice_engine_4","voice_engine_5","voice_engine_6","voice_engine_7","voice_engine_8"};
@@ -45,6 +45,7 @@ static float *composerProgramValue(ClipSlot &c, int id, int group, int lane) {
   COMPOSER_PROGRAM(4800, partials);
   COMPOSER_PROGRAM(5000, lowform);
 #undef COMPOSER_PROGRAM
+  if(id>=5200&&id<5213)return &c.sourcePrograms[group].v[id-5200];
   if (id == 5091)
     return &c.resonPrograms[group].density;
   return nullptr;
@@ -504,6 +505,7 @@ static bool composerValidPoint(const ClipPoint &x, int takes) {
   COMPOSER_POINT(partialsParameter, partials);
   COMPOSER_POINT(lowformParameter, lowform);
 #undef COMPOSER_POINT
+  if(x.type==ClipPointType::sourceParameter)return f<s3g_thru_source::fields&&value>=s3g_thru_source::low[f]&&value<=s3g_thru_source::high[f]&&(!s3g_thru_source::discrete(f)||value==std::floor(value));
   if (x.type == ClipPointType::resonDensity)
     return value >= 0 && value <= 100;
   if (x.type == ClipPointType::controlLfo)

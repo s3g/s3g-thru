@@ -45,14 +45,14 @@ static bool readTableExtension(std::FILE *file,
   return true;
 }
 void captureTablePrograms(ClipSlot &clip) const {
-  captureScannedPrograms(clip);captureFmPrograms(clip);captureNoisePrograms(clip);captureResonPrograms(clip);captureLowformPrograms(clip);capturePartialsPrograms(clip);
+  captureSourcePrograms(clip);captureScannedPrograms(clip);captureFmPrograms(clip);captureNoisePrograms(clip);captureResonPrograms(clip);captureLowformPrograms(clip);capturePartialsPrograms(clip);
   clip.tablePrograms[0] =
       splitEnabled ? splitSingleControls.table : controls.table;
   for (int part = 0; part < 4; ++part)
     clip.tablePrograms[part + 1] = liveControlsForPart(part).table;
 }
 void restoreTablePrograms(const ClipSlot &clip) {
-  restoreScannedPrograms(clip);restoreFmPrograms(clip);restoreNoisePrograms(clip);restoreResonPrograms(clip);restoreLowformPrograms(clip);restorePartialsPrograms(clip);
+  restoreSourcePrograms(clip);restoreScannedPrograms(clip);restoreFmPrograms(clip);restoreNoisePrograms(clip);restoreResonPrograms(clip);restoreLowformPrograms(clip);restorePartialsPrograms(clip);
   splitSingleControls.table = clip.tablePrograms[0];
   if (splitEnabled) {
     for (int part = 0; part < 4; ++part)
@@ -194,7 +194,7 @@ int formatTableScopes(char *out, int capacity) const {
 }
 
 void seedTableRecording() {
-  seedScannedRecording();seedFmRecording();seedNoiseRecording();seedResonRecording();seedLowformRecording();seedPartialsRecording();
+  seedSourceRecording();seedScannedRecording();seedFmRecording();seedNoiseRecording();seedResonRecording();seedLowformRecording();seedPartialsRecording();
   if (!clipRecording)
     return;
   const int count = splitEnabled ? partCount() : 1;

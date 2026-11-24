@@ -15,7 +15,7 @@ let rejectSafetyUndo = false;
 let rejectLookahead = false;
 const blockingWrites = [];
 const drawWrites = [];
-const titleWrites=writes=>writes.filter(write=>write[0]==='print'&&write[2]===0)
+const titleWrites=writes=>writes.filter(write=>write[0]==='print'&&write[2]===0&&!String(write[3]).startsWith('CLIPS '))
     .sort((a,b)=>a[1]-b[1]);
 const titleText=writes=>titleWrites(writes).map(write=>String(write[3])).join(' ');
 const hasRightFraction=(writes,fraction)=>titleWrites(writes).some(write=>
@@ -139,7 +139,7 @@ globalThis.host_module_get_param = (key) => {
         // Match native formatEditorState: sequence controls arrive in seq_state,
         // not in the engine/editor scalar chunks.
         const values = Object.fromEntries(Object.entries(globalThis.__testParams || {})
-            .filter(([key,p]) => !p.lfoField&&!p.momentary&&!key.startsWith('layers_')&&!key.startsWith('seq_')&&!key.startsWith('table_')&&!key.startsWith('noise_')&&!key.startsWith('reson_')&&!key.startsWith('partials_')&&!key.startsWith('lowform_')&&key!=='mix_mute')
+            .filter(([key,p]) => !p.lfoField&&!p.momentary&&!key.startsWith('travel_')&&!key.startsWith('live_')&&!key.startsWith('layers_')&&!key.startsWith('seq_')&&!key.startsWith('table_')&&!key.startsWith('noise_')&&!key.startsWith('reson_')&&!key.startsWith('partials_')&&!key.startsWith('lowform_')&&key!=='mix_mute')
             .map(([key,p]) => [key, Number(params[key] ?? p.value)]));
         const split = JSON.parse(params.split_state || '{"enabled":0,"focus":0,"blend":0.5,"parts":[{},{}]}');
         if(!split.enabled||!split.quad)split.parts=split.parts.slice(0,2);
@@ -147,7 +147,7 @@ globalThis.host_module_get_param = (key) => {
         values.part_mute = split.parts[split.focus]?.mute || 0;
         for (const key of ['pad_octave','record_lane','stack_scan_paused','glitch_buffer_lock'])
             values[key]=Number(params[key] || 0);
-        const full={v:1,values,split,voices:params.voice_algorithms||'-1,-1,-1,-1,-1,-1,-1,-1'};
+        const full={v:1,values,split,source:['travel_enabled','travel_attack','travel_attack_rate','travel_decay','travel_decay_rate','travel_sustain_rate','travel_release_rate','travel_smooth','live_source','live_lookback','live_window','live_freeze','live_gain'].map(k=>Number(params[k]??globalThis.__testParams[k].value)),voices:params.voice_algorithms||'-1,-1,-1,-1,-1,-1,-1,-1'};
         if(key==='ui_editor_state')return JSON.stringify(full);
         const rows=Object.entries(values),chunk=Number(key.slice(16));
         return JSON.stringify({...full,chunk,chunks:Math.ceil(rows.length/64),
@@ -232,6 +232,7 @@ source = source.replace(
     /import \* as os[^;]+;/,
     'const os = globalThis.__os;');
 source += `
+globalThis.__testSource={notice:clipBankNotice,bank:adjustClipBank,draw:drawClipBankNotice,mod:openModulationSlots,touch:rememberModulationTouch,read:readLiveMemory,active:liveMemoryActive,overview:liveMemoryOverviewActive,wave:liveWaveForLane,drawSplit:drawSplitMain,drawLane:drawWaveformLane,drawLive:drawLiveMemoryMain,decode:decodeLiveEnvelope};
 globalThis.__testNaming={model:namingUi,open:openNamingEditor,close:closeNamingEditor,draw:drawNameEditor,tick:tickNaming};
 globalThis.__testPageActions={model:pageActions,open:openPageActions,close:closePageActions,rows:pageActionRows,draw:drawPageActions};
 globalThis.__testParameterPageSets = PLAYBACK_PAGES.map((enginePages, algorithm) =>
@@ -260,6 +261,7 @@ globalThis.__testPageBuildCount=()=>testPageBuilds;
 globalThis.__testRebuildLeds=rebuildLedQueue;
 globalThis.__testPulsar={parse:parsePulsarState,footer:pulsarDurationFooter};
 globalThis.__testSplit = {pages:parameterPages,parse:parseSplitState,keys:activeControlKeys};
+globalThis.__testIdentity={tag:clipModeTag,notice:clipModeNotice,show:showClipModeNotice,draw:draw,parse:parseClipBankState,remember:rememberClipModeSnapshot,bank:showClipBankNotice};
 globalThis.__testMode={queue:queueModeChange,service:serviceModeChange,current:currentPerformanceMode,decode:decodeSplitState};
 globalThis.__testSequenceSound={read:readSequenceSound,active:sequenceSoundActive,model:sequenceSoundUi,adjust:adjustSequenceSound};
 globalThis.__testSequence={model:sequenceUi,timing:uiTiming,read:readSequence,cursor:readSequenceCursor,tickGesture:tickSequenceGesture,control:controlForKey,adjust:adjustControl,page:adjustSettingsPage,drain:drainLedQueue};
@@ -464,7 +466,7 @@ globalThis.init();
 const waveformReadsAfterInit = waveformReads;
 assert(drawWrites.length > 100, 'waveform page should draw');
 assert(drawWrites.some((write) => write[0] === 'print'
-    && String(write[3]).includes('A01 V')),
+    && String(write[3]).startsWith('A01 SNG')),
     'waveform header should identify the active performance clip');
 assert(drawWrites.some((write)=>write[0]==='rect'&&write[1]===14&&write[2]===10&&write[3]===1&&write[4]===40));
 assert(drawWrites.some((write)=>write[0]==='rect'&&write[1]===99&&write[2]===10&&write[3]===1&&write[4]===40));
@@ -1066,7 +1068,7 @@ assert.equal(fx.state().fxRouteGrabbed, false);
 assert.equal(fx.state().fxRoutePending, false);
 ccFx(54); ccFx(3); ccFx(14, 1);
 params.effect_order_state = '0,0,0';
-fx.parseClip(((fx.state().activeClip + 1) % 64) + ',-1,1,0');
+params.clip_bank_state=((fx.state().activeClip + 1) % 64) + ',-1,1,0';fx.parseClip(params.clip_bank_state);
 assert.equal(fx.state().fxRouteGrabbed, false);
 assert.equal(fx.state().fxRoutePending, false);
 assert.deepEqual(fx.state().fxOrder, [0,1,2,3,4,5]);
@@ -1153,8 +1155,9 @@ globalThis.host_module_set_param_blocking=(key,value)=>{
 params.split_state=JSON.stringify(splitState);
 params.voice_algorithms='4,-1,-1,-1,2,-1,-1,-1';
 globalThis.init();
-const cc=(key,value=127)=>{globalThis.onMidiMessageInternal([0xb0,key,value]);if(key===60&&value>0&&globalThis.__testFx.state().modeRequest)globalThis.tick();};
-cc(60); assert(fx.state().splitEnabled);assert.equal(fx.state().splitFocus,0);
+const cc=(key,value=127)=>{globalThis.onMidiMessageInternal([0xb0,key,value]);};
+const chooseMode=(wanted)=>{const state=globalThis.__testFx.state();state.view='mode';state.modeSelection=wanted;globalThis.__testMode.queue(true);globalThis.tick();};
+chooseMode(1); assert(fx.state().splitEnabled);assert.equal(fx.state().splitFocus,0);
 assert.equal(split.keys().at(-1),'split_blend');
 assert.equal(globalThis.__testPadMidiNote(0),48);
 assert.equal(globalThis.__testPadMidiNote(4),67);
@@ -1188,7 +1191,7 @@ cc(88);assert.equal(fx.state().splitParts[0].mute,1);
 assert.equal(globalThis.__testParams.part_mute.value,1,
     'hardware Mute must update the Split Setup control without changing focus');
 fx.state().messageTicks=0;drawWrites.length=0;globalThis.__testDrawMain();
-assert([...screenText.values()].some((w)=>String(w[2]).includes('A:MUT')),
+assert([...screenText.values()].some((w)=>String(w[2]).includes(':MUT')),
     'a muted instrument must stay identifiable on the waveform screen');
 // B can be muted/unmuted independently, including after changing focus.
 cc(52);cc(52,0);assert.equal(fx.state().splitFocus,1);
@@ -1197,7 +1200,7 @@ assert.equal(globalThis.__testParams.part_mute.value,1);
 cc(52);cc(52,0);cc(88);assert.equal(splitState.parts[0].mute,0);
 cc(52);cc(52,0);assert.equal(globalThis.__testParams.part_mute.value,1);
 fx.state().messageTicks=0;drawWrites.length=0;globalThis.__testDrawMain();
-assert([...screenText.values()].some((w)=>String(w[2]).includes('B:MUT')));
+assert([...screenText.values()].some((w)=>w[0]===97&&String(w[2]).includes(':MUT')));
 assert([...screenText.values()].some((w)=>w[2]==='B MUTED: PRESS MUTE'));
 // The Setup encoder must recover B from the actual ON value.
 fx.state().view='settings';fx.state().settingsPage=split.pages().findIndex((p)=>p.title==='DUAL SETUP');
@@ -1211,7 +1214,7 @@ cc(52);cc(52,0);
 fx.state().settingsPage=fx.pageIndex();params.effect_order='7';params.effect_order_state='7,7,0';fx.sync();
 assert.equal(fx.state().fxOrder.length,3,'Only shared returns and Tape are reorderable in Split');
 assert.deepEqual(new Set(fx.state().fxOrder),new Set([2,4,5]));
-cc(60);assert(!fx.state().splitEnabled);
+chooseMode(0);assert(!fx.state().splitEnabled);
 // Split cursors stay in their owner's pair even when the other part is focused.
 const visual = fx.state();
 visual.splitEnabled = true; visual.mask = 15; visual.regions = [];visual.laneRegions=Array(4).fill(null);
@@ -1449,10 +1452,10 @@ assert(drawWrites.slice(-500).some((w)=>w[0]==='print'&&w[3]==='THRU '+testVersi
 // A mode toggle also sends all 32 pad states immediately, without waiting for the queue.
 Object.assign(splitState,colors);
 const beforeModeRepaint=forcedPadWrites.length;
-cc(60);
+chooseMode(0);
 assert.equal(forcedPadWrites.length-beforeModeRepaint,32);
 assert(forcedPadWrites.slice(-32).every(([, , force])=>force));
-cc(60);
+chooseMode(1);
 assert(forcedPadWrites.slice(-32).every(([, , force])=>force));
 assert.equal(lastPad(5),93);
 // Older shared helpers may have force support without cache invalidation.
@@ -1563,7 +1566,7 @@ splitState.focus=1;params.split_state=JSON.stringify(splitState);
 for(let i=0;i<3;++i)globalThis.tick();
 assert(paramReads.slice(focusCalls).filter((key)=>key==='ui_editor_state').length<=1);
 // Leaving Split while the menu is open must not leave a stale Split-only view.
-fx.state().view='fxMenu';cc(60);assert.equal(fx.state().view,'main');
+fx.state().view='fxMenu';chooseMode(0);assert.equal(fx.state().view,'main');
 // General navigation is contextual and never fires recording or a focus toggle.
 const tools=globalThis.__testTools,ui=fx.state();
 ui.view='settings';ui.settingsPage=2;ui.shiftHeld=false;ui.deleteHeld=false;
@@ -1606,7 +1609,7 @@ params.pattern_fade_lookahead='0';globalThis.__testParams.pattern_fade_lookahead
 globalThis.__testResetEncoders();cc(77,2);
 assert.equal(globalThis.__testParams.pattern_fade_lookahead.value,0);
 assert.equal(ui.actionMessage,'FINISH FADE FIRST');rejectLookahead=false;
-ui.view='main';cc(60);assert(ui.splitEnabled);ui.view='main';
+ui.view='main';chooseMode(1);assert(ui.splitEnabled);ui.view='main';
 const pickerFocus=ui.splitFocus;
 cc(52);cc(50);cc(52,0);assert.equal(ui.splitFocus,pickerFocus);
 destination=tools.entries().findIndex(e=>e.view==='mixStatus');assert(destination>=0);
@@ -1632,8 +1635,8 @@ assert(paramWrites.slice(toolWrites).some(([k,v])=>k==='preview_route'&&Number(v
 assert(paramWrites.slice(toolWrites).some(([k])=>k==='preview_level'));
 assert(!paramWrites.slice(toolWrites).some(([k])=>k==='algorithm'));
 // A mode change inside Pages cannot restore a Split-only screen in Single.
-ui.view='mixStatus';cc(52);cc(50);cc(52,0);cc(60);cc(51);
-assert(!ui.splitEnabled);assert.equal(ui.view,'main');cc(60);
+ui.view='mixStatus';cc(52);cc(50);cc(52,0);chooseMode(0);
+assert(!ui.splitEnabled);assert.equal(ui.view,'main');chooseMode(1);
 // Saved follows the completion transition, and errors stay until recovery.
 tools.parseSave('2');assert.equal(ui.savedTicks,0);
 tools.parseSave('4');assert.equal(ui.saveStatus,4);
@@ -1652,7 +1655,7 @@ assert(blockingWrites.slice(toolWrites).some(([k,v])=>k==='panic'&&Number(v)===1
 assert(!blockingWrites.slice(toolWrites).some(([k])=>k==='clip_playing'));
 assert.equal(ui.activePads.size,0);
 // Used white icon keys are primed immediately, including Capture in Single.
-if(ui.splitEnabled){cc(60);cc(60,0);}
+if(ui.splitEnabled)chooseMode(0);
 params.glitch_buffer_lock='0';params.stack_scan_paused='0';params.clip_stack_hold='0';
 params.undo_available='0';
 const idleUi=params.ui_state.split(',');idleUi[2]='0';params.ui_state=idleUi.join(',');
@@ -1666,9 +1669,9 @@ assert.equal(lastButton(88),0,'Mute is unassigned in Single');
 assert.equal(lastButton(56),0,'Undo is dark without a safety undo point');
 settleIcons();let stableIcons=buttonWrites.length;settleIcons();
 assert.equal(buttonWrites.length,stableIcons,'steady icons generate no repeated MIDI writes');
-idleUi[2]='1';params.ui_state=idleUi.join(',');settleIcons();assert.equal(lastButton(60),0);
+idleUi[2]='1';params.ui_state=idleUi.join(',');settleIcons();assert.equal(lastButton(60),16);
 idleUi[2]='0';params.ui_state=idleUi.join(',');settleIcons();assert.equal(lastButton(60),16);
-idleClip[0]='1';params.clip_state=idleClip.join(',');settleIcons();assert.equal(lastButton(60),0);
+idleClip[0]='1';params.clip_state=idleClip.join(',');settleIcons();assert.equal(lastButton(60),16);
 idleClip[0]='0';params.clip_state=idleClip.join(',');settleIcons();assert.equal(lastButton(60),16);
 tapIcon(50);settleIcons();assert.equal(lastButton(50),127);assert.equal(lastButton(51),127);
 tapIcon(50);settleIcons();assert.equal(lastButton(50),16);assert.equal(lastButton(51),16);
@@ -1682,11 +1685,11 @@ cc(49);tapIcon(43);cc(49,0);settleIcons();
 assert.equal(ui.view,'library');assert.equal(lastButton(62),0);assert.equal(lastButton(63),0);
 assert.equal(lastButton(55),16);cc(55);settleIcons();assert.equal(lastButton(55),127);
 cc(55,0);settleIcons();assert.equal(lastButton(55),16);
-ui.view='main';tapIcon(60);settleIcons();assert(ui.splitEnabled);
-assert.equal(lastButton(60),127);assert.equal(lastButton(88),16);
+ui.view='main';chooseMode(1);settleIcons();assert(ui.splitEnabled);
+assert.equal(lastButton(60),16);cc(60);settleIcons();assert.equal(lastButton(60),127);cc(60,0);settleIcons();assert.equal(lastButton(60),16);assert.equal(lastButton(88),16);
 tapIcon(88);settleIcons();assert.equal(lastButton(88),127);
 tapIcon(52);settleIcons();assert.equal(lastButton(52),127);assert.equal(lastButton(88),16);
-tapIcon(60);settleIcons();assert.equal(lastButton(52),16);assert.equal(lastButton(88),0);
+chooseMode(0);settleIcons();assert.equal(lastButton(52),16);assert.equal(lastButton(88),0);
 cc(52);tapIcon(50);cc(52,0);settleIcons();assert.equal(ui.view,'pages');
 assert.equal(lastButton(52),127);assert.equal(lastButton(50),127);
 tapIcon(51);settleIcons();assert.equal(lastButton(52),16);
@@ -1763,8 +1766,8 @@ splitState.parts[1].scale=1;params.split_state=JSON.stringify(splitState);settle
 const bRootIndex=Array.from({length:32},(_,i)=>i).find(i=>i%8>=4&&(globalThis.__testPadMidiNote(i)-splitState.parts[1].root)%12===0);
 assert.notEqual(bRootIndex,undefined);
 assert.equal(padWrites.filter(w=>w[0]===68+bRootIndex).at(-1)[1],52,'Shared B scale roots use brighter pink');
-// Copy returns to the last dual layout; a failed change keeps the chooser open.
-tapIcon(60);assert(!ui.splitEnabled&&ui.sharedDual);tapIcon(60);assert(ui.splitEnabled&&ui.sharedDual);
+// Explicit mode changes retain the dual layout; Copy never changes it.
+tapIcon(60);assert(ui.splitEnabled&&ui.sharedDual);chooseMode(0);assert(!ui.splitEnabled&&ui.sharedDual);chooseMode(2);assert(ui.splitEnabled&&ui.sharedDual);
 pickInstrumentMode();tapIcon(51);assert.equal(ui.view,'pages');tapIcon(51);assert.equal(ui.view,'main');
 pickInstrumentMode();ui.modeSelection=1;rejectModeSwitch=true;tapIcon(3);globalThis.tick();
 assert.equal(ui.view,'mode');assert(ui.sharedDual);assert.equal(ui.actionMessage,'STOP RECORD FIRST');
@@ -1870,7 +1873,7 @@ for(let slot=0;slot<8;++slot) {
 }
 for(const [x,y,text] of screenText.values())assert(x+String(text).length*6<=128,'Quad heading must fit');
 tools.drawMix();for(const [x,y,text] of screenText.values())assert(x+String(text).length*6<=128,'Quad status must fit');
-ui.view='main';tapIcon(60);assert(!ui.splitEnabled&&ui.quadMode);tapIcon(60);assert(ui.splitEnabled&&ui.quadMode);
+ui.view='main';tapIcon(60);assert(ui.splitEnabled&&ui.quadMode);chooseMode(0);assert(!ui.splitEnabled&&ui.quadMode);chooseMode(3);assert(ui.splitEnabled&&ui.quadMode);
 // With no stack scan in Quad, Loop is lit only for an applicable gesture.
 params.effect_tape_inertia='0';globalThis.__testParams.effect_tape_inertia.value=0;ui.algorithm=4;settleIcons();
 assert.equal(lastButton(58),0);
@@ -2914,9 +2917,9 @@ console.log('s3g Thru hub visibility: every entry drawn/selected in five layouts
  assert.equal(ui.pageSide(listPage),0);assert.equal(ui.pageSide(setupPage),0);
  assert.equal(ui.pageSide(layerPages.find(p=>p.title==='FX CORNER')),1);
  let before=drawWrites.length;tools.drawAll();let writes=drawWrites.slice(before);
- assert(writes.some(w=>w[0]==='print'&&String(w[3]).includes('LAYERS')));
+ assert(writes.some(w=>w[0]==='print'&&String(w[3]).includes('LAY')));
  assert(writes.some(w=>w[0]==='print'&&String(w[3]).includes('FX Z')));
- assert(writes.some(w=>w[0]==='print'&&String(w[3]).includes('LAYERS A LIST')));
+ assert(writes.some(w=>w[0]==='print'&&String(w[3]).includes('LAY A LST')));
  P.voice_engine_mode.value=0;state.engineListVoices=false;
  for(let lane=0;lane<4;++lane)assert(writes.some(w=>w[0]==='print'&&w[1]===2&&w[2]===11+lane*10&&w[3]===String(lane+1)));
  // Lane display and moving cursors restore cached wave pixels, independently of FX.
@@ -2957,9 +2960,15 @@ console.log('s3g Thru hub visibility: every entry drawn/selected in five layouts
  // Native press/render/release transactions expose the exact audio-stage mix.
  if(process.env.S3G_THRU_GLIDE_FIXTURE){
   for(const snapshot of JSON.parse(fs.readFileSync(process.env.S3G_THRU_GLIDE_FIXTURE,'utf8'))){
-   params.layers_view=JSON.stringify(snapshot);ui.read();tools.drawAll();
-   const x=Math.round((snapshot.mix[1]+snapshot.mix[3])*48),y=Math.round((snapshot.mix[2]+snapshot.mix[3])*21);
-   cursorAt(67+x,25+y);
+   // Native snapshots now identify their clip. Run each fixture in its
+   // own context rather than relying on an earlier test's selected clip.
+   const priorClip=state.activeClip;
+   try{
+    state.activeClip=snapshot.clip??priorClip;
+    params.layers_view=JSON.stringify(snapshot);ui.read();assert(ui.model.active);tools.drawAll();
+    const x=Math.round((snapshot.mix[1]+snapshot.mix[3])*48),y=Math.round((snapshot.mix[2]+snapshot.mix[3])*21);
+    cursorAt(67+x,25+y);
+   }finally{state.activeClip=priorClip;}
   }
  }
  model.mix=oldMix;model.touches=oldTouches;values.splice(36,4,...oldConfig);
@@ -3199,39 +3208,33 @@ console.log('s3g Thru hub visibility: every entry drawn/selected in five layouts
    }
    return key==='ui_editor_state'?JSON.stringify(fixture.editor):key==='layers_view'?JSON.stringify(fixture.layers):oldGet(key);
   };
-  Object.assign(state,{view:'main',editorReady:false});assert(globalThis.__testRefreshEditor());
+  const priorClip=state.activeClip;Object.assign(state,{view:'main',editorReady:false,activeClip:fixture.layers.clip??0});assert(globalThis.__testRefreshEditor());
   assert(state.editorReady);assert.equal(P.layers_fx0.value,2);assert(Math.abs(P.layers_fx1.value-.73)<1e-6);
   state.view='settings';state.settingsPage=tools.pages().findIndex(p=>p.title==='FX CORNER');
   before=drawWrites.length;tools.drawAll();writes=drawWrites.slice(before);
   assert(writes.some(w=>w[0]==='print'&&w[3]==='SMEA'));
   assert(!writes.some(w=>w[0]==='print'&&String(w[3]).includes('UPDATING')));
-  globalThis.host_module_get_param=oldGet;
+  globalThis.host_module_get_param=oldGet;state.activeClip=priorClip;
  }
- // Copy toggles every non-Single layout through Single, without guessing flags.
+ // Copy is harmless outside copy editors in every non-Single layout.
  Object.assign(state,{view:'main',recording:false,clipRecording:false,shiftHeld:false,copyShortcut:null});
  for(const mode of [1,2,3,4,5]){
   model.active=mode===5?1:0;params.layers_view=JSON.stringify(model);
   globalThis.host_module_set_param_blocking('split_mode',mode);globalThis.__testSplit.parse(params.split_state);ui.read();
   const beforeModeWrites=blockingWrites.length;tapIcon(60);
-  assert.equal(Number(params.split_mode),0,'Copy reaches Single from mode '+mode);
-  assert.equal(Number(params.split_return_mode),mode);
-  assert.equal(globalThis.__testParams.split_mode.value,0);
-  assert.equal(ui.iconStates().find(([id])=>id===60)[1],16);
-  tapIcon(60);assert.equal(Number(params.split_mode),mode,'Copy restores exact mode '+mode);
+  assert.equal(Number(params.split_mode),mode,'Copy preserves mode '+mode);
   assert.equal(globalThis.__testParams.split_mode.value,mode);
-  assert.equal(ui.iconStates().find(([id])=>id===60)[1],127);
-  assert.deepEqual(blockingWrites.slice(beforeModeWrites).filter(([k])=>k==='split_mode').map(([,v])=>Number(v)),[0,mode]);
+  assert.equal(ui.iconStates().find(([id])=>id===60)[1],16,'Copy is dim when released in every mode');
+  assert.deepEqual(blockingWrites.slice(beforeModeWrites).filter(([k])=>k==='split_mode'),[]);
  }
- // Project/open state can provide the last mode while Single is active.
+ // An old project's remembered return layout cannot turn Copy into a mode edit.
  globalThis.host_module_set_param_blocking('split_mode',0);globalThis.__testSplit.parse(params.split_state);ui.read();
- state.lastNonSingleMode=1;params.split_return_mode='5';tapIcon(60);assert.equal(Number(params.split_mode),5);
- // Recording rejection must not overwrite the remembered return mode.
- rejectModeSwitch=true;const remembered=params.split_return_mode;tapIcon(60);assert.equal(Number(params.split_mode),5);assert.equal(params.split_return_mode,remembered);rejectModeSwitch=false;
+ params.split_return_mode='5';tapIcon(60);assert.equal(Number(params.split_mode),0);
  globalThis.host_module_set_param_blocking('split_mode',0);globalThis.__testSplit.parse(params.split_state);ui.read();
  model.active=0;params.layers_view=JSON.stringify(model);ui.read();delete params.layers_view;
  Object.assign(state,{view:'main',algorithm:0,shiftHeld:false});
 }
-console.log('s3g Thru Layers UI: real split-keyboard pitch, normal engine pages, separate native FX snapshot, audible cursor, unobstructed meters/save feedback, Capture page memory, exact Copy mode roundtrips, deliberate gestures and detail pages: PASS');
+console.log('s3g Thru Layers UI: real split-keyboard pitch, normal engine pages, separate native FX snapshot, audible cursor, unobstructed meters/save feedback, Capture page memory, explicit mode selection and harmless Copy, deliberate gestures and detail pages: PASS');
 
 {
  const tools=globalThis.__testTools,ui=globalThis.__testSequence,state=globalThis.__testFx.state();
@@ -3239,6 +3242,8 @@ console.log('s3g Thru Layers UI: real split-keyboard pitch, normal engine pages,
  const cc=(number,value=127)=>globalThis.onMidiMessageInternal([0xb0,number,value]);
  const fixture=process.env.S3G_THRU_SEQUENCE_FIXTURE?JSON.parse(fs.readFileSync(process.env.S3G_THRU_SEQUENCE_FIXTURE,'utf8')):null;
  const native=fixture?.sequence||{active:1,edit:0,rec:0,step:0,held:-1,child:0,root:60,mask:0,length:13,playing:1,lanes:[[3,13,4,1,0],[6,7,5,1,0],[8,11,6,1,0],[2,9,4,1,0]],steps:Array.from({length:32},(_,i)=>[i%3===0?1:0,i/32]),values:[13,4,0,1,0,100,.8,0,1,0,.25,7,100,.8,0,1,1,0,4]};
+ // Native Sequence details are owned by their clip; prior UI tests select other clips.
+ if(fixture)state.activeClip=native.clip??0;
  const data=JSON.parse(JSON.stringify(native));data.length=13;data.edit=0;data.rec=0;data.playing=1;data.step_ms=125;data.lanes[0]=[3,13,4,1,0];data.steps[0]=[1,.25];data.steps[1]=[0,.5];data.values[6]=.8;data.values[13]=.8;data.values[19]=0;
  params.seq_state=JSON.stringify(data);params.split_mode='6';ui.read();
  state.splitEnabled=state.quadMode=true;state.sharedDual=false;state.splitFocus=0;state.editorReady=true;state.view='main';
@@ -3521,7 +3526,7 @@ console.log('s3g Thru Layers UI: real split-keyboard pitch, normal engine pages,
  assert(blockingWrites.some(([key,value])=>key==='seq_hold'&&Number(value)===-1));
  state.recording=true;data.rec=0;params.seq_state=JSON.stringify(data);before=blockingWrites.length;cc(41);
  assert(blockingWrites.slice(before).some(([key,value])=>key==='record_lane'&&Number(value)===3),'track selection remains available during an audio take');
- data.edit=2;params.seq_state=JSON.stringify(data);ui.read();const start=drawWrites.length;tools.drawAll();assert(titleText(drawWrites.slice(start)).includes('EDIT 3 REC 1'));
+ data.edit=2;params.seq_state=JSON.stringify(data);ui.read();const start=drawWrites.length;tools.drawAll();assert(titleText(drawWrites.slice(start)).includes('SEQ E3 REC1'));
  state.recording=false;cc(60);note(92);note(92,0);cc(60,0);
  assert(blockingWrites.some(([key])=>key==='seq_copy'));
  assert.equal(ui.model.copyReady,true);
@@ -3582,6 +3587,7 @@ console.log('s3g Thru Layers UI: real split-keyboard pitch, normal engine pages,
  const fixture=process.env.S3G_THRU_SEQUENCE_FIXTURE?JSON.parse(fs.readFileSync(process.env.S3G_THRU_SEQUENCE_FIXTURE,'utf8')):null;
  if(fixture?.poll){
    snapshotGroupKeys=Object.fromEntries(Object.entries(fixture.poll).map(([key,snapshot])=>[key,Object.keys(snapshot.values)]));
+   if(process.env.S3G_THRU_LAYERS_POLL_FIXTURE){const current=JSON.parse(fs.readFileSync(process.env.S3G_THRU_LAYERS_POLL_FIXTURE,'utf8'));snapshotGroupKeys.fast=[...new Set([...snapshotGroupKeys.fast,...Object.keys(current.frames[0].values)])];snapshotGroupKeys.layers=['layers_view'];}
    for(const snapshot of Object.values(fixture.poll)){
      assert.equal(snapshot.v,1);assert(Object.values(snapshot.values).every(v=>typeof v==='string'));
    }
@@ -3619,7 +3625,7 @@ console.log('s3g Thru Layers UI: real split-keyboard pitch, normal engine pages,
    const editorFrame=readKeys.some(key=>key.startsWith('ui_editor_chunk:'));
    if(editorFrame){
      editorFrames++;
-     assert(reads<=17&&readKeys.every(key=>key==='ui_poll_fast'||key.startsWith('ui_editor_chunk:')),
+     assert(reads<=18&&readKeys.every(key=>key==='ui_poll_fast'||key==='ui_poll_sequence'||key.startsWith('ui_editor_chunk:')),
        'editor recovery uses one bounded set of chunks, without scalar sweeps');
    }else if(reads>largestReads){largestReads=reads;largestReadKeys=readKeys;}
    if(state.ticks!==beforeTicks){
@@ -3800,11 +3806,11 @@ console.log('s3g Thru Layers UI: real split-keyboard pitch, normal engine pages,
   assert(view.modeRequest);assert.equal(mode.current(),2,'Setup MODE must retain the accepted mode until confirmed');
   frame();assert.equal(mode.current(),3);assert.equal(writes,1);
   reset(6);assert.equal(mode.current(),6);assert.equal(globalThis.__testParams.split_mode.value,6);
-  params.split_return_mode='6';view.view='main';mode.queue(false);frame();assert.equal(params.split_mode,'0');
-  mode.queue(false);frame();assert.equal(params.split_mode,'6');assert.equal(mode.current(),6);
+  params.split_return_mode='6';view.view='main';mode.queue(false);frame();assert.equal(params.split_mode,'6','No implicit mode toggle is queued');
+  mode.queue(false,0);frame();assert.equal(params.split_mode,'0');mode.queue(false,6);frame();assert.equal(params.split_mode,'6');assert.equal(mode.current(),6);
   const stable=JSON.stringify(view.splitParts);globalThis.__testSplit.parse('{}',false);
   assert.equal(mode.current(),6);assert.equal(JSON.stringify(view.splitParts),stable);
-  console.log('s3g Thru mode confirmation: host jog/click order, delayed readback, duplicate clicks, lost ACK, bounded retry, transport timeout, recording refusal, Sequence Copy return and invalid-state retention: PASS');
+  console.log('s3g Thru mode confirmation: host jog/click order, delayed readback, duplicate clicks, lost ACK, bounded retry, transport timeout, recording refusal, explicit Sequence selection and invalid-state retention: PASS');
  }finally{Date.now=oldNow;globalThis.host_module_get_param=oldGet;globalThis.host_module_set_param_blocking=oldSet;}
 }
 
@@ -3830,7 +3836,7 @@ console.log('s3g Thru Layers UI: real split-keyboard pitch, normal engine pages,
      const all=tools.pages(),play=tools.categories(0).map(entry=>all[entry.index].title);
      const generated=type===1?['EUCLIDEAN','EUC SOURCE','EUC VALUES']:type===2?['ONSET','ONSET SOURCE','ONSET VALUES']:[];
      const details=(algorithm===0?globalThis.__testMotionPages[motion].map(page=>page.title):globalThis.__testPlaybackPageTitles[algorithm]).filter(title=>title!=='STACK PATH');
-     assert.deepEqual(play,['SEQ LANE','SEQ SETUP',...generated,'TRIG','BURST','ENGINE',...details,'SEQ AMP','PLAY GAIN'],
+     assert.deepEqual(play,['SEQ LANE','SEQ SETUP',...generated,'TRIG','BURST','ENGINE',...details,...([2,7].includes(algorithm)?['TRAVEL ENVELOPE']:[]),...([2,3,6,7,11,14].includes(algorithm)?['LIVE MEMORY']:[]),'SEQ AMP','PLAY GAIN'],
        `Sequence PLAY order, type ${type}, engine ${algorithm}, motion ${motion}`);
      assert.equal(tools.hub().find(entry=>entry.hub==='setup').index,1,'hub Setup targets the same second page');
      state.view='settings';state.settingsPage=1;const at=drawWrites.length;tools.drawAll();
@@ -4778,3 +4784,224 @@ testPageActionsUi({params,blockingWrites,drawWrites});
 
 const {testNamingUi}=await import("./test_naming_ui.mjs");
 testNamingUi({params,blockingWrites,drawWrites});
+
+{
+ const source=globalThis.__testSource,s=globalThis.__testFx.state(),now=Date.now;let time=100000;Date.now=()=>time;
+ s.clipBank=0;for(let i=0;i<4;++i){source.bank(1);const start=drawWrites.length;source.notice.visible=true;source.draw();const bank=Math.min(i+1,3);assert(drawWrites.slice(start).some(w=>w[0]==='print'&&w[3]==='CLIPS '+['A','B','C','D'][bank]+' '+(bank*16+1)+'-'+((bank+1)*16)+' '+(bank+1)+'/4'));assert.equal(source.notice.until,101400);}
+ source.bank(-1);assert.equal(s.clipBank,2);time+=1401;assert(time>source.notice.until);source.notice.until=0;source.notice.visible=false;Date.now=now;
+ console.log('Clip-bank OLED notice: bank letter, global 16-slot range, page fraction, repeated boundary feedback and wall-clock timeout: PASS');
+}
+
+{
+ const source=globalThis.__testSource,actions=globalThis.__testPageActions,s=globalThis.__testFx.state(),p=globalThis.__testParams;
+ Object.assign(s,{view:'settings',algorithm:2,splitEnabled:false,splitFocus:0,quadMode:false,sharedDual:false,bankMode:false,lane:1,activeClip:0,clipPlaying:false,clipRecording:false,editorReady:true,performanceVisible:false,shiftHeld:false,focusButtonHeld:false});
+ globalThis.__testLayers.model.active=false;globalThis.__testSequence.model.active=false;p.algorithm.value=2;p.split_mode.value=0;p.voice_engine_mode.value=0;p.live_source.value=0;
+ const pages=globalThis.__testSplit.pages();s.settingsPage=pages.findIndex(page=>page.title==='GRAINS MAIN');assert(s.settingsPage>=0);
+ const size=globalThis.__testLfo.catalog.find(d=>d.key==='grain_size').id,spray=globalThis.__testLfo.catalog.find(d=>d.key==='grain_spray').id;
+ const lfos={selected:0,values:Array.from({length:8},()=>[0,0,0,1,0,0,0,10,0,0,-1,0]),allowed:[0,size,spray],parts:[0,4],engines:[-1,2],primary:2,motionSound:0};lfos.values[1][0]=spray;
+ params.lfo_state=JSON.stringify(lfos);params.last_error='';params.page_actions_state=JSON.stringify({context:'mod-test',safe:'',engine:2,patch:0});
+ source.touch(1);actions.open();assert(actions.model.rows.some(row=>row.label.startsWith('MOD SIZE')));actions.close();
+ source.mod('grain_size');assert.equal(actions.model.rows.length,8);assert.equal(actions.model.rows[0].label,'LFO 1 FREE');assert.equal(actions.model.rows[1].label,'LFO 2 REPLACE');assert(actions.model.rows[1].danger);
+ actions.model.index=1;globalThis.onMidiMessageInternal([0xb0,3,0]);globalThis.onMidiMessageInternal([0xb0,3,127]);assert(actions.model.confirm);assert.equal(actions.model.index,0);
+ actions.model.index=1;globalThis.onMidiMessageInternal([0xb0,3,0]);globalThis.onMidiMessageInternal([0xb0,3,127]);assert.equal(s.view,'settings');assert.equal(globalThis.__testSplit.pages()[s.settingsPage].title,'LFO','Confirmed replacement opens LFO editor');assert(blockingWrites.some(([k,v])=>k==='page_action'&&v.startsWith('mod|mod-test|MODULATION|1,')));
+ s.settingsPage=globalThis.__testSplit.pages().findIndex(page=>page.title==='GRAINS MAIN');source.mod('grain_size');const writes=blockingWrites.length;s.activeClip=1;assert.equal(actions.model.rows[0].run(),false);assert.equal(blockingWrites.length,writes);actions.close();
+ console.log('Direct Move modulation: touch context, free/replace slots, safe confirmation, editor handoff and stale-clip rejection: PASS');
+}
+
+{
+ const s=globalThis.__testFx.state(),p=globalThis.__testParams,ui=globalThis.__testSplit,source=globalThis.__testSource;
+ const title=()=>ui.pages()[s.settingsPage]?.title;
+ const config=()=>['travel_enabled','travel_attack','travel_attack_rate','travel_decay','travel_decay_rate','travel_sustain_rate','travel_release_rate','travel_smooth','live_source','live_lookback','live_window','live_freeze','live_gain'].map(key=>p[key].value);
+ for(const algorithm of [2,3,6,7,11,14])for(const mode of [0,1,2,3,4,5,6]){
+  Object.assign(s,{view:'settings',algorithm,splitEnabled:[1,2,3,4,6].includes(mode),splitFocus:0,quadMode:[3,6].includes(mode),sharedDual:[2,4].includes(mode),bankMode:mode===4,lane:1,activeClip:0,editorReady:true,clipPlaying:false,clipRecording:false,performanceVisible:false,shiftHeld:false,focusButtonHeld:false});
+  globalThis.__testLayers.model.active=mode===5;globalThis.__testSequence.model.active=mode===6;globalThis.__testSequenceSound.model.active=false;
+  Object.assign(p.split_mode,{value:mode});p.algorithm.value=algorithm;p.live_source.value=0;p.lane_path.value=0;p.voice_engine_mode.value=0;
+  params.live_source='0';params.last_error='';s.settingsPage=ui.pages().findIndex(page=>page.title==='LIVE MEMORY');assert(s.settingsPage>=0);
+  globalThis.__testResetEncoders();if(mode===0&&algorithm===2)globalThis.onMidiMessageInternal([0xb0,71,3]);else globalThis.__testSequence.adjust(0,3);
+  assert.equal(p.live_source.value,1);assert.equal(title(),'LIVE MEMORY','SRC activation keeps Live Memory in mode '+mode);
+  const writes=paramWrites.length;globalThis.__testResetEncoders();globalThis.__testSequence.adjust(1,3);
+  assert(paramWrites.slice(writes).some(([key])=>key==='live_lookback'),'Next encoder still changes BACK');
+  globalThis.__testResetEncoders();globalThis.__testSequence.adjust(0,-3);assert.equal(p.live_source.value,0);assert.equal(title(),'LIVE MEMORY','SRC File keeps the same page');
+  // External changes arrive through the coherent fast state, including File->Input.
+  for(const pageName of ['LIVE MEMORY','GRAINS MAIN','WEAVE','STRIP A'].filter(name=>ui.pages().some(page=>page.title===name))){
+   s.settingsPage=ui.pages().findIndex(page=>page.title===pageName);p.live_source.value=0;const v=config();v[8]=1;
+   globalThis.__testUiPolling.cache.set('source_motion_state',JSON.stringify({part:0,wave:Array(64).fill(0),v}));source.read();assert.equal(title(),pageName,'Remote source change preserves '+pageName);
+   v[8]=0;globalThis.__testUiPolling.cache.set('source_motion_state',JSON.stringify({part:0,wave:Array(64).fill(0),v}));source.read();assert.equal(title(),pageName);
+  }
+  const stack=ui.pages().findIndex(page=>page.title==='STACK PATH');if(stack>=0){s.settingsPage=stack;const v=config();v[8]=1;globalThis.__testUiPolling.cache.set('source_motion_state',JSON.stringify({part:0,wave:Array(64).fill(0),v}));source.read();assert.equal(title(),'LIVE MEMORY','Removed Stack Path falls back to the source page');}
+ }
+ // Editor refreshes also carry source changes (browser/MIDI and Save->File).
+ Object.assign(s,{view:'settings',algorithm:2,splitEnabled:false,splitFocus:0,quadMode:false,sharedDual:false,bankMode:false,editorReady:true});
+ globalThis.__testLayers.model.active=false;globalThis.__testSequence.model.active=false;
+ params.split_state=JSON.stringify({enabled:0,focus:0,mode:0,blend:.5,parts:[{},{}]});params.layers_view='{}';params.algorithm='2';params.record_lane='1';p.algorithm.value=2;p.split_mode.value=0;
+ for(const value of [1,0]){p.live_source.value=1-value;params.live_source=String(value);s.settingsPage=ui.pages().findIndex(page=>page.title==='LIVE MEMORY');assert(globalThis.__testRefreshEditor(false));assert.equal(p.live_source.value,value);assert.equal(title(),'LIVE MEMORY','Coherent editor source refresh preserves page');}
+ console.log('Live Memory navigation: physical SRC/BACK encoders, File/Input roundtrips, remote updates and removed-page fallback across Grains/Weave and all seven layouts: PASS');
+}
+
+{
+ const source=globalThis.__testSource,s=globalThis.__testFx.state(),p=globalThis.__testParams;
+ Object.assign(s,{view:'main',algorithm:17,splitEnabled:true,splitFocus:0,quadMode:false,sharedDual:false,bankMode:false,lane:1,activeClip:0,editorReady:true,mask:15});
+ p.split_mode.value=1;p.algorithm.value=17;p.live_source.value=0;
+ globalThis.__testLayers.model.active=false;globalThis.__testSequence.model.active=false;
+ const v=['travel_enabled','travel_attack','travel_attack_rate','travel_decay','travel_decay_rate','travel_sustain_rate','travel_release_rate','travel_smooth','live_source','live_lookback','live_window','live_freeze','live_gain'].map(k=>p[k].value);
+ const b={part:1,available:1,source:2,generation:4,wave:Array.from({length:64},(_,i)=>i%2?7:-7)};
+ const packet={part:0,v,wave:Array(64).fill(0),parts:[null,b]};
+ globalThis.__testUiPolling.cache.set('source_motion_state',JSON.stringify(packet));source.read();
+ assert(!source.active());assert(source.overview(),'Background B keeps fast polling active with A selected');
+ assert.equal(source.wave(0),null);assert.equal(source.wave(1),null);assert.equal(source.wave(2).source,2);assert.equal(source.wave(3).source,2);
+ s.splitParts=[{algorithm:17,window:[0,1],mute:0},{algorithm:6,window:[0,1],mute:0,live:1}];s.playheads=Array(8).fill(-1);s.voiceAlgorithms=Array(8).fill(-1);
+ source.drawSplit();
+ const rowPixels=()=>Array.from({length:9},(_,y)=>Array.from(screenBits.slice((31+y)*128+14,(31+y)*128+128)).reduce((a,b)=>a+b,0)).reduce((a,b)=>a+b,0);
+ const loudPixels=rowPixels();
+ let at=drawWrites.length;source.drawLane(2,[0,1],35);assert(drawWrites.slice(at).some(w=>w[0]==='rect'&&w[2]===31&&w[4]===9),'Lane 3 draws live amplitude instead of its loaded file');
+ packet.parts[1].wave=Array(64).fill(0);globalThis.__testUiPolling.cache.set('source_motion_state',JSON.stringify(packet));source.read();
+ source.drawSplit();assert(rowPixels()<loudPixels,'Cached full OLED redraw follows changing live history without an edit or focus change');
+ at=drawWrites.length;source.drawLane(3,[0,1],45);assert(drawWrites.slice(at).every(w=>w[0]!=='rect'||w[4]===1),'Quiet live input replaces the old waveform');
+ globalThis.__testUiPolling.cache.set('source_motion_state','{}');s.splitParts[1].live=0;source.read();assert.equal(source.wave(2),null);assert(!source.overview(),'Returning to files clears live overview');
+ // SAVE can archive live audio into an empty lane.
+ Object.assign(s,{view:'settings',algorithm:6,recording:false,mask:0,clipPrepareState:0});p.algorithm.value=6;p.live_source.value=1;s.settingsPage=globalThis.__testSplit.pages().findIndex(page=>page.title==='LIVE MEMORY');
+ params.last_error='';globalThis.__testResetEncoders();at=blockingWrites.length;globalThis.__testSequence.adjust(5,3);
+ assert(blockingWrites.slice(at).some(([key])=>key==='live_capture'),'SAVE is not gated on an existing file');
+ console.log('Live overview: nonfocused B input replaces lanes 3/4, changes/silence/file fallback and empty-lane SAVE: PASS');
+}
+
+{
+ const source=globalThis.__testSource,s=globalThis.__testFx.state(),p=globalThis.__testParams;
+ Object.assign(s,{view:'main',algorithm:2,splitEnabled:true,sharedDual:false,quadMode:false,bankMode:false,splitFocus:0,activeClip:0,mask:15});
+ p.split_mode.value=1;p.algorithm.value=2;p.live_source.value=0;
+ s.splitParts=[{algorithm:2,window:[0,1],live:0},{algorithm:2,window:[0,1],live:1}];s.playheads=Array(8).fill(-1);s.voiceAlgorithms=Array(8).fill(-1);
+ const v=['travel_enabled','travel_attack','travel_attack_rate','travel_decay','travel_decay_rate','travel_sustain_rate','travel_release_rate','travel_smooth','live_source','live_lookback','live_window','live_freeze','live_gain'].map(k=>p[k].value);
+ const hex=value=>(value+128).toString(16).padStart(2,'0');
+ const envelope=Array.from({length:120},(_,i)=>hex(0)+hex(Math.round(i*127/119))).join('');
+ const part={part:1,available:1,source:1,generation:2,wave:Array(64).fill(0),envelope};
+ const packet={part:0,v,wave:Array(64).fill(0),parts:[null,part]};
+ globalThis.__testUiPolling.cache.set('source_motion_state',JSON.stringify(packet));source.read();
+ const decoded=source.wave(2);assert.equal(decoded.plotWave.length,240);assert.equal(decoded.plotScale,127);assert.equal(decoded.plotWave[239],127);
+ globalThis.__testUiPolling.cache.set('source_motion_state',JSON.stringify(packet));source.read();assert.equal(source.wave(2).plotWave,decoded.plotWave,'Unchanged envelope reuses decoded storage');
+ source.drawSplit();let at=drawWrites.length;source.drawSplit();assert.equal(drawWrites.length,at,'Unchanged live overview sends no OLED redraws');
+ s.splitFocus=1;p.live_source.value=1;at=drawWrites.length;source.drawLive();
+ const columns=drawWrites.slice(at).filter(w=>w[0]==='rect'&&w[1]>=4&&w[1]<124&&w[3]===1&&w[2]>=13&&w[2]<=27);
+ assert.equal(columns.length,120,'Higher detail uses the same 120 screen-column draws');
+ assert(new Set(columns.map(w=>w[4])).size>=14,'Full live view uses the available one-pixel amplitude levels');
+ s.splitFocus=0;p.live_source.value=0;
+ source.drawSplit();const area=()=>Array.from({length:9},(_,y)=>Array.from(screenBits.slice((31+y)*128+14,(31+y)*128+128)).reduce((a,b)=>a+b,0)).reduce((a,b)=>a+b,0);
+ const before=area();part.envelope='8080'.repeat(120);globalThis.__testUiPolling.cache.set('source_motion_state',JSON.stringify(packet));source.read();source.drawSplit();assert(area()<before,'High-resolution changes invalidate the cache even if legacy bins are unchanged');
+ const legacy=source.decode({...part,envelope:'broken',wave:Array(64).fill(0)});assert.equal(legacy.plotScale,7);assert.equal(legacy.envelope,null);
+ const old=source.decode({wave:Array.from({length:64},(_,i)=>i%2?i%16:0)});assert.equal(old.plotWave.length,64);
+ console.log('Live OLED detail: 120-column compact envelope, fine amplitude steps, interpolated legacy fallback, decoded-cache reuse and zero unchanged redraws: PASS');
+}
+
+{
+ const identity=globalThis.__testIdentity,state=globalThis.__testFx.state(),p=globalThis.__testParams,seq=globalThis.__testSequence,layer=globalThis.__testLayers;
+ const codes=['SNG','SPL','SHR','QAD','BNK','LAY','SEQ'];
+ const savedNow=Date.now;let now=500000;Date.now=()=>now;
+ try{
+  state.activeClip=18;params.clip_bank_state='18,-1,0,0';state.browserPreview=false;state.patternFade.active=false;
+  for(let mode=0;mode<7;++mode){
+   Object.assign(state,{view:'main',algorithm:14,splitEnabled:[1,2,3,4,6].includes(mode),sharedDual:[2,4].includes(mode),quadMode:[3,6].includes(mode),bankMode:mode===4,splitFocus:0,editorReady:true,performanceVisible:false,modeRequest:null,recording:false,clipRecording:false,shiftHeld:false,copyShortcut:null});
+   p.split_mode.value=mode;p.algorithm.value=14;p.live_source.value=0;layer.model.active=mode===5;seq.model.active=mode===6;
+   state.splitParts=Array.from({length:[3,6].includes(mode)?4:2},()=>({algorithm:14,window:[0,1],mute:0}));state.mixVoices=[2,2,2,2];state.mixPeaks=[.1,.2,.1,.2];state.mixReasons=[0,0,0,0];
+   seq.model.data={active:1,edit:0,rec:2,length:16,playing:0,lanes:Array.from({length:4},()=>[-1,16,4,1,0]),steps:Array.from({length:32},()=>[0,0,0,0])};
+   identity.notice.until=0;globalThis.__testSource.notice.until=0;
+   globalThis.__testClearDisplay();let at=drawWrites.length;identity.draw();
+   const prints=drawWrites.slice(at).filter(w=>w[0]==='print'&&w[2]===0);
+   assert(prints.some(w=>String(w[3]).startsWith('B03 '+codes[mode])),'Persistent clip/mode badge in mode '+mode);
+   for(const w of prints)assert(w[1]+String(w[3]).length*6<=128,'Mode header stays inside OLED');
+   for(const recording of [false,true]){
+    state.clipRecording=recording;state.saveStatus=0;state.savedTicks=0;at=blockingWrites.length;const reads=paramReads.length;
+    globalThis.onMidiMessageInternal([0xb0,60,127]);assert.equal(layer.iconStates().find(([id])=>id===60)[1],127);
+    if(mode===6)seq.model.cursorRevision++;identity.draw();assert([...screenText.values()].some(w=>String(w[2]).includes('COPY')),'Copy hint is visible in mode '+mode);
+    globalThis.onMidiMessageInternal([0xb0,60,0]);assert.equal(layer.iconStates().find(([id])=>id===60)[1],16);
+    assert.equal(p.split_mode.value,mode);assert.equal(state.modeRequest,null);assert(!blockingWrites.slice(at).some(([k])=>['split_mode','clip_playing','clip_record'].includes(k)));
+    assert(!paramReads.slice(reads).includes('split_return_mode'),'Copy never reads the remembered return layout');
+   }
+  }
+  // A release consumed by another context must not leave Copy lit or armed.
+  seq.model.active=true;state.view='main';globalThis.onMidiMessageInternal([0xb0,60,127]);assert(seq.model.copy);
+  seq.model.active=false;state.view='main';globalThis.onMidiMessageInternal([0xb0,60,0]);assert(!seq.model.copy);assert.equal(layer.iconStates().find(([id])=>id===60)[1],16);
+  // A queued clip is not a recall. A failed editor snapshot must not announce
+  // the destination with the previous clip's mode.
+  Object.assign(state,{view:'main',editorReady:true,splitEnabled:true,quadMode:false,sharedDual:true,bankMode:false,splitFocus:0,clipRecording:false});p.split_mode.value=2;seq.model.active=false;layer.model.active=false;
+  Object.assign(identity.notice,{pending:-1,until:0,visible:false});identity.parse('18,21,0,0');assert.equal(identity.notice.pending,-1);assert.equal(identity.notice.until,0);
+  const get=globalThis.host_module_get_param;
+  try{globalThis.host_module_get_param=key=>key.startsWith('ui_editor_chunk:')?'{broken':get(key);identity.parse('21,-1,0,0');assert.equal(identity.notice.pending,21);assert.equal(identity.notice.until,0);assert(!state.editorReady);assert.equal(identity.tag(),'B06 ---');}
+  finally{globalThis.host_module_get_param=get;}
+  params.clip_bank_state='21,-1,0,0';params.split_state=JSON.stringify({mode:2,enabled:1,shared:1,quad:0,bank:0,focus:0,blend:.5,parts:[{algorithm:14,mute:0,window:[0,1]},{algorithm:14,mute:0,window:[0,1]}]});params.split_mode='2';params.algorithm='14';params.layers_view='{}';params.seq_state=JSON.stringify({active:0});
+  assert(globalThis.__testRefreshEditor());assert.equal(identity.notice.pending,-1);assert.equal(identity.notice.clip,21);assert.equal(identity.notice.mode,2);
+  let at=drawWrites.length;identity.draw();assert(drawWrites.slice(at).some(w=>w[0]==='print'&&w[3]==='B06 SHARED DUAL'));
+  now+=1200;at=drawWrites.length;identity.draw();assert(!identity.notice.visible);assert(drawWrites.slice(at).some(w=>w[0]==='print'&&w[3]==='B06 SHR'),'Banner expiration restores the cached header');
+  identity.show(21,2);
+  params.split_mode='3';params.split_state=JSON.stringify({mode:3,enabled:1,quad:1,shared:0,bank:0,focus:0,blend:.5,parts:Array.from({length:4},()=>({algorithm:14,mute:0,window:[0,1]}))});
+  assert(globalThis.__testRefreshEditor());assert.equal(identity.notice.mode,3,'A browser/MIDI mode edit refreshes an active banner');at=drawWrites.length;identity.draw();assert(drawWrites.slice(at).some(w=>w[0]==='print'&&w[3]==='B06 QUAD'));
+  identity.bank();assert.equal(identity.notice.until,0,'Explicit bank navigation takes priority over mode notice');
+  console.log('Clip mode identity: all seven headers fit, harmless Copy/held LEDs, queued vs confirmed recalls, delayed snapshot, full-name banner, cache restoration and bank priority: PASS');
+ }finally{Date.now=savedNow;identity.notice.until=0;globalThis.__testSource.notice.until=0;}
+}
+
+// Exercise real tick/cache scheduling rather than calling readLayers directly.
+{
+ const tools=globalThis.__testTools,ui=globalThis.__testLayers,state=globalThis.__testFx.state(),transport=globalThis.__testUiPolling;
+ const savedNow=Date.now,native=process.env.S3G_THRU_LAYERS_POLL_FIXTURE?JSON.parse(fs.readFileSync(process.env.S3G_THRU_LAYERS_POLL_FIXTURE,'utf8')):null;
+ const values=[0,.5,.2,0,0,0,0,1,1,.64,.2,0,0,1,.35,1,2,.4,.55,.5,.65,2,.4,1,3,.58,.4,.65,.65,2,.25,1,1,0,0,120,1,0,0,0,1,0,1,0,0,0,0,0,0];
+ const initial=native?JSON.parse(native.layersStatus.values.layers_view):{active:1,clip:0,surface:1,corner:0,fxCorner:0,held:-1,serial:1,values,touches:Array(32).fill(0),voices:[]};
+ const phases=native?native.frames.map(f=>JSON.parse(f.values.layers_cursor_state)):[
+  {mix:[1,0,0,0],fxPads:2**28},{mix:[.75,.25,0,0],fxPads:2**31},{mix:[0,1,0,0],fxPads:2**31},{mix:[0,0,1,0],fxPads:2**4}
+ ].map(p=>({v:1,active:1,clip:0,z:1,down:0,latched:0,voiceCount:0,...p}));
+ Object.assign(initial,{mix:phases[0].mix,fxPads:phases[0].fxPads,z:phases[0].z,touches:Array(32).fill(0)});
+ const split={mode:5,enabled:0,shared:0,quad:0,bank:0,focus:0,blend:.5,parts:[{root:60,octave:0,scale:0,mode:0,mute:0},{root:60,octave:0,scale:0,mode:0,mute:0}]};
+ params.layers_view=JSON.stringify(initial);params.split_state=JSON.stringify(split);params.split_mode='5';params.algorithm='4';params.clip_bank_state='0,-1,3,0';params.clip_state='1,0,0,0,2000,0,20,1000,0,0,12000,4000';params.seq_state='{"active":0}';
+ Object.assign(state,{activeClip:0,clipBank:0,view:'main',editorReady:true,splitEnabled:false,sharedDual:false,quadMode:false,bankMode:false,splitFocus:0,algorithm:4,clipPlaying:true,clipRecording:false,performanceVisible:false,messageTicks:0,actionMessageTicks:0,saveStatus:0,savedTicks:0,shiftHeld:false,focusButtonHeld:false,mask:0});
+ globalThis.__testSequence.model.active=false;tools.params.split_mode.value=5;tools.params.voice_engine_mode.value=0;ui.read();globalThis.__testClearDisplay();
+ transport.supported=null;transport.cache.clear();transport.lastFrame=-Infinity;transport.job=0;transport.editorPending=false;
+ snapshotGroupKeys={fast:native?Object.keys(native.frames[0].values):['clip_bank_state','layers_cursor_state','ui_state','clip_state','playheads','voice_lanes','voice_pads','voice_notes'],status:['split_state','algorithm'],layers:['layers_view'],composition:['clip_bank_state'],sequence:['seq_state'],sources:['waveforms'],diagnostics:[],midi:[]};
+ emulateSnapshotTransport=true;spiNow=300000;Date.now=()=>Math.floor(spiNow);let frames=0,maximumReads=0;
+ const frame=()=>{const beforeTicks=state.ticks,beforeReads=paramReads.length;for(let tries=0;state.ticks===beforeTicks&&tries<30;++tries){spiNow+=2;globalThis.tick();}assert(state.ticks>beforeTicks);const reads=paramReads.slice(beforeReads);if(reads.some(k=>k.startsWith('ui_editor_chunk:'))){assert(reads.length<=18);assert(reads.every(k=>k==='ui_poll_fast'||k==='ui_poll_sequence'||k==='layers_view'||k.startsWith('ui_editor_chunk:')));}else{maximumReads=Math.max(maximumReads,reads.length);assert(reads.length<=2,reads.join(','));assert(reads.every(k=>k.startsWith('ui_poll_')),reads.join(','));}frames++;};
+ const cursorAt=(mix)=>{const x=67+Math.round((mix[1]+mix[3])*48),y=25+Math.round((mix[2]+mix[3])*21);for(let dy=0;dy<3;++dy)for(let dx=0;dx<3;++dx)assert.equal(screenPixel(x+dx,y+dy),1,'Cached playback must animate the OLED FX cursor');};
+ try{
+  for(const phase of phases){params.layers_cursor_state=JSON.stringify(phase);for(let i=0;i<6;++i){frame();assert.deepEqual(ui.model.data.mix,phase.mix);cursorAt(phase.mix);}if(phase.fxPads){const lit=31-Math.clz32(phase.fxPads);assert.notEqual(tools.led(lit),tools.led(lit===4?28:4),'Recorded field owns the correct physical pad LED');}}
+  // The same fast path follows browser/MIDI motion while transport is stopped.
+  state.clipPlaying=false;params.clip_state=params.clip_state.replace(/^1,/, '0,');const center={...phases[0],mix:[.25,.25,.25,.25],fxPads:2**21};params.layers_cursor_state=JSON.stringify(center);for(let i=0;i<5;++i){frame();cursorAt(center.mix);}
+  // Reject malformed/wrong-clip motion without losing the last complete frame.
+  const prior=ui.model.data.mix;for(const wrong of[{...center,clip:1},{...center,mix:[1,0]},{...center,mix:[1,0,0,-1]},{...center,fxPads:-1}]){params.layers_cursor_state=JSON.stringify(wrong);frame();assert.deepEqual(ui.model.data.mix,prior);}
+  // Layers -> Single -> Layers: leave the previous clip's slower snapshot in
+  // the cache. The returning clip must keep its own layout and FX data.
+  params.layers_cursor_state=JSON.stringify({...center,active:0,clip:1});params.layers_view=JSON.stringify({active:0,clip:1});params.split_state=JSON.stringify({...split,mode:0});params.split_mode='0';params.clip_bank_state='1,-1,3,0';frame();assert.equal(state.activeClip,1);assert.equal(ui.model.active,false);ui.read();
+  const staleSingle=params.layers_view;params.layers_view=JSON.stringify(initial);params.split_state=JSON.stringify(split);params.split_mode='5';params.clip_bank_state='0,-1,3,0';params.layers_cursor_state=JSON.stringify(center);transport.cache.set('layers_view',staleSingle);frame();assert.equal(state.activeClip,0);assert(ui.model.active);assert(state.editorReady);assert.equal(tools.params.split_mode.value,5);cursorAt(center.mix);
+  // Earlier modes of this same clip can leave a stale inactive snapshot.
+  transport.cache.set('split_state',JSON.stringify(split));transport.cache.set('layers_view',JSON.stringify({active:0,clip:0}));
+  state.ticks+=(2-state.ticks%3+3)%3;frame();assert(ui.model.active,'Same-clip stale Single snapshot cannot override authoritative Layers mode');assert.equal(tools.params.split_mode.value,5);cursorAt(center.mix);
+  transport.cache.set('layers_view',params.layers_view);
+  const current=params.layers_view;params.layers_view=staleSingle;ui.read();assert(ui.model.active,'Stale inactive Single snapshot cannot turn the current Layers clip into Single');params.layers_view=current;
+  // Editor recovery must fetch fresh details even when inactive metadata
+  // belongs to this clip (rather than only checking the clip identity).
+  params.layers_view=JSON.stringify({active:0,clip:0});ui.read();assert(!ui.model.active);
+  params.layers_view=current;const beforeDetails=paramReads.length;assert(globalThis.__testRefreshEditor(false));
+  assert(paramReads.slice(beforeDetails).includes('layers_view'));assert(ui.model.active);assert.equal(ui.model.data.active,1);
+  // The opposite stale snapshot must not pull a confirmed Single clip back
+  // into Layers. Direct reads remain available to discover a real mode edit.
+  params.split_state=JSON.stringify({...split,mode:0});params.split_mode='0';assert(globalThis.__testRefreshEditor(false));
+  assert(!ui.model.active);transport.cache.set('layers_view',current);
+  state.ticks+=(2-state.ticks%3+3)%3;frame();assert(!ui.model.active);assert.equal(tools.params.split_mode.value,0);
+  params.layers_view=current;params.split_state=JSON.stringify(split);params.split_mode='5';assert(globalThis.__testRefreshEditor(false));assert(ui.model.active);
+  // Fast context gating rejects a coherent editor snapshot for another clip.
+  params.clip_bank_state='1,-1,3,0';assert.equal(globalThis.__testRefreshEditor(false),false);assert(!state.editorReady);params.clip_bank_state='0,-1,3,0';assert(globalThis.__testRefreshEditor(false));
+  console.log('Layers cached transport: native/synthetic recorded XY, physical pad LEDs, stopped external control, malformed/stale guards and Layers/Single/return ownership: PASS ('+frames+' frames, '+maximumReads+' queries/frame)');
+ }finally{Date.now=savedNow;emulateSnapshotTransport=false;snapshotGroupKeys=null;transport.supported=null;transport.cache.clear();transport.editorPending=false;}
+}
+
+// Current native modes own cached details, including an older mode of one clip.
+{
+ const seq=globalThis.__testSequence,source=globalThis.__testSource,state=globalThis.__testFx.state(),p=globalThis.__testParams,transport=globalThis.__testUiPolling;
+ Object.assign(state,{activeClip:0,splitFocus:0,view:'main',splitEnabled:true,quadMode:true,sharedDual:false,bankMode:false});
+ globalThis.__testLayers.model.active=false;seq.model.active=true;p.split_mode.value=6;
+ transport.cache.set('seq_state',JSON.stringify({active:0,clip:0}));transport.cached=true;
+ try{seq.read();assert(seq.model.active);assert.equal(p.split_mode.value,6);
+  transport.cache.set('seq_state',JSON.stringify({active:1,clip:1,edit:0}));seq.read();assert.equal(p.split_mode.value,6);
+  const prior=seq.model.data;transport.cache.set('seq_state',JSON.stringify({active:1,clip:0,edit:1}));seq.read();assert.equal(seq.model.data,prior);
+ }finally{transport.cached=false;}
+ Object.assign(state,{splitEnabled:false,quadMode:false,algorithm:2});seq.model.active=false;p.split_mode.value=0;p.live_source.value=1;
+ transport.cache.set('source_motion_state',JSON.stringify({active:0,clip:1,mode:0}));source.read();assert.equal(p.live_source.value,1);
+ transport.cache.set('source_motion_state',JSON.stringify({active:0,clip:0,mode:5}));source.read();assert.equal(p.live_source.value,1);
+ transport.cache.set('source_motion_state',JSON.stringify({active:0,clip:0,mode:0}));source.read();assert.equal(p.live_source.value,0);assert(!source.active());assert(!source.overview());
+ console.log('Owned detail recovery: stale Sequence mode/clip/focus and explicit Live Memory -> File snapshots: PASS');
+}

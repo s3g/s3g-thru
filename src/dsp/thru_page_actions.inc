@@ -12,7 +12,7 @@ bool pageScalar(const MidiParameter& p) {
     const std::string k=p.key;
     if(p.action||k=="algorithm"||k=="motion_sound"||k=="record_lane")return false;
     if(p.lock>=0)return true;
-    for(const char* prefix:{"table_","scanned_","fm_","noise_","reson_","partials_","lowform_"})
+    for(const char* prefix:{"table_","scanned_","fm_","noise_","reson_","partials_","lowform_","travel_","live_"})
         if(k.rfind(prefix,0)==0)return true;
     return k=="pad_mode"||k=="voice_mode"||k=="root_note"||k=="scale"||k=="pressure_mode"||k=="hold_release_ms"||k=="polyphony_comp";
 }
@@ -35,6 +35,12 @@ void performPageAction(ThruInstance& t,const char* text) {
     t.clearError();
     const int part=t.splitEnabled?t.splitFocus:0;
     if(op=="check")return;
+    if(op=="mod"){
+        int slot=-1,id=-1,dest=-1,target=-1,algorithm=-1,n=0;
+        if(std::sscanf(payload.c_str(),"%d,%d,%d,%d,%d%n",&slot,&id,&dest,&target,&algorithm,&n)!=5||std::size_t(n)!=payload.size()||!t.assignModulation(part,slot,id,dest,target,algorithm))t.setError("Modulation target changed or unavailable");
+        return;
+    }
+
     if(op=="set"){
         const auto colon=payload.find(':');const auto* p=pageParameter(payload.substr(0,colon));
         char* end=nullptr;const float value=colon==std::string::npos?NAN:std::strtof(payload.c_str()+colon+1,&end);

@@ -267,6 +267,10 @@ int main() {
       c->clipPoints[0] = {0, 0, 4, 0, ClipPointType::sequenceLane};
       c->clipPoints[1] = {100, 100, 5, 0, ClipPointType::sequenceLane};
     }
+    c->sourcePrograms[0].v[2]=c->sourcePrograms[1].v[2]=-2;
+    c->sourcePrograms[0].v[8]=c->sourcePrograms[1].v[8]=1;
+    c->takeCount=1;
+    c->clipPoints[c->clipPointCount++]={0,-1,2,0,ClipPointType::sourceParameter};
     auto doc = ThruInstance::composerObject({{"format", "s3g-thrupack"},
                                              {"version", 1},
                                              {"title", "Test"},
@@ -284,6 +288,9 @@ int main() {
     ThruInstance::composerReadClip(*next, doc.at("clips").arrayValue()[0], 120);
     assert(next->tablePrograms[0].patches[2].v[s3g_thru_table::tune] == 11);
     assert(ThruInstance::composerMode(*next) == mode);
+    assert(next->sourcePrograms[next->splitEnabled?1:0].v[2]==-2);
+    assert(next->sourcePrograms[next->splitEnabled?1:0].v[8]==1);
+    bool sourceCurve=false;for(int i=0;i<next->clipPointCount;++i)sourceCurve|=next->clipPoints[i].type==ClipPointType::sourceParameter&&next->clipPoints[i].value==-1;assert(sourceCurve);
     assert(next->recordedTempoBpm == 91.0f);
     assert(c->splitEnabled == next->splitEnabled &&
            c->sharedDual == next->sharedDual);

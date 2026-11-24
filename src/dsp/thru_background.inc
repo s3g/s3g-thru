@@ -109,7 +109,9 @@
             || self.bankJob.load(std::memory_order_acquire)==2
             || self.customSaveJob.load(std::memory_order_acquire)==1
             || self.projectJob.load(std::memory_order_acquire)==projectRequested
-            || self.namingJob.load(std::memory_order_acquire)==2) {
+            || self.namingJob.load(std::memory_order_acquire)==2
+            || self.liveCaptureJob.load(std::memory_order_acquire)==1) {
+            if(self.processLiveCapture())continue;
             if(self.processBankJob())continue;
             if (self.laneJob.load(std::memory_order_acquire) == backgroundRequested) {
                 self.laneJob.store(backgroundWorking, std::memory_order_release);

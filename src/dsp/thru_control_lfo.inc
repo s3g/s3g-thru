@@ -816,3 +816,30 @@ int formatControlLfoLive(char *out, int capacity) const {
 
 #include "thru_control_lfo_legacy.inc"
 #include "thru_control_lfo_pool_storage.inc"
+// Direct assignment uses the same curated destination checks as the picker.
+int modulationDestination(const char* key,int part,int& target)const{
+ target=part;const char* name=key;
+ if(!std::strcmp(key,"output_gain"))name="part_level";
+ for(int p=0;p<4;++p){const std::string suffix(1,char('a'+p));
+  if(std::string(key)=="split_level_"+suffix){name="part_level";target=p;}
+  if(std::string(key)=="split_delay_"+suffix){name="part_delay";target=p;}
+  if(std::string(key)=="split_reverb_"+suffix){name="part_reverb";target=p;}
+  if(std::string(key)=="seq_pan_"+std::to_string(p+1)){name="part_pan";target=p;}
+ }
+ const int id=controlLfoDestinationForKey(name);if(!id)return 0;
+ const auto domain=s3g_thru_lfo::destinations[id].domain;
+ if(domain==s3g_thru_lfo::Domain::shared||domain==s3g_thru_lfo::Domain::layers)target=4;
+ s3g_thru_lfo::Config probe;probe.target=target;probe.engine=-1;probe.v[0]=float(id);
+ return controlLfoDestinationAvailable(probe,id)?id:0;
+}
+bool assignModulation(int part,int slot,int parameterId,int expectedDest,int expectedTarget,int algorithm){
+ if(part<0||part>=controlLfoPartCount()||slot<0||slot>7||clipRecording||audioRecording()||patternBusy())return false;
+ const auto* p=s3g_thru_midi::find(parameterId);if(!p||p->action||int(controlLfoProgram(part).algorithm)!=algorithm)return false;
+ const auto& current=controlLfoPool[slot];if(int(current.v[0])!=expectedDest||current.target!=expectedTarget)return false;
+ int target=part;const int dest=modulationDestination(p->key,part,target);if(!dest)return false;
+ if(int(current.v[0])==dest&&current.target==target){controlLfoEdit=slot;return true;}
+ pushClipUndo(activeClip);
+ const auto write=[&](const char* field,int value){const auto key="lfo"+std::to_string(slot+1)+"_"+field;const auto text=std::to_string(value);setControlLfoParam(key.c_str(),text.c_str());};
+ write("target",target);write("engine",-1);write("dest",dest);controlLfoEdit=slot;
+ clearError();return true;
+}

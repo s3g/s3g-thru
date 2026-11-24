@@ -234,7 +234,7 @@ enum class ClipPointType : std::uint8_t {
     stackPath,
     notePressure,
     midiExpression,
-    layersParameter, layersBaseline, sequenceLane, sequenceRecipe, controlLfo, pooledLfo, tableParameter, scannedParameter, fmParameter, noiseParameter, resonParameter, partialsParameter, lowformParameter, resonDensity,
+    layersParameter, layersBaseline, sequenceLane, sequenceRecipe, controlLfo, pooledLfo, tableParameter, scannedParameter, fmParameter, noiseParameter, resonParameter, partialsParameter, lowformParameter, resonDensity, sourceParameter,
 };
 
 struct VoiceEntryVariation {
@@ -525,7 +525,8 @@ constexpr std::size_t kClipResonOffset=kClipNoiseOffset+16*s3g_thru_noise::field
 constexpr std::size_t kClipPartialsOffset=kClipResonOffset+16*s3g_thru_reson::fields;
 constexpr std::size_t kClipLowformOffset=kClipPartialsOffset+16*s3g_thru_partials::fields;
 constexpr std::size_t kClipResonDensityOffset=kClipLowformOffset+16*s3g_thru_lowform::fields;
-constexpr std::size_t kClipCurveLaneCount=kClipResonDensityOffset+4;
+constexpr std::size_t kClipSourceOffset=kClipResonDensityOffset+4;
+constexpr std::size_t kClipCurveLaneCount=kClipSourceOffset+4*s3g_thru_source::fields;
 static_assert(kClipSequenceOffset+s3g_thru_sequence::laneCurveOffset(0,11)==kClipSequencePathOffset,"PATH must follow existing curve identities");
 constexpr std::size_t sequenceRecipeCurve(int part,int field){
     return part>=0&&part<4&&field>=1&&field<=21
@@ -570,6 +571,7 @@ struct ClipTouchSpan {
 };
 
 struct ClipSlot {
+    std::array<s3g_thru_source::Config,5> sourcePrograms{};
     std::array<ClipTouchSpan,128> touchSpans{};
     std::uint16_t touchCount=0;
     std::bitset<kClipCurveLaneCount> touchLanes;
@@ -822,6 +824,19 @@ constexpr const char kChainParams[] = R"json([
 {"key":"voice_engine_8","name":"Engine List Entry 8","type":"int","min":0,"max":15},
 {"key":"voice_engine_active","name":"Assigned Engine Voices Active","type":"int","min":0,"max":1,"access":"read","live":true},
 {"key":"voice_engine_state","name":"Engine List State","type":"string","access":"read","live":true},
+{"key":"travel_enabled","name":"Travel Envelope","short_name":"MODE","type":"enum","default":0,"options":["Off","On"]},
+{"key":"travel_attack","name":"Travel Attack Time","short_name":"ATIM","type":"float","default":100,"min":0,"max":10000,"step":1},
+{"key":"travel_attack_rate","name":"Attack Travel Rate","short_name":"ARAT","type":"float","default":1,"min":-4,"max":4,"step":0.02},
+{"key":"travel_decay","name":"Travel Decay Time","short_name":"DTIM","type":"float","default":500,"min":0,"max":10000,"step":1},
+{"key":"travel_decay_rate","name":"Decay Travel Rate","short_name":"DRAT","type":"float","default":1,"min":-4,"max":4,"step":0.02},
+{"key":"travel_sustain_rate","name":"Sustain Travel Rate","short_name":"SRAT","type":"float","default":0,"min":-4,"max":4,"step":0.02},
+{"key":"travel_release_rate","name":"Release Travel Rate","short_name":"RRAT","type":"float","default":1,"min":-4,"max":4,"step":0.02},
+{"key":"travel_smooth","name":"Travel Smoothing","short_name":"SMTH","type":"float","default":20,"min":0,"max":200,"step":1},
+{"key":"live_source","name":"Live Memory Source","short_name":"SRC","type":"enum","default":0,"options":["File","Input","Part A","Part B","Part C","Part D"]},
+{"key":"live_lookback","name":"Live Lookback","short_name":"BACK","type":"float","default":250,"min":10,"max":10000,"step":1},
+{"key":"live_window","name":"Live Window","short_name":"WIND","type":"float","default":1000,"min":50,"max":12000,"step":1},
+{"key":"live_freeze","name":"Live Freeze","short_name":"FRZE","type":"enum","default":0,"options":["Off","On"]},
+{"key":"live_gain","name":"Live Level","short_name":"GAIN","type":"float","default":1,"min":0,"max":2,"step":0.02},
 {"key":"algorithm","name":"Algorithm","short_name":"ALG","type":"enum","options":["Motion","Lanes","Grains","Cutups","Sample","Slices","Glitch","Weave","Wavesets","Prism","Morph","Texture","Formant","Stochastic","Pulsar","Table","Scanned","FM"],"default":0},
 {"key":"scanned_excitation","name":"Excitation","short_name":"EXC","type":"enum","default":0,"options":["PLUCK","STRIKE","NOISE","SAMPLE"]},
 {"key":"scanned_pick","name":"Excitation Position","short_name":"PICK","type":"float","default":24,"min":1,"max":99,"step":0.1},
@@ -1491,6 +1506,7 @@ constexpr const char kChainParams[] = R"json([
 {"key":"layers_fx10","name":"FX Detail 3","short_name":"D3","type":"float","min":0,"max":1,"default":0},
 {"key":"layers_fx11","name":"FX Detail 4","short_name":"D4","type":"float","min":0,"max":1,"default":0},
 {"key":"layers_view","name":"Layers Display","type":"string","access":"read"},
+{"key":"layers_cursor_state","name":"Layers Cursor","type":"string","access":"read"},
 {"key":"captures_directory","name":"Recordings Directory","type":"string","access":"read"},
 {"key":"last_error","name":"Last Error","type":"string","access":"read","live":true},
 {"key":"recording","name":"Recording","type":"int","min":0,"max":1,"access":"read","live":true},
@@ -3276,6 +3292,7 @@ struct ThruInstance : PlaybackEffectsState {
         sampleRate = static_cast<float>(hostRate);
         fadeLookahead.prepare(sampleRate);
         fadeLookahead.setEnabled(patternLookahead!=0,true);
+        for(auto& memory:liveMemories)if(!memory.prepare(hostRate)){setError("Live Memory allocation failed");return false;}
         laneCapacityFrames = static_cast<std::size_t>(hostRate) * kLaneSeconds;
         planeCapacityFrames = laneCapacityFrames * Engine::kLaneChannels;
         const std::size_t totalFloats = planeCapacityFrames * kChannelCount;
@@ -5533,6 +5550,7 @@ struct ThruInstance : PlaybackEffectsState {
 
     static std::size_t clipPointLane(const ClipPoint& point)
     {
+        if(point.type==ClipPointType::sourceParameter)return point.sourcePad<4&&(point.parameter&255u)<s3g_thru_source::fields?kClipSourceOffset+point.sourcePad*s3g_thru_source::fields+(point.parameter&255u):kClipCurveLaneCount;
         if(point.type==ClipPointType::resonDensity)return point.sourcePad<4u&&(point.parameter&255u)==0u?kClipResonDensityOffset+point.sourcePad:kClipCurveLaneCount;
         if(point.type==ClipPointType::scannedParameter)return point.sourcePad<16&&(point.parameter&255u)<s3g_thru_scanned::fields?kClipScannedOffset+point.sourcePad*s3g_thru_scanned::fields+(point.parameter&255u):kClipCurveLaneCount;
         if(point.type==ClipPointType::fmParameter)return point.sourcePad<16&&(point.parameter&255u)<s3g_thru_fm::fields?kClipFmOffset+point.sourcePad*s3g_thru_fm::fields+(point.parameter&255u):kClipCurveLaneCount;
@@ -5698,6 +5716,7 @@ struct ThruInstance : PlaybackEffectsState {
                 ||Engine::sourceFree(liveControlsForPart(part).algorithm));
     }
 
+#include "thru_source_motion.inc"
 #include "thru_table.inc"
 #include "thru_scanned.inc"
 #include "thru_fm.inc"
@@ -5775,6 +5794,7 @@ struct ThruInstance : PlaybackEffectsState {
         if (!clipRecording || !clip) return;
         const std::uint32_t time = timeOverride==0xffffffffu ? clipCaptureTimeMs() : timeOverride;
         std::size_t curveLane = kClipCurveLaneCount;
+        if(type==ClipPointType::sourceParameter){curveLane=sourcePad>=0&&sourcePad<4&&parameter<s3g_thru_source::fields?kClipSourceOffset+sourcePad*s3g_thru_source::fields+parameter:kClipCurveLaneCount;}
         if(type==ClipPointType::resonDensity){curveLane=sourcePad>=0&&sourcePad<4&&parameter==0?kClipResonDensityOffset+sourcePad:kClipCurveLaneCount;}
         if(type==ClipPointType::scannedParameter){curveLane=sourcePad>=0&&sourcePad<16&&parameter<s3g_thru_scanned::fields?kClipScannedOffset+sourcePad*s3g_thru_scanned::fields+parameter:kClipCurveLaneCount;}
         if(type==ClipPointType::fmParameter){curveLane=sourcePad>=0&&sourcePad<16&&parameter<s3g_thru_fm::fields?kClipFmOffset+sourcePad*s3g_thru_fm::fields+parameter:kClipCurveLaneCount;}
@@ -5852,7 +5872,7 @@ struct ThruInstance : PlaybackEffectsState {
             ClipPoint& previous = clip->clipPoints[
                 static_cast<std::size_t>(previousIndex)];
             if((type==ClipPointType::pressure||type==ClipPointType::notePressure||type==ClipPointType::midiExpression)&&time==previous.timeMs){previous.value=value;return;}
-            if((type==ClipPointType::layersParameter||type==ClipPointType::tableParameter||type==ClipPointType::scannedParameter||type==ClipPointType::fmParameter||type==ClipPointType::noiseParameter||type==ClipPointType::resonParameter||type==ClipPointType::resonDensity||type==ClipPointType::lowformParameter||type==ClipPointType::partialsParameter)&&time==previous.timeMs){previous.value=value;return;}
+            if((type==ClipPointType::sourceParameter||type==ClipPointType::layersParameter||type==ClipPointType::tableParameter||type==ClipPointType::scannedParameter||type==ClipPointType::fmParameter||type==ClipPointType::noiseParameter||type==ClipPointType::resonParameter||type==ClipPointType::resonDensity||type==ClipPointType::lowformParameter||type==ClipPointType::partialsParameter)&&time==previous.timeMs){previous.value=value;return;}
             if(formantEdge && !forceEdge && time>=previous.timeMs && value==previous.value)return;
             if(formantEdge && time==previous.timeMs){previous.value=value;return;}
             if (!formantEdge && time >= previous.timeMs
@@ -7253,6 +7273,12 @@ struct ThruInstance : PlaybackEffectsState {
         for (std::size_t lane = 0u; lane < kClipCurveLaneCount; ++lane) {
             if(clip.clipPointCounts[lane]==0 || composerTouched.test(lane))continue;
             float value = 0.0f;
+            if(lane>=kClipSourceOffset){
+                const auto part=(lane-kClipSourceOffset)/s3g_thru_source::fields,field=(lane-kClipSourceOffset)%s3g_thru_source::fields;
+                if((splitEnabled||part==0)&&!sourceMotionOverrides.test(part*s3g_thru_source::fields+field)&&sampleClipCurve(clip,lane,position,!s3g_thru_source::discrete(int(field)),value))
+                    s3g_thru_source::set((splitEnabled?splitClipControls[part]:clipControls).sourceMotion,int(field),value);
+                continue;
+            }
             if(lane>=kClipResonDensityOffset){
                 const auto part=lane-kClipResonDensityOffset;
                 if((splitEnabled||part==0)&&!resonDensityOverrides[part]&&sampleClipCurve(clip,lane,position,true,value))
@@ -7435,7 +7461,7 @@ struct ThruInstance : PlaybackEffectsState {
             releaseClipVoices();
         } else if (!clipPlaying) {
             clipPlaying = true;
-            if(!clipRecording){layersOverrides.reset();tableOverrides.reset();scannedOverrides.reset();fmOverrides.reset();noiseOverrides.reset();resonOverrides.reset();resonDensityOverrides.reset();lowformOverrides.reset();partialsOverrides.reset();}
+            if(!clipRecording){layersOverrides.reset();tableOverrides.reset();scannedOverrides.reset();fmOverrides.reset();noiseOverrides.reset();resonOverrides.reset();resonDensityOverrides.reset();lowformOverrides.reset();partialsOverrides.reset();sourceMotionOverrides.reset();}
             clipNeedsStart = true;
         }
         clipOpenNoteIndices.fill(-1);
@@ -7563,7 +7589,7 @@ struct ThruInstance : PlaybackEffectsState {
         }
         clip->occupied = true;
         clipRecording = false;
-        layersOverrides.reset();tableOverrides.reset();scannedOverrides.reset();fmOverrides.reset();noiseOverrides.reset();resonOverrides.reset();resonDensityOverrides.reset();lowformOverrides.reset();partialsOverrides.reset();
+        layersOverrides.reset();tableOverrides.reset();scannedOverrides.reset();fmOverrides.reset();noiseOverrides.reset();resonOverrides.reset();resonDensityOverrides.reset();lowformOverrides.reset();partialsOverrides.reset();sourceMotionOverrides.reset();
         sequenceOverrides={};sequenceRecipeOverrides={};
         clipFinishPending = false;
         clipPlaying = true;
@@ -7571,7 +7597,7 @@ struct ThruInstance : PlaybackEffectsState {
             clipPositionMs = 0.0;
             clipAbsolutePositionMs = 0.0;
             pulsarClipCycle = 0;
-            if(!clipRecording){layersOverrides.reset();tableOverrides.reset();scannedOverrides.reset();fmOverrides.reset();noiseOverrides.reset();resonOverrides.reset();resonDensityOverrides.reset();lowformOverrides.reset();partialsOverrides.reset();}
+            if(!clipRecording){layersOverrides.reset();tableOverrides.reset();scannedOverrides.reset();fmOverrides.reset();noiseOverrides.reset();resonOverrides.reset();resonDensityOverrides.reset();lowformOverrides.reset();partialsOverrides.reset();sourceMotionOverrides.reset();}
             clipNeedsStart = true;
         }
         markPersistentStateDirty();
@@ -7649,7 +7675,7 @@ struct ThruInstance : PlaybackEffectsState {
         }
         releaseClipRolls();
         for(auto& values:performanceRecorded)values.fill(0);
-        layersRecorded=layersLive;layersOverrides.reset();tableOverrides.reset();scannedOverrides.reset();fmOverrides.reset();noiseOverrides.reset();resonOverrides.reset();resonDensityOverrides.reset();lowformOverrides.reset();partialsOverrides.reset();
+        layersRecorded=layersLive;layersOverrides.reset();tableOverrides.reset();scannedOverrides.reset();fmOverrides.reset();noiseOverrides.reset();resonOverrides.reset();resonDensityOverrides.reset();lowformOverrides.reset();partialsOverrides.reset();sourceMotionOverrides.reset();
         sequenceOverrides={};sequenceRecipeOverrides={};
         sequencePlayback=sequenceLive;invalidateSequenceRecipePlayback();syncSequenceRatePhases();
         if(sequenceMode()){
@@ -7794,7 +7820,7 @@ struct ThruInstance : PlaybackEffectsState {
                 clipPositionMs = 0.0;
                 clipAbsolutePositionMs = 0.0;
                 pulsarClipCycle = 0;
-                if(!clipRecording){layersOverrides.reset();tableOverrides.reset();scannedOverrides.reset();fmOverrides.reset();noiseOverrides.reset();resonOverrides.reset();resonDensityOverrides.reset();lowformOverrides.reset();partialsOverrides.reset();}
+                if(!clipRecording){layersOverrides.reset();tableOverrides.reset();scannedOverrides.reset();fmOverrides.reset();noiseOverrides.reset();resonOverrides.reset();resonDensityOverrides.reset();lowformOverrides.reset();partialsOverrides.reset();sourceMotionOverrides.reset();}
                 clipNeedsStart = true;
             }
             return;
@@ -7877,7 +7903,7 @@ struct ThruInstance : PlaybackEffectsState {
             clipPositionMs = 0.0;
             clipAbsolutePositionMs = 0.0;
             pulsarClipCycle = 0;
-            if(!clipRecording){layersOverrides.reset();tableOverrides.reset();scannedOverrides.reset();fmOverrides.reset();noiseOverrides.reset();resonOverrides.reset();resonDensityOverrides.reset();lowformOverrides.reset();partialsOverrides.reset();}
+            if(!clipRecording){layersOverrides.reset();tableOverrides.reset();scannedOverrides.reset();fmOverrides.reset();noiseOverrides.reset();resonOverrides.reset();resonDensityOverrides.reset();lowformOverrides.reset();partialsOverrides.reset();sourceMotionOverrides.reset();}
             clipNeedsStart = true;
             return;
         }
@@ -7897,7 +7923,7 @@ struct ThruInstance : PlaybackEffectsState {
         clipPositionMs = 0.0;
         clipAbsolutePositionMs = 0.0;
         pulsarClipCycle = 0;
-        if(!clipRecording){layersOverrides.reset();tableOverrides.reset();scannedOverrides.reset();fmOverrides.reset();noiseOverrides.reset();resonOverrides.reset();resonDensityOverrides.reset();lowformOverrides.reset();partialsOverrides.reset();}
+        if(!clipRecording){layersOverrides.reset();tableOverrides.reset();scannedOverrides.reset();fmOverrides.reset();noiseOverrides.reset();resonOverrides.reset();resonDensityOverrides.reset();lowformOverrides.reset();partialsOverrides.reset();sourceMotionOverrides.reset();}
         clipNeedsStart = true;
         if(chainLaunchBank>=0){prepareChainLaunch();return;}
         if (chainEnabled) {
@@ -7957,6 +7983,7 @@ struct ThruInstance : PlaybackEffectsState {
         bool synth=listUsesAlgorithm(int(Engine::PlaybackAlgorithm::table))||listUsesAlgorithm(int(Engine::PlaybackAlgorithm::scanned))||listUsesAlgorithm(int(Engine::PlaybackAlgorithm::fm))||listUsesAlgorithm(int(Engine::PlaybackAlgorithm::noise))||listUsesAlgorithm(int(Engine::PlaybackAlgorithm::reson))||listUsesAlgorithm(int(Engine::PlaybackAlgorithm::lowform))||listUsesAlgorithm(int(Engine::PlaybackAlgorithm::partials));
         for(int part=0;part<(splitEnabled?partCount():1);++part)
             synth|=Engine::sourceFree(liveControlsForPart(part).algorithm);
+        for(int part=0;part<(splitEnabled?partCount():1);++part)synth|=liveControlsForPart(part).sourceMotion.v[8]!=0;
         return synth || (clip && clip->clipRecorded
             && clip->clipDurationMs >= kClipMinimumDurationMs);
     }
@@ -7990,7 +8017,7 @@ struct ThruInstance : PlaybackEffectsState {
     void pushClipUndo(int index)
     {
         if(pageActionApplying)return;
-        composerUndoPerformance=false;
+        composerUndoPerformance=false;composerHistoryUndone=false;composerHistoryClip=-1;
         undoPageCompValid=false;
         undoHasChainClip=false;
         undoIsBank=false;undoIsChain=false;undoIsSlice=false;undoIsSequenceGenerate=false;
@@ -8114,6 +8141,7 @@ struct ThruInstance : PlaybackEffectsState {
         markPersistentStateDirty();
         if (index < 0 || index >= static_cast<int>(clipSlots.size())) return;
         ClipSlot& target = clipSlots[static_cast<std::size_t>(index)];
+        if(activeClip!=index){if(composerUndoPerformance){undoAvailable=false;}composerUndoPerformance=false;composerHistoryClip=-1;composerHistoryUndone=false;}
         const bool freshSequence=activeClip!=index;
         if(freshSequence){sequenceOverrides={};sequenceRecipeOverrides={};releaseClipVoices();}
         activeClip = index;
@@ -8131,7 +8159,7 @@ struct ThruInstance : PlaybackEffectsState {
         restoreSplitClip(target);
         resetControlLfos(freshSequence);
         if(freshSequence)resetSequenceClock();else invalidateSequenceRecipePlayback();
-        layersLive=layersRecorded=target.layers;layersOverrides.reset();tableOverrides.reset();scannedOverrides.reset();fmOverrides.reset();noiseOverrides.reset();resonOverrides.reset();resonDensityOverrides.reset();lowformOverrides.reset();partialsOverrides.reset();clearLayersTouches();if(layersLive.active)layersRack.prime(layersLive);
+        layersLive=layersRecorded=target.layers;layersOverrides.reset();tableOverrides.reset();scannedOverrides.reset();fmOverrides.reset();noiseOverrides.reset();resonOverrides.reset();resonDensityOverrides.reset();lowformOverrides.reset();partialsOverrides.reset();sourceMotionOverrides.reset();clearLayersTouches();if(layersLive.active)layersRack.prime(layersLive);
         if((previousSplit!=splitEnabled||previousShared!=sharedDual||previousQuad!=quadMode) && voices[0].engine.prepared())refreshPlaybackVoices();
         clipControls = controls;
         clipOutputGain = outputGain;
@@ -8385,6 +8413,7 @@ struct ThruInstance : PlaybackEffectsState {
     void selectClip(int index)
     {
         if(namingBusy()){setError("Finish file naming first");return;}
+        if(liveCaptureJob.load(std::memory_order_acquire)){setError("Finish Live Memory save before changing clips");return;}
         if (index < 0 || index >= static_cast<int>(clipSlots.size())) return;
         if(bankJob.load(std::memory_order_acquire)){setError("Finish Bank capture/save before changing clips");return;}
         if (clipRecording) {
@@ -8715,7 +8744,7 @@ struct ThruInstance : PlaybackEffectsState {
         int position = 0;
         for (std::size_t index = 0u; index < voices.size(); ++index) {
             const auto& voice = voices[index];
-            const int pad = voice.active && voice.held ? displayedPad(voice.sourcePad,voice.part,voice.clipOwned) : -1;
+            const int pad = voice.active && voice.held ? displayedNotePad(voice.sourcePad,voice.part,voice.clipOwned,voice.note) : -1;
             const int written = std::snprintf(
                 buffer + position, static_cast<std::size_t>(bufferLength - position),
                 index == 0u ? "%d" : ",%d", pad);
@@ -8748,7 +8777,7 @@ struct ThruInstance : PlaybackEffectsState {
         int position = 0;
         for (std::size_t index = 0u; index < rolls.size(); ++index) {
             const auto& roll = rolls[index];
-            const int pad = roll.active && roll.held ? displayedPad(roll.sourcePad,roll.part,roll.clipOwned) : -1;
+            const int pad = roll.active && roll.held ? displayedNotePad(roll.sourcePad,roll.part,roll.clipOwned,roll.note) : -1;
             const int written = std::snprintf(
                 buffer + position,
                 static_cast<std::size_t>(bufferLength - position),
@@ -9474,7 +9503,7 @@ struct ThruInstance : PlaybackEffectsState {
         // These jobs have a per-host-callback copy/analysis budget. A trig can
         // split this block many times; it must not multiply that budget.
         if(!patternRenderOnly){
-            serviceSynth();serviceSampleLoad();serviceClipSourceQueue();serviceBackgroundWork();
+            serviceLiveCapture();serviceSynth();serviceSampleLoad();serviceClipSourceQueue();serviceBackgroundWork();
             serviceWavesetAnalysis();serviceSpectralAnalysis();
         }
         markRenderProfile(0);
@@ -9539,6 +9568,7 @@ struct ThruInstance : PlaybackEffectsState {
             for(auto& part:tableScopeBus)for(auto& lane:part)lane.fill(0);
             for(auto& part:resonBus)for(auto& channel:part)channel.fill(0);
             markRenderProfile(1);
+            prepareLiveInput(count);
             advanceControlLfos(count);
             bool completedResonVoice = false;
             for (auto& voice : voices) {
@@ -9557,6 +9587,7 @@ struct ThruInstance : PlaybackEffectsState {
                     : effectiveControls(voice,splitEnabled ? partSnapshots[static_cast<std::size_t>(voice.part)] : liveControlSnapshot,
                         splitEnabled ? splitClipControls[static_cast<std::size_t>(voice.part)] : clipControlSnapshot);
                 if(!stealingVoice)prepareSliceVoice(voice,effective);
+                prepareLiveVoice(voice,effective);
                 const bool spentReson = voice.bankAsset < 0 && effective.algorithm == Engine::PlaybackAlgorithm::reson
                     && voice.engine.resonNoteFinished();
                 // Silent synthesis may sleep, but lane adoption/removal still
@@ -9688,6 +9719,7 @@ struct ThruInstance : PlaybackEffectsState {
             }
 
             if (splitEnabled) processSplitBuses(count,partSnapshots,clipControlSnapshot);
+            rememberLiveParts(count);
 
             // Keep the underlying playheads running while a Roll is heard.
             // The history therefore captures their combined stereo output,
@@ -9982,7 +10014,7 @@ struct ThruInstance : PlaybackEffectsState {
         if (!file) return false;
         const char magic[8] { 'S', '3', 'G', 'T', 'H', 'R', '3', '\0' };
         bool ok = writeBytes(file, magic, sizeof(magic))
-            && writeU32(file, std::any_of(savedClips.begin(),savedClips.end(),[](const auto& c){return c.touchCount!=0;})?62u:61u)
+            && writeU32(file, 63u)
             && writeU64(file, snapshot ? snapshot->generation : persistenceGeneration)
             && writeF32(file, snapshot ? snapshot->tempo : tempoBpm)
             && writeF32(file, snapshot ? snapshot->swing : tempoSwing)
@@ -10049,7 +10081,7 @@ struct ThruInstance : PlaybackEffectsState {
             }
         }
         ok = ok && writeSplitExtension(file,savedClips) && writeStackPaths(file,savedClips) && writeChainBanks(file,savedBanks,savedBank) && writeChainPlaybackState(file,snapshot?snapshot->chainPlayBank:chainPlayBank) && writeNewEngineParameters(file,savedClips) && writeVoiceEngineExtension(file,savedClips) && writeVoicePlayExtension(file,savedClips) && writeStochasticParameters(file,savedClips) && writePulsarParameters(file,savedClips) && writePriorityParameters(file,savedClips) && writeBankExtension(file,savedClips) && writeBankPadExtension(file,savedClips) && writeSliceExtension(file,savedClips) && writeLayersExtension(file,savedClips) && writeSequenceExtension(file,savedClips) && writeSequenceMixExtension(file,savedClips) && writeSequenceCycleExtension(file,savedClips) && writeSplitLanePreferences(file,savedClips) && writePulsarSeeds(file,savedClips) && writeSequenceTypes(file,savedClips) && writeSequenceDirections(file,savedClips) && writeSequenceShifts(file,savedClips) && writeSequencePaths(file,savedClips) && writeControlLfos(file,savedClips) && writePooledLfos(file,savedClips) && writeLfoAutoExtension(file,savedClips) && writeTableExtension(file,savedClips) && writeSequenceSoundLocks(file,savedClips) && writeScannedExtension(file,savedClips) && writeScannedHitExtension(file,savedClips) && writeScannedAmpExtension(file,savedClips) && writeFmExtension(file,savedClips) && writeFmExtraExtension(file,savedClips) && writeNoiseExtension(file,savedClips) && writeResonExtension(file,savedClips) && writePartialsExtension(file,savedClips) && writeLowformExtension(file,savedClips) && writeResonDensityExtension(file,savedClips);
-        if(ok&&std::any_of(savedClips.begin(),savedClips.end(),[](const auto& c){return c.touchCount!=0;}))ok=writeTouchExtension(file,savedClips);
+        if(ok)ok=writeTouchExtension(file,savedClips)&&writeSourcePrograms(file,savedClips);
         const bool closed = std::fclose(file) == 0;
         ok = ok && closed && appendFileChecksum(temporary.data());
         if (!ok || (!stageOnly && !replaceFileWithBackup(temporary.data(), path.data()))) {
@@ -10113,7 +10145,7 @@ struct ThruInstance : PlaybackEffectsState {
             && (version == 1u || version == 2u || version == 3u
                 || version == 4u || version == 5u || version == 6u
                 || version == 7u || version == 8u || version == 9u
-                || version == 10u || version == 11u || version == 12u || version == 13u || version == 14u || version==15u || version==16u || version==17u || version==18u || version==19u || version==20u || version==21u || version==22u || version==23u || version==24u || version==25u || version==26u || version==27u || version==28u || version==29u || version==30u || version==31u || version==32u || version==33u || version==34u || version==35u || version==36u || version==37u || version==38u || version==39u || version==40u || version==41u || version==42u || version==43u || version==44u || version==45u || version==46u || version==47u || version==48u || version==49u || version==50u || version==51u || version==52u || version==53u || version==54u || version==55u || version==56u || version==57u || version==58u || version==59u || version==60u || version==61u || version==62u)
+                || version == 10u || version == 11u || version == 12u || version == 13u || version == 14u || version==15u || version==16u || version==17u || version==18u || version==19u || version==20u || version==21u || version==22u || version==23u || version==24u || version==25u || version==26u || version==27u || version==28u || version==29u || version==30u || version==31u || version==32u || version==33u || version==34u || version==35u || version==36u || version==37u || version==38u || version==39u || version==40u || version==41u || version==42u || version==43u || version==44u || version==45u || version==46u || version==47u || version==48u || version==49u || version==50u || version==51u || version==52u || version==53u || version==54u || version==55u || version==56u || version==57u || version==58u || version==59u || version==60u || version==61u || version==62u || version==63u)
             && readU64(file, generation) && generation != 0u;
         std::fclose(file);
         return ok;
@@ -10150,7 +10182,7 @@ struct ThruInstance : PlaybackEffectsState {
             && (version == 1u || version == 2u || version == 3u
                 || version == 4u || version == 5u || version == 6u
                 || version == 7u || version == 8u || version == 9u
-                || version == 10u || version == 11u || version == 12u || version == 13u || version == 14u || version==15u || version==16u || version==17u || version==18u || version==19u || version==20u || version==21u || version==22u || version==23u || version==24u || version==25u || version==26u || version==27u || version==28u || version==29u || version==30u || version==31u || version==32u || version==33u || version==34u || version==35u || version==36u || version==37u || version==38u || version==39u || version==40u || version==41u || version==42u || version==43u || version==44u || version==45u || version==46u || version==47u || version==48u || version==49u || version==50u || version==51u || version==52u || version==53u || version==54u || version==55u || version==56u || version==57u || version==58u || version==59u || version==60u || version==61u || version==62u)
+                || version == 10u || version == 11u || version == 12u || version == 13u || version == 14u || version==15u || version==16u || version==17u || version==18u || version==19u || version==20u || version==21u || version==22u || version==23u || version==24u || version==25u || version==26u || version==27u || version==28u || version==29u || version==30u || version==31u || version==32u || version==33u || version==34u || version==35u || version==36u || version==37u || version==38u || version==39u || version==40u || version==41u || version==42u || version==43u || version==44u || version==45u || version==46u || version==47u || version==48u || version==49u || version==50u || version==51u || version==52u || version==53u || version==54u || version==55u || version==56u || version==57u || version==58u || version==59u || version==60u || version==61u || version==62u || version==63u)
             && readU64(file, loadedGeneration)
             && loadedGeneration != 0u
             && (expectedGeneration == kAnyPersistenceGeneration
@@ -10309,7 +10341,8 @@ struct ThruInstance : PlaybackEffectsState {
                         && (version < 2u || readU32(file, take))
                         && parameter < kLockParameterCount
                         && type <= static_cast<std::uint32_t>(
-                            version>=61u?ClipPointType::resonDensity:version>=60u?ClipPointType::lowformParameter:version>=59u?ClipPointType::partialsParameter:version>=58u?ClipPointType::resonParameter:version>=57u?ClipPointType::noiseParameter:version>=55u?ClipPointType::fmParameter:version>=52u?ClipPointType::scannedParameter:version>=50u?ClipPointType::tableParameter:version>=48u?ClipPointType::pooledLfo:version>=47u?ClipPointType::controlLfo:version>=44u?ClipPointType::sequenceRecipe:version>=38u?ClipPointType::sequenceLane:version>=37u?ClipPointType::layersBaseline:version>=35u?ClipPointType::midiExpression:version>=25u?ClipPointType::notePressure:version>=17u?ClipPointType::stackPath:version>=16u?ClipPointType::performance:ClipPointType::partHold)
+                            version>=63u?ClipPointType::sourceParameter:version>=61u?ClipPointType::resonDensity:version>=60u?ClipPointType::lowformParameter:version>=59u?ClipPointType::partialsParameter:version>=58u?ClipPointType::resonParameter:version>=57u?ClipPointType::noiseParameter:version>=55u?ClipPointType::fmParameter:version>=52u?ClipPointType::scannedParameter:version>=50u?ClipPointType::tableParameter:version>=48u?ClipPointType::pooledLfo:version>=47u?ClipPointType::controlLfo:version>=44u?ClipPointType::sequenceRecipe:version>=38u?ClipPointType::sequenceLane:version>=37u?ClipPointType::layersBaseline:version>=35u?ClipPointType::midiExpression:version>=25u?ClipPointType::notePressure:version>=17u?ClipPointType::stackPath:version>=16u?ClipPointType::performance:ClipPointType::partHold)
+                        && (type!=static_cast<std::uint32_t>(ClipPointType::sourceParameter)||(sourcePad<4u&&parameter<std::uint32_t(s3g_thru_source::fields)&&point.value>=s3g_thru_source::low[parameter]&&point.value<=s3g_thru_source::high[parameter]&&(!s3g_thru_source::discrete(int(parameter))||point.value==std::floor(point.value))))
                         && (type!=static_cast<std::uint32_t>(ClipPointType::resonDensity)||(sourcePad<4u&&parameter==0u&&std::isfinite(point.value)&&point.value>=0&&point.value<=100))
                         && (type!=static_cast<std::uint32_t>(ClipPointType::pooledLfo)||(sourcePad<8u&&parameter<11u&&validPooledLfoPoint(parameter,point.value)))
                         && (type!=static_cast<std::uint32_t>(ClipPointType::controlLfo)||(sourcePad<4u&&parameter<18u&&validControlLfoPoint(parameter,point.value)))
@@ -10392,6 +10425,7 @@ struct ThruInstance : PlaybackEffectsState {
         if(ok&&version>=60u)ok=readLowformExtension(file,*loadedClips);
         if(ok&&version>=61u)ok=readResonDensityExtension(file,*loadedClips);
         if(ok&&version>=62u)ok=readTouchExtension(file,*loadedClips);
+        if(ok&&version>=63u)ok=readSourcePrograms(file,*loadedClips);
         // A legacy automatic policy preserves 1 ms for Transients and zero
         // for Equal independently, including shared lanes used by both parts.
         const bool atEnd = ok && std::ftell(file) == payloadSize;
@@ -11147,7 +11181,7 @@ struct ThruInstance : PlaybackEffectsState {
         for(auto& source:midiCcPickups)for(auto& pickup:source)pickup={};
         persistenceGeneration = loadedGeneration;
         observePersistenceGeneration(loadedGeneration);
-        if(!readControlLfoJson(json))return false;
+        if(!readControlLfoJson(json)||!readSourceJson(json))return false;
         if(repairedE16ZeroSweep)markPersistentStateDirty();
         // Older host/control snapshots omit labels; they must not erase the
         // project's independently saved clip and Bank names.
@@ -11345,7 +11379,7 @@ void setParam(void* opaque, const char* key, const char* value)
     if(!std::strcmp(key,"page_action")){performPageAction(*instance,value);return;}
     composerBeginParameterTouch(*instance,key);
     if(instance->setSequenceSoundParameter(key,value))return;
-    if(instance->setTableParam(key,value)||instance->setScannedParam(key,value)||instance->setFmParam(key,value)||instance->setNoiseParam(key,value)||instance->setResonParam(key,value)||instance->setPartialsParam(key,value)||instance->setLowformParam(key,value))return;
+    if(instance->setSourceParam(key,value)||instance->setTableParam(key,value)||instance->setScannedParam(key,value)||instance->setFmParam(key,value)||instance->setNoiseParam(key,value)||instance->setResonParam(key,value)||instance->setPartialsParam(key,value)||instance->setLowformParam(key,value))return;
     if(instance->setControlLfoParam(key,value))return;
     if(instance->setSynthParam(key,value))return;
     if (std::strcmp(key,"clip_clear_recording")==0){if(isTruthy(value))instance->clearRecordedPerformance();return;}
@@ -11738,7 +11772,7 @@ int getParamValue(void* opaque, const char* key, char* buffer, int bufferLength)
     if(!std::strcmp(key,"lowform_state"))return instance->formatLowformState(buffer,bufferLength);
     if(!std::strcmp(key,"scanned_state"))return instance->formatScannedState(buffer,bufferLength);
     if(!std::strcmp(key,"table_state"))return instance->formatTableState(buffer,bufferLength);
-    {float value=0;if((instance->tableParameterValue(key,instance->splitEnabled?instance->splitFocus:0,value)||instance->scannedParameterValue(key,instance->splitEnabled?instance->splitFocus:0,value)||instance->fmParameterValue(key,instance->splitEnabled?instance->splitFocus:0,value)||instance->noiseParameterValue(key,instance->splitEnabled?instance->splitFocus:0,value)||instance->resonParameterValue(key,instance->splitEnabled?instance->splitFocus:0,value)||instance->partialsParameterValue(key,instance->splitEnabled?instance->splitFocus:0,value)||instance->lowformParameterValue(key,instance->splitEnabled?instance->splitFocus:0,value)))return std::snprintf(buffer,bufferLength,"%.9g",double(value));}
+    {float value=0;if((instance->sourceParameterValue(key,instance->splitEnabled?instance->splitFocus:0,value)||instance->tableParameterValue(key,instance->splitEnabled?instance->splitFocus:0,value)||instance->scannedParameterValue(key,instance->splitEnabled?instance->splitFocus:0,value)||instance->fmParameterValue(key,instance->splitEnabled?instance->splitFocus:0,value)||instance->noiseParameterValue(key,instance->splitEnabled?instance->splitFocus:0,value)||instance->resonParameterValue(key,instance->splitEnabled?instance->splitFocus:0,value)||instance->partialsParameterValue(key,instance->splitEnabled?instance->splitFocus:0,value)||instance->lowformParameterValue(key,instance->splitEnabled?instance->splitFocus:0,value)))return std::snprintf(buffer,bufferLength,"%.9g",double(value));}
     if (std::strncmp(key,"ui_poll_",8)==0)
         return formatUiPoll(opaque,key+8,buffer,bufferLength);
     if(!std::strcmp(key,"pattern_worker_state"))return instance->formatPatternWorker(buffer,bufferLength);
@@ -11883,6 +11917,7 @@ int getParamValue(void* opaque, const char* key, char* buffer, int bufferLength)
     }
     if(std::strcmp(key,"stack_path_state")==0)return instance->formatStackPath(buffer,bufferLength);
     if(std::strcmp(key,"performance_capture")==0) return std::snprintf(buffer,bufferLength,"%d",instance->performanceCaptureHeld?1:0);
+    if(!std::strcmp(key,"source_motion_state"))return instance->formatSourceState(buffer,bufferLength);
     if (std::strcmp(key, "recording") == 0 || std::strcmp(key, "recording:effective") == 0) return std::snprintf(buffer, bufferLength, "%d", instance->audioRecording() ? 1 : 0);
     if (std::strcmp(key, "ui_state") == 0 || std::strcmp(key, "ui_state:effective") == 0) {
         const PlaybackVoice* display = instance->displayVoice();
@@ -11938,6 +11973,16 @@ int getParamValue(void* opaque, const char* key, char* buffer, int bufferLength)
     const int splitParameter = lockParameterIndex(key);
     if (splitParameter >= static_cast<int>(LockParameter::splitBlend)) return std::snprintf(buffer,bufferLength,"%.5f",lockedValue(controls,instance->outputGain,static_cast<std::size_t>(splitParameter)));
     if (!std::strcmp(key,"module_id"))return std::snprintf(buffer,bufferLength,"s3g-thru");
+    // Manager's Tool tab uses this cheap revision/transport digest to avoid
+    // its legacy full persistence-state fetch on every idle polling tick.
+    // The custom panel keeps its own bounded live channel. Do not change the
+    // state getter: explicit state/project saves still need the full format.
+    if (!std::strcmp(key,"rui_poll"))return std::snprintf(buffer,bufferLength,"%llu:%d:%d:%d",
+        static_cast<unsigned long long>(instance->persistentRevision),
+        instance->clipPlaying||instance->clipRecording?1:0,
+        instance->clipPlaying||instance->clipRecording?int(instance->clipPositionMs):0,
+        int(std::lround(instance->tempoBpm)));
+
     if (!std::strcmp(key,"composer_state"))return std::snprintf(buffer,bufferLength,"%d,%d",instance->composerOwned.load()?1:0,instance->composerPhase.load());
     if (std::strcmp(key, "state") == 0) {
         return instance->serializeState(buffer, bufferLength);
@@ -12344,7 +12389,9 @@ int formatEditorState(void* opaque, char* buffer, int bufferLength, int chunk)
     const int voiceLength=getParamValue(opaque,"voice_algorithms",voices,sizeof(voices));
     if (splitLength<1 || splitLength>=static_cast<int>(sizeof(split))
         || voiceLength<1 || voiceLength>=static_cast<int>(sizeof(voices))) ok=false;
-    append("},\"split\":%s,\"voices\":\"%s\"}",split,voices);
+    append("},\"split\":%s,\"voices\":\"%s\"",split,voices);
+    if(chunk<=0){append("%s",",\"source\":[");for(int f=0;f<s3g_thru_source::fields;++f)append(f?",%.9g":"%.9g",double(instance->controls.sourceMotion.v[f]));append("%s","]");}
+    append("%s","}");
     if (!ok) { buffer[0]='\0';return -1; }
     return at;
 }

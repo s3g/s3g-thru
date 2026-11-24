@@ -1,4 +1,4 @@
-export const PANEL_PROTOCOL=2, PANEL_BUILD='0.34.0-test.13';
+export const PANEL_PROTOCOL=2, PANEL_BUILD='0.34.0';
 import {uniqueId} from './format.mjs';
 export class MoveConnection {
   constructor(onStatus = () => {}) {

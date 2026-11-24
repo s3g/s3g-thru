@@ -422,8 +422,12 @@
         {
           "title": "Browser live panel",
           "lines": [
-            "Open the module Tool",
-            "in Schwung Manager.",
+            "Keep Thru open.",
+            "On your computer:",
+            "Manager: Thru page >",
+            "Open web UI: Tool.",
+            "Use one panel tab.",
+            "Wait for Linked.",
             "Live menu controls,",
             "clips and Sequence",
             "locks follow Move.",
@@ -798,16 +802,12 @@
             "Hold Capture and",
             "press Menu. Release",
             "Capture, choose Mode,",
-            "then",
-            "click the desired mode",
-            "to apply. Stop",
-            "recording first.",
+            "then click a layout.",
+            "Stop recording first.",
             "",
-            "Outside clip and chain",
-            "editors, Copy toggles",
-            "Single and the last",
-            "selected",
-            "multi-instrument mode."
+            "Each clip stores its",
+            "mode and recalls it.",
+            "Copy uses copy tools."
           ]
         },
         {
@@ -900,6 +900,23 @@
             "timing linked.",
             "MECH, CRNK and INRT",
             "add transport motion."
+          ]
+        },
+        {
+          "title": "Clip and mode",
+          "lines": [
+            "Header: clip + mode.",
+            "SNG Single, SPL Split",
+            "SHR Shared Dual",
+            "QAD Quad, BNK Bank",
+            "LAY Layers, SEQ Seq.",
+            "",
+            "Clip launch briefly",
+            "shows its full mode.",
+            "Copy: dim at rest,",
+            "bright while held.",
+            "Try another mode on",
+            "a copied clip."
           ]
         }
       ]
@@ -1528,9 +1545,11 @@
             "Hollow squares show",
             "held/latched targets.",
             "",
-            "Copy toggles Single",
-            "and your last mode,",
-            "including Layers."
+            "Choose layouts with",
+            "Capture + Menu.",
+            "Choose Mode.",
+            "The clip keeps its",
+            "chosen mode."
           ]
         },
         {
@@ -2850,6 +2869,65 @@
         "MIDI, LFOs and trig",
         "locks store sound",
         "controls."
+      ]
+    },
+    {
+      "title": "Travel / Live",
+      "children": [
+        {
+          "title": "Travel Envelope",
+          "lines": [
+            "Grains and Weave:",
+            "open Play > Travel.",
+            "Rates change source",
+            "travel for each note.",
+            "Pitch stays separate.",
+            "ATIM and DTIM set",
+            "travel phase lengths.",
+            "Amp controls loudness."
+          ]
+        },
+        {
+          "title": "Live Memory",
+          "lines": [
+            "Grains, Weave, Glitch,",
+            "Cutups, Pulsar,",
+            "and Texture.",
+            "Play > Live Memory.",
+            "SRC IN records input.",
+            "PT A-D feeds a part.",
+            "Play notes to listen.",
+            "Loop freezes history.",
+            "SAVE archives a WAV,",
+            "loads the chosen lane",
+            "and returns to FILE.",
+            "Live RAM not saved.",
+            "Split: live lane rows",
+            "update in both views."
+          ]
+        },
+        {
+          "title": "Quick LFO",
+          "lines": [
+            "Touch a param knob.",
+            "Click the main wheel.",
+            "Choose MOD, then an",
+            "FREE assigns a slot.",
+            "EDIT keeps its route.",
+            "Raise DPTH to hear."
+          ]
+        },
+        {
+          "title": "Clip bank notice",
+          "lines": [
+            "Left/Right changes",
+            "the 16-clip bank.",
+            "OLED shows bank,",
+            "range and page.",
+            "Playing clip stays",
+            "the same until launch."
+          ]
+        }
       ]
     }
   ]

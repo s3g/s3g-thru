@@ -5,7 +5,7 @@
   <rect width="128" height="64" fill="#050706"/>
   <g shape-rendering="crispEdges" font-family="DejaVu Sans Mono, IBM Plex Mono, monospace" font-size="6" font-style="normal" font-weight="400" text-rendering="geometricPrecision">
     <text x="1" y="5.5" fill="#dce8e1">L2 T07 BURST</text>
-    <text x="104" y="5.5" fill="#dce8e1">4/10</text>
+    <text x="104" y="5.5" fill="#dce8e1">4/12</text>
     <rect x="0" y="8" width="128" height="1" fill="#dce8e1"/>
     <rect x="5" y="19" width="118" height="1" fill="#dce8e1"/>
     <rect x="5" y="17" width="1" height="5" fill="#dce8e1"/>

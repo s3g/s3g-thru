@@ -1,7 +1,7 @@
 import {ClipWorkspace} from '../src/assets/composer/workspace.mjs';
 import assert from 'node:assert/strict';
 import {StepClock,ClipClock} from '../src/assets/composer/clock.mjs';
-import {curveMeta,curveBounds,notePayload,pointPayload,snapTime,displayTime,readTime,validPerformance,curveLabel,bindingTarget,activeCurve,curveValue,pitchY,pitchAt,PIANO_HEIGHT,PIANO_ROW,notePolyphony,MAX_PIANO_NOTES} from '../src/assets/composer/workspace-model.mjs';
+import {curveMeta,curveBounds,notePayload,pointPayload,snapTime,displayTime,readTime,validPerformance,curveLabel,bindingTarget,activeCurve,curveValue,pitchY,pitchAt,pianoLayout,PIANO_HEIGHT,PIANO_ROW,notePolyphony,MAX_PIANO_NOTES} from '../src/assets/composer/workspace-model.mjs';
 import {newComposition,clone,validateComposition} from '../src/assets/composer/format.mjs';
 import {buildPack,openPack} from '../src/assets/composer/pack.mjs';
 let now=0;const clock=new StepClock(()=>now),route=Array.from({length:16},(_,i)=>i%9);
@@ -56,3 +56,42 @@ console.log('Piano roll: eight-note cyclic overlap limit, safe edit rejection an
 let pointsDeleted=0;const pointView={...keyView,selectionKind:'point',selectedPoint:42,virtualCurve:null,currentCurve:()=>({points:[[0,1]]}),pointIndex:()=>0,editPoint:(_c,_i,id,deleted)=>{assert.equal(id,42);assert.equal(deleted,true);pointsDeleted++;}};
 ClipWorkspace.prototype.editorKey.call(pointView,key('Delete'));assert.equal(pointsDeleted,1);
 let applied=0;const inputView={root:{contains:()=>true},$:id=>{assert.equal(id,'event-update');return{disabled:false,click:()=>applied++};}};ClipWorkspace.prototype.editorKey.call(inputView,key('Enter',{id:'event-duration',type:'number'}));assert.equal(applied,1);
+
+// The same scale definitions drive Move and the browser. Legacy notes remain
+// editable after changing scale; new notes and drags use scale degrees.
+const major=pianoLayout(60,1);assert(major.allowed.has(60));assert(!major.allowed.has(61));assert.equal(major.pitches.length,75);
+const dMinor=pianoLayout(62,2,[61]);assert(dMinor.pitches.includes(61));assert(!dMinor.allowed.has(61));assert(dMinor.allowed.has(65));assert(!dMinor.allowed.has(66));
+for(let scale=0;scale<25;++scale)for(const root of [0,60,62,127]){const layout=pianoLayout(root,scale);assert(layout.allowed.size>0);assert.equal(layout.height,layout.pitches.length*PIANO_ROW);for(const note of layout.pitches){assert.equal(layout.at(layout.y(note)+PIANO_ROW/2),note);assert(layout.allowed.has(layout.nearest(note)));}}
+const both=pianoLayout(60,1,[],[[61,1]]);assert(both.pitches.includes(61));assert(!both.allowed.has(61));
+const scaleView={...view,pianoLayout:()=>major};const beforeScale=sent.length;ClipWorkspace.prototype.editNote.call(scaleView,{...existing[0],note:61},0);assert.equal(sent.length,beforeScale);assert.match(messages.at(-1)[0],/root and scale/);
+console.log('Piano roll scale rows: 25 shared scales, changed roots, legacy-note access, all-part view and constrained new-note validation: PASS');
+
+// Match Move's centered FIELD bounds and keep selected physical lane identity.
+const {sampleWindow,sampleSource,waveformPath}=await import('../src/assets/composer/sample-view.mjs');
+assert.deepEqual(sampleWindow(.5,.2),[.4,.6000000000000001]);assert.deepEqual(sampleWindow(0,1),[0,1]);assert.deepEqual(sampleWindow(.99,.2),[.8,1]);
+const sourceFrame={focus:1,patches:[0,3],document:{assets:[{id:'a',frames:44100,sampleRate:44100}],clips:[{sources:[{},{},{},{asset:'a'}]}]}};
+assert.equal(sampleSource(sourceFrame).lane,3);assert.equal(sampleSource(sourceFrame).asset.frames,44100);assert.equal(sampleSource({...sourceFrame,focus:0}).asset,undefined);
+assert.equal(waveformPath([]),'');assert.equal(waveformPath([0,1,0]),'');for(const region of[[0,1],[.9,1],[0,.01]]){const d=waveformPath([-.8,.7,-.2,.4],...region);assert(d.endsWith('Z'));assert(!/NaN|Infinity/.test(d));}
+console.log('Browser sample overview: native FIELD boundaries, physical lane identity, cached wave shapes and zoom edges: PASS');
+
+// A time-only drag must preserve legacy pitches; rows are fixed for the gesture.
+{
+ const dummy=()=>({setPointerCapture(){},focus(){},getBoundingClientRect(){return {left:0,top:0,width:800,height:140};}});
+ const elements=Object.fromEntries(['clip-notes','clip-automation','clip-ruler','clip-note-scroll','clip-ruler-scroll','clip-curve-scroll','piano-key-scroll'].map(k=>[k,dummy()]));
+ const original={part:0,timeMs:100,durationMs:200,note:61,velocity:100};let committed;
+ const view={recording:false,performance:{notes:[{...original}],noteIds:[1]},$:(k)=>elements[k],span:()=>2000,xTime:e=>100+e.clientX,pianoLayout(){return pianoLayout(60,1,this.performance.notes.map(n=>n.note));},drawTimeline(){},drawNoteFields(){},note(){return {id:1,index:0,note:this.performance.notes[0]};},editNote(n){committed=n;},frame:()=>({focus:0}),api:{linked:()=>true}};
+ ClipWorkspace.prototype.bindTimeline.call(view);
+ const event=(x,y)=>({button:0,pointerId:1,clientX:x,clientY:y,target:{closest:()=>({dataset:{note:'1'}}),dataset:{} }});
+ elements['clip-notes'].onpointerdown(event(0,0));
+ for(const x of [20,40,80]){elements['clip-notes'].onpointermove(event(x,0));assert.equal(view.performance.notes[0].note,61);}
+ elements['clip-notes'].onpointermove(event(80,14));assert.equal(view.performance.notes[0].note,60);
+ elements['clip-notes'].onpointermove(event(80,28));assert.equal(view.performance.notes[0].note,59);
+ elements['clip-notes'].onpointerup(event(80,28));assert.equal(committed.note,59);assert.equal(committed.timeMs,180);
+ // Exact-time edits reject inaudible points before sending; wrapped spans work.
+ const curve={target:{type:'parameter',index:2,owner:255,take:1},points:[[900,2]],windows:[[200,400]]};let sent=0;
+ const point={performance:{automation:[curve],pointIds:[[1]]},curve:0,span:()=>2000,send(){sent++;},drawAutomation(){},api:{message(){}}};
+ assert.equal(ClipWorkspace.prototype.editPoint.call(point,curve,0,1),false);assert.equal(sent,0);
+ curve.points[0][0]=300;assert(ClipWorkspace.prototype.editPoint.call(point,curve,0,1));assert.equal(sent,1);
+ curve.windows=[[1800,400]];curve.points[0][0]=100;assert(ClipWorkspace.prototype.editPoint.call(point,curve,0,1));assert.equal(sent,2);
+ console.log('Browser stability: original pitch/time-only dragging, fixed scale rows and owned exact-time points: PASS');
+}

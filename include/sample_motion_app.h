@@ -1,5 +1,7 @@
 #pragma once
 
+#include "thru_source_motion.h"
+
 #include "thru_stack_path.h"
 #include "thru_waveset_map.h"
 #include "thru_spectral.h"
@@ -56,6 +58,11 @@ public:
     };
 
     static constexpr std::size_t kPlaybackAlgorithmCount = 22u;
+    static constexpr bool supportsLiveMemory(PlaybackAlgorithm a) {
+        return a == PlaybackAlgorithm::grains || a == PlaybackAlgorithm::longGrains
+            || a == PlaybackAlgorithm::glitch || a == PlaybackAlgorithm::cutups
+            || a == PlaybackAlgorithm::pulsar || a == PlaybackAlgorithm::texture;
+    }
     static constexpr bool sourceFree(PlaybackAlgorithm a){return a==PlaybackAlgorithm::table||a==PlaybackAlgorithm::scanned||a==PlaybackAlgorithm::fm||a==PlaybackAlgorithm::noise||a==PlaybackAlgorithm::reson||a==PlaybackAlgorithm::partials||a==PlaybackAlgorithm::lowform;}
 
     enum class SampleMode : std::uint8_t {
@@ -394,6 +401,9 @@ public:
     };
 
     struct Controls {
+        s3g_thru_source::Config sourceMotion{};
+        s3g_thru_source::View liveSource{};
+        bool travelReleased=false;
         s3g_thru_table::Program table;
         s3g_thru_scanned::Program scanned;
         s3g_thru_fm::Program fm;
@@ -1157,6 +1167,8 @@ public:
             }
         }
 
+        SourceScope sourceScope(*this, controls);
+        sourceTravel_.prepare(controls.sourceMotion, outputSampleRate_);
         const float dryWet = clamp01(controls.mix);
         const float targetSpeed = clamp(controls.speed, 0.05f, 4.0f);
         const float targetJoin = clamp01(controls.join);
@@ -1217,11 +1229,13 @@ public:
         if(controls.algorithm==PlaybackAlgorithm::lowform||currentAlgorithm_==PlaybackAlgorithm::lowform)lowformInstrument_.beginBlock(controls.lowform.patches);
         std::size_t laneControlCountdown = 0u;
         for (std::size_t frame = 0u; frame < frames; ++frame) {
+            liveFrameOffset_=double(frame);
             for (std::size_t lane = 0u; lane < kStackLanes; ++lane) {
                 activeControlsLaneGains_[lane] += controlGainSlew_
                     * (targetControlsLaneGains_[lane]
                         - activeControlsLaneGains_[lane]);
             }
+
             const float recordGain = recordTransitionGain();
             if (recording_ && recordWriteActive_
                 && recordInputOffset_ != kResampleInputOffset) {
@@ -1255,6 +1269,7 @@ public:
                 advanceLaneWeights();
             }
             speed_ += (targetSpeed - speed_) * speedSlew_;
+            travelRate_ = sourceTravel_.tick(controls.sourceMotion,outputSampleRate_,controls.travelReleased);
             join_ += (targetJoin - join_) * joinSlew_;
             stretchRatio_ += (stretchRatioTarget_ - stretchRatio_)
                 * stretchRatioSlew_;
@@ -1336,10 +1351,17 @@ public:
                             / static_cast<float>(retriggerFadeFrames_));
                     wet *= retriggerMix;
                 }
+                if(liveView_ || liveBridge_) {
+                    if(channel==0)liveGain_+=(controls.sourceMotion.v[12]-liveGain_)*.004f;
+                    if(liveView_)wet*=liveGain_;
+                    if(liveBridge_){const float x=1-float(liveBridge_)/float(liveBridgeFrames_);wet=liveTail_[channel]+(wet-liveTail_[channel])*(x*x*(3-2*x));}
+                }
+                sourceLast_[channel]=wet;
                 output[channel][frame]
                     = (input[channel][frame] * (1.0f - dryWet) + wet * dryWet)
                         * recordGain;
             }
+            if(liveBridge_)--liveBridge_;
             if(currentAlgorithm_==PlaybackAlgorithm::table||currentAlgorithm_==PlaybackAlgorithm::fm||currentAlgorithm_==PlaybackAlgorithm::noise||currentAlgorithm_==PlaybackAlgorithm::reson||currentAlgorithm_==PlaybackAlgorithm::partials||currentAlgorithm_==PlaybackAlgorithm::lowform){
                 float gain=algorithmGain*retriggerGain*motionSoundGain*motionSeedGain*sampleTransition*dryWet*recordGain;
                 if(retriggerFadeRemaining_!=0u)gain*=smoothStep(1-float(retriggerFadeRemaining_)/float(retriggerFadeFrames_));
@@ -1510,13 +1532,13 @@ public:
     CutupsDisplayState cutupsDisplayState() const
     {
         CutupsDisplayState state;
-        if (currentAlgorithm_ != PlaybackAlgorithm::cutups || !playing_
-            || sourceFrames_ == 0u) return state;
+        if (currentAlgorithm_ != PlaybackAlgorithm::cutups || (!playing_ && !liveView_)
+            || (sourceFrames_ == 0u && !liveView_)) return state;
         const auto describe = [&](const CutReader& reader, int& lane,
                                   float& position, float& gain) {
             if (!reader.active || reader.lane >= kStackLanes) return;
             lane = static_cast<int>(reader.lane);
-            position = clamp01(static_cast<float>(reader.position / sourceFrames_));
+            position = clamp01(static_cast<float>((reader.position + (liveView_ ? reader.liveAnchor-liveView_.anchor : 0)) / (liveView_ ? liveView_.frames : sourceFrames_)));
             gain = cutReaderGain(reader);
         };
         describe(cutCurrent_, state.lane, state.position, state.gain);
@@ -1862,6 +1884,7 @@ public:
 
     float normalizedPosition() const
     {
+        if(liveView_)return clamp01(float(displayPosition_/std::max(1.,double(liveView_.frames)-1)));
         if(sourceFree(currentAlgorithm_))return -1;
         return sourceFrames_ == 0u
             ? 0.0f
@@ -1871,6 +1894,7 @@ public:
 
     float normalizedFieldStart() const
     {
+        if(liveView_)return clamp01(float(fieldLow_/liveView_.frames));
         return sourceFrames_ == 0u
             ? 0.0f
             : clamp01(static_cast<float>(fieldLow_
@@ -1879,6 +1903,7 @@ public:
 
     float normalizedFieldEnd() const
     {
+        if(liveView_)return clamp01(float(fieldHigh_/liveView_.frames));
         return sourceFrames_ == 0u
             ? 1.0f
             : clamp01(static_cast<float>(fieldHigh_
@@ -1886,6 +1911,43 @@ public:
     }
 
 private:
+    s3g_thru_source::Travel sourceTravel_{};
+    s3g_thru_source::View liveView_{};
+    float travelRate_=1,liveGain_=1;
+    std::uint32_t liveGeneration_=0;std::uint64_t liveSorterEpoch_=0;
+    const float* liveDataSeen_=nullptr;
+    double liveFrameOffset_=0;
+    std::size_t liveBridge_=0,liveBridgeFrames_=441;
+    float liveTail_[kChannels]{},sourceLast_[kChannels]{};
+    struct SourceScope {
+        SampleMotionApp& e;
+        bool changed=false;
+        std::size_t frames,channels;
+        float rate;std::array<std::size_t,kStackLanes> lanes;
+        std::array<float,kStackLanes> rates;std::array<double,kStackLanes> scales;
+        std::size_t reference;bool stack,playing;
+        SourceScope(SampleMotionApp& app,const Controls& c):e(app),frames(e.sourceFrames_),channels(e.sourceChannels_),rate(e.sourceSampleRate_),reference(e.referenceLane_),stack(e.stackMode_),playing(e.playing_){
+            const bool active=bool(c.liveSource)&&supportsLiveMemory(c.algorithm);
+            const auto generation=active?c.liveSource.generation:0;
+            if(generation!=e.liveGeneration_ || (active ? c.liveSource.left : nullptr)!=e.liveDataSeen_){
+                e.liveGeneration_=generation;e.liveDataSeen_=active?c.liveSource.left:nullptr;e.liveBridgeFrames_=std::max<std::size_t>(1,std::size_t(e.outputSampleRate_*.01f));e.liveBridge_=e.liveBridgeFrames_;
+                for(std::size_t ch=0;ch<kChannels;++ch)e.liveTail_[ch]=e.sourceLast_[ch];
+                e.resetEventReaders();e.eventWindowInitialized_=false;
+            }
+            e.liveView_=active?c.liveSource:s3g_thru_source::View{};
+            if(active&&c.liveSource.written/16384!=e.liveSorterEpoch_){e.liveSorterEpoch_=c.liveSource.written/16384;e.sorterCacheValid_=false;}
+            changed=active;
+            if(active){std::copy_n(e.laneFrames_,kStackLanes,lanes.begin());std::copy_n(e.laneSampleRates_,kStackLanes,rates.begin());std::copy_n(e.lanePositionScales_,kStackLanes,scales.begin());e.sourceFrames_=c.liveSource.frames;e.sourceChannels_=2;e.sourceSampleRate_=e.outputSampleRate_;e.stackMode_=true;e.referenceLane_=0;e.playing_=true;std::fill_n(e.laneFrames_,kStackLanes,c.liveSource.frames);std::fill_n(e.laneSampleRates_,kStackLanes,e.outputSampleRate_);e.updateLanePositionScales();}
+        }
+        ~SourceScope(){if(!changed)return;e.sourceFrames_=frames;e.sourceChannels_=channels;e.sourceSampleRate_=rate;std::copy_n(lanes.begin(),kStackLanes,e.laneFrames_);std::copy_n(rates.begin(),kStackLanes,e.laneSampleRates_);std::copy_n(scales.begin(),kStackLanes,e.lanePositionScales_);e.referenceLane_=reference;e.stackMode_=stack;e.playing_=playing;}
+    };
+    double liveBirthAnchor() const {
+        return liveView_.anchor+(liveView_.advancing?liveFrameOffset_:0);
+    }
+    float readLiveHead(std::size_t channel,double first,double second,float mix,float gain,double anchor)const{
+        const float a=liveView_.sample(int(channel&1),anchor+first);
+        return (mix>0?a+(liveView_.sample(int(channel&1),anchor+second)-a)*mix:a)*gain;
+    }
     enum class LaneTransition : std::uint8_t {
         none,
         remove,
@@ -1916,6 +1978,7 @@ private:
     };
 
     struct Grain {
+        double liveAnchor=0;
         bool active = false;
         std::size_t age = 0u;
         std::size_t duration = 1u;
@@ -1932,6 +1995,7 @@ private:
     };
 
     struct LongGrain {
+        double liveAnchor=0;
         bool active = false;
         std::size_t age = 0u;
         std::size_t duration = 1u;
@@ -1948,6 +2012,8 @@ private:
     };
 
     struct CutReader {
+        double liveAnchor=0;
+        std::size_t liveLimitFrames=0;
         bool active = false;
         bool retiring = false;
         std::size_t age = 0u;
@@ -2184,6 +2250,7 @@ private:
         cutRepeatIndex_ = 0u;
         cutRepeatedRegion_ = 0u;
         cutSwingPhase_ = false;
+        glitchLiveHeads_={};glitchLiveCountdown_=0;
         glitchWriteIndex_ = 0u;
         glitchHistoryFrames_ = 0u;
         glitchReadStart_ = 0u;
@@ -2543,6 +2610,7 @@ private:
 
     void resetReader()
     {
+        sourceTravel_.reset();
         tableInstrument_.reset();scannedInstrument_.reset();fmInstrument_.reset();noiseInstrument_.reset();partialsInstrument_.reset();resonInstrument_.reset();lowformInstrument_.reset();
         noteStartPending_=true;
         phase_ = 0.0;
@@ -3005,6 +3073,7 @@ private:
                        std::size_t channel,
                        double referencePosition) const
     {
+        if(liveView_)return liveView_.sample(int(channel&1),liveView_.anchor+referencePosition);
         if (lane >= kStackLanes || channel >= kLaneChannels
             || laneFrames_[lane] == 0u
             || sourceFrames_ == 0u) {
@@ -4539,6 +4608,7 @@ private:
         }
 
         *slot = {};
+        slot->liveAnchor=liveBirthAnchor();
         slot->active = true;
         const float sizeVariation = clamp01(controls.grainSizeVariation);
         float durationScale = 1.0f + (randomUnit() * 2.0f - 1.0f)
@@ -4551,6 +4621,7 @@ private:
         slot->duration = std::max<std::size_t>(8u,
             static_cast<std::size_t>(static_cast<float>(grainDurationFrames_)
                 * std::max(0.08f, durationScale)));
+        if(liveView_)slot->duration=std::min(slot->duration,std::max<std::size_t>(8,liveView_.safeFrames));
         slot->position = position;
         const float pitchSpray = clamp(
             controls.grainPitchSpray, 0.0f, 24.0f);
@@ -4590,7 +4661,7 @@ private:
             grainDoubletPending_ = false;
         }
         if (controls.grainAdvance == GrainAdvance::grain && !doublet) {
-            const double sourceAdvance = static_cast<double>(speed_)
+            const double sourceAdvance = static_cast<double>(speed_ * travelRate_)
                 * static_cast<double>(sourceSampleRate_)
                 / static_cast<double>(outputSampleRate_) / width
                 * grainIntervalFrames_;
@@ -4640,7 +4711,7 @@ private:
             for (std::size_t channel = 0u;
                  channel < kLaneChannels;
                  ++channel) {
-                const float sample = stackMode_
+                const float sample = liveView_ ? readLiveHead(channel,head.a,head.b,head.mix,head.gain,grain.liveAnchor) : stackMode_
                     ? readLaneBlendHead(channel, head, grain.lanes)
                     : readHead(mapSourceChannel(channel), head);
                 const float spatialGain = grain.channelGains[channel];
@@ -4672,7 +4743,7 @@ private:
             wet[channel] = stereo[channel & 1u];
         }
 
-        const double phaseIncrement = static_cast<double>(speed_)
+        const double phaseIncrement = static_cast<double>(speed_ * travelRate_)
             * static_cast<double>(sourceSampleRate_)
             / static_cast<double>(outputSampleRate_) / width;
         phase_ = wrapPhase(phase_ + phaseIncrement);
@@ -4772,6 +4843,7 @@ private:
             * static_cast<double>(clamp01(controls.longGrainSpray)) * 0.5);
 
         *slot = {};
+        slot->liveAnchor=liveBirthAnchor();
         slot->active = true;
         const float durationScale = std::max(0.25f,
             1.0f + (randomUnit() * 2.0f - 1.0f)
@@ -4782,6 +4854,8 @@ private:
         slot->edgeFrames = std::max<std::size_t>(1u,
             static_cast<std::size_t>(outputSampleRate_ * 0.001f
                 * clamp(controls.longGrainEdgeMs, 5.0f, 2000.0f)));
+        if(liveView_)slot->duration=std::min(slot->duration,std::max<std::size_t>(8,liveView_.safeFrames));
+        slot->edgeFrames=std::min(slot->edgeFrames,std::max<std::size_t>(1,slot->duration/2));
         slot->position = window.low + origin * width;
         const float randomSemitones = (randomUnit() * 2.0f - 1.0f)
             * clamp(controls.longGrainPitchSpray, 0.0f, 24.0f);
@@ -4812,7 +4886,7 @@ private:
         slot->channelGains[1u] = rootTwo * std::sin(panAngle);
 
         if (controls.longGrainAdvance == GrainAdvance::grain) {
-            const double sourceAdvance = static_cast<double>(speed_)
+            const double sourceAdvance = static_cast<double>(speed_ * travelRate_)
                 * static_cast<double>(sourceSampleRate_)
                 / static_cast<double>(outputSampleRate_) / width
                 * longGrainIntervalFrames_;
@@ -4847,7 +4921,7 @@ private:
             for (std::size_t channel = 0u;
                  channel < kLaneChannels;
                  ++channel) {
-                const float sample = stackMode_
+                const float sample = liveView_ ? readLiveHead(channel,head.a,head.b,head.mix,head.gain,grain.liveAnchor) : stackMode_
                     ? readLaneBlendHead(channel, head, grain.lanes)
                     : readHead(mapSourceChannel(channel), head);
                 const float weightedGain = gain * grain.channelGains[channel];
@@ -4869,7 +4943,7 @@ private:
             wet[channel] = stereo[channel & 1u];
         }
 
-        const double phaseIncrement = static_cast<double>(speed_)
+        const double phaseIncrement = static_cast<double>(speed_ * travelRate_)
             * static_cast<double>(sourceSampleRate_)
             / static_cast<double>(outputSampleRate_) / width;
         phase_ = wrapPhase(phase_ + phaseIncrement);
@@ -4924,6 +4998,7 @@ private:
 
     std::size_t cutLane(const Controls& controls)
     {
+        if (liveView_) return static_cast<std::size_t>(clamp(controls.stackFirstLane,0.f,3.f));
         std::size_t loaded[kStackLanes] {};
         std::size_t count = 0u;
         for (std::size_t lane = 0u; lane < kStackLanes; ++lane)
@@ -5033,12 +5108,17 @@ private:
             cutTail_.retiring = true;
             cutTail_.retirementAge = 0u;
             cutTail_.joinFrames = join;
+            if(liveView_&&cutTail_.liveLimitFrames)
+                cutTail_.joinFrames=std::min(join,std::max<std::size_t>(1,
+                    cutTail_.liveLimitFrames>cutTail_.age?cutTail_.liveLimitFrames-cutTail_.age:1));
         } else {
             cutTail_ = {};
         }
 
         cutCurrent_ = {};
         cutCurrent_.active = true;
+        cutCurrent_.liveAnchor = liveBirthAnchor();
+        cutCurrent_.liveLimitFrames = liveView_ ? liveView_.safeFrames : 0;
         cutCurrent_.joinFrames = join;
         // At a full gate the outgoing reader must survive until the next
         // event so its retirement fade can overlap the incoming attack.
@@ -5050,7 +5130,7 @@ private:
         cutCurrent_.gain = 1.0f - randomUnit()
             * clamp01(controls.cutLevelVariation);
         const double width = std::max(1.0, window.high - window.low);
-        const bool transientRegions = stackMode_
+        const bool transientRegions = !liveView_ && stackMode_
             && cutCurrent_.lane < kStackLanes
             && controls.cutRegionMode == RegionMode::transients
             && laneRegionCounts_[cutCurrent_.lane] != 0u;
@@ -5097,6 +5177,10 @@ private:
         cutCurrent_.low = window.low;
         cutCurrent_.high = window.high;
         cutCurrent_.seam = joinFrames(window, controls.join);
+        if(liveView_) {
+            cutCurrent_.gateFrames=std::min(cutCurrent_.gateFrames,std::max<std::size_t>(1,liveView_.safeFrames));
+            cutCurrent_.joinFrames=std::min(cutCurrent_.joinFrames,std::max<std::size_t>(1,cutCurrent_.gateFrames/2));
+        }
 
         cutRepeatIndex_ = (cutRepeatIndex_ + 1u) % repeats;
         if (cutRepeatIndex_ == 0u) ++cutStep_;
@@ -5515,7 +5599,9 @@ private:
         const ReadHead head = makeEventReadHead(
             reader.position, reader.increment,
             reader.low, reader.high, reader.seam);
-        const float sample = stackMode_ && reader.lane < kStackLanes
+        const float sample = liveView_
+            ? readLiveHead(channel,head.a,head.b,head.mix,head.gain,reader.liveAnchor)
+            : stackMode_ && reader.lane < kStackLanes
             ? readLaneHead(reader.lane, channel, head)
                 * activeControlsLaneGains_[reader.lane]
             : readHead(mapSourceChannel(channel), head);
@@ -5591,6 +5677,7 @@ private:
             wet[channel] = stereo[channel & 1u];
         }
         displayPosition_ = cutCurrent_.position;
+        if(liveView_)displayPosition_+=cutCurrent_.liveAnchor-liveView_.anchor;
         advanceCutReader(cutTail_);
         advanceCutReader(cutCurrent_);
     }
@@ -6655,13 +6742,50 @@ private:
         }
     }
 
+    // Two bounded window readers feed Glitch's existing repeat buffer. At 1x
+    // their overlapping histories align; pitch changes retain the captured
+    // source and window until its short crossfade completes.
+    std::array<LongGrain,2> glitchLiveHeads_{};
+    std::size_t glitchLiveCountdown_=0;
+    void renderLiveGlitchSource(const Controls& controls,float* dry) {
+        const auto window=smoothEventWindow(controls);
+        fieldLow_=window.low;fieldHigh_=window.high;
+        if(!glitchLiveCountdown_) {
+            for(auto& h:glitchLiveHeads_)if(!h.active) {
+                h={};h.active=true;h.liveAnchor=liveBirthAnchor();
+                h.low=window.low;h.high=window.high;
+                h.position=window.low+clamp(double(controls.noteStartOffset),0.,.99)*(window.high-window.low);
+                h.increment=std::max(.05f,speed_);
+                const double duration=std::min({double(outputSampleRate_)*.128,
+                    (window.high-window.low)/h.increment,double(liveView_.safeFrames)});
+                h.duration=std::max<std::size_t>(16,std::size_t(std::max(16.,duration)));
+                h.edgeFrames=std::max<std::size_t>(1,std::min(h.duration/4,std::size_t(outputSampleRate_*.005f)));
+                h.shape=LongGrainShape::plateau;h.seam=joinFrames(window,controls.join);
+                glitchLiveCountdown_=h.duration-h.edgeFrames;
+                break;
+            }
+        }
+        if(glitchLiveCountdown_)--glitchLiveCountdown_;
+        float sum=0;
+        for(auto& h:glitchLiveHeads_)if(h.active) {
+            const float gain=longGrainEnvelope(h);sum+=gain;
+            const auto head=makeEventReadHead(h.position,h.increment,h.low,h.high,h.seam);
+            for(std::size_t ch=0;ch<kChannels;++ch)
+                dry[ch]+=readLiveHead(ch,head.a,head.b,head.mix,head.gain,h.liveAnchor)*gain;
+            displayPosition_=h.liveAnchor+h.position-liveBirthAnchor();
+            advanceEventPosition(h.position,h.increment,h.low,h.high,h.seam);
+            if(++h.age>=h.duration)h.active=false;
+        }
+        for(std::size_t ch=0;ch<kChannels;++ch)dry[ch]/=std::max(1.f,sum);
+    }
     void renderGlitchFrame(const Controls& controls, float join, float* wet)
     {
         Controls source = controls;
         source.motion = MotionMode::forward;
         source.motionSound = MotionSound::continuous;
         float dry[kChannels] {};
-        renderContinuousFrame(source, join, false, false, dry);
+        if(liveView_)renderLiveGlitchSource(source,dry);
+        else renderContinuousFrame(source, join, false, false, dry);
         if (!glitchControlInitialized_) {
             glitchMix_ = clamp01(controls.glitchMix);
             glitchDecay_ = clamp01(controls.glitchDecay);

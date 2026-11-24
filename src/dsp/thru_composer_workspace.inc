@@ -7,7 +7,16 @@ std::uint64_t composerAuthorGesture=0,composerAuthorOwnerGeneration=0;int compos
 std::atomic<int> composerReadoutCount{0},composerReadoutPart{0},composerReadoutClip{-1},composerReadoutPatch{0};
 std::atomic<std::uint32_t> composerReadoutSequence{0};
 
-bool composerUndoPerformance=false;std::array<std::uint32_t,kRollCount> composerRollEditorIds{};
+bool composerUndoPerformance=false,composerHistoryUndone=false;
+int composerHistoryAction=0,composerHistoryClip=-1,composerHistoryMode=-1;std::uint64_t composerHistoryOwner=0,composerHistoryRevision=0;
+std::atomic<int> composerHistoryPublished{0};
+std::array<std::atomic<float>,11> composerLayersPublished{};std::atomic<std::uint32_t> composerLayersSequence{0};std::atomic<bool> composerLayersActive{false},composerLayersOverride{false};std::atomic<int> composerLayersPointCount{0};
+static constexpr std::size_t kComposerPointSelection=256;
+struct ComposerPointEdit {std::uint32_t id=0,time=0;float value=0;};
+std::array<ComposerPointEdit,kComposerPointSelection> composerPointEdits{};
+int composerPointEditCount=0,composerPointEditExpected=0,composerPointEditClip=-1,composerPointEditPart=-1,composerPointEditOperation=0;
+std::uint64_t composerPointEditToken=0,composerPointEditOwner=0,composerPointEditRevision=0;
+std::array<std::uint32_t,kRollCount> composerRollEditorIds{};
 std::uint64_t composerPerformanceRevision=1;
 std::atomic<std::uint64_t> composerPerformanceLiveRevision{1};
 std::unique_ptr<ClipSlot> composerPerformanceClip;
@@ -76,6 +85,7 @@ void composerRestoreTouchBase(const ClipPoint& point,float value){
 #define TOUCH_RESTORE(pointType,member,ns,overrides) if(point.type==ClipPointType::pointType&&owner<16&&field<ns::fields){ns::set(sound.member.patches[lane],field,value);overrides.reset(owner*ns::fields+field);captureTablePrograms(*activeClipSlot());return;}
     TOUCH_RESTORE(tableParameter,table,s3g_thru_table,tableOverrides) TOUCH_RESTORE(scannedParameter,scanned,s3g_thru_scanned,scannedOverrides) TOUCH_RESTORE(fmParameter,fm,s3g_thru_fm,fmOverrides) TOUCH_RESTORE(noiseParameter,noise,s3g_thru_noise,noiseOverrides) TOUCH_RESTORE(resonParameter,reson,s3g_thru_reson,resonOverrides) TOUCH_RESTORE(partialsParameter,partials,s3g_thru_partials,partialsOverrides) TOUCH_RESTORE(lowformParameter,lowform,s3g_thru_lowform,lowformOverrides)
 #undef TOUCH_RESTORE
+    if(point.type==ClipPointType::sourceParameter&&owner<4&&field<s3g_thru_source::fields){auto& c=splitEnabled&&owner!=splitFocus?splitParts[owner].controls:controls;s3g_thru_source::set(c.sourceMotion,field,value);sourceMotionOverrides.reset(owner*s3g_thru_source::fields+field);captureSourcePrograms(*activeClipSlot());return;}
     if(point.type==ClipPointType::resonDensity&&owner<4){auto& c=splitEnabled&&owner!=splitFocus?splitParts[owner].controls:controls;c.reson.density=value;resonDensityOverrides[owner]=false;return;}
     if(point.type==ClipPointType::sequenceLane&&owner<4){setSequenceLaneValue(sequenceLive,owner,field,value);sequenceOverrides[owner][field]=false;sequencePlayback=sequenceLive;publishSequenceRates();syncSequenceRatePhases();invalidateSequenceRecipePlayback();activeClipSlot()->sequence=sequenceLive;return;}
     if(point.type==ClipPointType::sequenceRecipe&&owner<4){auto& recipe=sequenceLive.tracks[owner].generator;if(field==21)recipe.shift=int(value);else recipe.values[field]=value;sequenceRecipeOverrides[owner][field]=false;materializeSequenceType(owner);sequencePlayback=sequenceLive;invalidateSequenceRecipePlayback();activeClipSlot()->sequence=sequenceLive;}
@@ -93,6 +103,7 @@ static float composerBaseline(const ClipSlot& c,const ClipPoint& p){
 #define TOUCH_BASE(pointType,member,ns) if(p.type==ClipPointType::pointType&&owner<16&&field<ns::fields)return c.member[c.splitEnabled?owner/4+1:0].patches[owner%4].v[field];
     TOUCH_BASE(tableParameter,tablePrograms,s3g_thru_table) TOUCH_BASE(scannedParameter,scannedPrograms,s3g_thru_scanned) TOUCH_BASE(fmParameter,fmPrograms,s3g_thru_fm) TOUCH_BASE(noiseParameter,noisePrograms,s3g_thru_noise) TOUCH_BASE(resonParameter,resonPrograms,s3g_thru_reson) TOUCH_BASE(partialsParameter,partialsPrograms,s3g_thru_partials) TOUCH_BASE(lowformParameter,lowformPrograms,s3g_thru_lowform)
 #undef TOUCH_BASE
+    if(p.type==ClipPointType::sourceParameter&&owner<4&&field<s3g_thru_source::fields)return c.sourcePrograms[c.splitEnabled?owner+1:0].v[field];
     return p.value;
 }
 void composerBeginTouch(const ClipPoint& point,bool explicitTouch=false,bool knownBaseline=false){
@@ -100,7 +111,7 @@ void composerBeginTouch(const ClipPoint& point,bool explicitTouch=false,bool kno
     // Note expression and Layers gestures keep their native held/latching
     // behavior. Engine selection and patch starters also keep their new choice.
     const auto type=point.type;const int field=point.parameter&255u;
-    if(type!=ClipPointType::parameter&&type!=ClipPointType::partParameter&&type!=ClipPointType::tableParameter&&type!=ClipPointType::scannedParameter&&type!=ClipPointType::fmParameter&&type!=ClipPointType::noiseParameter&&type!=ClipPointType::resonParameter&&type!=ClipPointType::partialsParameter&&type!=ClipPointType::lowformParameter&&type!=ClipPointType::resonDensity&&type!=ClipPointType::sequenceLane&&type!=ClipPointType::sequenceRecipe)return;
+    if(type!=ClipPointType::sourceParameter&&type!=ClipPointType::parameter&&type!=ClipPointType::partParameter&&type!=ClipPointType::tableParameter&&type!=ClipPointType::scannedParameter&&type!=ClipPointType::fmParameter&&type!=ClipPointType::noiseParameter&&type!=ClipPointType::resonParameter&&type!=ClipPointType::partialsParameter&&type!=ClipPointType::lowformParameter&&type!=ClipPointType::resonDensity&&type!=ClipPointType::sequenceLane&&type!=ClipPointType::sequenceRecipe)return;
     if((type==ClipPointType::parameter||type==ClipPointType::partParameter)&&(field>=int(kLockParameterCount)||kComposerDiscreteLocks[field]))return;
     if((type==ClipPointType::tableParameter||type==ClipPointType::scannedParameter||type==ClipPointType::fmParameter||type==ClipPointType::noiseParameter||type==ClipPointType::resonParameter||type==ClipPointType::partialsParameter||type==ClipPointType::lowformParameter)&&field==0)return;
 
@@ -110,6 +121,7 @@ void composerBeginTouch(const ClipPoint& point,bool explicitTouch=false,bool kno
     if(type==ClipPointType::noiseParameter&&s3g_thru_noise::discrete(field))return;
     if(type==ClipPointType::resonParameter&&s3g_thru_reson::discrete(field))return;
     if(type==ClipPointType::partialsParameter&&s3g_thru_partials::discrete(field))return;
+    if(type==ClipPointType::sourceParameter&&s3g_thru_source::discrete(field))return;
     if(type==ClipPointType::lowformParameter&&s3g_thru_lowform::discrete(field))return;
     if(type==ClipPointType::sequenceRecipe||(type==ClipPointType::sequenceLane&&field!=5&&field!=6&&field!=9))return;
     const auto lane=clipPointLane(point);if(lane>=kClipCurveLaneCount||!composerCaptureAllowed(point.type,lane))return;
@@ -132,17 +144,71 @@ void serviceComposerWorkspace(){
     for(std::size_t i=0;i<voices.size();++i){auto& v=voices[i];if(composerReleaseAges[i]&&v.active&&v.age==composerReleaseAges[i]&&(!clipPlaying||clipAbsolutePositionMs>=composerReleaseTimes[i])){v.held=false;beginVoiceRelease(v);composerReleaseAges[i]=0;}
     }
     if(composerKeyboardDown&&(!composerPanelWatching.load()||composerLease.load()<composerClock()||composerKeyboardLease<composerClock()))composerReleaseKeyboard();
-    composerPerformanceLiveRevision.store(composerPerformanceRevision);composerRecordPublished.store(clipRecording);composerMaskPublished.store(composerRecordMask);composerPositionPublished.store(int(clipPositionMs));
+    composerLayersSequence.fetch_add(1,std::memory_order_acq_rel);composerLayersActive.store(layersLive.active);composerLayersOverride.store(layersOverrides.any());int layerPoints=0;if(const auto* c=activeClipSlot())for(std::size_t i=LayerPatch::advanced;i<LayerPatch::size;++i)layerPoints+=c->clipPointCounts[kClipLayersOffset+i];composerLayersPointCount.store(layerPoints);
+    const auto& layerPatch=clipPlaying?layersRecorded:layersLive;const auto& mix=layersRack.currentWeights();float lx=0,ly=0;
+    for(int corner=0;corner<4;++corner){composerLayersPublished[2+corner].store(mix[corner]);lx+=mix[corner]*float(corner%2);ly+=mix[corner]*float(corner/2);composerLayersPublished[7+corner].store(layerPatch.values[LayerPatch::fx+corner*8]);}
+    composerLayersPublished[0].store(lx);composerLayersPublished[1].store(ly);composerLayersPublished[6].store(layerPatch.setting(LayerPatch::pressure));composerLayersSequence.fetch_add(1,std::memory_order_release);
+    if(composerHistoryClip>=0&&(composerHistoryClip!=activeClip||(composerHistoryUndone&&composerHistoryRevision!=persistentRevision))){if(composerUndoPerformance){undoAvailable=false;}composerUndoPerformance=false;composerHistoryClip=-1;composerHistoryUndone=false;}
+    const bool history=!clipRecording&&!audioRecording()&&!clipPreparationInFlight();
+    const int historyFlags=history?((undoAvailable?1:0)|(composerHistoryValid()&&composerHistoryUndone?2:0)):0;
+    composerHistoryPublished.store(historyFlags|((composerHistoryValid()?composerHistoryAction:0)<<2));
+    composerPerformanceLiveRevision.store(composerPerformanceRevision);composerRecordPublished.store(clipRecording);composerMaskPublished.store(composerRecordConfigured?composerRecordMask:3);composerPositionPublished.store(int(clipPositionMs));
     if(const auto* c=activeClipSlot()){composerNotePublished.store(c->clipNoteCount);composerPointPublished.store(c->clipPointCount);const std::array<int,5> state{{activeClip,c->clipNoteCount,c->clipPointCount,c->takeCount,int(clipRecording)}};if(state!=composerPerformanceObserved){composerPerformanceObserved=state;++composerPerformanceRevision;}}
 }
-void composerRestorePerformanceUndo(){
-    if(!composerUndoPerformance||!undoAvailable||undoClipIndex!=activeClip||clipRecording||audioRecording())return;
-    auto* c=activeClipSlot();const auto& from=undoClip;releaseClipVoices();
-    c->clipNoteCount=from.clipNoteCount;c->clipPointCount=from.clipPointCount;std::copy_n(from.clipNotes.begin(),c->clipNoteCount,c->clipNotes.begin());std::copy_n(from.clipPoints.begin(),c->clipPointCount,c->clipPoints.begin());c->touchSpans=from.touchSpans;c->touchCount=from.touchCount;c->clipDurationMs=from.clipDurationMs;c->recordedBeats=from.recordedBeats;c->recordedTempoBpm=from.recordedTempoBpm;c->clipRate=from.clipRate;c->timingMode=from.timingMode;c->takeCount=from.takeCount;c->clipRecorded=from.clipRecorded;sequenceLive=from.sequence;c->sequence=from.sequence;sequencePlayback=sequenceLive;invalidateSequenceRecipePlayback();indexSortedClipPoints(*c);composerUndoPerformance=false;undoAvailable=false;composerPerformanceChanged();
+void composerPushUndo(int action){
+    pushClipUndo(activeClip);composerUndoPerformance=true;composerHistoryUndone=false;
+    composerHistoryAction=action;composerHistoryClip=activeClip;composerHistoryMode=performanceMode();composerHistoryOwner=composerPanelOwnerGeneration.load();
+}
+bool composerHistoryValid()const{return composerUndoPerformance&&composerHistoryClip==activeClip&&composerHistoryMode==performanceMode()&&undoClipIndex==activeClip&&composerHistoryOwner==composerPanelOwnerGeneration.load()&&(!composerHistoryUndone||composerHistoryRevision==persistentRevision);}
+void composerRestorePerformanceUndo(bool redo=false){
+    if(!composerUndoPerformance||undoClipIndex!=activeClip||clipRecording||audioRecording()||clipPreparationInFlight())return;
+    if(redo?(!composerHistoryValid()||!composerHistoryUndone):!undoAvailable)return;
+    auto* c=activeClipSlot();auto& from=undoClip;if(!c)return;releaseClipVoices();
+    // Exchange only authored performance. Sound patches, live controls, samples
+    // and playing transport keep their existing ownership and audio paths.
+    for(std::size_t i=0;i<std::max(c->clipNoteCount,from.clipNoteCount);++i)std::swap(c->clipNotes[i],from.clipNotes[i]);
+    for(std::size_t i=0;i<std::max(c->clipPointCount,from.clipPointCount);++i)std::swap(c->clipPoints[i],from.clipPoints[i]);
+    std::swap(c->clipNoteCount,from.clipNoteCount);std::swap(c->clipPointCount,from.clipPointCount);
+    std::swap(c->touchSpans,from.touchSpans);std::swap(c->touchCount,from.touchCount);
+    std::swap(c->clipDurationMs,from.clipDurationMs);std::swap(c->recordedBeats,from.recordedBeats);std::swap(c->recordedTempoBpm,from.recordedTempoBpm);
+    std::swap(c->clipRate,from.clipRate);std::swap(c->timingMode,from.timingMode);std::swap(c->takeCount,from.takeCount);std::swap(c->clipRecorded,from.clipRecorded);std::swap(c->sequence,from.sequence);
+    sequenceLive=c->sequence;sequencePlayback=sequenceLive;publishSequenceRates();syncSequenceRatePhases();invalidateSequenceRecipePlayback();indexSortedClipPoints(*c);
+    if(c->clipDurationMs)clipPositionMs=std::fmod(clipPositionMs,c->clipDurationMs);
+    composerHistoryUndone=!redo;undoAvailable=redo;composerAuthorGesture=0;composerPerformanceChanged();composerHistoryRevision=persistentRevision;
+}
+static bool composerPointInTake(const ClipSlot& c,const ClipPoint& point){
+    const auto lane=clipPointLane(point);const auto take=clipPointTake(point);bool windowed=false;
+    for(int i=0;i<c.touchCount;++i){const auto& span=c.touchSpans[i];if(span.lane!=lane||span.take!=take)continue;windowed=true;
+        if(c.clipDurationMs&&(point.timeMs+c.clipDurationMs-span.startMs)%c.clipDurationMs<span.durationMs)return true;
+    }
+    return !windowed;
+}
+bool composerApplyPointEdits(){
+    auto* c=activeClipSlot();const auto cancel=[&](){composerPointEditClip=-1;return false;};
+    if(!c||composerPointEditClip!=activeClip||composerPointEditOwner!=composerPanelOwnerGeneration.load()||composerPointEditRevision!=persistentRevision||composerPointEditCount!=composerPointEditExpected||!composerPointEditCount||clipRecording)return cancel();
+    std::sort(composerPointEdits.begin(),composerPointEdits.begin()+composerPointEditCount,[](const auto& a,const auto& b){return a.id<b.id;});
+    for(int i=1;i<composerPointEditCount;++i)if(composerPointEdits[i].id==composerPointEdits[i-1].id)return cancel();
+    if(composerPointEditOperation==1&&std::size_t(c->clipPointCount+composerPointEditCount)>kClipPointCapacity)return cancel();
+    std::array<int,kComposerPointSelection> indices{};indices.fill(-1);int found=0;std::size_t route=kClipCurveLaneCount;int take=-1;
+    for(int i=0;i<c->clipPointCount;++i){const auto& old=c->clipPoints[i];const auto it=std::lower_bound(composerPointEdits.begin(),composerPointEdits.begin()+composerPointEditCount,old.editorId,[](const auto& a,std::uint32_t id){return a.id<id;});if(it==composerPointEdits.begin()+composerPointEditCount||it->id!=old.editorId)continue;
+        const int slot=int(it-composerPointEdits.begin());if(indices[slot]>=0)return cancel();indices[slot]=i;++found;
+        const auto lane=clipPointLane(old);const int own=clipPointTake(old);if(route==kClipCurveLaneCount){route=lane;take=own;}if(route!=lane||take!=own)return cancel();
+        if(composerPointEditOperation==2)continue;
+        auto next=old;next.timeMs=it->time;next.value=it->value;
+        if(next.timeMs>=c->clipDurationMs||!composerValidPoint(next,std::max(1,int(c->takeCount))))return cancel();
+        // A selected overdub curve retains its ownership intervals. Moving a
+        // point outside those intervals would create a silent, misleading edit.
+        if(!composerPointInTake(*c,next))return cancel();
+    }
+    if(found!=composerPointEditCount)return cancel();
+    composerPushUndo(composerPointEditOperation==1?8:composerPointEditOperation==2?9:7);
+    if(composerPointEditOperation==2){std::bitset<kClipPointCapacity> removed;for(int i=0;i<composerPointEditCount;++i)removed.set(indices[i]);std::size_t out=0;for(int i=0;i<c->clipPointCount;++i)if(!removed.test(i))c->clipPoints[out++]=c->clipPoints[i];c->clipPointCount=std::uint16_t(out);}
+    else for(int i=0;i<composerPointEditCount;++i){auto next=c->clipPoints[indices[i]];next.timeMs=composerPointEdits[i].time;next.value=composerPointEdits[i].value;if(composerPointEditOperation==1){next.editorId=nextComposerEventId();c->clipPoints[c->clipPointCount++]=next;}else c->clipPoints[indices[i]]=next;}
+    composerPointEditClip=-1;rebuildClipPointIndex(*c);composerPerformanceChanged();return true;
 }
 bool composerPointPart(const ClipPoint& p,int part,bool all)const{
     if(all||!splitEnabled)return true;
-    switch(p.type){case ClipPointType::partParameter:case ClipPointType::partHold:case ClipPointType::notePressure:case ClipPointType::midiExpression:case ClipPointType::resonDensity:case ClipPointType::sequenceLane:case ClipPointType::sequenceRecipe:return p.sourcePad==part;
+    switch(p.type){case ClipPointType::sourceParameter:case ClipPointType::partParameter:case ClipPointType::partHold:case ClipPointType::notePressure:case ClipPointType::midiExpression:case ClipPointType::resonDensity:case ClipPointType::sequenceLane:case ClipPointType::sequenceRecipe:return p.sourcePad==part;
     case ClipPointType::tableParameter:case ClipPointType::scannedParameter:case ClipPointType::fmParameter:case ClipPointType::noiseParameter:case ClipPointType::resonParameter:case ClipPointType::lowformParameter:case ClipPointType::partialsParameter:return p.sourcePad/4==part;default:return part==0;}
 }
 void composerPrepareEmptyClip(){

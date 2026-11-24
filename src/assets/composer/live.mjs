@@ -40,7 +40,7 @@ export class LiveEdits {
   let budget=2;
   while(this.queue.size&&this.inflight.size<8&&budget--){const[key,edit]=this.queue.entries().next().value;this.queue.delete(key);const id=++this.sequence,packet=[this.connection.client,id,edit.kind,this.active,...edit.values,...(edit.kind==='p'?[this.patches?.[edit.values[0]]??-1,this.entries?.[edit.values[0]]??-1]:[])].join('|');try{this.connection.send('composer_edit',packet);this.inflight.set(id,{packet,kind:edit.kind,at:now,tries:0});}catch(e){this.onError(e.message);}}
  }
- acknowledge(receipts=[]){let changed=false;for(const value of receipts){const id=Math.floor(value/2);if(this.inflight.has(id)){changed=true;this.acknowledged=Math.max(this.acknowledged,id);}const kind=this.inflight.get(id)?.kind;if(this.inflight.delete(id)&&value%2===0){this.queue.clear();this.onError('Move rejected an edit: its context changed or a recording/file operation is active. Finish the operation, then reconnect.',kind);}}return changed;}
+ acknowledge(receipts=[],errors=[]){const reasons=new Map(errors);let changed=false;for(const value of receipts){const id=Math.floor(value/2);if(this.inflight.has(id)){changed=true;this.acknowledged=Math.max(this.acknowledged,id);}const kind=this.inflight.get(id)?.kind;if(this.inflight.delete(id)&&value%2===0){this.queue.clear();const reason=reasons.get(id);this.onError(reason||'Move rejected an edit: its context changed or a recording/file operation is active. Finish the operation, then reconnect.',kind==='p'&&reason?'parameter-rejected':kind);}}return changed;}
  invalidate(){this.queue.clear();this.inflight.clear();this.baseline=null;this.active=-1;}
  get pending(){return this.queue.size>0||this.inflight.size>0;}
  close(){clearInterval(this.timer);}

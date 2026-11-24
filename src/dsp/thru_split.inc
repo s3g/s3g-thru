@@ -26,6 +26,18 @@
             ?padForPart(part,localPad(sourcePad)%(isQuad()?8:16)):sourcePad;
     }
 
+    int displayedNotePad(int sourcePad,int part,bool recorded,int note) const
+    {
+        if(sourcePad>=0&&sourcePad<32)return displayedPad(sourcePad,part,recorded);
+        const auto& own=settingsForPart(part);
+        if(own.mode!=0&&!Engine::sourceFree(liveControlsForPart(part).algorithm))return -1;
+        for(int pad=0;pad<32;++pad){
+            if((splitEnabled&&partForInput(pad)!=part)||((layersLive.active||bankMode)&&pad%8>=4))continue;
+            if(padToMidiNote(kFirstPadNote+pad)==note)return pad;
+        }
+        return -1;
+    }
+
     static bool splitPartParameter(std::size_t index)
     {
         const auto p = static_cast<LockParameter>(index);
@@ -101,6 +113,7 @@
     {
         normalizeVoiceEngineEditors();
         const auto& source = splitParts[static_cast<std::size_t>(part)];
+        controls.sourceMotion=source.controls.sourceMotion;
         controls.stackPath=source.controls.stackPath;
         controls.reson.density=source.controls.reson.density;
         controls.table=source.controls.table;controls.scanned=source.controls.scanned;controls.fm=source.controls.fm;
@@ -178,9 +191,11 @@
         if(sequenceMode()==(mode==6)&&layersLive.active==(mode==5)&&enabled==splitEnabled&&bankMode==(mode==4)&&(!enabled||(shared==sharedDual&&quad==quadMode)))return;
         if(audioRecording()||clipRecording){setError("Stop recording before changing mode");return;}
         if(partCapturePublishing){setError("Wait for capture publication");return;}
+        if(liveCaptureJob.load(std::memory_order_acquire)){setError("Wait for Live Memory save");return;}
         if(bankJob.load(std::memory_order_acquire)){setError("Wait for Bank sample job");return;}
         cancelSequenceGenerate();
         const int previousMode=performanceMode();
+        if(composerUndoPerformance){undoAvailable=false;}composerUndoPerformance=false;composerHistoryClip=-1;composerHistoryUndone=false;
         if(mode>0)lastNonSingleMode=mode;
         else if(previousMode>0)lastNonSingleMode=previousMode;
         closeSliceEditor();
@@ -261,6 +276,16 @@
                     captureClipPoint(ClipPointType::stackPath,p,target+1,to.controls.stackPath.value(p),0);
                 captureClipPoint(ClipPointType::stackPath,p,target+1,from.controls.stackPath.value(p));
             }
+        // Travel follows the copied instrument; destination Live routing stays
+        // local, so a part copy cannot create a feedback connection.
+        std::array<std::size_t,8> sourceCurves{};
+        for(int field=0;field<8;++field){
+            to.controls.sourceMotion.v[field]=from.controls.sourceMotion.v[field];
+            const auto group=target*s3g_thru_source::fields+field;
+            sourceMotionOverrides.set(group);sourceCurves[field]=kClipSourceOffset+group;
+            captureClipPoint(ClipPointType::sourceParameter,field,target,to.controls.sourceMotion.v[field]);
+        }
+        if(sequenceMode()&&!clipRecording)replaceSequenceAutomation(sourceCurves,true);
         // TABLE patches follow the destination's physical lane ownership.
         std::array<std::size_t,4*s3g_thru_table::fields> copiedTableCurves;
         copiedTableCurves.fill(kClipCurveLaneCount);
@@ -473,7 +498,7 @@
             const auto window=isQuad()?parameterDisplayWindow(view,p):displayWindow(p);
             const PlaybackVoice* head=nullptr;
             for(const auto& v:voices)if(v.active&&v.held&&v.part==p&&(!head||v.age>head->age))head=&v;
-            const int n=std::snprintf(buffer+at,capacity-at,"%s{\"algorithm\":%d,\"engine_list\":%d,\"root\":%d,\"octave\":%d,\"scale\":%d,\"mode\":%d,\"hold\":%d,\"mute\":%d,\"position\":%.5f,\"window\":[%.7f,%.7f]}",p?",":"",static_cast<int>(c.algorithm),ui.engines.enabled?1:0,ui.root,ui.octave,ui.scale,ui.mode,ui.stackHold,ui.muted,head?head->engine.normalizedPosition():0,window[0],window[1]);
+            const int n=std::snprintf(buffer+at,capacity-at,"%s{\"algorithm\":%d,\"engine_list\":%d,\"root\":%d,\"octave\":%d,\"scale\":%d,\"mode\":%d,\"hold\":%d,\"mute\":%d,\"live\":%d,\"position\":%.5f,\"window\":[%.7f,%.7f]}",p?",":"",static_cast<int>(c.algorithm),ui.engines.enabled?1:0,ui.root,ui.octave,ui.scale,ui.mode,ui.stackHold,ui.muted,sourceMotionEngine(c.algorithm)&&sourceProgram(p).v[8]!=0?1:0,head?head->engine.normalizedPosition():0,window[0],window[1]);
             if(n<0||n>=capacity-at)return -1;
             at+=n;
         }

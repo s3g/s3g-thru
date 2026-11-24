@@ -1,6 +1,7 @@
 #pragma once
 #include "thru_composer_json.h"
 #include "thru_fm_parameters.h"
+#include "thru_source_motion.h"
 #include "thru_lowform_parameters.h"
 #include "thru_midi_parameters.h"
 #include "thru_noise_parameters.h"
@@ -28,7 +29,7 @@ inline constexpr const char *pointTypes[]{
     "sequence-recipe",   "control-lfo",       "pooled-lfo",
     "table-parameter",   "scanned-parameter", "fm-parameter",
     "noise-parameter",   "reson-parameter",   "partials-parameter",
-    "lowform-parameter", "reson-density"};
+    "lowform-parameter", "reson-density", "source-parameter"};
 inline constexpr const char *rates[]{"1/1",   "1/2",  "1/4",   "1/8", "1/16",
                                      "1/16T", "1/32", "1/32T", "1/64"};
 inline constexpr const char *directions[]{"forward", "backward", "ping-pong",
@@ -162,7 +163,7 @@ inline bool programParameter(const s3g_thru_midi::Parameter &p) {
           (p.id >= 5000 && p.id < 5000 + s3g_thru_lowform::fields));
 }
 inline bool soundParameter(const s3g_thru_midi::Parameter &p) {
-  return !p.action && (p.lock >= 0 || programParameter(p) || p.id == 5091);
+  return !p.action && (p.lock >= 0 || programParameter(p) || p.id == 5091 || (p.id>=5200&&p.id<5213));
 }
 inline double parameterBound(float x) {
   if (x == 0)

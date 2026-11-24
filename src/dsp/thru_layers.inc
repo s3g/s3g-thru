@@ -336,9 +336,19 @@ bool setLayersParam(const char *key, const char *value) {
   }
   return false;
 }
+// Moving display state stays independent of the slower corner editor data.
+int formatLayersCursor(char* b,int capacity)const {
+  if(!layersLive.active)return std::snprintf(b,capacity,"{\"v\":1,\"active\":0,\"clip\":%d}",activeClip);
+  const auto& mix=layersRack.currentWeights();const auto& audible=clipPlaying?layersRecorded:layersLive;
+  std::uint32_t down=0,latched=0;int count=0;
+  for(int pad=0;pad<32;++pad){if(layersDown[pad])down|=std::uint32_t(1)<<pad;if(layersLatch[pad])latched|=std::uint32_t(1)<<pad;}
+  for(const auto& voice:voices){if(voice.active)++count;}
+  return std::snprintf(b,capacity,"{\"v\":1,\"active\":1,\"clip\":%d,\"mix\":[%.5f,%.5f,%.5f,%.5f],\"z\":%.5f,\"fxPads\":%u,\"down\":%u,\"latched\":%u,\"voiceCount\":%d}",activeClip,mix[0],mix[1],mix[2],mix[3],audible.setting(LayerPatch::pressure),layersActiveFxPads(),down,latched,count);
+}
 int getLayersParam(const char *key, char *b, int capacity) const {
   if (std::strncmp(key, "layers_", 7))
     return -2;
+  if(!std::strcmp(key,"layers_cursor_state"))return formatLayersCursor(b,capacity);
   const int i = layerAlias(key);
   if (i >= 0)
     return std::snprintf(b, capacity, "%.9g", layersLive.values[i]);
@@ -356,12 +366,12 @@ int getLayersParam(const char *key, char *b, int capacity) const {
   if (std::strcmp(key, "layers_view"))
     return -2;
   if (!layersLive.active)
-    return std::snprintf(b, capacity, "{\"active\":0}");
+    return std::snprintf(b, capacity, "{\"active\":0,\"clip\":%d}",activeClip);
   int at =
       std::snprintf(b, capacity,
-                    "{\"active\":%d,\"surface\":%d,\"corner\":%d,\"held\":%d,"
+                    "{\"active\":%d,\"clip\":%d,\"surface\":%d,\"corner\":%d,\"held\":%d,"
                     "\"serial\":%u,\"values\":[",
-                    layersLive.active ? 1 : 0, layersEditSurface,
+                    layersLive.active ? 1 : 0, activeClip, layersEditSurface,
                     layersEditCorner, heldLayersCorner(), layersEditSerial);
   if (at < 0 || at >= capacity)
     return -1;

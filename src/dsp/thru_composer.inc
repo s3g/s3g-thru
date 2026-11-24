@@ -642,8 +642,15 @@ void composerStatus(const std::string &phase, bool ok,
          {"total", composerCopyTotal.load()},
          {"root", composerRoot},
          {"result", composerResult},
-         {"undo", composerUndoReady.load()}, {"panel",composerPanelPath},{"panelVersion",composerPanelPublishedVersion},{"panelError",composerPanelError},{"panelErrorClip",composerPanelErrorClip},{"panelProtocol",2},{"panelBuild","0.34.0-test.13"}});
+         {"undo", composerUndoReady.load()}, {"panel",composerPanelPath},{"panelVersion",composerPanelPublishedVersion},{"panelError",composerPanelError},{"panelErrorClip",composerPanelErrorClip},{"panelProtocol",2},{"panelBuild","0.34.0"}});
+    for(int attempt=0;attempt<3;++attempt){const auto before=composerLayersSequence.load(std::memory_order_acquire);if(before&1u)continue;const bool active=composerLayersActive.load(),override=composerLayersOverride.load();const int layerPoints=composerLayersPointCount.load();std::array<float,11> values{};for(std::size_t i=0;i<values.size();++i)values[i]=composerLayersPublished[i].load();if(composerLayersSequence.load(std::memory_order_acquire)!=before)continue;
+      state["layers"]=composerObject({{"active",active},{"recorded",layerPoints},{"override",override},{"xy",ComposerJson::Array{values[0],values[1]}},{"weights",ComposerJson::Array{values[2],values[3],values[4],values[5]}},{"pressure",values[6]},{"algorithms",ComposerJson::Array{values[7],values[8],values[9],values[10]}}});break;}
+    const int history=composerHistoryPublished.load();state["history"]=composerObject({{"undo",bool(history&1)},{"redo",bool(history&2)},{"action",history>>2}});
     auto receipts=ComposerJson::array();for(const auto& v:composerEditReceipts){const auto n=v.load(std::memory_order_acquire);if(n)receipts.push(double(n));}state["edits"]=std::move(receipts);
+    auto editErrors=ComposerJson::array();for(std::size_t i=0;i<composerEditReceipts.size();++i){const auto receipt=composerEditReceipts[i].load(std::memory_order_acquire);if(!receipt||(receipt&1u))continue;
+      std::string reason;for(const auto& c:composerEditErrors[i]){const auto value=c.load(std::memory_order_relaxed);if(!value)break;reason+=value;}
+      if(!reason.empty()&&receipt==composerEditReceipts[i].load(std::memory_order_acquire))editErrors.push(ComposerJson::Array{double(receipt>>1),reason});
+    }state["editErrors"]=std::move(editErrors);
     auto cursors = ComposerJson::array();
     for (const auto &c : sequencePublishedCursor)
       cursors.push(c.load(std::memory_order_acquire));

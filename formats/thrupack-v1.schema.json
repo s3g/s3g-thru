@@ -655,7 +655,8 @@
                 "reson-parameter",
                 "partials-parameter",
                 "lowform-parameter",
-                "reson-density"
+                "reson-density",
+                "source-parameter"
               ]
             },
             "key": {

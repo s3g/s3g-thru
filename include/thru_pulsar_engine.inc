@@ -1,6 +1,7 @@
 // Included in SampleMotionApp. Four fixed pulse readers per note; every reader
 // captures its window, PCM span and lane blend. Active readers are never stolen.
 struct PulsarHead {
+    double liveAnchor=0;
     std::array<double, kStackLanes> start{}, span{};
     std::array<std::size_t, kStackLanes> frames{};
     std::array<float, kStackLanes> weight{}, increment{}, lod{};
@@ -65,7 +66,10 @@ void launchPulsar(const Controls &c, const Window &window, double age, float min
                            ? pulsarForm_
                            : clamp(pulsarForm_ * std::exp2(semitones / 12), ThruPulsar::minimumFormHz, ThruPulsar::maximumFormHz);
     const double requested = outputSampleRate_ / form;
-    const double duration = clamp(requested, 16., std::max(16., 2.9 * minimumInterval));
+    const double maximum = liveView_ ? std::min(std::max(16., 2.9 * minimumInterval),
+                                              double(std::max<std::size_t>(16,liveView_.safeFrames)))
+                                     : std::max(16., 2.9 * minimumInterval);
+    const double duration = clamp(requested, 16., maximum);
     pulsarLimited_ = std::abs(duration - requested) > .01;
     const auto event = pulsarEvent_++;
     const float probability = ThruPulsar::random(pulsarRandom_);
@@ -84,6 +88,7 @@ void launchPulsar(const Controls &c, const Window &window, double age, float min
     }
     *head = {};
     head->active = true;
+    head->liveAnchor = liveBirthAnchor();
     head->duration = duration;
     pulsarDurationMs_ = static_cast<float>(duration * 1000 / outputSampleRate_);
     head->age = age;
@@ -213,7 +218,7 @@ void renderPulsarFrame(const Controls &c, float *wet) {
             pulsarPreparedMix_[lane] = 0;
         }
         const bool ready =
-            bank && bank->pyramid.frames == (stackMode_ ? laneFrames_[lane] : sourceFrames_) &&
+            !liveView_ && bank && bank->pyramid.frames == (stackMode_ ? laneFrames_[lane] : sourceFrames_) &&
             !bank->pyramid.data[0].pcm[0].empty();
         pulsarPreparedMix_[lane] +=
             pulsarSlew_ * ((ready ? 1.f : 0.f) - pulsarPreparedMix_[lane]);
@@ -235,32 +240,32 @@ void renderPulsarFrame(const Controls &c, float *wet) {
         envelopeSum += envelope;
         for (std::size_t lane = 0; lane < (stackMode_ ? kStackLanes : 1u); ++lane) {
             const auto count = stackMode_ ? laneFrames_[lane] : sourceFrames_;
-            if (head.weight[lane] <= 1e-7f || head.frames[lane] != count)
+            if (head.weight[lane] <= 1e-7f || (!liveView_ && head.frames[lane] != count))
                 continue;
             const double position =
                 head.start[lane] + (head.reverse ? 1 - phase : phase) * head.span[lane];
             const float increment = head.increment[lane], lod = head.lod[lane];
             const auto *bank = wavesetBanks_[lane];
             const auto *pyramid =
-                bank && bank->pyramid.frames == count && !bank->pyramid.data[0].pcm[0].empty()
+                !liveView_ && bank && bank->pyramid.frames == count && !bank->pyramid.data[0].pcm[0].empty()
                     ? &bank->pyramid
                     : nullptr;
             for (std::size_t ch = 0; ch < 2; ++ch) {
                 const auto *pcm =
                     stackMode_ ? laneData(lane, ch) : storage_[mapSourceChannel(ch)];
                 // The bounded fallback keeps output available before analysis.
-                const float direct = (!pyramid || pulsarPreparedMix_[lane] < 1)
-                                         ? ThruSamplePyramid::linear(pcm, count, position)
-                                         : 0;
+                const auto read = [&](double at) {
+                    return liveView_ ? liveView_.sample(int(ch),head.liveAnchor+at)
+                                     : ThruSamplePyramid::linear(pcm,count,at);
+                };
+                const float direct = (!pyramid || pulsarPreparedMix_[lane] < 1) ? read(position) : 0;
                 float fallback = direct;
                 if ((!pyramid || pulsarPreparedMix_[lane] < 1) && increment > 1.05f) {
                     float average = 0;
                     const double spread = std::min(64.f, increment);
                     for (int tap = 0; tap < 4; ++tap)
-                        average += ThruSamplePyramid::linear(
-                            pcm, count,
-                            clamp(position + spread * ((tap + .5) / 2 - 1), head.start[lane],
-                                  head.start[lane] + head.span[lane]));
+                        average += read(clamp(position + spread * ((tap + .5) / 2 - 1),
+                                              head.start[lane],head.start[lane]+head.span[lane]));
                     fallback +=
                         (average * .25f - direct) * clamp((increment - 1) * 2, 0.f, 1.f);
                 }

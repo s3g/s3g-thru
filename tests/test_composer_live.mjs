@@ -44,3 +44,12 @@ const listSettings={voice_engine_mode:1,voice_engine_edit:2,voice_engine_assign:
 assert.deepEqual(panelEntryTokens({settings:[{voice_engine_mode:1,voice_engine_edit:2}]}),[18]);
 const drops=[],guarded=new LiveEdits({...connection,send:(k,v)=>drops.push(v)});guarded.reset(listDoc,0,[0],[18]);guarded.push('p',[0,4,15]);guarded.flush();assert(drops[0].endsWith('|0|18'));guarded.invalidate();assert(!guarded.pending);assert.equal(guarded.active,-1);guarded.push('p',[0,4,17]);guarded.flush();assert.equal(drops.length,1);guarded.close();
 console.log('Engine LIST menu exposure, entry tokens and discarded stale-clip writes: PASS');
+
+// Native setter rejections carry a useful reason without closing the link.
+{
+ const errors=[],connection={connected:true};const edit=Object.create(LiveEdits.prototype);
+ Object.assign(edit,{connection,inflight:new Map([[7,{kind:'p'}]]),queue:new Map([['next',{kind:'p'}]]),acknowledged:0,onError:(...args)=>errors.push(args)});
+ assert(edit.acknowledge([14],[[7,'Choose input or an available part without feedback']]));
+ assert.deepEqual(errors,[['Choose input or an available part without feedback','parameter-rejected']]);assert.equal(connection.connected,true);assert.equal(edit.pending,false);
+ console.log('Browser setter refusal: native error reason, cleared pending edits and retained connection: PASS');
+}

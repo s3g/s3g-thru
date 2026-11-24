@@ -23,7 +23,7 @@ export const POINT_TYPES = [
   'sequence-recipe',   'control-lfo',       'pooled-lfo',
   'table-parameter',   'scanned-parameter', 'fm-parameter',
   'noise-parameter',   'reson-parameter',   'partials-parameter',
-  'lowform-parameter', 'reson-density'
+  'lowform-parameter', 'reson-density', 'source-parameter'
 ];
 export const BY_KEY = new Map(PARAMETERS.map(p => [p.key, p]));
 export const SOURCE_FREE = new Set(

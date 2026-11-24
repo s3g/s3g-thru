@@ -108,7 +108,7 @@
             <tr><td>Capture + Menu</td><td>Open the <a href="interface.html#page-picker">Pages hub</a>. Its four banks are Play, Sample, Mix/FX and Performance. Scroll to Mode, Setup, MIDI, All and Projects for the remaining destinations.</td></tr>
             <tr><td>Capture + Track 1–4</td><td>Jump directly to Play, Sample, Mix/FX, or Performance. Repeat the same chord to advance through that bank.</td></tr>
             <tr><td>Delete + Play</td><td><a href="performance.html#panic">Panic</a>: stop the data loop, finish an active performance take, and release notes, latches, Rolls, and audition. Effect tails decay naturally.</td></tr>
-            <tr><td>Copy</td><td>Outside the clip and chain editors, toggle Single / your last other mode, including Split, Shared Dual, Quad, Bank and Layers. The return mode is saved with the project. Choose a mode via Capture + Menu → Mode. See <a href="modes.html">Modes</a>.</td></tr>
+            <tr><td>Copy</td><td>Use the contextual copy tools below. A plain press outside a copy editor shows a shortcut hint. Choose the clip’s instrument layout through Capture + Menu → Mode. See <a href="modes.html">Modes</a>.</td></tr>
             <tr><td>Capture in multi-instrument modes / Layers</td><td>A quick tap switches editing focus on release. Hold Capture for the <a href="playing.html#capture-performance">bottom-row performance controls</a>. Split highlights lane numbers 1–2 or 3–4; Shared Dual highlights A/B in the waveform header. Quad cycles A–D and highlights its lane and header letter. Layers switches A/FX editing and remembers each side’s last page. See <a href="interface.html#split-buttons">the physical button guide</a>.</td></tr>
             <tr><td>Capture + knob 8</td><td>Adjust Blend in either dual mode, or the focused part’s level in Quad, from any page; release keeps focus.</td></tr>
             <tr><td>Shift + Capture</td><td><a href="#known-issues">Schwung Skipback</a>: saves recent host audio as a WAV.</td></tr>
@@ -117,7 +117,7 @@
             <tr><td>Track 1–4</td><td>Select the lane used by audio record, load, clear, and sample edit. Split also focuses the owning A/B part. Shared Dual keeps focus unchanged. Quad focuses the corresponding A–D part.</td></tr>
             <tr><td>Main encoder turn</td><td>Select the previous/next lane.</td></tr>
             <tr><td>Up / Down</td><td>Transpose the pad grid by octave on the waveform page. On parameter pages, move within the current Play, Sample, Mix/FX, or Performance bank.</td></tr>
-            <tr><td>Left / Right</td><td>Select performance-clip bank A–D. In the Chain grid or Chain parameter pages, select entry pages 1–4 instead.</td></tr>
+            <tr><td>Left / Right</td><td>Select performance-clip bank A–D; a temporary OLED banner shows the bank, slot range and page. In the Chain grid or Chain parameter pages, select entry pages 1–4 instead.</td></tr>
             <tr><td>Step 1–16</td><td>Select or queue that clip in the current bank. In the Chain grid or Chain parameter pages, select an entry on the current page.</td></tr>
             <tr><td>Main click on Layers FX CORNER</td><td>Choose <strong>Choose Effect</strong> in Actions to open the grouped effect picker. Click a family, then an effect. Back returns to families, then the editor. Record still controls performance-data recording.</td></tr><tr><td>Main click on parameter pages</td><td>Open <a href="interface.html#page-actions">Page Actions</a>. Turn and click to choose; Back returns to the page. Direct Hold and dedicated editor actions retain their existing behavior.</td></tr><tr><td>Record</td><td>Start/stop performance-data recording. Main click also does this on the waveform view outside Sequence mode.</td></tr>
             <tr><td>Shift + Record</td><td>Start/stop stereo audio capture into the selected lane. Shift + main click also does this on the waveform view outside Sequence mode.</td></tr>
@@ -161,6 +161,7 @@
           <tbody>
             <tr><td>Pages hub</td><td>Main turn or Up/Down selects; main click enters. Track 1–4 opens the four banks. Back returns page → bank → hub → prior view; Menu also returns from a bank list to the hub.</td></tr>
             <tr><td>A/B or Quad Mix Status</td><td>Read post-level meters, voice counts, and silence reasons; A/B meters also follow Blend. Capture switches focus; Menu/Back returns to waveforms.</td></tr>
+            <tr><td>Live Memory + Loop</td><td>Freeze or resume the focused Live Memory source in Grains, Weave, Glitch, Cutups, Pulsar or Texture.</td></tr>
             <tr><td>Parameters</td><td>Up/Down changes page within the current bank; knobs 1–8 edit aligned cells; Left/Right still changes clip bank.</td></tr>
             <tr><td>Clip Overview</td><td>Track 1–4 changes bank; Steps address clips; Shift+Step copies; Delete+Step resets.</td></tr>
             <tr><td>Chain</td><td>Step selects entry; main turn chooses clip; Up/Down sets repeats; main click toggles Chain; Shift+click inserts active clip; Delete+Step removes; Shift+Step moves.</td></tr>
@@ -184,7 +185,7 @@
             <tr><td>Undo</td><td>Bright when a one-level safety undo is available; off when unavailable or recording. The key is the curved reverse arrow beside Shift.</td></tr>
             <tr><td>Shift / Delete</td><td>Dim when available, bright while held.</td></tr>
             <tr><td>Arrows</td><td>Dim in views where they navigate, bright while pressed; otherwise off.</td></tr>
-            <tr><td>Copy / Capture / Mute</td><td>Copy bright in multi-instrument modes, dim in Single, off while recording blocks mode changes. Capture is dim in Single and A focus, bright for any non-A focus or the Pages hub. Mute is available only in multi-instrument modes and bright when its focused part is muted.</td></tr>
+            <tr><td>Copy / Capture / Mute</td><td>Copy is dim at rest and bright while held, following copy activity. Capture is dim in Single and A focus, bright for any non-A focus or the Pages hub. Mute is available only in multi-instrument modes and bright when its focused part is muted.</td></tr>
             <tr><td>Loop</td><td>Bright white for Glitch Buffer Lock or a live Stack Hold; medium white for a recorded Stack Hold; dim white while scans run. The footer identifies the hold. In Quad, Loop is dark unless Glitch or Tape Inertia gives it a role.</td></tr>
             <tr><td>Tracks</td><td>Selected lane on ordinary pages; selected clip bank in Clip Overview. While Capture or the Pages hub is active, they identify Play, Sample, Mix/FX, and Performance.</td></tr>
           </tbody>

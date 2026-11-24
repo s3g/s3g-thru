@@ -30,8 +30,9 @@ press **Step 2** for Global Settings. **Shift + main encoder click** opens its
 section picker: choose **System → Help → Modules → s3g Thru**. Inside Thru,
 **Shift + Menu** opens the diagnostic reports and shortcut reminder.
 
-Version 0.33.2 improves RESON release tails and adds DENS for controlling
-overlapping hits. See the [release notes](release-notes/RELEASE_NOTES_0.33.2.md).
+Version 0.34.0 adds browser composition and clip exchange, Live Memory,
+Travel Envelopes, and contextual editing tools. See the
+[release notes](release-notes/RELEASE_NOTES_0.34.0.md).
 Use the manual's [Projects guide](https://s3g.github.io/s3g-thru/projects.html)
 for backup and restore.
 

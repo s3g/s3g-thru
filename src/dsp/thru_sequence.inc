@@ -106,8 +106,10 @@ void commitSequenceEdit(bool deferPlayback = false) {
 }
 void startSequenceVoice(int part, int row, int child, double gateBeats,
                         bool audition = false, std::int64_t tick = -1) {
-  if (part < 0 || part >= 4 || (!engine.laneLoaded(part) && !Engine::sourceFree((audition?liveControlsForPart(part):splitClipControls[part]).algorithm)))
-    return;
+  if (part < 0 || part >= 4) return;
+  const auto& source=audition?liveControlsForPart(part):splitClipControls[part];
+  if(!engine.laneLoaded(part) && !Engine::sourceFree(source.algorithm)
+      && !(sourceMotionEngine(source.algorithm)&&source.sourceMotion.v[8]!=0)) return;
   const auto &lane = sequencePlayback.tracks[part];
   const auto &step = audition?sequenceLive.tracks[part].trigs[row]
       :tick<0?lane.trigs[row]:sequenceDirections[part].step(lane,tick,row);
@@ -820,9 +822,9 @@ int sequenceState(char *b, int capacity) const {
                         (std::max(1.0, double(tempoBpm)) * clipRate);
   int at = std::snprintf(
       b, capacity,
-      "{\"active\":%d,\"edit\":%d,\"rec\":%u,\"step\":%d,\"held\":%d,\"child\":"
+      "{\"active\":%d,\"clip\":%d,\"edit\":%d,\"rec\":%u,\"step\":%d,\"held\":%d,\"child\":"
       "%d,\"root\":%d,\"mask\":%u,\"length\":%d,\"playing\":%d,\"clipboard\":%d,\"step_ms\":%.4f,\"lanes\":[",
-      sequenceMode() ? 1 : 0, splitFocus, static_cast<unsigned>(selectedLane),
+      sequenceMode() ? 1 : 0, activeClip, splitFocus, static_cast<unsigned>(selectedLane),
       sequenceStep, sequenceEditStep, sequenceChild,
       settingsForPart(splitFocus).root,
       ((sequenceChild ? step.events[sequenceChild - 1].locks.mask

@@ -128,7 +128,7 @@ void applySequenceLaneStrips(s3g_thru_sequence::Mix& mix)const {
 }
 int formatSequenceSoundState(char* out,int capacity)const {
   const bool active=sequenceSoundEditing();
-  int at=std::snprintf(out,capacity,"{\"active\":%d,\"part\":%d,\"step\":%d,\"event\":%d,\"used\":%u,\"values\":[",active?1:0,sequenceSoundEditPart,sequenceEditStep,sequenceChild,unsigned(sequenceLive.soundLocks.count));
+  int at=std::snprintf(out,capacity,"{\"active\":%d,\"clip\":%d,\"part\":%d,\"step\":%d,\"event\":%d,\"used\":%u,\"values\":[",active?1:0,activeClip,sequenceSoundEditPart,sequenceEditStep,sequenceChild,unsigned(sequenceLive.soundLocks.count));
   if(active){const auto set=sequenceLive.soundLocks.resolve(sequenceSoundEditPart,sequenceEditStep,sequenceChild);
     for(int i=0;i<set.count;++i){if(at<0||at>=capacity)return -1;const auto& x=set.values[i];const bool own=sequenceLive.soundLocks.find(sequenceSoundEditPart,sequenceEditStep,sequenceChild,x.id);
       at+=std::snprintf(out+at,capacity-at,"%s[%u,%.9g,%d]",i?",":"",unsigned(x.id),double(x.value),own?1:0);}

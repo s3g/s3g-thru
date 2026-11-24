@@ -47,7 +47,7 @@ float midiRead(ThruInstance& t,const MidiParameter& p,int part) {
     if(t.sequenceSoundEditing()){int owner=p.part?part:t.splitFocus;const auto* mapped=t.sequenceSoundParameter(p.key,owner);float locked=0;if(mapped&&t.sequenceSoundEditValue(mapped->id,owner,locked))return locked;}
     part=clampValue(part,0,t.isQuad()?3:t.splitEnabled?1:0);
     const char* key=p.key;
-    {float value=0;if(t.tableParameterValue(key,part,value)||t.scannedParameterValue(key,part,value)||t.fmParameterValue(key,part,value)||t.noiseParameterValue(key,part,value)||t.resonParameterValue(key,part,value)||t.partialsParameterValue(key,part,value)||t.lowformParameterValue(key,part,value)||t.controlLfoParameterValue(key,part,value))return value;}
+    {float value=0;if(t.sourceParameterValue(key,part,value)||t.tableParameterValue(key,part,value)||t.scannedParameterValue(key,part,value)||t.fmParameterValue(key,part,value)||t.noiseParameterValue(key,part,value)||t.resonParameterValue(key,part,value)||t.partialsParameterValue(key,part,value)||t.lowformParameterValue(key,part,value)||t.controlLfoParameterValue(key,part,value))return value;}
     if(std::strcmp(key,"part_level")==0)return lockedValue(t.controls,t.outputGain,t.partLevelParameter(part));
     if(std::strcmp(key,"part_delay")==0)return lockedValue(t.controls,t.outputGain,t.partDelayParameter(part));
     if(std::strcmp(key,"part_reverb")==0)return lockedValue(t.controls,t.outputGain,t.partReverbParameter(part));

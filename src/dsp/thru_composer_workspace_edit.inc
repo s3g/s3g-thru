@@ -31,6 +31,7 @@ struct ComposerNoteBudget {
 static bool composerWorkspaceReady(const ThruInstance& t,int clip){return clip==t.activeClip&&!t.composerOwned.load()&&t.composerLease.load()>=ThruInstance::composerClock()&&!t.projectLocked()&&!t.namingBusy()&&!t.clipPreparationInFlight()&&!t.audioRecording();}
 static ClipPoint composerControlPoint(ThruInstance& t,const MidiParameter& p,int part,float value){
     ClipPoint x;x.value=value;const int patch=t.tableEditLane(part);int field=-1;x.sourcePad=255;
+    const int sf=s3g_thru_source::index(p.key);if(sf>=0){x.type=ClipPointType::sourceParameter;x.parameter=std::uint16_t(sf);x.sourcePad=std::uint8_t(part);return x;}
     int lock=p.lock;if(!std::strcmp(p.key,"part_level"))lock=int(t.partLevelParameter(part));if(!std::strcmp(p.key,"part_delay"))lock=int(t.partDelayParameter(part));if(!std::strcmp(p.key,"part_reverb"))lock=int(t.partReverbParameter(part));
     if(lock>=0){x.type=t.splitEnabled&&ThruInstance::splitPartParameter(lock)?ClipPointType::partParameter:ClipPointType::parameter;x.parameter=std::uint16_t(lock);if(x.type==ClipPointType::partParameter)x.sourcePad=std::uint8_t(part);return x;}
 #define COMPOSER_ROUTE(ns,kind) if((field=ns::index(p.key))>=0){x.type=ClipPointType::kind;x.parameter=std::uint16_t(field);x.sourcePad=std::uint8_t(part*4+patch);return x;}
@@ -68,7 +69,17 @@ bool composerWorkspaceEdit(ThruInstance& t,char** fields,int n,const std::array<
     if(kind=="keysalive"&&n==6){if(t.composerKeyboardDown)t.composerKeyboardLease=ThruInstance::composerClock()+1500;return done(true);}
     if(kind=="gestureoff"&&n==6){for(int i=0;i<128;++i)if(t.composerTouchExplicit[i])t.composerCloseTouch(i);if(a[2]>0)t.composerReleaseKeyboard();return done(true);}
     if(kind=="keyboardoff"&&n==6){t.composerReleaseKeyboard();return done(true);}
-    if(t.clipRecording)return kind=="note"||kind=="point"||kind=="at"||kind=="phrase"||kind=="cliptool"||kind=="loop"?done(false):false;
+    if(t.clipRecording)return kind=="note"||kind=="point"||kind=="points"||kind=="at"||kind=="phrase"||kind=="cliptool"||kind=="loop"?done(false):false;
+    if(kind=="points"&&n>=7){
+        if(!integer(a[2],0,2)||!integer(a[3],1,2147483647))return done(false);
+        const int phase=int(a[2]);const auto token=std::uint64_t(a[3]);
+        if(phase==0){if(n!=9||!integer(a[4],0,2)||!integer(a[5],1,int(ThruInstance::kComposerPointSelection)))return done(false);
+            t.composerPointEditToken=token;t.composerPointEditCount=0;t.composerPointEditExpected=int(a[5]);t.composerPointEditOperation=int(a[4]);t.composerPointEditClip=t.activeClip;t.composerPointEditPart=part;t.composerPointEditOwner=t.composerPanelOwnerGeneration.load();t.composerPointEditRevision=t.persistentRevision;return done(true);}
+        if(t.composerPointEditToken!=token||t.composerPointEditClip!=t.activeClip||t.composerPointEditPart!=part||t.composerPointEditOwner!=t.composerPanelOwnerGeneration.load()||t.composerPointEditRevision!=t.persistentRevision)return done(false);
+        if(phase==2)return done(n==7&&t.composerApplyPointEdits());
+        if(n<10||(n-7)%3||t.composerPointEditCount+(n-7)/3>t.composerPointEditExpected){t.composerPointEditClip=-1;return done(false);}
+        for(int i=4;i<n-3;i+=3){if(!integer(a[i],1,2147483647)||!integer(a[i+1],0,kClipMaximumDurationMs)||!std::isfinite(a[i+2])){t.composerPointEditClip=-1;return done(false);}t.composerPointEdits[t.composerPointEditCount++]={std::uint32_t(a[i]),std::uint32_t(a[i+1]),float(a[i+2])};}return done(true);
+    }
     if(kind=="at"&&n==12){
         if(!integer(a[2],0,16383)||!integer(a[3],0,kClipMaximumDurationMs)||!integer(a[5],0,3)||!integer(a[6],1,24)||!integer(a[7],1,2147483647))return done(false);
         const auto* p=s3g_thru_midi::find(int(a[2]));if(!p||p->action||a[4]<p->minimum||a[4]>midiMaximum(t,*p,part)||(p->integer&&a[4]!=std::floor(a[4])))return done(false);
@@ -83,40 +94,43 @@ bool composerWorkspaceEdit(ThruInstance& t,char** fields,int n,const std::array<
         point.parameter=ThruInstance::clipPointDescriptor(point.parameter&255u,take);if(!ThruInstance::composerValidPoint(point,std::max(int(c->takeCount),take+1)))return done(false);
         int index=-1;bool found=false;for(int i=0;i<c->clipPointCount;++i){const auto& old=c->clipPoints[i];if(ThruInstance::clipPointLane(old)!=lane)continue;found=true;if(old.timeMs==point.timeMs&&ThruInstance::clipPointTake(old)==take)index=i;}
         const int needed=(index<0?1:0)+(!found&&point.timeMs>0?1:0);if(std::size_t(c->clipPointCount+needed)>kClipPointCapacity)return done(false);
-        const bool same=t.composerAuthorOwnerGeneration==t.composerPanelOwnerGeneration.load()&&t.composerUndoPerformance&&t.undoAvailable&&t.undoClipIndex==t.activeClip&&t.composerAuthorClip==t.activeClip&&t.composerAuthorParameter==p->id&&t.composerAuthorGesture==std::uint64_t(a[7]);
-        if(!same){t.pushClipUndo(t.activeClip);t.composerUndoPerformance=true;}t.composerAuthorOwnerGeneration=t.composerPanelOwnerGeneration.load();t.composerAuthorClip=t.activeClip;t.composerAuthorParameter=p->id;t.composerAuthorGesture=std::uint64_t(a[7]);
+        const bool same=t.composerAuthorOwnerGeneration==t.composerPanelOwnerGeneration.load()&&t.composerUndoPerformance&&!t.composerHistoryUndone&&t.undoAvailable&&t.undoClipIndex==t.activeClip&&t.composerAuthorClip==t.activeClip&&t.composerAuthorParameter==p->id&&t.composerAuthorGesture==std::uint64_t(a[7]);
+        if(!same){t.composerPushUndo(3);}
+        t.composerAuthorOwnerGeneration=t.composerPanelOwnerGeneration.load();t.composerAuthorClip=t.activeClip;t.composerAuthorParameter=p->id;t.composerAuthorGesture=std::uint64_t(a[7]);
         if(!found&&point.timeMs>0){auto baseline=composerControlPoint(t,*p,part,midiRead(t,*p,part));if(!std::strcmp(p->key,"waveset_process"))baseline.value=float(Engine::wavesetProcessAt(std::size_t(baseline.value)));baseline.timeMs=0;baseline.editorId=nextComposerEventId();c->clipPoints[c->clipPointCount++]=baseline;}
         if(index<0){index=c->clipPointCount++;point.editorId=nextComposerEventId();}else point.editorId=c->clipPoints[index].editorId;c->clipPoints[index]=point;c->takeCount=std::max<std::uint8_t>(c->takeCount,take+1);
         t.composerPrepareEmptyClip();ThruInstance::rebuildClipPointIndex(*c);t.composerPerformanceChanged();return done(true);
     }
-    if(kind=="loop"&&n==7){if(!integer(a[2],kClipMinimumDurationMs,kClipMaximumDurationMs)||!integer(a[3],0,1))return done(false);ComposerNoteBudget budget{std::uint32_t(a[2])};for(int i=0;i<c->clipNoteCount;++i)budget.add(c->clipNotes[i].startMs,c->clipNotes[i].durationMs);if(!budget.fits())return done(false);t.pushClipUndo(t.activeClip);t.composerUndoPerformance=true;c->clipDurationMs=std::uint32_t(a[2]);if(!c->clipRecorded)c->recordedTempoBpm=t.tempoBpm;c->recordedBeats=float(c->clipDurationMs*c->recordedTempoBpm/60000.);c->timingMode=a[3]>0?ClipTimingMode::beatSync:ClipTimingMode::free;
+    if(kind=="loop"&&n==7){if(!integer(a[2],kClipMinimumDurationMs,kClipMaximumDurationMs)||!integer(a[3],0,1))return done(false);ComposerNoteBudget budget{std::uint32_t(a[2])};for(int i=0;i<c->clipNoteCount;++i)budget.add(c->clipNotes[i].startMs,c->clipNotes[i].durationMs);if(!budget.fits())return done(false);t.composerPushUndo(4);c->clipDurationMs=std::uint32_t(a[2]);if(!c->clipRecorded)c->recordedTempoBpm=t.tempoBpm;c->recordedBeats=float(c->clipDurationMs*c->recordedTempoBpm/60000.);c->timingMode=a[3]>0?ClipTimingMode::beatSync:ClipTimingMode::free;
         for(int i=0;i<c->clipNoteCount;++i){c->clipNotes[i].startMs%=c->clipDurationMs;c->clipNotes[i].durationMs=std::min(c->clipNotes[i].durationMs,c->clipDurationMs);}for(int i=0;i<c->clipPointCount;++i)c->clipPoints[i].timeMs%=c->clipDurationMs;for(int i=0;i<c->touchCount;++i)c->touchSpans[i].startMs%=c->clipDurationMs;t.clipPositionMs=std::fmod(t.clipPositionMs,c->clipDurationMs);ThruInstance::rebuildClipPointIndex(*c);auto ids=t.composerVoiceIds();t.composerCommitNotes(ids);return done(true);}
     if(kind=="note"&&n==13){if(!integer(a[2],0,2147483647)||!integer(a[3],0,kClipMaximumDurationMs)||!integer(a[4],1,kClipMaximumDurationMs)||!integer(a[5],0,127)||!integer(a[6],1,127)||!integer(a[7],0,255)||!integer(a[8],0,1)||!(integer(a[9],0,t.engineSlotCount()-1)||a[9]==255))return done(false);
         const auto id=std::uint32_t(a[2]);int index=-1;for(int i=0;i<c->clipNoteCount;++i)if(c->clipNotes[i].editorId==id&&id)index=i;
         if((id&&index<0)||(!id&&(a[8]>0||c->clipNoteCount>=kClipNoteCapacity)))return done(false);
         if(c->clipDurationMs&&(a[3]>=c->clipDurationMs||a[4]>c->clipDurationMs))return done(false);
         if(a[8]==0){ComposerNoteBudget budget{c->clipDurationMs?c->clipDurationMs:std::uint32_t(std::clamp(240000./t.tempoBpm,50.,120000.))};for(int i=0;i<c->clipNoteCount;++i)if(i!=index)budget.add(c->clipNotes[i].startMs,c->clipNotes[i].durationMs);budget.add(std::uint32_t(a[3]),std::uint32_t(a[4]));if(!budget.fits())return done(false);}
-        t.pushClipUndo(t.activeClip);t.composerUndoPerformance=true;auto ids=t.composerVoiceIds();if(id)t.composerProtectNote(id);
+        t.composerPushUndo(2);auto ids=t.composerVoiceIds();if(id)t.composerProtectNote(id);
         if(a[8]>0){t.releaseClipVoice(std::size_t(index));std::move(c->clipNotes.begin()+index+1,c->clipNotes.begin()+c->clipNoteCount,c->clipNotes.begin()+index);--c->clipNoteCount;}
         else{if(index<0){index=c->clipNoteCount++;c->clipNotes[index]={};c->clipNotes[index].editorId=nextComposerEventId();}auto& event=c->clipNotes[index];event.startMs=std::uint32_t(a[3]);event.durationMs=std::uint32_t(a[4]);event.note=std::uint8_t(a[5]);event.velocity=std::uint8_t(a[6]);event.sourcePad=std::uint8_t(a[7]);event.part=t.splitEnabled?std::uint8_t(part+1):0;if(event.engineSlot!=int(a[9])){event.engineSlot=std::uint8_t(a[9]);if(a[9]<8){const auto& cfg=t.settingsForPart(part).engines;event.engineAlgorithm=cfg.engines[int(a[9])];event.engineVariation=cfg.variations[int(a[9])];}else event.engineAlgorithm=255;}}
         t.composerCommitNotes(ids,id,a[8]>0);return done(true);}
-    if(kind=="point"&&n==13){if(!integer(a[2],0,2147483647)||!integer(a[3],0,int(ClipPointType::resonDensity))||!integer(a[4],0,255)||!integer(a[5],0,255)||!integer(a[6],0,kClipTakeLimit-1)||!integer(a[7],0,kClipMaximumDurationMs)||!integer(a[9],0,1))return done(false);
+    if(kind=="point"&&n==13){if(!integer(a[2],0,2147483647)||!integer(a[3],0,int(ClipPointType::sourceParameter))||!integer(a[4],0,255)||!integer(a[5],0,255)||!integer(a[6],0,kClipTakeLimit-1)||!integer(a[7],0,kClipMaximumDurationMs)||!integer(a[9],0,1))return done(false);
         const auto id=std::uint32_t(a[2]);int index=-1;for(int i=0;i<c->clipPointCount;++i)if(c->clipPoints[i].editorId==id&&id)index=i;
         if((id&&index<0)||(!id&&(a[9]>0||c->clipPointCount>=kClipPointCapacity)))return done(false);
         ClipPoint next=index>=0?c->clipPoints[index]:ClipPoint{};next.type=static_cast<ClipPointType>(int(a[3]));next.parameter=ThruInstance::clipPointDescriptor(int(a[4]),int(a[6]));next.sourcePad=std::uint8_t(a[5]);next.timeMs=std::uint32_t(a[7]);next.value=a[8];
         if(ThruInstance::clipPointLane(next)>=kClipCurveLaneCount||!ThruInstance::composerValidPoint(next,std::max(1,int(a[6])+1))|| (c->clipDurationMs&&next.timeMs>=c->clipDurationMs))return done(false);
         if(index>=0&&(next.type!=c->clipPoints[index].type||next.parameter!=c->clipPoints[index].parameter||next.sourcePad!=c->clipPoints[index].sourcePad))return done(false);
-        t.pushClipUndo(t.activeClip);t.composerUndoPerformance=true;
+        if(a[9]==0&&!ThruInstance::composerPointInTake(*c,next))return done(false);
+        t.composerPushUndo(1);
         if(a[9]>0){std::move(c->clipPoints.begin()+index+1,c->clipPoints.begin()+c->clipPointCount,c->clipPoints.begin()+index);--c->clipPointCount;}
         else{if(index<0){index=c->clipPointCount++;next.editorId=nextComposerEventId();}c->clipPoints[index]=next;c->takeCount=std::max<std::uint8_t>(c->takeCount,int(a[6])+1);}
         t.composerPrepareEmptyClip();ThruInstance::rebuildClipPointIndex(*c);t.composerPerformanceChanged();return done(true);}
-    if(kind=="cliptool"&&n==7){if(!integer(a[2],0,8)||!integer(a[3],0,63))return done(false);const int operation=int(a[2]),destination=int(a[3]);t.clearError();
+    if(kind=="cliptool"&&n==7){if(!integer(a[2],0,9)||!integer(a[3],0,63))return done(false);const int operation=int(a[2]),destination=int(a[3]);t.clearError();
         if(operation==0)t.copyClipToClipboard(t.activeClip);
         else if(operation==1)t.pasteClipFromClipboard(destination);
         else if(operation==2){if(destination==t.activeClip||t.clipSlots[destination].occupied)return done(false);t.copyClipToClipboard(t.activeClip);t.pasteClipFromClipboard(destination);}
         else if(operation==3){if(t.composerUndoPerformance)t.composerRestorePerformanceUndo();else t.restoreUndo();}
-        else if(operation==4)t.undoLastClipTake();
-        else {t.pushClipUndo(t.activeClip);t.composerUndoPerformance=true;if(operation==5){t.releaseClipVoices();c->clipNoteCount=0;}if(operation==6){c->clipPointCount=0;c->touchCount=0;ThruInstance::indexSortedClipPoints(*c);}if(operation==7){t.releaseClipVoices();c->clipNoteCount=c->clipPointCount=c->touchCount=0;ThruInstance::indexSortedClipPoints(*c);}if(operation==8){if(!t.sequenceMode())return done(false);for(auto& lane:t.sequenceLive.tracks){lane.trigs={};lane.generator={};}t.sequenceLive.soundLocks.count=0;t.sequencePlayback=t.sequenceLive;c->sequence=t.sequenceLive;t.invalidateSequenceRecipePlayback();}t.composerPerformanceChanged();}
+        else if(operation==4){t.undoLastClipTake();t.composerUndoPerformance=false;t.composerHistoryClip=-1;}
+        else if(operation==9){if(!t.composerHistoryValid()||!t.composerHistoryUndone)return done(false);t.composerRestorePerformanceUndo(true);}
+        else {if(operation==8&&!t.sequenceMode())return done(false);t.composerPushUndo(6);if(operation==5){t.releaseClipVoices();c->clipNoteCount=0;}if(operation==6){c->clipPointCount=0;c->touchCount=0;ThruInstance::indexSortedClipPoints(*c);}if(operation==7){t.releaseClipVoices();c->clipNoteCount=c->clipPointCount=c->touchCount=0;ThruInstance::indexSortedClipPoints(*c);}if(operation==8){if(!t.sequenceMode())return done(false);for(auto& lane:t.sequenceLive.tracks){lane.trigs={};lane.generator={};}t.sequenceLive.soundLocks.count=0;t.sequencePlayback=t.sequenceLive;c->sequence=t.sequenceLive;t.invalidateSequenceRecipePlayback();}t.composerPerformanceChanged();}
         return done(!t.lastError[0]);}
     if(kind=="phrase"&&n==13){if(!integer(a[2],0,6)||a[3]<0||a[4]<=a[3]||a[4]>kClipMaximumDurationMs||!std::isfinite(a[5])||!integer(a[6],0,1)||!integer(a[7],0,1)||!integer(a[8],0,1)||!integer(a[9],1,16))return done(false);
         const int op=int(a[2]),copies=int(a[9]);const double start=a[3],end=a[4],amount=a[5],span=end-start;const bool notes=a[6]>0,curves=a[7]>0,allParts=a[8]>0;
@@ -143,7 +157,7 @@ bool composerWorkspaceEdit(ThruInstance& t,char** fields,int n,const std::array<
                 budget.add(std::uint32_t(std::max(0.,at)),std::uint32_t(length));
             }if(!budget.fits())return done(false);
         }
-        t.pushClipUndo(t.activeClip);t.composerUndoPerformance=true;auto ids=t.composerVoiceIds();const auto noteCount=c->clipNoteCount,pointCount=c->clipPointCount;
+        t.composerPushUndo(5);auto ids=t.composerVoiceIds();const auto noteCount=c->clipNoteCount,pointCount=c->clipPointCount;
         auto time=[&](double x,double offset){return op==2?start+(x-start)*amount:op==4?start+end-x:op==6?std::round(x/std::max(1.,amount))*std::max(1.,amount):x+offset;};
         for(int i=0;i<noteCount;++i){auto& event=c->clipNotes[i];if(!notes||!belongs(event)||event.startMs<start||event.startMs>=end)continue;t.composerProtectNote(t.composerNoteId(event));
             if(op==0||op==5){for(int copy=1;copy<=copies;++copy){auto n=event;n.editorId=nextComposerEventId();n.startMs=std::uint32_t(std::max(0.,double(n.startMs)+(op==0?span*copy:amount*copy)));c->clipNotes[c->clipNoteCount++]=n;}}

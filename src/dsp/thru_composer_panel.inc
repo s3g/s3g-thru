@@ -6,6 +6,7 @@ std::array<bool,64> composerPanelOccupied{};
 std::array<std::array<char,41>,64> composerPanelNames{};
 std::array<int,64> composerPanelModes{};
 std::array<std::atomic<std::uint64_t>,64> composerEditReceipts{};
+std::array<std::array<std::atomic<char>,128>,64> composerEditErrors{};
 std::atomic<std::uint64_t> composerEditVersion{0};
 std::uint64_t composerPanelEditVersion=0;
 std::atomic<bool> composerPanelWatching{false};
@@ -14,7 +15,9 @@ std::uint64_t composerPanelCapturedGeneration=0;
 std::uint64_t composerPanelAt=0,composerPanelRevision=0;
 int composerPanelActive=-1,composerPanelSelectedLane=0,composerPanelFocus=0;
 std::atomic<int> composerPanelLiveLane{0},composerPanelLiveFocus{0};
-float composerPanelTempo=120;
+float composerPanelTempo=120;int composerPanelLfoEdit=0;
+std::array<bool,s3g_thru_lfo::destinations.size()> composerPanelLfoAllowed{};
+std::array<bool,22> composerPanelLfoEngines{};
 bool composerPanelPolyphony=true;int composerPanelFxCorner=0;
 std::string composerPanelError;
 int composerPanelErrorClip=-1;
@@ -39,6 +42,10 @@ void captureComposerPanel() {
     c.name=source->name;c.clipDurationMs=source->clipDurationMs;c.recordedTempoBpm=source->recordedTempoBpm;c.recordedBeats=source->recordedBeats;
     c.clipRate=source->clipRate;c.timingMode=source->timingMode;c.takeCount=source->takeCount;c.clipRecorded=source->clipRecorded;c.occupied=source->occupied;
   }
+  composerPanelLfoEdit=controlLfoEdit;
+  const auto& lfo=controlLfoPool[controlLfoEdit];
+  for(std::size_t d=0;d<composerPanelLfoAllowed.size();++d)composerPanelLfoAllowed[d]=controlLfoDestinationAvailable(lfo,int(d));
+  for(int a=0;a<22;++a)composerPanelLfoEngines[a]=lfo.target<controlLfoPartCount()&&controlLfoHasEngine(lfo.target,a);
   c.clipNoteCount=c.clipPointCount=0; // Performance data is read only by explicit Export/Import.
   composerPanelActive=activeClip;composerPanelRevision=persistentRevision;composerPanelTempo=tempoBpm;composerPanelPolyphony=polyphonyCompensation;
   composerPanelJob.store(2,std::memory_order_release);
@@ -74,6 +81,11 @@ void publishComposerPanel() {
       {"voice_engine_octave",variation.octave},{"voice_engine_position",variation.position*100},{"voice_engine_stack",variation.stack*100},{"voice_engine_pan",variation.pan*100}});
     for(int slot=0;slot<8;++slot){const std::string key="voice_engine_"+std::to_string(slot+1);values[key]=cfg.configured?int(cfg.engines[slot]):int((c.splitEnabled?c.splitValues[part]:c.baseValues)[int(LockParameter::algorithm)]);}
     if(c.layers.active){values["layers_corner"]=composerPanelFxCorner;values["layers_surface"]=1;const char* names[]{"layers_glide","layers_depth","layers_z_mode","layers_z","layers_return"};const int fields[]{LayerPatch::glide,LayerPatch::depth,LayerPatch::zMode,LayerPatch::pressure,LayerPatch::returnDry};for(int i=0;i<5;++i)values[names[i]]=c.layers.values[LayerPatch::config+fields[i]];for(int i=0;i<12;++i)values["layers_fx"+std::to_string(i)]=c.layers.values[i<8?LayerPatch::fx+composerPanelFxCorner*8+i:LayerPatch::advanced+composerPanelFxCorner*4+i-8];}
+    if(c.layers.active){float x=0,y=0;for(int corner=0;corner<4;++corner){const float w=c.layers.values[LayerPatch::config+LayerPatch::weight0+corner];x+=w*float(corner%2);y+=w*float(corner/2);}values["layers_fx_x"]=x;values["layers_fx_y"]=y;}
+    auto lfos=ComposerJson::array();for(int slot=0;slot<8;++slot){auto row=ComposerJson::array();const auto& cfg=c.lfos[slot];const char* names[]{"dest","wave","clock","rate","depth","mode","phase","smooth","flow","target","engine","offset"};for(int f=0;f<12;++f){const float v=controlLfoField(cfg,f);row.push(v);values["lfo"+std::to_string(slot+1)+"_"+names[f]]=v;}lfos.push(std::move(row));}values["__lfos"]=std::move(lfos);values["__lfoEdit"]=composerPanelLfoEdit;values["lfo_select"]=composerPanelLfoEdit+1;
+    auto allowed=ComposerJson::array(),engines=ComposerJson::array();engines.push(-1);
+    for(std::size_t d=0;d<composerPanelLfoAllowed.size();++d){if(composerPanelLfoAllowed[d])allowed.push(int(d));}
+    for(int a=0;a<22;++a){if(composerPanelLfoEngines[a])engines.push(a);}values["__lfoAllowed"]=std::move(allowed);values["__lfoEngines"]=std::move(engines);
     settings.push(std::move(values));
   }
   auto patches=ComposerJson::array();
@@ -85,7 +97,7 @@ void publishComposerPanel() {
       core["parts"].arrayValue()[part]["parameters"][p.key]=std::clamp(double(*value),composerBoundary(p.minimum),composerBoundary(p.maximum));
   }
   s3g_thru_pack::validate(doc);
-  auto frame=composerObject({{"editSequence",double(composerPanelEditVersion)},{"protocol",2},{"build","0.34.0-test.13"},{"focus",composerPanelFocus},{"epoch",composerEpoch},{"client",composerPanelSnapshotOwner.data()},{"revision",std::to_string(composerPanelRevision)},
+  auto frame=composerObject({{"editSequence",double(composerPanelEditVersion)},{"protocol",2},{"build","0.34.0"},{"focus",composerPanelFocus},{"epoch",composerEpoch},{"client",composerPanelSnapshotOwner.data()},{"revision",std::to_string(composerPanelRevision)},
       {"activeClip",composerPanelActive},{"settings",std::move(settings)},{"waveVersion",double(composerPanelCapturedWaveVersion)},{"patch",composerPanelSelectedLane},{"patches",std::move(patches)},{"document",std::move(doc)}});
   auto occupied=ComposerJson::array();for(bool yes:composerPanelOccupied)occupied.push(yes);frame["occupied"]=std::move(occupied);
   auto clips=ComposerJson::array();for(int i=0;i<64;++i)clips.push(composerObject({{"slot",i},{"name",composerPanelNames[i].data()},{"mode",s3g_thru_pack::modes[composerPanelModes[i]]},{"occupied",composerPanelOccupied[i]}}));frame["clips"]=std::move(clips);

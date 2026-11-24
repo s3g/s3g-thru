@@ -73,7 +73,11 @@
 
         <div class="callout"><p><strong>Performance tip:</strong> lock a useful moment, then automate Steps, Pulses, Rotate, and Override in a performance loop. Buffer Lock itself remains a live gesture; Resample commits the result when needed.</p></div>
 
-        <nav class="page-nav" aria-label="Page navigation">
+                <h2 id="live-memory">Live Memory</h2>
+        <p>Open Play &gt; Live Memory. SRC IN uses Move’s selected input; PT A–D uses an available part. For example, route a synth on A into this engine on B. Allow the history to fill, then play notes. Self-routing and feedback loops are blocked. FILE returns to the loaded lane samples.</p>
+        <p>The incoming history feeds the existing repeat buffer through short crossfaded readers. SPEED pitches this source; POS and FLD choose its source window. Stutter, repeat, reverse and buffer lock then act on the captured feed. Loop freezes Live Memory; use the Glitch buffer-lock control to freeze the separate repeat buffer.</p>
+        <p>BACK and WIN set the lookback and window length. FRZE or Loop freezes the history. SAVE archives the stereo window, loads it into the chosen lane and returns SRC to FILE. Rolling audio is temporary: SAVE material needed for a repeatable project. See the <a href="engine-grains.html#live-memory">Live Memory control table</a> for all six controls.</p>
+<nav class="page-nav" aria-label="Page navigation">
           <a class="page-nav-link" href="engine-slices.html"><span>Previous</span>Slices</a>
           <a class="page-nav-link next" href="engine-weave.html"><span>Next</span>Weave</a>
         </nav>
@@ -82,7 +86,7 @@
         <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="synthesis.html">Process</a><a href="projects.html">Projects</a><a href="composer.html">Live panel</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="midi.html">MIDI</a><a href="shortcuts.html">Shortcuts</a></div>
         <div class="toc-section"><h2>Instrument modes</h2><a href="playing.html">Single · Basic playing</a><a href="modes.html">Compare modes</a><a href="split.html">Split</a><a href="shared-dual.html">Shared Dual</a><a href="quad.html">Quad</a><a href="bank.html">Bank</a><a href="layers.html">Layers</a><a href="sequence.html">Sequence</a></div>
         <div class="toc-section"><h2>Engine guides</h2><a href="engine-motion.html">Motion</a><a href="engine-lanes.html">Lanes</a><a href="engine-grains.html">Grains</a><a href="engine-cutups.html">Cutups</a><a href="engine-sample.html">Sample</a><a href="engine-slices.html">Slices</a><a href="engine-glitch.html">Glitch</a><a href="engine-weave.html">Weave</a><a href="engine-wavesets.html">Wavesets</a><a href="engine-prism.html">Prism</a><a href="engine-morph.html">Morph</a><a href="engine-texture.html">Texture</a><a href="engine-formant.html">Formant</a><a href="engine-stochastic.html">Stochastic</a><a href="engine-pulsar.html">Pulsar</a><a href="engine-table.html">TABLE</a><a href="engine-scanned.html">SCANNED</a><a href="engine-fm.html">FM</a><a href="engine-noise.html">NOISE</a><a href="engine-reson.html">RESON</a><a href="engine-partials.html">PARTIALS</a><a href="engine-lowform.html">LOWFORM</a></div>
-        <div class="toc-section"><h2>On this page</h2><a href="#pages">Pages</a><a href="#lock">Buffer Lock</a><a href="#clock">Glitch Clock</a><a href="#pattern">Glitch Pattern</a><a href="#starts">Starting points</a></div>
+        <div class="toc-section"><h2>On this page</h2><a href="#pages">Pages</a><a href="#live-memory">Live Memory</a><a href="#lock">Buffer Lock</a><a href="#clock">Glitch Clock</a><a href="#pattern">Glitch Pattern</a><a href="#starts">Starting points</a></div>
       </aside>
     </div>
     <footer class="manual-footer">Glitch: independent voice histories interrupted by repeatable, asymmetric pulse patterns.</footer>

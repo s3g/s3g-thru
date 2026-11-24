@@ -6,8 +6,10 @@ int formatUiPoll(void* opaque, const char* group, char* buffer, int capacity)
     if (!opaque || !group || !buffer || capacity<1) return -1;
     const char* const* keys=nullptr;
     std::size_t count=0;
-    static constexpr const char* fast[]{"table_scope","lfo_live","seq_cursor_state","ui_state","clip_state","playheads","voice_lanes","voice_pads","voice_notes","midi_state"};
+    static constexpr const char* fast[]{"clip_bank_state","layers_cursor_state","source_motion_state","table_scope","lfo_live","seq_cursor_state","ui_state","clip_state","playheads","voice_lanes","voice_pads","voice_notes","midi_state"};
     if(!std::strcmp(group,"fast")){keys=fast;count=sizeof(fast)/sizeof(*fast);}
+    static constexpr const char* layers[]{"layers_view"};
+    if(!std::strcmp(group,"layers")){keys=layers;count=sizeof(layers)/sizeof(*layers);}
     static constexpr const char* sequence[]{"seq_state","seq_sound_state"};
     if(!std::strcmp(group,"sequence")){keys=sequence;count=sizeof(sequence)/sizeof(*sequence);}
     static constexpr const char* status[]{"lowform_state","partials_state","reson_state","noise_state","fm_state","scanned_state","table_state","lfo_state","algorithm","split_state","voice_engine_state","voice_algorithms","save_status","mix_status","mixer_state","preview_route","pad_mode","scale","root_note","undo_available","stack_scan_paused","clip_stack_hold","glitch_buffer_lock","composer_state"};

@@ -73,6 +73,9 @@
           <tr><td>8</td><td>MODE</td><td>FREE / PLAY / TRIG / ONE</td><td>Run mode. FREE runs continuously; PLAY advances with transport; TRIG restarts on notes or trigs for its assigned part; ONE runs one cycle after a note or trig.</td></tr>
         </tbody></table>
         <p><strong>TABLE destinations:</strong> thirty-two continuous controls are available. A part LFO affects each applicable patch around its own base. Track selection changes the editing patch, not the LFO scope. Discrete choices and sample POS/FLD stay unavailable.</p>
+<h3 id="quick-modulation">Assign from a parameter</h3>
+        <p>Touch or turn the parameter’s dial, then click the main encoder to open its actions. Choose <strong>MOD</strong> followed by its name, then choose an LFO slot. FREE assigns an unused slot; EDIT opens an existing matching route; REPLACE asks before changing another route. Adjust depth and rate on the LFO page. New routes start with the slot’s existing depth, so a free slot needs its depth raised. Only supported destinations offer MOD. The eight parameter encoders are touch-sensitive; the main encoder provides the click.</p>
+        <p>In the browser, the small <strong>LFO</strong> button beside a supported control opens the same slot choice. The assignment keeps its explicit part and engine context; switching clip or part cancels a stale choice.</p>
 <h3 id="lfo-destinations">Choose a destination</h3>
         <p>Turn DEST, or click the main wheel while the LFO page is open. First choose a menu page, then a full parameter name. ENGINE and the loaded engine’s pages appear first; mixer and effects follow. Use the main wheel, Up/Down or the DEST encoder to browse; click the main wheel to assign. Back returns to the page list, then cancels. Browsing leaves the existing assignment active.</p>
         <div class="screen-gallery"><figure><div class="doc-graphic doc-screenshot move-screen"><img src="assets/screens/control-lfo-groups.svg" alt="Destination list grouped by existing menu pages"></div><figcaption>Choose the menu where you normally edit the parameter.</figcaption></figure><figure><div class="doc-graphic doc-screenshot move-screen"><img src="assets/screens/control-lfo-destinations.svg" alt="Grains Main full-name destination list including Grain Size, Pitch and Stereo Spread"></div><figcaption>Click a full parameter name to assign it.</figcaption></figure></div>
@@ -186,7 +189,7 @@
           <figcaption>Shift+Play opens the current 16-slot bank. Track 1–4 selects bank A–D; Step 1–16 addresses its clips.</figcaption>
         </figure>
 
-        <p>Each A01–D16 clip stores its four sample assignments, Single, Split, Shared Dual, or Quad mode, instrument setups, shared effects, duration, rate, timing mode, captured tempo, notes, gestures, and take membership. Dual modes recall A/B; Quad recalls A–D. A performance recording holds up to 1,024 note events and 8,192 gesture points over a maximum 120 seconds. Authored Sequence clips can span up to 64 beats at the chosen BPM; recording performance into them still has the 120-second capture limit.</p>
+        <p>Each A01–D16 clip stores its four sample assignments, chosen instrument mode, instrument setups, shared effects, duration, rate, timing mode, captured tempo, notes, gestures, and take membership. Dual modes recall A/B; Quad recalls A–D. A performance recording holds up to 1,024 note events and 8,192 gesture points over a maximum 120 seconds. Authored Sequence clips can span up to 64 beats at the chosen BPM; recording performance into them still has the 120-second capture limit.</p>
 
         <table class="readout-table">
           <thead><tr><th>Gesture</th><th>Clip action</th></tr></thead>
@@ -194,7 +197,7 @@
             <tr><td>Step</td><td>Select immediately or queue the clip according to Launch.</td></tr>
             <tr><td>Shift + Step</td><td>Copy the current clip—including sources and all takes—to the destination.</td></tr>
             <tr><td>Delete + Step</td><td>Reset the complete destination clip, including source ownership. Undo can undo the last reset.</td></tr>
-            <tr><td>Left / Right</td><td>Move between banks A–D from the waveform or parameter view.</td></tr>
+            <tr><td>Left / Right</td><td>Move between banks A–D from the waveform or parameter view. A temporary top banner shows the bank, global slot range and page: for example CLIPS B 17–32 2/4. Browsing banks leaves the playing clip unchanged.</td></tr>
           </tbody>
         </table>
 

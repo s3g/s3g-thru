@@ -243,7 +243,7 @@
         std::copy_n(source.clipPoints.begin(),destination.clipPointCount,destination.clipPoints.begin());
     }
     bool beginPatternFade(int target,const ChainFadeSettings* fade=nullptr) {
-        if(patternRenderOnly || !patternShadow || patternBusy() || target==activeClip)return false;
+        if(patternRenderOnly || !patternShadow || patternBusy() || liveCaptureJob.load(std::memory_order_acquire) || target==activeClip)return false;
         const bool startHeld=patternHeld;
         patternReturnRequested=false;
         patternSourceChainBank=chainPlayBank;patternSourceChainPosition=chainPosition;
@@ -264,7 +264,7 @@
         s.midiNoteRoute=midiNoteRoute;s.midiNoteChannel=midiNoteChannel;s.midiBendRange=midiBendRange;s.midiModTarget=midiModTarget;s.midiVelocityDepth=midiVelocityDepth;
         s.midiSyncSource=0;
         for(int index:s.bankAssets)if(index>=0)bankPool->assets[index].pins.fetch_add(1,std::memory_order_acq_rel);
-        s.engine=engine;voices.swap(s.voices);s.stochasticPartMeters=stochasticPartMeters;
+        s.engine=engine;voices.swap(s.voices);liveMemories.swap(s.liveMemories);s.sourceMotionOverrides=sourceMotionOverrides;s.stochasticPartMeters=stochasticPartMeters;
         // Voice asset pins travel with their owning bank. Do not duplicate
         // them: only the scene-level bankAssets references above are shared.
         s.waveMinimum=waveMinimum;s.waveMaximum=waveMaximum;
@@ -360,7 +360,7 @@
         bankMode=s.bankMode;bankSlots=s.bankSlots;bankAssets.swap(s.bankAssets);
         bankLoadedClip=patternFrom;bankSelected=s.bankSelected;voiceMode=s.voiceMode;heldKeys=s.heldKeys;
         storage.swap(preparedClipStorage);
-        std::swap(engine,s.engine);std::swap(voices,s.voices);std::swap(stochasticPartMeters,s.stochasticPartMeters);
+        std::swap(engine,s.engine);std::swap(voices,s.voices);liveMemories.swap(s.liveMemories);sourceMotionOverrides=s.sourceMotionOverrides;std::swap(stochasticPartMeters,s.stochasticPartMeters);
         for(auto& voice:voices)for(std::size_t ch=0;ch<kChannelCount;++ch)voice.outputPointers[ch]=voice.output[ch].data();
         waveMinimum=s.waveMinimum;
         waveMaximum=s.waveMaximum;

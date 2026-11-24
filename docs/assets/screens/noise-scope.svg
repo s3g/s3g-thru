@@ -4,7 +4,8 @@
   <desc id="desc">NOISE live scopes shown as it appears on Ableton Move.</desc>
   <rect width="128" height="64" fill="#050706"/>
   <g shape-rendering="crispEdges" font-family="DejaVu Sans Mono, IBM Plex Mono, monospace" font-size="6" font-style="normal" font-weight="400" text-rendering="geometricPrecision">
-    <text x="1" y="5.5" fill="#dce8e1">THRU NOISE A01 V1</text>
+    <text x="1" y="5.5" fill="#dce8e1">A01 SNG NOISE</text>
+    <text x="116" y="5.5" fill="#dce8e1">V1</text>
     <rect x="0" y="11" width="2" height="8" fill="#dce8e1"/>
     <rect x="2" y="11" width="7" height="8" fill="#dce8e1"/>
     <text x="3" y="16.5" fill="#050706">1</text>

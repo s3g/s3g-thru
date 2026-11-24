@@ -15,6 +15,15 @@ common=(
   "$repo_dir/tests/test_thru.cpp"
 )
 
+"$cxx_bin" -std=c++17 -O2 -Wall -Wextra -Werror -I"$repo_dir/include" \
+  "$repo_dir/tests/test_live_waveform.cpp" -o "$test_dir/test-live-waveform"
+"$test_dir/test-live-waveform"
+"$cxx_bin" -std=c++17 -O1 -g -fno-omit-frame-pointer -fsanitize=address,undefined \
+  -Wall -Wextra -Werror -I"$repo_dir/include" "$repo_dir/tests/test_live_waveform.cpp" \
+  -o "$test_dir/test-live-waveform-sanitize"
+ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 \
+  "$test_dir/test-live-waveform-sanitize"
+
 "$cxx_bin" -O2 "${common[@]}" -o "$test_dir/test-thru"
 "$test_dir/test-thru"
 
@@ -38,11 +47,26 @@ ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 \
   "$test_dir/test-transitions-sanitize"
 
 S3G_THRU_LOWFORM_FIXTURE="${S3G_THRU_LOWFORM_FIXTURE:-$test_dir/lowform.json}" S3G_THRU_PARTIALS_FIXTURE="$test_dir/partials.json" S3G_THRU_RESON_FIXTURE="$test_dir/reson.json" S3G_THRU_NOISE_FIXTURE="$test_dir/noise.json" S3G_THRU_FM_FIXTURE="$test_dir/fm.json" S3G_THRU_SCANNED_FIXTURE="$test_dir/scanned.json" S3G_THRU_SEQ_SOUND_FIXTURE="$test_dir/seq-sound.json" S3G_THRU_TABLE_FIXTURE="$test_dir/table.json" S3G_THRU_PLAYBACK_FIXTURE="$test_dir/playback.json" S3G_THRU_LFO_FIXTURE="$test_dir/lfos.json" S3G_THRU_SYNTH_TYPES_FIXTURE="$test_dir/synth-types.json" S3G_THRU_SYNTH_FIXTURE="$test_dir/spline.json" S3G_THRU_SOURCE_KIND_FIXTURE="$test_dir/sources.json" S3G_THRU_PATH_FIXTURE="$test_dir/paths.json" S3G_THRU_UNIT_FIXTURE="$test_dir/unit.json" S3G_THRU_GENERATOR_FIXTURE="$test_dir/generator.json" S3G_THRU_SEQUENCE_FIXTURE="$test_dir/sequence.json" S3G_THRU_GLIDE_FIXTURE="$test_dir/layers-glide.json" S3G_THRU_EDITOR_FIXTURE="$test_dir/layers-editor.json" node "$repo_dir/tests/test_ui.mjs" "$repo_dir/src/ui.js"
+# Layers UI replay uses the real bounded snapshots and actual tick/cache path.
+"$cxx_bin" -std=c++17 -O2 -Wall -Wextra -Werror -Wno-deprecated-declarations -pthread -DS3G_THRU_HOST_TESTING=1 -I"$repo_dir/include" "$repo_dir/tests/test_layers_ui_poll.cpp" -o "$test_dir/test-layers-ui-poll"
+"$test_dir/test-layers-ui-poll" "$test_dir/layers-ui-poll.json"
+S3G_THRU_LAYERS_POLL_FIXTURE="$test_dir/layers-ui-poll.json" node "$repo_dir/tests/test_ui.mjs" "$repo_dir/src/ui.js"
+"$cxx_bin" -std=c++17 -O1 -gline-tables-only -Wall -Wextra -Werror -Wno-deprecated-declarations -pthread -DS3G_THRU_HOST_TESTING=1 -fno-omit-frame-pointer -fsanitize=address,undefined -I"$repo_dir/include" "$repo_dir/tests/test_layers_ui_poll.cpp" -o "$test_dir/test-layers-ui-poll-sanitize"
+ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 "$test_dir/test-layers-ui-poll-sanitize"
+# Browser/Manager stability: cheap polling, context ownership and edit rejection.
+"$cxx_bin" -std=c++17 -O2 -Wall -Wextra -Werror -Wno-deprecated-declarations -pthread -DS3G_THRU_HOST_TESTING=1 -I"$repo_dir/include" "$repo_dir/tests/test_release_stability.cpp" -o "$test_dir/test-release-stability"
+"$test_dir/test-release-stability"
+"$cxx_bin" -std=c++17 -O1 -gline-tables-only -Wall -Wextra -Werror -Wno-deprecated-declarations -pthread -DS3G_THRU_HOST_TESTING=1 -fno-omit-frame-pointer -fsanitize=address,undefined -I"$repo_dir/include" "$repo_dir/tests/test_release_stability.cpp" -o "$test_dir/test-release-stability-sanitize"
+ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 "$test_dir/test-release-stability-sanitize"
 # Clip timeline/recording uses the actual serialized Move control and audio paths.
 "$cxx_bin" -std=c++17 -O2 -Wall -Wextra -Werror -Wno-deprecated-declarations -pthread -DS3G_THRU_HOST_TESTING=1 -I"$repo_dir/include" "$repo_dir/tests/test_workspace.cpp" -o "$test_dir/test-workspace"
 "$test_dir/test-workspace"
+"$cxx_bin" -std=c++17 -O2 -Wall -Wextra -Werror -Wno-deprecated-declarations -pthread -DS3G_THRU_HOST_TESTING=1 -I"$repo_dir/include" "$repo_dir/tests/test_browser_tools.cpp" -o "$test_dir/test-browser-tools"
+"$test_dir/test-browser-tools"
 "$cxx_bin" -std=c++17 -O1 -g -Wall -Wextra -Werror -Wno-deprecated-declarations -pthread -DS3G_THRU_HOST_TESTING=1 -fno-omit-frame-pointer -fsanitize=address,undefined -I"$repo_dir/include" "$repo_dir/tests/test_workspace.cpp" -o "$test_dir/test-workspace-sanitize"
 ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 "$test_dir/test-workspace-sanitize"
+"$cxx_bin" -std=c++17 -O1 -gline-tables-only -Wall -Wextra -Werror -Wno-deprecated-declarations -pthread -DS3G_THRU_HOST_TESTING=1 -fno-omit-frame-pointer -fsanitize=address,undefined -I"$repo_dir/include" "$repo_dir/tests/test_browser_tools.cpp" -o "$test_dir/test-browser-tools-sanitize"
+ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 "$test_dir/test-browser-tools-sanitize"
 node "$repo_dir/tests/test_workspace.mjs"
 # Browser composition uses the real clip serializer and audio preparation path.
 "$cxx_bin" -std=c++17 -O2 -Wall -Wextra -Werror -Wno-deprecated-declarations \

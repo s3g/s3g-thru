@@ -4,7 +4,7 @@
   <desc id="desc">Bank selected stereo sample and sixteen-slot overview shown as it appears on Ableton Move.</desc>
   <rect width="128" height="64" fill="#050706"/>
   <g shape-rendering="crispEdges" font-family="DejaVu Sans Mono, IBM Plex Mono, monospace" font-size="6" font-style="normal" font-weight="400" text-rendering="geometricPrecision">
-    <text x="1" y="5.5" fill="#dce8e1">B PAD 01 BANK</text>
+    <text x="1" y="5.5" fill="#dce8e1">A01 BNK B01 PAD</text>
     <rect x="0" y="8" width="128" height="1" fill="#dce8e1"/>
     <rect x="1" y="28" width="1" height="5" fill="#dce8e1"/>
     <rect x="2" y="26" width="1" height="9" fill="#dce8e1"/>

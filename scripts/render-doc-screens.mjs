@@ -275,7 +275,7 @@ source = source.replace(
 source += '\nglobalThis.__docSound={read:readSequenceSound,model:sequenceSoundUi};';
 source += '\nglobalThis.__docSequence={read:readSequence,model:sequenceUi};globalThis.__docGenerate={ui:sequenceGeneratorUi,read:readSequenceGenerator};';
 source += '\nglobalThis.__docLayers={read:readLayers,model:layersUi,openPicker:openLayersPicker,picker:layersPicker};';
-source += '\nglobalThis.__docSplit = {state, openSplitFxMenu, openPathEditor, readMixerState, projectUi, readProject, openProjects, openBankRecovery, customMidiUi, readCustomMidi, openCustomMidiList, sliceUi, openSliceEditor, readSliceEditor, params:PARAMS, pages:parameterPages, redraw:()=>{clearDisplay();draw();}};';
+source += '\nglobalThis.__docSplit = {state, tag:clipModeTag, liveRead:readLiveMemory, liveCache:uiPolling.cache, openSplitFxMenu, openPathEditor, readMixerState, projectUi, readProject, openProjects, openBankRecovery, customMidiUi, readCustomMidi, openCustomMidiList, sliceUi, openSliceEditor, readSliceEditor, params:PARAMS, pages:parameterPages, redraw:()=>{clearDisplay();draw();}};';
 source += '\nglobalThis.__docLfo={read:readControlLfos,readLive:readControlLfoLive,draw:drawControlLfo,drawSettings,pages:LFO_PAGES,setup:LFO_SETUP_PAGE,trig:SEQUENCE_LFO_PAGE,model:lfoUi,openPicker:openLfoDestPicker,drawPicker:drawLfoDestPicker,groups:lfoDestGroups,catalog:LFO_DESTINATIONS};';
 source += '\nglobalThis.__docSynth={ui:synthUi,read:readSynth,draw:drawSynth};';
 source += '\nglobalThis.__docPartials={read:readPartials,model:partialsUi};';
@@ -517,6 +517,8 @@ captureEnginePages(2, [
     { filename: 'grains-main.svg', title: 'Grains Main parameter page', heading: 'GRAINS MAIN' },
     { filename: 'grains-cloud.svg', title: 'Grains Cloud parameter page', heading: 'GRAINS CLOUD' },
     { filename: 'grains-process.svg', title: 'Grains Process parameter page', heading: 'GRAINS PROCESS' },
+    { filename: 'travel-envelope.svg', title: 'Travel Envelope source speeds and timings', heading: 'TRAVEL ENVELOPE' },
+    { filename: 'live-memory.svg', title: 'Live Memory source controls', heading: 'LIVE MEMORY' },
 ]);
 captureEnginePages(3, [
     { filename: 'cutups-clock.svg', title: 'Cutups Clock parameter page', heading: 'CUTUPS CLOCK' },
@@ -539,6 +541,7 @@ captureEnginePages(7, [
     {},
     { filename: 'weave.svg', title: 'Weave parameter page', heading: 'WEAVE' },
     { filename: 'weave-motion.svg', title: 'Weave Motion parameter page', heading: 'WEAVE MOTION' },
+    {}, {},
 ]);
 captureEnginePages(8, [
     {},
@@ -633,6 +636,14 @@ Object.assign(params, {
 });
 globalThis.init();tick(82);
 capture('split-waveform.svg','Split waveform with A focused and independent A/B zoom');
+const liveSplitDoc=globalThis.__docSplit;
+const sourceValues=[0,100,1,500,1,0,1,20,0,250,1000,0,1];
+const liveBins=Array.from({length:64},(_,i)=>{const p=Math.floor(i/2),a=(p>=3&&p<=7)||(p>=18&&p<=21)?6:p>=27&&p<=28?3:0;return i%2?a:-a;});
+const liveEnvelope=Array.from({length:120},(_,i)=>{let a=0;for(const [at,width,peak]of [[20,9,115],[72,8,100],[104,4,70]])a=Math.max(a,Math.round(peak*Math.max(0,1-Math.abs(i-at)/width)));return (128-a).toString(16).padStart(2,'0')+(128+a).toString(16).padStart(2,'0');}).join('');
+liveSplitDoc.liveCache.set('source_motion_state',JSON.stringify({part:0,v:sourceValues,wave:Array(64).fill(0),parts:[null,{part:1,source:2,available:1,generation:1,wave:liveBins,envelope:liveEnvelope}]}));
+liveSplitDoc.liveRead();liveSplitDoc.redraw();capture('split-live-memory.svg','Split with A focused while B shows its live Part A history');
+liveSplitDoc.liveCache.set('source_motion_state','{}');liveSplitDoc.liveRead();liveSplitDoc.redraw();
+
 cc(52);cc(52,0);tick();capture('split-waveform-b.svg','Split waveform with B focused');
 cc(52);cc(52,0);tick();
 const mutedExample=JSON.parse(params.split_state);
@@ -833,12 +844,12 @@ Object.assign(params,{layers_view:JSON.stringify(layerExample),algorithm:'2',lan
 globalThis.init();tick(82);
 const layersDoc=globalThis.__docSplit;globalThis.__docLayers.read();
 Object.assign(layersDoc.state,{view:'main',bankMode:false,splitEnabled:false,actionMessageTicks:0,messageTicks:0,saveStatus:0,savedTicks:0,performanceVisible:false,mask:15,lane:2,fieldStart:.1,fieldEnd:.9,playheads:[.28,.7,-1,-1,-1,-1,-1,-1],stackPositions:[.12,.72,-1,-1,-1,-1,-1,-1],weights:[.1,.65,.2,.05]});
-layersDoc.redraw();capture('layers-field.svg','Layers four-lane waveform navigation and parallel FX field','LAYERS');
-layersDoc.state.saveStatus=2;layersDoc.redraw();capture('layers-field-saving.svg','Layers weight meters remain visible beside Saving','LAYERS');
-layersDoc.state.saveStatus=3;layersDoc.state.savedTicks=30;layersDoc.redraw();capture('layers-field-saved.svg','Layers weight meters remain visible beside Saved','LAYERS');
+layersDoc.redraw();capture('layers-field.svg','Layers four-lane waveform navigation and parallel FX field',layersDoc.tag());
+layersDoc.state.saveStatus=2;layersDoc.redraw();capture('layers-field-saving.svg','Layers weight meters remain visible beside Saving',layersDoc.tag());
+layersDoc.state.saveStatus=3;layersDoc.state.savedTicks=30;layersDoc.redraw();capture('layers-field-saved.svg','Layers weight meters remain visible beside Saved',layersDoc.tag());
 layersDoc.state.saveStatus=0;layersDoc.state.savedTicks=0;
 globalThis.onMidiMessageInternal([0xb0,52,127]);globalThis.onMidiMessageInternal([0xb0,52,0]);
-layersDoc.redraw();capture('layers-focus-fx.svg','Layers overview with FX editing focus','LAYERS FX');
+layersDoc.redraw();capture('layers-focus-fx.svg','Layers overview with FX editing focus',layersDoc.tag()+' FX');
 globalThis.onMidiMessageInternal([0xb0,52,127]);globalThis.onMidiMessageInternal([0xb0,52,0]);
 layersDoc.state.view='settings';layersDoc.state.settingsPage=0;
 layersDoc.redraw();capture('layers-a-engine.svg','Instrument A engine page in Layers','A ENGINE');
@@ -877,7 +888,7 @@ const seqExample={active:1,edit:1,rec:0,step:6,held:-1,child:0,root:60,mask:3,le
 Object.assign(params,{split_mode:'6',split_focus:'1',layers_view:'{}',seq_state:JSON.stringify(seqExample),split_state:JSON.stringify({enabled:1,shared:0,quad:1,bank:0,focus:1,blend:.5,parts:Array.from({length:4},()=>({algorithm:4,root:60,octave:0,scale:0,mode:0,mute:0}))})});
 globalThis.init();tick(82);const seqDoc=globalThis.__docSplit;globalThis.__docSequence.read();
 Object.assign(seqDoc.state,{view:'main',recording:true,mask:15,messageTicks:0,actionMessageTicks:0});
-seqDoc.redraw();capture('sequence-overview.svg','Sequence overview with independent lane clocks and fixed recording destination','EDIT 2 REC 1');
+seqDoc.redraw();capture('sequence-overview.svg','Sequence overview with independent lane clocks and fixed recording destination',seqDoc.tag()+' E2 REC1');
 seqExample.held=6;params.seq_state=JSON.stringify(seqExample);globalThis.__docSequence.read();seqDoc.state.view='settings';seqDoc.state.settingsPage=seqDoc.pages().findIndex(p=>p.title==='TRIG');seqDoc.redraw();capture('sequence-trig.svg','Trig source position, pitch and timing controls','L2 T07 TRIG');
 seqExample.step_ms=83.3333;params.seq_state=JSON.stringify(seqExample);globalThis.__docSequence.read();
 seqDoc.state.settingsPage=seqDoc.pages().findIndex(p=>p.title==='SEQ AMP');seqDoc.redraw();capture('sequence-amp.svg','Sequence envelope with applied attack, decay and release inside DUR','B SEQ AMP T07');
@@ -1026,7 +1037,7 @@ Object.assign(seqDoc.state,{view:'main',algorithm:15,splitEnabled:false,sharedDu
 globalThis.__docLayers.model.active=false;globalThis.__docSequence.model.active=false;
 Object.assign(params,{algorithm:'15',split_mode:'0',voice_engine_mode:'0',record_lane:'2'});seqDoc.params.split_mode.value=0;seqDoc.params.algorithm.value=15;seqDoc.params.voice_engine_mode.value=0;
 tableExample.state.edit=1;tableExample.state.revision=99999;params.table_state=JSON.stringify(tableExample.state);params.table_scope=JSON.stringify(tableExample.scope);tableDoc.read(false);tableDoc.scopes(false);
-seqDoc.redraw();capture('table-scope.svg','TABLE live pre-effects patch scopes without sample waveforms','THRU TABLE');
+seqDoc.redraw();capture('table-scope.svg','TABLE live pre-effects patch scopes without sample waveforms',seqDoc.tag()+' TABLE');
 for(const [variant,title,file] of [[0,'TABLE','table-common'],[0,'TABLE WAVE','table-wave'],[1,'TABLE SPLINE','table-spline'],[2,'TABLE WT OSC','table-wt-osc'],[2,'TABLE WT HIT','table-wt-hit'],[2,'TABLE WT COLOR','table-wt-color']]){
  tableExample.state.patches[1][0]=variant;tableExample.state.patches[1][4]=variant===2?1:0;tableExample.state.patches[1][6]=variant===2?25:0;
  params.table_state=JSON.stringify(tableExample.state);tableDoc.read(false);seqDoc.state.view='settings';seqDoc.state.settingsPage=seqDoc.pages().findIndex(p=>p.title===title);
@@ -1037,12 +1048,12 @@ const scannedDoc=globalThis.__docScanned,scannedExample=JSON.parse(fs.readFileSy
 Object.assign(seqDoc.state,{view:'main',algorithm:16,splitEnabled:false,sharedDual:false,quadMode:false,bankMode:false,splitFocus:0,lane:2,mask:0,voiceCount:1,playheads:Array(8).fill(-1),stackPositions:[.5,...Array(7).fill(-1)],voiceAlgorithms:[16,...Array(7).fill(-1)],editorReady:true,clipPlaying:false,clipRecording:false,actionMessageTicks:0,messageTicks:0,saveStatus:0});
 seqDoc.params.algorithm.value=16;seqDoc.params.split_mode.value=0;seqDoc.params.voice_engine_mode.value=0;
 scannedExample.state.edit=1;scannedExample.state.revision=999999;params.scanned_state=JSON.stringify(scannedExample.state);params.table_scope=JSON.stringify(scannedExample.scope);scannedDoc.read(false);tableDoc.scopes(false);
-seqDoc.redraw();capture('scanned-string.svg','SCANNED moving string profiles and per-note stack markers','THRU SCANNED');
+seqDoc.redraw();capture('scanned-string.svg','SCANNED moving string profiles and per-note stack markers',seqDoc.tag()+' SCANNED');
 for(const [title,file] of [['SCANNED','scanned-main'],['SCAN BODY','scanned-body'],['SCAN HIT','scanned-hit'],['SCAN AMP','scanned-amp']]){if(title==='SCAN HIT'){scannedExample.state.patches[1][16]=1;scannedExample.state.patches[1][20]=24;params.scanned_state=JSON.stringify(scannedExample.state);scannedDoc.read(false);}if(title==='SCAN AMP'){scannedExample.state.patches[1][23]=1;params.scanned_state=JSON.stringify(scannedExample.state);scannedDoc.read(false);}seqDoc.state.view='settings';seqDoc.state.settingsPage=seqDoc.pages().findIndex(p=>p.title===title);seqDoc.redraw();capture(file+'.svg',title+' physical patch controls',title);}
 // FM uses the same live scope surface as TABLE, with independent patch controls.
 const fmDoc=globalThis.__docFm,fmExample=JSON.parse(fs.readFileSync(path.join(repoRoot,'tests/fm_scope_fixture.json'),'utf8'));
 Object.assign(seqDoc.state,{view:'main',algorithm:17,splitEnabled:false,sharedDual:false,quadMode:false,bankMode:false,splitFocus:0,lane:2,mask:0,voiceCount:1,playheads:Array(8).fill(-1),stackPositions:[.5,...Array(7).fill(-1)],voiceAlgorithms:[17,...Array(7).fill(-1)],editorReady:true,clipPlaying:false,clipRecording:false,actionMessageTicks:0,messageTicks:0,saveStatus:0});
-seqDoc.params.algorithm.value=17;seqDoc.params.split_mode.value=0;seqDoc.params.voice_engine_mode.value=0;fmExample.state.edit=1;fmExample.state.revision=999999;params.fm_state=JSON.stringify(fmExample.state);params.table_scope=JSON.stringify(fmExample.scope);fmDoc.read(false);tableDoc.scopes(false);seqDoc.redraw();capture('fm-scope.svg','FM live scopes and per-note stack positions','THRU FM');
+seqDoc.params.algorithm.value=17;seqDoc.params.split_mode.value=0;seqDoc.params.voice_engine_mode.value=0;fmExample.state.edit=1;fmExample.state.revision=999999;params.fm_state=JSON.stringify(fmExample.state);params.table_scope=JSON.stringify(fmExample.scope);fmDoc.read(false);tableDoc.scopes(false);seqDoc.redraw();capture('fm-scope.svg','FM live scopes and per-note stack positions',seqDoc.tag()+' FM');
 for(const [title,file]of [['FM','fm-main'],['FM COLOR','fm-color'],['FM HIT','fm-hit'],['FM ENVS','fm-envs']]){fmExample.state.patches[1][4]=1;if(title==='FM ENVS'){const p=fmExample.state.patches[1];p[24]=35;p[25]=750;p[26]=35;p[28]=150;p[29]=1200;p[30]=20;}if(title==='FM HIT'){fmExample.state.patches[1][0]=1;fmExample.state.patches[1][20]=20;}params.fm_state=JSON.stringify(fmExample.state);fmDoc.read(false);seqDoc.state.view='settings';seqDoc.state.settingsPage=seqDoc.pages().findIndex(p=>p.title===title);seqDoc.redraw();capture(file+'.svg',title+' patch controls',title);}
 seqDoc.state.settingsPage=seqDoc.pages().findIndex(p=>p.title==='FM');fmDoc.model.routingTouch=true;
 for(let alg=0;alg<4;++alg){fmExample.state.patches[1][4]=alg;fmExample.state.patches[1][6]=3;fmExample.state.patches[1][9]=2;params.fm_state=JSON.stringify(fmExample.state);fmDoc.read(false);seqDoc.redraw();capture('fm-routing-'+alg+'.svg','FM operator routing '+alg,'FM '+['2OP','SER','PAR','RING'][alg]);}
@@ -1063,12 +1074,12 @@ seqDoc.state.settingsPage=seqDoc.pages().findIndex(p=>p.sequenceStrip===0);seqDo
 
 
 const noiseDoc=globalThis.__docNoise,noiseExample=JSON.parse(fs.readFileSync(path.join(repoRoot,'tests/noise_scope_fixture.json'),'utf8'));
-globalThis.__docSequence.model.active=false;globalThis.__docLayers.model.active=false;seqDoc.state.performanceVisible=false;seqDoc.state.view='main';seqDoc.state.algorithm=18;seqDoc.state.splitEnabled=false;seqDoc.state.sharedDual=false;seqDoc.state.quadMode=false;seqDoc.state.bankMode=false;seqDoc.state.splitFocus=0;seqDoc.state.lane=1;seqDoc.params.algorithm.value=18;seqDoc.params.split_mode.value=0;seqDoc.params.voice_engine_mode.value=0;noiseExample.state.edit=0;noiseExample.state.revision=999999;params.noise_state=JSON.stringify(noiseExample.state);params.table_scope=JSON.stringify(noiseExample.scope);noiseDoc.read(false);tableDoc.scopes(false);seqDoc.redraw();capture('noise-scope.svg','NOISE live scopes','THRU NOISE');
+globalThis.__docSequence.model.active=false;globalThis.__docLayers.model.active=false;seqDoc.state.performanceVisible=false;seqDoc.state.view='main';seqDoc.state.algorithm=18;seqDoc.state.splitEnabled=false;seqDoc.state.sharedDual=false;seqDoc.state.quadMode=false;seqDoc.state.bankMode=false;seqDoc.state.splitFocus=0;seqDoc.state.lane=1;seqDoc.params.algorithm.value=18;seqDoc.params.split_mode.value=0;seqDoc.params.voice_engine_mode.value=0;noiseExample.state.edit=0;noiseExample.state.revision=999999;params.noise_state=JSON.stringify(noiseExample.state);params.table_scope=JSON.stringify(noiseExample.scope);noiseDoc.read(false);tableDoc.scopes(false);seqDoc.redraw();capture('noise-scope.svg','NOISE live scopes',seqDoc.tag()+' NOISE');
 for(const [title,file,kind]of [['NOISE','noise-main',0],['NOISE BANK','noise-bank',0],['NOISE EVENTS','noise-events',6],['BANDS 29-32','noise-bands',0]]){noiseExample.state.patches[0][0]=kind;noiseExample.state.group=file==='noise-bands'?7:0;params.noise_state=JSON.stringify(noiseExample.state);noiseDoc.read(false);seqDoc.state.view='settings';seqDoc.state.settingsPage=seqDoc.pages().findIndex(p=>p.title===title);seqDoc.redraw();capture(file+'.svg',title+' patch controls',title);}
 
 
 const resonDoc=globalThis.__docReson,resonExample=JSON.parse(fs.readFileSync(path.join(repoRoot,'tests/reson_scope_fixture.json'),'utf8'));
-seqDoc.state.view='main';seqDoc.state.algorithm=19;seqDoc.state.splitEnabled=false;seqDoc.state.sharedDual=false;seqDoc.state.quadMode=false;seqDoc.state.bankMode=false;seqDoc.state.splitFocus=0;seqDoc.state.lane=1;seqDoc.params.algorithm.value=19;seqDoc.params.split_mode.value=0;seqDoc.params.voice_engine_mode.value=0;resonExample.state.edit=0;resonExample.state.revision=999999;params.reson_state=JSON.stringify(resonExample.state);params.table_scope=JSON.stringify(resonExample.scope);resonDoc.read(false);tableDoc.scopes(false);seqDoc.redraw();capture('reson-scope.svg','RESON live scopes','THRU RESON');
+seqDoc.state.view='main';seqDoc.state.algorithm=19;seqDoc.state.splitEnabled=false;seqDoc.state.sharedDual=false;seqDoc.state.quadMode=false;seqDoc.state.bankMode=false;seqDoc.state.splitFocus=0;seqDoc.state.lane=1;seqDoc.params.algorithm.value=19;seqDoc.params.split_mode.value=0;seqDoc.params.voice_engine_mode.value=0;resonExample.state.edit=0;resonExample.state.revision=999999;params.reson_state=JSON.stringify(resonExample.state);params.table_scope=JSON.stringify(resonExample.scope);resonDoc.read(false);tableDoc.scopes(false);seqDoc.redraw();capture('reson-scope.svg','RESON live scopes',seqDoc.tag()+' RESON');
 resonExample.state.edit=2;seqDoc.state.lane=3;params.reson_state=JSON.stringify(resonExample.state);resonDoc.read(false);
 for(const [title,file]of [['RESON','reson-main'],['RESON BODY','reson-body'],['RESON HIT','reson-hit'],['RESON DRIVE','reson-drive']]){seqDoc.state.view='settings';seqDoc.state.settingsPage=seqDoc.pages().findIndex(p=>p.title===title);seqDoc.redraw();capture(file+'.svg',title+' patch controls',title);}
 seqDoc.params.reson_density.value=45;seqDoc.params.polyphony_comp.value=1;seqDoc.state.settingsPage=seqDoc.pages().findIndex(p=>p.title==='PLAY GAIN');seqDoc.redraw();capture('reson-density.svg','RESON overlap control on Play Gain','PLAY GAIN');
@@ -1077,12 +1088,12 @@ resonDoc.model.start=2;resonDoc.model.renderKey=null;resonDoc.draw();capture('re
 
 
 const partialsDoc=globalThis.__docPartials,partialsExample=JSON.parse(fs.readFileSync(path.join(repoRoot,'tests/partials_scope_fixture.json'),'utf8'));
-seqDoc.state.view='main';seqDoc.state.algorithm=20;seqDoc.state.splitEnabled=false;seqDoc.state.sharedDual=false;seqDoc.state.quadMode=false;seqDoc.state.bankMode=false;seqDoc.state.splitFocus=0;seqDoc.state.lane=1;seqDoc.params.algorithm.value=20;seqDoc.params.split_mode.value=0;seqDoc.params.voice_engine_mode.value=0;partialsExample.state.edit=0;partialsExample.state.revision=999999;params.partials_state=JSON.stringify(partialsExample.state);params.table_scope=JSON.stringify(partialsExample.scope);partialsDoc.read(false);tableDoc.scopes(false);seqDoc.redraw();capture('partials-scope.svg','Four PARTIALS live patch scopes','THRU PARTIALS');
+seqDoc.state.view='main';seqDoc.state.algorithm=20;seqDoc.state.splitEnabled=false;seqDoc.state.sharedDual=false;seqDoc.state.quadMode=false;seqDoc.state.bankMode=false;seqDoc.state.splitFocus=0;seqDoc.state.lane=1;seqDoc.params.algorithm.value=20;seqDoc.params.split_mode.value=0;seqDoc.params.voice_engine_mode.value=0;partialsExample.state.edit=0;partialsExample.state.revision=999999;params.partials_state=JSON.stringify(partialsExample.state);params.table_scope=JSON.stringify(partialsExample.scope);partialsDoc.read(false);tableDoc.scopes(false);seqDoc.redraw();capture('partials-scope.svg','Four PARTIALS live patch scopes',seqDoc.tag()+' PARTIALS');
 for(const [title,file,type,group] of [['PARTIALS','partials-main',0,0],['PARTIALS TONE','partials-tone',1,0],['PARTIALS PACKET','partials-packet',2,0],['PART 1-4','partials-bands',0,0],['PART 29-32','partials-dividers',1,7]]){partialsExample.state.patches[0][0]=type;partialsExample.state.patches[0][4]=type===2?8:16;partialsExample.state.group=group;params.partials_state=JSON.stringify(partialsExample.state);partialsDoc.read(false);seqDoc.state.view='settings';seqDoc.state.settingsPage=seqDoc.pages().findIndex(p=>p.title===title);seqDoc.redraw();capture(file+'.svg',title+' controls',title);}
 globalThis.__docEnginePicker.ui.selected=20;globalThis.__docEnginePicker.ui.renderKey=null;globalThis.__docEnginePicker.draw();capture('engine-picker.svg','Twenty-two playback engines','PLAYBACK ENGINE');
 
 const lowformDoc=globalThis.__docLowform,lowformExample=JSON.parse(fs.readFileSync(path.join(repoRoot,'tests/lowform_scope_fixture.json'),'utf8'));
-Object.assign(seqDoc.state,{view:'main',algorithm:21,splitEnabled:false,sharedDual:false,quadMode:false,bankMode:false,splitFocus:0,lane:1});seqDoc.params.algorithm.value=21;seqDoc.params.split_mode.value=0;seqDoc.params.voice_engine_mode.value=0;globalThis.__docSequence.model.active=false;globalThis.__docLayers.model.active=false;lowformExample.state.edit=0;lowformExample.state.revision=999999;params.lowform_state=JSON.stringify(lowformExample.state);params.table_scope=JSON.stringify(lowformExample.scope);lowformDoc.read(false);tableDoc.scopes(false);seqDoc.redraw();capture('lowform-scope.svg','Four Lowform live patch scopes','THRU LOWFORM');
+Object.assign(seqDoc.state,{view:'main',algorithm:21,splitEnabled:false,sharedDual:false,quadMode:false,bankMode:false,splitFocus:0,lane:1});seqDoc.params.algorithm.value=21;seqDoc.params.split_mode.value=0;seqDoc.params.voice_engine_mode.value=0;globalThis.__docSequence.model.active=false;globalThis.__docLayers.model.active=false;lowformExample.state.edit=0;lowformExample.state.revision=999999;params.lowform_state=JSON.stringify(lowformExample.state);params.table_scope=JSON.stringify(lowformExample.scope);lowformDoc.read(false);tableDoc.scopes(false);seqDoc.redraw();capture('lowform-scope.svg','Four Lowform live patch scopes',seqDoc.tag()+' LOWFORM');
 for(const [title,file] of [['LOWFORM','lowform-main'],['LOWFORM BODY','lowform-body'],['LOWFORM SHAPE','lowform-shape'],['LOWFORM TEXTURE','lowform-texture']]){if(file==='lowform-texture'){lowformExample.state.patches[0][14]=2;lowformExample.state.patches[0][15]=35;params.lowform_state=JSON.stringify(lowformExample.state);lowformDoc.read(false);}seqDoc.state.view='settings';seqDoc.state.settingsPage=seqDoc.pages().findIndex(p=>p.title===title);seqDoc.redraw();capture(file+'.svg',title+' patch controls',title);}
 lowformDoc.model.start=2;lowformDoc.model.renderKey=null;lowformDoc.draw();capture('lowform-starts.svg','Lowform starting sounds','LOWFORM START');
 // Render Actions using the actual list and confirmation drawing.

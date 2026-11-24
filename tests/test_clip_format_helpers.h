@@ -1,5 +1,25 @@
 #pragma once
-inline void stripResonDensity(std::vector<unsigned char>& bytes){if(bytes.size()<16||bytes[8]!=61)return;constexpr std::size_t size=4+64*5*4;const auto at=bytes.size()-size;assert(bytes[at]=='R'&&bytes[at+1]=='D'&&bytes[at+2]=='N'&&bytes[at+3]=='1');bytes.resize(at);bytes[8]=60;}
+inline void stripSourceMotion(std::vector<unsigned char>& bytes){
+ if(bytes.size()<16||bytes[8]!=63)return;
+ constexpr std::size_t size=4+64*5*13*4;const auto at=bytes.size()-size;
+ assert(bytes[at]=='T'&&bytes[at+1]=='L'&&bytes[at+2]=='V'&&bytes[at+3]=='1');bytes.resize(at);bytes[8]=62;
+ // New source curves cannot occur in a genuine pre-Travel bank. Strip them
+ // from the unchanged legacy core before exercising the older readers.
+ const auto u32=[&](std::size_t n){assert(n+4<=bytes.size());std::uint32_t v=0;for(int i=0;i<4;++i)v|=std::uint32_t(bytes[n+i])<<(8*i);return v;};
+ std::vector<unsigned char> out(bytes.begin(),bytes.begin()+240);std::size_t pos=240;
+ const auto copy=[&](std::size_t n){assert(pos+n<=bytes.size());out.insert(out.end(),bytes.begin()+pos,bytes.begin()+pos+n);pos+=n;};
+ for(int c=0;c<64;++c){copy(4+176*4+4*(4+768+64)+16*4+36);const auto notes=u32(pos),points=u32(pos+4);copy(8);const auto countAt=out.size()-4;copy(notes*24);std::uint32_t kept=0;
+  for(std::uint32_t i=0;i<points;++i){if(u32(pos+16)<26){copy(24);++kept;}else pos+=24;}
+  for(int i=0;i<4;++i)out[countAt+i]=static_cast<unsigned char>(kept>>(8*i));
+ }
+ copy(bytes.size()-pos);bytes.swap(out);
+}
+inline void stripTouchWindows(std::vector<unsigned char>& bytes){
+ stripSourceMotion(bytes);if(bytes.size()<16||bytes[8]!=62)return;
+ const auto n=bytes.size();const std::size_t size=std::uint32_t(bytes[n-4])|(std::uint32_t(bytes[n-3])<<8)|(std::uint32_t(bytes[n-2])<<16)|(std::uint32_t(bytes[n-1])<<24);
+ assert(size<=n);const auto at=n-size;assert(bytes[at]=='T'&&bytes[at+1]=='C'&&bytes[at+2]=='H'&&bytes[at+3]=='1');bytes.resize(at);bytes[8]=61;
+}
+inline void stripResonDensity(std::vector<unsigned char>& bytes){stripTouchWindows(bytes);if(bytes.size()<16||bytes[8]!=61)return;constexpr std::size_t size=4+64*5*4;const auto at=bytes.size()-size;assert(bytes[at]=='R'&&bytes[at+1]=='D'&&bytes[at+2]=='N'&&bytes[at+3]=='1');bytes.resize(at);bytes[8]=60;}
 inline void stripLowformPrograms(std::vector<unsigned char>& bytes){stripResonDensity(bytes);if(bytes.size()<16||bytes[8]!=60)return;constexpr std::size_t size=4+64*5*4*32*4;const auto at=bytes.size()-size;assert(bytes[at]=='L'&&bytes[at+1]=='F'&&bytes[at+2]=='P'&&bytes[at+3]=='1');bytes.resize(at);bytes[8]=59;}
 inline void stripPartialsPrograms(std::vector<unsigned char>& bytes){stripLowformPrograms(bytes);if(bytes.size()<16||bytes[8]!=59)return;constexpr std::size_t size=4+64*5*4*104*4;const auto at=bytes.size()-size;assert(bytes[at]=='P'&&bytes[at+1]=='T'&&bytes[at+2]=='P'&&bytes[at+3]=='1');bytes.resize(at);bytes[8]=58;}
 inline void stripResonPrograms(std::vector<unsigned char>& bytes){stripPartialsPrograms(bytes);if(bytes.size()<16||bytes[8]!=58)return;constexpr std::size_t size=4+64*5*4*32*4;const auto at=bytes.size()-size;assert(bytes[at]=='R'&&bytes[at+1]=='S'&&bytes[at+2]=='P'&&bytes[at+3]=='1');bytes.resize(at);bytes[8]=57;}

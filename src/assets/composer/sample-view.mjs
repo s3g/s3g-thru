@@ -1,0 +1,44 @@
+const clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v));
+const NS='http://www.w3.org/2000/svg',svg=(tag,attrs={})=>{const e=document.createElementNS(NS,tag);for(const[k,v]of Object.entries(attrs))e.setAttribute(k,v);return e;};
+export function sampleWindow(pos,field){const width=clamp(field,.02,1),start=clamp(pos-width/2,0,1-width);return[start,start+width];}
+export function sampleSource(frame){const clip=frame?.document.clips[0],part=frame?.focus??0,lane=frame?.patches[part]??0,source=clip?.sources[lane];return{lane,source,asset:frame?.document.assets.find(a=>a.id===source?.asset)};}
+export function waveformPath(wave,start=0,end=1,width=800,height=62){
+ if(!Array.isArray(wave)||wave.length<4||wave.length%2)return '';
+ const bins=wave.length/2,points=Math.min(800,Math.max(2,Math.ceil(bins*(end-start)))),top=[],bottom=[];
+ for(let i=0;i<=points;++i){const at=clamp((start+(end-start)*i/points)*(bins-1),0,bins-1),a=Math.floor(at),b=Math.min(bins-1,a+1),f=at-a;
+  const low=wave[a*2]+(wave[b*2]-wave[a*2])*f,high=wave[a*2+1]+(wave[b*2+1]-wave[a*2+1])*f;
+  top.push(`${i/points*width},${height/2-clamp(high,-1,1)*(height/2-2)}`);bottom.push(`${i/points*width},${height/2-clamp(low,-1,1)*(height/2-2)}`);
+ }return'M'+top.join('L')+'L'+bottom.reverse().join('L')+'Z';
+}
+export class SampleView{
+ constructor(root,api){this.root=root;this.api=api;this.zoom=1;this.start=0;this.context=null;this.drag=null;
+ root.className='sample-view';root.innerHTML=`<header><strong id="sample-target">Sample position</strong><span id="sample-file"></span><label>ZOOM <select id="sample-zoom" data-offline="true"><option value="1">1×</option><option value="2">2×</option><option value="4">4×</option><option value="8">8×</option></select></label></header><div class="sample-graph"><svg id="sample-wave" viewBox="0 0 800 62" preserveAspectRatio="none" tabindex="0" role="slider" aria-label="Sample position" aria-valuemin="0" aria-valuemax="100"></svg><p id="sample-empty" hidden></p></div><div class="sample-values"><label>POS <input id="sample-percent" type="number" min="0" max="100" step=".01" aria-label="Sample position percent">%</label><label><input id="sample-ms" type="number" min="0" step=".1" aria-label="Sample position milliseconds">ms</label><label>FIELD <input id="sample-field" type="number" min="2" max="100" step=".01" aria-label="Sample field percent">%</label><input id="sample-pan" type="range" min="0" max="1" step=".0001" value="0" aria-label="Waveform view start" data-offline="true" hidden><button id="sample-pos-clear" type="button" hidden>Clear POS lock</button><small id="sample-readout"></small></div>`;
+ this.$=id=>root.querySelector('#'+id);const canvas=this.$('sample-wave');
+ this.$('sample-zoom').onchange=()=>{this.zoom=Number(this.$('sample-zoom').value);this.start=clamp((this.context?.pos??.5)-.5/this.zoom,0,1-1/this.zoom);this.paint();};
+ this.$('sample-pan').oninput=e=>{this.start=Number(e.target.value);this.paint();};
+ for(const[id,key,convert]of[['sample-percent','locus',v=>v/100],['sample-ms','locus',v=>v/this.duration()],['sample-field','field',v=>v/100]]){
+  const input=this.$(id);input.onfocus=()=>input.dataset.stamp=this.context?.stamp;input.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();input.blur();}};input.onchange=()=>{if(this.context&&input.dataset.stamp===this.context.stamp&&Number.isFinite(input.valueAsNumber)){this.api.begin(key);this.change(key,convert(input.valueAsNumber));this.api.end(key);}};
+ }
+ this.$('sample-pos-clear').onclick=()=>this.api.clear();
+ canvas.onpointerdown=e=>{if(e.button!==0||!this.available())return;const marker=e.target.closest('[data-step]');if(marker){this.api.select(Number(marker.dataset.step));return;}e.preventDefault();canvas.focus({preventScroll:true});canvas.setPointerCapture(e.pointerId);this.drag={pointer:e.pointerId,stamp:this.context.stamp,x:e.clientX,pos:this.context.pos,fine:e.shiftKey};this.api.begin('locus');this.seek(e);};
+ canvas.onpointermove=e=>{if(this.drag?.pointer===e.pointerId)this.seek(e);};
+ canvas.onpointerup=canvas.onpointercancel=()=>{if(this.drag)this.api.end('locus');this.drag=null;};
+ canvas.onkeydown=e=>{if(!this.available()||!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;e.preventDefault();const d=(e.shiftKey?.1:1)/this.duration(),value=e.key==='Home'?0:e.key==='End'?1:this.context.pos+(e.key==='ArrowLeft'?-d:d);this.api.begin('locus');this.change('locus',value);this.api.end('locus');};
+ }
+ duration(){const a=this.context?.asset;return a?.frames&&a?.sampleRate?a.frames/a.sampleRate*1000:0;}
+ available(){return this.context?.enabled&&this.context.asset?.waveform?.length>=4&&this.duration()>0;}
+ update(context){if(this.context?.stamp!==context.stamp){if(this.drag)this.api.end('locus');this.drag=null;this.zoom=1;this.start=0;this.$('sample-zoom').value=1;}this.context=context;this.paint();}
+ seek(e){if(this.context?.stamp!==this.drag?.stamp||!this.available())return;const box=this.$('sample-wave').getBoundingClientRect();const value=this.drag.fine?this.drag.pos+(e.clientX-this.drag.x)/box.width/this.zoom*.1:this.start+clamp((e.clientX-box.left)/box.width)/this.zoom;this.change('locus',value);}
+ change(key,value){if(!this.context?.enabled)return;const v=clamp(value,key==='field'?.02:0,1);this.context={...this.context,[key==='locus'?'pos':'field']:v};this.paint();this.api.change(key,v);}
+ paint(){const c=this.context;if(!c)return;const duration=this.duration(),available=this.available(),hasWave=!!c.asset?.waveform?.length&&duration>0,canvas=this.$('sample-wave');this.root.hidden=!c.visible;this.$('sample-target').textContent=c.target;this.$('sample-file').textContent=(c.source?.label&&c.source.label!=='EMPTY'?c.source.label:c.asset?.name)||'No sample';this.$('sample-file').title=c.asset?.name||'';
+  this.$('sample-empty').hidden=hasWave&&!c.reason;this.$('sample-empty').textContent=c.reason||'No cached sample waveform';canvas.setAttribute('aria-disabled',String(!available));canvas.setAttribute('aria-valuenow',(c.pos*100).toFixed(2));canvas.setAttribute('aria-valuetext',`${(c.pos*100).toFixed(2)} percent, ${(c.pos*duration).toFixed(1)} milliseconds`);
+  for(const[id,value]of[['sample-percent',c.pos*100],['sample-ms',c.pos*duration],['sample-field',c.field*100]]){const input=this.$(id);if(document.activeElement!==input)input.value=Number(value.toFixed(id==='sample-ms'?1:2));input.disabled=!available;input.dataset.unavailable=String(!available);}
+  this.$('sample-ms').max=duration;const clear=this.$('sample-pos-clear');clear.hidden=!c.locked;clear.dataset.unavailable=String(!available);clear.disabled=!available;
+  this.$('sample-readout').textContent=duration?`${Math.round(duration)} ms · Shift-drag: fine`:'';this.$('sample-pan').hidden=this.zoom===1;this.$('sample-pan').max=1-1/this.zoom;this.$('sample-pan').value=this.start;
+  if(!hasWave){canvas.replaceChildren();this.pathKey='';return;}
+  const end=this.start+1/this.zoom,key=JSON.stringify([c.asset.id,c.asset.waveform,this.start,end]);
+  if(this.pathKey!==key){this.pathKey=key;this.markerSignature=null;canvas.replaceChildren();canvas.append(svg('line',{x1:0,x2:800,y1:31,y2:31,class:'sample-zero'}));this.region=svg('rect',{y:0,height:62,class:'sample-region'});canvas.append(this.region,svg('path',{d:waveformPath(c.asset.waveform,this.start,end),class:'sample-trace'}));this.markers=svg('g');this.marker=svg('line',{y1:0,y2:62,class:'sample-position'});canvas.append(this.markers,this.marker);}
+  const x=p=>(p-this.start)*800*this.zoom,[low,high]=sampleWindow(c.pos,c.field);this.region.setAttribute('x',x(low));this.region.setAttribute('width',Math.max(0,x(high)-x(low)));this.marker.setAttribute('x1',x(c.pos));this.marker.setAttribute('x2',x(c.pos));
+  const signature=JSON.stringify([c.markers,this.start,this.zoom]);if(signature!==this.markerSignature){this.markerSignature=signature;this.markers.replaceChildren();for(const m of c.markers||[])if(m.position>=this.start&&m.position<=end){const marker=svg('path',{d:`M${x(m.position)-4},2L${x(m.position)+4},2L${x(m.position)},10Z`,class:'sample-trig-marker','data-step':m.step});const title=svg('title');title.textContent='Step '+(m.step+1);marker.append(title);this.markers.append(marker);}}
+ }
+}

@@ -12,15 +12,31 @@ with zipfile.ZipFile(sys.argv[1]) as archive:
         'manifest.json', 'thru-state.json', 'thru-clips.bin', 'assets/a000000.wav'}
     manifest = json.loads(archive.read('manifest.json'))
     assert manifest == {'format': 's3g-thru-project', 'version': 1,
-                        'clip_format': 61, 'assets': 1}
+                        'clip_format': 63, 'assets': 1}
     state = json.loads(archive.read('thru-state.json'))
     clips = archive.read('thru-clips.bin')
     version, generation = struct.unpack_from('<IQ', clips, 8)
-    assert version == 61 and generation == state['generation']
+    assert version == 63 and generation == state['generation']
     checksum = 2166136261
     for value in clips[:-4]:
         checksum = ((checksum ^ value) * 16777619) & 0xffffffff
     assert checksum == struct.unpack('<I', clips[-4:])[0]
+    source_size=4+64*5*13*4
+    source_at=len(clips)-4-source_size
+    assert clips[source_at:source_at+4]==b'TLV1'
+    lo=[0,0,-4,0,-4,-4,-4,0,0,10,50,0,0]
+    hi=[1,10000,4,10000,4,4,4,200,5,10000,12000,1,2]
+    for i,x in enumerate(struct.unpack_from('<'+str(64*5*13)+'f',clips,source_at+4)):
+        assert lo[i%13]<=x<=hi[i%13]
+    clips=clips[:source_at]+clips[-4:]
+    touch_size=struct.unpack_from('<I',clips,len(clips)-8)[0]
+    touch_at=len(clips)-4-touch_size
+    assert clips[touch_at:touch_at+4]==b'TCH1'
+    at=touch_at+4
+    for _ in range(64):
+        count=struct.unpack_from('<I',clips,at)[0];at+=4+20*count
+    assert at==len(clips)-8
+    clips=clips[:touch_at]+clips[-4:]
     density_size=4+64*5*4
     density_at=len(clips)-4-density_size
     assert clips[density_at:density_at+4]==b'RDN1'

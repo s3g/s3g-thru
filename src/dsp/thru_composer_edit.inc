@@ -26,7 +26,13 @@ bool handleComposerEdit(ThruInstance& t,const char* key,const char* value){
   if(!sequence||*end||sequence>2147483647u)return true;
   const auto receipt=(sequence<<1)|1u;
   for(const auto& old:t.composerEditReceipts)if((old.load(std::memory_order_acquire)>>1)==sequence)return true;
-  const auto finish=[&](bool ok){t.composerEditReceipts[sequence%64].store(ok?receipt:sequence<<1,std::memory_order_release);t.composerEditVersion.store(std::max<std::uint64_t>(sequence,t.composerEditVersion.load()),std::memory_order_release);};
+  const auto finish=[&](bool ok,const char* reason=nullptr){
+    auto& published=t.composerEditReceipts[sequence%64];auto& error=t.composerEditErrors[sequence%64];
+    published.store(0,std::memory_order_release);std::size_t i=0;
+    if(!ok&&reason)for(;i+1<error.size()&&reason[i];++i)error[i].store(reason[i],std::memory_order_relaxed);
+    error[i].store(0,std::memory_order_relaxed);published.store(ok?receipt:sequence<<1,std::memory_order_release);
+    t.composerEditVersion.store(std::max<std::uint64_t>(sequence,t.composerEditVersion.load()),std::memory_order_release);
+  };
   if(!std::strcmp(fields[2],"name")&&n==6){
     char* endClip=nullptr;const long slot=std::strtol(fields[3],&endClip,10);std::string name;const std::string hex=fields[5];bool valid=hex=="-"||(hex.size()<=80&&hex.size()%2==0);
     for(std::size_t i=0;valid&&hex!="-"&&i<hex.size();i+=2){const auto digit=[](char c){return c>='0'&&c<='9'?c-'0':c>='a'&&c<='f'?c-'a'+10:-1;};const int a=digit(hex[i]),b=digit(hex[i+1]);if(a<0||b<0)valid=false;else name+=char(a*16+b);}
@@ -41,6 +47,11 @@ bool handleComposerEdit(ThruInstance& t,const char* key,const char* value){
   if(!integer(a[1],0,(t.splitEnabled?t.partCount():1)-1)){finish(false);return true;}
   const int part=int(a[1]);
   if(composerWorkspaceEdit(t,fields.data(),n,a,finish))return true;
+  if(!std::strcmp(fields[2],"mod")&&n==10){
+    if(!integer(a[2],0,7)||!integer(a[3],0,16383)||!integer(a[4],0,1024)||!integer(a[5],0,4)||!integer(a[6],0,21)){finish(false);return true;}
+    finish(t.assignModulation(part,int(a[2]),int(a[3]),int(a[4]),int(a[5]),int(a[6])));return true;
+  }
+
   if(!std::strcmp(fields[2],"f")&&n==6){t.selectSplitPart(part);finish(true);return true;}
   if(!std::strcmp(fields[2],"p")&&(n==7||n==8||n==9)){
     if(!integer(a[2],0,16383)){finish(false);return true;}
@@ -59,7 +70,7 @@ bool handleComposerEdit(ThruInstance& t,const char* key,const char* value){
     const int token=(cfg.enabled?16:0)+std::clamp(cfg.edit,0,t.engineSlotCount()-1)+1;
     if(n==9&&(!integer(a[5],-1,24)||(a[5]>=0&&int(a[5])!=token))){finish(false);return true;}
     if(t.engineSlotKey(parameter->key)>=t.engineSlotCount()){finish(false);return true;}
-    const auto selected=t.selectedLane;const int held=t.sequenceEditStep;t.sequenceEditStep=-1;midiWrite(t,*parameter,part,a[3]);t.sequenceEditStep=held;t.selectedLane=selected;finish(true);return true;
+    const auto selected=t.selectedLane;const int held=t.sequenceEditStep;t.sequenceEditStep=-1;t.clearError();midiWrite(t,*parameter,part,a[3]);t.sequenceEditStep=held;t.selectedLane=selected;finish(!t.lastError[0],t.lastError.data());return true;
   }
   if(!std::strcmp(fields[2],"root")&&n==6){
     if(!integer(a[2],24,96)){finish(false);return true;}

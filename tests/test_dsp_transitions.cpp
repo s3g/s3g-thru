@@ -383,10 +383,12 @@ void testPreviewIsolation()
 #include "test_reson_density.inc"
 #include "test_page_actions.inc"
 #include "test_naming.inc"
+#include "test_source_motion.inc"
 } // namespace
 
 int main(int argc,char** argv)
 {
+    if(argc==2&&std::strcmp(argv[1],"--source-motion")==0){testSourceMotion();return 0;}
     if(argc==2&&std::strcmp(argv[1],"--cutups-levels")==0){testCutupsLaneLevels();testCutupsScanClock();testCutupsHoldAndEdits();testCutupsModuleDisplay();return 0;}
     if(argc==2&&std::strcmp(argv[1],"--naming")==0){testNaming();return 0;}
     if(argc==2&&std::strcmp(argv[1],"--page-actions")==0){testPageActions();return 0;}
@@ -407,7 +409,7 @@ int main(int argc,char** argv)
     if(argc==2&&std::strcmp(argv[1],"--table-ui-compat")==0){testTable();testSharedDualLiveZoom();return 0;}
     if(argc==2&&std::strcmp(argv[1],"--slice-edits")==0){testSliceSampleEditAlignment();return 0;}
     if(argc==2&&std::strcmp(argv[1],"--table")==0){testTable();return 0;}
-    testNaming();testPageActions();testResonDensity();testResonReleaseTails();testSequenceSynthMix();testLowform();testSynthHybridTransfer();testPartials();testReson();testNoise();testFm();testScanned();testTable();testSequenceSoundLocks();
+    testSourceMotion();testNaming();testPageActions();testResonDensity();testResonReleaseTails();testSequenceSynthMix();testLowform();testSynthHybridTransfer();testPartials();testReson();testNoise();testFm();testScanned();testTable();testSequenceSoundLocks();
     if(argc==2&&std::strcmp(argv[1],"--lfo")==0){testControlLfos();testPlaybackReadouts();testExpandedLfoDestinations();return 0;}
     testControlLfos();testPlaybackReadouts();testExpandedLfoDestinations();
     if(argc==2&&std::strcmp(argv[1],"--synth")==0){testSpline();return 0;}

@@ -27,7 +27,7 @@
           <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/grains-process.svg" aria-label="Open Grains Process"><img src="assets/screens/grains-process.svg" alt="Grains Process parameter page with two reserved positions"></button></div><figcaption>Process introduces event patterns and manages source advance and quality.</figcaption></figure>
         </div>
 
-        <p>The controls common to every playback engine are documented in the <a href="engines.html#shared">shared Engine page table</a>. The sections below cover Grains-specific controls.</p>
+        <p>The controls common to every playback engine are documented in the <a href="engines.html#shared">shared Engine page table</a>. Travel Envelope and Live Memory are also available in the Play page group. The sections below cover Grains-specific controls.</p>
 
         <h2 id="main">Grains Main — every parameter</h2>
         <table class="readout-table parameter-table">
@@ -74,6 +74,37 @@
 
         <div class="callout"><p><strong>Move performance:</strong> start with Quality 8. If System Report shows increasing Deadline Misses, reduce Quality to 4, reduce Density, shorten Size, or release some playback voices. Use Quality 16 when Deadline Misses stays at zero.</p></div>
 
+
+        <h2 id="travel">Travel Envelope</h2>
+        <p>Travel Envelope changes source travel during each note, independently of keyboard pitch and the amp envelope. It multiplies Engine SPD; Stack Path still controls which sample lanes are blended. Each voice has its own clock. In Scan mode, use positive rates to move forward, zero to dwell, or negative rates to move backward. Freeze and random-origin modes can deliberately hide some of this movement.</p>
+        <figure class="move-screen"><img src="assets/screens/travel-envelope.svg" alt="Travel Envelope with four source rates and separate timing controls"><figcaption>Rates occupy the top row. Mode, attack time, decay time and smoothing occupy the bottom row.</figcaption></figure>
+        <table class="readout-table parameter-table"><thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>What it controls</th></tr></thead><tbody>
+          <tr><td>1</td><td>ARAT</td><td>−4–4×</td><td>Attack travel rate, used for ATIM after the note starts.</td></tr>
+          <tr><td>2</td><td>DRAT</td><td>−4–4×</td><td>Decay travel rate, used for DTIM after attack.</td></tr>
+          <tr><td>3</td><td>SRAT</td><td>−4–4×</td><td>Sustain travel rate while the note stays held after attack and decay.</td></tr>
+          <tr><td>4</td><td>RRAT</td><td>−4–4×</td><td>Release travel rate after note-off. Amp release determines how long the voice remains audible.</td></tr>
+          <tr><td>5</td><td>MODE</td><td>Off / On</td><td>Enable Travel Envelope. Off uses the ordinary source-speed behavior.</td></tr>
+          <tr><td>6</td><td>ATIM</td><td>0–10000 ms</td><td>Attack travel duration, separate from amp attack.</td></tr>
+          <tr><td>7</td><td>DTIM</td><td>0–10000 ms</td><td>Decay travel duration, separate from amp decay.</td></tr>
+          <tr><td>8</td><td>SMTH</td><td>0–200 ms</td><td>Smooth travel-rate changes between phases and during live edits.</td></tr>
+        </tbody></table>
+
+        <h2 id="live-memory">Live Memory</h2>
+        <p>Live Memory is available in Grains, Weave, Glitch, Cutups, Pulsar and Texture. It lets this engine read a continuously recorded stereo window instead of a loaded file. Open LIVE MEMORY in the Play page group. FILE keeps the ordinary four-lane samples; IN reads Move’s selected mic or line input. PT A–D read an available instrument part. Self-routing and feedback cycles are rejected. The loaded files remain available when you return to FILE.</p>
+        <figure class="move-screen"><img src="assets/screens/live-memory.svg" alt="Live Memory source, lookback, window, freeze, gain and save controls"><figcaption>Choose a source, allow history to fill, then play notes to hear it through the engine.</figcaption></figure>
+        <table class="readout-table parameter-table"><thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>What it controls</th></tr></thead><tbody>
+          <tr><td>1</td><td>SRC</td><td>File / In / PT A–D</td><td>Source. Part feeds are after that part’s insert effects and strip, before its level, mute, blend and shared returns.</td></tr>
+          <tr><td>2</td><td>BACK</td><td>10–10000 ms</td><td>How far the read window sits behind newly arriving audio.</td></tr>
+          <tr><td>3</td><td>WIND</td><td>50–12000 ms</td><td>Requested window length. Window and lookback are bounded together by available history; the waveform reports the actual window.</td></tr>
+          <tr><td>4</td><td>FRZE</td><td>Off / On</td><td>Freeze the captured history. Loop toggles this from any page for the focused Live Memory instrument. A recalled frozen source fills its empty memory before freezing.</td></tr>
+          <tr><td>5</td><td>GAIN</td><td>0–2×</td><td>Live-source playback and capture gain. Input capture also follows the recording input gain.</td></tr>
+          <tr><td>6</td><td>SAVE</td><td>Action</td><td>Freeze and archive the current stereo window in Thru’s recordings. Load the saved window into the selected lane and return SRC to FILE after loading completes.</td></tr>
+          <tr><td>7–8</td><td>Reserved</td><td>□</td><td>Unavailable.</td></tr>
+        </tbody></table>
+        <p>Live Memory is one source per receiving part, so stack navigation and file-lane gains show unavailable squares. POS, FLD, grain controls and keyboard pitch still shape the window. Grains retain their birth position in recorded history rather than chasing the writer. Grain duration is bounded to prevent reading overwritten memory; longer windows and lookbacks leave less room for long grains. Part feeds add one audio block of latency.</p>
+        <p><strong>Synth into grains:</strong> choose Shared Dual, put a synth such as TABLE or FM on A and this engine on B, then set B SRC to PT A. Play A to supply audio and B to process it. Blend toward B to hear only the processed result; A continues feeding it. Start with WIND 1000 ms and BACK 250 ms.</p>
+        <p>Clips and projects recall Live Memory settings and recorded changes, but the rolling audio itself is temporary. Use SAVE before exporting a project or collection when its sound must be repeatable. A part copy carries the Travel Envelope while keeping the destination part’s Live Memory routing.</p>
+
         <nav class="page-nav" aria-label="Page navigation">
           <a class="page-nav-link" href="engine-lanes.html"><span>Previous</span>Lanes</a>
           <a class="page-nav-link next" href="engine-cutups.html"><span>Next</span>Cutups</a>
@@ -83,7 +114,7 @@
         <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="synthesis.html">Process</a><a href="projects.html">Projects</a><a href="composer.html">Live panel</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="midi.html">MIDI</a><a href="shortcuts.html">Shortcuts</a></div>
         <div class="toc-section"><h2>Instrument modes</h2><a href="playing.html">Single · Basic playing</a><a href="modes.html">Compare modes</a><a href="split.html">Split</a><a href="shared-dual.html">Shared Dual</a><a href="quad.html">Quad</a><a href="bank.html">Bank</a><a href="layers.html">Layers</a><a href="sequence.html">Sequence</a></div>
         <div class="toc-section"><h2>Engine guides</h2><a href="engine-motion.html">Motion</a><a href="engine-lanes.html">Lanes</a><a href="engine-grains.html">Grains</a><a href="engine-cutups.html">Cutups</a><a href="engine-sample.html">Sample</a><a href="engine-slices.html">Slices</a><a href="engine-glitch.html">Glitch</a><a href="engine-weave.html">Weave</a><a href="engine-wavesets.html">Wavesets</a><a href="engine-prism.html">Prism</a><a href="engine-morph.html">Morph</a><a href="engine-texture.html">Texture</a><a href="engine-formant.html">Formant</a><a href="engine-stochastic.html">Stochastic</a><a href="engine-pulsar.html">Pulsar</a><a href="engine-table.html">TABLE</a><a href="engine-scanned.html">SCANNED</a><a href="engine-fm.html">FM</a><a href="engine-noise.html">NOISE</a><a href="engine-reson.html">RESON</a><a href="engine-partials.html">PARTIALS</a><a href="engine-lowform.html">LOWFORM</a></div>
-        <div class="toc-section"><h2>On this page</h2><a href="#pages">Pages</a><a href="engines.html#shared">Shared Engine table</a><a href="engines.html#stack-path">Stack Path</a><a href="#main">Grains Main</a><a href="#cloud">Grains Cloud</a><a href="#process">Grains Process</a></div>
+        <div class="toc-section"><h2>On this page</h2><a href="#pages">Pages</a><a href="#travel">Travel Envelope</a><a href="#live-memory">Live Memory</a><a href="engines.html#shared">Shared Engine table</a><a href="engines.html#stack-path">Stack Path</a><a href="#main">Grains Main</a><a href="#cloud">Grains Cloud</a><a href="#process">Grains Process</a></div>
       </aside>
     </div>
     <footer class="manual-footer">Grains: keyboard pitch and source advance are independent.</footer>

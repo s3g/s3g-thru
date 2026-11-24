@@ -10,7 +10,7 @@
   <body>
     <header class="site-header">
       <a class="brand" href="index.html">s3g Thru <span>manual</span></a>
-      <nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="synthesis.html">Process</a><a href="projects.html">Projects</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="midi.html">MIDI</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav>
+      <nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="synthesis.html">Process</a><a href="projects.html">Projects</a><a href="composer.html">Live panel</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="midi.html">MIDI</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav>
     </header>
 
     <div class="page-shell">
@@ -21,6 +21,7 @@
 
         <div class="callout"><p><strong>Instrument modes:</strong> Single, Split, Shared Dual, and Quad use different lane layouts and voice budgets. <a href="modes.html">Compare the modes and choose a layout</a> before following the controls below.</p></div>
 
+        <p>The <a href="composer.html#clips">browser Clips workspace</a> also edits recorded notes and parameter curves, records undoable takes, and exchanges selected clips as <code>.thrupack</code> collections.</p>
         <h2 id="data-flow">Performance data flow</h2>
 
         <figure>
@@ -177,6 +178,7 @@
 
         <div class="callout"><p><strong>Undo scopes differ:</strong> Delete+Record is take-only undo. The curved-arrow Undo key is the one-level safety undo for a destructive clip reset, lane-source replacement, clear, or sample edit. Stop recording before using it.</p></div>
 
+        <p>Use main click on Performance Loop or a Sequence page, then <strong>Name Clip</strong>, to label the active clip. On a Chain page, choose <strong>Name Chain</strong>. Names are saved with the project; the original slot IDs remain visible.</p>
         <h2 id="clips">Clip banks</h2>
 
         <figure>
@@ -299,7 +301,7 @@
       </main>
 
       <aside class="toc" aria-label="Page navigation">
-        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="synthesis.html">Process</a><a href="projects.html">Projects</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="midi.html">MIDI</a><a href="shortcuts.html">Shortcuts</a></div>
+        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="synthesis.html">Process</a><a href="projects.html">Projects</a><a href="composer.html">Live panel</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="midi.html">MIDI</a><a href="shortcuts.html">Shortcuts</a></div>
         <div class="toc-section"><h2>Instrument modes</h2><a href="playing.html">Single · Basic playing</a><a href="modes.html">Compare modes</a><a href="split.html">Split</a><a href="shared-dual.html">Shared Dual</a><a href="quad.html">Quad</a><a href="bank.html">Bank</a><a href="layers.html">Layers</a><a href="sequence.html">Sequence</a></div>
         <div class="toc-section"><h2>On this page</h2><a href="#data-flow">Data flow</a><a href="#record">Record</a><a href="#playback-values">Playback values</a><a href="#control-lfos">Control LFOs</a><a href="#lfo-destinations">LFO destinations</a><a href="#lfo-engine-targets">Engine targets</a><a href="#lfo-recall">LFO recall</a><a href="#lfo-trigs">Trig LFO locks</a><a href="#note-hold">Note hold</a><a href="#panic">Panic</a><a href="#timing">Timing</a><a href="#takes">Overdub takes</a><a href="#clips">Clip banks</a><a href="#pattern-fade">Pattern Fade</a><a href="#chain">Chain</a><a href="#chain-tools">Chain Tools</a><a href="#capacity">Capacity</a></div>
       </aside>

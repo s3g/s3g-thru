@@ -126,6 +126,7 @@
         markPersistentStateDirty();return true;
     }
     void clearBankSlot(int slot) {
+        if(namingBusy()){setError("Finish file naming first");return;}
         if(bankJob.load(std::memory_order_acquire)!=0 || clipPreparationInFlight()){setError("Finish Bank loading or capture first");return;}
         if(!bankSlots[slot].path[0])return;
         rememberBankUndo(slot);
@@ -138,6 +139,7 @@
         captureActiveClip(true);markPersistentStateDirty();
     }
     bool startBankCapture(int slot) {
+        if(namingBusy()){setError("Finish file naming first");return false;}
         if(patternBusy()){setError("Finish pattern fade before Bank capture");return false;}
         if(bankJob.load(std::memory_order_acquire)!=0 || audioRecording() || clipPreparationInFlight()) {
             setError("Finish the current recording first");return false;

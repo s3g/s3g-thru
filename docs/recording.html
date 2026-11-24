@@ -10,7 +10,7 @@
   <body>
     <header class="site-header">
       <a class="brand" href="index.html">s3g Thru <span>manual</span></a>
-      <nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="synthesis.html">Process</a><a href="projects.html">Projects</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="midi.html">MIDI</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav>
+      <nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="synthesis.html">Process</a><a href="projects.html">Projects</a><a href="composer.html">Live panel</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="midi.html">MIDI</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav>
     </header>
 
     <div class="page-shell">
@@ -95,6 +95,16 @@
         <p><strong>Part:</strong> Single preview passes through the complete effects chain. In Split or Quad, Part preview follows the lane’s destination instrument; Shared Dual follows the focused instrument. It follows LEVL and Mute, plus Blend in dual modes, bypasses private Color/Rotary inserts, and does not feed Delay/Reverb sends. Shared Tape and mastering apply. Select the appropriate Track lane and center Blend to compare both parts.</p>
         <p><strong>Direct:</strong> audition is dry and independent of part level, mute, Blend, and effects. Preview Level, the program compressor, and the final limiter remain active. This uses the main stereo output; choose an appropriate Preview Level before auditioning during a performance. Existing effect tails can continue ringing after switching routes.</p>
         <figure><div class="doc-graphic move-screen"><img src="assets/screens/library-direct.svg" alt="Sample browser showing Direct preview and its knob 7 and 8 controls"></div><figcaption>Direct lets you audition a file for a muted or faded-out destination before loading it.</figcaption></figure>
+        <h2 id="file-names">Name recordings and sample copies</h2>
+        <p>Recording stays immediate: finish the take, then name it when convenient. In <strong>Mix / Rec</strong> or <strong>Sample Edit</strong>, main click opens <strong>Name Lane Label</strong> and <strong>Audio File Actions</strong>. You can also select a WAV in the sample browser and use <kbd>Shift</kbd> + main click.</p>
+        <figure><div class="doc-graphic move-screen"><img src="assets/screens/naming-files.svg" alt="Audio file actions: Rename File, Save Named Copy and Save Copy and Load."></div><figcaption>Managed captures and Process files can be renamed. Library originals can be saved as named copies.</figcaption></figure>
+        <table class="readout-table"><thead><tr><th>Action</th><th>What it does</th></tr></thead><tbody>
+          <tr><td>Rename File</td><td>Rename a Thru capture or Process WAV, updating every clip and Bank assignment that uses it. Capture filenames retain their identifying prefix.</td></tr>
+          <tr><td>Save Named Copy</td><td>Save an exact copy in <code>Samples/s3g Thru/Named</code>, retaining the original.</td></tr>
+          <tr><td>Save Copy &amp; Load</td><td>Save the copy and load it into the lane selected when the browser opened.</td></tr>
+        </tbody></table>
+        <p>Stop clip playback and let recording, loading and saving finish before a file action. Existing filenames are never overwritten; repeated names receive a numeric suffix. Back cancels text entry. Once a file operation starts, Back closes its progress view while the operation finishes.</p>
+
         <h2 id="ownership">Sources belong to clips</h2>
 
         <p>The first time a blank A01–D16 clip is selected, it snapshots the four sources then in use. Its source assignments then remain independent; loading a sample in another clip does not change them. A loaded file is stored as a User Library path; a recording becomes a clip-local capture; a reset lane remains explicitly empty.</p>
@@ -149,9 +159,9 @@
       </main>
 
       <aside class="toc" aria-label="Page navigation">
-        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="synthesis.html">Process</a><a href="projects.html">Projects</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="midi.html">MIDI</a><a href="shortcuts.html">Shortcuts</a></div>
+        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="synthesis.html">Process</a><a href="projects.html">Projects</a><a href="composer.html">Live panel</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="midi.html">MIDI</a><a href="shortcuts.html">Shortcuts</a></div>
         <div class="toc-section"><h2>Instrument modes</h2><a href="playing.html">Single · Basic playing</a><a href="modes.html">Compare modes</a><a href="split.html">Split</a><a href="shared-dual.html">Shared Dual</a><a href="quad.html">Quad</a><a href="bank.html">Bank</a><a href="layers.html">Layers</a><a href="sequence.html">Sequence</a></div>
-        <div class="toc-section"><h2>On this page</h2><a href="#signal-flow">Signal flow</a><a href="#input">Input safety</a><a href="#capture">Audio capture</a><a href="#library">Sample library</a><a href="#preview">Sample preview</a><a href="#ownership">Clip ownership</a><a href="#editing">Sample edits</a><a href="#gain-staging">Gain staging</a><a href="#saving">Saving</a><a href="#backup">Project backup</a><a href="#restore">Restore a project</a></div>
+        <div class="toc-section"><h2>On this page</h2><a href="#signal-flow">Signal flow</a><a href="#input">Input safety</a><a href="#capture">Audio capture</a><a href="#library">Sample library</a><a href="#preview">Sample preview</a><a href="#file-names">Names and copies</a><a href="#ownership">Clip ownership</a><a href="#editing">Sample edits</a><a href="#gain-staging">Gain staging</a><a href="#saving">Saving</a><a href="#backup">Project backup</a><a href="#restore">Restore a project</a></div>
       </aside>
     </div>
     <footer class="manual-footer">Use headphones for the first microphone and resampling tests.</footer>

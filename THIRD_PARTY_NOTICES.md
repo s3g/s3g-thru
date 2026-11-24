@@ -200,3 +200,10 @@ The Lowform engine adapts Foundation, Harmonic Body and Texture construction fro
 - Source: https://github.com/s3g/s3g-dsp/blob/main/dsp/s3g_processor_lowform.h
 - Copyright: s3g
 - License: BSD-3-Clause (see LICENSE)
+
+## IBM Plex Mono
+
+The browser composer bundles the unmodified IBM Plex Mono Regular font.
+Copyright © 2017 IBM Corp., Reserved Font Name “Plex”. Licensed under the
+SIL Open Font License 1.1; the complete license is installed alongside the font
+in `assets/composer/fonts/OFL.txt`.

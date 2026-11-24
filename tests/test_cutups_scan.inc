@@ -284,3 +284,108 @@ void testCutupsModuleDisplay()
     freshHeld = instance->findHeldVoiceForNote(100,30);
     assert(freshHeld && freshHeld->engine.cutupsDisplayState().lane == 2);
 }
+// Lane balancing must remain audible in each reader, including its outgoing join.
+void testCutupsLaneLevels()
+{
+    for (int lane = 0; lane < 4; ++lane) {
+        auto f = std::make_unique<CutupsFixture>();
+        f->controls.cutLaneAdvance = Engine::CutLaneAdvance::hold;
+        f->controls.manualLane = float(lane);
+        f->render(10000);
+        assert(std::abs(f->output[0] - CutupsFixture::levels[lane]) < 1e-5f);
+        for (int other = 0; other < 4; ++other)
+            f->controls.laneGains[other] = other == lane ? .25f : 0.f;
+        f->render(10000);
+        for (const float x : f->output)
+            assert(std::abs(x - CutupsFixture::levels[lane] * .25f) < 1e-5f);
+        f->controls.laneGains[lane] = 0;
+        f->render(10000);
+        for (const float x : f->output) assert(std::abs(x) < 1e-6f);
+        f->controls.laneGains[lane] = 1.5f;
+        f->render(10000);
+        assert(std::abs(f->output[0] - CutupsFixture::levels[lane] * 1.5f) < 1e-5f);
+    }
+    // The four isolated sources must sum to the unchanged unity-gain output,
+    // including tails crossing to a differently levelled lane.
+    auto reference = std::make_unique<CutupsFixture>();
+    std::array<std::unique_ptr<CutupsFixture>, 4> isolated;
+    for (int lane = 0; lane < 4; ++lane) {
+        isolated[lane] = std::make_unique<CutupsFixture>();
+        for (int other = 0; other < 4; ++other)
+            isolated[lane]->controls.laneGains[other] = other == lane ? 1.f : 0.f;
+        isolated[lane]->render(4096);
+    }
+    reference->render(4096);
+    bool sawJoin = false;
+    for (int frame = 0; frame < 12000; ++frame) {
+        const auto display = reference->render();
+        sawJoin |= display.outgoingLane >= 0 && display.outgoingGain > 0;
+        std::array<float, 4> sum{};
+        for (auto& f : isolated) {
+            f->render();
+            for (int ch = 0; ch < 4; ++ch) sum[ch] += f->output[ch];
+        }
+        for (int ch = 0; ch < 4; ++ch)
+            assert(std::abs(sum[ch] - reference->output[ch]) < 1e-5f);
+    }
+    assert(sawJoin);
+    // A live mute/unmute is slewed inside a running cut, without waiting for
+    // its next event or introducing a single-sample gain discontinuity.
+    auto smooth = std::make_unique<CutupsFixture>();
+    smooth->controls.cutRateHz = .25f;
+    smooth->controls.cutLaneAdvance = Engine::CutLaneAdvance::hold;
+    smooth->render(4096);
+    for (const float gain : {0.f, 2.f, .5f}) {
+        smooth->controls.laneGains[0] = gain;
+        float previous = smooth->output[0];
+        for (int n = 0; n < 4096; ++n) {
+            smooth->render();
+            assert(std::abs(smooth->output[0] - previous) < .003f);
+            previous = smooth->output[0];
+        }
+        assert(std::abs(previous - CutupsFixture::levels[0] * gain) < 1e-5f);
+    }
+    std::puts("Cutups lane levels: independent trims, silence, overlapping readers and smooth live edits: PASS");
+
+    // Exercise the ordinary Move and shared MIDI/browser setters through the
+    // full Layers instrument, with eight held voices and stereo source data.
+    auto t = std::make_unique<ThruInstance>();
+    assert(t->prepare(nullptr));
+    t->stopBackgroundWork();
+    for (int lane = 0; lane < 4; ++lane) {
+        for (int ch = 0; ch < 2; ++ch)
+            std::fill_n(t->engine.writableLane(lane, ch), 4096,
+                        .1f * (lane + 1) * (ch ? .5f : 1.f));
+        assert(t->engine.adoptLane(lane, 4096, t->sampleRate));
+    }
+    t->setPerformanceMode(5);
+    setParam(t.get(), "algorithm", "3");
+    t->controls.cutLaneAdvance = Engine::CutLaneAdvance::hold;
+    t->controls.cutRateHz = .25f;
+    t->pressureMode = 0;
+    for (int pad : {0,1,2,3,8,9,10,11}) t->padNoteOn(68 + pad, 100);
+    const auto energy = [&] {
+        std::array<int16_t, kBlockFrames * 2> output{};
+        double total = 0;
+        for (int block = 0; block < 80; ++block) {
+            t->render(output.data(), kBlockFrames);
+            if (block >= 60) for (const auto& voice : t->voices) if (voice.active)
+                for (int ch = 0; ch < 2; ++ch) for (float x : voice.output[ch])
+                    total += double(x) * x;
+        }
+        return total;
+    };
+    const double original = energy();
+    assert(original > 1);
+    setParam(t.get(), "lane_1_gain", ".5");
+    const double half = energy();
+    assert(std::abs(half / original - .25) < 1e-4);
+    const auto* gain = midiParameterForKey("lane_1_gain");
+    assert(gain);
+    midiWrite(*t, *gain, 0, 0);
+    assert(energy() < 1e-8);
+    midiWrite(*t, *gain, 0, 1);
+    assert(std::abs(energy() / original - 1) < 1e-4);
+    t->allNotesOff();
+    std::puts("Layers Cutups: Move/MIDI/browser lane-gain setter, eight voices and stereo audio: PASS");
+}

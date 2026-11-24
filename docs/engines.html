@@ -10,7 +10,7 @@
   <body>
     <header class="site-header">
       <a class="brand" href="index.html">s3g Thru <span>manual</span></a>
-      <nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="synthesis.html">Process</a><a href="projects.html">Projects</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="midi.html">MIDI</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav>
+      <nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="synthesis.html">Process</a><a href="projects.html">Projects</a><a href="composer.html">Live panel</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="midi.html">MIDI</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav>
     </header>
 
     <div class="page-shell">
@@ -28,7 +28,7 @@
         <div class="callout"><p><strong>Instrument modes:</strong> Single, Split, Shared Dual, and Quad use different lane layouts and voice budgets. <a href="modes.html">Compare the modes and choose a layout</a> before following the controls below.</p></div>
 
         <p>There are 22 engines: 15 transform recorded samples; <a href="engine-table.html">TABLE</a>, <a href="engine-scanned.html">SCANNED</a>, <a href="engine-fm.html">FM</a>, <a href="engine-noise.html">NOISE</a>, <a href="engine-reson.html">RESON</a>, <a href="engine-partials.html">PARTIALS</a> and <a href="engine-lowform.html">LOWFORM</a> generate audio directly. TABLE keeps source-position, field, transport-speed and join cells unavailable because it does not read a sample window.</p>
-        <p>On ENGINE, click the main encoder for the engine list. Turn to choose, click to confirm, or press Back to cancel. ALG’s dial remains available for direct changes.</p><figure><div class="doc-graphic move-screen"><img src="assets/screens/engine-picker.svg" alt="Main encoder playback engine list"></div></figure><h2 id="choose">Choose an engine</h2>
+        <p>On ENGINE, click the main encoder and choose <strong>Choose Engine</strong> for the engine list. Turn to choose, click to confirm, or press Back to cancel. ALG’s dial remains available for direct changes.</p><figure><div class="doc-graphic move-screen"><img src="assets/screens/engine-picker.svg" alt="Main encoder playback engine list"></div></figure><h2 id="choose">Choose an engine</h2>
 
         <div class="manual-grid engine-grid">
           <a class="manual-card engine-card" href="engine-motion.html"><h3>Motion</h3><p>Eight trajectories with continuous, packet, motor, and five bounded segment sounds.</p><span>Stack Path + 2–4 contextual pages · 20–22 total</span></a>
@@ -59,7 +59,7 @@
         <table class="readout-table parameter-table">
           <thead><tr><th>Knob</th><th>Display</th><th>Range</th><th>What it controls</th></tr></thead>
           <tbody>
-            <tr><td>1</td><td>ALG</td><td>20 choices</td><td>Algorithm selects the playback engine. Click the main encoder to open the list, turn to choose, then click to confirm. Back cancels. Knob 1 also changes ALG directly.</td></tr>
+            <tr><td>1</td><td>ALG</td><td>22 choices</td><td>Algorithm selects the playback engine. Click the main encoder, choose <strong>Choose Engine</strong>, turn to an engine, then click to confirm. Back cancels. Knob 1 also changes ALG directly.</td></tr>
             <tr><td>2</td><td>POS</td><td>0.00–1.00</td><td>Position centers the active source window. Near either end, the window is clamped so it never extends beyond the sample.</td></tr>
             <tr><td>3</td><td>FLD</td><td>0.02–1.00</td><td>Field sets the active window width as a fraction of the sample. See <a href="interface.html#zoom">Waveform zoom</a>. Single zooms all four lanes together; Split gives each part its own window. Shared Dual zooms all four lanes to the focused instrument’s POS/FLD, including during playback; the other side does not widen that view.</td></tr>
             <tr><td>4</td><td>SPD</td><td>0.05–4.00×</td><td>Speed sets base source transport. In Grains and Weave it moves grain origins independently of keyboard pitch; the other engines, including Wavesets, combine it with note pitch as described in their guides.</td></tr>
@@ -249,7 +249,7 @@
         </table>
 
         <h2 id="path-editor">Editable stack paths</h2>
-        <p>On Stack Path, turn PATH to <strong>DRAW</strong>, then click the main encoder to open Path Editor. You can also reach it inside the Play bank with Capture + Track 1 or Capture + Menu → Play. It appears only while DRAW is selected.</p>
+        <p>On Stack Path, turn PATH to <strong>DRAW</strong>, then click the main encoder and choose <strong>Edit Draw Path</strong> to open Path Editor. You can also reach it inside the Play bank with Capture + Track 1 or Capture + Menu → Play. It appears only while DRAW is selected.</p>
         <div class="screen-gallery">
           <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/stack-path-draw.svg" aria-label="Open Draw path selection"><img src="assets/screens/stack-path-draw.svg" alt="Stack Path with DRAW selected and named-shape controls reserved"></button></div><figcaption>DRAW uses your points and segment curves. SHAP, SKEW, and the named-path CURV are reserved. BLND, OFST, and SLEW still apply.</figcaption></figure>
           <figure><div class="doc-graphic doc-screenshot move-screen"><button class="media-lightbox-trigger" type="button" data-lightbox-image="assets/screens/stack-path-editor.svg" aria-label="Open the path editor"><img src="assets/screens/stack-path-editor.svg" alt="Six-point stack path with pauses, uneven travel, a selected breakpoint, and editing controls"></button></div><figcaption>Time runs left to right; lane numbers run top to bottom. The outlined point is selected. The final segment returns to the first point at the end of the cycle.</figcaption></figure>
@@ -328,13 +328,13 @@
         <p>Mode, Setup, MIDI, and the complete All list remain in the Capture + Menu hub. Mix / Rec shows two lane gains for the focused part in Split, all four in Shared Dual, or its one lane gain in Quad. Its inserts are independent; shared effects are marked FX. <a href="effects.html#dual-fx-pages">Capture + Track 3 and the FX Pages menu</a> provide a direct route to multi-instrument effects.</p>
 
         <nav class="page-nav" aria-label="Page navigation">
-          <a class="page-nav-link" href="projects.html"><span>Previous</span>Projects and Backups</a>
+          <a class="page-nav-link" href="composer.html"><span>Previous</span>Browser Composition and Backups</a>
           <a class="page-nav-link next" href="control-availability.html"><span>Next</span>Control availability</a>
         </nav>
       </main>
 
       <aside class="toc" aria-label="Page navigation">
-        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="synthesis.html">Process</a><a href="projects.html">Projects</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="midi.html">MIDI</a><a href="shortcuts.html">Shortcuts</a></div>
+        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="synthesis.html">Process</a><a href="projects.html">Projects</a><a href="composer.html">Live panel</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="midi.html">MIDI</a><a href="shortcuts.html">Shortcuts</a></div>
         <div class="toc-section"><h2>Instrument modes</h2><a href="playing.html">Single · Basic playing</a><a href="modes.html">Compare modes</a><a href="split.html">Split</a><a href="shared-dual.html">Shared Dual</a><a href="quad.html">Quad</a><a href="bank.html">Bank</a><a href="layers.html">Layers</a><a href="sequence.html">Sequence</a></div>
         <div class="toc-section"><h2>Engine guides</h2><a href="engine-motion.html">Motion</a><a href="engine-lanes.html">Lanes</a><a href="engine-grains.html">Grains</a><a href="engine-cutups.html">Cutups</a><a href="engine-sample.html">Sample</a><a href="engine-slices.html">Slices</a><a href="engine-glitch.html">Glitch</a><a href="engine-weave.html">Weave</a><a href="engine-wavesets.html">Wavesets</a><a href="engine-prism.html">Prism</a><a href="engine-morph.html">Morph</a><a href="engine-texture.html">Texture</a><a href="engine-formant.html">Formant</a><a href="engine-stochastic.html">Stochastic</a><a href="engine-pulsar.html">Pulsar</a><a href="engine-table.html">TABLE</a><a href="engine-scanned.html">SCANNED</a><a href="engine-fm.html">FM</a><a href="engine-noise.html">NOISE</a><a href="engine-reson.html">RESON</a><a href="engine-partials.html">PARTIALS</a><a href="engine-lowform.html">LOWFORM</a></div>
         <div class="toc-section"><h2>On this page</h2><a href="#choose">Choose</a><a href="#shared">Engine page</a><a href="#pads-scale">Pads &amp; Scale</a><a href="#amp-envelope">Amp Envelope</a><a href="#stack-path">Stack Path</a><a href="#path-editor">Path Editor</a><a href="#direct-play">Direct Play</a><a href="#compare">Compare</a><a href="#voices">Shared behavior</a></div>

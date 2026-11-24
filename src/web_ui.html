@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+ <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light">
+ <meta name="description" content="An extended live control panel for s3g Thru on Ableton Move."><title>s3g Thru · Live panel</title>
+ <link rel="icon" href="data:,"><link rel="stylesheet" href="./assets/composer/composer.css"><script type="module" src="./assets/composer/app.mjs"></script>
+</head>
+<body>
+ <a class="skip-link" href="#menu-panels">Skip to controls</a>
+ <header class="topbar"><h1>s3g Thru <span>LIVE PANEL</span></h1><output id="connection-status" data-state="waiting" aria-live="polite">Connecting…</output><button id="reconnect" type="button">Reconnect</button></header>
+ <div class="context-bar" aria-label="Current Move context"><strong id="clip-title">Move clip</strong><span id="mode"></span><span id="engine-entry" hidden></span><label>EDIT <select id="part" disabled aria-label="Editing part"></select></label><label id="patch-field" hidden>PATCH <select id="patch" disabled aria-label="Physical patch lane"></select></label><div class="transport"><button id="play" type="button" disabled>Play</button><button id="stop" type="button" disabled>Stop</button></div></div>
+ <main id="composition-layout" data-pane="editor">
+ <div id="mobile-panels" role="tablist" aria-label="Composition panels"><button type="button" id="pane-editor" role="tab" aria-selected="true" data-offline="true">Editor</button><button type="button" id="pane-controls" role="tab" aria-selected="false" data-offline="true">Controls</button></div>
+ <section id="clip-workspace" class="clip-workspace" aria-label="Clip editing workspace"></section>
+ <section id="sequence-editor" class="sequence-editor" hidden aria-label="Four-lane Sequence editor">
+  <header><h2>SEQUENCE</h2><p>Click an empty step to add it; select a lit step to edit locks. Right-click toggles.</p></header>
+  <div class="sequence-scroll"><div id="sequence-grid"></div></div>
+ </section>
+ <div id="dock-divider" role="separator" aria-label="Resize parameter panel" aria-orientation="vertical" aria-valuemin="340" aria-valuemax="720" aria-valuenow="410" tabindex="0"></div>
+ <aside id="menu-dock" aria-label="Parameter menus"><header class="dock-heading"><h2>PARAMETERS</h2><span id="dock-selection">Live controls</span></header>
+ <nav id="panel-sections" aria-label="Menu groups" role="tablist"></nav>
+ <div id="lock-toolbar" hidden><strong id="edit-target">Lane defaults</strong><button id="lane-defaults" type="button">Lane defaults</button><button id="trig-toggle" type="button" hidden>Trig on</button><button id="trig-audition" type="button" hidden>Audition</button><button id="trig-clear" type="button" hidden>Clear event locks</button></div>
+ <div id="automation-toolbar" hidden><strong>POINTS AT CURSOR</strong><label>CURSOR <input id="automation-cursor" type="number" min="0" value="0" aria-label="Automation cursor time"></label><button id="automation-show" type="button">Show curve</button><button id="automation-live" type="button">Live controls</button></div>
+ <p id="empty-state">Open s3g Thru on Move to see its menu panels.</p><div id="menu-panels"></div></aside></main>
+ <footer><p id="panel-message" role="status">Waiting for live state…</p><span>0.34.0-test.13</span></footer>
+</body>
+</html>

@@ -10,7 +10,7 @@
   <body>
     <header class="site-header">
       <a class="brand" href="index.html">s3g Thru <span>manual</span></a>
-      <nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="synthesis.html">Process</a><a href="projects.html">Projects</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="midi.html">MIDI</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav>
+      <nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="synthesis.html">Process</a><a href="projects.html">Projects</a><a href="composer.html">Live panel</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="midi.html">MIDI</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav>
     </header>
 
     <div class="page-shell">
@@ -140,8 +140,25 @@
         <p><a href="projects.html">Projects</a> is available in the Capture + Menu hub for full project export and import, including samples.</p>
         <p><a href="midi.html#custom-maps">MIDI Maps</a> provides four editable controller profiles, MIDI Learn and manual channel/CC assignment. Reach it through the MIDI bank; main click opens its mapping list.</p>
 
-        <p>On Layers <strong>FX CORNER</strong>, click the main encoder to open the <a href="layers-effects.html#choose">grouped effect picker</a>. Click a family and an effect; Back returns through the two levels without applying a change.</p>
-        <p>On <strong>Slice Source</strong>, click the main encoder to open the dedicated <a href="engine-slices.html#slice-edit">Slice Edit</a> waveform. Select/audition with pads, adjust boundaries with knobs 2–3, zoom with knob 4, and set transient pre-roll with knob 5. Back returns to Slice Source.</p>
+        <h2 id="page-actions">Page Actions</h2>
+        <p>Click the main encoder on a parameter page to open its Actions list. Turn to choose, then click again. Back returns to the page you were editing. The heading identifies the target part, lane, patch, FX corner or held trig. Only compatible clipboard contents can be pasted. Changing the target cancels the action.</p>
+        <figure><div class="doc-graphic move-screen"><img src="assets/screens/page-actions.svg" alt="Page Actions for part A, patch lane 1, with starting sounds, copy patch, paste patch and reset page"></div><figcaption>Actions follow the page. On an engine sound page, Copy Patch includes that patch’s engine parameters; Reset This Page resets only its available controls.</figcaption></figure>
+        <table class="readout-table"><thead><tr><th>Page</th><th>Available tools</th></tr></thead><tbody>
+          <tr><td>Engine / Voice Engines</td><td>Choose an engine; open the Engine List or edit its selected entry.</td></tr>
+          <tr><td>Engine parameters</td><td>Copy/paste the current patch, reset the page, and choose starting sounds on FM, RESON and LOWFORM.</td></tr>
+          <tr><td>Pads &amp; Scale / Amp Envelope</td><td>Copy/paste settings and reset the page. Pads &amp; Scale also offers the scale list and releases that part’s latched notes.</td></tr>
+          <tr><td>Sample Edit / Mix–Rec</td><td>Browse the selected lane’s samples, normalize or reverse its audio, and apply the Sample Edit trim.</td></tr>
+          <tr><td>Sequence lane / generator</td><td>Copy/paste the lane’s sequence without replacing its engine or sample; clear its trigs. Generator pages also offer regeneration, Print to Normal and generator-setting copy/paste.</td></tr>
+          <tr><td>Held trig</td><td>Copy/paste the complete trig, or clear its locks while retaining its enabled state and Burst pattern. Keep holding the pad until the action is complete.</td></tr>
+          <tr><td>Effects / mixer strip</td><td>Copy/paste effect settings and reset the page; strip pages offer mute, solo and EQ reset. Layers copies the selected FX corner.</td></tr>
+          <tr><td>Performance Loop / Overdub Takes</td><td>Copy/paste the clip, clear recorded gestures while keeping authored sequences, or undo an overdub take.</td></tr>
+          <tr><td>Chain / Draw Path</td><td>Copy/paste a chain or path. Chains also offer enable/disable and insertion of the active clip.</td></tr>
+        </tbody></table>
+        <figure><div class="doc-graphic move-screen"><img src="assets/screens/page-actions-confirm.svg" alt="Reset page confirmation with Cancel selected by default"></div><figcaption>Paste, reset and bulk clear ask for confirmation with Cancel selected. The curved-arrow Undo key restores the last such edit.</figcaption></figure>
+        <p>Record captures performance gestures; Shift + Record captures audio. Menu clicks do not start either recording. Stochastic and Pulsar source Hold, Pattern Fade Hold, FX Order lift/drop, and Slice Edit marker insertion retain their immediate click actions. On a Hold page, Shift + main click opens Actions.</p>
+
+        <p>On Layers <strong>FX CORNER</strong>, click the main encoder and choose <strong>Choose Effect</strong> to open the <a href="layers-effects.html#choose">grouped effect picker</a>. Click a family and an effect; Back returns through the two levels without applying a change.</p>
+        <p>On <strong>Slice Source</strong>, click the main encoder and choose <strong>Edit Slices</strong> to open the dedicated <a href="engine-slices.html#slice-edit">Slice Edit</a> waveform. Select/audition with pads, adjust boundaries with knobs 2–3, zoom with knob 4, and set transient pre-roll with knob 5. Back returns to Slice Source.</p>
 
         <p>Use <kbd>Up</kbd>/<kbd>Down</kbd> while parameters are open to move only within the current bank; the final page wraps to that bank’s first page. Every parameter page places its current/total fraction at the same right-aligned title position. The count is local to Play, Sample, Mix/FX, Performance, Setup, or MIDI rather than the long All list. Each parameter has one location: shared controls stay on the same shared page, while engine-only controls appear on separate contextual pages. The bank length changes with the selected engine and mode. Multi-instrument layouts separate private inserts from shared returns; see the <a href="engines.html#voices">page order by mode</a>.</p>
 
@@ -165,6 +182,18 @@
         <div class="callout">
           <p><strong>Stack Start versus Scan Rate:</strong> Stack Start is the exact crossfade position only when Path is Manual. On moving paths it seeds each new voice's phase; Scan Rate then advances from there. Press <kbd>Loop</kbd> to freeze every voice of the Single instrument, or the focused dual-mode part, at its exact audible blend—even between lanes. A released pad returns to that same blend if pressed again while Hold remains active. Press Loop again to clear those retained positions and resume. Performance recording stores these Hold/Run changes and the exact positions of held voices. Tape <code>INRT</code> can add a wet-path mechanical stop/start to the same gesture. In Glitch, <kbd>Shift</kbd> + <kbd>Loop</kbd> instead freezes the recent repeat histories while Stack Path can continue.</p>
         </div>
+
+        <h2 id="naming">Name clips, chains and files</h2>
+        <p>The same pad keyboard names Process files, clips, chains, Bank pads, lane labels and project exports. Click the main encoder on a relevant parameter page and choose its Name action. For a WAV in the sample browser, hold <kbd>Shift</kbd> and click the main encoder to open file actions. The same shortcut renames an existing export in the Projects file list.</p>
+        <figure><div class="doc-graphic move-screen"><img src="assets/screens/naming.svg" alt="Shared naming keyboard with a two-line name and 32 pad characters."></div><figcaption>Type with the main pads. Turn the main encoder to move the insertion cursor; click to save. Back discards the draft.</figcaption></figure>
+        <table class="readout-table"><thead><tr><th>Control</th><th>What it does</th></tr></thead><tbody>
+          <tr><td>Letter pads</td><td>Insert at the cursor, up to 40 characters.</td></tr>
+          <tr><td>SP / BK</td><td>Insert a space / remove the previous character.</td></tr>
+          <tr><td>Aa / 09</td><td>Switch letter case / switch to digits. Hyphen and underscore have their own pads.</td></tr>
+          <tr><td>Main encoder</td><td>Turn to move the cursor; click to save the name.</td></tr>
+          <tr><td>Back</td><td>Cancel the text edit and return to the previous page.</td></tr>
+        </tbody></table>
+        <p>Clip slot IDs and chain numbers remain visible alongside their names. A lane label or Bank pad name labels the assignment; it does not rename its shared WAV. <a href="recording.html#file-names">Audio file actions</a> rename managed recordings or save a named copy.</p>
 
         <h2 id="secondary">Secondary screens</h2>
 
@@ -214,9 +243,9 @@
       </main>
 
       <aside class="toc" aria-label="Page navigation">
-        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="synthesis.html">Process</a><a href="projects.html">Projects</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="midi.html">MIDI</a><a href="shortcuts.html">Shortcuts</a></div>
+        <div class="toc-section"><h2>Manual</h2><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="synthesis.html">Process</a><a href="projects.html">Projects</a><a href="composer.html">Live panel</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="midi.html">MIDI</a><a href="shortcuts.html">Shortcuts</a></div>
         <div class="toc-section"><h2>Instrument modes</h2><a href="playing.html">Single · Basic playing</a><a href="modes.html">Compare modes</a><a href="split.html">Split</a><a href="shared-dual.html">Shared Dual</a><a href="quad.html">Quad</a><a href="bank.html">Bank</a><a href="layers.html">Layers</a><a href="sequence.html">Sequence</a></div>
-        <div class="toc-section"><h2>On this page</h2><a href="#hardware">Panel layout</a><a href="#split-buttons">Control key</a><a href="#waveform">Waveform</a><a href="#zoom">Waveform zoom</a><a href="#parameters">Parameters</a><a href="#page-picker">Page picker</a><a href="#secondary">Secondary screens</a><a href="#navigation">Navigation</a><a href="#leds">LED language</a></div>
+        <div class="toc-section"><h2>On this page</h2><a href="#hardware">Panel layout</a><a href="#split-buttons">Control key</a><a href="#waveform">Waveform</a><a href="#zoom">Waveform zoom</a><a href="#parameters">Parameters</a><a href="#page-picker">Page picker</a><a href="#page-actions">Page Actions</a><a href="#naming">Naming</a><a href="#secondary">Secondary screens</a><a href="#navigation">Navigation</a><a href="#leds">LED language</a></div>
       </aside>
     </div>
     <footer class="manual-footer">Use Shift+Menu on Move for the system report and compact control reminder.</footer>

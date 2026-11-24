@@ -275,13 +275,15 @@ source = source.replace(
 source += '\nglobalThis.__docSound={read:readSequenceSound,model:sequenceSoundUi};';
 source += '\nglobalThis.__docSequence={read:readSequence,model:sequenceUi};globalThis.__docGenerate={ui:sequenceGeneratorUi,read:readSequenceGenerator};';
 source += '\nglobalThis.__docLayers={read:readLayers,model:layersUi,openPicker:openLayersPicker,picker:layersPicker};';
-source += '\nglobalThis.__docSplit = {state, readMixerState, projectUi, readProject, openProjects, openBankRecovery, customMidiUi, readCustomMidi, openCustomMidiList, sliceUi, openSliceEditor, readSliceEditor, params:PARAMS, pages:parameterPages, redraw:()=>{clearDisplay();draw();}};';
+source += '\nglobalThis.__docSplit = {state, openSplitFxMenu, openPathEditor, readMixerState, projectUi, readProject, openProjects, openBankRecovery, customMidiUi, readCustomMidi, openCustomMidiList, sliceUi, openSliceEditor, readSliceEditor, params:PARAMS, pages:parameterPages, redraw:()=>{clearDisplay();draw();}};';
 source += '\nglobalThis.__docLfo={read:readControlLfos,readLive:readControlLfoLive,draw:drawControlLfo,drawSettings,pages:LFO_PAGES,setup:LFO_SETUP_PAGE,trig:SEQUENCE_LFO_PAGE,model:lfoUi,openPicker:openLfoDestPicker,drawPicker:drawLfoDestPicker,groups:lfoDestGroups,catalog:LFO_DESTINATIONS};';
 source += '\nglobalThis.__docSynth={ui:synthUi,read:readSynth,draw:drawSynth};';
 source += '\nglobalThis.__docPartials={read:readPartials,model:partialsUi};';
 source += '\nglobalThis.__docLowform={read:readLowform,model:lowformUi,draw:drawLowformStarts};';
 source += '\nglobalThis.__docReson={read:readReson,model:resonUi,draw:drawResonStarts};';
 source += '\nglobalThis.__docNoise={read:readNoise,model:noiseUi};globalThis.__docEnginePicker={ui:enginePicker,draw:drawEnginePicker};';
+source += '\nglobalThis.__docNaming={model:namingUi,draw:drawNameEditor,files:namingFileActions,drawFiles:drawNamingActions};';
+source += '\nglobalThis.__docActions={model:pageActions,open:openPageActions,draw:drawPageActions};';
 source += '\nglobalThis.__docFm={read:readFm,model:fmUi};';
 source += '\nglobalThis.__docScanned={read:readScanned,model:scannedUi};';
 source += '\nglobalThis.__docTable={read:readTable,scopes:readTableScope,model:tableUi};';
@@ -665,7 +667,7 @@ fxDoc.state.settingsPage=fxDoc.pages().findIndex(p=>p.title==='MIXER');fxDoc.red
 fxDoc.state.settingsPage=fxDoc.pages().findIndex(p=>p.title==='STRIP B');fxDoc.redraw();capture('output-strip.svg','Part B output EQ, Solo and Mute','STRIP B');
 delete params.mixer_state;
 fxDoc.state.view='settings';fxDoc.state.settingsPage=fxDoc.pages().findIndex((page)=>page.title==='FX SENDS');
-cc(3);tick();capture('split-fx-menu.svg','Split FX Pages menu');
+fxDoc.openSplitFxMenu();fxDoc.redraw();capture('split-fx-menu.svg','Split FX Pages menu','FX PAGES');
 cc(51);params.effect_mix='0';params.effect_reverb_mix='0';
 fxDoc.state.view='settings';fxDoc.state.settingsPage=fxDoc.pages().findIndex(p=>p.title==='FX SENDS');
 fxDoc.params.effect_mix.value=0;fxDoc.params.effect_reverb_mix.value=0;fxDoc.redraw();
@@ -741,7 +743,7 @@ globalThis.init();tick(82);
 const pathDoc=globalThis.__docSplit;pathDoc.state.view='settings';
 pathDoc.state.settingsPage=pathDoc.pages().findIndex(p=>p.title==='STACK PATH');
 pathDoc.redraw();capture('stack-path-draw.svg','Stack Path with DRAW selected');
-cc(3);tick();capture('stack-path-editor.svg','Editable path with six points and pauses');
+pathDoc.openPathEditor();pathDoc.redraw();capture('stack-path-editor.svg','Editable path with six points and pauses','PATH EDIT');
 
 // A paused blend between independent performance clips.
 params.pattern_fade_state='1,1,0,1,5000,30000,3,0,0,2000,12000,30000,0';tick(3);
@@ -1083,5 +1085,18 @@ const lowformDoc=globalThis.__docLowform,lowformExample=JSON.parse(fs.readFileSy
 Object.assign(seqDoc.state,{view:'main',algorithm:21,splitEnabled:false,sharedDual:false,quadMode:false,bankMode:false,splitFocus:0,lane:1});seqDoc.params.algorithm.value=21;seqDoc.params.split_mode.value=0;seqDoc.params.voice_engine_mode.value=0;globalThis.__docSequence.model.active=false;globalThis.__docLayers.model.active=false;lowformExample.state.edit=0;lowformExample.state.revision=999999;params.lowform_state=JSON.stringify(lowformExample.state);params.table_scope=JSON.stringify(lowformExample.scope);lowformDoc.read(false);tableDoc.scopes(false);seqDoc.redraw();capture('lowform-scope.svg','Four Lowform live patch scopes','THRU LOWFORM');
 for(const [title,file] of [['LOWFORM','lowform-main'],['LOWFORM BODY','lowform-body'],['LOWFORM SHAPE','lowform-shape'],['LOWFORM TEXTURE','lowform-texture']]){if(file==='lowform-texture'){lowformExample.state.patches[0][14]=2;lowformExample.state.patches[0][15]=35;params.lowform_state=JSON.stringify(lowformExample.state);lowformDoc.read(false);}seqDoc.state.view='settings';seqDoc.state.settingsPage=seqDoc.pages().findIndex(p=>p.title===title);seqDoc.redraw();capture(file+'.svg',title+' patch controls',title);}
 lowformDoc.model.start=2;lowformDoc.model.renderKey=null;lowformDoc.draw();capture('lowform-starts.svg','Lowform starting sounds','LOWFORM START');
+// Render Actions using the actual list and confirmation drawing.
+Object.assign(seqDoc.state,{view:'settings',algorithm:17,splitEnabled:false,sharedDual:false,quadMode:false,bankMode:false,splitFocus:0,lane:1});
+seqDoc.params.algorithm.value=17;seqDoc.params.voice_engine_mode.value=0;
+const actionFields=globalThis.__thruMidi.MIDI_PARAMETERS.filter(p=>p.key.startsWith('fm_')&&!p.action);
+params.page_actions_state=JSON.stringify({context:'doc',group:'PATCH',engine:17,ids:actionFields.map(p=>p.id).join(','),safe:'1'.repeat(globalThis.__thruMidi.MIDI_PARAMETERS.length)});
+seqDoc.state.settingsPage=seqDoc.pages().findIndex(p=>p.title==='FM');
+globalThis.__docActions.open();capture('page-actions.svg','Contextual actions for part A patch lane 1','A L1 ACTIONS');
+const actionsDoc=globalThis.__docActions.model;actionsDoc.confirm=actionsDoc.rows.find(r=>r.label==='RESET THIS PAGE');actionsDoc.index=0;actionsDoc.renderKey='';globalThis.__docActions.draw();capture('page-actions-confirm.svg','Reset page confirmation with Cancel selected','A L1 ACTIONS');
+
+const nameDoc=globalThis.__docNaming;
+Object.assign(nameDoc.model,{name:'Evening Study',cursor:7,lower:false,numbers:false});nameDoc.draw(nameDoc.model,'NAME CLIP A01');capture('naming.svg','Shared pad naming editor','NAME CLIP A01');
+seqDoc.state.capturesDirectory='/data/s3g-thru/captures';nameDoc.files('/data/s3g-thru/captures/t0000000017-Glass.wav');nameDoc.drawFiles();capture('naming-files.svg','Managed audio naming and copy actions','FILE ACTIONS');
+
 if (checkOnly && mismatches !== 0) process.exit(1);
 if (checkOnly) console.log('s3g Thru documentation screens: current');

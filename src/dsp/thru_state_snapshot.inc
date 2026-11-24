@@ -2,6 +2,7 @@
 // No live ThruInstance data is read after the job is published. The JSON shape
 // and scalar formatting are shared with explicit state/project serialization.
     struct PersistentStateSnapshot {
+        s3g_thru_names::Name projectTitle{};
         decltype(ThruInstance::controls) controls {};
         decltype(ThruInstance::outputGain) outputGain {};
         decltype(ThruInstance::polyphonyCompensation) polyphonyCompensation {};
@@ -58,7 +59,7 @@
         PartSettings currentSettings {};
         s3g_thru_lfo::Pool controlLfoPool{};int controlLfoEdit=0;
         void capture(const ThruInstance& source) {
-            controls=source.controls;
+            controls=source.controls;projectTitle=source.projectTitle;
             controlLfoPool=source.controlLfoPool;controlLfoEdit=source.controlLfoEdit;
             const auto* clip=source.activeClipSlot();
             for(int part=0;part<4;++part)pulsarSeeds[part]=clip&&clip->pulsarSeeds[part]

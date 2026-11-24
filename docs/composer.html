@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Browser live panel - s3g Thru manual</title>
+    <meta name="description" content="Control s3g Thru live, edit clips and parameter recordings, and exchange .thrupack collections.">
+    <link rel="stylesheet" href="assets/styles.css">
+  </head>
+  <body>
+    <header class="site-header"><a class="brand" href="index.html">s3g Thru <span>manual</span></a><nav class="top-nav" aria-label="Top navigation"><a href="index.html">Start</a><a href="interface.html">Interface</a><a href="playing.html">Playing</a><a href="recording.html">Recording</a><a href="synthesis.html">Process</a><a href="projects.html">Projects</a><a href="composer.html">Live panel</a><a href="engines.html">Engines</a><a href="effects.html">Effects</a><a href="modes.html">Modes</a><a href="performance.html">Performance</a><a href="midi.html">MIDI</a><a href="shortcuts.html">Shortcuts</a><a href="https://github.com/s3g/s3g-thru" target="_blank" rel="noopener noreferrer">GitHub</a></nav></header>
+    <div class="page-shell">
+      <main class="content" id="content">
+        <p class="eyebrow">Control · record · compose</p>
+        <h1>Browser live panel</h1>
+        <p class="lead">Use a computer as an extended control panel for the running instrument. The piano roll and automation graph stay together in the left editor, with the selected menu group in a separate panel on the right. Controls keep their Move names and eight-control order. Sliders and value fields adjust the active Move clip directly. The Clips workspace edits recorded notes and parameter motion alongside the instrument panels.</p>
+        <p>Available in the local <strong>0.34.0-test.12</strong> candidate.</p>
+        <h2 id="open">Open the panel</h2>
+        <ol>
+          <li>Open s3g Thru takeover on Move. Connect the computer to the same network.</li>
+          <li>Open Schwung Manager at <code>http://move.local:7700</code>, or use Move’s IP address.</li>
+          <li>Use the module’s web Tool link, or <a href="http://move.local:7700/api/remote-ui/module-assets/s3g-thru/web_ui.html?schwungStandalone=1&amp;tool=1">open the live panel directly</a>. After an update, reopen Thru and reload the tab with <kbd>Cmd/Ctrl + Shift + R</kbd>.</li>
+          <li>Wait for <strong>Linked</strong>. The header shows the current clip, mode and editing part.</li>
+        </ol>
+        <pre><code>http://move.local:7700/api/remote-ui/module-assets/s3g-thru/web_ui.html?schwungStandalone=1&amp;tool=1</code></pre>
+        <p>No Schwung modification or external controller setup is required. If you use an IP address for Manager, use that address for the panel too. Keep one live-panel tab open.</p>
+        <figure><img src="assets/composer.png" alt="Fixed composition layout with piano roll and automation on the left and menu controls in an independent right panel."><figcaption>The selected menu group stays beside the notes and automation editor.</figcaption></figure>
+        <h2 id="layout">Composition layout</h2>
+        <p>On a computer, the editor and parameter menus share the window. The piano roll and automation graph remain visible while you change menu groups or scroll through controls. Drag the divider to give either side more room; the browser remembers the parameter-panel width.</p>
+        <p>Choose Play / Engine, Sample, Mix / FX or Performance at the top of the parameter panel. Each group scrolls independently. Compact panels retain the same control text and sliders with less padding. Find control selects the correct group, part, patch or FX corner for a recorded curve. Show curve returns to the notes and automation editor.</p>
+        <table class="readout-table"><thead><tr><th>Editor control</th><th>What it opens</th></tr></thead><tbody>
+          <tr><td>Notes / motion</td><td>Recorded notes, the time ruler and parameter breakpoints. Both the notes and automation graph share the same horizontal scroll position.</td></tr>
+          <tr><td>Sequence</td><td>The authored four-lane step editor, available in Sequence mode. Selected-step locks appear in the parameter panel. Returning to Notes / motion selects lane defaults again.</td></tr>
+          <tr><td>Show / Hide clips</td><td>The compact clip strip at the top of the editor.</td></tr>
+          <tr><td>Clip tools</td><td>Names, copy/paste, duplication, take Undo and separate clear commands.</td></tr>
+          <tr><td>Note / Point</td><td>Exact fields for the selected note or breakpoint.</td></tr>
+          <tr><td>Recording</td><td>Parameter arms and recording options. Record and CAPTURE remain above the editor.</td></tr>
+          <tr><td>Phrase</td><td>Selection boundaries, transforms and repeats.</td></tr>
+          <tr><td>Keyboard / Collections</td><td>The browser note keyboard or .thrupack file tools.</td></tr>
+        </tbody></table>
+        <p>Tool drawers open over the editor without moving its contents. Close a drawer with its Close button, its tool button, Escape or a click outside. Undo edit stays available on the lower toolbar. On smaller screens, Editor and Controls switch between the two panels while retaining the editing cursor and selected control.</p>
+        <h2 id="controls">Adjust the instrument</h2>
+        <table class="readout-table"><thead><tr><th>Control</th><th>What it does</th></tr></thead><tbody>
+          <tr><td>EDIT</td><td>Selects the part being edited on both Move and the browser. Changing part on Move also changes the browser’s panels.</td></tr>
+          <tr><td>PATCH</td><td>Selects the physical patch lane for synthesis engines in modes that use several patches per part. Other patch values remain intact.</td></tr>
+          <tr><td>Slider / number</td><td>Adjusts a continuous parameter. A thin line marks the position, and the value box follows the slider throughout a drag. Enter an exact number and press Enter or leave the field to send it.</td></tr>
+          <tr><td>Selection list</td><td>Chooses an engine, method or other named value. Available engine pages follow the selection.</td></tr>
+          <tr><td>ENGS / VOICE ENGINES / VOICE SETUP</td><td>Choose One or List on Pads &amp; Scale. List reveals its engine slots and setup controls: traversal order, assignment, selected entry, octave, source/stack offsets, pan and pressure depth. Entries follow the mode: 8 in Single/Layers, 4 per part in Split/Shared Dual/Bank, while Sequence keeps lane-level engines. The header identifies the current list entry.</td></tr>
+          <tr><td>Play / Stop</td><td>Operates Thru’s existing clip transport.</td></tr>
+          <tr><td>Square</td><td>The control is reserved, unavailable for this engine, or edited on Move.</td></tr>
+        </tbody></table>
+        <p>Changing a supported control on Move updates its browser value. Browser edits use the same parameter handling as Move’s controls; held voices respond according to their engine. Ordinary value updates leave the panel in place while you work.</p>
+        <p>The active clip and mode follow Move. During a clip change the panel waits for the matching clip state, discards unsent edits for the previous clip and then resumes automatically. Use the clip strip to launch clips, or select them on Move. Use Move for sample loading, detailed Bank and Layers editing, LFO setup, managed file operations and project management. Sequence Lane, Setup and recipe value panels are available when Sequence mode is active. Action controls such as Print and Regenerate remain on Move.</p>
+        <p>Record from the browser or Move. Supported recorded parameter values follow playback in the menu panels. Existing Sequence locks and LFOs retain their normal behavior. Edits are part of the active project; wait for Thru’s Saved indication before powering off.</p>
+        <figure><img src="assets/composer-pages.png" alt="Engine and effects menu panels arranged as two rows of four controls."><figcaption>Each control keeps its position within the Move page.</figcaption></figure>
+        <h2 id="clips">Clips and recorded notes</h2>
+        <p>The strip contains the project’s 64 clips. Each tile shows its name and mode; <strong>Launch</strong> selects it on Move. The checkbox selects a clip for collection export. Selecting the checkbox does not launch the clip.</p>
+        <table class="readout-table"><thead><tr><th>Control</th><th>What it does</th></tr></thead><tbody>
+          <tr><td>NAME / Rename</td><td>Names the active clip, using up to 40 letters, numbers, spaces, hyphens or underscores. An empty name restores the numbered label.</td></tr>
+          <tr><td>Copy / DEST / Paste</td><td>Copies a complete clip and pastes it into the destination. This includes its sound settings, sample assignments, authored Sequence and recorded performance.</td></tr>
+          <tr><td>Duplicate</td><td>Copies the active clip into an empty destination. It refuses an occupied destination; use Paste when you intend to replace one.</td></tr>
+          <tr><td>Undo edit</td><td>Restores the most recent supported edit. This is one edit of history. Curve and note edits restore without reloading samples.</td></tr>
+          <tr><td>Undo take</td><td>Removes the newest overdub take while retaining earlier notes and parameter recordings.</td></tr>
+          <tr><td>Clear…</td><td>Separately clears recorded notes, parameter recordings, both, or the authored Sequence. The confirmation identifies what will be removed. Samples remain assigned.</td></tr>
+        </tbody></table>
+        <p>The piano roll shows recorded performance with one row per MIDI note. NOTES follows the editing part, or shows all parts together with different note colors. Center notes brings the active pitches into view. Scroll vertically for the full pitch range, or resize the browser window to give the editor more height. Double-click a pitch row to add a note, drag a note to move time and pitch, or drag its right edge for duration. This is separate from the authored step Sequence below. Open Note on the lower toolbar for the selected note’s exact start, duration, MIDI note and velocity. ENTRY chooses its Engine List slot or the lane engine. Piano-roll edits allow at most eight overlapping note durations across all parts, including notes held across the clip boundary. Edits, phrase operations and clip resizing that exceed this limit are rejected without changing the clip. This counts authored notes; release tails and live playing still use the normal voice allocator.</p>
+        <p><strong>Space</strong> toggles Play / Stop. <strong>Delete / Backspace</strong> removes the selected note or breakpoint. <strong>Enter</strong> opens its inspector; in an inspector, Enter applies the typed fields. Enter also commits a typed menu value or clip length. These shortcuts leave text editing alone, and note editing is disabled during recording.</p>
+        <p><strong>TIME</strong> switches between beats and milliseconds. <strong>SNAP 0</strong> keeps free timing; another value snaps to that many displayed units. For example, 0.25 in Beats is a sixteenth note. ZOOM 1× fits the whole loop in the editor. Larger settings expand the shared time axis horizontally. <strong>CLIP LENGTH</strong> sets the entire clip’s duration. Enter the length in the selected TIME units and choose <strong>Resize clip</strong>, or press Enter. There is no separate loop region inside the clip. Lengthening retains existing event times; shortening asks for confirmation, wraps event starts into the new length and caps long notes. Follow tempo makes playback track the project tempo. The clip’s recorded tempo supplies the timeline’s beat ruler.</p>
+        <h2 id="cursor">Write automation at the cursor</h2>
+        <ol>
+          <li>Click or drag on the time ruler, or click empty piano-roll space, to place the amber edit cursor. You can also enter an exact CURSOR time. Ruler arrow keys move by the current Snap interval; Home and End go to the loop edges.</li>
+          <li><strong>Points at cursor</strong> becomes checked. Focus a Play / Engine, synthesis or supported effects control. Its named curve appears beneath the notes, including when it has no points yet.</li>
+          <li>Adjust the control in its normal menu box or slider. Thru writes a breakpoint at the edit cursor. Moving the same slider repeatedly updates that point; it does not fill the clip with points. A new curve keeps its initial value at time zero.</li>
+          <li>Move the cursor and adjust again to build the curve. At each cursor position, menu values show the automation value there. Choosing a breakpoint also moves the edit cursor, so the menu can edit it directly.</li>
+          <li>Choose <strong>Live controls</strong>, or uncheck Points at cursor, to return to ordinary sound adjustments. Recording and Sequence-step locking use their own editing targets.</li>
+        </ol>
+        <p>The amber cursor is an editing position; it does not seek or stop the audio. The green cursor follows actual clip playback. While writing points, the sticky target strip above the menu panels shows the destination and time. Its CURSOR field lets you advance to another time without returning to the roll; Show curve returns to the graph.</p>
+        <p>Cursor writing edits clip automation without changing the instrument’s starting setting. Play hears that automation. Unsupported settings are disabled in this view. Edits inside a touch-overdub interval update that interval’s take, so the point is audible there. Undo edit restores a complete slider gesture. No performance recording is needed to place points.</p>
+        <h2 id="record">Record notes and parameter motion</h2>
+        <ol>
+          <li>Choose <strong>Notes</strong>, <strong>Parameters</strong> or <strong>Notes + parameters</strong> under CAPTURE.</li>
+          <li>Open Recording to leave All parameters checked, or use the small arm button under individual controls to select specific recording destinations. Clear arms deselects them all.</li>
+          <li>Press <strong>Record</strong>. Play Move, an external keyboard, or the browser keyboard; move the supported instrument controls. An empty clip begins with a four-beat loop.</li>
+          <li>Press <strong>Finish take</strong>. Playback continues with the new take. Undo take removes it.</li>
+        </ol>
+        <p>Browser recording uses overdub and retains earlier takes. Continuous sound controls use <strong>touch overdub</strong>: the new gesture owns the interval while the control is being adjusted, then earlier automation resumes. The shaded bands on a curve show these intervals. Choice controls, engine changes, Sequence structure and held gestures such as Layers movement retain their normal latching behavior. Touch intervals and takes survive saving and collection export.</p>
+        <p>Browser recording shares Thru’s existing performance recorder. Its capture selection also applies when recording is started from Move while the browser is connected. This is separate from recording audio into samples. Choose Lane defaults before recording gestures; a selected Sequence step edits locks instead. Releasing a browser key, changing editing context, or leaving the tab releases browser-held notes.</p>
+        <h2 id="curves">Curves and phrases</h2>
+        <p>Focus a menu value or slider to select its curve, or use the curve button beneath it. AUTOMATION lists the real parameter name, part or FX corner, synthesis patch where relevant, and take. For example, FX corner B · Filter · Resonance (RES) identifies the corresponding FX menu control. The list also offers existing recordings. Click a point to select it and place the edit cursor at its time. Drag it to adjust time and value, or open Point for the exact fields. Double-click to add a point. Named choices use stepped values. Find control scrolls to its menu panel. Changes are sent directly to the active clip.</p>
+        <p>Shift + drag empty piano-roll space to mark a phrase, then open Phrase. You can also enter FROM and TO there. Choose whether operations affect notes, parameter motion, and all parts or only the editing part.</p>
+        <table class="readout-table"><thead><tr><th>Operation</th><th>AMOUNT / COPIES</th><th>What it does</th></tr></thead><tbody>
+          <tr><td>Repeat after</td><td>COPIES</td><td>Adds copies after the selection, spaced by its length, and extends the loop when needed. Existing destination events are retained.</td></tr>
+          <tr><td>Copy at offset</td><td>Displayed time units / COPIES</td><td>Adds copies at successive offsets from the source phrase.</td></tr>
+          <tr><td>Shift time</td><td>Displayed time units</td><td>Moves the selected events and gesture intervals.</td></tr>
+          <tr><td>Stretch time</td><td>Multiplier</td><td>Scales timing and note durations around FROM; 2 doubles their spacing and length.</td></tr>
+          <tr><td>Transpose notes</td><td>Semitones</td><td>Moves pitch without changing timing or parameter motion.</td></tr>
+          <tr><td>Reverse time</td><td>Not used</td><td>Reverses selected events within the phrase.</td></tr>
+          <tr><td>Quantize</td><td>Grid in displayed time units</td><td>Moves event starts and gesture intervals to the chosen grid.</td></tr>
+        </tbody></table>
+        <p>Whole clip selects the loop. Undo edit restores the previous phrase. Operations stop at Thru’s note, point, take and loop-length limits; they do not silently discard events to fit.</p>
+        <h2 id="sequence">Sequence editor and parameter locks</h2>
+        <p>In Sequence mode, four rows show lanes A–D and their 32 steps. Dark cells beyond a lane’s Length are unavailable. A green underline follows the device’s timing and traversal between browser updates; a small amber dot marks a step with locks.</p>
+        <ol>
+          <li>Click an empty step to add a trig and select it. Clicking a lit step selects it without turning it off. Selecting another lane also changes the editing part on Move.</li>
+          <li>Check the amber target strip: for example, <strong>LOCKS · A · STEP 05 · ALL HITS</strong>. Available sound controls now edit that step’s locks.</li>
+          <li>Use TRIG for POS, NOTE, VEL, DUR, microtime, probability and cycle conditions. Engine, amp and supported effects controls can be locked from their own panels.</li>
+          <li>A locked control is highlighted. Click its <strong>×</strong> to clear that override and inherit the lane value.</li>
+          <li>Choose <strong>Lane defaults</strong>, or press <kbd>Esc</kbd>, to edit the instrument’s starting settings again.</li>
+        </ol>
+        <p>Engine choice, tempo, lane clock and other controls that cannot be locked are disabled while a step is selected. Choose Lane defaults to adjust them. Position controls create a trig POS override; they leave the lane’s base position intact. NOTE shows a root-relative offset and the resulting note name.</p>
+        <table class="readout-table"><thead><tr><th>Control or action</th><th>What it does</th></tr></thead><tbody>
+          <tr><td>Trig on / off</td><td>Turns the selected trig on or off while keeping its settings. Right-click a step to toggle it; Delete turns a selected trig off when a value field is not being edited.</td></tr>
+          <tr><td>Audition</td><td>Plays the selected trig while the transport is stopped. Editing pitch, position, duration or sound locks also uses Thru’s stopped audition path. During playback, edits affect the next occurrence.</td></tr>
+          <tr><td>BURST / EVENT</td><td>BURST sets the number of events. EVENT 0 edits settings shared by all hits; 1–8 selects an individual active event. WHEN places that event within the step, bounded by its neighbours.</td></tr>
+          <tr><td>Inherited highlight</td><td>An event is using a lock from its parent trig. Adding a value makes an event override; clearing it restores the parent lock.</td></tr>
+          <tr><td>Clear event locks</td><td>Clears the displayed core and sound locks for the selected parent or event. Keeps the trig, Burst timing, other events and probability/cycle settings.</td></tr>
+        </tbody></table>
+        <p>Manual edits remain overrides in Euclidean and Onset recipes. Sequence data and sound locks are clip content, so they are saved with the project without performance recording. Use Move’s curved Undo key for Thru’s existing edit Undo.</p>
+        <h2 id="checks">Connection and feedback</h2>
+        <table class="readout-table"><thead><tr><th>Status</th><th>What it means</th></tr></thead><tbody>
+          <tr><td>Connecting / waiting</td><td>The panel is waiting for Thru’s current state. Controls stay disabled until it arrives.</td></tr>
+          <tr><td>Linked</td><td>The current clip and parameter state have been read successfully.</td></tr>
+          <tr><td>Sending</td><td>Thru has not yet acknowledged the latest edits.</td></tr>
+          <tr><td>Not linked</td><td>Read the message below the panels. A clip-specific state error identifies that clip; you can select another clip on Move without closing the browser. Finish any audio recording or file operation, check the connection, then choose Reconnect. A version mismatch requires reopening the updated module and hard-reloading the browser.</td></tr>
+        </tbody></table>
+        <p>Disconnecting the browser leaves the live project running with its current settings. Project backups use <a href="projects.html">Projects export and import</a>.</p>
+        <h2 id="files">Composition file tools</h2>
+        <p>Open <strong>Collections</strong> on the lower toolbar to exchange a selection of clips. Check clip tiles, choose Include WAVs for a portable collection, optionally include chains, then Export checked clips. With none checked, the active clip is exported. Export keeps playback running.</p>
+        <p>Open collection reads a <code>.thrupack</code> archive or composition JSON without changing Move. Select the clips and destination slots. Link WAVs supplies missing files by their content hash. Save collection writes the chosen content to your computer.</p>
+        <p><strong>Import selected…</strong> confirms occupied destinations before transfer. Playback stops while samples load, then the first imported clip becomes active. If Include chains is checked, imported chains replace the project’s chain banks. Undo import restores the project state captured before import. Finish recording and pending edits before transferring files.</p>
+        <p>Collections carry recorded notes, parameter motion, authored Sequence data and sound settings, with optional audio. They can be written by other tools, including generated JSON, and validated before import. Audio references alone require matching files already on Move or linked WAVs. For a complete project backup, continue to use <a href="projects.html">Projects export</a> and its <code>.thru</code> archive.</p>
+        <p>See the <a href="assets/formats/four-small-orbits.json">example composition</a>, <a href="assets/formats/thrupack-v1.schema.json">schema</a> and <a href="assets/formats/parameters.json">sound parameter catalog</a> when creating files with another tool.</p>
+        <pre><code>node scripts/thrupack.mjs validate composition.json
+node scripts/thrupack.mjs inspect composition.thrupack
+node scripts/thrupack.mjs pack composition.json output.thrupack
+node scripts/thrupack.mjs unpack input.thrupack new-folder</code></pre>
+        <nav class="page-nav" aria-label="Page navigation"><a class="page-nav-link" href="projects.html"><span>Previous</span>Projects</a><a class="page-nav-link next" href="engines.html"><span>Next</span>Playback Engines</a></nav>
+      </main><aside class="toc" aria-label="On this page"><div class="toc-section"><h2>On this page</h2><a href="#open">Open</a><a href="#layout">Layout / tools</a><a href="#controls">Controls</a><a href="#clips">Clips / notes</a><a href="#cursor">Cursor automation</a><a href="#record">Recording</a><a href="#curves">Curves / phrases</a><a href="#sequence">Sequence / locks</a><a href="#checks">Connection</a><a href="#files">File tools</a></div></aside></div><footer class="manual-footer">s3g Thru · Browser live panel</footer><script src="assets/lightbox.js"></script></body></html>

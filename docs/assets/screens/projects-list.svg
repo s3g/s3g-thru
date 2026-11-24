@@ -10,7 +10,7 @@
     <rect x="0" y="11" width="128" height="9" fill="#dce8e1"/>
     <text x="1" y="17.5" fill="#050706">Thru-20261106-183000.</text>
     <text x="1" y="27.5" fill="#dce8e1">BeforeImport-20261106</text>
-    <text x="1" y="62.5" fill="#dce8e1">&lt;&gt; PAGE  CLICK OPEN</text>
+    <text x="1" y="62.5" fill="#dce8e1">SHIFT+CLICK: RENAME</text>
   </g>
   <rect x="0.25" y="0.25" width="127.5" height="63.5" fill="none" stroke="#5b6661" stroke-width="0.5"/>
 </svg>

@@ -74,9 +74,9 @@ bool setTableParam(const char *key, const char *text) {
   auto cfg = c.table.patches[lane];
   if (!set(cfg, field, value))
     return true;
-  if (field == model)
+  if (field == model && !pageActionApplying)
     start(cfg, int(cfg.v[model]));
-  else if (field == type && cfg.v[type] != c.table.patches[lane].v[type])
+  else if (!pageActionApplying && field == type && cfg.v[type] != c.table.patches[lane].v[type])
     cfg.v[art] = cfg.v[type] == 2 ? 1.f : 0.f;
   std::array<std::size_t, fields> replaced;
   replaced.fill(kClipCurveLaneCount);

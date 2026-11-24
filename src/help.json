@@ -50,6 +50,33 @@
           ]
         },
         {
+          "title": "Page Actions",
+          "lines": [
+            "On a parameter page,",
+            "click the main knob.",
+            "Turn to an action;",
+            "click again to choose.",
+            "Back returns to the",
+            "same parameter page.",
+            "",
+            "The title shows the",
+            "part, lane or trig.",
+            "Paste/reset/clear ask",
+            "before changing data.",
+            "Use Undo to restore.",
+            "",
+            "Record captures clips;",
+            "Shift + Record saves",
+            "audio into a lane.",
+            "Menu clicks do not.",
+            "",
+            "Source Hold and fade",
+            "Hold keep direct click.",
+            "Shift + click opens",
+            "Actions on Hold pages."
+          ]
+        },
+        {
           "title": "Pads and hold",
           "lines": [
             "In Keys mode, Up/Down",
@@ -361,6 +388,51 @@
             "remain held.",
             "Send Start/Continue",
             "to resume clips."
+          ]
+        },
+        {
+          "title": "Names and files",
+          "lines": [
+            "Main click opens",
+            "Name Clip on Perf",
+            "Loop or Sequence.",
+            "Chain pages offer",
+            "Name Chain. Bank",
+            "pages name a pad.",
+            "",
+            "In a sample browser,",
+            "Shift + main click",
+            "opens file actions.",
+            "Stop the clip first.",
+            "",
+            "Use pads to type.",
+            "Turn main to move",
+            "the cursor; click",
+            "to save. Back cancels.",
+            "Aa changes case;",
+            "09 selects numbers.",
+            "SP space, BK delete.",
+            "",
+            "Project export asks",
+            "for a name. Shift +",
+            "main click renames",
+            "a project in its list."
+          ]
+        },
+        {
+          "title": "Browser live panel",
+          "lines": [
+            "Open the module Tool",
+            "in Schwung Manager.",
+            "Live menu controls,",
+            "clips and Sequence",
+            "locks follow Move.",
+            "Clip editing adds",
+            "note/curve edits and",
+            "undoable overdubs.",
+            "Export .thrupack",
+            "to share clips. Use",
+            "Projects for backups."
           ]
         }
       ]

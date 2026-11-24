@@ -234,6 +234,7 @@
         midiClockAnchor=transportBeats;midiClipResume=false;
     }
     void handleMidiRealtime(std::uint8_t status,int source) {
+        if(namingBusy()&&(status==0xfa||status==0xfb))return;
         const int input=midiSourceIndex(source);
         if(input<0||(status!=0xf8&&status!=0xfa&&status!=0xfb&&status!=0xfc))return;
         // Stop closes this input's notes even when tempo/clip sync is off.

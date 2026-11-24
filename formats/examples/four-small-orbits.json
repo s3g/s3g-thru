@@ -1,0 +1,2484 @@
+{
+  "format": "s3g-thrupack",
+  "version": 1,
+  "title": "Four Small Orbits",
+  "tempo": 96,
+  "clips": [
+    {
+      "id": "orbits",
+      "name": "Four Small Orbits",
+      "mode": "sequence",
+      "sources": [
+        {
+          "asset": null,
+          "label": ""
+        },
+        {
+          "asset": null,
+          "label": ""
+        },
+        {
+          "asset": null,
+          "label": ""
+        },
+        {
+          "asset": null,
+          "label": ""
+        }
+      ],
+      "parts": [
+        {
+          "engine": "fm",
+          "root": 36,
+          "scale": 0,
+          "parameters": {}
+        },
+        {
+          "engine": "fm",
+          "root": 43,
+          "scale": 0,
+          "parameters": {}
+        },
+        {
+          "engine": "fm",
+          "root": 48,
+          "scale": 0,
+          "parameters": {}
+        },
+        {
+          "engine": "fm",
+          "root": 55,
+          "scale": 0,
+          "parameters": {}
+        }
+      ],
+      "parameters": {},
+      "sequence": {
+        "tracks": [
+          {
+            "length": 16,
+            "rate": "1/16",
+            "rotation": 0,
+            "direction": "forward",
+            "path": "horizontal",
+            "seed": 0,
+            "enabled": true,
+            "scaleEntry": false,
+            "defaults": {
+              "position": 0,
+              "pitch": 0,
+              "velocity": 0.7874015748031497,
+              "duration": {
+                "unit": "ms",
+                "value": 200
+              }
+            },
+            "trigs": [
+              {
+                "step": 0,
+                "enabled": true,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {
+                  "pitch": 0,
+                  "velocity": 0.6,
+                  "duration": {
+                    "unit": "ms",
+                    "value": 80
+                  }
+                },
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 1,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 2,
+                "enabled": true,
+                "microtime": 0.01,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {
+                  "pitch": 6,
+                  "velocity": 0.6,
+                  "duration": {
+                    "unit": "ms",
+                    "value": 80
+                  }
+                },
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 3,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 4,
+                "enabled": true,
+                "microtime": -0.03,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {
+                  "pitch": 3,
+                  "velocity": 0.6,
+                  "duration": {
+                    "unit": "ms",
+                    "value": 80
+                  }
+                },
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 5,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 6,
+                "enabled": true,
+                "microtime": 0.02,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {
+                  "pitch": 0,
+                  "velocity": 0.6,
+                  "duration": {
+                    "unit": "ms",
+                    "value": 80
+                  }
+                },
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 7,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 8,
+                "enabled": true,
+                "microtime": -0.02,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {
+                  "pitch": 6,
+                  "velocity": 0.6,
+                  "duration": {
+                    "unit": "ms",
+                    "value": 80
+                  }
+                },
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 9,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 10,
+                "enabled": true,
+                "microtime": 0.03,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {
+                  "pitch": 3,
+                  "velocity": 0.6,
+                  "duration": {
+                    "unit": "ms",
+                    "value": 80
+                  }
+                },
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 11,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 12,
+                "enabled": true,
+                "microtime": -0.01,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {
+                  "pitch": 0,
+                  "velocity": 0.6,
+                  "duration": {
+                    "unit": "ms",
+                    "value": 80
+                  }
+                },
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 13,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 14,
+                "enabled": true,
+                "microtime": 0.04,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {
+                  "pitch": 6,
+                  "velocity": 0.6,
+                  "duration": {
+                    "unit": "ms",
+                    "value": 80
+                  }
+                },
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 15,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 16,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 17,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 18,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 19,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 20,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 21,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 22,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 23,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 24,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 25,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 26,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 27,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 28,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 29,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 30,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 31,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "length": 11,
+            "rate": "1/16",
+            "rotation": 0,
+            "direction": "forward",
+            "path": "horizontal",
+            "seed": 0,
+            "enabled": true,
+            "scaleEntry": false,
+            "defaults": {
+              "position": 0,
+              "pitch": 0,
+              "velocity": 0.7874015748031497,
+              "duration": {
+                "unit": "ms",
+                "value": 200
+              }
+            },
+            "trigs": [
+              {
+                "step": 0,
+                "enabled": true,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {
+                  "pitch": 0,
+                  "velocity": 0.7,
+                  "duration": {
+                    "unit": "ms",
+                    "value": 140
+                  }
+                },
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 1,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 2,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 3,
+                "enabled": true,
+                "microtime": -0.01,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {
+                  "pitch": 0,
+                  "velocity": 0.7,
+                  "duration": {
+                    "unit": "ms",
+                    "value": 140
+                  }
+                },
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 4,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 5,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 6,
+                "enabled": true,
+                "microtime": 0.02,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {
+                  "pitch": 0,
+                  "velocity": 0.7,
+                  "duration": {
+                    "unit": "ms",
+                    "value": 140
+                  }
+                },
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 7,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 8,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 9,
+                "enabled": true,
+                "microtime": -0.04,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {
+                  "pitch": 0,
+                  "velocity": 0.7,
+                  "duration": {
+                    "unit": "ms",
+                    "value": 140
+                  }
+                },
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 10,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 11,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 12,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 13,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 14,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 15,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 16,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 17,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 18,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 19,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 20,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 21,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 22,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 23,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 24,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 25,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 26,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 27,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 28,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 29,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 30,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 31,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "length": 7,
+            "rate": "1/16",
+            "rotation": 0,
+            "direction": "forward",
+            "path": "horizontal",
+            "seed": 0,
+            "enabled": true,
+            "scaleEntry": false,
+            "defaults": {
+              "position": 0,
+              "pitch": 0,
+              "velocity": 0.7874015748031497,
+              "duration": {
+                "unit": "ms",
+                "value": 200
+              }
+            },
+            "trigs": [
+              {
+                "step": 0,
+                "enabled": true,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {
+                  "pitch": 0,
+                  "velocity": 0.8,
+                  "duration": {
+                    "unit": "ms",
+                    "value": 200
+                  }
+                },
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 1,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 2,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 3,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 4,
+                "enabled": true,
+                "microtime": -0.03,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {
+                  "pitch": 3,
+                  "velocity": 0.8,
+                  "duration": {
+                    "unit": "ms",
+                    "value": 200
+                  }
+                },
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 5,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 6,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 7,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 8,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 9,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 10,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 11,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 12,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 13,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 14,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 15,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 16,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 17,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 18,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 19,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 20,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 21,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 22,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 23,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 24,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 25,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 26,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 27,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 28,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 29,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 30,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 31,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "length": 13,
+            "rate": "1/16",
+            "rotation": 0,
+            "direction": "forward",
+            "path": "horizontal",
+            "seed": 0,
+            "enabled": true,
+            "scaleEntry": false,
+            "defaults": {
+              "position": 0,
+              "pitch": 0,
+              "velocity": 0.7874015748031497,
+              "duration": {
+                "unit": "ms",
+                "value": 200
+              }
+            },
+            "trigs": [
+              {
+                "step": 0,
+                "enabled": true,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {
+                  "pitch": 0,
+                  "velocity": 0.9,
+                  "duration": {
+                    "unit": "ms",
+                    "value": 260
+                  }
+                },
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 1,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 2,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 3,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 4,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 5,
+                "enabled": true,
+                "microtime": 0.04,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {
+                  "pitch": 6,
+                  "velocity": 0.9,
+                  "duration": {
+                    "unit": "ms",
+                    "value": 260
+                  }
+                },
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 6,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 7,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 8,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 9,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 10,
+                "enabled": true,
+                "microtime": 0.03,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {
+                  "pitch": 3,
+                  "velocity": 0.9,
+                  "duration": {
+                    "unit": "ms",
+                    "value": 260
+                  }
+                },
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 11,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 12,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 13,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 14,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 15,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 16,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 17,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 18,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 19,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 20,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 21,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 22,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 23,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 24,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 25,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 26,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 27,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 28,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 29,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 30,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              },
+              {
+                "step": 31,
+                "enabled": false,
+                "microtime": 0,
+                "probability": 1,
+                "cycle": {
+                  "hit": 1,
+                  "every": 1
+                },
+                "locks": {},
+                "burst": [
+                  {
+                    "offset": 0,
+                    "locks": {}
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "notes": [],
+      "automation": [
+        {
+          "target": {
+            "type": "fm-parameter",
+            "index": 1,
+            "owner": 0,
+            "take": 0
+          },
+          "points": [
+            [
+              0,
+              0
+            ],
+            [
+              1200,
+              7
+            ],
+            [
+              2400,
+              -5
+            ],
+            [
+              4000,
+              0
+            ]
+          ]
+        }
+      ],
+      "loop": {
+        "durationMs": 5000,
+        "beats": 8,
+        "rate": 1,
+        "timing": "beats",
+        "takes": 1,
+        "recorded": true,
+        "recordedTempo": 96
+      }
+    }
+  ],
+  "chains": [],
+  "assets": [],
+  "provenance": {
+    "method": "Example authored composition; no audio or model output required"
+  }
+}

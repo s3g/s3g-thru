@@ -381,10 +381,15 @@ void testPreviewIsolation()
 #include "test_sequence_synth_mix.inc"
 #include "test_reson_release.inc"
 #include "test_reson_density.inc"
+#include "test_page_actions.inc"
+#include "test_naming.inc"
 } // namespace
 
 int main(int argc,char** argv)
 {
+    if(argc==2&&std::strcmp(argv[1],"--cutups-levels")==0){testCutupsLaneLevels();testCutupsScanClock();testCutupsHoldAndEdits();testCutupsModuleDisplay();return 0;}
+    if(argc==2&&std::strcmp(argv[1],"--naming")==0){testNaming();return 0;}
+    if(argc==2&&std::strcmp(argv[1],"--page-actions")==0){testPageActions();return 0;}
     if(argc==2&&std::strcmp(argv[1],"--density-eight")==0){testResonDensityEightVoices();return 0;}
     if(argc==2&&std::strcmp(argv[1],"--reson-density")==0){testResonDensity();return 0;}
     if(argc==2&&std::strcmp(argv[1],"--reson-release")==0){testResonReleaseTails();return 0;}
@@ -402,7 +407,7 @@ int main(int argc,char** argv)
     if(argc==2&&std::strcmp(argv[1],"--table-ui-compat")==0){testTable();testSharedDualLiveZoom();return 0;}
     if(argc==2&&std::strcmp(argv[1],"--slice-edits")==0){testSliceSampleEditAlignment();return 0;}
     if(argc==2&&std::strcmp(argv[1],"--table")==0){testTable();return 0;}
-    testResonDensity();testResonReleaseTails();testSequenceSynthMix();testLowform();testSynthHybridTransfer();testPartials();testReson();testNoise();testFm();testScanned();testTable();testSequenceSoundLocks();
+    testNaming();testPageActions();testResonDensity();testResonReleaseTails();testSequenceSynthMix();testLowform();testSynthHybridTransfer();testPartials();testReson();testNoise();testFm();testScanned();testTable();testSequenceSoundLocks();
     if(argc==2&&std::strcmp(argv[1],"--lfo")==0){testControlLfos();testPlaybackReadouts();testExpandedLfoDestinations();return 0;}
     testControlLfos();testPlaybackReadouts();testExpandedLfoDestinations();
     if(argc==2&&std::strcmp(argv[1],"--synth")==0){testSpline();return 0;}
@@ -591,6 +596,7 @@ after_shared:
     testSplitCuesRollsAndLoad();
     testSplitMixer();
     testSplitRecordingAndState();
+    testCutupsLaneLevels();
     testCutupsScanClock();
     testCutupsHoldAndEdits();
     testCutupsModuleDisplay();

@@ -17,7 +17,15 @@ test -f "$verify_dir/s3g-thru/THIRD_PARTY_NOTICES.md"
 test ! -e "$verify_dir/s3g-thru/canvas.js"
 
 file_count="$(find "$verify_dir/s3g-thru" -maxdepth 1 -type f | wc -l | tr -d ' ')"
-test "$file_count" = "7"
+test "$file_count" = "8"
+test -f "$verify_dir/s3g-thru/web_ui.html"
+test -s "$verify_dir/s3g-thru/assets/composer/fonts/IBMPlexMono-Regular.ttf"
+test -f "$verify_dir/s3g-thru/assets/composer/fonts/OFL.txt"
+for helper in app format pack protocol catalog live move-pages workspace workspace-model clock; do
+  test -f "$verify_dir/s3g-thru/assets/composer/$helper.mjs"
+  node --check "$verify_dir/s3g-thru/assets/composer/$helper.mjs"
+done
+test -f "$verify_dir/s3g-thru/assets/composer/composer.css"
 
 entry_count="$(find "$verify_dir" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')"
 test "$entry_count" = "1"

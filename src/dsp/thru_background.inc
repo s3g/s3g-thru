@@ -108,7 +108,8 @@
             || self.persistenceJob.load(std::memory_order_acquire) == backgroundRequested
             || self.bankJob.load(std::memory_order_acquire)==2
             || self.customSaveJob.load(std::memory_order_acquire)==1
-            || self.projectJob.load(std::memory_order_acquire)==projectRequested) {
+            || self.projectJob.load(std::memory_order_acquire)==projectRequested
+            || self.namingJob.load(std::memory_order_acquire)==2) {
             if(self.processBankJob())continue;
             if (self.laneJob.load(std::memory_order_acquire) == backgroundRequested) {
                 self.laneJob.store(backgroundWorking, std::memory_order_release);
@@ -146,6 +147,8 @@
                 continue;
             }
             if(self.processProjectJob())continue;
+            if(self.processNamingJob())continue;
+            if(self.processComposerWorker())continue;
             const timespec delay {0, 1000000};
             nanosleep(&delay, nullptr);
         }
@@ -258,6 +261,8 @@
         if (!backgroundStarted) return;
         if (clipFinishPending && clipRecording) finishClipRecording();
         consumeBackgroundResults();
+        serviceNaming();
+        serviceComposer();
         if(projectImportInstalled.load(std::memory_order_acquire))return;
         serviceCustomMidiSave();
         auto state = laneJob.load(std::memory_order_acquire);
@@ -334,7 +339,7 @@
             saveState = backgroundIdle;
         }
         const auto clock = renderClockSamples.load(std::memory_order_relaxed);
-        if (saveState == backgroundIdle && persistenceSnapshot && maintenanceRequested
+        if (saveState == backgroundIdle && !composerOwned.load(std::memory_order_acquire) && (!namingBusy()||namingJob.load()==1) && persistenceSnapshot && maintenanceRequested
             && persistentStateDirty && !clipRecording && !audioRecording()
             && pendingCaptureSaveMask == 0u
             && clock >= saveRetryFrame

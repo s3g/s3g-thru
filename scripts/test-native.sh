@@ -38,6 +38,28 @@ ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 \
   "$test_dir/test-transitions-sanitize"
 
 S3G_THRU_LOWFORM_FIXTURE="${S3G_THRU_LOWFORM_FIXTURE:-$test_dir/lowform.json}" S3G_THRU_PARTIALS_FIXTURE="$test_dir/partials.json" S3G_THRU_RESON_FIXTURE="$test_dir/reson.json" S3G_THRU_NOISE_FIXTURE="$test_dir/noise.json" S3G_THRU_FM_FIXTURE="$test_dir/fm.json" S3G_THRU_SCANNED_FIXTURE="$test_dir/scanned.json" S3G_THRU_SEQ_SOUND_FIXTURE="$test_dir/seq-sound.json" S3G_THRU_TABLE_FIXTURE="$test_dir/table.json" S3G_THRU_PLAYBACK_FIXTURE="$test_dir/playback.json" S3G_THRU_LFO_FIXTURE="$test_dir/lfos.json" S3G_THRU_SYNTH_TYPES_FIXTURE="$test_dir/synth-types.json" S3G_THRU_SYNTH_FIXTURE="$test_dir/spline.json" S3G_THRU_SOURCE_KIND_FIXTURE="$test_dir/sources.json" S3G_THRU_PATH_FIXTURE="$test_dir/paths.json" S3G_THRU_UNIT_FIXTURE="$test_dir/unit.json" S3G_THRU_GENERATOR_FIXTURE="$test_dir/generator.json" S3G_THRU_SEQUENCE_FIXTURE="$test_dir/sequence.json" S3G_THRU_GLIDE_FIXTURE="$test_dir/layers-glide.json" S3G_THRU_EDITOR_FIXTURE="$test_dir/layers-editor.json" node "$repo_dir/tests/test_ui.mjs" "$repo_dir/src/ui.js"
+# Clip timeline/recording uses the actual serialized Move control and audio paths.
+"$cxx_bin" -std=c++17 -O2 -Wall -Wextra -Werror -Wno-deprecated-declarations -pthread -DS3G_THRU_HOST_TESTING=1 -I"$repo_dir/include" "$repo_dir/tests/test_workspace.cpp" -o "$test_dir/test-workspace"
+"$test_dir/test-workspace"
+"$cxx_bin" -std=c++17 -O1 -g -Wall -Wextra -Werror -Wno-deprecated-declarations -pthread -DS3G_THRU_HOST_TESTING=1 -fno-omit-frame-pointer -fsanitize=address,undefined -I"$repo_dir/include" "$repo_dir/tests/test_workspace.cpp" -o "$test_dir/test-workspace-sanitize"
+ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 "$test_dir/test-workspace-sanitize"
+node "$repo_dir/tests/test_workspace.mjs"
+# Browser composition uses the real clip serializer and audio preparation path.
+"$cxx_bin" -std=c++17 -O2 -Wall -Wextra -Werror -Wno-deprecated-declarations \
+  -pthread -DS3G_THRU_HOST_TESTING=1 -I"$repo_dir/include" "$repo_dir/tests/test_composer.cpp" \
+  -o "$test_dir/test-composer"
+THRU_COMPOSER_FIXTURE="$test_dir/native.thrupack" "$test_dir/test-composer"
+THRU_COMPOSER_FIXTURE="$test_dir/native.thrupack" node "$repo_dir/tests/test_composer.mjs"
+"$cxx_bin" -std=c++17 -O1 -g -Wall -Wextra -Werror -Wno-deprecated-declarations \
+  -pthread -DS3G_THRU_HOST_TESTING=1 -fno-omit-frame-pointer -fsanitize=address,undefined \
+  -I"$repo_dir/include" "$repo_dir/tests/test_composer.cpp" -o "$test_dir/test-composer-sanitize"
+ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 \
+  "$test_dir/test-composer-sanitize"
+node "$repo_dir/tests/test_composer_protocol.mjs"
+node "$repo_dir/tests/test_composer_live.mjs"
+node "$repo_dir/scripts/generate-composer-pages.mjs" --check
+node "$repo_dir/scripts/generate-composer-catalog.mjs" --check
+node "$repo_dir/scripts/generate-composer-schema.mjs" --check
 node "$repo_dir/tests/test_e16.mjs"
 node "$repo_dir/tests/test_e16_remote.mjs"
 node "$repo_dir/tests/test_e16_nrpn.mjs"

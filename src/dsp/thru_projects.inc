@@ -123,7 +123,7 @@
         const auto state=directory+"/thru-state.json",clips=directory+"/thru-clips.bin";
         std::uint64_t sg=0,cg=0;
         return stateFileGeneration(state.c_str(),sg)&&clipFileGeneration(clips.c_str(),cg)&&sg==cg
-            &&readStateTextFromPath(state.c_str(),snapshot.json)&&readClipFileFromPath(clips.c_str(),sg,&snapshot);
+            &&readStateTextFromPath(state.c_str(),snapshot.json)&&readClipFileFromPath(clips.c_str(),sg,&snapshot)&&s3g_thru_names::read(snapshot.json.data(),snapshot.clips,snapshot.banks,snapshot.state.projectTitle);
     }
     // Early project imports could retain the portable archive metadata as a
     // numerically newer backup. Prefer the complete relocated primary only
@@ -247,7 +247,7 @@
         const std::string temporary=stage+"/archive.tmp";mz_zip_archive zip{};
         s3g_thru_project::ZipBudget zipBudget;s3g_thru_project::setupZip(zip,zipBudget);
         if(!mz_zip_writer_init_file_v2(&zip,temporary.c_str(),0,MZ_ZIP_FLAG_WRITE_ZIP64))return false;
-        const std::string manifest="{\"format\":\"s3g-thru-project\",\"version\":1,\"clip_format\":61,\"assets\":"+std::to_string(assets.size())+"}";
+        const std::string manifest="{\"format\":\"s3g-thru-project\",\"version\":1,\"clip_format\":"+std::string(std::any_of(snapshot->clips.begin(),snapshot->clips.end(),[](const auto& c){return c.touchCount!=0;})?"62":"61")+",\"assets\":"+std::to_string(assets.size())+"}";
         bool ok=mz_zip_writer_add_mem(&zip,"manifest.json",manifest.data(),manifest.size(),0)!=0
             &&addProjectFile(zip,"thru-state.json",stage+"/thru-state.json")&&addProjectFile(zip,"thru-clips.bin",stage+"/thru-clips.bin");
         for(const auto& asset:assets)if(ok)ok=addProjectFile(zip,asset.second,asset.first);
@@ -255,7 +255,7 @@
         if(!ok){projectNote(projectCancel.load()?"PROJECT CANCELLED":"PROJECT WRITE FAILED");return false;}
         auto* archive=std::fopen(temporary.c_str(),"r+b");if(!s3g_thru_storage::closeFile(archive,temporary.c_str()))return false;
         timespec now{};clock_gettime(CLOCK_REALTIME,&now);std::tm utc{};gmtime_r(&now.tv_sec,&utc);char date[32]{};std::strftime(date,sizeof(date),"%Y%m%d-%H%M%S",&utc);
-        if(std::snprintf(projectOutputPath.data(),projectOutputPath.size(),"%s/%s-%s-%06ld.thru",directory.data(),prefix,date,now.tv_nsec/1000)>=static_cast<int>(projectOutputPath.size()))return false;
+        if(std::snprintf(projectOutputPath.data(),projectOutputPath.size(),"%s/%s-%s-%06ld.thru",directory.data(),(std::strcmp(prefix,"Thru")==0&&snapshot->state.projectTitle[0]?snapshot->state.projectTitle.data():prefix),date,now.tv_nsec/1000)>=static_cast<int>(projectOutputPath.size()))return false;
         if(!s3g_thru_storage::link(temporary.c_str(),projectOutputPath.data())||!s3g_thru_storage::syncParent(projectOutputPath.data()))return false;
         projectNote("PROJECT EXPORTED");return true;
     }
@@ -278,7 +278,7 @@
         std::array<char,4097> manifest{};float version=0,format=0,assetCount=0;
         if(!mz_zip_reader_extract_to_mem(&zip,manifestIndex,manifest.data(),4096,0)
             ||!std::strstr(manifest.data(),"\"format\":\"s3g-thru-project\"")||!jsonNumber(manifest.data(),"version",version)||version!=1
-            ||!jsonNumber(manifest.data(),"clip_format",format)||(format!=36 && format!=37 && format!=38 && format!=39 && format!=40 && format!=41 && format!=42 && format!=43 && format!=44 && format!=45 && format!=46 && format!=47 && format!=48 && format!=49 && format!=50 && format!=51 && format!=52 && format!=53 && format!=54 && format!=55 && format!=56 && format!=57 && format!=58 && format!=59 && format!=60 && format!=61)
+            ||!jsonNumber(manifest.data(),"clip_format",format)||(format!=36 && format!=37 && format!=38 && format!=39 && format!=40 && format!=41 && format!=42 && format!=43 && format!=44 && format!=45 && format!=46 && format!=47 && format!=48 && format!=49 && format!=50 && format!=51 && format!=52 && format!=53 && format!=54 && format!=55 && format!=56 && format!=57 && format!=58 && format!=59 && format!=60 && format!=61 && format!=62)
             ||!jsonNumber(manifest.data(),"assets",assetCount)||assetCount!=count-3){projectNote("UNSUPPORTED PROJECT");return false;}
         std::array<char,kPersistencePathSize> dataRoot{},stageName{};
         if(!rootDataPath("project-data",dataRoot.data(),dataRoot.size())||!projectMakeDirectory(dataRoot.data()))return false;

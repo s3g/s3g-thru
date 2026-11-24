@@ -79,6 +79,9 @@ globalThis.__os = {
 
 const flatWave = '77'.repeat(112);
 const params = {
+    naming_state:JSON.stringify({context:'test',job:0,ok:1}),
+    naming_labels:JSON.stringify({clips:Array(64).fill(''),chains:Array(16).fill(''),pads:Array(16).fill(''),project:'',lane:'',source:''}),
+    page_actions_state: JSON.stringify({context:'test',ids:'',group:'',engine:0,lane:0,path:0,generator:0}),
     locus: '0.5', field: '1', speed: '1', manual_lane: '1',
     midi_control_mode: '0',
     cut_lane_advance: '1', lane_cycles: '1', stack_scan_paused: '0', clip_stack_hold: '0',
@@ -209,6 +212,13 @@ globalThis.fill_rect = (x,y,width,height,color) => {
     for(const [key,text] of screenText)if(text[0]>=x&&text[0]<x+width&&text[1]>=y&&text[1]<y+height)screenText.delete(key);
 };
 
+
+function choosePageAction(label){
+ const menu=globalThis.__testPageActions.model;assert(menu.open,'Actions must be open');
+ const index=menu.rows.findIndex(row=>row.label===label);assert(index>=0,'Missing action '+label);menu.index=index;
+ globalThis.onMidiMessageInternal([0xb0,3,0]);globalThis.onMidiMessageInternal([0xb0,3,127]);
+}
+
 globalThis.__thruMidi=await import('../src/midi-map.mjs');
 let source = fs.readFileSync(uiPath, 'utf8');
 source = source.replace(/import \* as thruMidi[^;]+;/,'const thruMidi=globalThis.__thruMidi;');
@@ -222,6 +232,8 @@ source = source.replace(
     /import \* as os[^;]+;/,
     'const os = globalThis.__os;');
 source += `
+globalThis.__testNaming={model:namingUi,open:openNamingEditor,close:closeNamingEditor,draw:drawNameEditor,tick:tickNaming};
+globalThis.__testPageActions={model:pageActions,open:openPageActions,close:closePageActions,rows:pageActionRows,draw:drawPageActions};
 globalThis.__testParameterPageSets = PLAYBACK_PAGES.map((enginePages, algorithm) =>
     [algorithm === 3 ? CUTUPS_ENGINE_PAGE : algorithm === 4 || algorithm === 5 ? DIRECT_ENGINE_PAGE : ENGINE_PAGE, PADS_SCALE_PAGE, AMP_ENVELOPE_PAGE, ...enginePages,
         MIX_REC_PAGE, EFFECTS_PAGE, STEREO_ROTARY_PAGE, TAPE_PAGE, REVERB_PAGE, FX_ORDER_PAGE,
@@ -703,7 +715,7 @@ assert(!drawWrites.slice(lanesPageDrawStart).some((write) =>
     write[0] === 'print' && String(write[3]).includes('GRAIN')));
 const lanesPageWrites = drawWrites.slice(lanesPageDrawStart);
 assert.equal(lanesPageWrites.filter((write) => write[0] === 'print'
-    && write[2] >= 10).length, 14,
+    && write[2] >= 10 && write[2] < 57).length, 14,
     'Stack Path should show seven controls and one reserved slot');
 assert(lanesPageWrites.some((write) => write[0] === 'rect'
     && write[1] === 110 && write[2] === 46 && write[3] === 4
@@ -1117,6 +1129,7 @@ const priorSet=globalThis.host_module_set_param_blocking;
 let rejectModeSwitch=false;
 globalThis.host_module_set_param_blocking=(key,value)=>{
     priorSet(key,value);
+    if(key.startsWith('naming_'))return;
     if(key==='midi_view')return; // read-only view selection cannot change a part
     if(key==='split_mode'&&rejectModeSwitch){params.last_error='Stop recording before changing mode';params.split_mode=String(JSON.parse(params.layers_view||'{}').active===1?5:splitState.bank?4:splitState.enabled?(splitState.quad?3:splitState.shared?2:1):0);return true;}
     if(key==='split_mode'){
@@ -1477,7 +1490,7 @@ fx.state().actionMessageTicks=0;
 fxDrawStart=drawWrites.length;globalThis.tick();
 assert(drawWrites.slice(fxDrawStart).some((w)=>w[0]==='print'&&w[3]==='RETURNS OFF: CLICK'));
 // A click opens a readable list instead of accidentally starting a take.
-let menuWrites=paramWrites.length;cc(3);
+let menuWrites=paramWrites.length;cc(3);choosePageAction('FX PAGES');
 assert.equal(fx.state().view,'fxMenu');
 assert(!paramWrites.slice(menuWrites).some(([key])=>key==='clip_record'||key==='record_gate'));
 const laneWrites=blockingWrites.filter(([key])=>key==='record_lane').length;
@@ -1842,7 +1855,7 @@ assert.equal(quadPages.find(p=>p.title==='DELAY RETURN').keys[7],'effect_mix');
 const quadSkipbackPage=ui.settingsPage;cc(49);tapIcon(52);cc(49,0);assert.equal(ui.settingsPage,quadSkipbackPage);
 cc(52);cc(50);cc(52,0);ui.pageSelection=2;tapIcon(3);
 ui.pageSelection=globalThis.__testTools.categories(2).findIndex(e=>e.title==='FX SENDS');tapIcon(3);
-tapIcon(3);assert.equal(ui.view,'fxMenu');ui.fxMenuSelection=2;tapIcon(3);
+tapIcon(3);choosePageAction('FX PAGES');assert.equal(ui.view,'fxMenu');ui.fxMenuSelection=2;tapIcon(3);
 assert.equal(split.pages()[ui.settingsPage].title,'DELAY RETURN');
 // C/D controls, focus indicators and one-lane cursors fit the display.
 ui.view='main';ui.messageTicks=0;ui.mask=15;ui.waves=Array.from({length:4},()=>Array.from({length:112},()=>[0,0]));
@@ -1934,7 +1947,7 @@ Object.assign(params,{algorithm:'1',lane_path:'8',stack_path_state:pathResponse(
 globalThis.init();ui.view='settings';ui.settingsPage=split.pages().findIndex(p=>p.title==='STACK PATH');
 assert(ui.settingsPage>=0);assert(split.pages().some(p=>p.pathEditor));
 assert.deepEqual(split.pages()[ui.settingsPage].keys,['lane_path','lane_blend',null,'lane_path_offset',null,null,'lane_slew']);
-const pathOpenWrites=paramWrites.length;cc(3);cc(3,0);
+const pathOpenWrites=paramWrites.length;cc(3);choosePageAction('EDIT DRAW PATH');cc(3,0);
 assert(split.pages()[ui.settingsPage].pathEditor&&ui.pathReady);
 assert(!paramWrites.slice(pathOpenWrites).some(([key])=>key==='clip_record'),'Opening the editor must not start data recording');
 params.stack_path_state=pathResponse(4,1);globalThis.__testResetEncoders();cc(71,2);
@@ -2380,7 +2393,7 @@ console.log('s3g Thru Formant controls: PASS');
     cc(14,1);assert.equal(params.voice_engine_edit,'2');assert.equal(ui.algorithm,2);
     globalThis.__testFx.draw();assert(drawWrites.some(x=>x[0]==='rect'&&x[1]===35&&x[2]===19&&x[3]===12));
     assert.equal(globalThis.__testCompactControlValue(p.voice_engine_2),'GRNS');
-    cc(3);assert.equal(globalThis.__testSplit.pages()[ui.settingsPage].title,'GRAINS MAIN');assert.equal(ui.engineListReturn,true);
+    cc(3);choosePageAction('EDIT LIST ENTRY');assert.equal(globalThis.__testSplit.pages()[ui.settingsPage].title,'GRAINS MAIN');assert.equal(ui.engineListReturn,true);
     globalThis.__testFx.draw();assert(drawWrites.some(x=>x[0]==='print'&&x[3].startsWith('E2 GRAINS MAIN')));
     cc(51);assert(globalThis.__testSplit.pages()[ui.settingsPage].voiceEngines);
     ui.settingsPage=globalThis.__testSplit.pages().findIndex(p=>p.voiceSetup);
@@ -2388,7 +2401,7 @@ console.log('s3g Thru Formant controls: PASS');
     globalThis.__testResetEncoders();cc(72,2);assert.equal(params.voice_engine_assign,'1');
     assert.equal(globalThis.__testSplit.pages().find(p=>p.title==='PADS & SCALE').keys[7],null);
     globalThis.__testResetEncoders();cc(73,2);assert.equal(Number(params.voice_engine_octave),1);
-    cc(3);assert.equal(ui.engineListReturn,true);cc(51);assert(globalThis.__testSplit.pages()[ui.settingsPage].voiceSetup);
+    cc(3);choosePageAction('EDIT LIST ENTRY');assert.equal(ui.engineListReturn,true);cc(51);assert(globalThis.__testSplit.pages()[ui.settingsPage].voiceSetup);
     assert.deepEqual(p.voice_engine_order.labels,['UP','DOWN','RAND','CYC+','CYC-','SHUF']);
     for(const mode of [1,2,3]) {
         ui.splitEnabled=true;ui.sharedDual=mode===2;ui.quadMode=mode===3;
@@ -2680,7 +2693,7 @@ console.log('s3g Thru direct-engine RATE: reserved parameter box, matching wavef
     Object.assign(ui,{view:'settings',algorithm:5,splitEnabled:false,quadMode:false,sharedDual:false,bankMode:false,shiftHeld:false,focusButtonHeld:false,performanceVisible:false,editorReady:true});
     ui.settingsPage=globalThis.__testSplit.pages().findIndex(p=>p.title==='SLICE SOURCE');assert(ui.settingsPage>=0);
     const cc=(n,v=127)=>globalThis.onMidiMessageInternal([0xb0,n,v]);
-    cc(3);assert.equal(ui.view,'sliceEdit');assert(sent.some(([key,value])=>key==='slice_editor_open'&&value==='1'));
+    cc(3);choosePageAction('EDIT SLICES');assert.equal(ui.view,'sliceEdit');assert(sent.some(([key,value])=>key==='slice_editor_open'&&value==='1'));
     assert(!sent.some(([key])=>key==='clip_record'||key==='record_gate'));
     assert.deepEqual(globalThis.__testSplit.keys(),Array(8).fill(null),'ordinary MIDI page CCs do not edit a stale waveform page');
     let at=drawWrites.length;globalThis.__testTools.drawAll();const text=drawWrites.slice(at).filter(w=>w[0]==='print');
@@ -3119,13 +3132,13 @@ console.log('s3g Thru hub visibility: every entry drawn/selected in five layouts
  };
  model.corner=model.fxCorner=1;values[8]=11;params.layers_view=JSON.stringify(model);ui.read();
  state.view='settings';state.settingsPage=tools.pages().findIndex(page=>page.title==='FX CORNER');
- const pickerStart=blockingWrites.length;tapIcon(3);
+ const pickerStart=blockingWrites.length;tapIcon(3);choosePageAction('CHOOSE EFFECT');
  assert.equal(state.view,'layerFxPicker');assert.equal(ui.picker.group,2);
  assert.equal(blockingWrites.slice(pickerStart).filter(([key])=>key==='clip_record'||key==='layers_fx0').length,0,'Opening the picker does not start recording or change the sound');
  tools.drawAll();assert([...screenText.values()].every(([x,y,text])=>x+String(text).length*6<=128&&y+8<=64));
  tapIcon(3);assert.equal(ui.picker.tier,1);tapIcon(51);assert.equal(ui.picker.tier,0);assert.equal(state.view,'layerFxPicker');
  tapIcon(51);assert.equal(state.view,'settings');assert.equal(P.layers_fx0.value,11);
- tapIcon(3);for(let i=0;i<3;++i)tapIcon(54); // Pitch -> Space -> Spectral -> Rhythm.
+ tapIcon(3);choosePageAction('CHOOSE EFFECT');for(let i=0;i<3;++i)tapIcon(54); // Pitch -> Space -> Spectral -> Rhythm.
  assert.equal(ui.picker.group,5);tapIcon(3);assert.equal(ui.picker.tier,1);
  cc(14,1);assert.equal(ui.picker.selection,1);tapIcon(3);
  assert.equal(state.view,'settings');assert.equal(P.layers_fx0.value,13);assert.equal(tools.pages()[state.settingsPage].title,'FX CORNER');
@@ -4696,7 +4709,7 @@ if(process.env.S3G_THRU_UNIT_FIXTURE){
  assert(ui.handle(0x90,4,64));assert(ui.model.routingTouch);let at=drawWrites.length;ui.routing();assert(drawWrites.slice(at).some(w=>w[0]==='print'&&String(w[3]).includes('SER')));
  assert(ui.handle(0x80,4,0));assert(!ui.model.routingTouch);
  state.shiftHeld=false;state.focusButtonHeld=false;assert(ui.handle(0xb0,3,127));assert(ui.model.startsOpen);ui.handle(0xb0,14,4);assert.equal(ui.model.start,4);ui.handle(0xb0,51,127);assert(!ui.model.startsOpen);
- assert(ui.handle(0xb0,3,127));ui.handle(0xb0,14,4);const writeAt=blockingWrites.length;ui.handle(0xb0,3,127);assert(!ui.model.startsOpen);assert(blockingWrites.slice(writeAt).some(w=>w[0]==='fm_start'&&Number(w[1])===5));
+ assert(ui.handle(0xb0,3,127));ui.handle(0xb0,14,4);const writeAt=blockingWrites.length;ui.handle(0xb0,3,0);ui.handle(0xb0,3,127);assert(!ui.model.startsOpen);assert(blockingWrites.slice(writeAt).some(w=>w[0]==='fm_start'&&Number(w[1])===5));
  assert.equal(globalThis.__testNextControlValue({...p.fm_decay1,value:0},1),1);assert(globalThis.__testNextControlValue({...p.fm_decay1,value:4000},1)>4000);assert.equal(globalThis.__testCompactControlValue({...p.fm_decay1,value:8000}),'8s');
  assert.equal(globalThis.__testCompactControlValue({...p.fm_end1,value:-1}),'AUTO');assert.equal(globalThis.__testCompactControlValue({...p.fm_decay1,value:0}),'LINK');
  const old=ui.model.data;params.fm_state=JSON.stringify({...f.state,part:1});ui.read(false);assert.equal(ui.model.data,old);console.log('s3g Thru FM UI: native patch/scope fixtures, four pages, contextual controls, Engine List label and stale-part isolation: PASS');
@@ -4731,7 +4744,7 @@ if(process.env.S3G_THRU_UNIT_FIXTURE){
  p.reson_noise.value=0;assert.equal(seq.control('reson_color'),null);p.reson_noise.value=50;assert(seq.control('reson_color'));p.reson_drive.value=0;assert.equal(seq.control('reson_clip'),null);p.reson_drive.value=30;assert(seq.control('reson_clip'));
  assert.equal(globalThis.__testCompactControlValue({...p.voice_engine_1,value:19}),'RSN');assert.equal(globalThis.__testCompactControlValue({...p.reson_decay,value:8000}),'8s');
  state.settingsPage=ui.pages().findIndex(p=>p.reson);let at=blockingWrites.length;ui.handle(0xb0,3,127);assert(ui.model.startsOpen);ui.handle(0xb0,3,127);assert(ui.model.startsOpen);ui.handle(0xb0,14,7);ui.handle(0xb0,51,127);assert(!ui.model.startsOpen);assert(!blockingWrites.slice(at).some(w=>w[0]==='reson_start'));
- ui.handle(0xb0,3,127);ui.handle(0xb0,3,0);ui.handle(0xb0,14,7);at=blockingWrites.length;ui.handle(0xb0,3,127);assert(!ui.model.startsOpen);assert(blockingWrites.slice(at).some(w=>w[0]==='reson_start'&&Number(w[1])===8));
+ ui.handle(0xb0,3,127);ui.handle(0xb0,3,0);ui.handle(0xb0,14,7);at=blockingWrites.length;ui.handle(0xb0,3,0);ui.handle(0xb0,3,127);assert(!ui.model.startsOpen);assert(blockingWrites.slice(at).some(w=>w[0]==='reson_start'&&Number(w[1])===8));
  const old=ui.model.data;params.reson_state=JSON.stringify({...f.state,part:1});ui.read(false);assert.equal(ui.model.data,old);
  console.log('s3g Thru RESON UI: native 32-control fixture, four pages, unavailable controls, armed starting sounds, keyboard/list label and stale-part isolation: PASS');
 }
@@ -4759,3 +4772,9 @@ if(process.env.S3G_THRU_UNIT_FIXTURE){
  const old=ui.model.data;params.lowform_state=JSON.stringify({...f.state,part:1});ui.read(false);assert.equal(ui.model.data,old);
  console.log('s3g Thru LOWFORM UI: native 32-control fixture, four contextual pages, six body labels, Acid filter context, source-free controls and stale-part isolation: PASS');
 }
+
+const {testPageActionsUi}=await import("./test_page_actions_ui.mjs");
+testPageActionsUi({params,blockingWrites,drawWrites});
+
+const {testNamingUi}=await import("./test_naming_ui.mjs");
+testNamingUi({params,blockingWrites,drawWrites});

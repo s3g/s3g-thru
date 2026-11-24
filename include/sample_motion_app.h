@@ -5517,6 +5517,7 @@ private:
             reader.low, reader.high, reader.seam);
         const float sample = stackMode_ && reader.lane < kStackLanes
             ? readLaneHead(reader.lane, channel, head)
+                * activeControlsLaneGains_[reader.lane]
             : readHead(mapSourceChannel(channel), head);
         return sample * cutReaderGain(reader);
     }

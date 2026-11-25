@@ -41,7 +41,7 @@
     static bool splitPartParameter(std::size_t index)
     {
         const auto p = static_cast<LockParameter>(index);
-        if(index>=static_cast<std::size_t>(LockParameter::splitPriority))return false;
+        if(index>=static_cast<std::size_t>(LockParameter::splitPriority) && index<kVersion31LockParameterCount)return false;
         if(index>=kVersion19LockParameterCount)return true;
         if (p == LockParameter::outputGain || index >= static_cast<std::size_t>(LockParameter::splitBlend)) return false;
         if (index >= static_cast<std::size_t>(LockParameter::effectTone)
@@ -58,7 +58,7 @@
     {
         return (index >= static_cast<std::size_t>(LockParameter::splitBlend)
                 && index < kVersion19LockParameterCount)
-            || index >= static_cast<std::size_t>(LockParameter::splitPriority);
+            || (index >= static_cast<std::size_t>(LockParameter::splitPriority) && index<kVersion31LockParameterCount);
     }
 
     PartSettings currentPartSettings() const
@@ -801,7 +801,7 @@
         jsonNumber(json,"split_shared",shared);jsonNumber(json,"split_quad",quad);jsonNumber(json,"quad_initialized",quadInit);jsonNumber(json,"split_parts",parts);
         if((parts!=2&&parts!=4)||(quad>=.5f&&shared>=.5f))return false;
         float parameterCount=0;jsonNumber(json,"split_params_count",parameterCount);
-        const std::size_t storedCount=parts==4?(parameterCount==242?kLockParameterCount:parameterCount==234?kVersion30LockParameterCount:parameterCount==226?kVersion29LockParameterCount:parameterCount==216?kVersion28LockParameterCount:parameterCount==215?kVersion27LockParameterCount:parameterCount==213?kVersion26LockParameterCount:parameterCount==205?kVersion25LockParameterCount:parameterCount==199?kVersion22LockParameterCount:parameterCount==196?kVersion21LockParameterCount:parameterCount==195?kVersion20LockParameterCount:kVersion19LockParameterCount):kVersion14LockParameterCount;
+        const std::size_t storedCount=parts==4?(parameterCount==244?kLockParameterCount:parameterCount==242?kVersion31LockParameterCount:parameterCount==234?kVersion30LockParameterCount:parameterCount==226?kVersion29LockParameterCount:parameterCount==216?kVersion28LockParameterCount:parameterCount==215?kVersion27LockParameterCount:parameterCount==213?kVersion26LockParameterCount:parameterCount==205?kVersion25LockParameterCount:parameterCount==199?kVersion22LockParameterCount:parameterCount==196?kVersion21LockParameterCount:parameterCount==195?kVersion20LockParameterCount:kVersion19LockParameterCount):kVersion14LockParameterCount;
         jsonNumber(json,"split_initialized",initialized);jsonNumber(json,"split_focus",focus);
         std::array<Engine::Controls,5> restored{};std::array<PartSettings,5> settings{};
         const char* names[]{"\"split_single\":[","\"split_a\":[","\"split_b\":[","\"split_c\":[","\"split_d\":["};

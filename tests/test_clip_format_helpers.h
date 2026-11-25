@@ -1,5 +1,11 @@
 #pragma once
+inline void stripEventRegions(std::vector<unsigned char>& bytes){
+ if(bytes.size()<16||bytes[8]!=64)return;
+ constexpr std::size_t size=4+64*5*2*4;const auto at=bytes.size()-size;
+ assert(bytes[at]=='E'&&bytes[at+1]=='R'&&bytes[at+2]=='G'&&bytes[at+3]=='1');bytes.resize(at);bytes[8]=63;
+}
 inline void stripSourceMotion(std::vector<unsigned char>& bytes){
+ stripEventRegions(bytes);
  if(bytes.size()<16||bytes[8]!=63)return;
  constexpr std::size_t size=4+64*5*13*4;const auto at=bytes.size()-size;
  assert(bytes[at]=='T'&&bytes[at+1]=='L'&&bytes[at+2]=='V'&&bytes[at+3]=='1');bytes.resize(at);bytes[8]=62;

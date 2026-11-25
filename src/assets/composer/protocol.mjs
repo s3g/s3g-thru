@@ -1,4 +1,4 @@
-export const PANEL_PROTOCOL=2, PANEL_BUILD='0.34.0';
+export const PANEL_PROTOCOL=2, PANEL_BUILD='0.34.1';
 import {uniqueId} from './format.mjs';
 export class MoveConnection {
   constructor(onStatus = () => {}) {
@@ -91,7 +91,8 @@ export class MoveConnection {
           const status=await(await this.file(`${this.root}/replies/${this.client}-${request}.json`)).json();
           if(status.client!==this.client||status.request!==request)continue;
           if(this.epoch&&this.epoch!==status.epoch)throw Error('Thru restarted during the operation');
-          this.root=status.root;this.revision=status.revision;this.preview=!!status.preview;this.onStatus(status);
+          this.root=status.root;this.revision=status.revision;this.preview=!!status.preview;
+          if(status.ok||!['samples','sample','markers'].includes(op))this.onStatus(status);
           if(!status.ok)throw Object.assign(Error(status.message),{device:true});return status;
         }catch(error){
           if(error.device||error.message.includes('restarted')||error.status&&error.status!==404)throw error;

@@ -137,21 +137,26 @@ void renderTextureFrame(const Controls &controls, float *wet) {
                 makeNaturalEventLaneBlend(lanePhase_ + controls.lanePhaseOffset, controls);
             const auto lane = event->lanes.first;
             double low = window.low, high = window.high, position = low + origin * width;
-            if (!liveView_ && lane < kStackLanes && laneRegionCounts_[lane] > 1) {
-                const auto count = laneRegionCounts_[lane];
-                std::size_t region = 0;
-                const float unit =
-                    static_cast<float>(position / std::max<std::size_t>(1, sourceFrames_));
-                while (region + 1 < count && laneRegionBoundaries_[lane][region + 1] <= unit)
+            const auto span = eventRegionSpan(controls, controls.textureRegionMode, lane, window);
+            if (span.count > 1 || (span.count && (controls.eventRegions[lane].count || controls.textureRegionMode != RegionMode::transients))) {
+                const double extent = span.absolute ? static_cast<double>(sourceFrames_) : width;
+                const double base = span.absolute ? 0 : window.low;
+                const double unit = (position - base) / std::max(1.0, extent);
+                std::size_t region = span.first;
+                while (region + 1 < span.first + span.count && span.points[region + 1] <= unit)
                     ++region;
-                const double a = laneRegionBoundaries_[lane][region] * sourceFrames_,
-                             b = laneRegionBoundaries_[lane][region + 1] * sourceFrames_;
-                low = std::max(low, a);
-                high = std::min(high, b);
-                if (high <= low + 1) {
-                    low = window.low;
-                    high = window.high;
-                }
+                low = std::max(low, base + span.points[region] * extent);
+                high = std::min(high, base + span.points[region + 1] * extent);
+                // Preserve the legacy transient reader's tiny-window fallback.
+                if (!controls.eventRegions[lane].count && controls.textureRegionMode == RegionMode::transients
+                    && high <= low + 1) { low = window.low; high = window.high; }
+                position = low;
+            } else if (!liveView_ && !span.count && controls.textureRegionMode != RegionMode::transients
+                       && lane < kStackLanes) {
+                const auto count = static_cast<std::size_t>(clamp(controls.textureRegionCount, 1.f, 64.f));
+                const auto region = std::min(count - 1, static_cast<std::size_t>(clamp01(origin) * count));
+                low = window.low + width * region / count;
+                high = window.low + width * (region + 1) / count;
                 position = low;
             }
             const float pitch =

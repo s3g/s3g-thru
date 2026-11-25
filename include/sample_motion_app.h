@@ -82,7 +82,7 @@ public:
         automatic,
     };
 
-    static constexpr std::size_t kRegionModeCount = 2u;
+    static constexpr std::size_t kRegionModeCount = 5u;
     static constexpr std::size_t kSliceRegionModeCount = 5u;
 
     enum class MotionMode : std::uint8_t {
@@ -400,7 +400,14 @@ public:
         float secondarySourcePosition = -1.0f;
     };
 
+    struct EventRegionView {
+        const float* points = nullptr;
+        std::size_t count = 0;
+        bool absolute = false;
+    };
+
     struct Controls {
+        std::array<EventRegionView, kStackLanes> eventRegions {};
         s3g_thru_source::Config sourceMotion{};
         s3g_thru_source::View liveSource{};
         bool travelReleased=false;
@@ -530,6 +537,8 @@ public:
         float morphMode=0;
         float morphAmplitude=.5f,morphFrequency=.5f,morphOffset=0,morphBlurMs=40,morphPitch=0;
         float textureMode=0,textureRate=4,textureLengthMs=250,textureScatter=.2f,textureRange=7,textureGroup=4,textureSpread=.5f,textureSeed=1;
+        RegionMode textureRegionMode = RegionMode::transients;
+        float textureRegionCount = 16;
         std::uint16_t textureScaleMask=4095;
         CutClock cutClock = CutClock::tempo;
         CutDivision cutDivision = CutDivision::sixteenth;
@@ -1919,6 +1928,7 @@ private:
     double liveFrameOffset_=0;
     std::size_t liveBridge_=0,liveBridgeFrames_=441;
     float liveTail_[kChannels]{},sourceLast_[kChannels]{};
+    bool sourceScopeActive_=false,sourceLaneTransitionPending_=false;
     struct SourceScope {
         SampleMotionApp& e;
         bool changed=false;
@@ -1936,10 +1946,13 @@ private:
             }
             e.liveView_=active?c.liveSource:s3g_thru_source::View{};
             if(active&&c.liveSource.written/16384!=e.liveSorterEpoch_){e.liveSorterEpoch_=c.liveSource.written/16384;e.sorterCacheValid_=false;}
-            changed=active;
+            changed=active;e.sourceScopeActive_=active;
             if(active){std::copy_n(e.laneFrames_,kStackLanes,lanes.begin());std::copy_n(e.laneSampleRates_,kStackLanes,rates.begin());std::copy_n(e.lanePositionScales_,kStackLanes,scales.begin());e.sourceFrames_=c.liveSource.frames;e.sourceChannels_=2;e.sourceSampleRate_=e.outputSampleRate_;e.stackMode_=true;e.referenceLane_=0;e.playing_=true;std::fill_n(e.laneFrames_,kStackLanes,c.liveSource.frames);std::fill_n(e.laneSampleRates_,kStackLanes,e.outputSampleRate_);e.updateLanePositionScales();}
         }
-        ~SourceScope(){if(!changed)return;e.sourceFrames_=frames;e.sourceChannels_=channels;e.sourceSampleRate_=rate;std::copy_n(lanes.begin(),kStackLanes,e.laneFrames_);std::copy_n(rates.begin(),kStackLanes,e.laneSampleRates_);std::copy_n(scales.begin(),kStackLanes,e.lanePositionScales_);e.referenceLane_=reference;e.stackMode_=stack;e.playing_=playing;}
+        ~SourceScope(){if(!changed)return;e.sourceFrames_=frames;e.sourceChannels_=channels;e.sourceSampleRate_=rate;std::copy_n(lanes.begin(),kStackLanes,e.laneFrames_);std::copy_n(rates.begin(),kStackLanes,e.laneSampleRates_);std::copy_n(scales.begin(),kStackLanes,e.lanePositionScales_);e.referenceLane_=reference;e.stackMode_=stack;e.playing_=playing;e.sourceScopeActive_=false;
+            // The live view borrows lane metadata for this block. Commit any
+            // completed file-lane transition after restoring the real metadata.
+            if(e.sourceLaneTransitionPending_){e.sourceLaneTransitionPending_=false;e.completeLaneTransition();}}
     };
     double liveBirthAnchor() const {
         return liveView_.anchor+(liveView_.advancing?liveFrameOffset_:0);
@@ -2401,6 +2414,7 @@ private:
 
     void completeLaneTransition()
     {
+        if(sourceScopeActive_){sourceLaneTransitionPending_=true;return;}
         if (transitionLane_ >= kStackLanes) {
             laneTransition_ = LaneTransition::none;
             return;
@@ -4949,6 +4963,36 @@ private:
         phase_ = wrapPhase(phase_ + phaseIncrement);
     }
 
+    struct EventRegionSpan {
+        const float* points = nullptr;
+        std::size_t first = 0, count = 0;
+        bool absolute = false;
+    };
+    EventRegionSpan eventRegionSpan(const Controls& controls, RegionMode mode,
+                                    std::size_t lane, const Window& window) const
+    {
+        if (liveView_ || !stackMode_ || lane >= kStackLanes || mode == RegionMode::equal)
+            return {};
+        const auto& authored = controls.eventRegions[lane];
+        if (authored.points && authored.count && authored.count <= kRegionCount) {
+            EventRegionSpan span {authored.points, 0, authored.count, authored.absolute};
+            if (span.absolute) {
+                const double low = window.low / std::max<std::size_t>(1, sourceFrames_);
+                const double high = window.high / std::max<std::size_t>(1, sourceFrames_);
+                while (span.first < authored.count && authored.points[span.first + 1] <= low)
+                    ++span.first;
+                std::size_t end = span.first;
+                while (end < authored.count && authored.points[end] < high) ++end;
+                span.count = end - span.first;
+            }
+            return span;
+        }
+        if (mode != RegionMode::file && laneRegionCounts_[lane])
+            return {laneRegionBoundaries_[lane], 0, laneRegionCounts_[lane],
+                controls.algorithm == PlaybackAlgorithm::texture};
+        return {};
+    }
+
     std::size_t cutRegion(CutupsMode mode, std::size_t regionCount)
     {
         regionCount = std::max<std::size_t>(1u, regionCount);
@@ -5130,14 +5174,10 @@ private:
         cutCurrent_.gain = 1.0f - randomUnit()
             * clamp01(controls.cutLevelVariation);
         const double width = std::max(1.0, window.high - window.low);
-        const bool transientRegions = !liveView_ && stackMode_
-            && cutCurrent_.lane < kStackLanes
-            && controls.cutRegionMode == RegionMode::transients
-            && laneRegionCounts_[cutCurrent_.lane] != 0u;
-        const std::size_t regions = transientRegions
-            ? laneRegionCounts_[cutCurrent_.lane]
-            : static_cast<std::size_t>(clamp(
-                controls.cutRegionCount, 1.0f,
+        const auto span = eventRegionSpan(controls, controls.cutRegionMode,
+            cutCurrent_.lane, window);
+        const std::size_t regions = span.count ? span.count
+            : static_cast<std::size_t>(clamp(controls.cutRegionCount, 1.0f,
                 static_cast<float>(kCutRegionCount)));
         const std::size_t repeats = static_cast<std::size_t>(clamp(
             controls.cutRepeats, 1.0f, 16.0f));
@@ -5145,15 +5185,14 @@ private:
             cutRepeatedRegion_ = cutRegion(controls.cutups, regions);
         }
         const std::size_t region = cutRepeatedRegion_ % regions;
-        const double regionLow = transientRegions
-            ? window.low + width * static_cast<double>(
-                laneRegionBoundaries_[cutCurrent_.lane][region])
-            : window.low + static_cast<double>(region)
-                * width / static_cast<double>(regions);
-        const double regionHigh = transientRegions
-            ? window.low + width * static_cast<double>(
-                laneRegionBoundaries_[cutCurrent_.lane][region + 1u])
-            : regionLow + width / static_cast<double>(regions);
+        const double extent = span.absolute ? static_cast<double>(sourceFrames_) : width;
+        const double origin = span.absolute ? 0 : window.low;
+        const double regionLow = span.count
+            ? std::max(window.low, origin + extent * span.points[span.first + region])
+            : window.low + region * width / regions;
+        const double regionHigh = span.count
+            ? std::min(window.high, origin + extent * span.points[span.first + region + 1])
+            : regionLow + width / regions;
         const double regionWidth = std::max(1.0, regionHigh - regionLow);
         const bool reverse = randomUnit()
             < clamp01(controls.cutReverseChance);

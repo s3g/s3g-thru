@@ -8,7 +8,7 @@
 <body>
  <a class="skip-link" href="#menu-panels">Skip to controls</a>
  <header class="topbar"><h1>s3g Thru <span>LIVE PANEL</span></h1><output id="connection-status" data-state="waiting" aria-live="polite">Connecting…</output><button id="reconnect" type="button">Reconnect</button></header>
- <div class="context-bar" aria-label="Current Move context"><strong id="clip-title">Move clip</strong><span id="mode"></span><span id="engine-entry" hidden></span><label>EDIT <select id="part" disabled aria-label="Editing part"></select></label><label id="patch-field" hidden>PATCH <select id="patch" disabled aria-label="Physical patch lane"></select></label><div class="transport"><button id="play" type="button" disabled>Play</button><button id="stop" type="button" disabled>Stop</button></div></div>
+ <div class="context-bar" aria-label="Current Move context"><strong id="clip-title">Move clip</strong><span id="mode"></span><span id="engine-entry" hidden></span><label>EDIT <select id="part" disabled aria-label="Editing part"></select></label><label id="patch-field" hidden>PATCH <select id="patch" disabled aria-label="Physical patch lane"></select></label><button id="sample-open" type="button" disabled>Samples…</button><div class="transport"><button id="play" type="button" disabled>Play</button><button id="stop" type="button" disabled>Stop</button></div></div>
  <main id="composition-layout" data-pane="editor">
  <div id="mobile-panels" role="tablist" aria-label="Composition panels"><button type="button" id="pane-editor" role="tab" aria-selected="true" data-offline="true">Editor</button><button type="button" id="pane-controls" role="tab" aria-selected="false" data-offline="true">Controls</button></div>
  <section id="clip-workspace" class="clip-workspace" aria-label="Clip editing workspace"></section>
@@ -22,6 +22,6 @@
  <div id="lock-toolbar" hidden><strong id="edit-target">Lane defaults</strong><button id="lane-defaults" type="button">Lane defaults</button><button id="trig-toggle" type="button" hidden>Trig on</button><button id="trig-audition" type="button" hidden>Audition</button><button id="trig-clear" type="button" hidden>Clear event locks</button></div>
  <div id="automation-toolbar" hidden><strong>POINTS AT CURSOR</strong><label>CURSOR <input id="automation-cursor" type="number" min="0" value="0" aria-label="Automation cursor time"></label><button id="automation-show" type="button">Show curve</button><button id="automation-live" type="button">Live controls</button></div>
  <p id="empty-state">Open s3g Thru on Move to see its menu panels.</p><div id="menu-panels"></div></aside></main>
- <footer><p id="panel-message" role="status">Waiting for live state…</p><span>0.34.0</span></footer>
+ <footer><p id="panel-message" role="status">Waiting for live state…</p><span>0.34.1</span></footer>
 </body>
 </html>

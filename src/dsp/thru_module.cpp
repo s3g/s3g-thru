@@ -1,5 +1,6 @@
 #include "sample_motion_app.h"
 #include "thru_slice_model.h"
+#include "thru_wave_markers.h"
 #include "thru_storage.h"
 #include "thru_project_zip.h"
 #include <sys/statvfs.h>
@@ -464,6 +465,7 @@ enum class LockParameter : std::uint32_t {
     pulsarEmitModRate, pulsarEmitModDepth, pulsarFormModRate, pulsarFormModDepth, pulsarSpray, pulsarFormVariation, pulsarReverse, pulsarKeytrack,
     splitPriority, splitDuckThreshold, splitDuckAttack, splitDuckHold,
     splitDuckRelease, splitDuckHpf, splitDuckKnee, splitDuckRoute,
+    textureRegionMode, textureRegionCount,
     count
 };
 
@@ -492,7 +494,8 @@ constexpr std::size_t kVersion27LockParameterCount=215u;
 constexpr std::size_t kVersion28LockParameterCount=216u;
 constexpr std::size_t kVersion29LockParameterCount=226u;
 constexpr std::size_t kVersion30LockParameterCount=234u;
-static_assert(kLockParameterCount == 242u,
+constexpr std::size_t kVersion31LockParameterCount=242u;
+static_assert(kLockParameterCount == 244u,
               "clip point descriptors support up to 255 lock parameters");
 constexpr std::size_t kClipPressureLaneOffset = kLockParameterCount;
 constexpr std::size_t kClipStackPositionLaneOffset =
@@ -508,7 +511,8 @@ constexpr std::size_t kClipPerformanceOffset = kClipPartHoldOffset + 4u;
 constexpr std::size_t kClipStackPathOffset = kClipPerformanceOffset + 4u * 9u;
 constexpr std::size_t kClipNotePressureOffset = kClipStackPathOffset + 5u * 2u * s3g_daisy::ThruStackPath::valueCount;
 constexpr std::size_t kClipMidiExpressionOffset = kClipNotePressureOffset+4u*128u;
-using LayerPatch=s3g_thru_layers::Patch<kLockParameterCount>;
+// Keep the archived prototype fields and all Layers automation indices stable.
+using LayerPatch=s3g_thru_layers::Patch<kVersion31LockParameterCount>;
 static_assert(LayerPatch::size==1017u,"Changing Layers fields requires a clip-format migration");
 constexpr std::size_t kClipLayersOffset=kClipMidiExpressionOffset+16u;
 constexpr std::size_t kClipSequenceOffset=kClipLayersOffset+LayerPatch::size;
@@ -690,7 +694,7 @@ constexpr const char* kAlgorithmNames[] {
 constexpr const char* kSampleModeNames[] {
     "Forward", "Reverse", "Loop", "Ping Pong"
 };
-constexpr const char* kRegionModeNames[] { "Equal", "Transients" };
+constexpr const char* kRegionModeNames[] { "Equal", "Transients", "File", "Edited", "Auto" };
 constexpr const char* kSliceRegionModeNames[] { "Equal", "Transients", "File", "Edited", "Auto" };
 constexpr const char* kPadModeNames[] { "Keys", "Slices", "Cues", "Rolls" };
 constexpr const char* kScaleNames[] {
@@ -1336,7 +1340,7 @@ constexpr const char kChainParams[] = R"json([
 {"key":"cut_level_variation","name":"Level Variation","short_name":"LEVEL VAR","type":"float","min":0,"max":1,"step":0.01,"default":0},
 {"key":"cut_lane_order","name":"Lane Order","short_name":"LANE ORD","type":"enum","options":["Down","Up","Palindrome","Random","Pairs","Outside In","Center Out"],"default":0},
 {"key":"cut_poly_path","name":"Poly Path","short_name":"POLY","type":"enum","options":["Together","Stagger","Rotate","Random"],"default":0},
-{"key":"cut_region_mode","name":"Cut Region Source","short_name":"REGION SRC","type":"enum","options":["Equal","Transients"],"default":0},
+{"key":"cut_region_mode","name":"Cut Region Source","short_name":"REGION SRC","type":"enum","options":["Equal","Transients","File","Edited","Auto"],"default":0},
 {"key":"sample_mode","name":"Sample Playback","short_name":"PLAY MODE","type":"enum","options":["Forward","Reverse","Loop","Ping Pong"],"default":0},
 {"key":"slice_region_mode","name":"Slice Region Source","short_name":"SLICE SRC","type":"enum","options":["Equal","Transients","File","Edited","Auto"],"default":1},
 {"key":"slice_regions","name":"Equal Slice Count","short_name":"SLICES","type":"int","min":1,"max":64,"default":16},
@@ -1579,6 +1583,8 @@ constexpr const char kChainParams[] = R"json([
 {"key":"texture_group","name":"Texture Group Size","short_name":"GRUP","type":"int","default":4,"min":2,"max":8,"step":1},
 {"key":"texture_spread","name":"Texture Stereo Spread","short_name":"SPRD","type":"float","default":50,"min":0,"max":100,"step":2},
 {"key":"texture_seed","name":"Texture Seed","short_name":"SEED","type":"int","default":1,"min":1,"max":9999,"step":1},
+{"key":"texture_region_mode","name":"Texture Region Source","short_name":"RSRC","type":"enum","options":["Equal","Transients","File","Edited","Auto"],"default":1},
+{"key":"texture_regions","name":"Texture Regions","short_name":"REGN","type":"int","min":1,"max":64,"default":16},
 {"key":"waveset_state","name":"Waveset Display State","type":"string","access":"read","live":true},
 {"key":"waveset_analysis_state","name":"Waveset Analysis State","type":"string","access":"read","live":true},
 {"key":"voice_lanes","name":"Voice Stack Positions","type":"string","access":"read","live":true},
@@ -1711,6 +1717,7 @@ constexpr const char kUiHierarchy[] = R"json({
 "stochastic":{"name":"Stochastic","knobs":["stochastic_size","stochastic_amplitude","stochastic_timing","stochastic_evolution","stochastic_memory","stochastic_pull","stochastic_law","stochastic_drift"],"params":[{"key":"stochastic_size"},{"key":"stochastic_amplitude"},{"key":"stochastic_timing"},{"key":"stochastic_evolution"},{"key":"stochastic_memory"},{"key":"stochastic_pull"},{"key":"stochastic_law"},{"key":"stochastic_drift"}]},
 "formant":{"name":"Formant","knobs":["formant_pitch","formant_shift","formant_smoothing","formant_tune","formant_freeze","formant_keytrack","formant_rough","formant_sub"],"params":[{"key":"formant_pitch"},{"key":"formant_shift"},{"key":"formant_smoothing"},{"key":"formant_tune"},{"key":"formant_freeze"},{"key":"formant_keytrack"},{"key":"formant_rough"},{"key":"formant_sub"}]},
 "texture":{"name":"Texture","knobs":["texture_mode","texture_rate","texture_length","texture_scatter","texture_range","texture_group","texture_spread","texture_seed"],"params":[{"key":"texture_mode"},{"key":"texture_rate"},{"key":"texture_length"},{"key":"texture_scatter"},{"key":"texture_range"},{"key":"texture_group"},{"key":"texture_spread"},{"key":"texture_seed"}]},
+"texture_source":{"name":"Texture Source","knobs":["texture_region_mode","texture_regions"],"params":[{"key":"texture_region_mode"},{"key":"texture_regions"}]},
 "wavesets":{"name":"Wavesets","knobs":["waveset_group","waveset_repeats","waveset_stride","waveset_advance","waveset_direction","waveset_process","waveset_amount","waveset_detail"],"params":[{"key":"waveset_group"},{"key":"waveset_repeats"},{"key":"waveset_stride"},{"key":"waveset_advance"},{"key":"waveset_direction"},{"key":"waveset_process"},{"key":"waveset_amount"},{"key":"waveset_detail"},{"key":"lane_path"},{"key":"lane_cycles"},{"key":"manual_lane"}]},
 "cutups":{"name":"Cutups","knobs":["locus","field","speed","join","cutups_mode","cut_lane_order","cut_lane_advance","manual_lane"],"params":[{"key":"locus"},{"key":"field"},{"key":"speed"},{"key":"join"},{"key":"cutups_mode"},{"key":"cut_lane_order"},{"key":"cut_lane_advance"},{"key":"manual_lane"}]},
 "sample":{"name":"Sample","knobs":["sample_mode","locus","field","speed","manual_lane","lane_variation","output_gain"],"params":[{"key":"sample_mode"},{"key":"locus"},{"key":"field"},{"key":"speed"},{"key":"manual_lane"},{"key":"lane_variation"},{"key":"lanes_stretch"},{"key":"stretch_ratio"},{"key":"output_gain"}]},
@@ -1846,7 +1853,7 @@ constexpr const char* kLockParameterKeys[kLockParameterCount] {
 "prism_mode", "prism_blur", "prism_decay", "prism_pitch", "prism_tilt", "prism_smear", "morph_amplitude", "morph_frequency", "morph_offset", "morph_blur", "morph_pitch", "texture_mode", "texture_rate", "texture_length", "texture_scatter", "texture_range", "texture_group", "texture_spread", "texture_seed", "morph_mode", "formant_pitch", "formant_shift", "formant_smoothing", "formant_tune", "formant_freeze", "formant_keytrack", "formant_rough", "formant_sub", "formant_freeze_position", "stochastic_size", "stochastic_amplitude", "stochastic_timing", "stochastic_evolution", "stochastic_memory", "stochastic_pull", "stochastic_law", "stochastic_drift", "stochastic_source_hold", "stochastic_hold_position", "stochastic_capture", "pulsar_rate", "pulsar_form", "pulsar_size", "pulsar_window", "pulsar_skew", "pulsar_omit", "pulsar_burst", "pulsar_jitter", "pulsar_source_hold", "pulsar_hold_position", "pulsar_emit_mod_rate", "pulsar_emit_mod_depth", "pulsar_form_mod_rate", "pulsar_form_mod_depth", "pulsar_spray", "pulsar_form_variation", "pulsar_reverse", "pulsar_keytrack",
     "split_priority", "split_duck_threshold", "split_duck_attack",
     "split_duck_hold", "split_duck_release", "split_duck_hpf",
-    "split_duck_knee", "split_duck_route"
+    "split_duck_knee", "split_duck_route", "texture_region_mode", "texture_regions"
 };
 
 int lockParameterIndex(const char* key)
@@ -1868,6 +1875,7 @@ bool validLockParameterText(const char* key,const char* text){
         {"cut_lane_advance",kCutLaneAdvanceNames,sizeof(kCutLaneAdvanceNames)/sizeof(*kCutLaneAdvanceNames)},
         {"cut_lane_order",kCutLaneOrderNames,sizeof(kCutLaneOrderNames)/sizeof(*kCutLaneOrderNames)},
         {"cut_poly_path",kCutPolyPathNames,sizeof(kCutPolyPathNames)/sizeof(*kCutPolyPathNames)},
+        {"texture_region_mode",kRegionModeNames,sizeof(kRegionModeNames)/sizeof(*kRegionModeNames)},
         {"cut_region_mode",kRegionModeNames,sizeof(kRegionModeNames)/sizeof(*kRegionModeNames)},
         {"cutups_mode",kCutupsModeNames,sizeof(kCutupsModeNames)/sizeof(*kCutupsModeNames)},
         {"effect_reverb_algo",kReverbAlgorithmNames,sizeof(kReverbAlgorithmNames)/sizeof(*kReverbAlgorithmNames)},
@@ -1999,7 +2007,7 @@ void applyLockedValue(Engine::Controls& controls, float& outputGain,
         case LockParameter::cutLevelVariation: controls.cutLevelVariation = clampValue(value, 0.0f, 1.0f); break;
         case LockParameter::cutLaneOrder: controls.cutLaneOrder = static_cast<Engine::CutLaneOrder>(clampValue(static_cast<int>(std::lround(value)), 0, 6)); break;
         case LockParameter::cutPolyPath: controls.cutPolyPath = static_cast<Engine::CutPolyPath>(clampValue(static_cast<int>(std::lround(value)), 0, 3)); break;
-        case LockParameter::cutRegionMode: controls.cutRegionMode = static_cast<Engine::RegionMode>(clampValue(static_cast<int>(std::lround(value)), 0, 1)); break;
+        case LockParameter::cutRegionMode: controls.cutRegionMode = static_cast<Engine::RegionMode>(clampValue(static_cast<int>(std::lround(value)), 0, 4)); break;
         case LockParameter::sampleMode: controls.sampleMode = static_cast<Engine::SampleMode>(clampValue(static_cast<int>(std::lround(value)), 0, 3)); break;
         case LockParameter::sampleRegionMode: controls.sampleRegionMode = static_cast<Engine::RegionMode>(clampValue(static_cast<int>(std::lround(value)), 0, 4)); break;
         case LockParameter::sampleRegionCount: controls.sampleRegionCount = clampValue(value, 1.0f, 64.0f); break;
@@ -2149,6 +2157,8 @@ void applyLockedValue(Engine::Controls& controls, float& outputGain,
         case LockParameter::textureGroup: controls.textureGroup = std::round(clampValue(value, 2.0f, 8.0f)); break;
         case LockParameter::textureSpread: controls.textureSpread = clampValue(value, 0.0f, 100.0f) * .01f; break;
         case LockParameter::textureSeed: controls.textureSeed = std::round(clampValue(value, 1.0f, 9999.0f)); break;
+        case LockParameter::textureRegionMode: controls.textureRegionMode = static_cast<Engine::RegionMode>(clampValue(static_cast<int>(std::lround(value)), 0, 4)); break;
+        case LockParameter::textureRegionCount: controls.textureRegionCount = std::round(clampValue(value, 1.f, 64.f)); break;
         case LockParameter::formantPitch: controls.formantPitch=clampValue(value,-24.f,24.f);break;
         case LockParameter::formantShift: controls.formantShift=clampValue(value,-24.f,24.f);break;
         case LockParameter::formantSmoothingMs: controls.formantSmoothingMs=clampValue(value,5.f,200.f);break;
@@ -2412,6 +2422,8 @@ float lockedValue(const Engine::Controls& controls, float outputGain,
         case LockParameter::textureGroup: return controls.textureGroup;
         case LockParameter::textureSpread: return controls.textureSpread * 100.0f;
         case LockParameter::textureSeed: return controls.textureSeed;
+        case LockParameter::textureRegionMode: return static_cast<float>(controls.textureRegionMode);
+        case LockParameter::textureRegionCount: return controls.textureRegionCount;
         case LockParameter::formantPitch: return controls.formantPitch;
         case LockParameter::formantShift: return controls.formantShift;
         case LockParameter::formantSmoothingMs: return controls.formantSmoothingMs;
@@ -3215,6 +3227,9 @@ struct ThruInstance : PlaybackEffectsState {
     std::size_t sampleCopyFrame = 0u;
     bool sampleRemovalRequested = false;
     std::size_t previewFrame = 0u;
+    std::size_t previewEndFrame = 0u; // Zero means the full decoded source.
+    std::size_t previewEdgeFrames = 0u;
+    double samplePreviewLow = 0.0, samplePreviewHigh = 1.0;
     std::size_t previewFadeFrames = 1u;
     std::size_t voiceStealFadeFrames = 1u;
     std::size_t previewFadeInRemaining = 0u;
@@ -4308,7 +4323,7 @@ struct ThruInstance : PlaybackEffectsState {
     bool decodeLibraryWav(const char* requestedPath, float* destinationLeft,
                           float* destinationRight, std::size_t& decodedFrames,
                           float& decodedRate, char* decodedName,
-                          std::size_t decodedNameSize, s3g_thru::SliceMap* markers = nullptr)
+                          std::size_t decodedNameSize, s3g_thru::SliceMap* markers = nullptr, bool browserPreview = false)
     {
         if(markers)*markers={};
         if (!requestedPath || requestedPath[0] == '\0' || !destinationLeft
@@ -4350,8 +4365,18 @@ struct ThruInstance : PlaybackEffectsState {
                 }
             }
         }
+        bool inBrowserUploads=false;
+        if(browserPreview&&resolvedPath&&!inUserLibrary&&!inModuleLibrary&&!inModuleCaptures){
+            // Derive the upload root from immutable prepare-time paths. The
+            // sample worker must not read the composer's lazily initialized string.
+            const auto directory=std::strncmp(moduleRootDirectory.data(),"/data/",6)
+                ?std::string(moduleRootDirectory.data())+"/composer/uploads"
+                :std::string(kSampleLibraryRoot)+"s3g Thru/Composer/uploads";
+            std::array<char,PATH_MAX> uploads{};
+            if(realpath(directory.c_str(),uploads.data())){const std::string prefix=std::string(uploads.data())+"/";inBrowserUploads=std::strncmp(resolved.data(),prefix.c_str(),prefix.size())==0;}
+        }
         if (!resolvedPath
-            || (!inUserLibrary && !inModuleLibrary && !inModuleCaptures)) {
+            || (!inUserLibrary && !inModuleLibrary && !inModuleCaptures && !inBrowserUploads)) {
             setSampleLoadError("Sample must be in UserLibrary or Thru captures");
             return false;
         }
@@ -4516,7 +4541,7 @@ struct ThruInstance : PlaybackEffectsState {
         const bool loaded = decodeLibraryWav(
             requestedPath, sampleStage.get(),
             sampleStage.get() + laneCapacityFrames, sampleStageFrames,
-            sampleStageRate, sampleLoadedName.data(), sampleLoadedName.size(), &sampleStageFileSlices);
+            sampleStageRate, sampleLoadedName.data(), sampleLoadedName.size(), &sampleStageFileSlices, sampleRequestPreview);
         if (loaded) {
             analyzeRegions(sampleStage.get(),
                            sampleStage.get() + laneCapacityFrames,
@@ -4834,13 +4859,14 @@ struct ThruInstance : PlaybackEffectsState {
         }
         previewStopRequested = true;
         if (previewFadeOutRemaining == 0u) {
-            previewFadeOutRemaining = previewFadeFrames;
+            previewFadeOutRemaining = previewEdgeFrames?previewEdgeFrames:previewFadeFrames;
         }
     }
 
     void requestLibrarySample(int lane, const char* path,
                               bool fromClip = false, int ownerClip = -1,
-                              bool preview = false)
+                              bool preview = false, double previewLow = 0.0,
+                              double previewHigh = 1.0)
     {
         if(partCapturePublishing || partCaptureRecording) {setError("Finish part capture first");return;}
         if (!sampleWorkerReady || lane < 0 || lane >= static_cast<int>(kLaneCount)
@@ -4848,6 +4874,7 @@ struct ThruInstance : PlaybackEffectsState {
             setSampleLoadError("Sample loader is unavailable");
             return;
         }
+        if(preview&&(!std::isfinite(previewLow)||!std::isfinite(previewHigh)||previewLow<0||previewHigh>1||previewLow>=previewHigh)){setError("Invalid preview region");return;}
         const auto prepareState = static_cast<ClipPrepareState>(
             clipPrepareState.load(std::memory_order_acquire));
         if (prepareState == ClipPrepareState::requested
@@ -4900,6 +4927,7 @@ struct ThruInstance : PlaybackEffectsState {
         sampleRequestFromClip = fromClip;
         sampleRequestPreview = preview;
         samplePreviewCancelled = false;
+        samplePreviewLow=previewLow;samplePreviewHigh=previewHigh;
         std::snprintf(sampleRequestPath.data(), sampleRequestPath.size(), "%s", path);
         sampleLoadError[0] = '\0';
         sampleLoadState.store(static_cast<int>(SampleLoadState::requested),
@@ -4966,12 +4994,18 @@ struct ThruInstance : PlaybackEffectsState {
                 std::snprintf(laneSourceLabels[lane].data(),
                               laneSourceLabels[lane].size(), "EMPTY");
                 activeRegions[lane] = {};
+                fileSliceMaps[lane] = {};
                 ++laneRegionRevisions[lane];
                 clearWaveform(lane);
                 continue;
             }
             if (path[0] == '\0') continue;
             if (std::strcmp(path, currentLaneSourcePaths[lane].data()) == 0) {
+                // Cached lane WAVs contain audio only. Restore their saved cue
+                // map when the original source is already considered loaded.
+                if (!fileSliceMaps[lane].count && engine.laneLoaded(lane)
+                    && s3g_thru::validSliceMap(clip.sliceLanes[lane].file))
+                    fileSliceMaps[lane] = clip.sliceLanes[lane].file;
                 currentLaneSourceKinds[lane] = kind;
                 if (label[0] != '\0') {
                     std::snprintf(laneSourceLabels[lane].data(),
@@ -5012,6 +5046,7 @@ struct ThruInstance : PlaybackEffectsState {
         if (state == SampleLoadState::ready) {
             if (audioRecording()) return;
             if (sampleRequestPreview) {
+                if(!sampleStageFrames){setSampleLoadError("Sample contains no audio");return;}
                 if (samplePreviewCancelled) {
                     sampleRequestPreview = false;
                     samplePreviewCancelled = false;
@@ -5021,12 +5056,15 @@ struct ThruInstance : PlaybackEffectsState {
                         std::memory_order_release);
                     return;
                 }
-                previewFrame = 0u;
+                previewFrame=std::min(sampleStageFrames-1u,static_cast<std::size_t>(std::llround(samplePreviewLow*sampleStageFrames)));
+                const auto end=std::max(previewFrame+1u,std::min(sampleStageFrames,static_cast<std::size_t>(std::llround(samplePreviewHigh*sampleStageFrames))));
+                previewEndFrame=end==sampleStageFrames?0u:end;
+                previewEdgeFrames=std::max<std::size_t>(1u,std::min(previewFadeFrames,(end-previewFrame)/2u));
                 const auto owner=static_cast<std::size_t>(sharedDual?splitFocus:isQuad()?sampleRequestLane:sampleRequestLane/2);
                 previewPartGainState=splitEnabled?splitFrameGain[owner].back():1.0f;
                 previewActive = true;
                 previewStopRequested = false;
-                previewFadeInRemaining = previewFadeFrames;
+                previewFadeInRemaining = previewEdgeFrames;
                 previewFadeOutRemaining = 0u;
                 sampleLoadState.store(static_cast<int>(SampleLoadState::previewing),
                                       std::memory_order_release);
@@ -5111,6 +5149,7 @@ struct ThruInstance : PlaybackEffectsState {
             completedRecordingLane(lane);
             partCapturePublishing=false;
         }
+        composerPanelWaveVersion.fetch_add(1,std::memory_order_relaxed);
         sampleLoadState.store(static_cast<int>(SampleLoadState::complete),
                               std::memory_order_release);
     }
@@ -9587,6 +9626,7 @@ struct ThruInstance : PlaybackEffectsState {
                     : effectiveControls(voice,splitEnabled ? partSnapshots[static_cast<std::size_t>(voice.part)] : liveControlSnapshot,
                         splitEnabled ? splitClipControls[static_cast<std::size_t>(voice.part)] : clipControlSnapshot);
                 if(!stealingVoice)prepareSliceVoice(voice,effective);
+                prepareEventRegionViews(effective);
                 prepareLiveVoice(voice,effective);
                 const bool spentReson = voice.bankAsset < 0 && effective.algorithm == Engine::PlaybackAlgorithm::reson
                     && voice.engine.resonNoteFinished();
@@ -9735,8 +9775,10 @@ struct ThruInstance : PlaybackEffectsState {
             for (auto& channel : directPreview) std::fill_n(channel.begin(),count,0.0f);
             mixSynth(count);
             if (previewActive && sampleStageFrames != 0u) {
-                const std::size_t available = previewFrame < sampleStageFrames
-                    ? sampleStageFrames - previewFrame : 0u;
+                const auto previewEnd=previewEndFrame?std::min(previewEndFrame,sampleStageFrames):sampleStageFrames;
+                const auto edge=previewEdgeFrames?previewEdgeFrames:previewFadeFrames;
+                const std::size_t available = previewFrame < previewEnd
+                    ? previewEnd - previewFrame : 0u;
                 const std::size_t previewFrames = std::min(count, available);
                 const float* previewLeft = sampleStage.get();
                 const float* previewRight = sampleStage.get() + laneCapacityFrames;
@@ -9748,23 +9790,23 @@ struct ThruInstance : PlaybackEffectsState {
                     if (previewFadeInRemaining != 0u) {
                         const float phase = 1.0f
                             - static_cast<float>(previewFadeInRemaining)
-                                / static_cast<float>(previewFadeFrames);
+                                / static_cast<float>(edge);
                         fade = std::min(fade,
                             phase * phase * (3.0f - 2.0f * phase));
                         --previewFadeInRemaining;
                     }
                     const std::size_t sourceRemaining
-                        = sampleStageFrames - (previewFrame + frame);
-                    if (sourceRemaining <= previewFadeFrames) {
-                        const float phase = static_cast<float>(sourceRemaining)
-                            / static_cast<float>(previewFadeFrames);
+                        = previewEnd - (previewFrame + frame);
+                    if (sourceRemaining <= edge) {
+                        const float phase = static_cast<float>(sourceRemaining-1u)
+                            / static_cast<float>(edge);
                         fade = std::min(fade,
                             phase * phase * (3.0f - 2.0f * phase));
                     }
                     if (previewFadeOutRemaining != 0u) {
                         const float phase
-                            = static_cast<float>(previewFadeOutRemaining)
-                                / static_cast<float>(previewFadeFrames);
+                            = static_cast<float>(previewFadeOutRemaining-1u)
+                                / static_cast<float>(edge);
                         fade = std::min(fade,
                             phase * phase * (3.0f - 2.0f * phase));
                         --previewFadeOutRemaining;
@@ -9796,7 +9838,7 @@ struct ThruInstance : PlaybackEffectsState {
                     }
                 }
                 previewFrame += previewConsumed;
-                if (previewFrame >= sampleStageFrames || !previewActive) {
+                if (previewFrame >= previewEnd || !previewActive) {
                     previewActive = false;
                     previewStopRequested = false;
                     previewFadeOutRemaining = 0u;
@@ -10014,7 +10056,7 @@ struct ThruInstance : PlaybackEffectsState {
         if (!file) return false;
         const char magic[8] { 'S', '3', 'G', 'T', 'H', 'R', '3', '\0' };
         bool ok = writeBytes(file, magic, sizeof(magic))
-            && writeU32(file, 63u)
+            && writeU32(file, 64u)
             && writeU64(file, snapshot ? snapshot->generation : persistenceGeneration)
             && writeF32(file, snapshot ? snapshot->tempo : tempoBpm)
             && writeF32(file, snapshot ? snapshot->swing : tempoSwing)
@@ -10081,7 +10123,7 @@ struct ThruInstance : PlaybackEffectsState {
             }
         }
         ok = ok && writeSplitExtension(file,savedClips) && writeStackPaths(file,savedClips) && writeChainBanks(file,savedBanks,savedBank) && writeChainPlaybackState(file,snapshot?snapshot->chainPlayBank:chainPlayBank) && writeNewEngineParameters(file,savedClips) && writeVoiceEngineExtension(file,savedClips) && writeVoicePlayExtension(file,savedClips) && writeStochasticParameters(file,savedClips) && writePulsarParameters(file,savedClips) && writePriorityParameters(file,savedClips) && writeBankExtension(file,savedClips) && writeBankPadExtension(file,savedClips) && writeSliceExtension(file,savedClips) && writeLayersExtension(file,savedClips) && writeSequenceExtension(file,savedClips) && writeSequenceMixExtension(file,savedClips) && writeSequenceCycleExtension(file,savedClips) && writeSplitLanePreferences(file,savedClips) && writePulsarSeeds(file,savedClips) && writeSequenceTypes(file,savedClips) && writeSequenceDirections(file,savedClips) && writeSequenceShifts(file,savedClips) && writeSequencePaths(file,savedClips) && writeControlLfos(file,savedClips) && writePooledLfos(file,savedClips) && writeLfoAutoExtension(file,savedClips) && writeTableExtension(file,savedClips) && writeSequenceSoundLocks(file,savedClips) && writeScannedExtension(file,savedClips) && writeScannedHitExtension(file,savedClips) && writeScannedAmpExtension(file,savedClips) && writeFmExtension(file,savedClips) && writeFmExtraExtension(file,savedClips) && writeNoiseExtension(file,savedClips) && writeResonExtension(file,savedClips) && writePartialsExtension(file,savedClips) && writeLowformExtension(file,savedClips) && writeResonDensityExtension(file,savedClips);
-        if(ok)ok=writeTouchExtension(file,savedClips)&&writeSourcePrograms(file,savedClips);
+        if(ok)ok=writeTouchExtension(file,savedClips)&&writeSourcePrograms(file,savedClips)&&writeEventRegionParameters(file,savedClips);
         const bool closed = std::fclose(file) == 0;
         ok = ok && closed && appendFileChecksum(temporary.data());
         if (!ok || (!stageOnly && !replaceFileWithBackup(temporary.data(), path.data()))) {
@@ -10145,7 +10187,7 @@ struct ThruInstance : PlaybackEffectsState {
             && (version == 1u || version == 2u || version == 3u
                 || version == 4u || version == 5u || version == 6u
                 || version == 7u || version == 8u || version == 9u
-                || version == 10u || version == 11u || version == 12u || version == 13u || version == 14u || version==15u || version==16u || version==17u || version==18u || version==19u || version==20u || version==21u || version==22u || version==23u || version==24u || version==25u || version==26u || version==27u || version==28u || version==29u || version==30u || version==31u || version==32u || version==33u || version==34u || version==35u || version==36u || version==37u || version==38u || version==39u || version==40u || version==41u || version==42u || version==43u || version==44u || version==45u || version==46u || version==47u || version==48u || version==49u || version==50u || version==51u || version==52u || version==53u || version==54u || version==55u || version==56u || version==57u || version==58u || version==59u || version==60u || version==61u || version==62u || version==63u)
+                || version == 10u || version == 11u || version == 12u || version == 13u || version == 14u || version==15u || version==16u || version==17u || version==18u || version==19u || version==20u || version==21u || version==22u || version==23u || version==24u || version==25u || version==26u || version==27u || version==28u || version==29u || version==30u || version==31u || version==32u || version==33u || version==34u || version==35u || version==36u || version==37u || version==38u || version==39u || version==40u || version==41u || version==42u || version==43u || version==44u || version==45u || version==46u || version==47u || version==48u || version==49u || version==50u || version==51u || version==52u || version==53u || version==54u || version==55u || version==56u || version==57u || version==58u || version==59u || version==60u || version==61u || version==62u || version==63u || version==64u)
             && readU64(file, generation) && generation != 0u;
         std::fclose(file);
         return ok;
@@ -10182,7 +10224,7 @@ struct ThruInstance : PlaybackEffectsState {
             && (version == 1u || version == 2u || version == 3u
                 || version == 4u || version == 5u || version == 6u
                 || version == 7u || version == 8u || version == 9u
-                || version == 10u || version == 11u || version == 12u || version == 13u || version == 14u || version==15u || version==16u || version==17u || version==18u || version==19u || version==20u || version==21u || version==22u || version==23u || version==24u || version==25u || version==26u || version==27u || version==28u || version==29u || version==30u || version==31u || version==32u || version==33u || version==34u || version==35u || version==36u || version==37u || version==38u || version==39u || version==40u || version==41u || version==42u || version==43u || version==44u || version==45u || version==46u || version==47u || version==48u || version==49u || version==50u || version==51u || version==52u || version==53u || version==54u || version==55u || version==56u || version==57u || version==58u || version==59u || version==60u || version==61u || version==62u || version==63u)
+                || version == 10u || version == 11u || version == 12u || version == 13u || version == 14u || version==15u || version==16u || version==17u || version==18u || version==19u || version==20u || version==21u || version==22u || version==23u || version==24u || version==25u || version==26u || version==27u || version==28u || version==29u || version==30u || version==31u || version==32u || version==33u || version==34u || version==35u || version==36u || version==37u || version==38u || version==39u || version==40u || version==41u || version==42u || version==43u || version==44u || version==45u || version==46u || version==47u || version==48u || version==49u || version==50u || version==51u || version==52u || version==53u || version==54u || version==55u || version==56u || version==57u || version==58u || version==59u || version==60u || version==61u || version==62u || version==63u || version==64u)
             && readU64(file, loadedGeneration)
             && loadedGeneration != 0u
             && (expectedGeneration == kAnyPersistenceGeneration
@@ -10426,6 +10468,7 @@ struct ThruInstance : PlaybackEffectsState {
         if(ok&&version>=61u)ok=readResonDensityExtension(file,*loadedClips);
         if(ok&&version>=62u)ok=readTouchExtension(file,*loadedClips);
         if(ok&&version>=63u)ok=readSourcePrograms(file,*loadedClips);
+        if(ok&&version>=64u)ok=readEventRegionParameters(file,*loadedClips);
         // A legacy automatic policy preserves 1 ms for Transients and zero
         // for Equal independently, including shared lanes used by both parts.
         const bool atEnd = ok && std::ftell(file) == payloadSize;
@@ -11072,7 +11115,7 @@ struct ThruInstance : PlaybackEffectsState {
         if (jsonNumber(json, "cut_lane_advance", value)) controls.cutLaneAdvance = static_cast<Engine::CutLaneAdvance>(clampValue(static_cast<int>(value), 0, 6));
         if (jsonNumber(json, "cut_lane_order", value)) controls.cutLaneOrder = static_cast<Engine::CutLaneOrder>(clampValue(static_cast<int>(value), 0, 6));
         if (jsonNumber(json, "cut_poly_path", value)) controls.cutPolyPath = static_cast<Engine::CutPolyPath>(clampValue(static_cast<int>(value), 0, 3));
-        if (jsonNumber(json, "cut_region_mode", value)) controls.cutRegionMode = static_cast<Engine::RegionMode>(clampValue(static_cast<int>(value), 0, 1));
+        if (jsonNumber(json, "cut_region_mode", value)) controls.cutRegionMode = static_cast<Engine::RegionMode>(clampValue(static_cast<int>(value), 0, 4));
         if (jsonNumber(json, "glitch_mode", value)) controls.glitchMode = static_cast<Engine::GlitchMode>(clampValue(static_cast<int>(value), 0, 4));
         if (jsonNumber(json, "glitch_clock", value)) controls.glitchClock = static_cast<Engine::CutClock>(clampValue(static_cast<int>(value), 0, 1));
         if (jsonNumber(json, "glitch_division", value)) controls.glitchDivision = static_cast<Engine::CutDivision>(clampValue(static_cast<int>(value), 0, 5));
@@ -11371,6 +11414,14 @@ void setParam(void* opaque, const char* key, const char* value)
     CallbackWorkTimer callbackTimer(*instance, false);
     if(handleComposerEdit(*instance,key,value))return;
     if(instance->setComposerParam(key,value))return;
+    // Stopping preview is a transient audio action, including while file tools are busy.
+    if (std::strcmp(key, "preview_stop") == 0) {
+        if (isTruthy(value)) {
+            instance->stopPreviewWithFade();
+        }
+        return;
+    }
+
     if(instance->composerOwned.load(std::memory_order_acquire)&&std::strcmp(key,"panic")&&std::strcmp(key,"all_notes_off")&&std::strcmp(key,"render_profile_enable")&&std::strcmp(key,"shift_held")&&std::strcmp(key,"delete_held")&&!(std::strcmp(key,"clip_playing")==0&&instance->composerPhase.load()==ThruInstance::composerActive))return;
     if(instance->setNamingParam(key,value))return;
     if(instance->namingBusy()&&instance->namingFileControl(key)){instance->setError("Finish file naming first");return;}
@@ -11436,7 +11487,8 @@ void setParam(void* opaque, const char* key, const char* value)
         return;
     }
     if(std::strcmp(key,"performance_cancel")==0) {instance->postPatternCommand(4);instance->cancelPerformanceGestures();return;}
-    if (std::strcmp(key, "maintenance") != 0
+    if (std::strcmp(key, "preview_file") != 0
+        && std::strcmp(key, "maintenance") != 0
         && std::strcmp(key, "undo") != 0
         && std::strcmp(key, "performance_reset") != 0
         && std::strcmp(key, "all_notes_off") != 0
@@ -11463,7 +11515,7 @@ void setParam(void* opaque, const char* key, const char* value)
         return;
     }
     const int engineParameter=lockParameterIndex(key);
-    if(engineParameter>=static_cast<int>(kVersion19LockParameterCount)){const float parsed=std::strcmp(key,"pulsar_window")==0?static_cast<float>(parseEnum(value,kPulsarWindowNames,static_cast<int>(controls.pulsarWindow))):std::strcmp(key,"pulsar_burst")==0?static_cast<float>(parseEnum(value,kPulsarBurstNames,static_cast<int>(controls.pulsarBurst))):std::strcmp(key,"stochastic_law")==0?static_cast<float>(parseEnum(value,kStochasticLawNames,static_cast<int>(controls.stochasticLaw))):std::strcmp(key,"morph_mode")==0?static_cast<float>(parseEnum(value,kMorphModeNames,static_cast<int>(controls.morphMode))):std::strcmp(key,"prism_mode")==0?static_cast<float>(parseEnum(value,kPrismModeNames,static_cast<int>(controls.prismMode))):std::strcmp(key,"texture_mode")==0?static_cast<float>(parseEnum(value,kTextureModeNames,static_cast<int>(controls.textureMode))):parseFloat(value,lockedValue(controls,instance->outputGain,engineParameter));applyLockedValue(controls,instance->outputGain,engineParameter,parsed);return;}
+    if(engineParameter>=static_cast<int>(kVersion19LockParameterCount)){const float parsed=std::strcmp(key,"pulsar_window")==0?static_cast<float>(parseEnum(value,kPulsarWindowNames,static_cast<int>(controls.pulsarWindow))):std::strcmp(key,"pulsar_burst")==0?static_cast<float>(parseEnum(value,kPulsarBurstNames,static_cast<int>(controls.pulsarBurst))):std::strcmp(key,"stochastic_law")==0?static_cast<float>(parseEnum(value,kStochasticLawNames,static_cast<int>(controls.stochasticLaw))):std::strcmp(key,"morph_mode")==0?static_cast<float>(parseEnum(value,kMorphModeNames,static_cast<int>(controls.morphMode))):std::strcmp(key,"prism_mode")==0?static_cast<float>(parseEnum(value,kPrismModeNames,static_cast<int>(controls.prismMode))):std::strcmp(key,"texture_region_mode")==0?static_cast<float>(parseEnum(value,kRegionModeNames,static_cast<int>(controls.textureRegionMode))):std::strcmp(key,"texture_mode")==0?static_cast<float>(parseEnum(value,kTextureModeNames,static_cast<int>(controls.textureMode))):parseFloat(value,lockedValue(controls,instance->outputGain,engineParameter));applyLockedValue(controls,instance->outputGain,engineParameter,parsed);return;}
     if (instance->setSequenceParameter(key,value))return;
     if (std::strcmp(key, "split_mode") == 0) { instance->setPerformanceMode(clampValue(parseInteger(value,0),0,6)); return; }
     if (std::strcmp(key, "split_focus") == 0) { instance->selectSplitPart(parseInteger(value,0)); return; }
@@ -11577,12 +11629,6 @@ void setParam(void* opaque, const char* key, const char* value)
         if (value[0] != '\0') {
             instance->requestLibrarySample(static_cast<int>(instance->selectedLane),
                                            value, false, -1, true);
-        }
-        return;
-    }
-    if (std::strcmp(key, "preview_stop") == 0) {
-        if (isTruthy(value)) {
-            instance->stopPreviewWithFade();
         }
         return;
     }

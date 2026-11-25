@@ -289,6 +289,19 @@
       ]
     },
     {
+      "name": "TEXTURE SOURCE",
+      "keys": [
+        "texture_region_mode",
+        "texture_regions",
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
       "name": "FORMANT",
       "keys": [
         "formant_pitch",
@@ -916,69 +929,70 @@
       20
     ],
     [
-      21
-    ],
-    [
+      21,
       22
     ],
     [
       23
     ],
     [
-      24,
-      25
+      24
     ],
     [
-      26,
-      27
+      25,
+      26
     ],
     [
-      32,
+      27,
+      28
+    ],
+    [
       33,
       34,
-      35
+      35,
+      36
     ],
     [
-      36,
       37,
       38,
-      39
+      39,
+      40
     ],
     [
-      40,
       41,
       42,
-      43
+      43,
+      44
     ],
     [
-      44,
       45,
       46,
-      47
+      47,
+      48
     ],
     [
-      48,
       49,
       50,
-      51
+      51,
+      52
     ],
     [
-      52,
       53,
       54,
-      55
+      55,
+      56
     ]
   ],
   "engine": 1,
   "stack": 2,
-  "extraStart": 56,
-  "color": 60,
-  "rotary": 61,
-  "sends": 62,
-  "quadSends": 63,
-  "delay": 64,
-  "reverb": 65,
-  "tape": 66,
+  "extraStart": 57,
+  "color": 61,
+  "rotary": 62,
+  "sends": 63,
+  "quadSends": 64,
+  "delay": 65,
+  "reverb": 66,
+  "tape": 67,
   "ids": {
     "algorithm": 4,
     "locus": 0,
@@ -1104,6 +1118,8 @@
     "texture_group": 1669,
     "texture_spread": 1670,
     "texture_seed": 1671,
+    "texture_region_mode": 1672,
+    "texture_regions": 1673,
     "formant_pitch": 1792,
     "formant_shift": 1793,
     "formant_smoothing": 1794,
@@ -1880,7 +1896,7 @@
     {
       "id": 911,
       "label": "RSRC",
-      "steps": 1,
+      "steps": 4,
       "scope": "part"
     },
     {
@@ -2301,6 +2317,18 @@
       "id": 1671,
       "label": "SEED",
       "steps": 0,
+      "scope": "part"
+    },
+    {
+      "id": 1672,
+      "label": "RSRC",
+      "steps": 4,
+      "scope": "part"
+    },
+    {
+      "id": 1673,
+      "label": "REGN",
+      "steps": 63,
       "scope": "part"
     },
     {

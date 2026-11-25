@@ -145,7 +145,7 @@ static bool writePriorityParameters(std::FILE* file,
     const std::array<ClipSlot,kClipSlotCount>& clips) {
     if(!writeU32(file,0x44554331u))return false; // DUC1
     for(const auto& clip:clips)for(int group=0;group<5;++group)
-        for(std::size_t p=kVersion30LockParameterCount;p<kLockParameterCount;++p)
+        for(std::size_t p=kVersion30LockParameterCount;p<kVersion31LockParameterCount;++p)
             if(!writeF32(file,(group?clip.splitValues[group-1]:clip.baseValues)[p]))
                 return false;
     return true;
@@ -157,8 +157,34 @@ static bool readPriorityParameters(std::FILE* file,
     if(!readU32(file,magic)||magic!=0x44554331u)return false;
     for(auto& clip:clips)for(int group=0;group<5;++group) {
         auto& values=group?clip.splitValues[group-1]:clip.baseValues;
-        for(std::size_t p=kVersion30LockParameterCount;p<kLockParameterCount;++p)
+        for(std::size_t p=kVersion30LockParameterCount;p<kVersion31LockParameterCount;++p)
             if(!readF32(file,values[p]))return false;
     }
+    return true;
+}
+
+static bool writeEventRegionParameters(std::FILE* file,
+    const std::array<ClipSlot,kClipSlotCount>& clips) {
+    if(!writeU32(file,0x31475245u))return false; // ERG1
+    for(const auto& clip:clips)for(int group=0;group<5;++group)
+        for(std::size_t p=kVersion31LockParameterCount;p<kLockParameterCount;++p) {
+            float value=(group?clip.splitValues[group-1]:clip.baseValues)[p];
+            const float low=p==kVersion31LockParameterCount?0.f:1.f;
+            const float high=p==kVersion31LockParameterCount?4.f:64.f;
+            if(!std::isfinite(value)||value<low||value>high)value=lockedValue(Engine::Controls{},1.f,p);
+            if(!writeF32(file,value))return false;
+        }
+    return true;
+}
+static bool readEventRegionParameters(std::FILE* file,
+    std::array<ClipSlot,kClipSlotCount>& clips) {
+    std::uint32_t magic=0;if(!readU32(file,magic)||magic!=0x31475245u)return false;
+    for(auto& clip:clips)for(int group=0;group<5;++group)
+        for(std::size_t p=kVersion31LockParameterCount;p<kLockParameterCount;++p) {
+            auto& value=(group?clip.splitValues[group-1]:clip.baseValues)[p];
+            if(!readF32(file,value)||value!=std::floor(value)
+                ||value<(p==kVersion31LockParameterCount?0.f:1.f)
+                ||value>(p==kVersion31LockParameterCount?4.f:64.f))return false;
+        }
     return true;
 }

@@ -436,7 +436,20 @@
             "undoable overdubs.",
             "Export .thrupack",
             "to share clips. Use",
-            "Projects for backups."
+            "Projects for backups.",
+            "",
+            "Samples: browse WAVs",
+            "or upload a computer",
+            "WAV into a lane.",
+            "Pick Lane 1-4.",
+            "Audition plays first.",
+            "Upload: choose folder",
+            "with Use this folder.",
+            "WAV markers: edit and",
+            "save a marked copy.",
+            "Audition slice plays",
+            "the selected draft.",
+            "Bank pads: use Move."
           ]
         }
       ]
@@ -789,6 +802,33 @@
             "scales and effects.",
             "Patches and gestures",
             "save with clips."
+          ]
+        },
+        {
+          "title": "Region sources",
+          "lines": [
+            "Cutups: RSRC on",
+            "Cutups Clock.",
+            "Texture: RSRC on",
+            "Texture Source.",
+            "",
+            "FILE uses WAV",
+            "markers. EDIT uses",
+            "this clip and lane's",
+            "edited boundaries.",
+            "AUTO: Edited, File,",
+            "Transients, Equal.",
+            "",
+            "REGN sets equal",
+            "divisions. Markers",
+            "keep file positions",
+            "inside POS / FLD.",
+            "",
+            "New cuts or events",
+            "use changed sources.",
+            "Current ones finish.",
+            "Live input ignores",
+            "loaded-file maps."
           ]
         }
       ]

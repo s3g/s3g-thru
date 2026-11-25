@@ -41,6 +41,20 @@
         for(std::size_t i=0;i<=map.count;++i)map.points[i]=static_cast<float>(i)/map.count;
         return map;
     }
+    void prepareEventRegionViews(Engine::Controls& c) const {
+        c.eventRegions = {};
+        const auto mode = c.algorithm == Engine::PlaybackAlgorithm::cutups ? c.cutRegionMode
+            : c.algorithm == Engine::PlaybackAlgorithm::texture ? c.textureRegionMode : Engine::RegionMode::equal;
+        if(mode==Engine::RegionMode::equal||mode==Engine::RegionMode::transients)return;
+        const auto* clip=activeClipSlot();
+        for(std::size_t lane=0;lane<kLaneCount;++lane) {
+            const s3g_thru::SliceMap* map=nullptr;
+            if((mode==Engine::RegionMode::edited||mode==Engine::RegionMode::automatic)
+                &&clip&&clip->sliceLanes[lane].edited.count)map=&clip->sliceLanes[lane].edited;
+            else if(fileSliceMaps[lane].count)map=&fileSliceMaps[lane];
+            if(map)c.eventRegions[lane]={map->points.data(),map->count,true};
+        }
+    }
     float slicePreRoll(std::size_t lane,int kind) const {
         const auto* clip=activeClipSlot();
         const float value=clip?clip->sliceLanes[lane].preRollMs:-1;

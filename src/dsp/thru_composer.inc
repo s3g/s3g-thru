@@ -11,7 +11,8 @@ enum ComposerPhase {
   composerLoading,
   composerFinished,
   composerActive,
-  composerFailure
+  composerFailure,
+  composerSampleLoading
 };
 struct ComposerTransaction {
   std::unique_ptr<PersistenceSnapshot> original;
@@ -642,7 +643,7 @@ void composerStatus(const std::string &phase, bool ok,
          {"total", composerCopyTotal.load()},
          {"root", composerRoot},
          {"result", composerResult},
-         {"undo", composerUndoReady.load()}, {"panel",composerPanelPath},{"panelVersion",composerPanelPublishedVersion},{"panelError",composerPanelError},{"panelErrorClip",composerPanelErrorClip},{"panelProtocol",2},{"panelBuild","0.34.0"}});
+         {"undo", composerUndoReady.load()}, {"panel",composerPanelPath},{"panelVersion",composerPanelPublishedVersion},{"panelError",composerPanelError},{"panelErrorClip",composerPanelErrorClip},{"panelProtocol",2},{"panelBuild","0.34.1"}});
     for(int attempt=0;attempt<3;++attempt){const auto before=composerLayersSequence.load(std::memory_order_acquire);if(before&1u)continue;const bool active=composerLayersActive.load(),override=composerLayersOverride.load();const int layerPoints=composerLayersPointCount.load();std::array<float,11> values{};for(std::size_t i=0;i<values.size();++i)values[i]=composerLayersPublished[i].load();if(composerLayersSequence.load(std::memory_order_acquire)!=before)continue;
       state["layers"]=composerObject({{"active",active},{"recorded",layerPoints},{"override",override},{"xy",ComposerJson::Array{values[0],values[1]}},{"weights",ComposerJson::Array{values[2],values[3],values[4],values[5]}},{"pressure",values[6]},{"algorithms",ComposerJson::Array{values[7],values[8],values[9],values[10]}}});break;}
     const int history=composerHistoryPublished.load();state["history"]=composerObject({{"undo",bool(history&1)},{"redo",bool(history&2)},{"action",history>>2}});
@@ -656,10 +657,15 @@ void composerStatus(const std::string &phase, bool ok,
       cursors.push(c.load(std::memory_order_acquire));
     state["cursors"] = std::move(cursors);
     for(int attempt=0;attempt<2;++attempt){const auto seq=composerReadoutSequence.load(std::memory_order_acquire);if(seq&1u)continue;auto bindings=ComposerJson::array();for(int i=0;i<composerReadoutCount.load();++i){const auto route=composerReadoutRoutes[i].load();if(route!=0xffffffffu)bindings.push(ComposerJson::Array{ComposerJson(composerReadoutIds[i].load()),ComposerJson(int(route>>24)),ComposerJson(int(route&65535u)),ComposerJson(int((route>>16)&255u))});}auto values=ComposerJson::array();for(int i=0;i<composerReadoutCount.load();++i)if(composerReadoutValid[i].load())values.push(ComposerJson::Array{ComposerJson(composerReadoutIds[i].load()),ComposerJson(composerReadoutValues[i].load())});auto readout=composerObject({{"clip",composerReadoutClip.load()},{"part",composerReadoutPart.load()},{"patch",composerReadoutPatch.load()},{"values",std::move(values)},{"bindings",std::move(bindings)}});if(seq==composerReadoutSequence.load(std::memory_order_acquire)){state["readout"]=std::move(readout);break;}}
-state["sequenceClock"]=composerClockJson();state["emittedAt"]=double(composerClock());
+state["sampleLoad"]=composerObject({{"job",composerSampleJob.load()},{"progress",composerSampleProgress.load()},{"audition",composerSampleAudible.load()}});
+    state["sequenceClock"]=composerClockJson();state["emittedAt"]=double(composerClock());
     state["performance"]=composerPerformancePath;state["performanceVersion"]=composerPerformanceVersion;state["recording"]=bool(composerRecordPublished.load());state["positionMs"]=composerPositionPublished.load();state["noteCount"]=composerNotePublished.load();state["pointCount"]=composerPointPublished.load();state["recordMask"]=composerMaskPublished.load();
+    // A refused sample operation is a local dialog error, not a lost connection.
+    const bool sampleError=!ok&&(composerOperation=="samples"||composerOperation=="sample"||composerOperation=="markers");
+    if(sampleError){state["ok"]=true;state["phase"]="ready";state["message"]="";}
+    s3g_thru_pack::atomicFile(composerRoot + "/status.json", s3g_thru_json::stringify(state));
+    if(sampleError){state["ok"]=false;state["phase"]=phase;state["message"]=message;}
     const auto text = s3g_thru_json::stringify(state);
-    s3g_thru_pack::atomicFile(composerRoot + "/status.json", text);
     if (reply && !composerRequestId.empty())
       s3g_thru_pack::atomicFile(composerRoot + "/replies/" + composerClient +
                                     "-" + composerRequestId + ".json",
@@ -668,6 +674,8 @@ state["sequenceClock"]=composerClockJson();state["emittedAt"]=double(composerClo
     composerIoFailed.store(true, std::memory_order_release);
   }
 }
+#include "thru_composer_samples.inc"
+#include "thru_composer_markers.inc"
 bool processComposerWorker() {
   const int phase = composerPhase.load(std::memory_order_acquire);
   if (phase == composerRequest) {
@@ -726,6 +734,13 @@ bool processComposerWorker() {
         composerUndoReady.store(false);
         composerOwned.store(true, std::memory_order_release);
         composerPhase.store(composerInstall, std::memory_order_release);
+        return true;
+      }
+      if(composerOperation=="samples"||composerOperation=="sample"||composerOperation=="markers"){
+        s3g_thru_pack::need(!std::strcmp(composerPanelOwner.data(),composerClient.c_str()),"sample","Reconnect the live panel before loading samples");
+        const auto request=composerSampleRequest();
+        if(composerOperation=="samples"){composerBrowseSamples(request);composerStatus("ready",true,"Sample folder read",true);composerCompleted[composerCompletedAt++%16]=completed;composerPhase.store(composerOwned.load()?composerActive:composerIdle);}
+        else{ s3g_thru_pack::need(!composerOwned.load(),"sample","finish preview first");s3g_thru_pack::need(tokens[4]==std::to_string(composerLiveRevision.load()),"sample","settings changed; retry loading");if(composerOperation=="markers")composerPrepareMarkers(request);else composerPrepareSample(request); }
         return true;
       }
       s3g_thru_pack::need(
@@ -791,6 +806,11 @@ bool processComposerWorker() {
                           std::memory_order_release);
     }
     return true;
+  }
+  if(phase==composerSampleLoading){
+    const int state=composerSampleJob.load(std::memory_order_acquire);
+    if(state==6){processComposerMarkerWrite();return true;}
+    if(state==3||state==4){cleanupComposerSamplePreview();composerStatus(state==3?"ready":"error",state==3,state==3?(composerSamplePreview?"Audition started":"Sample loaded"):composerSampleError.data(),true);composerCompleted[composerCompletedAt++%16]=composerClient+"-"+composerRequestId;composerSampleJob.store(0);composerPhase.store(composerIdle);return true;}
   }
   if (phase == composerCaptured) {
     try {
@@ -897,6 +917,8 @@ void serviceComposer() {
     composerCancel.store(true);
   }
   const auto now = composerClock();
+  serviceComposerSample();
+  composerSampleAudible.store(previewActive&&sampleRequestPreview,std::memory_order_relaxed);
   if(!composerOwned.load()){serviceComposerWorkspace();captureComposerClock();captureComposerReadouts(*this);captureComposerPanel();captureComposerPerformance();}
   composerLiveRevision.store(persistentRevision, std::memory_order_release);
   composerLiveActive.store(activeClip);

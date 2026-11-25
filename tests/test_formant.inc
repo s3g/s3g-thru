@@ -229,9 +229,9 @@ void testFormantPersistenceAndFormat21() {
     std::strcpy(json.data(), "{}");
     assert(t->appendSplitJson(json.data(), json.size(), 2) > 0);
     std::string text = json.data();
-    auto atCount = text.find("\"split_params_count\":242");
+    auto atCount = text.find("\"split_params_count\":"+std::to_string(kLockParameterCount));
     assert(atCount != std::string::npos);
-    text.replace(atCount, std::strlen("\"split_params_count\":242"), "\"split_params_count\":196");
+    text.replace(atCount, (std::string("\"split_params_count\":")+std::to_string(kLockParameterCount)).size(), "\"split_params_count\":196");
     for (const auto *name : {"split_single", "split_a", "split_b", "split_c", "split_d"}) {
         const auto begin = text.find(std::string("\"") + name + "\":[");
         assert(begin != std::string::npos);

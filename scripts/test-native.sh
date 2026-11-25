@@ -58,6 +58,26 @@ ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 "$t
 "$test_dir/test-release-stability"
 "$cxx_bin" -std=c++17 -O1 -gline-tables-only -Wall -Wextra -Werror -Wno-deprecated-declarations -pthread -DS3G_THRU_HOST_TESTING=1 -fno-omit-frame-pointer -fsanitize=address,undefined -I"$repo_dir/include" "$repo_dir/tests/test_release_stability.cpp" -o "$test_dir/test-release-stability-sanitize"
 ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 "$test_dir/test-release-stability-sanitize"
+# RIFF metadata editing never rewrites or converts the audio payload.
+"$cxx_bin" -std=c++17 -O2 -Wall -Wextra -Werror -I"$repo_dir/include" "$repo_dir/tests/test_wave_markers.cpp" -o "$test_dir/test-wave-markers"
+"$test_dir/test-wave-markers"
+"$cxx_bin" -std=c++17 -O1 -gline-tables-only -fno-omit-frame-pointer -fsanitize=address,undefined -Wall -Wextra -Werror -I"$repo_dir/include" "$repo_dir/tests/test_wave_markers.cpp" -o "$test_dir/test-wave-markers-sanitize"
+ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 "$test_dir/test-wave-markers-sanitize"
+node "$repo_dir/tests/test_wave_markers.mjs"
+
+# Library/upload loading uses the native decoder, lane handoff and retained clip data.
+"$cxx_bin" -std=c++17 -O2 -Wall -Wextra -Werror -Wno-deprecated-declarations -pthread -DS3G_THRU_HOST_TESTING=1 -I"$repo_dir/include" "$repo_dir/tests/test_browser_samples.cpp" -o "$test_dir/test-browser-samples"
+"$test_dir/test-browser-samples"
+"$cxx_bin" -std=c++17 -O1 -gline-tables-only -Wall -Wextra -Werror -Wno-deprecated-declarations -pthread -DS3G_THRU_HOST_TESTING=1 -fno-omit-frame-pointer -fsanitize=address,undefined -I"$repo_dir/include" "$repo_dir/tests/test_browser_samples.cpp" -o "$test_dir/test-browser-samples-sanitize"
+ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 "$test_dir/test-browser-samples-sanitize"
+node "$repo_dir/tests/test_browser_samples.mjs"
+
+# Authored marker regions share the existing event readers and fixed persistence layout.
+"$cxx_bin" -std=c++17 -O2 -Wall -Wextra -Werror -Wno-deprecated-declarations -pthread -DS3G_THRU_HOST_TESTING=1 -I"$repo_dir/include" "$repo_dir/tests/test_region_sources.cpp" -o "$test_dir/test-region-sources"
+"$test_dir/test-region-sources"
+"$cxx_bin" -std=c++17 -O1 -gline-tables-only -fno-omit-frame-pointer -fsanitize=address,undefined -Wall -Wextra -Werror -Wno-deprecated-declarations -pthread -DS3G_THRU_HOST_TESTING=1 -I"$repo_dir/include" "$repo_dir/tests/test_region_sources.cpp" -o "$test_dir/test-region-sources-sanitize"
+ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 "$test_dir/test-region-sources-sanitize"
+
 # Clip timeline/recording uses the actual serialized Move control and audio paths.
 "$cxx_bin" -std=c++17 -O2 -Wall -Wextra -Werror -Wno-deprecated-declarations -pthread -DS3G_THRU_HOST_TESTING=1 -I"$repo_dir/include" "$repo_dir/tests/test_workspace.cpp" -o "$test_dir/test-workspace"
 "$test_dir/test-workspace"

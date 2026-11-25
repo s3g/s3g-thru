@@ -2182,13 +2182,16 @@
       "type": "enum",
       "options": [
         "Equal",
-        "Transients"
+        "Transients",
+        "File",
+        "Edited",
+        "Auto"
       ],
       "default": 0,
       "scope": "part",
       "group": "Cutups",
       "min": 0,
-      "max": 1,
+      "max": 4,
       "integer": true,
       "action": false,
       "id": 911
@@ -14821,6 +14824,41 @@
       "default": 0,
       "integer": true,
       "action": true
+    },
+    {
+      "id": 1672,
+      "key": "texture_region_mode",
+      "name": "Texture Region Source",
+      "short_name": "RSRC",
+      "type": "enum",
+      "default": 1,
+      "scope": "part",
+      "group": "Texture Source",
+      "min": 0,
+      "max": 4,
+      "integer": true,
+      "action": false,
+      "options": [
+        "Equal",
+        "Transients",
+        "File",
+        "Edited",
+        "Auto"
+      ]
+    },
+    {
+      "id": 1673,
+      "key": "texture_regions",
+      "name": "Texture Regions",
+      "short_name": "REGN",
+      "type": "int",
+      "default": 16,
+      "scope": "part",
+      "group": "Texture Source",
+      "min": 1,
+      "max": 64,
+      "integer": true,
+      "action": false
     }
   ],
   "reserved_ids": [

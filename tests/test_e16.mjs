@@ -52,11 +52,13 @@ assert.equal(jumpView.cells[15].label,'BACK');assert.equal(jumpView.cells[12],nu
 console.log('s3g Thru Remote A/B values, physical units and mode views: PASS');
 
 const encode=(key,value)=>{const x=p(key),ratio=x.curve==='log'?Math.log(value/x.min)/Math.log(x.max/x.min):(value-x.min)/(x.max-x.min);return [x,Math.round(ratio*16383)];};
+const layout=JSON.parse(read('controllers/oxi-e16/adaptive-layout.json'));
+const row=name=>layout.rows.findIndex(r=>r.name===name)+1;
 const cell=(index,key,value,part)=>{const[x,raw]=encode(key,value);return [index,raw,x.id,part,x.integer&&x.max-x.min<=127?x.max-x.min:0,x.max];};
-view=viewContext.globalThis.view({...snapshot,page:2,rows:[22,6],values:[cell(0,'formant_pitch',0,0),cell(8,'grain_mode',2,1),cell(9,'grain_size',500,1)]});
+view=viewContext.globalThis.view({...snapshot,page:2,rows:[row('FORMANT'),row('GRAINS MAIN')],values:[cell(0,'formant_pitch',0,0),cell(8,'grain_mode',2,1),cell(9,'grain_size',500,1)]});
 assert(view.title.includes('A:FORMANT')&&view.title.includes('B:GRAINS MA'));assert.equal(view.cells[8].text,'CLOUD');assert.equal(view.cells[9].text,'500MS');
 view=viewContext.globalThis.view({...snapshot,page:3,rows:[0,7],values:[cell(8,'grain_spray',.5,1)]});assert(view.cells[0].reserved&&view.title.includes('A:---'));
-view=viewContext.globalThis.view({...snapshot,page:9,shared:1,rows:[34,0],values:[cell(0,'effect_delay',250,-1),cell(7,'effect_mix',25,-1)]});
+view=viewContext.globalThis.view({...snapshot,page:9,shared:1,rows:[row('DELAY RETURN'),0],values:[cell(0,'effect_delay',250,-1),cell(7,'effect_mix',25,-1)]});
 assert.equal(view.title,'10/12 DELAY');assert.equal(view.cells[7].text,'25%');assert.equal(view.cells[0].text,'250MS');assert.equal(view.cells[8],null);assert.equal(view.cells[7].family,4);
 view=viewContext.globalThis.view({...snapshot,page:7,shift:1,values:[]});assert.equal(view.title,'TURN1 8/12 COLOR');
 assert.equal(viewContext.globalThis.value(p('effect_tape_format'),2),'1/2"');
@@ -68,7 +70,6 @@ assert.equal(viewContext.globalThis.value(p('stochastic_evolution'),1024),'CYC')
 assert.equal(viewContext.globalThis.value(p('fm_end1'),-1),'AUTO');
 assert.equal(viewContext.globalThis.value(p('fm_decay2'),0),'LINK');
 assert.equal(viewContext.globalThis.value(p('effect_mix'),25),'25%','Actual percentages must not be multiplied by 100');
-const layout=JSON.parse(read('controllers/oxi-e16/adaptive-layout.json'));
 for(const x of registry.parameters.filter(x=>layout.meta.some(m=>m.id===x.id)))for(const value of [x.min,x.max]){
  const text=viewContext.globalThis.value(x,value);assert(typeof text==='string'&&text.length>0&&!/NaN|undefined/.test(text),x.key);
 }

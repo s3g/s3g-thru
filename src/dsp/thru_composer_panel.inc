@@ -27,6 +27,7 @@ std::array<std::size_t,4> composerPanelFrames{};
 std::array<float,4> composerPanelRates{};
 std::atomic<std::uint64_t> composerPanelWaveVersion{0};
 std::uint64_t composerPanelCapturedWaveVersion=0;
+std::array<s3g_thru::SliceMap,4> composerPanelDetected;
 void captureComposerPanel() {
   if(composerPanelJob.load(std::memory_order_acquire)!=1||!composerPanelClip)return;
   auto& c=*composerPanelClip;
@@ -36,9 +37,12 @@ void captureComposerPanel() {
   for(int i=0;i<64;++i){composerPanelOccupied[i]=clipSlots[i].occupied;composerPanelNames[i]=clipSlots[i].name;composerPanelModes[i]=composerMode(clipSlots[i]);}
   captureSplitClip(c);c.layers=layersLive;composerPanelFxCorner=layersSelectedCorner[1];
   composerPanelMinimum=waveMinimum;composerPanelMaximum=waveMaximum;composerPanelCapturedWaveVersion=composerPanelWaveVersion.load();
-  for(int i=0;i<4;++i){composerPanelFrames[i]=engine.laneFrames(i);composerPanelRates[i]=engine.laneSampleRate(i);}
+  for(int i=0;i<4;++i){composerPanelFrames[i]=engine.laneFrames(i);composerPanelRates[i]=engine.laneSampleRate(i);
+    auto& map=composerPanelDetected[i];map.count=std::uint32_t(std::min<std::size_t>(activeRegions[i].count,64));map.points=activeRegions[i].onsets;if(!s3g_thru::validSliceMap(map))map.points=activeRegions[i].boundaries;}
+
   c.laneSourcePaths=currentLaneSourcePaths;c.laneSourceKinds=currentLaneSourceKinds;c.laneSourceLabels=laneSourceLabels;
   if(const auto* source=activeClipSlot()){
+    c.sliceLanes=source->sliceLanes;for(int l=0;l<4;++l)c.sliceLanes[l].file=fileSliceMaps[l];
     c.name=source->name;c.clipDurationMs=source->clipDurationMs;c.recordedTempoBpm=source->recordedTempoBpm;c.recordedBeats=source->recordedBeats;
     c.clipRate=source->clipRate;c.timingMode=source->timingMode;c.takeCount=source->takeCount;c.clipRecorded=source->clipRecorded;c.occupied=source->occupied;
   }
@@ -97,8 +101,10 @@ void publishComposerPanel() {
       core["parts"].arrayValue()[part]["parameters"][p.key]=std::clamp(double(*value),composerBoundary(p.minimum),composerBoundary(p.maximum));
   }
   s3g_thru_pack::validate(doc);
-  auto frame=composerObject({{"editSequence",double(composerPanelEditVersion)},{"protocol",2},{"build","0.34.0"},{"focus",composerPanelFocus},{"epoch",composerEpoch},{"client",composerPanelSnapshotOwner.data()},{"revision",std::to_string(composerPanelRevision)},
+  auto frame=composerObject({{"editSequence",double(composerPanelEditVersion)},{"protocol",2},{"build","0.34.1"},{"focus",composerPanelFocus},{"epoch",composerEpoch},{"client",composerPanelSnapshotOwner.data()},{"revision",std::to_string(composerPanelRevision)},
       {"activeClip",composerPanelActive},{"settings",std::move(settings)},{"waveVersion",double(composerPanelCapturedWaveVersion)},{"patch",composerPanelSelectedLane},{"patches",std::move(patches)},{"document",std::move(doc)}});
+  const auto markerRows=[&](const s3g_thru::SliceMap& map){auto rows=ComposerJson::array();if(!s3g_thru::validSliceMap(map))return rows;for(std::size_t i=0;i<=map.count&&map.count;++i)if(map.points[i]<1)rows.push(composerObject({{"position",map.points[i]},{"label",i<map.count?map.labels[i].data():""}}));return rows;};
+  auto markerMaps=ComposerJson::array();for(int l=0;l<4;++l)markerMaps.push(composerObject({{"file",markerRows(c.sliceLanes[l].file)},{"edited",markerRows(c.sliceLanes[l].edited)},{"transients",markerRows(composerPanelDetected[l])}}));frame["sampleMarkers"]=std::move(markerMaps);
   auto occupied=ComposerJson::array();for(bool yes:composerPanelOccupied)occupied.push(yes);frame["occupied"]=std::move(occupied);
   auto clips=ComposerJson::array();for(int i=0;i<64;++i)clips.push(composerObject({{"slot",i},{"name",composerPanelNames[i].data()},{"mode",s3g_thru_pack::modes[composerPanelModes[i]]},{"occupied",composerPanelOccupied[i]}}));frame["clips"]=std::move(clips);
   composerPanelPath=composerRoot+"/panel-"+composerPanelSnapshotOwner.data()+".json";

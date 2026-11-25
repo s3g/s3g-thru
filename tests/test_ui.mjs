@@ -318,8 +318,8 @@ assert.equal(typeof globalThis.init, 'function');
 assert.equal(typeof globalThis.tick, 'function');
 assert.equal(typeof globalThis.onMidiMessageInternal, 'function');
 assert.equal(typeof globalThis.onUnload, 'function');
-for(const [algorithm,title] of [[9,'PRISM'],[10,'MORPH'],[11,'TEXTURE'],[12,'FORMANT'],[13,'STOCHASTIC'],[14,'PULSAR']])assert.deepEqual(globalThis.__testPlaybackPageTitles[algorithm],algorithm===14?['STACK PATH',title,'PULSAR MOD']:['STACK PATH',title]);
-for(const key of ['prism_mode','prism_blur','prism_decay','prism_pitch','prism_tilt','prism_smear','morph_amplitude','morph_frequency','morph_offset','morph_blur','morph_pitch','texture_mode','texture_rate','texture_length','texture_scatter','texture_range','texture_group','texture_spread','texture_seed','formant_pitch','formant_shift','formant_smoothing'])assert(globalThis.__testLockableParams.includes(key));
+for(const [algorithm,title] of [[9,'PRISM'],[10,'MORPH'],[11,'TEXTURE'],[12,'FORMANT'],[13,'STOCHASTIC'],[14,'PULSAR']])assert.deepEqual(globalThis.__testPlaybackPageTitles[algorithm],algorithm===14?['STACK PATH',title,'PULSAR MOD']:algorithm===11?['STACK PATH',title,'TEXTURE SOURCE']:['STACK PATH',title]);
+for(const key of ['prism_mode','prism_blur','prism_decay','prism_pitch','prism_tilt','prism_smear','morph_amplitude','morph_frequency','morph_offset','morph_blur','morph_pitch','texture_mode','texture_rate','texture_length','texture_scatter','texture_range','texture_group','texture_spread','texture_seed','texture_region_mode','texture_regions','formant_pitch','formant_shift','formant_smoothing'])assert(globalThis.__testLockableParams.includes(key));
 {
     const state=globalThis.__testFx.state(),prior=state.algorithm;state.algorithm=9;
     globalThis.__testParams.prism_mode.value=0;assert.equal(globalThis.__testSplit.pages().find(p=>p.title==='PRISM').keys[2],null);

@@ -792,6 +792,18 @@
     "target": 194
   },
   {
+    "id": 1672,
+    "key": "texture_region_mode",
+    "scope": "voice",
+    "target": 242
+  },
+  {
+    "id": 1673,
+    "key": "texture_regions",
+    "scope": "voice",
+    "target": 243
+  },
+  {
     "id": 1792,
     "key": "formant_pitch",
     "scope": "voice",

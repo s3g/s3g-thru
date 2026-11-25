@@ -53,9 +53,20 @@
             <tr><td>5</td><td>TVAR</td><td>0.00–1.00</td><td>Randomizes every interval around its clock value. At 1.00 the variation reaches approximately ±90%.</td></tr>
             <tr><td>6</td><td>GATE</td><td>5–100%</td><td>Audible duration as a percentage of the current interval.</td></tr>
             <tr><td>7</td><td>JOIN</td><td>0–100 ms</td><td>Fade-in/out and overlap between consecutive cuts, automatically limited to half of the audible GATE duration. At 100% Gate, outgoing cuts overlap the next cut during Join; shorter gates fade to silence before ending. Zero retains a short internal safety transition.</td></tr>
-            <tr><td>8</td><td>RSRC</td><td>Equal / Transients</td><td>Equal divides Field by Regions. Transients uses the selected lane's detected boundaries and falls back to equal regions if no map is available.</td></tr>
+            <tr><td>8</td><td>RSRC</td><td>Equal / Transients / File / Edited / Auto</td><td>Region source: Equal divides Field by Regions. Transients retains the detected cuts. File uses embedded WAV markers. Edited prefers this clip and lane’s edited map; Auto follows the same available-map order. See below for fallbacks.</td></tr>
           </tbody>
         </table>
+
+        <h3 id="region-source">Choose a region source</h3>
+        <p>On Cutups Clock, set <strong>RSRC</strong> to <strong>FILE</strong> to rearrange the marked regions of a WAV. Forward, Reverse, Palindrome, Random, Shuffle and Walk still choose the cut order; REPT, REV%, pitch variation, Gate and Join continue shaping each cut. Each lane uses its own map.</p>
+        <table class="readout-table parameter-table"><thead><tr><th>Display</th><th>What it controls</th></tr></thead><tbody>
+          <tr><td>EQUAL</td><td>REGN equal divisions of the current Field. This is the default.</td></tr>
+          <tr><td>TRANS</td><td>Detected transient regions, with equal regions as fallback. Retains the existing Field-relative behavior.</td></tr>
+          <tr><td>FILE</td><td>Embedded WAV markers, falling back to REGN equal divisions when none are available.</td></tr>
+          <tr><td>EDIT</td><td>This clip and lane’s Edited map, then File, then Transients, then Equal.</td></tr>
+          <tr><td>AUTO</td><td>Edited, File, Transients, then Equal.</td></tr>
+        </tbody></table>
+        <p>File and Edited boundaries stay at their actual positions in the sample. POS / FLD restrict playback to the part of those regions inside the window. Source changes apply when the next cut launches; an outgoing cut retains its captured bounds and Join fade. Edit file markers with the <a href="composer.html#wav-markers">browser WAV marker editor</a>, or make a clip-specific map in <a href="engine-slices.html#slice-source">Slice Edit</a>. To create one on Move, select the Slices engine, edit its map, then return to Cutups and choose EDIT.</p>
 
         <h2 id="path">Cutups Path — every parameter</h2>
         <table class="readout-table parameter-table">

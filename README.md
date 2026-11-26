@@ -30,9 +30,9 @@ press **Step 2** for Global Settings. **Shift + main encoder click** opens its
 section picker: choose **System → Help → Modules → s3g Thru**. Inside Thru,
 **Shift + Menu** opens the diagnostic reports and shortcut reminder.
 
-Version 0.34.1 corrects saved marker recall and browser sample editing, with
-sample loading, slice audition and marker tools in the live panel. See the
-[release notes](release-notes/RELEASE_NOTES_0.34.1.md).
+Version 0.34.2 adds numbered slice locks in Sequence, a browser mode selector
+and step toggling that retains parameter locks. See the
+[release notes](release-notes/RELEASE_NOTES_0.34.2.md).
 Use the manual's [Projects guide](https://s3g.github.io/s3g-thru/projects.html)
 for backup and restore.
 

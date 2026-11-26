@@ -31,6 +31,7 @@ bool e16RemoteLive(ThruInstance& t) {
 
 float midiMaximum(const ThruInstance& t,const MidiParameter& p,int part=-1) {
     const int owner=clampValue(part<0?t.splitFocus:part,0,3);
+    if(p.id==s3g_thru_sequence::sliceLockId)return float(std::max(1,t.sequenceSliceSelection(owner,owner==t.splitFocus?t.sequenceStep:t.sequenceSteps[owner],owner==t.splitFocus?t.sequenceChild:t.sequenceChildren[owner],t.sequenceRunning()?t.sequencePlayback:t.sequenceLive).count));
     if(std::strcmp(p.key,"manual_lane")==0)return t.isQuad()?1.0f:t.splitEnabled&&!t.sharedDual?2.0f:4.0f;
     if(std::strcmp(p.key,"cue_trigger")==0 || std::strcmp(p.key,"cue_clear")==0)return t.splitEnabled?static_cast<float>(t.cuesPerPart()-1):7.0f;
     if(std::strcmp(p.key,"record_source")==0)return t.splitEnabled?(t.isQuad()?5.0f:3.0f):1.0f;

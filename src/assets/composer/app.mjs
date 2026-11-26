@@ -1,7 +1,8 @@
+import {sequenceSliceMap,sequenceSliceSelection} from './sequence-slices.mjs';
 import {WaveMarkers} from './wave-markers.mjs';
 import {SamplePicker} from './sample-picker.mjs';
 import {MoveConnection,PANEL_PROTOCOL,PANEL_BUILD} from './protocol.mjs';
-import {LiveEdits,validatePanelFrame,panelSequenceValues,TRIG_FIELDS,trigAt,trigLocks,trigValues,lockBinding,lockState,setLocalTrigValue,panelEntryTokens} from './live.mjs';
+import {LiveEdits,validatePanelFrame,panelSequenceValues,TRIG_FIELDS,trigAt,trigLocks,trigValues,lockBinding,lockState,setLocalTrigValue,panelEntryTokens,MODE_OPTIONS,stepClickValue} from './live.mjs';
 import {PANEL_PARAMETERS,PARAMETERS} from './catalog.mjs';
 import {ClipWorkspace} from './workspace.mjs';
 import {StepClock} from './clock.mjs';
@@ -12,6 +13,7 @@ const $=id=>document.getElementById(id),meta=new Map(PANEL_PARAMETERS.map(p=>[p.
 meta.set('root_note',{key:'root_note',scope:'part',name:'Root note',min:24,max:96,initial:60,integer:true});
 const sound=new Set(PARAMETERS.map(p=>p.key)),extras=new Set(['root_note','scale','pad_mode','voice_mode','hold_release_ms']);
 const groups=[['play','Play / Engine'],['sample','Sample'],['fx','Mix / FX'],['performance','Performance']];
+for(const mode of MODE_OPTIONS){const option=document.createElement('option');option.value=mode.value;option.textContent=mode.label;$('mode').append(option);}
 const engines=['motion','lanes','grains','cutups','sample','slices','glitch','weave','wavesets','prism','morph','texture','formant','stochastic','pulsar','table','scanned','fm','noise','reson','partials','lowform'];
 let connection,edits,frame,version='',loading=false,linked=false,lastStatus=0,minimumRevision=0n,signature='',generation=0,observedClip=null;
 let editNotice='';
@@ -23,16 +25,17 @@ const samplePicker=new SamplePicker({frame:()=>frame,linked:()=>linked,connectio
 $('sample-open').onclick=()=>samplePicker.open();
 const sampleRoot=nodeSampleRoot();
 function nodeSampleRoot(){const overview=document.createElement('div');overview.id='source-overview';const e=document.createElement('section');e.id='sample-editor';overview.append(e);document.getElementById('editor-tabs').before(overview);return e;}
-const sampleView=new SampleView(sampleRoot,{begin:key=>{if(!frame)return;const p=meta.get(key);if(!hasStep())workspace.beginControl(p);workspace.touch(p,true);editing.add(key);},end:key=>{editing.delete(key);if(frame)workspace.touch(meta.get(key),false);},change:(key,value)=>{send(key,value);updateSampleView();},clear:()=>send('locus',valueFor('locus'),true),select:step=>selectStep(frame.focus,step),markers:()=>waveMarkers.open()});
+const sampleView=new SampleView(sampleRoot,{begin:key=>{if(!frame)return;const p=meta.get(key);if(!hasStep())workspace.beginControl(p);workspace.touch(p,true);editing.add(key);},end:key=>{editing.delete(key);if(frame)workspace.touch(meta.get(key),false);},change:(key,value)=>{send(key,value);updateSampleView();},clear:()=>{const key=hasStep()&&clip().parts[frame.focus].engine==='slices'?'seq_slice':'locus';send(key,valueFor(key),true);},select:step=>selectStep(frame.focus,step),markers:()=>waveMarkers.open()});
 const waveMarkers=new WaveMarkers({frame:()=>frame,linked:()=>linked,connection:()=>connection,pending:()=>!!edits?.pending,recording:()=>workspace.recording,folder:()=>samplePicker.uploadFolder,exclusive:value=>{workspaceExclusive=value;enable();},message,relink:()=>{version='';workspace.version='';clearSelection();}});
 const layersRoot=document.createElement('section');layersRoot.id='layers-browser';sampleRoot.after(layersRoot);let layersTelemetry=null;
 const layersView=new LayersView(layersRoot,{change:(x,y)=>{if(!linked)return;send('layers_fx_x',x);send('layers_fx_y',y);},corner:corner=>{send('layers_corner',corner);activateMenuSection('panel-fx');setPaneView('controls');},live:()=>{workspace.setCursorWriting(false);updateSampleView();}});
 function updateLayersView(){if(!frame)return;const active=clip().mode==='layers',current=layersTelemetry?.active?layersTelemetry:null;document.getElementById('source-overview').classList.toggle('has-layers',active);layersView.update({active,cursorWriting:workspace.cursorWriting,reason:!linked?'Not linked':workspaceExclusive?'Working…':'Points at cursor',stamp:editStamp(),enabled:linked&&!workspaceExclusive&&!!connection?.connected&&!workspace.cursorWriting&&!hasStep(),recording:workspace.recording,captureParameters:!!((workspace.captureMask??3)&2),playing:workspace.playing,x:baseValue('layers_fx_x'),y:baseValue('layers_fx_y'),audible:current?.xy,weights:current?.weights,algorithms:current?.algorithms,recorded:current?.recorded,override:current?.override});}
 function updateSampleView(){if(!frame)return;updateLayersView();const c=clip(),source=sampleSource(frame),engine=c.parts[frame.focus].engine,live=['grains','weave','cutups','glitch','pulsar','texture'].includes(engine)&&baseValue('live_source')>0,available=[...controls.values()].some(control=>control.key==='locus'&&control.input.dataset.unavailable!=='true'),step=hasStep()?selectedStep:-1,t=step>=0?selectedTrig():null,binding=hasStep()?lockBinding('locus',frame.focus):null,locked=!!t&&lockState(t,selectedChild,binding).own;
- const target=`${'ABCD'[frame.focus]} · LANE ${source.lane+1} · `+(step>=0?`STEP ${step+1}${selectedChild?' / HIT '+selectedChild:''} · POS ${locked?'LOCK':'INHERITED'}`:workspace.cursorWriting?'POS AUTOMATION · @ '+workspace.toDisplay(workspace.cursorMs)+' '+workspace.unit():'POS / FIELD · LIVE');
- const markers=c.sequence?.tracks[frame.focus].trigs.filter(t=>t.enabled&&t.step!==step).map(t=>({step:t.step,position:t.locks?.position??c.sequence.tracks[frame.focus].defaults.position??c.parts[frame.focus].parameters.locus??.5}))||[];
+ const slice=step>=0?sequenceSliceSelection(sliceEditorFrame(),frame.focus,step,selectedChild):null;
+ const target=`${'ABCD'[frame.focus]} · LANE ${source.lane+1} · `+(step>=0?`STEP ${step+1}${selectedChild?' / HIT '+selectedChild:''} · ${slice?'SLIC':'POS'} ${(slice?slice.own:locked)?'LOCK':'INHERITED'}`:workspace.cursorWriting?'POS AUTOMATION · @ '+workspace.toDisplay(workspace.cursorMs)+' '+workspace.unit():'POS / FIELD · LIVE');
+ const markers=c.sequence?.tracks[frame.focus].trigs.filter(t=>t.enabled&&t.step!==step).map(t=>({step:t.step,position:sequenceSliceSelection(sliceEditorFrame(),frame.focus,t.step)?.start??t.locks?.position??c.sequence.tracks[frame.focus].defaults.position??c.parts[frame.focus].parameters.locus??.5}))||[];
  waveMarkers.observe();
- sampleView.update({...source,fileMarkers:frame.sampleMarkers?.[source.lane]?.file||[],markerEnabled:linked&&!workspaceExclusive&&!live&&!!source.asset?.frames,visible:!!source.asset||(!['table','scanned','fm','noise','reson','partials','lowform'].includes(engine)&&!live),enabled:linked&&!workspaceExclusive&&!!connection?.connected&&available&&!live,reason:live?'Live Memory source — edit its memory window':!available?'POS is unavailable for this engine or editing target':undefined,stamp:editStamp()+':'+(source.asset?.id||'')+':'+(source.asset?.frames||0),pos:valueFor('locus'),field:valueFor('field'),target,locked,markers});
+ sampleView.update({...source,slice,fileMarkers:frame.sampleMarkers?.[source.lane]?.file||[],markerEnabled:linked&&!workspaceExclusive&&!live&&!!source.asset?.frames,visible:!!source.asset||(!['table','scanned','fm','noise','reson','partials','lowform'].includes(engine)&&!live),enabled:linked&&!workspaceExclusive&&!!connection?.connected&&(available||!!slice)&&!live,reason:live?'Live Memory source — edit its memory window':!available&&!slice?'POS is unavailable for this engine or editing target':undefined,stamp:editStamp()+':'+(source.asset?.id||'')+':'+(source.asset?.frames||0),pos:slice?.start??valueFor('locus'),field:valueFor('field'),target,locked:slice?slice.own:locked,markers});
 }
 const playbackValues=new Map();let watchSignature='';
 const pendingValues=new Map();
@@ -43,9 +46,9 @@ const selectedTrig=()=>trigAt(clip(),frame.focus,selectedStep);
 const node=(tag,text,cls)=>{const e=document.createElement(tag);if(text!==undefined)e.textContent=text;if(cls)e.className=cls;return e;};
 function message(text,error=false){$('panel-message').textContent=text;$('panel-message').dataset.error=String(error);}
 function link(text,state='waiting'){$('connection-status').textContent=text;$('connection-status').dataset.state=state;}
-function enable(){const disabled=workspaceExclusive||!linked||!connection?.connected;for(const e of document.querySelectorAll('main input,main select,main button,#part,#patch,#play,#stop,#sample-open'))e.disabled=e.dataset.offline==='true'?false:disabled||e.dataset.unavailable==='true';if(frame)updateSampleView();}
+function enable(){const disabled=workspaceExclusive||!linked||!connection?.connected;for(const e of document.querySelectorAll('main input,main select,main button,#part,#patch,#mode,#play,#stop,#sample-open'))e.disabled=e.dataset.offline==='true'?false:disabled||e.dataset.unavailable==='true';if(frame)updateSampleView();}
 function fail(text){linked=false;version='';link('Not linked','error');message(text,true);enable();}
-function supported(key){return sound.has(key)||extras.has(key)||!!frame?.settings[frame.focus]&&Object.hasOwn(frame.settings[frame.focus],key)||(frame?.document.clips[0].sequence&&Object.hasOwn(panelSequenceValues(clip(),frame.focus),key))||(hasStep()&&(key in TRIG_FIELDS||key==='seq_child'))||key==='tempo_bpm';}
+function supported(key){return sound.has(key)||extras.has(key)||!!frame?.settings[frame.focus]&&Object.hasOwn(frame.settings[frame.focus],key)||(frame?.document.clips[0].sequence&&Object.hasOwn(panelSequenceValues(clip(),frame.focus),key))||(hasStep()&&(key in TRIG_FIELDS||key==='seq_child'||key==='seq_slice'))||key==='tempo_bpm';}
 function baseValue(key){const c=clip(),part=c.parts[frame.focus],p=meta.get(key);
  if(pendingValues.has(key))return pendingValues.get(key);
  if(playbackValues.has(key))return playbackValues.get(key);
@@ -55,7 +58,13 @@ function baseValue(key){const c=clip(),part=c.parts[frame.focus],p=meta.get(key)
  const seq=panelSequenceValues(c,frame.focus);if(Object.hasOwn(seq,key))return seq[key];
  return (p.scope==='part'?part.parameters:c.parameters)?.[key]??frame.settings[frame.focus]?.[key]??p.initial;
 }
+function sliceEditorFrame(){
+ if(!frame)return frame;const current=clip(),part=frame.focus,parameters={...current.parts[part].parameters};
+ for(const key of ['slice_region_mode','slice_regions','locus','field'])parameters[key]=baseValue(key);
+ return {...frame,document:{...frame.document,clips:[{...current,parts:current.parts.map((p,i)=>i===part?{...p,parameters}:p)}]}};
+}
 function valueFor(key){
+ if(hasStep()&&key==='seq_slice')return sequenceSliceSelection(sliceEditorFrame(),frame.focus,selectedStep,selectedChild)?.number??1;
  if(hasStep()){
   const t=selectedTrig(),values=trigValues(clip(),frame.focus,selectedStep,selectedChild);if(Object.hasOwn(values,key))return values[key];
   const binding=lockBinding(key,frame.focus),own=trigLocks(t,selectedChild),parent=t.locks||{};
@@ -101,12 +110,12 @@ function updateControl(c,value,force=false){
   for(const input of[c.input,c.slider].filter(Boolean)){input.min=c.spec.min;input.max=c.spec.max;}
  }
  const note=c.key==='root_note'?v:c.key==='seq_note'?clip().parts[frame.focus].root+v:null;
- c.output.textContent=note!==null?['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'][((Math.round(note)%12)+12)%12]+(Math.floor(note/12)-1):c.spec.labels?'':c.spec.unit;
+ c.output.textContent=c.key==='seq_slice'?(()=>{const s=sequenceSliceSelection(sliceEditorFrame(),frame.focus,selectedStep,selectedChild);return s?(s.valid?'/'+s.count+(s.label?' · '+s.label:''):'Missing / '+s.count):'';})():note!==null?['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'][((Math.round(note)%12)+12)%12]+(Math.floor(note/12)-1):c.spec.labels?'':c.spec.unit;
  const binding=hasStep()?lockBinding(c.key,frame.focus):null,state=hasStep()?lockState(selectedTrig(),selectedChild,binding):{};
  c.slot.classList.toggle('locked',!!state.own);c.slot.classList.toggle('inherited-lock',!state.own&&!!state.inherited);
  c.clear.hidden=!state.own;c.clear.title='Clear this lock and inherit '+(selectedChild?'the parent trig or lane':'the lane default');
- const unavailable=workspace.cursorWriting&&!hasStep()&&!workspace.binding(meta.get(c.key))||hasStep()&&!binding&&c.key!=='seq_child'||(c.key==='seq_when'&&!selectedChild)||(c.key==='seq_burst'&&!!selectedChild);
- for(const input of [c.input,c.slider,c.clear].filter(Boolean))input.dataset.unavailable=String(unavailable);
+ const unavailable=c.key==='seq_slice'&&(sequenceSliceMap(sliceEditorFrame(),frame.focus,hasStep()?selectedStep:-1,selectedChild)?.count||0)===0||workspace.cursorWriting&&!hasStep()&&!workspace.binding(meta.get(c.key))||hasStep()&&!binding&&c.key!=='seq_child'||(c.key==='seq_when'&&!selectedChild)||(c.key==='seq_burst'&&!!selectedChild);
+ for(const input of [c.input,c.slider,c.clear].filter(Boolean))input.dataset.unavailable=String(unavailable&&!(input===c.clear&&c.key==='seq_slice'));
  c.slot.classList.toggle('lane-only',hasStep()&&!binding&&c.key!=='seq_child');
  c.slot.title=hasStep()&&!binding&&c.key!=='seq_child'?'Lane setting: choose Lane defaults to edit.':'';
 }
@@ -147,25 +156,26 @@ function assignParameterLfo(parameter){
  const close=node('button','Cancel');close.type='button';close.onclick=()=>dialog.close();dialog.append(close);dialog.onclose=()=>dialog.remove();document.body.append(dialog);dialog.showModal();
 }
 function clearSelection(){selectedStep=-1;selectedChild=0;pendingSelection=null;editing.clear();}
-function selectStep(part,step,toggle=false){if(!linked)return;workspace.setEditorView('sequence');workspace.setCursorWriting(false);
+function selectStep(part,step,toggle=false,repeatToggle=false){if(!linked)return;workspace.setEditorView('sequence');workspace.setCursorWriting(false);
  if(part!==frame.focus){pendingSelection={clip:frame.activeClip,part,step,toggle};edits.push('f',[part,0],'focus');linked=false;enable();link('Selecting lane…','pending');return;}
- selectedStep=step;selectedChild=0;editing.clear();if(toggle)coreEdit(0,selectedTrig().enabled?0:1);else if(!selectedTrig().enabled)coreEdit(0,1);draw();
+ const selected=repeatToggle&&hasStep()&&selectedStep===step;
+ selectedStep=step;selectedChild=0;editing.clear();const value=stepClickValue(selected,!!selectedTrig().enabled,toggle);if(value!==null)coreEdit(0,value?1:0);draw();
 }
 function drawSequence(){const c=clip(),active=!!c.sequence;$('sequence-editor').hidden=$('lock-toolbar').hidden=!active||workspace.editorView!=='sequence';if(!active){pads.clear();gridSignature='';return;}
  const shape=c.sequence.tracks.map(t=>t.length).join(':');
  if(shape!==gridSignature){gridSignature=shape;pads.clear();const grid=$('sequence-grid');grid.replaceChildren();c.sequence.tracks.forEach((lane,part)=>{
   const row=node('div',undefined,'sequence-lane'),heading=node('button','ABCD'[part],'sequence-lane-name');heading.type='button';heading.dataset.part=part;heading.onclick=()=>{if(linked){clearSelection();edits.push('f',[part,0],'focus');linked=false;enable();link('Selecting lane…','pending');}};row.append(heading);
-  const cells=node('div',undefined,'sequence-cells');for(let step=0;step<32;step++){const pad=node('button',String(step+1).padStart(2,'0'),'sequence-step');pad.type='button';pad.dataset.lane=part;pad.dataset.step=step;pad.dataset.unavailable=String(step>=lane.length);pad.onclick=()=>selectStep(part,step);pad.oncontextmenu=e=>{e.preventDefault();selectStep(part,step,true);};cells.append(pad);pads.set(part+':'+step,pad);}row.append(cells);grid.append(row);
+  const cells=node('div',undefined,'sequence-cells');for(let step=0;step<32;step++){const pad=node('button',String(step+1).padStart(2,'0'),'sequence-step');pad.type='button';pad.dataset.lane=part;pad.dataset.step=step;pad.dataset.unavailable=String(step>=lane.length);pad.onclick=()=>selectStep(part,step,false,true);pad.oncontextmenu=e=>{e.preventDefault();selectStep(part,step,true);};cells.append(pad);pads.set(part+':'+step,pad);}row.append(cells);grid.append(row);
  });}
  for(const[route,pad]of pads){const[part,step]=route.split(':').map(Number),trig=trigAt(c,part,step),locked=Object.keys(trig.locks||{}).length||trig.burst?.some(e=>Object.keys(e.locks||{}).length);
-  pad.classList.toggle('on',!!trig.enabled);pad.classList.toggle('has-locks',!!locked);pad.classList.toggle('selected',part===frame.focus&&step===selectedStep);pad.classList.toggle('playhead',cursors[part]===step);pad.setAttribute('aria-pressed',String(part===frame.focus&&step===selectedStep));pad.setAttribute('aria-label',`Lane ${'ABCD'[part]}, step ${step+1}, ${trig.enabled?'on':'off'}${locked?', locks':''}`);
+  pad.classList.toggle('on',!!trig.enabled);pad.classList.toggle('has-locks',!!locked);pad.classList.toggle('selected',part===frame.focus&&step===selectedStep);pad.classList.toggle('playhead',cursors[part]===step);pad.setAttribute('aria-pressed',String(!!trig.enabled));pad.title=part===frame.focus&&step===selectedStep?'Click to toggle this step; parameter locks are retained.':'Click to select this step for editing.';pad.setAttribute('aria-label',`Lane ${'ABCD'[part]}, step ${step+1}, ${trig.enabled?'on':'off'}${locked?', locks':''}`);
  }
  $('edit-target').textContent=hasStep()?`LOCKS · ${'ABCD'[frame.focus]} · STEP ${String(selectedStep+1).padStart(2,'0')} · ${selectedChild?'EVENT '+selectedChild:'ALL HITS'}`:`LANE ${'ABCD'[frame.focus]} DEFAULTS`;
- for(const id of ['trig-toggle','trig-audition','trig-clear'])$(id).hidden=!hasStep();
- $('trig-toggle').textContent=hasStep()&&selectedTrig().enabled?'Trig on':'Trig off';$('trig-toggle').setAttribute('aria-pressed',String(hasStep()&&!!selectedTrig().enabled));
+ for(const id of ['trig-audition','trig-clear'])$(id).hidden=!hasStep();
  $('trig-audition').dataset.unavailable=String(!!$('play').getAttribute('aria-pressed')&&$('play').getAttribute('aria-pressed')==='true');
 }
 function draw(){const c=clip(),part=frame.focus,settings={...frame.settings[part],...panelSequenceValues(c,part)};
+ settings.__sliceCount=sequenceSliceMap(sliceEditorFrame(),part,hasStep()?selectedStep:-1,selectedChild)?.count||0;settings.__sequenceStepActive=hasStep();settings.__sliceExplicit=hasStep()&&!!sequenceSliceSelection(sliceEditorFrame(),part,selectedStep,selectedChild)?.explicit;
  let displayed=c;if(hasStep()){
   Object.assign(settings,trigValues(c,part,selectedStep,selectedChild));displayed={...c,parts:c.parts.map((p,i)=>i===part?{...p,parameters:{...p.parameters}}:p)};
   const trig=selectedTrig(),effective={...trig.locks?.sound,...trigLocks(trig,selectedChild).sound};Object.assign(displayed.parts[part].parameters,effective);
@@ -184,7 +194,7 @@ function draw(){const c=clip(),part=frame.focus,settings={...frame.settings[part
  for(const c of controls.values())updateControl(c,valueFor(c.key));
  const select=$('part');if(select.options.length!==c.parts.length){select.replaceChildren();c.parts.forEach((_,i)=>{const o=node('option','Part '+'ABCD'[i]);o.value=i;select.append(o);});}select.value=String(part);
  const first=c.mode==='split'?part*2:0,last=c.mode==='split'?first+1:3,patch=$('patch');patch.replaceChildren();for(let i=first;i<=last;i++){const o=node('option','Lane '+(i+1));o.value=i;patch.append(o);}patch.value=String(frame.patches[part]);$('patch-field').hidden=['quad','sequence','bank','layers'].includes(c.mode);
- $('clip-title').textContent='Clip '+(frame.activeClip+1)+(c.name?' · '+c.name:'');$('mode').textContent=c.mode.replaceAll('-',' ').toUpperCase();const entry=frame.settings[part];$('engine-entry').hidden=!entry.voice_engine_mode||c.mode==='sequence';$('engine-entry').textContent='LIST · E'+(entry.voice_engine_edit||1)+'/'+(['quad','sequence'].includes(c.mode)?2:['split','shared-dual','bank'].includes(c.mode)?4:8);$('empty-state').hidden=true;drawSequence();workspace.observe(frame);samplePicker.observe();enable();
+ $('clip-title').textContent='Clip '+(frame.activeClip+1)+(c.name?' · '+c.name:'');$('mode').value=c.mode;const entry=frame.settings[part];$('engine-entry').hidden=!entry.voice_engine_mode||c.mode==='sequence';$('engine-entry').textContent='LIST · E'+(entry.voice_engine_edit||1)+'/'+(['quad','sequence'].includes(c.mode)?2:['split','shared-dual','bank'].includes(c.mode)?4:8);$('empty-state').hidden=true;drawSequence();workspace.observe(frame);samplePicker.observe();enable();
 }
 async function refresh(s){if(!edits||loading||!s.panel||s.panelVersion===version||edits.pending)return;loading=true;const mine=generation;
  try{const next=await(await connection.file(s.panel)).json();if(mine!==generation||next.activeClip!==observedClip||next.client!==connection.client||next.epoch!==connection.epoch)return;validatePanelFrame(next,connection,PANEL_PROTOCOL,PANEL_BUILD);
@@ -214,10 +224,12 @@ async function connect(){editNotice='';const mine=++generation;linked=false;load
  connection=new MoveConnection(s=>{if(mine===generation)onStatus(s);});
  try{await connection.connect();if(mine!==generation)return;connection.live=true;edits=new LiveEdits(connection,(text,kind)=>{if(kind==='parameter-rejected'){editNotice=text;pendingValues.clear();version='';signature='';workspace.version='';editing.clear();message(text,true);return;}if(["note","point","points","at","phrase","cliptool","loop","name","arm","armall","touch","record","key","keyboardoff","keysalive","gestureoff","watch"].includes(kind)){workspace.version="";message(["note","phrase","loop"].includes(kind)?"Edit was not applied. Check the eight-note overlap limit, clip range, and recording state.":text,true);}else fail(text);});await refresh(await connection.poll());}catch(e){if(mine===generation)fail(e.message);}
 }
+$('mode').onchange=e=>{if(!linked||!frame)return;const wanted=MODE_OPTIONS.find(m=>m.value===e.target.value),current=MODE_OPTIONS.find(m=>m.value===clip().mode);if(!wanted||!current||wanted.index===current.index)return;
+ clearSelection();workspace.setCursorWriting(false);pendingValues.clear();editNotice='';watchSignature='';edits.push('mode',[0,wanted.index,current.index],'mode');linked=false;enable();link('Changing mode…','pending');};
 $('part').onchange=e=>{if(linked){clearSelection();edits.push('f',[Number(e.target.value),0],'focus');linked=false;enable();link('Selecting part…','pending');}};
 $('patch').onchange=e=>{if(linked){edits.push('v',[frame.focus,Number(e.target.value)],'patch');linked=false;enable();link('Selecting lane…','pending');}};
 $('play').onclick=()=>{if(linked)edits.push('play',[frame.focus,1],'transport');};$('stop').onclick=()=>{if(linked)edits.push('play',[frame.focus,0],'transport');};$('reconnect').onclick=connect;
-$('lane-defaults').onclick=()=>{clearSelection();draw();};$('trig-toggle').onclick=()=>{coreEdit(0,selectedTrig().enabled?0:1);draw();};
+$('lane-defaults').onclick=()=>{clearSelection();draw();};
 $('trig-clear').onclick=()=>{coreEdit(12,0);draw();};$('trig-audition').onclick=()=>{if(linked&&hasStep())edits.push('a',[frame.focus,selectedStep,selectedChild],'audition');};
 window.addEventListener('keydown',e=>{if(e.key==='Escape'&&hasStep()){clearSelection();draw();}if(e.key==='Delete'&&hasStep()&&!['INPUT','SELECT','TEXTAREA'].includes(document.activeElement.tagName)){e.preventDefault();coreEdit(0,0);draw();}});
 window.addEventListener('pointerup',()=>editing.clear());window.addEventListener('pointercancel',()=>editing.clear());window.addEventListener('blur',()=>editing.clear());

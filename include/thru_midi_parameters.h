@@ -468,6 +468,7 @@ inline constexpr Parameter parameters[]{
     {3910, "seq_direction", 0.0f, 4.0f, 0.0f, true, true, false, false, -1},
     {3911, "seq_recipe_shift", 0.0f, 31.0f, 0.0f, true, true, false, false, -1},
     {3912, "seq_path", 0.0f, 2.0f, 0.0f, true, true, false, false, -1},
+    {3913, "seq_slice", 1.0f, 64.0f, 1.0f, true, true, false, false, -1},
     {3968, "lfo1_dest", 0.0f, 162.0f, 0.0f, false, true, false, false, -1},
     {3969, "lfo1_wave", 0.0f, 6.0f, 0.0f, false, true, false, false, -1},
     {3970, "lfo1_clock", 0.0f, 1.0f, 0.0f, false, true, false, false, -1},

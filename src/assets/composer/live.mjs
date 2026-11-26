@@ -1,6 +1,9 @@
 import {PANEL_PARAMETERS} from './catalog.mjs';
 const PANEL_KEYS=new Map(PANEL_PARAMETERS.map(p=>[p.key,p]));
-import {BY_KEY,clone,defaultTrig,validateComposition,DIRECTIONS,PATHS,RATES} from './format.mjs';
+import {BY_KEY,clone,defaultTrig,validateComposition,DIRECTIONS,PATHS,RATES,MODES} from './format.mjs';
+export const MODE_OPTIONS=MODES.map((value,index)=>({value,index,label:value==='shared-dual'?'Shared Dual':value[0].toUpperCase()+value.slice(1)}));
+// Selecting another lit step is safe for editing; repeat clicks toggle only the grid target.
+export function stepClickValue(selected,enabled,toggle=false){return selected||toggle?!enabled:enabled?null:true;}
 const json=x=>JSON.stringify(x),number=x=>{const n=Number(Number(x).toPrecision(7));return x>0&&x<1&&n===1?.9999999:n;};
 export function liveDiff(before,after){
  const a=before.clips[0],b=after.clips[0],out=[];
@@ -22,7 +25,10 @@ export function liveDiff(before,after){
    const prior=old.trigs.find(t=>t.step===step)||defaultTrig(step),next=lane.trigs.find(t=>t.step===step)||defaultTrig(step);
    const core=t=>{const lock=t.locks||{},dur=lock.duration,burst=t.burst||[{offset:0}],mask=(lock.position!==undefined?1:0)|(lock.pitch!==undefined?2:0)|(lock.velocity!==undefined?4:0);return [t.enabled?1:0,t.microtime??0,t.probability??1,t.cycle?.hit??1,t.cycle?.every??1,mask,lock.position??0,lock.pitch??0,(lock.velocity??100/127)*127,dur?(dur.unit==='ms'?1:0):-1,dur?.value??0,burst.length,...burst.map(e=>e.offset)];};
    if(json(core(prior))!==json(core(next)))put('t:'+p+':'+step,'t',[p,step,...core(next)]);
-   for(const key of new Set([...Object.keys(prior.locks?.sound||{}),...Object.keys(next.locks?.sound||{})])){const meta=BY_KEY.get(key),value=next.locks?.sound?.[key];if(meta&&value!==prior.locks?.sound?.[key])put('s:'+p+':'+step+':'+meta.id,'s',[p,step,meta.id,value??meta.initial,value===undefined?1:0]);}
+   for(let child=0;child<=(next.burst?.length||1);child++){
+    const old=child?prior.burst?.[child-1]?.locks?.sound||{}:prior.locks?.sound||{},current=child?next.burst?.[child-1]?.locks?.sound||{}:next.locks?.sound||{};
+    for(const key of new Set([...Object.keys(old),...Object.keys(current)])){const meta=PANEL_KEYS.get(key),value=current[key];if(meta?.lockable&&value!==old[key])put('s:'+p+':'+step+':'+child+':'+meta.id,'s',[p,step,meta.id,value??meta.initial,value===undefined?1:0,...(child?[child]:[])]);}
+   }
   }
  }}
  return out;
@@ -40,7 +46,7 @@ export class LiveEdits {
   let budget=2;
   while(this.queue.size&&this.inflight.size<8&&budget--){const[key,edit]=this.queue.entries().next().value;this.queue.delete(key);const id=++this.sequence,packet=[this.connection.client,id,edit.kind,this.active,...edit.values,...(edit.kind==='p'?[this.patches?.[edit.values[0]]??-1,this.entries?.[edit.values[0]]??-1]:[])].join('|');try{this.connection.send('composer_edit',packet);this.inflight.set(id,{packet,kind:edit.kind,at:now,tries:0});}catch(e){this.onError(e.message);}}
  }
- acknowledge(receipts=[],errors=[]){const reasons=new Map(errors);let changed=false;for(const value of receipts){const id=Math.floor(value/2);if(this.inflight.has(id)){changed=true;this.acknowledged=Math.max(this.acknowledged,id);}const kind=this.inflight.get(id)?.kind;if(this.inflight.delete(id)&&value%2===0){this.queue.clear();const reason=reasons.get(id);this.onError(reason||'Move rejected an edit: its context changed or a recording/file operation is active. Finish the operation, then reconnect.',kind==='p'&&reason?'parameter-rejected':kind);}}return changed;}
+ acknowledge(receipts=[],errors=[]){const reasons=new Map(errors);let changed=false;for(const value of receipts){const id=Math.floor(value/2);if(this.inflight.has(id)){changed=true;this.acknowledged=Math.max(this.acknowledged,id);}const kind=this.inflight.get(id)?.kind;if(this.inflight.delete(id)&&value%2===0){this.queue.clear();const reason=reasons.get(id);this.onError(reason||'Move rejected an edit: its context changed or a recording/file operation is active. Finish the operation, then reconnect.',((kind==='p'||kind==='s')&&reason||kind==='mode')?'parameter-rejected':kind);}}return changed;}
  invalidate(){this.queue.clear();this.inflight.clear();this.baseline=null;this.active=-1;}
  get pending(){return this.queue.size>0||this.inflight.size>0;}
  close(){clearInterval(this.timer);}

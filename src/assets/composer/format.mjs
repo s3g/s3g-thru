@@ -1,4 +1,5 @@
-import {PARAMETERS} from './catalog.mjs';
+import {PARAMETERS,PANEL_PARAMETERS} from './catalog.mjs';
+const sliceParameter=PANEL_PARAMETERS.find(p=>p.key==='seq_slice');
 export {PARAMETERS};
 export const ENGINES = [
   'motion',  'lanes',      'grains',   'cutups', 'sample',  'slices',
@@ -213,7 +214,7 @@ function parameters(v, p, {locks = false} = {}) {
   object(v, p);
   need(Object.keys(v).length <= 943, p, 'too many parameters');
   for (const [k, n] of Object.entries(v)) {
-    const parameter = BY_KEY.get(k);
+    const parameter = BY_KEY.get(k)||(locks&&k==='seq_slice'?sliceParameter:null);
     need(parameter && (!locks || parameter.lockable), p + '.' + k,
          'unsupported sound parameter');
     num(n, p + '.' + k, parameter.min, parameter.max, parameter.integer);

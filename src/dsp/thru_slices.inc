@@ -96,6 +96,7 @@
             ||voice.sliceSourceRevision!=wavesetSourceRevisions[lane]||voice.sliceAudition) {
             int kind=0;const auto map=voice.sliceAudition?sliceEditorMap(&kind):sliceMapForLane(lane,c,kind);
             if(!map.count)return;
+            if(voice.sequence.active&&voice.sequence.sliceIndex>=int(map.count)){beginVoiceRelease(voice);return;}
             const auto index=static_cast<std::size_t>(voice.sliceAudition?sliceEditor.selected:std::max(0,static_cast<int>(c.sampleSlice)))%map.count;
             voice.sliceLow=map.points[index];voice.sliceHigh=map.points[index+1];
             voice.sliceAbsolute=voice.sliceAudition||kind!=0;

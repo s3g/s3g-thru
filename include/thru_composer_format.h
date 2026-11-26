@@ -172,12 +172,12 @@ inline double parameterBound(float x) {
       std::pow(10.0, 6 - std::floor(std::log10(std::abs(double(x)))));
   return std::round(double(x) * scale) / scale;
 }
-inline void parameters(const J &v, const std::string &where) {
+inline void parameters(const J &v, const std::string &where, bool trigLocks = false) {
   object(v, where);
   need(v.objectValue().size() <= 943, where, "too many parameters");
   for (const auto &[key, x] : v.objectValue()) {
     const auto *p = parameter(key);
-    need(p && soundParameter(*p), where + "." + key,
+    need(p && (soundParameter(*p) || (trigLocks && p->id==s3g_thru_sequence::sliceLockId)), where + "." + key,
          "unsupported sound parameter");
     number(x, where + "." + key, parameterBound(p->minimum),
            parameterBound(p->maximum), p->integer);
@@ -202,7 +202,7 @@ inline void locks(const J &v, const std::string &where) {
   if (const auto *x = v.find("duration"))
     duration(*x, where + ".duration");
   if (const auto *x = v.find("sound")) {
-    parameters(*x, where + ".sound");
+    parameters(*x, where + ".sound", true);
     for (const auto &[key, value] : x->objectValue())
       need(s3g_thru_sequence::soundDescriptor(parameter(key)->id),
            where + ".sound." + key, "parameter cannot be locked per trig");

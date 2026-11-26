@@ -33,6 +33,20 @@ ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 \
 ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 \
   "$test_dir/test-thru-sanitize"
 
+# Explicit Sequence slices exercise the real audio/Move/MIDI and stored lock paths.
+"$cxx_bin" -std=c++17 -O2 -Wall -Wextra -Werror -Wno-deprecated-declarations -pthread -DS3G_THRU_HOST_TESTING=1 -I"$repo_dir/include" "$repo_dir/tests/test_sequence_slices.cpp" -o "$test_dir/test-sequence-slices"
+"$test_dir/test-sequence-slices" "$test_dir/sequence-slices.json"
+"$cxx_bin" -std=c++17 -O1 -gline-tables-only -fno-omit-frame-pointer -fsanitize=address,undefined -Wall -Wextra -Werror -Wno-deprecated-declarations -pthread -DS3G_THRU_HOST_TESTING=1 -I"$repo_dir/include" "$repo_dir/tests/test_sequence_slices.cpp" -o "$test_dir/test-sequence-slices-sanitize"
+ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 "$test_dir/test-sequence-slices-sanitize"
+node "$repo_dir/tests/test_sequence_slices.mjs"
+export S3G_THRU_SEQ_SLICES_FIXTURE="$test_dir/sequence-slices.json"
+
+# Browser navigation reuses the real clip mode transition and authored trig path.
+"$cxx_bin" -std=c++17 -O2 -Wall -Wextra -Werror -Wno-deprecated-declarations -pthread -DS3G_THRU_HOST_TESTING=1 -I"$repo_dir/include" "$repo_dir/tests/test_browser_navigation.cpp" -o "$test_dir/test-browser-navigation"
+"$test_dir/test-browser-navigation"
+"$cxx_bin" -std=c++17 -O1 -gline-tables-only -fno-omit-frame-pointer -fsanitize=address,undefined -Wall -Wextra -Werror -Wno-deprecated-declarations -pthread -DS3G_THRU_HOST_TESTING=1 -I"$repo_dir/include" "$repo_dir/tests/test_browser_navigation.cpp" -o "$test_dir/test-browser-navigation-sanitize"
+ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 "$test_dir/test-browser-navigation-sanitize"
+
 # Separate translation unit measures the real module before compression/limiting.
 "$cxx_bin" -std=c++17 -O2 -Wall -Wextra -Werror -Wno-deprecated-declarations \
   -pthread -DS3G_THRU_HOST_TESTING=1 -I"$repo_dir/include" "$repo_dir/tests/test_dsp_transitions.cpp" \

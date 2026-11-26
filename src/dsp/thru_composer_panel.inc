@@ -101,7 +101,7 @@ void publishComposerPanel() {
       core["parts"].arrayValue()[part]["parameters"][p.key]=std::clamp(double(*value),composerBoundary(p.minimum),composerBoundary(p.maximum));
   }
   s3g_thru_pack::validate(doc);
-  auto frame=composerObject({{"editSequence",double(composerPanelEditVersion)},{"protocol",2},{"build","0.34.1"},{"focus",composerPanelFocus},{"epoch",composerEpoch},{"client",composerPanelSnapshotOwner.data()},{"revision",std::to_string(composerPanelRevision)},
+  auto frame=composerObject({{"editSequence",double(composerPanelEditVersion)},{"protocol",2},{"build","0.34.2"},{"focus",composerPanelFocus},{"epoch",composerEpoch},{"client",composerPanelSnapshotOwner.data()},{"revision",std::to_string(composerPanelRevision)},
       {"activeClip",composerPanelActive},{"settings",std::move(settings)},{"waveVersion",double(composerPanelCapturedWaveVersion)},{"patch",composerPanelSelectedLane},{"patches",std::move(patches)},{"document",std::move(doc)}});
   const auto markerRows=[&](const s3g_thru::SliceMap& map){auto rows=ComposerJson::array();if(!s3g_thru::validSliceMap(map))return rows;for(std::size_t i=0;i<=map.count&&map.count;++i)if(map.points[i]<1)rows.push(composerObject({{"position",map.points[i]},{"label",i<map.count?map.labels[i].data():""}}));return rows;};
   auto markerMaps=ComposerJson::array();for(int l=0;l<4;++l)markerMaps.push(composerObject({{"file",markerRows(c.sliceLanes[l].file)},{"edited",markerRows(c.sliceLanes[l].edited)},{"transients",markerRows(composerPanelDetected[l])}}));frame["sampleMarkers"]=std::move(markerMaps);

@@ -1605,6 +1605,7 @@ constexpr const char kChainParams[] = R"json([
 {"key":"seq_scale","name":"Sequence Scale","short_name":"ENTRY","type":"enum","min":0,"max":1,"default":0,"options":["Chromatic","Scale"]},
 {"key":"seq_step","name":"Sequence Step","short_name":"STEP","type":"int","min":1,"max":32,"default":1},
 {"key":"seq_child","name":"Sequence Child","short_name":"EVENT","type":"int","min":0,"max":8,"default":0},
+{"key":"seq_slice","name":"Sequence Slice","short_name":"SLIC","type":"int","min":1,"max":64,"default":1},
 {"key":"seq_pos","name":"Sequence Pos","short_name":"POS","type":"float","min":0,"max":1,"default":0},
 {"key":"seq_note","name":"Sequence Note","short_name":"NOTE","type":"int","min":-48,"max":48,"default":0},
 {"key":"seq_vel","name":"Sequence Vel","short_name":"VEL","type":"int","min":1,"max":127,"default":100},
@@ -3271,6 +3272,7 @@ struct ThruInstance : PlaybackEffectsState {
     std::uint64_t persistenceGeneration = 0u;
     std::uint64_t nextCaptureId = 1u;
 
+#include "thru_sequence_slices.inc"
 #include "thru_sequence.inc"
 #include "thru_sequence_sound_locks.inc"
 #include "thru_sequence_generate.inc"
@@ -6967,7 +6969,7 @@ struct ThruInstance : PlaybackEffectsState {
             effective.manualLane=effective.sampleLane=float(voice.part);effective.stackFirstLane=effective.stackLastLane=float(voice.part);
             if(voice.sequence.active) {
                 effective.locus=voice.sequence.position;effective.noteStartOffset=0;
-                if(effective.algorithm==Engine::PlaybackAlgorithm::slices)effective.sampleSlice=std::floor(voice.sequence.position*std::max(1.f,effective.sampleRegionCount));
+                if(effective.algorithm==Engine::PlaybackAlgorithm::slices)effective.sampleSlice=voice.sequence.sliceIndex>=0?float(voice.sequence.sliceIndex):std::floor(voice.sequence.position*std::max(1.f,effective.sampleRegionCount));
                 effective.ampAttackMs=voice.sequence.attack;effective.ampDecayMs=voice.sequence.decay;effective.ampReleaseMs=voice.sequence.release;
             }
         }

@@ -459,6 +459,7 @@
 "3910","30","70","Sequence","Sequence Direction","seq_direction","5 A / 6 B / 7 C / 8 D","0","4","linear","No"
 "3911","30","71","Sequence","Euclidean Hit Shift","seq_recipe_shift","5 A / 6 B / 7 C / 8 D","0","31","linear","No"
 "3912","30","72","Sequence","Sequence Grid Path","seq_path","5 A / 6 B / 7 C / 8 D","0","2","linear","No"
+"3913","30","73","Sequence","Sequence Slice","seq_slice","5 A / 6 B / 7 C / 8 D","1","64","linear","No"
 "3968","31","0","Control LFO","LFO 1 Destination","lfo1_dest","16","0","162","linear","No"
 "3969","31","1","Control LFO","LFO 1 Waveform","lfo1_wave","16","0","6","linear","No"
 "3970","31","2","Control LFO","LFO 1 Clock","lfo1_clock","16","0","1","linear","No"

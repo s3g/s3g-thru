@@ -897,6 +897,14 @@ seqDoc.state.settingsPage=seqDoc.pages().findIndex(p=>p.title==='SEQ AMP');seqDo
 seqExample.child=3;seqExample.burst=[0,.18,.625,.88];seqExample.values[9]=3;seqExample.values[16]=4;seqExample.values[17]=.625;params.seq_state=JSON.stringify(seqExample);globalThis.__docSequence.read();seqDoc.state.settingsPage=seqDoc.pages().findIndex(p=>p.title==='BURST');seqDoc.redraw();capture('sequence-burst.svg','Burst step-time ruler with selected retrigger and unified event controls','L2 T07 BURST');
 seqDoc.state.settingsPage=seqDoc.pages().findIndex(p=>p.title==='STRIP 3');seqDoc.redraw();capture('sequence-strip.svg','Third sequence channel strip in the Mix/FX page group','STRIP 3');
 
+// Numbered Slices use the same source-region highlight as held trigs on Move.
+const savedSeqExample=JSON.parse(JSON.stringify(seqExample)),savedSeqAlgorithm=seqDoc.state.algorithm,savedSeqParamAlgorithm=seqDoc.params.algorithm.value;
+seqExample.child=0;seqExample.values[9]=0;seqExample.values[67]=3;
+seqExample.slice={number:3,count:12,valid:1,own:1,inherited:0,start:.28,end:.5,label:'SNARE',points:[0,.08,.28,.5,.56,.62,.68,.73,.79,.85,.91,.96,1]};
+seqDoc.state.algorithm=5;seqDoc.params.algorithm.value=5;params.seq_state=JSON.stringify(seqExample);globalThis.__docSequence.read();
+seqDoc.state.settingsPage=seqDoc.pages().findIndex(p=>p.title==='TRIG');seqDoc.redraw();capture('sequence-slices.svg','Numbered Sequence slice lock with selected region and label','L2 T07 TRIG');
+delete seqExample.slice;Object.assign(seqExample,savedSeqExample);seqDoc.state.algorithm=savedSeqAlgorithm;seqDoc.params.algorithm.value=savedSeqParamAlgorithm;params.seq_state=JSON.stringify(seqExample);globalThis.__docSequence.read();
+
 // Persistent types, displayed through the production settings renderer.
 seqExample.held=-1;seqExample.child=0;seqExample.values.length=67;
 seqExample.values.fill(0,19);seqExample.values[19]=1;seqExample.values[20]=1000;seqExample.values[21]=1000;

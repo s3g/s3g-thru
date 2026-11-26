@@ -1098,6 +1098,12 @@
     "target": -1
   },
   {
+    "id": 3913,
+    "key": "seq_slice",
+    "scope": "voice",
+    "target": -1
+  },
+  {
     "id": 4200,
     "key": "table_type",
     "scope": "voice",

@@ -5005,3 +5005,25 @@ testNamingUi({params,blockingWrites,drawWrites});
  transport.cache.set('source_motion_state',JSON.stringify({active:0,clip:0,mode:0}));source.read();assert.equal(p.live_source.value,0);assert(!source.active());assert(!source.overview());
  console.log('Owned detail recovery: stale Sequence mode/clip/focus and explicit Live Memory -> File snapshots: PASS');
 }
+
+// The same native packet drives SLIC, its label and the selected waveform span.
+if(process.env.S3G_THRU_SEQ_SLICES_FIXTURE){
+ const seq=globalThis.__testSequence,sound=globalThis.__testSequenceSound,state=globalThis.__testFx.state(),P=globalThis.__testParams;
+ const snapshot=JSON.parse(fs.readFileSync(process.env.S3G_THRU_SEQ_SLICES_FIXTURE,'utf8'));
+ Object.assign(state,{activeClip:0,view:'settings',splitEnabled:true,quadMode:true,sharedDual:false,bankMode:false,splitFocus:0,algorithm:5,editorReady:true,deleteHeld:false,shiftHeld:false,focusButtonHeld:false});
+ globalThis.__testLayers.model.active=false;P.algorithm.value=5;P.split_mode.value=6;
+ seq.model.active=true;seq.model.held=true;seq.model.pad=24;
+ params.seq_state=JSON.stringify(snapshot);params.seq_sound_state=JSON.stringify({active:1,clip:0,part:0,step:0,event:0,used:1,values:[[3913,3,1]]});seq.read();
+ const control=seq.control('seq_pos');assert.equal(control.key,'seq_slice');assert.equal(control.value,3);assert.equal(control.max,4);assert(control.trigLocked);
+ const pages=globalThis.__testSplit.pages();assert.equal(pages.find(p=>p.title==='TRIG').keys[0],'seq_slice');assert.equal(pages.find(p=>p.title==='BURST').keys[0],'seq_slice');
+ state.settingsPage=pages.findIndex(p=>p.title==='TRIG');const start=drawWrites.length;globalThis.__testFx.draw();
+ assert(drawWrites.slice(start).some(w=>w[0]==='print'&&String(w[3]).includes('3/4')),'Slice number/count is visible');
+ assert.equal(seq.control('locus').key,'seq_slice','Held engine POS follows the same slice lock');
+ const writes=blockingWrites.length;state.deleteHeld=true;globalThis.__testResetEncoders();seq.adjust(0,2);state.deleteHeld=false;
+ assert(blockingWrites.slice(writes).some(([key,value])=>key==='seq_sound_clear'&&Number(value)===3913),'X + encoder clears only the slice lock');
+ snapshot.slice={...snapshot.slice,number:12,count:4,valid:0,own:1};snapshot.values[67]=12;params.seq_state=JSON.stringify(snapshot);params.seq_sound_state=JSON.stringify({active:1,clip:0,part:0,step:0,event:0,used:1,values:[[3913,12,1]]});seq.read();assert.equal(globalThis.__testCompactControlValue(seq.control('seq_slice')),'12/4!');
+ snapshot.slice={...snapshot.slice,number:64,count:63};snapshot.values[67]=64;params.seq_state=JSON.stringify(snapshot);params.seq_sound_state=JSON.stringify({active:1,clip:0,part:0,step:0,event:0,used:1,values:[[3913,64,1]]});seq.read();assert.equal(globalThis.__testCompactControlValue(seq.control('seq_slice')),'64/63','Two-digit missing addresses fit the 32-pixel parameter cell');
+ snapshot.slice={...snapshot.slice,number:1,count:0,own:0};snapshot.values[67]=1;params.seq_state=JSON.stringify(snapshot);params.seq_sound_state=JSON.stringify({active:1,clip:0,part:0,step:0,event:0,used:0,values:[]});seq.read();assert.equal(seq.control('seq_slice'),null);
+ state.algorithm=4;P.algorithm.value=4;params.seq_sound_state=JSON.stringify({active:0,clip:0,part:0,step:0,event:0,used:0,values:[]});seq.read();assert.equal(seq.control('seq_pos').key,'seq_pos');assert.equal(seq.control('seq_slice'),null);
+ console.log('Sequence SLIC UI: native irregular-map count, labels, held TRIG/BURST/engine controls, independent clear and Sample POS restoration: PASS');
+}

@@ -187,6 +187,7 @@ inline constexpr SoundDescriptor soundCatalog[]{
   {3872,-1,true},
   {3873,-1,true},
   {3874,-1,true},
+  {3913,-1,false},
   {4200,256,false},
   {4201,257,false},
   {4202,258,false},

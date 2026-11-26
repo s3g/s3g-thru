@@ -36,6 +36,10 @@ bool editSequenceSoundLock(int id,float value,bool clear=false){
   const auto* p=s3g_thru_midi::find(id);const auto* d=s3g_thru_sequence::soundDescriptor(id);
   if(!p||!d||(!clear&&!std::isfinite(value)))return true;
   const int part=sequenceSoundEditPart,step=sequenceEditStep,child=sequenceChild;
+  if(id==s3g_thru_sequence::sliceLockId&&!clear){
+    const auto info=sequenceSliceSelection(part,step,child,sequenceRunning()?sequencePlayback:sequenceLive);
+    if(liveControlsForPart(part).algorithm!=Engine::PlaybackAlgorithm::slices||value<1||value>info.count||value!=std::floor(value)){setError("Slice is not available");return true;}
+  }
   value=clampValue(value,p->minimum,p->maximum);if(p->integer)value=std::round(value);
   auto& pool=sequenceLive.soundLocks;
   if(!clear&&!pool.find(part,step,child,id)&&(pool.count==s3g_thru_sequence::soundLockCapacity||pool.stepCount(part,step)==s3g_thru_sequence::soundLocksPerStep)){

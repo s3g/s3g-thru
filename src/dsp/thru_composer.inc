@@ -643,7 +643,7 @@ void composerStatus(const std::string &phase, bool ok,
          {"total", composerCopyTotal.load()},
          {"root", composerRoot},
          {"result", composerResult},
-         {"undo", composerUndoReady.load()}, {"panel",composerPanelPath},{"panelVersion",composerPanelPublishedVersion},{"panelError",composerPanelError},{"panelErrorClip",composerPanelErrorClip},{"panelProtocol",2},{"panelBuild","0.34.1"}});
+         {"undo", composerUndoReady.load()}, {"panel",composerPanelPath},{"panelVersion",composerPanelPublishedVersion},{"panelError",composerPanelError},{"panelErrorClip",composerPanelErrorClip},{"panelProtocol",2},{"panelBuild","0.34.2"}});
     for(int attempt=0;attempt<3;++attempt){const auto before=composerLayersSequence.load(std::memory_order_acquire);if(before&1u)continue;const bool active=composerLayersActive.load(),override=composerLayersOverride.load();const int layerPoints=composerLayersPointCount.load();std::array<float,11> values{};for(std::size_t i=0;i<values.size();++i)values[i]=composerLayersPublished[i].load();if(composerLayersSequence.load(std::memory_order_acquire)!=before)continue;
       state["layers"]=composerObject({{"active",active},{"recorded",layerPoints},{"override",override},{"xy",ComposerJson::Array{values[0],values[1]}},{"weights",ComposerJson::Array{values[2],values[3],values[4],values[5]}},{"pressure",values[6]},{"algorithms",ComposerJson::Array{values[7],values[8],values[9],values[10]}}});break;}
     const int history=composerHistoryPublished.load();state["history"]=composerObject({{"undo",bool(history&1)},{"redo",bool(history&2)},{"action",history>>2}});

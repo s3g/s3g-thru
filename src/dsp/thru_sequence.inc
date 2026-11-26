@@ -117,6 +117,14 @@ void startSequenceVoice(int part, int row, int child, double gateBeats,
       audition ? liveControlsForPart(part) : splitClipControls[part];
   const auto sound=sequenceTriggerSound(part,row,child,tick,audition,step);
   applySequenceVoiceSound(program,sound,part);
+  const auto* sliceLock=program.algorithm==Engine::PlaybackAlgorithm::slices?sound.find(s3g_thru_sequence::sliceLockId):nullptr;
+  SequenceSliceInfo slice;
+  if(sliceLock){
+    int kind=0;const auto map=sliceMapForLane(std::size_t(part),program,kind);
+    slice=sequenceSliceInfo(program,map,kind,0,&sound);
+    if(engine.laneFrames(part))slice.lead=slicePreRoll(part,kind)*.001f*engine.laneSampleRate(part)/engine.laneFrames(part);
+    if(!slice.valid)return; // A missing explicit address never steals a sounding voice.
+  }
   sequenceLaneSoundLocks[part]=sound;
   triggerControlLfos(part,&step.lfos,child==0);
   const float velocity =
@@ -152,6 +160,11 @@ void startSequenceVoice(int part, int row, int child, double gateBeats,
       clampValue((voice.sequence.position - window[0]) /
                      std::max(.000001f, window[1] - window[0]),
                  0.f, .999999f);
+  if(sliceLock){
+    voice.sequence.sliceIndex=slice.number-1;
+    voice.sequence.position=slice.low;
+    voice.sequence.startPhase=0;
+  }
   const double speed =
       activeClipSlot()
           ? clampValue(double(activeClipSlot()->clipRate), .25, 4.0)
@@ -203,6 +216,11 @@ void startSequenceVoice(int part, int row, int child, double gateBeats,
   voice.pressureTarget = voice.pressureState = 0;
   voice.pressureBrakeHeld = false;
   voice.sliceCached = voice.sliceAudition = false;
+  if(sliceLock){
+    voice.sliceCached=true;voice.sliceAbsolute=true;voice.sliceCachedLane=part;
+    voice.sliceSourceRevision=wavesetSourceRevisions[part];
+    voice.sliceLow=slice.low;voice.sliceHigh=slice.high;voice.sliceLead=slice.lead;
+  }
   voice.laneOffset = voice.cutLanePressure = 0;
   voice.liveStackPhaseValid = voice.recordedStackPhaseValid = false;
   voice.bankAsset = voice.bankSlot = -1;
@@ -507,7 +525,7 @@ bool sequenceKeyKnown(const char *key) const {
       "seq_hold", "seq_consume", "seq_step", "seq_child", "seq_length",
       "seq_rate", "seq_rotation", "seq_active", "seq_mute", "seq_velocity",
       "seq_gate", "seq_scale", "seq_duration_mode", "seq_time_ms", "seq_direction", "seq_path",
-      "seq_copy", "seq_paste", "seq_pos",
+      "seq_copy", "seq_paste", "seq_pos", "seq_slice",
       "seq_note", "seq_vel", "seq_trig_gate", "seq_trig_time_ms", "seq_micro", "seq_prob",
       "seq_burst", "seq_when", "seq_cycle_hit", "seq_cycle_every",
       "seq_toggle", "seq_clear", "seq_delete",
@@ -613,6 +631,16 @@ bool setSequenceParameter(const char *key, const char *text) {
       return true;
     }
   auto &step = sequenceLive.tracks[splitFocus].trigs[sequenceStep];
+  if (!std::strcmp(key, "seq_slice")) {
+    if(liveControlsForPart(splitFocus).algorithm!=Engine::PlaybackAlgorithm::slices){setError("SLIC needs Slices engine");return true;}
+    const auto info=sequenceSliceSelection(splitFocus,sequenceStep,sequenceChild,sequenceRunning()?sequencePlayback:sequenceLive);
+    if(value==0){sequenceChanged();sequenceLive.soundLocks.erase(splitFocus,sequenceStep,sequenceChild,s3g_thru_sequence::sliceLockId);commitSequenceEdit();++midiRevision;clearError();auditionSequenceStep();return true;}
+    if(value<1||value>info.count||value!=std::floor(value)){setError("Slice is not available");return true;}
+    auto& pool=sequenceLive.soundLocks;
+    if(!pool.find(splitFocus,sequenceStep,sequenceChild,s3g_thru_sequence::sliceLockId)&&(pool.count==s3g_thru_sequence::soundLockCapacity||pool.stepCount(splitFocus,sequenceStep)==s3g_thru_sequence::soundLocksPerStep)){setError("Trig lock capacity full");return true;}
+    sequenceChanged();pool.set(splitFocus,sequenceStep,sequenceChild,s3g_thru_sequence::sliceLockId,value);
+    commitSequenceEdit();++midiRevision;clearError();auditionSequenceStep();return true;
+  }
   if (!std::strcmp(key, "seq_copy")) {
     sequenceStepClipboard = step;
     sequenceSoundClipboard=sequenceLive.soundLocks.copyStep(splitFocus,sequenceStep);
@@ -752,6 +780,8 @@ float sequenceParameterValue(const char *key, int part = -1) const {
       return duckValues[f];
   const auto &lane = (sequenceRunning()?sequencePlayback:sequenceLive).tracks[owner];
   const auto &step = lane.trigs[row];
+  if (!std::strcmp(key, "seq_slice"))
+    return float(sequenceSliceSelection(owner,row,selectedChild,sequenceRunning()?sequencePlayback:sequenceLive).number);
   if (!std::strcmp(key, "seq_trig_time_ms"))
     return s3g_thru_sequence::resolveTime(lane, step, selectedChild - 1);
   const char *fields[]{"seq_pos", "seq_note", "seq_vel", "seq_trig_gate"};
@@ -875,11 +905,13 @@ int sequenceState(char *b, int capacity) const {
     firstHead = false;
   }
   append("%s", "],\"steps\":[");
+  const bool slices=liveControlsForPart(splitFocus).algorithm==Engine::PlaybackAlgorithm::slices;
+  const auto& pattern=running?sequencePlayback:sequenceLive;
   for (int i = 0; i < 32; ++i) {
     const auto &s = displayLane.trigs[i];
-    append("%s[%d,%.5f]", i ? "," : "", s.enabled ? 1 : 0,
-           s3g_thru_sequence::resolve(displayLane, s, -1, 0,
-                                      liveControlsForPart(splitFocus).locus));
+    float position=s3g_thru_sequence::resolve(displayLane,s,-1,0,liveControlsForPart(splitFocus).locus);
+    if(slices&&pattern.soundLocks.find(splitFocus,i,0,s3g_thru_sequence::sliceLockId)){const auto info=sequenceSliceSelection(splitFocus,i,0,pattern);position=info.valid?info.low:position;}
+    append("%s[%d,%.5f]",i?",":"",s.enabled?1:0,double(position));
   }
   append("%s", "],\"burst\":[");
   for (int i = 0; i < step.count; ++i)
@@ -902,9 +934,17 @@ int sequenceState(char *b, int capacity) const {
   append(",%d,0,0",editLane.generator.type);
   for(int i=1;i<21;++i)append(",%.7g",double(sequenceTypeValue(sequenceRecipeKeys[i],splitFocus)));
   append(",%d,%.7g,%.7g",displayLane.direction,double(sequenceTypeValue("seq_recipe_shift",splitFocus)),double(sequenceParameterValue("seq_path")));
+  append(",%.7g",double(sequenceParameterValue("seq_slice")));
   append("],\"type_status\":\"%s\",\"types\":[",sequenceTypeStatus[splitFocus].data());
   for(int p=0;p<4;++p)append(p?",%d":"%d",sequenceLive.tracks[p].generator.type);
-  append("],\"source_kind\":%d}",sequenceRecipeSourceKind(splitFocus,displayLane));
+  append("],\"source_kind\":%d",sequenceRecipeSourceKind(splitFocus,displayLane));
+  if(slices){
+    const auto info=sequenceSliceSelection(splitFocus,sequenceStep,sequenceChild,pattern);
+    append(",\"slice\":{\"number\":%d,\"count\":%d,\"valid\":%d,\"own\":%d,\"inherited\":%d,\"start\":%.7g,\"end\":%.7g,\"label\":\"",info.number,info.count,int(info.valid),int(info.own),int(info.inherited),double(info.low),double(info.high));
+    for(unsigned char c:info.label){if(!c)break;if(c=='"'||c=='\\')append("\\%c",c);else if(c<32)append("\\u%04x",unsigned(c));else append("%c",c);}
+    append("%s","\",\"points\":[");for(int i=0;i<=info.count&&info.count;++i)append(i?",%.7g":"%.7g",double(info.points[i]));append("%s","]}");
+  }
+  append("%s","}");
   return at >= capacity ? -1 : at;
 }
 bool writeSequenceExtension(

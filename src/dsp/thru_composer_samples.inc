@@ -337,8 +337,8 @@ void serviceComposerSample() {
   if (job != 1 && job != 2 && job != 5)
     return;
   const auto fail = [&](const char *reason) {
-    std::snprintf(composerSampleError.data(), composerSampleError.size(), "%s",
-                  reason);
+    std::snprintf(composerSampleError.data(), composerSampleError.size(), "%.*s",
+                  int(composerSampleError.size()) - 1, reason);
     composerSampleJob.store(4, std::memory_order_release);
   };
   if (job == 1 || job == 5) {

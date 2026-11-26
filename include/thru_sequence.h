@@ -13,6 +13,7 @@
 // independent value cycles. Events use musical time and rounded sample offsets.
 namespace s3g_thru_sequence {
 constexpr int lanes = 4, steps = 32, children = 8;
+inline constexpr int sliceLockId = 3913; // One-based, explicit map address.
 constexpr std::array<double, 9> rates{4,       2,    1,        .5,   .25,
                                       1.0 / 6, .125, 1.0 / 12, .0625};
 constexpr std::array<const char *, 9> rateNames{
@@ -519,7 +520,7 @@ inline constexpr int laneCurveOffset(int part,int field){return field<8?part*8+f
 struct Voice {
   SoundLockSet soundLocks;
   bool active = false, audition = false, generatedPreview = false;
-  int step = -1, child = -1;
+  int step = -1, child = -1, sliceIndex = -1;
   float position = 0, startPhase = 0, attack = 0, decay = 0, release = 3;
   std::uint64_t elapsed = 0, frames = 0, releaseAt = 0;
 };

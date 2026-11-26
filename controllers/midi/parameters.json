@@ -14859,6 +14859,19 @@
       "max": 64,
       "integer": true,
       "action": false
+    },
+    {
+      "id": 3913,
+      "key": "seq_slice",
+      "scope": "part",
+      "group": "Sequence",
+      "name": "Sequence Slice",
+      "short_name": "SLIC",
+      "min": 1,
+      "max": 64,
+      "default": 1,
+      "integer": true,
+      "action": false
     }
   ],
   "reserved_ids": [

@@ -20,8 +20,8 @@
         <hr class="home-title-rule">
         <p class="lead">A stereo sample and synthesis instrument with four lanes and eight independent voices. Play them as one stack, two independently configured instruments, or four instruments in Quad mode. A performance recorder captures notes, pressure, stack holds, and parameter motion as loopable data.</p>
         <p>s3g Thru is an adaptation and extension of the <a href="https://s3g.github.io/s3g-dsp/">s3g-dsp</a> instruments, rebuilt around Move’s pads, controls, display, live input, and performance workflow.</p>
-        <span class="version-chip">manual · 0.34.1</span>
-        <p>This manual describes <strong>s3g Thru 0.34.1</strong>. The installed version appears briefly when takeover opens; see <a href="https://github.com/s3g/s3g-thru/releases">GitHub releases</a> for downloads and release notes.</p>
+        <span class="version-chip">manual · 0.34.2</span>
+        <p>This manual describes <strong>s3g Thru 0.34.2</strong>. The installed version appears briefly when takeover opens; see <a href="https://github.com/s3g/s3g-thru/releases">GitHub releases</a> for downloads and release notes.</p>
 
 
         <figure class="screen-figure">
@@ -37,6 +37,20 @@
 
         <h2 id="page-actions">Page Actions</h2>
         <p>Click the main encoder on a parameter page for tools matched to that page: patch and envelope copy/paste, page reset, sample editing, sequence lane and trig tools, clips and chains. Actions identify their target and ask before paste, reset or bulk clear. See <a href="interface.html#page-actions">Page Actions</a> for controls and exceptions.</p>
+
+        <h2 id="release-0342">New in 0.34.2</h2>
+        <ul>
+          <li><a href="sequence.html#slice-trigs">Sequence slice locks</a> select numbered regions on the Slices engine, including WAV markers and labels. Each trig or Burst event can choose its slice independently of pitch and duration.</li>
+          <li><a href="composer.html">Live browser editor</a>:
+            <ul>
+              <li>Choose any of the seven modes from MODE in the header. The selector follows changes on Move. Changing mode stops playback; finish recording or a clip transition first.</li>
+              <li>Click an empty step to add and select it; click the selected step again to toggle it while keeping its locks. A different lit step is selected for editing on its first click.</li>
+              <li>Choose a slice from its number or waveform and see its label and highlighted boundaries. Missing slice addresses remain silent.</li>
+            </ul>
+          </li>
+          <li>Updated slice instructions, browser controls, device help and MIDI reference.</li>
+        </ul>
+        <p>Reopen Thru and hard-refresh the browser after updating. Existing projects remain supported. Use 0.34.2 or newer for clips with numbered slice locks. See <a href="projects.html">Projects</a> for backup and restore.</p>
 
         <h2 id="release-0341">New in 0.34.1</h2>
         <ul>
@@ -207,7 +221,7 @@
         <div class="toc-section"><h2>Instrument modes</h2><a href="playing.html">Single · Basic playing</a><a href="modes.html">Compare modes</a><a href="split.html">Split</a><a href="shared-dual.html">Shared Dual</a><a href="quad.html">Quad</a><a href="bank.html">Bank</a><a href="layers.html">Layers</a><a href="sequence.html">Sequence</a></div>
         <div class="toc-section">
           <h2>On this page</h2>
-          <a href="#release-0341">New in 0.34.1</a><a href="#release-0340">New in 0.34.0</a><a href="#release-0332">New in 0.33.2</a><a href="#release-0331">New in 0.33.1</a><a href="#release-0330">New in 0.33.0</a><a href="#release-0320">New in 0.32.0</a><a href="#release-0312">New in 0.31.2</a><a href="#release-0311">New in 0.31.1</a><a href="#release-0310">New in 0.31.0</a><a href="#release-0301">New in 0.30.1</a>
+          <a href="#release-0342">New in 0.34.2</a><a href="#release-0341">New in 0.34.1</a><a href="#release-0340">New in 0.34.0</a><a href="#release-0332">New in 0.33.2</a><a href="#release-0331">New in 0.33.1</a><a href="#release-0330">New in 0.33.0</a><a href="#release-0320">New in 0.32.0</a><a href="#release-0312">New in 0.31.2</a><a href="#release-0311">New in 0.31.1</a><a href="#release-0310">New in 0.31.0</a><a href="#release-0301">New in 0.30.1</a>
           <a href="#release-0300">New in 0.30.0</a>
           <a href="#whats-new">New in 0.29</a>
           <a href="#quick-start">Quick start</a>

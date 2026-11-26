@@ -43,9 +43,16 @@ bool handleComposerEdit(ThruInstance& t,const char* key,const char* value){
   for(int i=3;i<n;++i){a[i-3]=std::strtod(fields[i],&end);if(end==fields[i]||*end||!std::isfinite(a[i-3])){finish(false);return true;}}
   const auto integer=[](double v,int low,int high){return v>=low&&v<=high&&v==std::floor(v);};
   if(!integer(a[0],0,63)||int(a[0])!=t.activeClip||t.composerOwned.load()||t.composerLease.load()<ThruInstance::composerClock()
-      ||t.projectLocked()||t.namingBusy()||t.clipPreparationInFlight()||t.audioRecording()){finish(false);return true;}
+      ||t.projectLocked()||t.namingBusy()||t.clipPreparationInFlight()||t.audioRecording()){finish(false,!std::strcmp(fields[2],"mode")?"Finish recording, loading or project operations before changing mode":nullptr);return true;}
   if(!integer(a[1],0,(t.splitEnabled?t.partCount():1)-1)){finish(false);return true;}
   const int part=int(a[1]);
+  if(!std::strcmp(fields[2],"mode")&&n==7){
+    if(!integer(a[2],0,6)||!integer(a[3],0,6)){finish(false,"Invalid instrument mode");return true;}
+    if(t.performanceMode()!=int(a[3])){finish(false,"Mode changed on Move; choose again from its current setting");return true;}
+    if(t.clipRecording||t.patternBusy()){finish(false,"Finish recording or the clip transition before changing mode");return true;}
+    t.clearError();t.setPerformanceMode(int(a[2]));
+    finish(t.performanceMode()==int(a[2])&&!t.lastError[0],t.lastError[0]?t.lastError.data():"Mode change was not applied");return true;
+  }
   if(composerWorkspaceEdit(t,fields.data(),n,a,finish))return true;
   if(!std::strcmp(fields[2],"mod")&&n==10){
     if(!integer(a[2],0,7)||!integer(a[3],0,16383)||!integer(a[4],0,1024)||!integer(a[5],0,4)||!integer(a[6],0,21)){finish(false);return true;}
@@ -125,6 +132,10 @@ bool handleComposerEdit(ThruInstance& t,const char* key,const char* value){
     if(!parameter||!s3g_thru_sequence::soundDescriptor(parameter->id)||a[4]<parameter->minimum||a[4]>parameter->maximum||(parameter->integer&&a[4]!=std::floor(a[4]))){finish(false);return true;}
     const auto& pool=t.sequenceLive.soundLocks;
     if(!a[5]&&!pool.find(part,int(a[2]),child,parameter->id)&&(pool.count==s3g_thru_sequence::soundLockCapacity||pool.stepCount(part,int(a[2]))==s3g_thru_sequence::soundLocksPerStep)){finish(false);return true;}
+    if(parameter->id==s3g_thru_sequence::sliceLockId&&!a[5]){
+      const auto info=t.sequenceSliceSelection(part,int(a[2]),child,t.sequenceRunning()?t.sequencePlayback:t.sequenceLive);
+      if(t.liveControlsForPart(part).algorithm!=Engine::PlaybackAlgorithm::slices||a[4]>info.count){finish(false,"Slice is not available");return true;}
+    }
     ComposerSequenceTarget target(t,part,int(a[2]),child);
     t.editSequenceSoundLock(parameter->id,a[4],a[5]>0);finish(true);return true;
   } else if(!std::strcmp(fields[2],"q")&&n==10){

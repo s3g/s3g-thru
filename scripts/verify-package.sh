@@ -21,7 +21,7 @@ test "$file_count" = "8"
 test -f "$verify_dir/s3g-thru/web_ui.html"
 test -s "$verify_dir/s3g-thru/assets/composer/fonts/IBMPlexMono-Regular.ttf"
 test -f "$verify_dir/s3g-thru/assets/composer/fonts/OFL.txt"
-for helper in app format pack protocol catalog live move-pages workspace workspace-model clock sample-view layers-view sample-picker wave-markers; do
+for helper in app format pack protocol catalog live move-pages workspace workspace-model clock sample-view layers-view sample-picker wave-markers sequence-slices; do
   test -f "$verify_dir/s3g-thru/assets/composer/$helper.mjs"
   node --check "$verify_dir/s3g-thru/assets/composer/$helper.mjs"
 done

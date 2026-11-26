@@ -1816,7 +1816,15 @@
             "across the step.",
             "WHEN moves one.",
             "X + encoder removes",
-            "a trig value lock."
+            "a trig value lock.",
+            "Slices: SLIC replaces",
+            "POS. Turn knob 1 to",
+            "choose a slice number.",
+            "NOTE changes pitch.",
+            "BURST events can use",
+            "different slices.",
+            "X + SLIC: inherit.",
+            "Missing slice: silent."
           ]
         },
         {

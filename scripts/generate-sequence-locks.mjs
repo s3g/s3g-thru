@@ -11,6 +11,7 @@ const excluded=new Set(['algorithm','locus','manual_lane','lane_cycles','lane_pa
 const rows=[];
 for(const p of all){
  let target=keys.indexOf(p.key),scope=0;
+ if(p.key==='seq_slice'){rows.push({id:p.id,key:p.key,scope:'voice',target:-1});continue;}
  if(p.id>=5000&&p.id<5032){target=704+p.id-5000;scope=1;}
  else if(p.id>=4800&&p.id<4904){target=576+p.id-4800;scope=1;}
  else if(p.id>=4600&&p.id<4632){target=544+p.id-4600;scope=1;}

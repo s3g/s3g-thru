@@ -53,3 +53,20 @@ console.log('Engine LIST menu exposure, entry tokens and discarded stale-clip wr
  assert.deepEqual(errors,[['Choose input or an available part without feedback','parameter-rejected']]);assert.equal(connection.connected,true);assert.equal(edit.pending,false);
  console.log('Browser setter refusal: native error reason, cleared pending edits and retained connection: PASS');
 }
+
+// Browser header modes use the same seven ordered identities as Move.
+{
+ const {MODE_OPTIONS,stepClickValue}=await import('../src/assets/composer/live.mjs');
+ assert.deepEqual(MODE_OPTIONS.map(x=>x.value),['single','split','shared-dual','quad','bank','layers','sequence']);
+ assert.deepEqual(MODE_OPTIONS.map(x=>x.index),[0,1,2,3,4,5,6]);
+ assert.equal(stepClickValue(false,false),true,'An empty step is enabled and selected');
+ assert.equal(stepClickValue(false,true),null,'Another lit step is selected without disabling it');
+ assert.equal(stepClickValue(true,true),false,'A second click turns the selected trig off');
+ assert.equal(stepClickValue(true,false),true,'The next click re-enables it');
+ assert.equal(stepClickValue(false,true,true),false,'Right-click toggles directly');
+ assert.equal(stepClickValue(false,false,true),true);
+ const failures=[],sent=[],wire={client:'mode-test',connected:true,pending:false,send:(key,value)=>sent.push(value)},pending=new LiveEdits(wire,(message,kind)=>failures.push({message,kind}));
+ pending.reset(before,0);pending.push('mode',[0,6,0],'mode');pending.flush();const id=Number(sent[0].split('|')[1]);assert(sent[0].endsWith('|mode|0|0|6|0'));
+ pending.acknowledge([id*2],[[id,'Stop recording before changing mode']]);assert.equal(failures[0].kind,'parameter-rejected');assert(!pending.pending);pending.close();
+ console.log('Browser mode requests and step clicks: native enum order, safe selection, repeat toggles, direct context click and acknowledged refusal: PASS');
+}
